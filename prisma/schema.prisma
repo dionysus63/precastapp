@@ -1,0 +1,107 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum CustomerType {
+  COMMERCIAL
+  RESIDENTIAL
+  CONTRACTOR
+  OTHER
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  PROSPECT
+}
+
+enum JobStatus {
+  LEAD
+  QUOTED
+  ACTIVE
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+}
+
+model Customer {
+  id             String         @id @default(cuid())
+  name           String
+  customerType   CustomerType   @default(COMMERCIAL)
+  status         CustomerStatus @default(ACTIVE)
+  phone          String?
+  email          String?
+  billingAddress String?
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  contacts Contact[]
+  jobs     Job[]
+}
+
+model Contact {
+  id         String   @id @default(cuid())
+  customerId String
+  name       String
+  title      String?
+  phone      String?
+  email      String?
+  isPrimary  Boolean  @default(false)
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}
+
+model Job {
+  id             String    @id @default(cuid())
+  jobNumber      String    @unique
+  year           Int
+  sequenceNumber Int
+  customerId     String
+  projectName    String
+  projectAddress String?
+  status         JobStatus @default(LEAD)
+  folderPath     String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  customer Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  files    JobFile[]
+
+  @@index([customerId])
+  @@index([year])
+}
+
+model JobSequence {
+  year       Int @id
+  lastNumber Int @default(0)
+}
+
+model JobFile {
+  id             String   @id @default(cuid())
+  jobId          String
+  fileName       String
+  filePath       String
+  folderCategory String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+}
