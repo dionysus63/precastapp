@@ -1,171 +1,186 @@
 import Link from "next/link";
-import {
-  CustomerStatus,
-  CustomerType,
-} from "@/app/generated/prisma/client";
-import { createCustomer } from "../actions";
+import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { SectionCard } from "@/components/dashboard/section-card";
+
+const customerTypes = ["Commercial", "Residential", "Contractor", "Other"];
+const statusOptions = ["Active", "Inactive", "Prospect"];
+
+const inputClassName =
+  "mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm";
 
 export default function NewCustomerPage() {
   return (
-    <div className="min-h-full bg-zinc-50 px-6 py-10">
-      <div className="mx-auto max-w-2xl">
-        <div className="mb-8">
-          <Link
-            href="/customers"
-            className="text-sm font-medium text-zinc-600 hover:text-zinc-900"
-          >
-            ← Back to Customers
-          </Link>
-          <h1 className="mt-4 text-3xl font-semibold text-zinc-900">
-            New Customer
-          </h1>
-          <p className="mt-1 text-zinc-600">
-            Add a customer record for job tracking.
-          </p>
-        </div>
-
-        <form
-          action={createCustomer}
-          className="space-y-6 rounded-lg border border-zinc-200 bg-white p-6"
+    <DashboardShell
+      title="New Customer"
+      subtitle="Create a customer record for quotes, jobs, and invoicing."
+    >
+      <div className="mx-auto max-w-3xl">
+        <Link
+          href="/customers"
+          className="text-xs font-medium text-slate-500 hover:text-slate-900"
         >
-          <div>
-            <label
-              htmlFor="name"
-              className="block text-sm font-medium text-zinc-700"
-            >
-              Name *
-            </label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              required
-              className="mt-1 block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
-            />
-          </div>
+          ← Back to Customers
+        </Link>
 
-          <div className="grid gap-6 sm:grid-cols-2">
+        <SectionCard
+          title="Customer Details"
+          description="Static preview form — saving is not connected yet."
+        >
+          <form className="space-y-5">
             <div>
               <label
-                htmlFor="customerType"
-                className="block text-sm font-medium text-zinc-700"
+                htmlFor="name"
+                className="block text-xs font-medium text-slate-700"
               >
-                Customer Type
-              </label>
-              <select
-                id="customerType"
-                name="customerType"
-                defaultValue={CustomerType.COMMERCIAL}
-                className="mt-1 block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
-              >
-                {Object.values(CustomerType).map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label
-                htmlFor="status"
-                className="block text-sm font-medium text-zinc-700"
-              >
-                Status
-              </label>
-              <select
-                id="status"
-                name="status"
-                defaultValue={CustomerStatus.ACTIVE}
-                className="mt-1 block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
-              >
-                {Object.values(CustomerStatus).map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div>
-              <label
-                htmlFor="phone"
-                className="block text-sm font-medium text-zinc-700"
-              >
-                Phone
+                Customer Name *
               </label>
               <input
-                id="phone"
-                name="phone"
-                type="tel"
-                className="mt-1 block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+                id="name"
+                name="name"
+                type="text"
+                required
+                className={inputClassName}
+              />
+            </div>
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="customerType"
+                  className="block text-xs font-medium text-slate-700"
+                >
+                  Customer Type
+                </label>
+                <select
+                  id="customerType"
+                  name="customerType"
+                  defaultValue="Commercial"
+                  className={inputClassName}
+                >
+                  {customerTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="status"
+                  className="block text-xs font-medium text-slate-700"
+                >
+                  Status
+                </label>
+                <select
+                  id="status"
+                  name="status"
+                  defaultValue="Active"
+                  className={inputClassName}
+                >
+                  {statusOptions.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="primaryContact"
+                className="block text-xs font-medium text-slate-700"
+              >
+                Primary Contact Name
+              </label>
+              <input
+                id="primaryContact"
+                name="primaryContact"
+                type="text"
+                className={inputClassName}
+              />
+            </div>
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="phone"
+                  className="block text-xs font-medium text-slate-700"
+                >
+                  Phone
+                </label>
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  className={inputClassName}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="email"
+                  className="block text-xs font-medium text-slate-700"
+                >
+                  Email
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  className={inputClassName}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="billingAddress"
+                className="block text-xs font-medium text-slate-700"
+              >
+                Billing Address
+              </label>
+              <textarea
+                id="billingAddress"
+                name="billingAddress"
+                rows={3}
+                className={inputClassName}
               />
             </div>
 
             <div>
               <label
-                htmlFor="email"
-                className="block text-sm font-medium text-zinc-700"
+                htmlFor="notes"
+                className="block text-xs font-medium text-slate-700"
               >
-                Email
+                Notes
               </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                className="mt-1 block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+              <textarea
+                id="notes"
+                name="notes"
+                rows={4}
+                className={inputClassName}
               />
             </div>
-          </div>
 
-          <div>
-            <label
-              htmlFor="billingAddress"
-              className="block text-sm font-medium text-zinc-700"
-            >
-              Billing Address
-            </label>
-            <textarea
-              id="billingAddress"
-              name="billingAddress"
-              rows={3}
-              className="mt-1 block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="notes"
-              className="block text-sm font-medium text-zinc-700"
-            >
-              Notes
-            </label>
-            <textarea
-              id="notes"
-              name="notes"
-              rows={4}
-              className="mt-1 block w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 border-t border-zinc-200 pt-6">
-            <Link
-              href="/customers"
-              className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-            >
-              Cancel
-            </Link>
-            <button
-              type="submit"
-              className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
-            >
-              Save Customer
-            </button>
-          </div>
-        </form>
+            <div className="flex justify-end gap-2 border-t border-slate-100 pt-5">
+              <Link
+                href="/customers"
+                className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </Link>
+              <button
+                type="button"
+                className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+              >
+                Save Customer
+              </button>
+            </div>
+          </form>
+        </SectionCard>
       </div>
-    </div>
+    </DashboardShell>
   );
 }
