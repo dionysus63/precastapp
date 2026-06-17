@@ -162,5 +162,41 @@ export const placeholderProducts: ProductRow[] = [
   },
 ];
 
+export function getProductById(id: string): ProductRow | undefined {
+  return placeholderProducts.find((product) => product.id === id);
+}
+
 export const productInputClassName =
   "mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm";
+
+export type BulkProductPasteRow = {
+  lineNumber: number;
+  productCode: string;
+  productName: string;
+  category: string;
+  subcategory: string;
+  unit: string;
+  defaultPrice: string;
+  weight: string;
+  yards: string;
+  trackInventory: string;
+  isValid: boolean;
+  issues: string[];
+};
+
+export const bulkPasteColumnHeaders = [
+  "Product Code",
+  "Product Name",
+  "Category",
+  "Subcategory",
+  "Unit",
+  "Default Price",
+  "Weight",
+  "Yards",
+  "Track Inventory",
+];
+
+export const bulkPasteExample = `VLT-60x84\t60x84 Utility Vault\tVaults\tTraffic Rated\tEach\t6200.00\t10200 lb\t3.1\tYes
+MH-48-R\t48" Manhole Riser\tManholes\tRiser\tEach\t980.00\t1650 lb\t0.5\tYes
+RW-6-H6\t6' Retaining Wall H6\tWalls\tH6 Panel\tLF\t142.00\t310 lb/LF\t0.06\tYes`;
+
