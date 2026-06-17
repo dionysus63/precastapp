@@ -8,17 +8,20 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-zinc-200 bg-white">
-      <div className="border-b border-zinc-200 px-5 py-5">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-          Precast App
-        </p>
-        <h1 className="mt-1 text-lg font-semibold text-zinc-900">
-          Operations
-        </h1>
+    <aside className="flex h-full w-60 shrink-0 flex-col border-r border-slate-200/80 bg-white">
+      <div className="border-b border-slate-100 px-4 py-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white">
+            PC
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Precast Ops</p>
+            <p className="text-[11px] text-slate-500">Quoting & Inventory</p>
+          </div>
+        </div>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="flex-1 space-y-0.5 px-2 py-3">
         {navItems.map((item) => {
           const isActive =
             item.href === "/"
@@ -29,10 +32,10 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`block rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              className={`block rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
                 isActive
-                  ? "bg-zinc-900 text-white"
-                  : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
               }`}
             >
               {item.label}
@@ -41,8 +44,9 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="border-t border-zinc-200 px-5 py-4">
-        <p className="text-xs text-zinc-500">Local proof of concept</p>
+      <div className="border-t border-slate-100 px-4 py-3">
+        <p className="text-[11px] font-medium text-slate-500">Local POC</p>
+        <p className="text-[11px] text-slate-400">Static dashboard preview</p>
       </div>
     </aside>
   );
