@@ -35,16 +35,17 @@ enum JobStatus {
 }
 
 model Customer {
-  id             String         @id @default(cuid())
-  name           String
-  customerType   CustomerType   @default(COMMERCIAL)
-  status         CustomerStatus @default(ACTIVE)
-  phone          String?
-  email          String?
-  billingAddress String?
-  notes          String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id                  String         @id @default(cuid())
+  name                String
+  customerType        CustomerType   @default(CONTRACTOR)
+  status              CustomerStatus @default(ACTIVE)
+  primaryContactName  String?
+  phone               String?
+  email               String?
+  billingAddress      String?
+  notes               String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
 
   contacts Contact[]
   jobs     Job[]

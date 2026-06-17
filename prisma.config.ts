@@ -2,6 +2,13 @@
 // npm install --save-dev prisma dotenv
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
+import {
+  resolveDatabaseUrl,
+  resolveShadowDatabaseUrl,
+} from "./lib/database-url";
+
+const databaseUrl = resolveDatabaseUrl(process.env["DATABASE_URL"]);
+const shadowDatabaseUrl = resolveShadowDatabaseUrl(process.env["DATABASE_URL"]);
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -9,6 +16,7 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    url: databaseUrl,
+    ...(shadowDatabaseUrl ? { shadowDatabaseUrl } : {}),
   },
 });
