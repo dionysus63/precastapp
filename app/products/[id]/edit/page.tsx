@@ -41,6 +41,7 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
               cancelHref="/products"
               submitLabel="Save Changes"
               defaultValues={{
+                productType: product.productType,
                 productCode: product.productCode,
                 productName: product.productName,
                 category: product.category,

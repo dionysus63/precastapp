@@ -1,7 +1,17 @@
+export type ProductType =
+  | "STOCK"
+  | "CONFIGURABLE"
+  | "CUSTOM_STRUCTURE"
+  | "SERVICE"
+  | "MATERIAL";
+
 export type ProductRow = {
   id: string;
   productCode: string;
   productName: string;
+  productType: ProductType;
+  productTypeLabel: string;
+  productTypeVariant: "success" | "info" | "warning";
   category: string;
   subcategory: string;
   categoryVariant: "info" | "neutral" | "default";
@@ -14,12 +24,49 @@ export type ProductRow = {
   statusVariant: "success" | "neutral" | "warning";
 };
 
+export const productTypeLabels: Record<ProductType, string> = {
+  STOCK: "Stock",
+  CONFIGURABLE: "Configurable",
+  CUSTOM_STRUCTURE: "Custom Structure",
+  SERVICE: "Service",
+  MATERIAL: "Material",
+};
+
+export const productTypeFilterOptions = [
+  "All",
+  "Stock",
+  "Configurable",
+  "Custom Structure",
+  "Service",
+  "Material",
+];
+
+export const productTypeFormOptions: { value: ProductType; label: string }[] = [
+  { value: "STOCK", label: "STOCK — Stock" },
+  { value: "CONFIGURABLE", label: "CONFIGURABLE — Configurable" },
+  { value: "CUSTOM_STRUCTURE", label: "CUSTOM_STRUCTURE — Custom Structure" },
+  { value: "SERVICE", label: "SERVICE — Service" },
+  { value: "MATERIAL", label: "MATERIAL — Material" },
+];
+
+export const productTypeHelperText: Record<ProductType, string> = {
+  STOCK:
+    "Standard products made the same way each time and kept in inventory.",
+  CONFIGURABLE:
+    "Reusable product templates that need job-specific cut sheets and openings.",
+  CUSTOM_STRUCTURE:
+    "Custom job-specific structure templates with their own submittals and cut sheets.",
+  SERVICE: "Labor or service items billed without standard inventory tracking.",
+  MATERIAL: "Raw materials or supply items used in production or quoting.",
+};
+
 export const productCategoryFilterOptions = [
   "All",
   "Vaults",
   "Manholes",
   "Walls",
   "Slabs",
+  "Drainage",
   "Accessories",
 ];
 
@@ -30,6 +77,8 @@ export const productSubcategoryFilterOptions = [
   "Light Duty",
   "Riser",
   "H8 Panel",
+  "Catch Basin",
+  "Sanitary Sewer",
   "Equipment Pad",
   "Lifting Hardware",
 ];
@@ -48,6 +97,7 @@ export const productCategoryFormOptions = [
   "Manholes",
   "Walls",
   "Slabs",
+  "Drainage",
   "Accessories",
 ];
 
@@ -61,6 +111,8 @@ export const productSubcategoryFormOptions = [
   "H6 Panel",
   "H8 Panel",
   "Corner Panel",
+  "Catch Basin",
+  "Sanitary Sewer",
   "Equipment Pad",
   "Sidewalk Slab",
   "Lifting Hardware",
@@ -75,15 +127,87 @@ export const productStatusFormOptions = [
   { value: "DISCONTINUED", label: "Discontinued" },
 ];
 
+function productTypeVariant(
+  productType: ProductType,
+): ProductRow["productTypeVariant"] {
+  switch (productType) {
+    case "STOCK":
+      return "success";
+    case "CONFIGURABLE":
+      return "info";
+    case "CUSTOM_STRUCTURE":
+      return "warning";
+    default:
+      return "neutral";
+  }
+}
+
 export const placeholderProducts: ProductRow[] = [
   {
     id: "1",
+    productCode: "CB-4x4",
+    productName: "4'x4' Catch Basin",
+    productType: "STOCK",
+    productTypeLabel: productTypeLabels.STOCK,
+    productTypeVariant: productTypeVariant("STOCK"),
+    category: "Drainage",
+    subcategory: "Catch Basin",
+    categoryVariant: "neutral",
+    unit: "EA",
+    defaultPrice: "$620.00",
+    weight: "1,850 lb",
+    yards: "0.4",
+    trackInventory: true,
+    status: "Active",
+    statusVariant: "success",
+  },
+  {
+    id: "2",
+    productCode: "MH-SC-SS",
+    productName: "Suffolk County Sanitary Sewer Manhole",
+    productType: "CONFIGURABLE",
+    productTypeLabel: productTypeLabels.CONFIGURABLE,
+    productTypeVariant: productTypeVariant("CONFIGURABLE"),
+    category: "Manholes",
+    subcategory: "Sanitary Sewer",
+    categoryVariant: "default",
+    unit: "EA",
+    defaultPrice: "$2,400.00",
+    weight: "—",
+    yards: "—",
+    trackInventory: false,
+    status: "Active",
+    statusVariant: "success",
+  },
+  {
+    id: "3",
+    productCode: "CST-TEMPLATE",
+    productName: "Custom Structure Template",
+    productType: "CUSTOM_STRUCTURE",
+    productTypeLabel: productTypeLabels.CUSTOM_STRUCTURE,
+    productTypeVariant: productTypeVariant("CUSTOM_STRUCTURE"),
+    category: "Manholes",
+    subcategory: "Sanitary Sewer",
+    categoryVariant: "default",
+    unit: "EA",
+    defaultPrice: "—",
+    weight: "—",
+    yards: "—",
+    trackInventory: false,
+    status: "Active",
+    statusVariant: "success",
+  },
+  {
+    id: "4",
     productCode: "VLT-48x72",
     productName: "48x72 Utility Vault",
+    productType: "STOCK",
+    productTypeLabel: productTypeLabels.STOCK,
+    productTypeVariant: productTypeVariant("STOCK"),
     category: "Vaults",
     subcategory: "Traffic Rated",
     categoryVariant: "info",
-    unit: "Each",
+    unit: "EA",
     defaultPrice: "$4,850.00",
     weight: "8,400 lb",
     yards: "2.4",
@@ -92,24 +216,12 @@ export const placeholderProducts: ProductRow[] = [
     statusVariant: "success",
   },
   {
-    id: "2",
-    productCode: "MH-60-R",
-    productName: "60\" Manhole Riser",
-    category: "Manholes",
-    subcategory: "Riser",
-    categoryVariant: "default",
-    unit: "Each",
-    defaultPrice: "$1,240.00",
-    weight: "2,100 lb",
-    yards: "0.6",
-    trackInventory: true,
-    status: "Active",
-    statusVariant: "success",
-  },
-  {
-    id: "3",
+    id: "5",
     productCode: "RW-8-H8",
     productName: "8' Retaining Wall Panel H8",
+    productType: "STOCK",
+    productTypeLabel: productTypeLabels.STOCK,
+    productTypeVariant: productTypeVariant("STOCK"),
     category: "Walls",
     subcategory: "H8 Panel",
     categoryVariant: "neutral",
@@ -122,49 +234,22 @@ export const placeholderProducts: ProductRow[] = [
     statusVariant: "success",
   },
   {
-    id: "4",
-    productCode: "SLB-24x24",
-    productName: "24x24 Equipment Pad",
-    category: "Slabs",
-    subcategory: "Equipment Pad",
-    categoryVariant: "neutral",
-    unit: "Each",
-    defaultPrice: "$320.00",
-    weight: "980 lb",
-    yards: "0.3",
-    trackInventory: false,
-    status: "Active",
-    statusVariant: "success",
-  },
-  {
-    id: "5",
+    id: "6",
     productCode: "ACC-LIF-001",
     productName: "Cast Iron Lifting Pin Set",
+    productType: "STOCK",
+    productTypeLabel: productTypeLabels.STOCK,
+    productTypeVariant: productTypeVariant("STOCK"),
     category: "Accessories",
     subcategory: "Lifting Hardware",
     categoryVariant: "default",
-    unit: "Each",
+    unit: "EA",
     defaultPrice: "$48.00",
     weight: "12 lb",
     yards: "—",
     trackInventory: true,
     status: "Inactive",
     statusVariant: "neutral",
-  },
-  {
-    id: "6",
-    productCode: "VLT-36x48-L",
-    productName: "36x48 Light Duty Vault (Legacy)",
-    category: "Vaults",
-    subcategory: "Light Duty",
-    categoryVariant: "info",
-    unit: "Each",
-    defaultPrice: "$3,100.00",
-    weight: "5,600 lb",
-    yards: "1.6",
-    trackInventory: false,
-    status: "Discontinued",
-    statusVariant: "warning",
   },
 ];
 
@@ -205,4 +290,3 @@ export const bulkPasteColumnHeaders = [
 export const bulkPasteExample = `VLT-60x84\t60x84 Utility Vault\tVaults\tTraffic Rated\tEach\t6200.00\t10200 lb\t3.1\tYes
 MH-48-R\t48" Manhole Riser\tManholes\tRiser\tEach\t980.00\t1650 lb\t0.5\tYes
 RW-6-H6\t6' Retaining Wall H6\tWalls\tH6 Panel\tLF\t142.00\t310 lb/LF\t0.06\tYes`;
-

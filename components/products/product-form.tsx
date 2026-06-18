@@ -1,15 +1,22 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import {
+  type ProductType,
   productCategoryFormOptions,
   productInputClassName,
   productStatusFormOptions,
   productSubcategoryFormOptions,
+  productTypeFormOptions,
+  productTypeHelperText,
   productUnitFormOptions,
 } from "@/components/products/product-utils";
 
 export type ProductFormValues = {
   productCode?: string;
   productName?: string;
+  productType?: ProductType;
   category?: string;
   subcategory?: string;
   unit?: string;
@@ -36,8 +43,40 @@ export function ProductForm({
   submitLabel,
   defaultValues,
 }: ProductFormProps) {
+  const [productType, setProductType] = useState<ProductType>(
+    defaultValues?.productType ?? "STOCK",
+  );
+
   return (
     <form action={action} className="space-y-5">
+      <div>
+        <label
+          htmlFor="productType"
+          className="block text-xs font-medium text-slate-700"
+        >
+          Product Type *
+        </label>
+        <select
+          id="productType"
+          name="productType"
+          required
+          value={productType}
+          onChange={(event) =>
+            setProductType(event.target.value as ProductType)
+          }
+          className={productInputClassName}
+        >
+          {productTypeFormOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <p className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+          {productTypeHelperText[productType]}
+        </p>
+      </div>
+
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
           <label

@@ -40,23 +40,65 @@ enum ProductStatus {
   DISCONTINUED
 }
 
+enum ProductType {
+  STOCK
+  CONFIGURABLE
+  CUSTOM_STRUCTURE
+  SERVICE
+  MATERIAL
+}
+
+enum ProductDocumentType {
+  GENERIC_SUBMITTAL
+  SHOP_DRAWING
+  CUT_SHEET_TEMPLATE
+  SPEC_SHEET
+  INSTALLATION_INSTRUCTIONS
+  OTHER
+}
+
 model Product {
   id                   String        @id @default(cuid())
   productCode          String        @unique
-  productName          String
+  name                 String
+  productType          ProductType   @default(STOCK)
   category             String
-  subcategory          String?
+  description          String?
   unit                 String        @default("EA")
   defaultPrice         Decimal?      @db.Decimal(12, 2)
+  cost                 Decimal?      @db.Decimal(12, 2)
   weight               Decimal?      @db.Decimal(12, 2)
   yards                Decimal?      @db.Decimal(12, 4)
+  taxable              Boolean       @default(true)
   trackInventory       Boolean       @default(true)
   currentStockQuantity Int           @default(0)
   reorderLevel         Int           @default(0)
+  yardLocation         String?
   status               ProductStatus @default(ACTIVE)
   notes                String?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
+
+  documents      ProductDocument[]
+  jobStructures  JobStructure[]
+  castingUsages  JobStructureCasting[] @relation("CastingProduct")
+}
+
+model ProductDocument {
+  id           String              @id @default(cuid())
+  productId    String
+  documentType ProductDocumentType
+  documentName String
+  filePath     String
+  fileSize     Int?
+  mimeType     String?
+  notes        String?
+  uploadedAt   DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
 }
 
 model Customer {
@@ -130,4 +172,173 @@ model JobFile {
   job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@index([jobId])
+}
+
+enum StructureType {
+  STOCK_PRODUCT
+  CONFIGURABLE_PRODUCT
+  CUSTOM_STRUCTURE
+}
+
+enum StructureStatus {
+  NOT_SUBMITTED
+  SUBMITTED
+  APPROVED
+  IN_PRODUCTION
+  MADE
+  SHIPPED
+}
+
+enum JobStructureDocumentType {
+  CUT_SHEET
+  JOB_SPECIFIC_SUBMITTAL
+  APPROVED_SUBMITTAL
+  PRODUCTION_DRAWING
+  FIELD_SKETCH
+  OTHER
+}
+
+/// Job-specific structure instance derived from a product template or custom design.
+model JobStructure {
+  id              String          @id @default(cuid())
+  /// TODO: replace with Job relation when job structures are wired to the jobs module
+  jobId           String?
+  /// TODO: replace with Quote relation when a Quote model exists
+  quoteId         String?
+  productId       String?
+  structureType   StructureType
+  structureNumber String?
+  description     String?
+  quantity        Decimal?        @db.Decimal(12, 4)
+  unit            String?
+  weight          Decimal?        @db.Decimal(12, 2)
+  yards           Decimal?        @db.Decimal(12, 4)
+  status          StructureStatus @default(NOT_SUBMITTED)
+  productionDate  DateTime?
+  submittedDate   DateTime?
+  approvedDate    DateTime?
+  madeDate        DateTime?
+  shippedDate     DateTime?
+  needsCutSheet   Boolean         @default(false)
+  needsSubmittal  Boolean         @default(false)
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  product       Product?                   @relation(fields: [productId], references: [id], onDelete: SetNull)
+  openings      JobStructureOpening[]
+  castings      JobStructureCasting[]
+  dimensions    JobStructureDimension?
+  manholeDetail JobStructureManholeDetail?
+  documents     JobStructureDocument[]
+
+  @@index([jobId])
+  @@index([quoteId])
+  @@index([productId])
+}
+
+model JobStructureOpening {
+  id              String   @id @default(cuid())
+  jobStructureId  String
+  openingNumber   Int?
+  wallLocation    String?
+  clockPosition   String?
+  pipeType        String?
+  pipeDiameter    Decimal? @db.Decimal(12, 4)
+  connectionType  String?
+  invertElevation Decimal? @db.Decimal(12, 4)
+  holeDiameter    Decimal? @db.Decimal(12, 4)
+  bootType        String?
+  gasketType      String?
+  sleeveType      String?
+  angle           Decimal? @db.Decimal(12, 4)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  jobStructure JobStructure @relation(fields: [jobStructureId], references: [id], onDelete: Cascade)
+
+  @@index([jobStructureId])
+}
+
+model JobStructureCasting {
+  id                 String   @id @default(cuid())
+  jobStructureId     String
+  castingProductId   String?
+  castingType        String?
+  castingDescription String?
+  frameSize          String?
+  coverType          String?
+  grateType          String?
+  hatchSize          String?
+  loadRating         String?
+  boltDown           Boolean?
+  vented             Boolean?
+  quantity           Decimal? @db.Decimal(12, 4)
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  jobStructure   JobStructure @relation(fields: [jobStructureId], references: [id], onDelete: Cascade)
+  castingProduct Product?     @relation("CastingProduct", fields: [castingProductId], references: [id], onDelete: SetNull)
+
+  @@index([jobStructureId])
+  @@index([castingProductId])
+}
+
+model JobStructureDimension {
+  id                String   @id @default(cuid())
+  jobStructureId    String   @unique
+  insideLength      Decimal? @db.Decimal(12, 4)
+  insideWidth       Decimal? @db.Decimal(12, 4)
+  insideHeight      Decimal? @db.Decimal(12, 4)
+  outsideLength     Decimal? @db.Decimal(12, 4)
+  outsideWidth      Decimal? @db.Decimal(12, 4)
+  outsideHeight     Decimal? @db.Decimal(12, 4)
+  wallThickness     Decimal? @db.Decimal(12, 4)
+  topSlabThickness  Decimal? @db.Decimal(12, 4)
+  baseSlabThickness Decimal? @db.Decimal(12, 4)
+  haunch            Decimal? @db.Decimal(12, 4)
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  jobStructure JobStructure @relation(fields: [jobStructureId], references: [id], onDelete: Cascade)
+}
+
+model JobStructureManholeDetail {
+  id                    String   @id @default(cuid())
+  jobStructureId        String   @unique
+  manholeStandard       String?
+  rimElevation          Decimal? @db.Decimal(12, 4)
+  lowestInvertElevation Decimal? @db.Decimal(12, 4)
+  requiredWallHeight    Decimal? @db.Decimal(12, 4)
+  baseSlabThickness     Decimal? @db.Decimal(12, 4)
+  topSlabThickness      Decimal? @db.Decimal(12, 4)
+  insideDiameter        Decimal? @db.Decimal(12, 4)
+  coneOrFlatTop         String?
+  frameAndCoverType     String?
+  chimneyHeight         Decimal? @db.Decimal(12, 4)
+  notes                 String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  jobStructure JobStructure @relation(fields: [jobStructureId], references: [id], onDelete: Cascade)
+}
+
+model JobStructureDocument {
+  id             String                   @id @default(cuid())
+  jobStructureId String
+  documentType   JobStructureDocumentType
+  documentName   String
+  filePath       String
+  fileSize       Int?
+  mimeType       String?
+  uploadedAt     DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  notes          String?
+
+  jobStructure JobStructure @relation(fields: [jobStructureId], references: [id], onDelete: Cascade)
+
+  @@index([jobStructureId])
 }

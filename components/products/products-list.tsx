@@ -10,6 +10,7 @@ import {
   productInventoryFilterOptions,
   productStatusFilterOptions,
   productSubcategoryFilterOptions,
+  productTypeFilterOptions,
 } from "@/components/products/product-utils";
 
 type ProductsListProps = {
@@ -18,6 +19,7 @@ type ProductsListProps = {
 
 export function ProductsList({ products }: ProductsListProps) {
   const [search, setSearch] = useState("");
+  const [productTypeFilter, setProductTypeFilter] = useState("All");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [subcategoryFilter, setSubcategoryFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -30,7 +32,12 @@ export function ProductsList({ products }: ProductsListProps) {
         product.productCode.toLowerCase().includes(search.toLowerCase()) ||
         product.productName.toLowerCase().includes(search.toLowerCase()) ||
         product.category.toLowerCase().includes(search.toLowerCase()) ||
-        product.subcategory.toLowerCase().includes(search.toLowerCase());
+        product.subcategory.toLowerCase().includes(search.toLowerCase()) ||
+        product.productTypeLabel.toLowerCase().includes(search.toLowerCase());
+
+      const matchesProductType =
+        productTypeFilter === "All" ||
+        product.productTypeLabel === productTypeFilter;
 
       const matchesCategory =
         categoryFilter === "All" || product.category === categoryFilter;
@@ -48,13 +55,22 @@ export function ProductsList({ products }: ProductsListProps) {
 
       return (
         matchesSearch &&
+        matchesProductType &&
         matchesCategory &&
         matchesSubcategory &&
         matchesStatus &&
         matchesInventory
       );
     });
-  }, [products, search, categoryFilter, subcategoryFilter, statusFilter, inventoryFilter]);
+  }, [
+    products,
+    search,
+    productTypeFilter,
+    categoryFilter,
+    subcategoryFilter,
+    statusFilter,
+    inventoryFilter,
+  ]);
 
   return (
     <div className="space-y-4">
@@ -62,11 +78,22 @@ export function ProductsList({ products }: ProductsListProps) {
         <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:flex-wrap">
           <input
             type="search"
-            placeholder="Search product code, name, category, or subcategory..."
+            placeholder="Search product code, name, category, or type..."
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm placeholder:text-slate-400 lg:max-w-xs"
           />
+          <select
+            value={productTypeFilter}
+            onChange={(event) => setProductTypeFilter(event.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
+          >
+            {productTypeFilterOptions.map((productType) => (
+              <option key={productType} value={productType}>
+                Product Type: {productType}
+              </option>
+            ))}
+          </select>
           <select
             value={categoryFilter}
             onChange={(event) => setCategoryFilter(event.target.value)}
@@ -140,6 +167,7 @@ export function ProductsList({ products }: ProductsListProps) {
               <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
                 <th className="px-4 py-2.5 font-semibold">Product Code</th>
                 <th className="px-4 py-2.5 font-semibold">Product Name</th>
+                <th className="px-4 py-2.5 font-semibold">Product Type</th>
                 <th className="px-4 py-2.5 font-semibold">Category</th>
                 <th className="px-4 py-2.5 font-semibold">Subcategory</th>
                 <th className="px-4 py-2.5 font-semibold">Unit</th>
@@ -147,13 +175,14 @@ export function ProductsList({ products }: ProductsListProps) {
                 <th className="px-4 py-2.5 font-semibold">Weight</th>
                 <th className="px-4 py-2.5 font-semibold">Yards</th>
                 <th className="px-4 py-2.5 font-semibold">Track Inventory</th>
+                <th className="px-4 py-2.5 font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredProducts.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={11}
                     className="px-4 py-8 text-center text-sm text-slate-500"
                   >
                     {products.length === 0
@@ -169,6 +198,12 @@ export function ProductsList({ products }: ProductsListProps) {
                     </td>
                     <td className="px-4 py-2.5 font-medium text-slate-900">
                       {product.productName}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <StatusBadge
+                        label={product.productTypeLabel}
+                        variant={product.productTypeVariant}
+                      />
                     </td>
                     <td className="px-4 py-2.5">
                       <StatusBadge
@@ -190,6 +225,14 @@ export function ProductsList({ products }: ProductsListProps) {
                         label={product.trackInventory ? "Yes" : "No"}
                         variant={product.trackInventory ? "success" : "neutral"}
                       />
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <Link
+                        href={`/products/${product.id}`}
+                        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                      >
+                        View
+                      </Link>
                     </td>
                   </tr>
                 ))

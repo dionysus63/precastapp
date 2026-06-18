@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 
 export default async function ProductsPage() {
   const products = await prisma.product.findMany({
-    orderBy: { productName: "asc" },
+    orderBy: { name: "asc" },
   });
 
   const rows = products.map(mapProductToRow);

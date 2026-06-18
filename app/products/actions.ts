@@ -6,8 +6,16 @@ import { Prisma } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 
 const PRODUCT_STATUSES = ["ACTIVE", "INACTIVE", "DISCONTINUED"] as const;
+const PRODUCT_TYPES = [
+  "STOCK",
+  "CONFIGURABLE",
+  "CUSTOM_STRUCTURE",
+  "SERVICE",
+  "MATERIAL",
+] as const;
 
 type ProductStatus = (typeof PRODUCT_STATUSES)[number];
+type ProductType = (typeof PRODUCT_TYPES)[number];
 
 function parseRequiredString(formData: FormData, field: string, label: string) {
   const value = String(formData.get(field) ?? "").trim();
@@ -70,15 +78,26 @@ function parseProductStatus(formData: FormData): ProductStatus {
   return status as ProductStatus;
 }
 
+function parseProductType(formData: FormData): ProductType {
+  const productType = String(formData.get("productType") ?? "STOCK").trim();
+
+  if (!PRODUCT_TYPES.includes(productType as ProductType)) {
+    throw new Error("Product type is required.");
+  }
+
+  return productType as ProductType;
+}
+
 function parseProductFormData(formData: FormData) {
   const productCode = parseRequiredString(formData, "productCode", "Product code");
-  const productName = parseRequiredString(formData, "productName", "Product name");
+  const name = parseRequiredString(formData, "productName", "Product name");
+  const productType = parseProductType(formData);
 
   const unit = String(formData.get("unit") ?? "EA").trim() || "EA";
   const status = parseProductStatus(formData);
 
   const category = String(formData.get("category") ?? "").trim() || "Vaults";
-  const subcategory = String(formData.get("subcategory") ?? "").trim() || null;
+  const description = String(formData.get("description") ?? "").trim() || null;
   const trackInventory = String(formData.get("trackInventory") ?? "yes") === "yes";
   const notes = String(formData.get("notes") ?? "").trim() || null;
 
@@ -87,6 +106,7 @@ function parseProductFormData(formData: FormData) {
     "defaultPrice",
     "Default price",
   );
+  const cost = parseOptionalNonNegativeDecimal(formData, "cost", "Cost");
   const weight = parseOptionalNonNegativeDecimal(formData, "weight", "Weight");
   const yards = parseOptionalNonNegativeDecimal(formData, "yards", "Yards");
 
@@ -105,11 +125,13 @@ function parseProductFormData(formData: FormData) {
 
   return {
     productCode,
-    productName,
+    name,
+    productType,
     category,
-    subcategory,
+    description,
     unit,
     defaultPrice,
+    cost,
     weight,
     yards,
     trackInventory,
@@ -164,18 +186,17 @@ function parseBulkNumeric(
 
 function mapBulkImportRow(row: BulkImportRow, lineNumber: number) {
   const productCode = row.productCode.trim();
-  const productName = row.productName.trim();
+  const name = row.productName.trim();
 
   if (!productCode) {
     throw new Error(`Line ${lineNumber}: Product code is required.`);
   }
-  if (!productName) {
+  if (!name) {
     throw new Error(`Line ${lineNumber}: Product name is required.`);
   }
 
   const unit = row.unit.trim() || "EA";
   const category = row.category.trim() || "Vaults";
-  const subcategory = row.subcategory.trim() || null;
 
   const inventoryValue = row.trackInventory.trim().toLowerCase();
   if (inventoryValue && inventoryValue !== "yes" && inventoryValue !== "no") {
@@ -187,11 +208,13 @@ function mapBulkImportRow(row: BulkImportRow, lineNumber: number) {
 
   return {
     productCode,
-    productName,
+    name,
+    productType: "STOCK" as ProductType,
     category,
-    subcategory,
+    description: row.subcategory.trim() || null,
     unit: unit === "Each" ? "EA" : unit,
     defaultPrice: parseBulkNumeric(row.defaultPrice, "Default price", lineNumber),
+    cost: null,
     weight: parseBulkNumeric(row.weight, "Weight", lineNumber),
     yards: parseBulkNumeric(row.yards, "Yards", lineNumber),
     trackInventory,
