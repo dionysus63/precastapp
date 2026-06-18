@@ -6,15 +6,17 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import {
   type ProductRow,
-  placeholderProducts,
   productCategoryFilterOptions,
   productInventoryFilterOptions,
   productStatusFilterOptions,
   productSubcategoryFilterOptions,
 } from "@/components/products/product-utils";
 
-export function ProductsList() {
-  const [products, setProducts] = useState(placeholderProducts);
+type ProductsListProps = {
+  products: ProductRow[];
+};
+
+export function ProductsList({ products }: ProductsListProps) {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [subcategoryFilter, setSubcategoryFilter] = useState("All");
@@ -53,20 +55,6 @@ export function ProductsList() {
       );
     });
   }, [products, search, categoryFilter, subcategoryFilter, statusFilter, inventoryFilter]);
-
-  function handleDelete(product: ProductRow) {
-    const confirmed = window.confirm(
-      `Delete "${product.productName}"? This is a static preview only and will remove the row until you refresh the page.`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setProducts((current) =>
-      current.filter((item) => item.id !== product.id),
-    );
-  }
 
   return (
     <div className="space-y-4">
@@ -159,28 +147,51 @@ export function ProductsList() {
                 <th className="px-4 py-2.5 font-semibold">Weight</th>
                 <th className="px-4 py-2.5 font-semibold">Yards</th>
                 <th className="px-4 py-2.5 font-semibold">Track Inventory</th>
-                <th className="px-4 py-2.5 font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredProducts.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={10}
+                    colSpan={9}
                     className="px-4 py-8 text-center text-sm text-slate-500"
                   >
                     {products.length === 0
-                      ? "No products yet."
+                      ? "No products yet. Add your first product to get started."
                       : "No products match your search or filters."}
                   </td>
                 </tr>
               ) : (
                 filteredProducts.map((product) => (
-                  <ProductTableRow
-                    key={product.id}
-                    product={product}
-                    onDelete={handleDelete}
-                  />
+                  <tr key={product.id} className="hover:bg-slate-50/60">
+                    <td className="px-4 py-2.5 font-mono text-[11px] font-medium text-slate-900">
+                      {product.productCode}
+                    </td>
+                    <td className="px-4 py-2.5 font-medium text-slate-900">
+                      {product.productName}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <StatusBadge
+                        label={product.category}
+                        variant={product.categoryVariant}
+                      />
+                    </td>
+                    <td className="px-4 py-2.5 text-slate-600">
+                      {product.subcategory}
+                    </td>
+                    <td className="px-4 py-2.5 text-slate-600">{product.unit}</td>
+                    <td className="px-4 py-2.5 font-medium text-slate-900">
+                      {product.defaultPrice}
+                    </td>
+                    <td className="px-4 py-2.5 text-slate-600">{product.weight}</td>
+                    <td className="px-4 py-2.5 text-slate-600">{product.yards}</td>
+                    <td className="px-4 py-2.5">
+                      <StatusBadge
+                        label={product.trackInventory ? "Yes" : "No"}
+                        variant={product.trackInventory ? "success" : "neutral"}
+                      />
+                    </td>
+                  </tr>
                 ))
               )}
             </tbody>
@@ -188,57 +199,5 @@ export function ProductsList() {
         </div>
       </SectionCard>
     </div>
-  );
-}
-
-function ProductTableRow({
-  product,
-  onDelete,
-}: {
-  product: ProductRow;
-  onDelete: (product: ProductRow) => void;
-}) {
-  return (
-    <tr className="hover:bg-slate-50/60">
-      <td className="px-4 py-2.5 font-mono text-[11px] font-medium text-slate-900">
-        {product.productCode}
-      </td>
-      <td className="px-4 py-2.5 font-medium text-slate-900">
-        {product.productName}
-      </td>
-      <td className="px-4 py-2.5">
-        <StatusBadge label={product.category} variant={product.categoryVariant} />
-      </td>
-      <td className="px-4 py-2.5 text-slate-600">{product.subcategory}</td>
-      <td className="px-4 py-2.5 text-slate-600">{product.unit}</td>
-      <td className="px-4 py-2.5 font-medium text-slate-900">
-        {product.defaultPrice}
-      </td>
-      <td className="px-4 py-2.5 text-slate-600">{product.weight}</td>
-      <td className="px-4 py-2.5 text-slate-600">{product.yards}</td>
-      <td className="px-4 py-2.5">
-        <StatusBadge
-          label={product.trackInventory ? "Yes" : "No"}
-          variant={product.trackInventory ? "success" : "neutral"}
-        />
-      </td>
-      <td className="px-4 py-2.5">
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/products/${product.id}/edit`}
-            className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
-          >
-            Edit
-          </Link>
-          <button
-            type="button"
-            onClick={() => onDelete(product)}
-            className="inline-flex rounded-md border border-red-200 px-2 py-1 text-[11px] font-medium text-red-700 hover:bg-red-50"
-          >
-            Delete
-          </button>
-        </div>
-      </td>
-    </tr>
   );
 }

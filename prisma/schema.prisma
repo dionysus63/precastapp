@@ -34,6 +34,31 @@ enum JobStatus {
   CANCELLED
 }
 
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  DISCONTINUED
+}
+
+model Product {
+  id                   String        @id @default(cuid())
+  productCode          String        @unique
+  productName          String
+  category             String
+  subcategory          String?
+  unit                 String        @default("EA")
+  defaultPrice         Decimal?      @db.Decimal(12, 2)
+  weight               Decimal?      @db.Decimal(12, 2)
+  yards                Decimal?      @db.Decimal(12, 4)
+  trackInventory       Boolean       @default(true)
+  currentStockQuantity Int           @default(0)
+  reorderLevel         Int           @default(0)
+  status               ProductStatus @default(ACTIVE)
+  notes                String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+}
+
 model Customer {
   id                  String         @id @default(cuid())
   name                String

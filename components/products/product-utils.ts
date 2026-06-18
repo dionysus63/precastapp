@@ -67,7 +67,13 @@ export const productSubcategoryFormOptions = [
   "Connection Hardware",
 ];
 
-export const productUnitFormOptions = ["Each", "LF", "SF", "CY", "Ton"];
+export const productUnitFormOptions = ["EA", "LF", "SF", "CY", "Ton"];
+
+export const productStatusFormOptions = [
+  { value: "ACTIVE", label: "Active" },
+  { value: "INACTIVE", label: "Inactive" },
+  { value: "DISCONTINUED", label: "Discontinued" },
+];
 
 export const placeholderProducts: ProductRow[] = [
   {

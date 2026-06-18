@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { importProducts } from "@/app/products/actions";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import {
@@ -75,6 +76,8 @@ export function BulkPasteForm() {
   const [pasteText, setPasteText] = useState("");
   const [previewRows, setPreviewRows] = useState<BulkProductPasteRow[]>([]);
   const [hasParsed, setHasParsed] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   const validCount = useMemo(
     () => previewRows.filter((row) => row.isValid).length,
@@ -99,6 +102,55 @@ export function BulkPasteForm() {
     setPasteText("");
     setPreviewRows([]);
     setHasParsed(false);
+    setErrorMessage(null);
+  }
+
+  function handleImport() {
+    const validRows = previewRows.filter((row) => row.isValid);
+    if (validRows.length === 0) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.set(
+      "products",
+      JSON.stringify(
+        validRows.map(
+          ({
+            productCode,
+            productName,
+            category,
+            subcategory,
+            unit,
+            defaultPrice,
+            weight,
+            yards,
+            trackInventory,
+          }) => ({
+            productCode,
+            productName,
+            category,
+            subcategory,
+            unit,
+            defaultPrice,
+            weight,
+            yards,
+            trackInventory,
+          }),
+        ),
+      ),
+    );
+
+    startTransition(async () => {
+      try {
+        setErrorMessage(null);
+        await importProducts(formData);
+      } catch (error) {
+        setErrorMessage(
+          error instanceof Error ? error.message : "Import failed.",
+        );
+      }
+    });
   }
 
   return (
@@ -163,7 +215,7 @@ export function BulkPasteForm() {
       {hasParsed ? (
         <SectionCard
           title="Import Preview"
-          description={`${validCount} valid row${validCount === 1 ? "" : "s"}, ${invalidCount} with issues — static preview only, not saved yet.`}
+          description={`${validCount} valid row${validCount === 1 ? "" : "s"}, ${invalidCount} with issues`}
           noPadding
         >
           {previewRows.length === 0 ? (
@@ -238,20 +290,28 @@ export function BulkPasteForm() {
             </div>
           )}
 
-          <div className="flex justify-end gap-2 border-t border-slate-100 px-4 py-4">
-            <Link
-              href="/products"
-              className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Cancel
-            </Link>
-            <button
-              type="button"
-              disabled={validCount === 0}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Import {validCount} Product{validCount === 1 ? "" : "s"}
-            </button>
+          <div className="border-t border-slate-100 px-4 py-4">
+            {errorMessage ? (
+              <p className="mb-3 text-xs text-red-600">{errorMessage}</p>
+            ) : null}
+            <div className="flex justify-end gap-2">
+              <Link
+                href="/products"
+                className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </Link>
+              <button
+                type="button"
+                onClick={handleImport}
+                disabled={validCount === 0 || isPending}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isPending
+                  ? "Importing..."
+                  : `Import ${validCount} Product${validCount === 1 ? "" : "s"}`}
+              </button>
+            </div>
           </div>
         </SectionCard>
       ) : null}

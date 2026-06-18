@@ -2,6 +2,7 @@ import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { ProductForm } from "@/components/products/product-form";
+import { createProduct } from "../actions";
 
 export default function NewProductPage() {
   return (
@@ -20,9 +21,13 @@ export default function NewProductPage() {
         <div className="mt-4">
           <SectionCard
             title="Product Details"
-            description="Static preview form — saving is not connected yet."
+            description="Required fields are marked with an asterisk."
           >
-            <ProductForm cancelHref="/products" submitLabel="Save Product" />
+            <ProductForm
+              action={createProduct}
+              cancelHref="/products"
+              submitLabel="Save Product"
+            />
           </SectionCard>
         </div>
       </div>

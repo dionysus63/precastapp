@@ -4,6 +4,7 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { ProductForm } from "@/components/products/product-form";
 import { getProductById } from "@/components/products/product-utils";
+import { previewSaveProduct } from "@/app/products/preview-actions";
 
 type EditProductPageProps = {
   params: Promise<{ id: string }>;
@@ -36,18 +37,18 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
             description="Static preview form — saving is not connected yet."
           >
             <ProductForm
+              action={previewSaveProduct}
               cancelHref="/products"
               submitLabel="Save Changes"
               defaultValues={{
-                id: product.id,
                 productCode: product.productCode,
                 productName: product.productName,
                 category: product.category,
                 subcategory: product.subcategory,
                 unit: product.unit,
-                defaultPrice: product.defaultPrice,
-                weight: product.weight,
-                yards: product.yards,
+                defaultPrice: product.defaultPrice.replace(/[$,]/g, ""),
+                weight: product.weight.replace(/[^\d.]/g, ""),
+                yards: product.yards === "—" ? "" : product.yards,
                 trackInventory: product.trackInventory ? "yes" : "no",
                 notes: "",
               }}
