@@ -1,0 +1,51 @@
+---
+description: Prisma, PostgreSQL, and database workflow rules for the precast app
+alwaysApply: true
+---
+
+# Precast App — Database & Prisma Rules
+
+## Project stack
+
+This app uses **PostgreSQL**, **Prisma**, **Next.js**, and **local Windows/server folders** (e.g. job folders on disk). Treat it as a local internal business tool, not a public internet-facing service.
+
+## Prisma Migrate (required)
+
+1. **Never suggest or run** `npx prisma db push` for this project.
+
+2. **All schema changes** must use migrations:
+
+   ```bash
+   npx prisma migrate dev --name descriptive_name
+   ```
+
+3. **Never manually create, alter, or delete** database tables outside Prisma Migrate (no ad-hoc SQL in pgAdmin, psql, or Studio for DDL).
+
+4. If `prisma/schema.prisma` changes, a **migration must be created and committed** with the schema change.
+
+## Workflow reminders
+
+**Before editing `prisma/schema.prisma`**, remind the user to run:
+
+```bash
+git status
+```
+
+**After every migration**, remind the user to run:
+
+```bash
+npx prisma generate
+npx prisma migrate status
+```
+
+## Security & secrets
+
+- **Do not expose or print** the contents of `.env` (including `DATABASE_URL` values).
+
+## Schema relationships
+
+- **Do not change database relations casually.** Explain relationship changes and their impact before modifying `schema.prisma` or creating a migration.
+
+## Local development
+
+Local Postgres uses `npx prisma dev`. See `COMMANDS.md` for full command reference.

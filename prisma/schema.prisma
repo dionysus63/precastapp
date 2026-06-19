@@ -27,11 +27,40 @@ enum CustomerStatus {
 
 enum JobStatus {
   LEAD
-  QUOTED
+  QUOTING
+  SUBMITTED
+  AWARDED
   ACTIVE
-  COMPLETED
   ON_HOLD
+  COMPLETE
+  LOST
   CANCELLED
+}
+
+enum QuoteStatus {
+  DRAFT
+  IN_REVIEW
+  SENT
+  REVISED
+  WON
+  LOST
+  EXPIRED
+  CANCELLED
+}
+
+enum QuoteType {
+  STOCK_ONLY
+  CONFIGURABLE_STRUCTURES
+  CUSTOM_STRUCTURES
+  MIXED
+}
+
+enum QuoteLineType {
+  STOCK_PRODUCT
+  CONFIGURABLE_STRUCTURE
+  CUSTOM_STRUCTURE
+  SERVICE
+  MISC
 }
 
 enum ProductStatus {
@@ -82,6 +111,7 @@ model Product {
   documents      ProductDocument[]
   jobStructures  JobStructure[]
   castingUsages  JobStructureCasting[] @relation("CastingProduct")
+  quoteLineItems QuoteLineItem[]
 }
 
 model ProductDocument {
@@ -136,28 +166,45 @@ model Contact {
 }
 
 model Job {
-  id             String    @id @default(cuid())
-  jobNumber      String    @unique
+  id             String     @id @default(cuid())
+  jobNumber      String     @unique
   year           Int
+  yearTwoDigit   Int
   sequenceNumber Int
-  customerId     String
+  customerId     String?
+  customerName   String
   projectName    String
   projectAddress String?
-  status         JobStatus @default(LEAD)
-  folderPath     String
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  city           String?
+  state          String?
+  zip            String?
+  status         JobStatus  @default(LEAD)
+  bidDate        DateTime?
+  awardedDate    DateTime?
+  contactName    String?
+  contactEmail   String?
+  contactPhone   String?
+  folderPath     String?
+  notes          String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
-  customer Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
   files    JobFile[]
 
+  @@unique([year, sequenceNumber])
   @@index([customerId])
   @@index([year])
+  @@index([yearTwoDigit])
+  @@index([status])
 }
 
 model JobSequence {
-  year       Int @id
-  lastNumber Int @default(0)
+  id         String   @id @default(cuid())
+  year       Int      @unique
+  lastNumber Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model JobFile {
@@ -340,5 +387,90 @@ model JobStructureDocument {
 
   jobStructure JobStructure @relation(fields: [jobStructureId], references: [id], onDelete: Cascade)
 
+  @@index([jobStructureId])
+}
+
+/// Customer quote for precast products, configurable structures, custom structures, and services.
+/// Quote numbers follow Q-YY-###-R# format (e.g. Q-26-001-R0); generation logic to be added later.
+model Quote {
+  id                 String      @id @default(cuid())
+  quoteNumber        String      @unique
+  revisionNumber     Int         @default(0)
+  /// TODO: replace with Quote self-relation when revision chains are wired up
+  originalQuoteId    String?
+  /// TODO: replace with Job relation when quotes are wired to the jobs module
+  jobId              String?
+  /// TODO: replace with Customer relation when quotes are wired to the customers module
+  customerId         String?
+  jobNumber          String?
+  customerName       String
+  projectName        String
+  projectAddress     String?
+  contactName        String?
+  contactEmail       String?
+  contactPhone       String?
+  status             QuoteStatus @default(DRAFT)
+  quoteType          QuoteType   @default(MIXED)
+  estimator          String?
+  quoteDate          DateTime?
+  bidDueDate         DateTime?
+  expirationDate     DateTime?
+  /// TODO: replace with PriceList relation when a PriceList model exists
+  priceListId        String?
+  customerPO         String?
+  subtotal           Decimal     @default(0) @db.Decimal(12, 2)
+  discountAmount     Decimal     @default(0) @db.Decimal(12, 2)
+  deliveryAmount     Decimal     @default(0) @db.Decimal(12, 2)
+  taxableAmount      Decimal     @default(0) @db.Decimal(12, 2)
+  taxRate            Decimal     @default(0) @db.Decimal(6, 4)
+  salesTax           Decimal     @default(0) @db.Decimal(12, 2)
+  total              Decimal     @default(0) @db.Decimal(12, 2)
+  totalWeight        Decimal     @default(0) @db.Decimal(12, 2)
+  totalYards         Decimal     @default(0) @db.Decimal(12, 4)
+  internalNotes      String?
+  customerNotes      String?
+  termsAndConditions String?
+  leadTime           String?
+  deliveryNotes      String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  lineItems QuoteLineItem[]
+
+  @@index([jobId])
+  @@index([customerId])
+  @@index([status])
+  @@index([quoteDate])
+}
+
+/// Individual line on a quote: stock product, configurable/custom structure, service, or misc item.
+model QuoteLineItem {
+  id             String        @id @default(cuid())
+  quoteId        String
+  lineNumber     Int
+  lineType       QuoteLineType
+  productId      String?
+  /// TODO: replace with JobStructure relation when quote line items are wired to job structures
+  jobStructureId String?
+  itemCode       String
+  description    String?
+  quantity       Decimal       @default(1) @db.Decimal(12, 4)
+  unit           String        @default("EA")
+  unitPrice      Decimal       @default(0) @db.Decimal(12, 2)
+  weight         Decimal?      @db.Decimal(12, 2)
+  yards          Decimal?      @db.Decimal(12, 4)
+  taxable        Boolean       @default(true)
+  total          Decimal       @default(0) @db.Decimal(12, 2)
+  statusNote     String?
+  sortOrder      Int           @default(0)
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  quote   Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([quoteId])
+  @@index([productId])
   @@index([jobStructureId])
 }

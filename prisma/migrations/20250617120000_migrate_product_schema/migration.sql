@@ -43,10 +43,19 @@ END $$;
 
 ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "description" TEXT;
 
-UPDATE "Product"
-SET "description" = "subcategory"
-WHERE "subcategory" IS NOT NULL
-  AND ("description" IS NULL OR "description" = '');
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'Product' AND column_name = 'subcategory'
+  ) THEN
+    UPDATE "Product"
+    SET "description" = "subcategory"
+    WHERE "subcategory" IS NOT NULL
+      AND ("description" IS NULL OR "description" = '');
+  END IF;
+END $$;
 
 ALTER TABLE "Product"
 ADD COLUMN IF NOT EXISTS "productType" "ProductType" NOT NULL DEFAULT 'STOCK';

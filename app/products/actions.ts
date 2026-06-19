@@ -242,18 +242,43 @@ export async function importProducts(formData: FormData) {
     throw new Error("No products to import.");
   }
 
-  const uniqueRows = new Map<string, ReturnType<typeof mapBulkImportRow>>();
-
-  parsed.forEach((row, index) => {
+  const rowsByProductCode = new Map<string, number[]>();
+  const products = parsed.map((row, index) => {
     const mapped = mapBulkImportRow(row as BulkImportRow, index + 1);
-    uniqueRows.set(mapped.productCode, mapped);
+    const lineNumbers = rowsByProductCode.get(mapped.productCode) ?? [];
+    lineNumbers.push(index + 1);
+    rowsByProductCode.set(mapped.productCode, lineNumbers);
+    return mapped;
   });
 
-  const products = [...uniqueRows.values()];
-
-  await prisma.$transaction(
-    products.map((product) => prisma.product.create({ data: product })),
+  const duplicates = [...rowsByProductCode.entries()].filter(
+    ([, lineNumbers]) => lineNumbers.length > 1,
   );
+  if (duplicates.length > 0) {
+    const details = duplicates
+      .map(
+        ([productCode, lineNumbers]) =>
+          `${productCode} (lines ${lineNumbers.join(", ")})`,
+      )
+      .join("; ");
+    throw new Error(`Duplicate product code(s) in pasted data: ${details}.`);
+  }
+
+  try {
+    await prisma.$transaction(
+      products.map((product) => prisma.product.create({ data: product })),
+    );
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      throw new Error(
+        "Import failed: one or more product codes already exist in the database.",
+      );
+    }
+    throw error;
+  }
 
   revalidatePath("/products");
   redirect("/products");
