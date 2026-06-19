@@ -95,7 +95,7 @@ export async function withDatabaseRetry<T>(
     } catch (retryError) {
       if (isConnectionError(retryError)) {
         throw new Error(
-          "Could not connect to PostgreSQL. Start `npx prisma dev` in a separate terminal, then restart `npm run dev`.",
+          "Could not connect to PostgreSQL. Ensure the PostgreSQL service is running and DATABASE_URL in .env is correct, then restart `npm run dev`.",
           { cause: retryError },
         );
       }

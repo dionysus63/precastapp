@@ -25,8 +25,15 @@ and PostgreSQL.
 
 ## Prisma / Database Rules
 
-Local development uses `npx prisma dev` (background Postgres on dynamic
-ports). Keep `DATABASE_URL` in `.env` in sync with `npx prisma dev ls`.
+Local development uses **installed PostgreSQL 18** on `localhost:5432`,
+database `precastapp`. Set `DATABASE_URL` in `.env`:
+
+```env
+DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/precastapp"
+```
+
+The Windows service `postgresql-x64-18` must be running. No `npx prisma dev`
+is required for daily work.
 
 Never use:
 
@@ -41,15 +48,10 @@ npx prisma migrate dev --name <descriptive_name>
 npx prisma generate
 ```
 
-If `migrate dev` fails with local Prisma Postgres (e.g. P1017 shadow DB),
-fix connectivity first (`npx prisma dev stop default` then `npx prisma dev`), update
-`.env`, and retry `migrate dev`. Do not fall back to `db push`.
-
 Other commands:
 
-- `npx prisma dev ls` — check server status and connection URLs
-- `npx prisma dev stop default` — stop the background dev server
-- `npx prisma studio` — browse data (requires dev server running)
+- `npx prisma migrate status` — verify connectivity and migration state
+- `npx prisma studio` — browse data (requires PostgreSQL running)
 - `npx prisma generate` — regenerate client after schema changes
 
 Full command reference: **[COMMANDS.md](COMMANDS.md)**

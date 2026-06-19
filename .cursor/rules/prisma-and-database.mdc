@@ -48,4 +48,6 @@ npx prisma migrate status
 
 ## Local development
 
-Local Postgres uses `npx prisma dev`. See `COMMANDS.md` for full command reference.
+Local Postgres is **installed PostgreSQL 18** on `localhost:5432`, database
+`precastapp`. Windows service: `postgresql-x64-18`. Do not use `npx prisma dev`
+for daily development. See `COMMANDS.md` for full command reference.

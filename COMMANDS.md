@@ -5,10 +5,7 @@ Quick reference for local development. Run all commands from `C:\Projects\precas
 ## Daily workflow
 
 ```powershell
-# Terminal 1 — start local Postgres (runs in background after first start)
-npx prisma dev
-
-# Terminal 2 — app
+# PostgreSQL 18 runs as a Windows service (postgresql-x64-18) — no extra DB startup needed
 npm run dev
 ```
 
@@ -27,22 +24,31 @@ Open **http://localhost:3000**
 
 ---
 
-## Prisma Dev (local Postgres)
+## PostgreSQL (installed)
 
-| Command | Purpose |
-|---------|---------|
-| `npx prisma dev` | Start local Postgres (skipped if already running) |
-| `npx prisma dev ls` | List servers, status, and **connection URLs** |
-| `npx prisma dev stop default` | Stop the `default` dev server |
-| `npx prisma dev start default` | Start a stopped server |
+Local development uses **PostgreSQL 18** on `localhost:5432`, database `precastapp`.
 
-After `npx prisma dev` or `npx prisma dev ls`, copy the **TCP** / `postgres://...` URL into `.env`:
+| Check | Command |
+|-------|---------|
+| Service running | `Get-Service postgresql-x64-18` |
+| Connect (psql) | `"C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -p 5432 -U postgres -d precastapp` |
+
+Set in `.env`:
 
 ```env
-DATABASE_URL="postgres://postgres:postgres@localhost:51214/template1?sslmode=disable&..."
+DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/precastapp"
 ```
 
-Use the port from **your** output (often `51214`).
+Use the password you set when installing PostgreSQL.
+
+**First-time setup** (create database once):
+
+```powershell
+$env:PGPASSWORD = "YOUR_PASSWORD"
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -p 5432 -U postgres -d postgres -c "CREATE DATABASE precastapp;"
+npx prisma migrate deploy
+npx prisma generate
+```
 
 ---
 
@@ -53,6 +59,7 @@ Use the port from **your** output (often `51214`).
 | Command | Purpose |
 |---------|---------|
 | `npx prisma migrate dev --name <name>` | Apply schema changes via migration |
+| `npx prisma migrate deploy` | Apply pending migrations (e.g. fresh DB) |
 | `npx prisma generate` | Regenerate Prisma client (`app/generated/prisma`) |
 | `npx prisma validate` | Check `schema.prisma` |
 | `npx prisma migrate status` | See pending/applied migrations |
@@ -70,7 +77,7 @@ npx prisma generate
 
 | Command | Purpose |
 |---------|---------|
-| `npx prisma studio` | Web UI for tables (requires dev server running) |
+| `npx prisma studio` | Web UI for tables (requires PostgreSQL running) |
 
 ---
 
@@ -78,36 +85,24 @@ npx prisma generate
 
 ### `P1001` — Can't reach database server
 
-Postgres is not running or `.env` has a stale port.
+PostgreSQL service is not running or `.env` has wrong host/port.
 
 ```powershell
-npx prisma dev ls
-# If not running:
-npx prisma dev
-# Update .env DATABASE_URL from ls output, then retry
+Get-Service postgresql-x64-18
+# If stopped, start it:
+Start-Service postgresql-x64-18
+npx prisma migrate status
 ```
 
-### `Skipped!` when running `npx prisma dev`
+### Password authentication failed
 
-The server is **already running** in the background. Use `npx prisma dev ls`.
-
-### `P1017` during `migrate dev`
-
-Shadow DB issue with local Prisma Postgres. Restart and retry:
-
-```powershell
-npx prisma dev stop default
-npx prisma dev
-npx prisma dev ls
-# Update .env if port changed
-npx prisma migrate dev --name <name>
-```
+Update `.env` with the correct `postgres` user password from your PostgreSQL install.
 
 ### Prisma Studio — "Could not load schema metadata"
 
-1. `npx prisma dev ls` — confirm server is **running**
-2. Update `.env` with current `DATABASE_URL`
-3. `npx prisma studio`
+1. Confirm PostgreSQL service is **Running**
+2. Verify `DATABASE_URL` in `.env` points to `localhost:5432/precastapp`
+3. `npx prisma migrate status` — if OK, restart Studio
 
 ### Port 3000 already in use
 

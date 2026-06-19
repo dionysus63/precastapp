@@ -53,7 +53,7 @@ export function resolveDatabaseUrl(connectionString?: string): string {
   }
 
   throw new Error(
-    "DATABASE_URL must be postgresql:// or a valid prisma+postgres:// URL from `npx prisma dev`.",
+    "DATABASE_URL must be a postgresql:// URL (e.g. postgresql://postgres:PASSWORD@localhost:5432/precastapp).",
   );
 }
 
