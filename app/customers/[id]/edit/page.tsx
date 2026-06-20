@@ -4,7 +4,7 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { CustomerForm } from "@/components/customers/customer-form";
 import { updateCustomer } from "@/app/customers/actions";
-import { prisma } from "@/lib/prisma";
+import { withDatabaseRetry } from "@/lib/prisma";
 
 type EditCustomerPageProps = {
   params: Promise<{ id: string }>;
@@ -13,9 +13,11 @@ type EditCustomerPageProps = {
 export default async function EditCustomerPage({ params }: EditCustomerPageProps) {
   const { id } = await params;
 
-  const customer = await prisma.customer.findUnique({
-    where: { id },
-  });
+  const customer = await withDatabaseRetry((prisma) =>
+    prisma.customer.findUnique({
+      where: { id },
+    }),
+  );
 
   if (!customer) {
     notFound();

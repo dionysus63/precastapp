@@ -180,6 +180,14 @@ export function JobsList({ jobs }: JobsListProps) {
                     </td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2">
+                        {job.folderPath ? (
+                          <Link
+                            href={`/files/jobs/${job.id}`}
+                            className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                          >
+                            Files
+                          </Link>
+                        ) : null}
                         <Link
                           href={`/jobs/${job.id}/edit`}
                           className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"

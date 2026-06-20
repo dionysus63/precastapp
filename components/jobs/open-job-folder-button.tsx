@@ -13,14 +13,17 @@ export function OpenJobFolderButton({
   folderPath,
 }: OpenJobFolderButtonProps) {
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   async function handleClick() {
     setError(null);
+    setSuccess(null);
     setPending(true);
 
     try {
-      await openJobFolder(jobId);
+      const result = await openJobFolder(jobId);
+      setSuccess(`Opened in Explorer: ${result.path}`);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Could not open job folder.",
@@ -47,6 +50,11 @@ export function OpenJobFolderButton({
         {folderPath}
       </p>
       {error ? <p className="text-[10px] text-red-600">{error}</p> : null}
+      {success ? (
+        <p className="truncate text-[10px] text-green-700" title={success}>
+          {success}
+        </p>
+      ) : null}
     </div>
   );
 }

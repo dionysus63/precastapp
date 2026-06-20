@@ -20,6 +20,9 @@ export type ProductRecord = {
   yardLocation: string | null;
   status: string;
   notes: string | null;
+  _count?: {
+    documents: number;
+  };
 };
 
 export type ProductDocumentRecord = {
@@ -227,5 +230,6 @@ export function mapProductToRow(product: ProductRecord): ProductRow {
     trackInventory: product.trackInventory,
     status: productStatusLabels[product.status] ?? product.status,
     statusVariant: statusVariant(product.status),
+    submittalCount: product._count?.documents ?? 0,
   };
 }

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Prisma } from "@/app/generated/prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma, withDatabaseRetry } from "@/lib/prisma";
 
 const QUOTE_STATUSES = [
   "DRAFT",
@@ -68,6 +68,7 @@ export type CreateQuoteInput = {
   quoteDate: string | null;
   bidDueDate: string | null;
   expirationDate: string | null;
+  priceListId: string | null;
   customerPO: string | null;
   taxRate: number;
   internalNotes: string | null;
@@ -202,6 +203,7 @@ export async function createQuote(
         quoteDate: parseOptionalDate(input.quoteDate),
         bidDueDate: parseOptionalDate(input.bidDueDate),
         expirationDate: parseOptionalDate(input.expirationDate),
+        priceListId: input.priceListId,
         customerPO: input.customerPO,
         subtotal: toDecimal(input.totals.subtotal),
         discountAmount: toDecimal(input.totals.discount),
@@ -259,4 +261,58 @@ export async function createQuote(
           : "Could not save quote. Please try again.",
     };
   }
+}
+
+const QUOTE_STATUS_VALUES = [
+  "DRAFT",
+  "IN_REVIEW",
+  "SENT",
+  "REVISED",
+  "WON",
+  "LOST",
+  "EXPIRED",
+  "CANCELLED",
+] as const;
+
+type QuoteStatusValue = (typeof QUOTE_STATUS_VALUES)[number];
+
+export async function updateQuoteStatus(quoteId: string, status: QuoteStatusValue) {
+  if (!QUOTE_STATUS_VALUES.includes(status)) {
+    return { error: "Invalid quote status." };
+  }
+
+  try {
+    await withDatabaseRetry(async (client) => {
+      await client.quote.update({
+        where: { id: quoteId },
+        data: { status },
+      });
+
+      if (status === "WON") {
+        const { linkJobStructuresFromQuote } = await import(
+          "@/lib/job-structure-workflow"
+        );
+        await linkJobStructuresFromQuote(client, quoteId);
+      }
+    });
+
+    revalidatePath("/quotes");
+    revalidatePath(`/quotes/${quoteId}`);
+    revalidatePath("/production");
+    return { success: true };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "Could not update quote status.",
+    };
+  }
+}
+
+export async function listPriceListsForForm() {
+  return withDatabaseRetry((client) =>
+    client.priceList.findMany({
+      orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+      select: { id: true, name: true, isDefault: true },
+    }),
+  );
 }

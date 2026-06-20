@@ -22,7 +22,6 @@ import {
   quoteInputClassName,
   quoteLineItemTypeLabels,
   quoteLineItemTypeOptions,
-  quotePriceListFormOptions,
   quoteReadOnlyClassName,
   quoteStatusFormOptions,
   quoteTermsFormOptions,
@@ -57,7 +56,23 @@ export function QuoteForm({
   stockProducts,
   configurableProducts,
   serviceOptions,
+  priceLists = [],
+  quoteDefaults,
 }: QuoteFormProps) {
+  const estimatorOptions =
+    quoteDefaults?.estimators?.length
+      ? quoteDefaults.estimators
+      : quoteEstimatorFormOptions;
+  const paymentTermOptions =
+    quoteDefaults?.paymentTerms?.length
+      ? quoteDefaults.paymentTerms
+      : quoteTermsFormOptions;
+  const initialTaxRate = quoteDefaults?.defaultTaxRate ?? DEFAULT_QUOTE_TAX_RATE;
+  const initialEstimator = estimatorOptions[0] ?? "Nick";
+  const initialLeadTime = quoteDefaults?.defaultLeadTime ?? "";
+  const initialExpirationDate = quoteDefaults?.defaultExpirationDate ?? "";
+  const initialTerms = paymentTermOptions[0] ?? "";
+
   const [isPending, startTransition] = useTransition();
   const [lineItems, setLineItems] = useState<EditableQuoteLineItem[]>([]);
   const [customerId, setCustomerId] = useState("");
@@ -71,16 +86,20 @@ export function QuoteForm({
   const [contactPhone, setContactPhone] = useState("");
   const [status, setStatus] = useState<QuoteStatus>("DRAFT");
   const [quoteType, setQuoteType] = useState<QuoteType>("MIXED");
-  const [estimator, setEstimator] = useState("Nick");
+  const [estimator, setEstimator] = useState(initialEstimator);
   const [bidDueDate, setBidDueDate] = useState("");
   const [quoteDate, setQuoteDate] = useState("");
-  const [expirationDate, setExpirationDate] = useState("");
+  const [expirationDate, setExpirationDate] = useState(initialExpirationDate);
   const [customerPo, setCustomerPo] = useState("");
   const [internalNotes, setInternalNotes] = useState("");
   const [customerNotes, setCustomerNotes] = useState("");
-  const [leadTime, setLeadTime] = useState("");
+  const [leadTime, setLeadTime] = useState(initialLeadTime);
   const [deliveryNotes, setDeliveryNotes] = useState("");
-  const [taxRate, setTaxRate] = useState(String(DEFAULT_QUOTE_TAX_RATE));
+  const [termsAndConditions, setTermsAndConditions] = useState(initialTerms);
+  const [priceListId, setPriceListId] = useState(
+    () => priceLists.find((list) => list.isDefault)?.id ?? "",
+  );
+  const [taxRate, setTaxRate] = useState(String(initialTaxRate));
   const [flashMessage, setFlashMessage] = useState<FlashMessage | null>(null);
   const [activeLineType, setActiveLineType] =
     useState<QuoteLineItemType>("STOCK_PRODUCT");
@@ -193,11 +212,12 @@ export function QuoteForm({
       quoteDate: quoteDate || null,
       bidDueDate: bidDueDate || null,
       expirationDate: expirationDate || null,
+      priceListId: priceListId || null,
       customerPO: customerPo.trim() || null,
       taxRate: taxRatePercent,
       internalNotes: internalNotes.trim() || null,
       customerNotes: customerNotes.trim() || null,
-      termsAndConditions: null,
+      termsAndConditions: termsAndConditions.trim() || null,
       leadTime: leadTime.trim() || null,
       deliveryNotes: deliveryNotes.trim() || null,
       lineItems: lineItems.map((line) => ({
@@ -570,9 +590,9 @@ export function QuoteForm({
                   onChange={(event) => setEstimator(event.target.value)}
                   className={quoteInputClassName}
                 >
-                  {quoteEstimatorFormOptions.map((estimator) => (
-                    <option key={estimator} value={estimator}>
-                      {estimator}
+                  {estimatorOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
                     </option>
                   ))}
                 </select>
@@ -840,14 +860,15 @@ export function QuoteForm({
                 <select
                   id="priceList"
                   name="priceList"
-                  disabled
-                  defaultValue=""
-                  className={`${quoteInputClassName} bg-slate-50 text-slate-500`}
+                  value={priceListId}
+                  onChange={(event) => setPriceListId(event.target.value)}
+                  className={quoteInputClassName}
                 >
-                  <option value="">Select price list — coming soon</option>
-                  {quotePriceListFormOptions.map((priceList) => (
-                    <option key={priceList} value={priceList}>
-                      {priceList}
+                  <option value="">No price list</option>
+                  {priceLists.map((priceList) => (
+                    <option key={priceList.id} value={priceList.id}>
+                      {priceList.name}
+                      {priceList.isDefault ? " (default)" : ""}
                     </option>
                   ))}
                 </select>
@@ -1136,12 +1157,14 @@ export function QuoteForm({
                   <select
                     id="terms"
                     name="terms"
-                    disabled
-                    defaultValue=""
-                    className={`${quoteInputClassName} bg-slate-50 text-slate-500`}
+                    value={termsAndConditions}
+                    onChange={(event) =>
+                      setTermsAndConditions(event.target.value)
+                    }
+                    className={quoteInputClassName}
                   >
-                    <option value="">Select terms — coming soon</option>
-                    {quoteTermsFormOptions.map((terms) => (
+                    <option value="">Select terms…</option>
+                    {paymentTermOptions.map((terms) => (
                       <option key={terms} value={terms}>
                         {terms}
                       </option>

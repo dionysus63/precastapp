@@ -1,7 +1,6 @@
 "use server";
 
 import { randomUUID } from "crypto";
-import { access } from "fs/promises";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createJobFoldersForJob } from "@/lib/job-folders";
@@ -303,16 +302,6 @@ export async function openJobFolder(jobId: string) {
   }
 
   try {
-    await access(folderPath);
-  } catch {
-    throw new Error(`Job folder not found: ${folderPath}`);
-  }
-
-  if (process.platform !== "win32") {
-    throw new Error("Opening job folders is supported on Windows only.");
-  }
-
-  try {
     await launchWindowsFolder(folderPath);
   } catch (error) {
     const message =
@@ -320,7 +309,7 @@ export async function openJobFolder(jobId: string) {
     throw new Error(`Could not open job folder: ${message}`);
   }
 
-  return { jobNumber: job.jobNumber, folderPath };
+  return { success: true as const, path: folderPath, jobNumber: job.jobNumber };
 }
 
 export async function createJobFolder(jobId: string) {
@@ -365,6 +354,9 @@ export async function createJobFolder(jobId: string) {
   });
 
   revalidatePath("/jobs");
+  revalidatePath("/files");
+  revalidatePath(`/files/jobs/${job.id}`);
+  revalidatePath(`/jobs/${job.id}/edit`);
 
   return { jobNumber: job.jobNumber, folderPath };
 }

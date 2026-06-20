@@ -102,7 +102,11 @@ export default async function ProductDetailPage({
           </dl>
         </SectionCard>
 
-        <ProductDocumentsSection documents={detail.documents} />
+        <ProductDocumentsSection
+          productId={product.id}
+          productCode={detail.productCode}
+          documents={detail.documents}
+        />
       </div>
     </DashboardShell>
   );

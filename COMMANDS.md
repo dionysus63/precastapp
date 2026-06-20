@@ -108,6 +108,20 @@ Update `.env` with the correct `postgres` user password from your PostgreSQL ins
 
 Another `npm run dev` is running. Use the URL shown in the terminal (e.g. `http://localhost:3001`) or stop the other process.
 
+### Quote PDF — "Could not find Chrome" / browser not found
+
+PDF generation uses **Brave** first (headless, on the server — not your open browser tab), then Puppeteer's bundled Chrome, then Google Chrome.
+
+Typical Brave path: `C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe`
+
+If nothing is found, run:
+
+```powershell
+npm run puppeteer:install
+```
+
+Then restart `npm run dev`.
+
 ---
 
 ## Useful URLs

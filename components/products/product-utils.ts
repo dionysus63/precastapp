@@ -11,7 +11,7 @@ export type ProductRow = {
   productName: string;
   productType: ProductType;
   productTypeLabel: string;
-  productTypeVariant: "success" | "info" | "warning";
+  productTypeVariant: "success" | "info" | "warning" | "neutral";
   category: string;
   subcategory: string;
   categoryVariant: "info" | "neutral" | "default";
@@ -22,6 +22,7 @@ export type ProductRow = {
   trackInventory: boolean;
   status: string;
   statusVariant: "success" | "neutral" | "warning";
+  submittalCount: number;
 };
 
 export const productTypeLabels: Record<ProductType, string> = {
@@ -92,6 +93,12 @@ export const productStatusFilterOptions = [
 
 export const productInventoryFilterOptions = ["All", "Yes", "No"];
 
+export const productSubmittalsFilterOptions = [
+  "All",
+  "Has submittals",
+  "Missing submittals",
+];
+
 export const productCategoryFormOptions = [
   "Vaults",
   "Manholes",
@@ -158,6 +165,7 @@ export const placeholderProducts: ProductRow[] = [
     weight: "1,850 lb",
     yards: "0.4",
     trackInventory: true,
+    submittalCount: 0,
     status: "Active",
     statusVariant: "success",
   },
@@ -176,6 +184,7 @@ export const placeholderProducts: ProductRow[] = [
     weight: "—",
     yards: "—",
     trackInventory: false,
+    submittalCount: 0,
     status: "Active",
     statusVariant: "success",
   },
@@ -194,6 +203,7 @@ export const placeholderProducts: ProductRow[] = [
     weight: "—",
     yards: "—",
     trackInventory: false,
+    submittalCount: 0,
     status: "Active",
     statusVariant: "success",
   },
@@ -212,6 +222,7 @@ export const placeholderProducts: ProductRow[] = [
     weight: "8,400 lb",
     yards: "2.4",
     trackInventory: true,
+    submittalCount: 0,
     status: "Active",
     statusVariant: "success",
   },
@@ -230,6 +241,7 @@ export const placeholderProducts: ProductRow[] = [
     weight: "420 lb/LF",
     yards: "0.08",
     trackInventory: true,
+    submittalCount: 0,
     status: "Active",
     statusVariant: "success",
   },
@@ -248,6 +260,7 @@ export const placeholderProducts: ProductRow[] = [
     weight: "12 lb",
     yards: "—",
     trackInventory: true,
+    submittalCount: 0,
     status: "Inactive",
     statusVariant: "neutral",
   },

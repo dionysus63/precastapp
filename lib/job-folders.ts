@@ -1,22 +1,10 @@
 import { access, mkdir } from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/prisma";
+import { getJobsRoot, getJobSubfolders } from "@/lib/app-settings";
+import { JOBS_ROOT, JOB_SUBFOLDERS } from "@/lib/job-folder-constants";
 
-// Change to a UNC path such as "\\\\SERVER\\Jobs" when moving to network storage.
-export const JOBS_ROOT = "C:\\PrecastJobs";
-
-export const JOB_SUBFOLDERS = [
-  "01 Construction Plans",
-  "02 Quotes",
-  "03 Submittals",
-  "04 Invoices",
-  "05 Delivery Tickets",
-  "06 Photos",
-  "07 Purchase Orders",
-  "08 Production",
-  "09 Cut Sheets",
-  "99 Misc",
-] as const;
+export { JOBS_ROOT, JOB_SUBFOLDERS };
 
 const INVALID_FOLDER_CHARS = /[<>:"/\\|?*]/g;
 
@@ -73,7 +61,8 @@ export async function resolveJobFolderPath(
   baseName: string,
   jobId: string,
 ) {
-  const yearDirectory = path.join(JOBS_ROOT, String(year));
+  const jobsRoot = await getJobsRoot();
+  const yearDirectory = path.join(jobsRoot, String(year));
   await mkdir(yearDirectory, { recursive: true });
 
   const exactPath = path.join(yearDirectory, baseName);
@@ -105,7 +94,8 @@ export async function resolveJobFolderPath(
 export async function createJobFolderStructure(folderPath: string) {
   await mkdir(folderPath, { recursive: true });
 
-  for (const subfolder of JOB_SUBFOLDERS) {
+  const subfolders = await getJobSubfolders();
+  for (const subfolder of subfolders) {
     await mkdir(path.join(folderPath, subfolder), { recursive: true });
   }
 }

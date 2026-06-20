@@ -8,24 +8,39 @@ import {
 } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 
+const CUSTOMER_TYPES = Object.values(CustomerType);
+const CUSTOMER_STATUSES = Object.values(CustomerStatus);
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function parseCustomerFormData(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) {
     throw new Error("Customer name is required.");
   }
 
-  const customerType = String(
-    formData.get("customerType") ?? CustomerType.CONTRACTOR,
-  ) as CustomerType;
+  const customerTypeRaw = String(formData.get("customerType") ?? "").trim();
+  if (
+    !customerTypeRaw ||
+    !CUSTOMER_TYPES.includes(customerTypeRaw as CustomerType)
+  ) {
+    throw new Error("Customer type is required.");
+  }
+  const customerType = customerTypeRaw as CustomerType;
 
-  const status = String(
-    formData.get("status") ?? CustomerStatus.ACTIVE,
-  ) as CustomerStatus;
+  const statusRaw = String(formData.get("status") ?? "").trim();
+  if (!statusRaw || !CUSTOMER_STATUSES.includes(statusRaw as CustomerStatus)) {
+    throw new Error("Status is required.");
+  }
+  const status = statusRaw as CustomerStatus;
 
   const primaryContactName =
     String(formData.get("primaryContactName") ?? "").trim() || null;
   const phone = String(formData.get("phone") ?? "").trim() || null;
-  const email = String(formData.get("email") ?? "").trim() || null;
+  const emailRaw = String(formData.get("email") ?? "").trim();
+  if (emailRaw && !EMAIL_PATTERN.test(emailRaw)) {
+    throw new Error("Email must be a valid email address.");
+  }
+  const email = emailRaw || null;
   const billingAddress =
     String(formData.get("billingAddress") ?? "").trim() || null;
   const notes = String(formData.get("notes") ?? "").trim() || null;

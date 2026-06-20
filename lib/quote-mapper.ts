@@ -1,4 +1,5 @@
 import type { QuoteDetailView } from "@/components/quotes/quote-utils";
+import { formatSubmittalsStatus } from "@/lib/submittal-package";
 import {
   type QuoteRow,
   type QuoteStatus,
@@ -64,6 +65,17 @@ export type QuoteLineItemRecord = {
   total: { toString(): string };
   statusNote: string | null;
   notes: string | null;
+  product?: {
+    id?: string;
+    productCode: string;
+    name: string;
+    documents?: {
+      id: string;
+      documentName: string;
+      documentType: string;
+      filePath: string;
+    }[];
+  } | null;
 };
 
 export type QuoteDetailRecord = QuoteRecord & {
@@ -293,7 +305,7 @@ export function mapQuoteToDetailView(quote: QuoteDetailRecord): QuoteDetailView 
       customer: quote.customerName,
       structures: "Not linked",
       documents: "0",
-      submittals: "Not generated",
+      submittals: formatSubmittalsStatus(quote),
       invoice: "Not created",
       deliveryTickets: "None",
     },

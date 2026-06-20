@@ -567,12 +567,26 @@ export type QuoteFormServiceOption = {
   unit: string;
 };
 
+export type QuoteFormPriceListOption = {
+  id: string;
+  name: string;
+  isDefault: boolean;
+};
+
 export type QuoteFormProps = {
   customers: QuoteFormCustomerOption[];
   jobs: QuoteFormJobOption[];
   stockProducts: QuoteFormProductOption[];
   configurableProducts: QuoteFormProductOption[];
   serviceOptions: QuoteFormServiceOption[];
+  priceLists?: QuoteFormPriceListOption[];
+  quoteDefaults?: {
+    defaultTaxRate: number;
+    defaultLeadTime: string | null;
+    defaultExpirationDate: string;
+    estimators: string[];
+    paymentTerms: string[];
+  };
 };
 
 export function getLineItemTotal(line: EditableQuoteLineItem): number {

@@ -17,6 +17,18 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
       include: {
         lineItems: {
           orderBy: [{ sortOrder: "asc" }, { lineNumber: "asc" }],
+          where: { productId: { not: null } },
+          include: {
+            product: {
+              include: {
+                documents: {
+                  where: {
+                    documentType: { in: ["GENERIC_SUBMITTAL"] },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     }),

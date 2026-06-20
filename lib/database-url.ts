@@ -64,5 +64,22 @@ export function resolveShadowDatabaseUrl(connectionString?: string): string | un
   }
 
   const payload = resolvePrismaDevPayload(value);
-  return payload?.shadowDatabaseUrl;
+  if (payload?.shadowDatabaseUrl) {
+    return payload.shadowDatabaseUrl;
+  }
+
+  if (value.startsWith("postgresql://") || value.startsWith("postgres://")) {
+    try {
+      const url = new URL(value);
+      const dbName = url.pathname.replace(/^\//, "") || "precastapp";
+      const shadowName =
+        dbName.endsWith("_shadow") ? dbName : `${dbName}_shadow`;
+      url.pathname = `/${shadowName}`;
+      return url.toString();
+    } catch {
+      return undefined;
+    }
+  }
+
+  return undefined;
 }

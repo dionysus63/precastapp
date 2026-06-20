@@ -2,6 +2,9 @@ import Link from "next/link";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { SummaryCard } from "@/components/dashboard/summary-card";
+import { GenerateSubmittalPackageButton } from "@/components/quotes/generate-submittal-package-button";
+import { LinkStructuresButton } from "@/components/quotes/link-structures-button";
+import { MarkWonButton } from "@/components/quotes/mark-won-button";
 import type { QuoteDetailView } from "@/components/quotes/quote-utils";
 
 function DetailField({ label, value }: { label: string; value: string }) {
@@ -71,13 +74,12 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
           >
             Revise Quote
           </button>
-          <button
-            type="button"
-            disabled
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-400"
+          <Link
+            href={`/quotes/${quote.id}/preview`}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
           >
             Preview PDF
-          </button>
+          </Link>
           <button
             type="button"
             disabled
@@ -85,13 +87,12 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
           >
             Send Quote
           </button>
-          <button
-            type="button"
-            disabled
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-400"
-          >
-            Mark Won
-          </button>
+          {quote.status !== "WON" ? (
+            <MarkWonButton quoteId={quote.id} />
+          ) : null}
+          {quote.status === "WON" ? (
+            <LinkStructuresButton quoteId={quote.id} />
+          ) : null}
           <button
             type="button"
             disabled
@@ -318,15 +319,9 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
             </dl>
           </SectionCard>
 
-          <SectionCard title="Future Actions">
+          <SectionCard title="Actions">
             <div className="flex flex-col gap-2">
-              <button
-                type="button"
-                disabled
-                className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-400"
-              >
-                Generate Submittal Package
-              </button>
+              <GenerateSubmittalPackageButton quoteId={quote.id} />
               <button
                 type="button"
                 disabled

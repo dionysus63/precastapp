@@ -1,4 +1,5 @@
 import { PrismaClient } from "@/app/generated/prisma/client";
+import { Prisma } from "@/app/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { resolveDatabaseUrl } from "@/lib/database-url";
@@ -56,7 +57,71 @@ function createPrismaClient() {
   return new PrismaClient({ adapter });
 }
 
+const REQUIRED_APP_SETTINGS_FIELDS = [
+  "companyLogoPath",
+  "stockSubmittalsRoot",
+] as const;
+
+function clientHasAppSettingsFields(client: PrismaClient) {
+  const runtimeDataModel = (
+    client as unknown as {
+      _runtimeDataModel?: {
+        models?: Record<string, { fields?: Array<{ name: string }> }>;
+      };
+    }
+  )._runtimeDataModel;
+
+  const appSettingsFields =
+    runtimeDataModel?.models?.AppSettings?.fields?.map((field) => field.name) ??
+    [];
+
+  if (appSettingsFields.length === 0) {
+    return false;
+  }
+
+  return REQUIRED_APP_SETTINGS_FIELDS.every((field) =>
+    appSettingsFields.includes(field),
+  );
+}
+
+function isPrismaClientStale(client: PrismaClient) {
+  // Models added after initial app bootstrap; recreate client if missing.
+  if (
+    !("invoice" in client) ||
+    !("deliveryTicket" in client) ||
+    !("priceList" in client) ||
+    !("appSettings" in client) ||
+    !("jobFile" in client)
+  ) {
+    return true;
+  }
+
+  // Existing delegate but missing newly generated AppSettings fields.
+  for (const field of REQUIRED_APP_SETTINGS_FIELDS) {
+    if (!(field in Prisma.AppSettingsScalarFieldEnum)) {
+      continue;
+    }
+  }
+
+  return !clientHasAppSettingsFields(client);
+}
+
+function isSchemaValidationError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.name === "PrismaClientValidationError" &&
+    error.message.includes("Unknown field")
+  );
+}
+
 function getPrismaClient() {
+  if (globalForPrisma.prisma && isPrismaClientStale(globalForPrisma.prisma)) {
+    resetPrismaState();
+  }
+
   if (!globalForPrisma.prisma) {
     globalForPrisma.prisma = createPrismaClient();
   }
@@ -84,6 +149,11 @@ export async function withDatabaseRetry<T>(
   try {
     return await operation(getPrismaClient());
   } catch (error) {
+    if (isSchemaValidationError(error)) {
+      resetPrismaState();
+      return operation(getPrismaClient());
+    }
+
     if (!isConnectionError(error)) {
       throw error;
     }

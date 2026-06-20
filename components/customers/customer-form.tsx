@@ -61,11 +61,12 @@ export function CustomerForm({
             htmlFor="customerType"
             className="block text-xs font-medium text-slate-700"
           >
-            Customer Type
+            Customer Type *
           </label>
           <select
             id="customerType"
             name="customerType"
+            required
             defaultValue={defaultValues?.customerType ?? "CONTRACTOR"}
             className={customerInputClassName}
           >
@@ -82,11 +83,12 @@ export function CustomerForm({
             htmlFor="status"
             className="block text-xs font-medium text-slate-700"
           >
-            Status
+            Status *
           </label>
           <select
             id="status"
             name="status"
+            required
             defaultValue={defaultValues?.status ?? "ACTIVE"}
             className={customerInputClassName}
           >

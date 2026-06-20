@@ -108,10 +108,15 @@ model Product {
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 
-  documents      ProductDocument[]
-  jobStructures  JobStructure[]
-  castingUsages  JobStructureCasting[] @relation("CastingProduct")
-  quoteLineItems QuoteLineItem[]
+  documents               ProductDocument[]
+  jobStructures           JobStructure[]
+  castingUsages           JobStructureCasting[] @relation("CastingProduct")
+  quoteLineItems          QuoteLineItem[]
+  deliveryTicketLineItems DeliveryTicketLineItem[]
+  inventoryTransactions   InventoryTransaction[]
+  productionLines         DailyProductionLine[]
+  priceListItems          PriceListItem[]
+  invoiceLineItems        InvoiceLineItem[]
 }
 
 model ProductDocument {
@@ -144,8 +149,11 @@ model Customer {
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
 
-  contacts Contact[]
-  jobs     Job[]
+  contacts        Contact[]
+  jobs            Job[]
+  quotes          Quote[]
+  deliveryTickets DeliveryTicket[]
+  invoices        Invoice[]
 }
 
 model Contact {
@@ -189,8 +197,12 @@ model Job {
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
-  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  files    JobFile[]
+  customer        Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  files           JobFile[]
+  quotes          Quote[]
+  jobStructures   JobStructure[]
+  deliveryTickets DeliveryTicket[]
+  invoices        Invoice[]
 
   @@unique([year, sequenceNumber])
   @@index([customerId])
@@ -248,9 +260,7 @@ enum JobStructureDocumentType {
 /// Job-specific structure instance derived from a product template or custom design.
 model JobStructure {
   id              String          @id @default(cuid())
-  /// TODO: replace with Job relation when job structures are wired to the jobs module
   jobId           String?
-  /// TODO: replace with Quote relation when a Quote model exists
   quoteId         String?
   productId       String?
   structureType   StructureType
@@ -272,16 +282,21 @@ model JobStructure {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
-  product       Product?                   @relation(fields: [productId], references: [id], onDelete: SetNull)
-  openings      JobStructureOpening[]
-  castings      JobStructureCasting[]
-  dimensions    JobStructureDimension?
-  manholeDetail JobStructureManholeDetail?
-  documents     JobStructureDocument[]
+  job                    Job?                     @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  quote                  Quote?                   @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  product                Product?                 @relation(fields: [productId], references: [id], onDelete: SetNull)
+  quoteLineItems         QuoteLineItem[]
+  deliveryTicketLineItems DeliveryTicketLineItem[]
+  openings               JobStructureOpening[]
+  castings               JobStructureCasting[]
+  dimensions             JobStructureDimension?
+  manholeDetail          JobStructureManholeDetail?
+  documents              JobStructureDocument[]
 
   @@index([jobId])
   @@index([quoteId])
   @@index([productId])
+  @@index([status])
 }
 
 model JobStructureOpening {
@@ -396,11 +411,8 @@ model Quote {
   id                 String      @id @default(cuid())
   quoteNumber        String      @unique
   revisionNumber     Int         @default(0)
-  /// TODO: replace with Quote self-relation when revision chains are wired up
   originalQuoteId    String?
-  /// TODO: replace with Job relation when quotes are wired to the jobs module
   jobId              String?
-  /// TODO: replace with Customer relation when quotes are wired to the customers module
   customerId         String?
   jobNumber          String?
   customerName       String
@@ -415,7 +427,6 @@ model Quote {
   quoteDate          DateTime?
   bidDueDate         DateTime?
   expirationDate     DateTime?
-  /// TODO: replace with PriceList relation when a PriceList model exists
   priceListId        String?
   customerPO         String?
   subtotal           Decimal     @default(0) @db.Decimal(12, 2)
@@ -435,10 +446,17 @@ model Quote {
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
 
-  lineItems QuoteLineItem[]
+  job             Job?             @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  customer        Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  priceList       PriceList?       @relation(fields: [priceListId], references: [id], onDelete: SetNull)
+  lineItems       QuoteLineItem[]
+  jobStructures   JobStructure[]
+  deliveryTickets DeliveryTicket[]
+  invoices        Invoice[]
 
   @@index([jobId])
   @@index([customerId])
+  @@index([priceListId])
   @@index([status])
   @@index([quoteDate])
 }
@@ -450,7 +468,6 @@ model QuoteLineItem {
   lineNumber     Int
   lineType       QuoteLineType
   productId      String?
-  /// TODO: replace with JobStructure relation when quote line items are wired to job structures
   jobStructureId String?
   itemCode       String
   description    String?
@@ -467,10 +484,385 @@ model QuoteLineItem {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  quote   Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  quote                   Quote                    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  product                 Product?                 @relation(fields: [productId], references: [id], onDelete: SetNull)
+  jobStructure            JobStructure?            @relation(fields: [jobStructureId], references: [id], onDelete: SetNull)
+  deliveryTicketLineItems DeliveryTicketLineItem[]
+  invoiceLineItems        InvoiceLineItem[]
 
   @@index([quoteId])
   @@index([productId])
   @@index([jobStructureId])
+}
+
+enum DeliveryTicketStatus {
+  DRAFT
+  SCHEDULED
+  LOADING
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+}
+
+enum DeliveryTicketType {
+  JOB
+  WALK_IN
+}
+
+enum DeliveryLineType {
+  STOCK_PRODUCT
+  CONFIGURABLE_STRUCTURE
+  CUSTOM_STRUCTURE
+  SERVICE
+  MISC
+}
+
+enum DeliveryItemStatus {
+  NOT_READY
+  READY
+  LOADING
+  LOADED
+  DELIVERED
+  CANCELLED
+}
+
+/// Delivery ticket for scheduling and tracking job deliveries.
+/// Ticket numbers follow DT-YY-### format (e.g. DT-26-001); generation logic to be added later.
+model DeliveryTicket {
+  id                     String               @id @default(cuid())
+  ticketNumber           String               @unique
+  year                   Int
+  yearTwoDigit           Int
+  sequenceNumber         Int
+  ticketType             DeliveryTicketType   @default(JOB)
+  status                 DeliveryTicketStatus @default(DRAFT)
+  jobId                  String?
+  quoteId                String?
+  customerId             String?
+  priceListId            String?
+  jobNumber              String?
+  quoteNumber            String?
+  customerName           String
+  projectName            String
+  deliveryAddress        String?
+  siteContactName        String?
+  siteContactPhone       String?
+  siteContactEmail       String?
+  siteInstructions       String?
+  deliveryDate           DateTime?
+  deliveryTime           String?
+  requestedBy            String?
+  createdBy              String?
+  truck                  String?
+  trailer                String?
+  driver                 String?
+  loadSequence           String?
+  specialEquipmentNeeded String?
+  craneRequired          Boolean              @default(false)
+  forkliftRequired       Boolean              @default(false)
+  totalItems             Int?
+  totalWeight            Decimal?             @db.Decimal(12, 2)
+  driverNotes            String?
+  internalNotes          String?
+  customerNotes          String?
+  loadingNotes           String?
+  deliveredAt            DateTime?
+  signedBy               String?
+  paperTicketPrinted     Boolean              @default(false)
+  paperTicketVerified    Boolean              @default(false)
+  verifiedAt             DateTime?
+  verifiedBy             String?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  job       Job?        @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  quote     Quote?      @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  customer  Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  priceList PriceList?  @relation(fields: [priceListId], references: [id], onDelete: SetNull)
+  invoice   Invoice?
+  lineItems DeliveryTicketLineItem[]
+
+  @@unique([year, sequenceNumber])
+  @@index([jobId])
+  @@index([quoteId])
+  @@index([customerId])
+  @@index([priceListId])
+  @@index([status])
+  @@index([deliveryDate])
+  @@index([yearTwoDigit])
+  @@index([ticketType])
+}
+
+/// Individual line on a delivery ticket: stock product, structure, service, or misc item.
+model DeliveryTicketLineItem {
+  id               String             @id @default(cuid())
+  deliveryTicketId String
+  lineNumber       Int
+  lineType         DeliveryLineType
+  productId        String?
+  quoteLineItemId  String?
+  jobStructureId   String?
+  itemCode         String
+  description      String?
+  quantity         Decimal            @default(1) @db.Decimal(12, 4)
+  unit             String             @default("EA")
+  weightEach       Decimal?           @db.Decimal(12, 2)
+  totalWeight      Decimal?           @db.Decimal(12, 2)
+  yardLocation     String?
+  status           DeliveryItemStatus @default(NOT_READY)
+  notes            String?
+  sortOrder        Int                @default(0)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  deliveryTicket  DeliveryTicket  @relation(fields: [deliveryTicketId], references: [id], onDelete: Cascade)
+  product         Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  quoteLineItem   QuoteLineItem?  @relation(fields: [quoteLineItemId], references: [id], onDelete: SetNull)
+  jobStructure    JobStructure?   @relation(fields: [jobStructureId], references: [id], onDelete: SetNull)
+  invoiceLineItems InvoiceLineItem[]
+
+  @@index([deliveryTicketId])
+  @@index([productId])
+  @@index([quoteLineItemId])
+  @@index([jobStructureId])
+}
+
+/// Per-year sequence counter for delivery ticket numbers (DT-YY-###).
+model DeliveryTicketSequence {
+  id         String   @id @default(cuid())
+  year       Int      @unique
+  lastNumber Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+enum InventoryTransactionType {
+  PRODUCTION
+  DELIVERY
+  ADJUSTMENT
+  REVERSAL
+}
+
+enum InventoryReferenceType {
+  DAILY_PRODUCTION_LINE
+  DELIVERY_TICKET_LINE_ITEM
+}
+
+/// Append-only ledger for stock inventory changes.
+model InventoryTransaction {
+  id              String                   @id @default(cuid())
+  productId       String
+  quantityChange  Decimal                  @db.Decimal(12, 4)
+  transactionType InventoryTransactionType
+  transactionDate DateTime
+  referenceType   InventoryReferenceType?
+  referenceId     String?
+  notes           String?
+  createdBy       String?
+  createdAt       DateTime                 @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([transactionDate])
+  @@index([referenceType, referenceId])
+}
+
+/// Daily batch entry for stock production (yard output).
+model DailyProductionEntry {
+  id             String   @id @default(cuid())
+  productionDate DateTime @db.Date
+  batchLabel     String?
+  enteredBy      String?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  lines DailyProductionLine[]
+
+  @@index([productionDate])
+}
+
+/// One product/qty row on a daily production entry.
+model DailyProductionLine {
+  id               String  @id @default(cuid())
+  productionEntryId String
+  productId        String
+  quantityProduced Decimal @db.Decimal(12, 4)
+
+  productionEntry DailyProductionEntry @relation(fields: [productionEntryId], references: [id], onDelete: Cascade)
+  product         Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productionEntryId])
+  @@index([productId])
+}
+
+/// Daily confirmation that printed paper tickets match digital records.
+model DeliveryDayReconciliation {
+  id                 String   @id @default(cuid())
+  reconciliationDate DateTime @unique @db.Date
+  confirmedBy        String?
+  confirmedAt        DateTime?
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  VOID
+}
+
+enum InvoiceLineType {
+  STOCK_PRODUCT
+  CONFIGURABLE_STRUCTURE
+  CUSTOM_STRUCTURE
+  SERVICE
+  MISC
+}
+
+/// Customer invoice — one per delivered delivery ticket.
+model Invoice {
+  id              String        @id @default(cuid())
+  invoiceNumber   String        @unique
+  year            Int
+  yearTwoDigit    Int
+  sequenceNumber  Int
+  deliveryTicketId String       @unique
+  jobId           String?
+  quoteId         String?
+  customerId      String?
+  jobNumber       String?
+  customerName    String
+  projectName     String
+  status          InvoiceStatus @default(DRAFT)
+  subtotal        Decimal       @default(0) @db.Decimal(12, 2)
+  discountAmount  Decimal       @default(0) @db.Decimal(12, 2)
+  deliveryAmount  Decimal       @default(0) @db.Decimal(12, 2)
+  taxableAmount   Decimal       @default(0) @db.Decimal(12, 2)
+  taxRate         Decimal       @default(0) @db.Decimal(6, 4)
+  salesTax        Decimal       @default(0) @db.Decimal(12, 2)
+  total           Decimal       @default(0) @db.Decimal(12, 2)
+  invoiceDate     DateTime?
+  dueDate         DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  deliveryTicket DeliveryTicket @relation(fields: [deliveryTicketId], references: [id], onDelete: Restrict)
+  job            Job?           @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  quote          Quote?         @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  customer       Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  lineItems      InvoiceLineItem[]
+
+  @@unique([year, sequenceNumber])
+  @@index([jobId])
+  @@index([quoteId])
+  @@index([customerId])
+  @@index([status])
+  @@index([invoiceDate])
+}
+
+model InvoiceLineItem {
+  id                       String          @id @default(cuid())
+  invoiceId                String
+  lineNumber               Int
+  lineType                 InvoiceLineType
+  quoteLineItemId          String?
+  deliveryTicketLineItemId String?
+  productId                String?
+  itemCode                 String
+  description              String?
+  quantity                 Decimal         @default(1) @db.Decimal(12, 4)
+  unit                     String          @default("EA")
+  unitPrice                Decimal         @default(0) @db.Decimal(12, 2)
+  taxable                  Boolean         @default(true)
+  total                    Decimal         @default(0) @db.Decimal(12, 2)
+  sortOrder                Int             @default(0)
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
+
+  invoice                Invoice                 @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  quoteLineItem          QuoteLineItem?          @relation(fields: [quoteLineItemId], references: [id], onDelete: SetNull)
+  deliveryTicketLineItem DeliveryTicketLineItem? @relation(fields: [deliveryTicketLineItemId], references: [id], onDelete: SetNull)
+  product                Product?                @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@index([quoteLineItemId])
+  @@index([deliveryTicketLineItemId])
+  @@index([productId])
+}
+
+/// Per-year sequence counter for invoice numbers.
+model InvoiceSequence {
+  id         String   @id @default(cuid())
+  year       Int      @unique
+  lastNumber Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+/// Product pricing list for quotes and walk-in delivery tickets.
+model PriceList {
+  id            String    @id @default(cuid())
+  name          String    @unique
+  effectiveDate DateTime?
+  isDefault     Boolean   @default(false)
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  items           PriceListItem[]
+  quotes          Quote[]
+  deliveryTickets DeliveryTicket[]
+}
+
+model PriceListItem {
+  id          String   @id @default(cuid())
+  priceListId String
+  productId   String
+  unitPrice   Decimal  @db.Decimal(12, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  priceList PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([priceListId, productId])
+  @@index([priceListId])
+  @@index([productId])
+}
+
+/// Singleton application configuration (id is always "default").
+model AppSettings {
+  id        String   @id @default("default")
+  // company
+  companyName     String
+  companyAddress  String
+  companyPhone    String
+  companyEmail    String
+  appTitle        String
+  appSubtitle     String
+  quoteFooterText String?
+  companyLogoPath   String?
+  // paths
+  jobsRoot            String
+  quotePdfFallbackDir String
+  stockSubmittalsRoot String
+  jobSubfolders       Json
+  // billing
+  defaultTaxRate    Decimal @db.Decimal(6, 3)
+  quoteValidityDays Int
+  invoiceDueDays    Int
+  defaultLeadTime   String?
+  paymentTerms      Json
+  // operations
+  estimators         Json
+  trucks             Json
+  drivers            Json
+  trailers           Json
+  truckCapacityLabel String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

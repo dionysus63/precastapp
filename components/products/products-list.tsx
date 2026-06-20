@@ -10,6 +10,7 @@ import {
   productInventoryFilterOptions,
   productStatusFilterOptions,
   productSubcategoryFilterOptions,
+  productSubmittalsFilterOptions,
   productTypeFilterOptions,
 } from "@/components/products/product-utils";
 
@@ -24,6 +25,7 @@ export function ProductsList({ products }: ProductsListProps) {
   const [subcategoryFilter, setSubcategoryFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
   const [inventoryFilter, setInventoryFilter] = useState("All");
+  const [submittalsFilter, setSubmittalsFilter] = useState("All");
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
@@ -53,13 +55,19 @@ export function ProductsList({ products }: ProductsListProps) {
         (inventoryFilter === "Yes" && product.trackInventory) ||
         (inventoryFilter === "No" && !product.trackInventory);
 
+      const matchesSubmittals =
+        submittalsFilter === "All" ||
+        (submittalsFilter === "Has submittals" && product.submittalCount > 0) ||
+        (submittalsFilter === "Missing submittals" && product.submittalCount === 0);
+
       return (
         matchesSearch &&
         matchesProductType &&
         matchesCategory &&
         matchesSubcategory &&
         matchesStatus &&
-        matchesInventory
+        matchesInventory &&
+        matchesSubmittals
       );
     });
   }, [
@@ -70,6 +78,7 @@ export function ProductsList({ products }: ProductsListProps) {
     subcategoryFilter,
     statusFilter,
     inventoryFilter,
+    submittalsFilter,
   ]);
 
   return (
@@ -138,6 +147,17 @@ export function ProductsList({ products }: ProductsListProps) {
               </option>
             ))}
           </select>
+          <select
+            value={submittalsFilter}
+            onChange={(event) => setSubmittalsFilter(event.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
+          >
+            {productSubmittalsFilterOptions.map((option) => (
+              <option key={option} value={option}>
+                Submittals: {option}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -175,6 +195,7 @@ export function ProductsList({ products }: ProductsListProps) {
                 <th className="px-4 py-2.5 font-semibold">Weight</th>
                 <th className="px-4 py-2.5 font-semibold">Yards</th>
                 <th className="px-4 py-2.5 font-semibold">Track Inventory</th>
+                <th className="px-4 py-2.5 font-semibold">Submittals</th>
                 <th className="px-4 py-2.5 font-semibold">Actions</th>
               </tr>
             </thead>
@@ -182,7 +203,7 @@ export function ProductsList({ products }: ProductsListProps) {
               {filteredProducts.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={11}
+                    colSpan={12}
                     className="px-4 py-8 text-center text-sm text-slate-500"
                   >
                     {products.length === 0
@@ -225,6 +246,16 @@ export function ProductsList({ products }: ProductsListProps) {
                         label={product.trackInventory ? "Yes" : "No"}
                         variant={product.trackInventory ? "success" : "neutral"}
                       />
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {product.submittalCount > 0 ? (
+                        <StatusBadge
+                          label={String(product.submittalCount)}
+                          variant="success"
+                        />
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-2.5">
                       <Link

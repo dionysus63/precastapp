@@ -5,6 +5,11 @@ import {
   type QuoteFormServiceOption,
   mockServiceOptions,
 } from "@/components/quotes/quote-utils";
+import { listPriceListsForForm } from "@/app/quotes/actions";
+import {
+  defaultQuoteExpirationDate,
+  getAppSettings,
+} from "@/lib/app-settings";
 import { mapProductToQuoteFormOption } from "@/lib/quote-mapper";
 import { withDatabaseRetry } from "@/lib/prisma";
 
@@ -24,7 +29,12 @@ function formatJobAddress(job: {
 }
 
 export default async function NewQuotePage() {
-  const [customers, jobs, stockProducts, configurableProducts, serviceProducts] =
+  const appSettings = await getAppSettings();
+  const defaultExpiration = defaultQuoteExpirationDate(
+    appSettings.quoteValidityDays,
+  );
+
+  const [customers, jobs, stockProducts, configurableProducts, serviceProducts, priceLists] =
     await withDatabaseRetry((prisma) =>
       Promise.all([
         prisma.customer.findMany({
@@ -45,6 +55,7 @@ export default async function NewQuotePage() {
           where: { productType: "SERVICE", status: "ACTIVE" },
           orderBy: { productCode: "asc" },
         }),
+        listPriceListsForForm(),
       ]),
     );
 
@@ -115,6 +126,14 @@ export default async function NewQuotePage() {
             mapProductToQuoteFormOption,
           )}
           serviceOptions={serviceOptions}
+          priceLists={priceLists}
+          quoteDefaults={{
+            defaultTaxRate: appSettings.defaultTaxRate,
+            defaultLeadTime: appSettings.defaultLeadTime,
+            defaultExpirationDate: defaultExpiration.toISOString().slice(0, 10),
+            estimators: appSettings.estimators,
+            paymentTerms: appSettings.paymentTerms,
+          }}
         />
       </div>
     </DashboardShell>

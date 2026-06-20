@@ -10,17 +10,140 @@ import {
   customerTypeFilterOptions,
 } from "@/components/customers/customer-utils";
 
+type SortColumn =
+  | "name"
+  | "type"
+  | "primaryContact"
+  | "phone"
+  | "email"
+  | "status"
+  | "openQuotes"
+  | "balance"
+  | "lastActivity";
+
+type SortDirection = "asc" | "desc";
+
 type CustomersListProps = {
   customers: CustomerRow[];
 };
+
+const sortableHeaderClassName =
+  "cursor-pointer px-4 py-2.5 font-semibold transition-colors hover:bg-slate-100 hover:text-slate-700 select-none";
+
+function parseBalance(value: string) {
+  const amount = Number.parseFloat(value.replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function parseActivityDate(value: string) {
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function compareCustomers(
+  a: CustomerRow,
+  b: CustomerRow,
+  column: SortColumn,
+  direction: SortDirection,
+) {
+  let result = 0;
+
+  switch (column) {
+    case "name":
+      result = a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+      break;
+    case "type":
+      result = a.type.localeCompare(b.type, undefined, { sensitivity: "base" });
+      break;
+    case "primaryContact":
+      result = a.primaryContact.localeCompare(b.primaryContact, undefined, {
+        sensitivity: "base",
+      });
+      break;
+    case "phone":
+      result = a.phone.localeCompare(b.phone, undefined, { sensitivity: "base" });
+      break;
+    case "email":
+      result = a.email.localeCompare(b.email, undefined, { sensitivity: "base" });
+      break;
+    case "status":
+      result = a.status.localeCompare(b.status, undefined, { sensitivity: "base" });
+      break;
+    case "openQuotes":
+      result = a.openQuotes - b.openQuotes;
+      break;
+    case "balance":
+      result = parseBalance(a.balance) - parseBalance(b.balance);
+      break;
+    case "lastActivity":
+      result = parseActivityDate(a.lastActivity) - parseActivityDate(b.lastActivity);
+      break;
+  }
+
+  return direction === "asc" ? result : -result;
+}
+
+type SortableHeaderProps = {
+  column: SortColumn;
+  label: string;
+  sortColumn: SortColumn;
+  sortDirection: SortDirection;
+  onSort: (column: SortColumn) => void;
+};
+
+function SortableHeader({
+  column,
+  label,
+  sortColumn,
+  sortDirection,
+  onSort,
+}: SortableHeaderProps) {
+  const isActive = sortColumn === column;
+
+  return (
+    <th
+      scope="col"
+      className={sortableHeaderClassName}
+      onClick={() => onSort(column)}
+      aria-sort={
+        isActive
+          ? sortDirection === "asc"
+            ? "ascending"
+            : "descending"
+          : "none"
+      }
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {isActive ? (
+          <span className="text-slate-400" aria-hidden="true">
+            {sortDirection === "asc" ? "↑" : "↓"}
+          </span>
+        ) : null}
+      </span>
+    </th>
+  );
+}
 
 export function CustomersList({ customers }: CustomersListProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [typeFilter, setTypeFilter] = useState("All");
+  const [sortColumn, setSortColumn] = useState<SortColumn>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  function handleSort(column: SortColumn) {
+    if (sortColumn === column) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortColumn(column);
+    setSortDirection("asc");
+  }
 
   const filteredCustomers = useMemo(() => {
-    return customers.filter((customer) => {
+    const filtered = customers.filter((customer) => {
       const matchesSearch =
         search.trim() === "" ||
         customer.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -34,7 +157,11 @@ export function CustomersList({ customers }: CustomersListProps) {
 
       return matchesSearch && matchesStatus && matchesType;
     });
-  }, [customers, search, statusFilter, typeFilter]);
+
+    return [...filtered].sort((a, b) =>
+      compareCustomers(a, b, sortColumn, sortDirection),
+    );
+  }, [customers, search, statusFilter, typeFilter, sortColumn, sortDirection]);
 
   return (
     <div className="space-y-4">
@@ -87,15 +214,69 @@ export function CustomersList({ customers }: CustomersListProps) {
           <table className="min-w-full text-left text-xs">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                <th className="px-4 py-2.5 font-semibold">Customer Name</th>
-                <th className="px-4 py-2.5 font-semibold">Type</th>
-                <th className="px-4 py-2.5 font-semibold">Primary Contact</th>
-                <th className="px-4 py-2.5 font-semibold">Phone</th>
-                <th className="px-4 py-2.5 font-semibold">Email</th>
-                <th className="px-4 py-2.5 font-semibold">Status</th>
-                <th className="px-4 py-2.5 font-semibold">Open Quotes</th>
-                <th className="px-4 py-2.5 font-semibold">Balance</th>
-                <th className="px-4 py-2.5 font-semibold">Last Activity</th>
+                <SortableHeader
+                  column="name"
+                  label="Customer Name"
+                  sortColumn={sortColumn}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  column="type"
+                  label="Type"
+                  sortColumn={sortColumn}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  column="primaryContact"
+                  label="Primary Contact"
+                  sortColumn={sortColumn}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  column="phone"
+                  label="Phone"
+                  sortColumn={sortColumn}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  column="email"
+                  label="Email"
+                  sortColumn={sortColumn}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  column="status"
+                  label="Status"
+                  sortColumn={sortColumn}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  column="openQuotes"
+                  label="Open Quotes"
+                  sortColumn={sortColumn}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  column="balance"
+                  label="Balance"
+                  sortColumn={sortColumn}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  column="lastActivity"
+                  label="Last Activity"
+                  sortColumn={sortColumn}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
                 <th className="px-4 py-2.5 font-semibold">Actions</th>
               </tr>
             </thead>
@@ -115,7 +296,12 @@ export function CustomersList({ customers }: CustomersListProps) {
                 filteredCustomers.map((customer) => (
                   <tr key={customer.id} className="hover:bg-slate-50/60">
                     <td className="px-4 py-2.5 font-medium text-slate-900">
-                      {customer.name}
+                      <Link
+                        href={`/customers/${customer.id}`}
+                        className="hover:text-slate-700 hover:underline"
+                      >
+                        {customer.name}
+                      </Link>
                     </td>
                     <td className="px-4 py-2.5">
                       <StatusBadge

@@ -3,165 +3,9 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { SummaryCard } from "@/components/dashboard/summary-card";
-
-const summaryCards = [
-  {
-    label: "Open Quotes",
-    value: "8",
-    detail: "3 awaiting customer response",
-    accent: "sky" as const,
-  },
-  {
-    label: "Active Jobs",
-    value: "14",
-    detail: "5 scheduled for production this week",
-    accent: "emerald" as const,
-  },
-  {
-    label: "Pending Invoices",
-    value: "6",
-    detail: "$42,800 outstanding",
-    accent: "amber" as const,
-  },
-  {
-    label: "Inventory Alerts",
-    value: "4",
-    detail: "Items below reorder threshold",
-    accent: "rose" as const,
-  },
-];
-
-const openQuotes = [
-  {
-    id: "Q-2026-018",
-    customer: "Riverview Builders",
-    project: "Retaining Wall Package",
-    amount: "$18,400",
-    status: "Sent",
-    variant: "info" as const,
-  },
-  {
-    id: "Q-2026-021",
-    customer: "Northside Concrete",
-    project: "Utility Vaults",
-    amount: "$9,250",
-    status: "Follow Up",
-    variant: "warning" as const,
-  },
-  {
-    id: "Q-2026-024",
-    customer: "Summit Development",
-    project: "Parking Structure",
-    amount: "$31,600",
-    status: "Draft",
-    variant: "neutral" as const,
-  },
-];
-
-const activeJobs = [
-  {
-    number: "2026-011",
-    customer: "Harbor Point LLC",
-    project: "Parking Structure",
-    status: "In Production",
-    variant: "success" as const,
-  },
-  {
-    number: "2026-014",
-    customer: "Metro Utilities",
-    project: "Vault Install",
-    status: "Scheduled",
-    variant: "info" as const,
-  },
-  {
-    number: "2026-016",
-    customer: "Greenfield Homes",
-    project: "Foundation Walls",
-    status: "Submittals",
-    variant: "warning" as const,
-  },
-];
-
-const pendingInvoices = [
-  {
-    id: "INV-1042",
-    customer: "Riverview Builders",
-    due: "Jun 22",
-    amount: "$12,900",
-    status: "Due Soon",
-    variant: "warning" as const,
-  },
-  {
-    id: "INV-1038",
-    customer: "Summit Development",
-    due: "Jun 25",
-    amount: "$8,750",
-    status: "Open",
-    variant: "info" as const,
-  },
-  {
-    id: "INV-1031",
-    customer: "Northside Concrete",
-    due: "Jun 28",
-    amount: "$5,400",
-    status: "Open",
-    variant: "info" as const,
-  },
-];
-
-const inventoryAlerts = [
-  {
-    item: "Rebar #5",
-    sku: "RB-05-20FT",
-    status: "Low Stock",
-    detail: "12 units remaining",
-    variant: "danger" as const,
-  },
-  {
-    item: "Release Agent",
-    sku: "RA-100",
-    status: "Reorder",
-    detail: "Below reorder point",
-    variant: "warning" as const,
-  },
-  {
-    item: 'Anchor Bolts 3/4"',
-    sku: "AB-075",
-    status: "Low Stock",
-    detail: "8 boxes remaining",
-    variant: "danger" as const,
-  },
-];
-
-const recentActivity = [
-  {
-    time: "9:42 AM",
-    type: "Quote",
-    text: "Q-2026-024 sent to Summit Development",
-  },
-  {
-    time: "8:15 AM",
-    type: "Job",
-    text: "2026-016 folder updated with new submittals",
-  },
-  {
-    time: "Yesterday",
-    type: "Invoice",
-    text: "INV-1042 marked as sent",
-  },
-  {
-    time: "Yesterday",
-    type: "Customer",
-    text: "Harbor Point LLC contact info updated",
-  },
-];
-
-const quickActions = [
-  { label: "New Customer", href: "/customers/new", primary: false },
-  { label: "New Job", href: "/jobs/new", primary: true },
-  { label: "Create Quote", href: "/quotes/new", primary: true },
-  { label: "Record Delivery", href: "/delivery-tickets/new", primary: false },
-];
+import { quoteStatusLabels, type QuoteStatus } from "@/components/quotes/quote-utils";
+import { jobStatusLabels } from "@/components/jobs/job-utils";
+import { withDatabaseRetry } from "@/lib/prisma";
 
 function CompactTable({ children }: { children: React.ReactNode }) {
   return (
@@ -171,14 +15,143 @@ function CompactTable({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function Home() {
+function formatCurrency(value: { toString(): string }) {
+  const amount = Number(value);
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(Number.isFinite(amount) ? amount : 0);
+}
+
+export default async function Home() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [
+    openQuotesCount,
+    openQuotes,
+    activeJobsCount,
+    activeJobs,
+    pendingInvoicesCount,
+    pendingInvoicesTotal,
+    pendingInvoices,
+    lowStockProducts,
+    productionQueueCount,
+    scheduledDeliveriesToday,
+    inTransitCount,
+  ] = await withDatabaseRetry((prisma) =>
+    Promise.all([
+      prisma.quote.count({
+        where: { status: { in: ["DRAFT", "IN_REVIEW", "SENT", "REVISED"] } },
+      }),
+      prisma.quote.findMany({
+        where: { status: { in: ["DRAFT", "IN_REVIEW", "SENT", "REVISED"] } },
+        orderBy: { updatedAt: "desc" },
+        take: 3,
+      }),
+      prisma.job.count({
+        where: { status: { in: ["ACTIVE", "AWARDED", "SUBMITTED", "QUOTING"] } },
+      }),
+      prisma.job.findMany({
+        where: { status: { in: ["ACTIVE", "AWARDED", "SUBMITTED", "QUOTING"] } },
+        orderBy: { updatedAt: "desc" },
+        take: 3,
+      }),
+      prisma.invoice.count({
+        where: { status: { in: ["DRAFT", "SENT"] } },
+      }),
+      prisma.invoice.aggregate({
+        where: { status: { in: ["DRAFT", "SENT"] } },
+        _sum: { total: true },
+      }),
+      prisma.invoice.findMany({
+        where: { status: { in: ["DRAFT", "SENT"] } },
+        orderBy: { invoiceDate: "asc" },
+        take: 3,
+      }),
+      prisma.product.findMany({
+        where: {
+          trackInventory: true,
+          status: "ACTIVE",
+          reorderLevel: { gt: 0 },
+        },
+        orderBy: { currentStockQuantity: "asc" },
+      }),
+      prisma.jobStructure.count({
+        where: { status: { in: ["APPROVED", "IN_PRODUCTION"] } },
+      }),
+      prisma.deliveryTicket.count({
+        where: {
+          status: { in: ["SCHEDULED", "LOADING", "IN_TRANSIT"] },
+          deliveryDate: {
+            gte: today,
+            lt: new Date(today.getTime() + 86400000),
+          },
+        },
+      }),
+      prisma.deliveryTicket.count({ where: { status: "IN_TRANSIT" } }),
+    ]),
+  );
+
+  const inventoryAlerts = lowStockProducts
+    .filter((p) => p.currentStockQuantity <= p.reorderLevel)
+    .slice(0, 3);
+  const inventoryAlertsCount = lowStockProducts.filter(
+    (p) => p.currentStockQuantity <= p.reorderLevel,
+  ).length;
+
+  const outstandingTotal = pendingInvoicesTotal._sum.total
+    ? formatCurrency(pendingInvoicesTotal._sum.total)
+    : "$0";
+
+  const summaryCards = [
+    {
+      label: "Open Quotes",
+      value: String(openQuotesCount),
+      detail: "Draft, in review, sent, or revised",
+      accent: "sky" as const,
+    },
+    {
+      label: "Active Jobs",
+      value: String(activeJobsCount),
+      detail: `${productionQueueCount} structures in production queue`,
+      accent: "emerald" as const,
+    },
+    {
+      label: "Pending Invoices",
+      value: String(pendingInvoicesCount),
+      detail: `${outstandingTotal} outstanding`,
+      accent: "amber" as const,
+    },
+    {
+      label: "Inventory Alerts",
+      value: String(inventoryAlertsCount),
+      detail: "Items at or below reorder level",
+      accent: "rose" as const,
+    },
+    {
+      label: "Deliveries Today",
+      value: String(scheduledDeliveriesToday),
+      detail: `${inTransitCount} in transit now`,
+      accent: "sky" as const,
+    },
+  ];
+
+  const quickActions = [
+    { label: "New Customer", href: "/customers/new", primary: false },
+    { label: "New Job", href: "/jobs/new", primary: true },
+    { label: "Create Quote", href: "/quotes/new", primary: true },
+    { label: "Record Delivery", href: "/delivery-tickets/new", primary: false },
+  ];
+
   return (
     <DashboardShell
       title="Dashboard"
       subtitle="Quotes, jobs, billing, and inventory at a glance."
     >
       <div className="space-y-5">
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {summaryCards.map((card) => (
             <SummaryCard key={card.label} {...card} />
           ))}
@@ -208,25 +181,44 @@ export default function Home() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {openQuotes.map((quote) => (
-                  <tr key={quote.id} className="hover:bg-slate-50/60">
-                    <td className="px-4 py-2.5">
-                      <p className="font-medium text-slate-900">{quote.id}</p>
-                      <p className="text-[11px] text-slate-500">
-                        {quote.project}
-                      </p>
-                    </td>
-                    <td className="px-4 py-2.5 text-slate-600">
-                      {quote.customer}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <StatusBadge label={quote.status} variant={quote.variant} />
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-medium text-slate-900">
-                      {quote.amount}
+                {openQuotes.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-6 text-center text-slate-500">
+                      No open quotes.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  openQuotes.map((quote) => (
+                    <tr key={quote.id} className="hover:bg-slate-50/60">
+                      <td className="px-4 py-2.5">
+                        <Link
+                          href={`/quotes/${quote.id}`}
+                          className="font-medium text-slate-900 hover:text-slate-700"
+                        >
+                          {quote.quoteNumber}
+                        </Link>
+                        <p className="text-[11px] text-slate-500">
+                          {quote.projectName}
+                        </p>
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-600">
+                        {quote.customerName}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <StatusBadge
+                          label={
+                            quoteStatusLabels[quote.status as QuoteStatus] ??
+                            quote.status
+                          }
+                          variant="info"
+                        />
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-medium text-slate-900">
+                        {formatCurrency(quote.total)}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </CompactTable>
           </SectionCard>
@@ -253,22 +245,33 @@ export default function Home() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {activeJobs.map((job) => (
-                  <tr key={job.number} className="hover:bg-slate-50/60">
-                    <td className="px-4 py-2.5 font-medium text-slate-900">
-                      {job.number}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <p className="font-medium text-slate-900">{job.project}</p>
-                      <p className="text-[11px] text-slate-500">
-                        {job.customer}
-                      </p>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <StatusBadge label={job.status} variant={job.variant} />
+                {activeJobs.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-6 text-center text-slate-500">
+                      No active jobs.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  activeJobs.map((job) => (
+                    <tr key={job.id} className="hover:bg-slate-50/60">
+                      <td className="px-4 py-2.5 font-medium text-slate-900">
+                        {job.jobNumber}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <p className="font-medium text-slate-900">{job.projectName}</p>
+                        <p className="text-[11px] text-slate-500">
+                          {job.customerName}
+                        </p>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <StatusBadge
+                          label={jobStatusLabels[job.status] ?? job.status}
+                          variant="success"
+                        />
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </CompactTable>
           </SectionCard>
@@ -291,32 +294,37 @@ export default function Home() {
                 <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
                   <th className="px-4 py-2 font-semibold">Invoice</th>
                   <th className="px-4 py-2 font-semibold">Customer</th>
-                  <th className="px-4 py-2 font-semibold">Due</th>
                   <th className="px-4 py-2 font-semibold">Status</th>
                   <th className="px-4 py-2 text-right font-semibold">Amount</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {pendingInvoices.map((invoice) => (
-                  <tr key={invoice.id} className="hover:bg-slate-50/60">
-                    <td className="px-4 py-2.5 font-medium text-slate-900">
-                      {invoice.id}
-                    </td>
-                    <td className="px-4 py-2.5 text-slate-600">
-                      {invoice.customer}
-                    </td>
-                    <td className="px-4 py-2.5 text-slate-600">{invoice.due}</td>
-                    <td className="px-4 py-2.5">
-                      <StatusBadge
-                        label={invoice.status}
-                        variant={invoice.variant}
-                      />
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-medium text-slate-900">
-                      {invoice.amount}
+                {pendingInvoices.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-6 text-center text-slate-500">
+                      No pending invoices.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  pendingInvoices.map((invoice) => (
+                    <tr key={invoice.id} className="hover:bg-slate-50/60">
+                      <td className="px-4 py-2.5 font-medium text-slate-900">
+                        <Link href={`/invoices/${invoice.id}`}>
+                          {invoice.invoiceNumber}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-600">
+                        {invoice.customerName}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <StatusBadge label={invoice.status} variant="warning" />
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-medium text-slate-900">
+                        {formatCurrency(invoice.total)}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </CompactTable>
           </SectionCard>
@@ -344,20 +352,30 @@ export default function Home() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {inventoryAlerts.map((alert) => (
-                  <tr key={alert.item} className="hover:bg-slate-50/60">
-                    <td className="px-4 py-2.5 font-medium text-slate-900">
-                      {alert.item}
+                {inventoryAlerts.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-6 text-center text-slate-500">
+                      All stocked products above reorder levels.
                     </td>
-                    <td className="px-4 py-2.5 font-mono text-[11px] text-slate-500">
-                      {alert.sku}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <StatusBadge label={alert.status} variant={alert.variant} />
-                    </td>
-                    <td className="px-4 py-2.5 text-slate-600">{alert.detail}</td>
                   </tr>
-                ))}
+                ) : (
+                  inventoryAlerts.map((product) => (
+                    <tr key={product.id} className="hover:bg-slate-50/60">
+                      <td className="px-4 py-2.5 font-medium text-slate-900">
+                        {product.name}
+                      </td>
+                      <td className="px-4 py-2.5 font-mono text-[11px] text-slate-500">
+                        {product.productCode}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <StatusBadge label="Low Stock" variant="danger" />
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-600">
+                        {product.currentStockQuantity} {product.unit} on hand
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </CompactTable>
           </SectionCard>
@@ -366,32 +384,49 @@ export default function Home() {
         <div className="grid gap-4 xl:grid-cols-3">
           <div className="xl:col-span-2">
             <SectionCard
-              title="Recent Activity"
-              description="Latest updates across quotes, jobs, and billing"
-              noPadding
+              title="Operations Snapshot"
+              description="Production queue and delivery activity"
             >
-              <CompactTable>
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                    <th className="px-4 py-2 font-semibold">Time</th>
-                    <th className="px-4 py-2 font-semibold">Type</th>
-                    <th className="px-4 py-2 font-semibold">Activity</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {recentActivity.map((item) => (
-                    <tr key={item.text} className="hover:bg-slate-50/60">
-                      <td className="px-4 py-2.5 whitespace-nowrap text-slate-500">
-                        {item.time}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <StatusBadge label={item.type} variant="neutral" />
-                      </td>
-                      <td className="px-4 py-2.5 text-slate-700">{item.text}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </CompactTable>
+              <dl className="grid gap-4 sm:grid-cols-3 text-xs">
+                <div>
+                  <dt className="text-slate-500">Production queue</dt>
+                  <dd className="mt-1 text-lg font-semibold text-slate-900">
+                    {productionQueueCount}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Scheduled today</dt>
+                  <dd className="mt-1 text-lg font-semibold text-slate-900">
+                    {scheduledDeliveriesToday}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">In transit</dt>
+                  <dd className="mt-1 text-lg font-semibold text-slate-900">
+                    {inTransitCount}
+                  </dd>
+                </div>
+              </dl>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link
+                  href="/production"
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-medium hover:bg-slate-50"
+                >
+                  Production queue
+                </Link>
+                <Link
+                  href="/delivery-tickets"
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-medium hover:bg-slate-50"
+                >
+                  Delivery tickets
+                </Link>
+                <Link
+                  href="/inventory/production"
+                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-medium hover:bg-slate-50"
+                >
+                  Record production
+                </Link>
+              </div>
             </SectionCard>
           </div>
 

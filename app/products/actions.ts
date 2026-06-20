@@ -3,7 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Prisma } from "@/app/generated/prisma/client";
-import { prisma } from "@/lib/prisma";
+import { assertPathUnderStockSubmittalsRoot } from "@/lib/product-path-security";
+import {
+  deleteProductDocument,
+  getProductDocumentForOpen,
+  getProductSubmittalDir,
+  scanProductDocuments,
+  uploadProductDocument,
+} from "@/lib/product-submittals-service";
+import { prisma, withDatabaseRetry } from "@/lib/prisma";
+import { launchWindowsFile, launchWindowsFolder } from "@/lib/windows-explorer";
+import { getStockSubmittalsRoot } from "@/lib/app-settings";
 
 const PRODUCT_STATUSES = ["ACTIVE", "INACTIVE", "DISCONTINUED"] as const;
 const PRODUCT_TYPES = [
@@ -282,4 +292,108 @@ export async function importProducts(formData: FormData) {
 
   revalidatePath("/products");
   redirect("/products");
+}
+
+export type ProductExplorerOpenResult = {
+  success: true;
+  path: string;
+};
+
+function revalidateProductPaths(productId: string) {
+  revalidatePath("/products");
+  revalidatePath(`/products/${productId}`);
+  revalidatePath("/inventory");
+  revalidatePath(`/inventory/${productId}`);
+}
+
+export async function uploadProductDocumentAction(formData: FormData) {
+  const productId = String(formData.get("productId") ?? "").trim();
+  const documentType = String(formData.get("documentType") ?? "GENERIC_SUBMITTAL").trim();
+  const file = formData.get("file");
+
+  if (!productId) {
+    throw new Error("Product is required.");
+  }
+
+  if (!(file instanceof File) || file.size === 0) {
+    throw new Error("Choose a file to upload.");
+  }
+
+  await withDatabaseRetry((client) =>
+    uploadProductDocument(client, productId, documentType, file),
+  );
+
+  revalidateProductPaths(productId);
+}
+
+export async function scanProductDocumentsAction(productId: string) {
+  const result = await withDatabaseRetry((client) =>
+    scanProductDocuments(client, productId),
+  );
+
+  revalidateProductPaths(productId);
+  return result;
+}
+
+export async function openProductDocument(
+  documentId: string,
+): Promise<ProductExplorerOpenResult & { documentName: string }> {
+  const document = await withDatabaseRetry((client) =>
+    getProductDocumentForOpen(client, documentId),
+  );
+
+  if (process.platform !== "win32") {
+    throw new Error("Opening files is supported on Windows only.");
+  }
+
+  await launchWindowsFile(document.filePath);
+
+  return {
+    success: true,
+    path: document.filePath,
+    documentName: document.documentName,
+  };
+}
+
+export async function openProductSubmittalsFolder(
+  productId: string,
+): Promise<ProductExplorerOpenResult> {
+  const product = await withDatabaseRetry((client) =>
+    client.product.findUnique({
+      where: { id: productId },
+      select: { productCode: true },
+    }),
+  );
+
+  if (!product) {
+    throw new Error("Product was not found.");
+  }
+
+  const folderPath = await getProductSubmittalDir(product.productCode);
+  const root = await getStockSubmittalsRoot();
+  assertPathUnderStockSubmittalsRoot(root, folderPath);
+
+  if (process.platform !== "win32") {
+    throw new Error("Opening folders is supported on Windows only.");
+  }
+
+  await launchWindowsFolder(folderPath, { allowedRoot: root });
+
+  return { success: true, path: folderPath };
+}
+
+export async function deleteProductDocumentAction(documentId: string) {
+  const document = await withDatabaseRetry((client) =>
+    client.productDocument.findUnique({
+      where: { id: documentId },
+      select: { productId: true },
+    }),
+  );
+
+  if (!document) {
+    throw new Error("Document was not found.");
+  }
+
+  await withDatabaseRetry((client) => deleteProductDocument(client, documentId));
+  revalidateProductPaths(document.productId);
 }

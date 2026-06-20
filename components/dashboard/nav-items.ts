@@ -10,6 +10,7 @@ export const navItems: NavItem[] = [
   { label: "Structures", href: "/structures/new" },
   { label: "Jobs", href: "/jobs" },
   { label: "Quotes", href: "/quotes" },
+  { label: "Production", href: "/production" },
   { label: "Invoices", href: "/invoices" },
   { label: "Delivery Tickets", href: "/delivery-tickets" },
   { label: "Inventory", href: "/inventory" },
