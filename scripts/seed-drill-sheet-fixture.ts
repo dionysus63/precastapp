@@ -74,7 +74,11 @@ async function main() {
             invertElevation: new Prisma.Decimal("76.80"),
             holeDiameter: new Prisma.Decimal("12"),
             bootType: "Kor-N-Seal",
-            angle: new Prisma.Decimal("225"),
+            // The reference image places B on the lower-right of the circle
+            // (between the straight-down and lower-right spokes), not
+            // lower-left — confirmed by inspecting docs/drill-sheet-target.png
+            // directly rather than going by a paraphrased description.
+            angle: new Prisma.Decimal("150"),
           },
         ],
       },
