@@ -599,14 +599,14 @@ export async function buildDrillSheetPdfHtml(
         overflow: hidden;
       }
       .head { display: flex; justify-content: space-between; align-items: flex-start; }
-      .brand { display: flex; align-items: flex-start; gap: 8px; }
-      .logo { max-height: 44px; max-width: 120px; object-fit: contain; }
+      .brand { display: flex; align-items: flex-start; gap: 8px; flex-shrink: 0; }
+      .logo { max-height: 80px; max-width: 200px; object-fit: contain; }
       .company-name { font-size: 17px; font-weight: 700; margin: 0; }
-      .company-meta { font-size: 10px; color: #4b5563; margin: 1px 0 0; }
-      .approved { font-size: 14px; padding-top: 4px; white-space: nowrap; }
+      .company-meta { font-size: 10px; color: #4b5563; margin: 1px 0 0; white-space: nowrap; }
+      .approved { font-size: 14px; padding-top: 4px; white-space: nowrap; flex-shrink: 0; }
       .approved .ul {
         display: inline-block;
-        width: 220px;
+        width: 160px;
         border-bottom: 1px solid #111827;
         margin-left: 4px;
       }
@@ -663,7 +663,7 @@ export async function buildDrillSheetPdfHtml(
         <div class="brand">
           ${logoHtml}
           <div>
-            <p class="company-name">${escapeHtml(company.name)}</p>
+            ${logoDataUri ? "" : `<p class="company-name">${escapeHtml(company.name)}</p>`}
             <p class="company-meta">${escapeHtml(company.address)}</p>
             <p class="company-meta">${escapeHtml(company.phone)}</p>
           </div>

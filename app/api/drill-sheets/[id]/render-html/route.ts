@@ -8,6 +8,12 @@ import { prisma } from "@/lib/prisma";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
+// Always reflect the latest DB/settings state — this is a dev-only debugging
+// endpoint hit repeatedly while iterating, so a cached GET response (Next's
+// App Router default) would silently mask data changes like a newly seeded
+// company logo.
+export const dynamic = "force-dynamic";
+
 /**
  * Dev-only debugging endpoint: returns the exact HTML that becomes the drill
  * sheet PDF (lib/drill-sheet-pdf-html.ts), so scripts/screenshot-drill-sheet.ts
