@@ -69,15 +69,16 @@ async function main() {
     // The page's own CSS only declares @page margins, which print engines
     // honor but on-screen rendering does not. Re-create that 0.5in margin as
     // real padding here so the screenshot matches what page.pdf() produces.
-    await page.addStyleTag({
-      content: `
-        html, body {
-          width: 8.5in !important;
-          min-height: 11in;
-          padding: 0.5in !important;
-          background: #ffffff !important;
-        }
-      `,
+    // Inline styles (set via evaluate) always win over external stylesheet
+    // rules without !important, so this is more reliable than addStyleTag,
+    // whose injected rule can lose the cascade depending on injection order.
+    await page.evaluate(() => {
+      document.documentElement.style.width = "8.5in";
+      document.documentElement.style.background = "#ffffff";
+      document.body.style.width = "8.5in";
+      document.body.style.minHeight = "11in";
+      document.body.style.padding = "0.5in";
+      document.body.style.background = "#ffffff";
     });
 
     await page.screenshot({ path: OUTPUT_PATH, type: "png", fullPage: true });

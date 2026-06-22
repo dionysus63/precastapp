@@ -51,7 +51,7 @@ function drawCircle(
   result: DrillSheetResult | null,
 ): string {
   const { cx, cy, radius } = layout;
-  const spokes = getKnockoutSpokes(layout, 8)
+  const spokes = getKnockoutSpokes(layout, 8, 10, 26)
     .map(
       (s) =>
         `<line x1="${n(s.x1)}" y1="${n(s.y1)}" x2="${n(s.x2)}" y2="${n(s.y2)}" stroke="#9ca3af" stroke-width="1" />`,
@@ -68,7 +68,7 @@ function drawCircle(
         const boot = getBootSymbol(placement, layout);
         const angle = placement.angleDeg;
 
-        const badge = polarToXY(angle, radius - 14, cx, cy);
+        const badge = boot.badge;
 
         let labelText = "";
         if (opening.isLowInvert && callout.holeLabel) {
@@ -107,8 +107,8 @@ function drawCircle(
 
 function buildPlanSvg(result: DrillSheetResult): string {
   const width = 520;
-  const height = 175;
-  const cy = 108;
+  const height = 210;
+  const cy = 120;
   const radius = 58;
   const base = drawCircle(
     { cx: 132, cy, radius },
@@ -198,24 +198,27 @@ function drawLapRight(
   return `<polyline points="${n(outerX)},${n(y)} ${n(outerX + width)},${n(y)} ${n(outerX + width)},${n(y + depth)}" fill="none" stroke="#111827" stroke-width="1" />`;
 }
 
-/** Stepped grade-ring / brick band widening outward. */
-function drawBrickSteps(cx: number, yTop: number, height: number): string {
-  const halfWidths = [12, 15, 18];
-  const stepH = height / halfWidths.length;
-  const parts: string[] = [];
-  for (let i = 0; i < halfWidths.length; i += 1) {
-    const hw = halfWidths[i];
-    const sy = yTop + i * stepH;
-    parts.push(
-      `<rect x="${n(cx - hw)}" y="${n(sy)}" width="${n(hw * 2)}" height="${n(stepH)}" fill="#ffffff" stroke="#111827" stroke-width="1" />`,
-    );
-    if (i > 0) {
-      parts.push(
-        `<line x1="${n(cx - hw)}" y1="${n(sy)}" x2="${n(cx + hw)}" y2="${n(sy)}" stroke="#111827" stroke-width="0.75" />`,
+/** Small corner "+" mark, e.g. for grade-ring bolt/adjustment points. */
+function drawCornerCross(x: number, y: number, size = 2.5): string {
+  return `<line x1="${n(x - size)}" y1="${n(y)}" x2="${n(x + size)}" y2="${n(y)}" stroke="#111827" stroke-width="0.75" /><line x1="${n(x)}" y1="${n(y - size)}" x2="${n(x)}" y2="${n(y + size)}" stroke="#111827" stroke-width="0.75" />`;
+}
+
+/** Diagonal hatch fill for the casting frame band. */
+function drawHatch(x: number, y: number, width: number, height: number): string {
+  const lines: string[] = [];
+  const step = 5;
+  for (let lx = x - height; lx < x + width; lx += step) {
+    const x1 = Math.max(x, lx);
+    const y1 = y + (x1 - lx);
+    const x2 = Math.min(x + width, lx + height);
+    const y2 = y + (x2 - lx);
+    if (x2 > x1) {
+      lines.push(
+        `<line x1="${n(x1)}" y1="${n(y1)}" x2="${n(x2)}" y2="${n(y2)}" stroke="#111827" stroke-width="0.5" />`,
       );
     }
   }
-  return parts.join("");
+  return lines.join("");
 }
 
 function buildElevationSvg(
@@ -253,12 +256,17 @@ function buildElevationSvg(
   const topY = 16;
   const centerX = 118;
 
-  const wCasting = 10;
-  const wNeck = 9;
-  const wRiserOut = 42;
-  const wRiserIn = 36;
-  const wBaseOut = 52;
-  const wBaseIn = 44;
+  // The structure is a constant-diameter precast cylinder (matches the
+  // example): riser and base share the same wall width — there is no
+  // tapered cone. Only the casting/brick/top-slab collar above the riser is
+  // narrower (it seats the frame over the access opening), stepping out to
+  // the full riser width via a lap notch, exactly like the riser-to-base
+  // joint below it.
+  const wallOut = 50;
+  const wallIn = 42;
+  const collarOut = 20;
+  const collarIn = 14;
+  const wAccess = 12;
   const lapDepth = 2;
   const lapWidth = 5;
 
@@ -285,92 +293,89 @@ function buildElevationSvg(
 
   // ---- Base slab (full footprint) ----
   parts.push(
-    `<rect x="${n(centerX - wBaseOut)}" y="${n(yFloor)}" width="${n(wBaseOut * 2)}" height="${n(yBase - yFloor)}" fill="#ffffff" stroke="#111827" stroke-width="1.2" />`,
+    `<rect x="${n(centerX - wallOut)}" y="${n(yFloor)}" width="${n(wallOut * 2)}" height="${n(yBase - yFloor)}" fill="#ffffff" stroke="#111827" stroke-width="1.2" />`,
   );
 
-  // ---- Base walls (double lines, stepped outward from riser) ----
-  // Left outer
+  // ---- Base walls (double lines, same width as the riser) ----
   parts.push(
-    `<line x1="${n(centerX - wBaseOut)}" y1="${n(yRiserBot)}" x2="${n(centerX - wBaseOut)}" y2="${n(yFloor)}" stroke="#111827" stroke-width="1.2" />`,
+    `<line x1="${n(centerX - wallOut)}" y1="${n(yRiserBot)}" x2="${n(centerX - wallOut)}" y2="${n(yFloor)}" stroke="#111827" stroke-width="1.2" />`,
   );
   parts.push(
-    `<line x1="${n(centerX - wBaseIn)}" y1="${n(yRiserBot)}" x2="${n(centerX - wBaseIn)}" y2="${n(yFloor)}" stroke="#111827" stroke-width="1" />`,
-  );
-  // Right outer + inner
-  parts.push(
-    `<line x1="${n(centerX + wBaseOut)}" y1="${n(yRiserBot)}" x2="${n(centerX + wBaseOut)}" y2="${n(yFloor)}" stroke="#111827" stroke-width="1.2" />`,
+    `<line x1="${n(centerX - wallIn)}" y1="${n(yRiserBot)}" x2="${n(centerX - wallIn)}" y2="${n(yFloor)}" stroke="#111827" stroke-width="1" />`,
   );
   parts.push(
-    `<line x1="${n(centerX + wBaseIn)}" y1="${n(yRiserBot)}" x2="${n(centerX + wBaseIn)}" y2="${n(yFloor)}" stroke="#111827" stroke-width="1" />`,
+    `<line x1="${n(centerX + wallOut)}" y1="${n(yRiserBot)}" x2="${n(centerX + wallOut)}" y2="${n(yFloor)}" stroke="#111827" stroke-width="1.2" />`,
+  );
+  parts.push(
+    `<line x1="${n(centerX + wallIn)}" y1="${n(yRiserBot)}" x2="${n(centerX + wallIn)}" y2="${n(yFloor)}" stroke="#111827" stroke-width="1" />`,
   );
   // Interior floor line
   parts.push(
-    `<line x1="${n(centerX - wBaseIn)}" y1="${n(yFloor)}" x2="${n(centerX + wBaseIn)}" y2="${n(yFloor)}" stroke="#111827" stroke-width="1" />`,
+    `<line x1="${n(centerX - wallIn)}" y1="${n(yFloor)}" x2="${n(centerX + wallIn)}" y2="${n(yFloor)}" stroke="#111827" stroke-width="1" />`,
   );
 
-  // ---- Riser-to-base step + lap joints ----
+  // ---- Riser-to-base lap joint (no width change, just the notch detail) ----
+  parts.push(drawLapLeft(yRiserBot, centerX - wallOut, lapDepth, lapWidth));
+  parts.push(drawLapRight(yRiserBot, centerX + wallOut, lapDepth, lapWidth));
+
+  // ---- Riser walls (double lines, same width as the base) ----
   parts.push(
-    `<line x1="${n(centerX - wRiserOut)}" y1="${n(yRiserBot)}" x2="${n(centerX - wBaseOut)}" y2="${n(yRiserBot)}" stroke="#111827" stroke-width="1" />`,
+    `<line x1="${n(centerX - wallOut)}" y1="${n(yWallTop)}" x2="${n(centerX - wallOut)}" y2="${n(yRiserBot)}" stroke="#111827" stroke-width="1.2" />`,
   );
   parts.push(
-    `<line x1="${n(centerX + wRiserOut)}" y1="${n(yRiserBot)}" x2="${n(centerX + wBaseOut)}" y2="${n(yRiserBot)}" stroke="#111827" stroke-width="1" />`,
+    `<line x1="${n(centerX - wallIn)}" y1="${n(yWallTop)}" x2="${n(centerX - wallIn)}" y2="${n(yRiserBot)}" stroke="#111827" stroke-width="1" />`,
   );
   parts.push(
-    drawLapLeft(yRiserBot, centerX - wRiserOut, lapDepth, lapWidth),
+    `<line x1="${n(centerX + wallOut)}" y1="${n(yWallTop)}" x2="${n(centerX + wallOut)}" y2="${n(yRiserBot)}" stroke="#111827" stroke-width="1.2" />`,
   );
   parts.push(
-    drawLapRight(yRiserBot, centerX + wRiserOut, lapDepth, lapWidth),
+    `<line x1="${n(centerX + wallIn)}" y1="${n(yWallTop)}" x2="${n(centerX + wallIn)}" y2="${n(yRiserBot)}" stroke="#111827" stroke-width="1" />`,
   );
 
-  // ---- Riser walls (double lines) ----
+  // ---- Collar-to-riser step (narrow seat widens out to the full wall) ----
   parts.push(
-    `<line x1="${n(centerX - wRiserOut)}" y1="${n(yWallTop)}" x2="${n(centerX - wRiserOut)}" y2="${n(yRiserBot)}" stroke="#111827" stroke-width="1.2" />`,
+    `<line x1="${n(centerX - collarOut)}" y1="${n(yWallTop)}" x2="${n(centerX - wallOut)}" y2="${n(yWallTop)}" stroke="#111827" stroke-width="1" />`,
   );
   parts.push(
-    `<line x1="${n(centerX - wRiserIn)}" y1="${n(yWallTop)}" x2="${n(centerX - wRiserIn)}" y2="${n(yRiserBot)}" stroke="#111827" stroke-width="1" />`,
+    `<line x1="${n(centerX + collarOut)}" y1="${n(yWallTop)}" x2="${n(centerX + wallOut)}" y2="${n(yWallTop)}" stroke="#111827" stroke-width="1" />`,
+  );
+  parts.push(drawLapLeft(yWallTop, centerX - collarOut, lapDepth, lapWidth));
+  parts.push(drawLapRight(yWallTop, centerX + collarOut, lapDepth, lapWidth));
+
+  // ---- Top-slab collar (plain, narrow neck above the riser) ----
+  parts.push(
+    `<line x1="${n(centerX - collarOut)}" y1="${n(ySlabTop)}" x2="${n(centerX - collarOut)}" y2="${n(yWallTop)}" stroke="#111827" stroke-width="1.2" />`,
   );
   parts.push(
-    `<line x1="${n(centerX + wRiserOut)}" y1="${n(yWallTop)}" x2="${n(centerX + wRiserOut)}" y2="${n(yRiserBot)}" stroke="#111827" stroke-width="1.2" />`,
-  );
-  parts.push(
-    `<line x1="${n(centerX + wRiserIn)}" y1="${n(yWallTop)}" x2="${n(centerX + wRiserIn)}" y2="${n(yRiserBot)}" stroke="#111827" stroke-width="1" />`,
+    `<line x1="${n(centerX + collarOut)}" y1="${n(ySlabTop)}" x2="${n(centerX + collarOut)}" y2="${n(yWallTop)}" stroke="#111827" stroke-width="1.2" />`,
   );
 
-  // Lap at top of riser (bottom of top slab)
-  parts.push(drawLapLeft(yWallTop, centerX - wRiserOut, lapDepth, lapWidth));
-  parts.push(drawLapRight(yWallTop, centerX + wRiserOut, lapDepth, lapWidth));
-
-  // ---- Top slab / cone (frustum outline) ----
-  parts.push(
-    `<polygon points="${n(centerX - wNeck)},${n(ySlabTop)} ${n(centerX + wNeck)},${n(ySlabTop)} ${n(centerX + wRiserOut)},${n(yWallTop)} ${n(centerX - wRiserOut)},${n(yWallTop)}" fill="#ffffff" stroke="#111827" stroke-width="1.2" />`,
-  );
-  if (result.hasKey) {
-    const notchW = 14;
-    const notchH = 4;
-    parts.push(
-      `<rect x="${n(centerX - notchW / 2)}" y="${n(yWallTop - notchH)}" width="${n(notchW)}" height="${n(notchH)}" fill="#ffffff" stroke="#111827" stroke-width="0.75" />`,
-    );
-  }
-
-  // ---- Brick steps ----
+  // ---- Brick/grade-ring collar, with corner bolt marks ----
   if (fBrick > 0) {
-    parts.push(drawBrickSteps(centerX, yBrickTop, ySlabTop - yBrickTop));
+    parts.push(
+      `<rect x="${n(centerX - collarOut)}" y="${n(yBrickTop)}" width="${n(collarOut * 2)}" height="${n(ySlabTop - yBrickTop)}" fill="#ffffff" stroke="#111827" stroke-width="1.2" />`,
+    );
+    parts.push(drawCornerCross(centerX - collarOut, yBrickTop));
+    parts.push(drawCornerCross(centerX - collarOut, ySlabTop));
+    parts.push(drawCornerCross(centerX + collarOut, yBrickTop));
+    parts.push(drawCornerCross(centerX + collarOut, ySlabTop));
   }
 
-  // ---- Casting frame ----
+  // ---- Casting frame, hatched ----
   if (fCasting > 0) {
     parts.push(
-      `<rect x="${n(centerX - wCasting)}" y="${n(yRim)}" width="${n(wCasting * 2)}" height="${n(yBrickTop - yRim)}" fill="#ffffff" stroke="#111827" stroke-width="1" />`,
+      `<rect x="${n(centerX - collarOut)}" y="${n(yRim)}" width="${n(collarOut * 2)}" height="${n(yBrickTop - yRim)}" fill="#ffffff" stroke="#111827" stroke-width="1" />`,
     );
+    parts.push(drawHatch(centerX - collarOut, yRim, collarOut * 2, yBrickTop - yRim));
   }
   // Heavy rim line extending past walls
   parts.push(
-    `<line x1="${n(centerX - wCasting - 4)}" y1="${n(yRim)}" x2="${n(centerX + wCasting + 4)}" y2="${n(yRim)}" stroke="#111827" stroke-width="1.5" />`,
+    `<line x1="${n(centerX - collarOut - 4)}" y1="${n(yRim)}" x2="${n(centerX + collarOut + 4)}" y2="${n(yRim)}" stroke="#111827" stroke-width="1.5" />`,
   );
 
   // ---- Left-side vertical dimensions (slash ticks) ----
-  const dimX = centerX - wBaseOut - 22;
-  const witnessX = centerX - wBaseOut;
+  const dimX = centerX - wallOut - 22;
+  const witnessX = centerX - wallOut;
   if (fCasting > 0) {
     parts.push(drawVSlashDim(dimX, yRim, yBrickTop, dimLabel(fCasting), witnessX));
   }
@@ -387,13 +392,13 @@ function buildElevationSvg(
   parts.push(drawVSlashDim(dimX, yFloor, yBase, dimLabel(fSlab), witnessX));
 
   // ---- Right-side elevation callouts ----
-  const elevX = centerX + wBaseOut + 4;
+  const elevX = centerX + wallOut + 4;
   const elevMark = (y: number, value: number | null) => {
     if (value == null) {
       return "";
     }
     return `
-      <line x1="${n(centerX + wBaseOut)}" y1="${n(y)}" x2="${n(elevX)}" y2="${n(y)}" stroke="#9ca3af" stroke-width="0.5" />
+      <line x1="${n(centerX + wallOut)}" y1="${n(y)}" x2="${n(elevX)}" y2="${n(y)}" stroke="#9ca3af" stroke-width="0.5" />
       <text x="${n(elevX + 2)}" y="${n(y + 3)}" text-anchor="start" font-size="9" fill="#111827">${value.toFixed(2)}</text>
     `;
   };
@@ -405,14 +410,14 @@ function buildElevationSvg(
 
   // ---- Interior horizontal dimensions ----
   parts.push(
-    drawHSlashDim(ySlabTop + 6, centerX - wNeck, centerX + wNeck, `${NOMINAL_ACCESS_OPENING_IN}"`),
+    drawHSlashDim(yWallTop + 8, centerX - wAccess, centerX + wAccess, `${NOMINAL_ACCESS_OPENING_IN}"`),
   );
   if (insideDiameterFeet != null) {
     parts.push(
       drawHSlashDim(
-        (yWallTop + yRiserBot) / 2,
-        centerX - wRiserIn,
-        centerX + wRiserIn,
+        (yWallTop + yRiserBot) / 2 + 14,
+        centerX - wallIn,
+        centerX + wallIn,
         dimLabel(insideDiameterFeet),
       ),
     );
@@ -432,12 +437,8 @@ function buildElevationSvg(
       if (py < yWallTop || py > yFloor) {
         continue;
       }
-      const outerX =
-        py >= yRiserBot ? centerX - wBaseOut : centerX - wRiserOut;
-      const innerX =
-        py >= yRiserBot ? centerX - wBaseIn : centerX - wRiserIn;
       parts.push(
-        `<line x1="${n(outerX - 10)}" y1="${n(py)}" x2="${n(innerX)}" y2="${n(py)}" stroke="#111827" stroke-width="2.5" />`,
+        `<line x1="${n(centerX - wallOut - 10)}" y1="${n(py)}" x2="${n(centerX - wallIn)}" y2="${n(py)}" stroke="#111827" stroke-width="2.5" />`,
       );
     }
   }
@@ -508,7 +509,7 @@ export async function buildDrillSheetPdfHtml(
   const calcRows = [
     calcRow("Rim Elevation", feet(result.rimElevation)),
     calcRow("Low Invert", feet(result.lowInvertElevation), { underline: true }),
-    calcRow("Invert to Top", feet(result.invertToTopFeet), { underline: true }),
+    calcRow("Invert to Top", feet(result.invertToTopFeet)),
     calcRow("Casting (-)", feet(result.castingHeightFeet)),
     calcRow("Top Slab (-)", feet(result.topSlabHeightFeet)),
     calcRow("Brick Adjustment (-)", feet(result.brickAdjustmentFeet)),
@@ -584,6 +585,11 @@ export async function buildDrillSheetPdfHtml(
         font-size: 10px;
         line-height: 1.3;
       }
+      /* Hand-entry data fields use a casual font (matches the reference
+         drill sheet); headings/titles stay plain bold Arial. */
+      .data-font {
+        font-family: "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+      }
       .sheet {
         border: 1px solid #111827;
         padding: 8px 10px;
@@ -595,21 +601,21 @@ export async function buildDrillSheetPdfHtml(
       .head { display: flex; justify-content: space-between; align-items: flex-start; }
       .brand { display: flex; align-items: flex-start; gap: 8px; }
       .logo { max-height: 44px; max-width: 120px; object-fit: contain; }
-      .company-name { font-size: 12px; font-weight: 700; margin: 0; }
-      .company-meta { font-size: 7px; color: #4b5563; margin: 1px 0 0; }
-      .approved { font-size: 10px; padding-top: 4px; white-space: nowrap; }
+      .company-name { font-size: 17px; font-weight: 700; margin: 0; }
+      .company-meta { font-size: 10px; color: #4b5563; margin: 1px 0 0; }
+      .approved { font-size: 14px; padding-top: 4px; white-space: nowrap; }
       .approved .ul {
         display: inline-block;
-        width: 160px;
+        width: 220px;
         border-bottom: 1px solid #111827;
         margin-left: 4px;
       }
-      .fields { margin: 6px 0 4px; }
-      .field { font-size: 10px; line-height: 1.4; }
+      .fields { margin: 8px 0 6px; }
+      .field { font-size: 14px; line-height: 1.5; }
       .field .fl { color: #111827; }
-      .field .fv { font-weight: 600; }
+      .field .fv { font-weight: 400; }
       .circles { margin: 2px 0 4px; page-break-inside: avoid; break-inside: avoid; }
-      .circles svg { display: block; height: 155px; width: 100%; }
+      .circles svg { display: block; width: 100%; height: auto; }
       .bottom {
         display: flex;
         gap: 10px;
@@ -619,28 +625,28 @@ export async function buildDrillSheetPdfHtml(
       }
       .bottom-left { width: 46%; flex-shrink: 0; }
       .bottom-right { flex: 1; min-width: 0; }
-      .bottom-right svg { display: block; height: 230px; width: 100%; }
-      table.calc { border-collapse: collapse; margin: 0 0 4px; width: 100%; }
-      table.calc td { padding: 0 3px; font-size: 10px; }
+      .bottom-right svg { display: block; width: 100%; height: auto; }
+      table.calc { border-collapse: collapse; margin: 0 0 6px; width: 100%; }
+      table.calc td { padding: 1px 3px; font-size: 14px; }
       table.calc td.lbl { text-align: right; }
       table.calc td.num {
         text-align: right;
         font-variant-numeric: tabular-nums;
-        min-width: 40px;
+        min-width: 56px;
       }
       table.calc tr.u td.num { border-bottom: 1px solid #111827; }
-      table.calc tr.total td { font-weight: 700; padding-top: 2px; }
-      .use-line { font-weight: 600; margin: 4px 0 1px; font-size: 10px; }
-      .use-line span { margin-right: 8px; }
-      .brick-line { margin: 1px 0 6px; font-size: 10px; }
+      table.calc tr.total td { font-weight: 700; padding-top: 3px; }
+      .use-line { font-weight: 400; margin: 6px 0 2px; font-size: 14px; }
+      .use-line span { margin-right: 10px; }
+      .brick-line { margin: 2px 0 8px; font-size: 14px; }
       table.grid { border-collapse: collapse; width: 100%; }
       table.grid th, table.grid td {
         border: 1px solid #111827;
-        padding: 2px 6px;
+        padding: 3px 8px;
         text-align: center;
-        font-size: 10px;
+        font-size: 14px;
       }
-      table.grid th { font-size: 8px; letter-spacing: 0.04em; }
+      table.grid th { font-size: 11px; letter-spacing: 0.04em; }
       table.grid td.letter { font-weight: 700; }
       .warnings {
         border: 1px solid #f59e0b;
@@ -665,12 +671,12 @@ export async function buildDrillSheetPdfHtml(
         <div class="approved">Approved By:<span class="ul"></span></div>
       </div>
 
-      <div class="fields">${fieldList}</div>
+      <div class="fields data-font">${fieldList}</div>
 
       <div class="circles">${planSvg}</div>
 
       <div class="bottom">
-        <div class="bottom-left">
+        <div class="bottom-left data-font">
           <table class="calc">${calcRows}</table>
           <div class="use-line">
             <span>USE: ${escapeHtml(insideDiameterLabel)}</span>
