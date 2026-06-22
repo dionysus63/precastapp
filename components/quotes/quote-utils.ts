@@ -5,6 +5,7 @@ export type QuoteStatus =
   | "REVISED"
   | "WON"
   | "LOST"
+  | "LOST_BC"
   | "EXPIRED"
   | "CANCELLED";
 
@@ -46,6 +47,7 @@ export const quoteStatusLabels: Record<QuoteStatus, string> = {
   REVISED: "Revised",
   WON: "Won",
   LOST: "Lost",
+  LOST_BC: "Lost-BC",
   EXPIRED: "Expired",
   CANCELLED: "Cancelled",
 };
@@ -65,6 +67,7 @@ export const quoteStatusFilterOptions = [
   "Revised",
   "Won",
   "Lost",
+  "Lost-BC",
   "Expired",
   "Cancelled",
 ];
@@ -259,6 +262,7 @@ export const quoteStatusFormOptions: { value: QuoteStatus; label: string }[] = [
   { value: "REVISED", label: "Revised" },
   { value: "WON", label: "Won" },
   { value: "LOST", label: "Lost" },
+  { value: "LOST_BC", label: "Lost-BC" },
   { value: "EXPIRED", label: "Expired" },
   { value: "CANCELLED", label: "Cancelled" },
 ];
@@ -523,6 +527,21 @@ export type EditableQuoteLineItem = {
   taxable: boolean;
   productId?: string | null;
   statusNote?: string | null;
+  isDrainRing?: boolean;
+  ringDiameterFeet?: number | null;
+  poolHeightFeet?: number | null;
+  drainRingStyle?: "DRAIN" | "SANITARY" | "SOLID";
+};
+
+export const drainRingDiameterFeetOptions = [4, 6, 8, 10, 12];
+
+export type QuoteFormCustomerContactOption = {
+  id: string;
+  name: string;
+  title: string;
+  email: string;
+  phone: string;
+  isPrimary: boolean;
 };
 
 export type QuoteFormCustomerOption = {
@@ -531,7 +550,14 @@ export type QuoteFormCustomerOption = {
   contactName: string;
   contactEmail: string;
   contactPhone: string;
+  contacts: QuoteFormCustomerContactOption[];
 };
+
+export function pickDefaultCustomerContact(
+  contacts: QuoteFormCustomerContactOption[],
+) {
+  return contacts.find((contact) => contact.isPrimary) ?? contacts[0] ?? null;
+}
 
 export type QuoteFormJobOption = {
   id: string;
@@ -580,12 +606,16 @@ export type QuoteFormProps = {
   configurableProducts: QuoteFormProductOption[];
   serviceOptions: QuoteFormServiceOption[];
   priceLists?: QuoteFormPriceListOption[];
+  initialJobId?: string;
+  initialCustomerId?: string;
+  initialJobBidderId?: string;
   quoteDefaults?: {
     defaultTaxRate: number;
     defaultLeadTime: string | null;
     defaultExpirationDate: string;
     estimators: string[];
     paymentTerms: string[];
+    defaultEstimator?: string | null;
   };
 };
 
@@ -779,6 +809,18 @@ export type QuoteDetailLineItem = {
   statusNotes: string;
 };
 
+export type QuoteRelatedStructure = {
+  id: string;
+  structureNumber: string;
+  description: string;
+  status: string;
+  statusLabel: string;
+  needsSubmittal: boolean;
+  documentCount: number;
+  jobId: string;
+  folderPath: string | null;
+};
+
 export type QuoteDetailView = {
   id: string;
   quoteNumber: string;
@@ -792,6 +834,7 @@ export type QuoteDetailView = {
   bidDueDate: string;
   revision: string;
   estimator: string;
+  jobId: string | null;
   jobNumber: string;
   projectName: string;
   projectAddress: string;
@@ -799,7 +842,10 @@ export type QuoteDetailView = {
   contactName: string;
   contactEmail: string;
   contactPhone: string;
+  contactTitle: string;
   quoteDate: string;
+  sentAt: string;
+  bidListContractor: string | null;
   expirationDate: string;
   priceList: string;
   taxRate: string;
@@ -821,6 +867,7 @@ export type QuoteDetailView = {
     totalYards: string;
   };
   revisionHistory: { id: string; label: string }[];
+  relatedStructures: QuoteRelatedStructure[];
   relatedRecords: {
     jobNumber: string;
     customer: string;
@@ -845,6 +892,7 @@ export const sampleQuoteDetail: QuoteDetailView = {
   bidDueDate: "02/20/2026",
   revision: "R1",
   estimator: "Nick",
+  jobId: null,
   jobNumber: "26-002",
   projectName: "Suffolk Sewer Manholes",
   projectAddress: "Patchogue Road, Brookhaven, NY 11772",
@@ -852,7 +900,10 @@ export const sampleQuoteDetail: QuoteDetailView = {
   contactName: "Patricia Cole",
   contactEmail: "pcole@brookhaven.gov",
   contactPhone: "(631) 555-0188",
+  contactTitle: "Purchasing",
   quoteDate: "02/10/2026",
+  sentAt: "—",
+  bidListContractor: null,
   expirationDate: "03/12/2026",
   priceList: "Municipal / Public Works",
   taxRate: "8.0%",
@@ -946,6 +997,7 @@ export const sampleQuoteDetail: QuoteDetailView = {
     { id: "rev-3", label: "R1 revised after plan change" },
     { id: "rev-4", label: "R1 sent to customer" },
   ],
+  relatedStructures: [],
   relatedRecords: {
     jobNumber: "26-002",
     customer: "Town of Brookhaven",

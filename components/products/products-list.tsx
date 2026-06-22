@@ -6,19 +6,25 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import {
   type ProductRow,
-  productCategoryFilterOptions,
   productInventoryFilterOptions,
   productStatusFilterOptions,
-  productSubcategoryFilterOptions,
   productSubmittalsFilterOptions,
   productTypeFilterOptions,
 } from "@/components/products/product-utils";
+import { ExportExcelLink } from "@/components/shared/export-excel-link";
+import {
+  buildCategoryFilterOptions,
+  buildSubcategoryFilterOptions,
+  mergeCatalogWithInUseValues,
+  type ProductCatalogCategory,
+} from "@/lib/product-catalog-settings";
 
 type ProductsListProps = {
   products: ProductRow[];
+  catalog: ProductCatalogCategory[];
 };
 
-export function ProductsList({ products }: ProductsListProps) {
+export function ProductsList({ products, catalog }: ProductsListProps) {
   const [search, setSearch] = useState("");
   const [productTypeFilter, setProductTypeFilter] = useState("All");
   const [categoryFilter, setCategoryFilter] = useState("All");
@@ -26,6 +32,28 @@ export function ProductsList({ products }: ProductsListProps) {
   const [statusFilter, setStatusFilter] = useState("All");
   const [inventoryFilter, setInventoryFilter] = useState("All");
   const [submittalsFilter, setSubmittalsFilter] = useState("All");
+
+  const mergedCatalog = useMemo(
+    () =>
+      mergeCatalogWithInUseValues(
+        catalog,
+        products.map((product) => ({
+          category: product.category,
+          subcategory: product.subcategory,
+        })),
+      ),
+    [catalog, products],
+  );
+
+  const categoryFilterOptions = useMemo(
+    () => buildCategoryFilterOptions(mergedCatalog),
+    [mergedCatalog],
+  );
+
+  const subcategoryFilterOptions = useMemo(
+    () => buildSubcategoryFilterOptions(mergedCatalog, categoryFilter),
+    [mergedCatalog, categoryFilter],
+  );
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
@@ -105,10 +133,13 @@ export function ProductsList({ products }: ProductsListProps) {
           </select>
           <select
             value={categoryFilter}
-            onChange={(event) => setCategoryFilter(event.target.value)}
+            onChange={(event) => {
+              setCategoryFilter(event.target.value);
+              setSubcategoryFilter("All");
+            }}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
           >
-            {productCategoryFilterOptions.map((category) => (
+            {categoryFilterOptions.map((category) => (
               <option key={category} value={category}>
                 Category: {category}
               </option>
@@ -119,7 +150,7 @@ export function ProductsList({ products }: ProductsListProps) {
             onChange={(event) => setSubcategoryFilter(event.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
           >
-            {productSubcategoryFilterOptions.map((subcategory) => (
+            {subcategoryFilterOptions.map((subcategory) => (
               <option key={subcategory} value={subcategory}>
                 Subcategory: {subcategory}
               </option>
@@ -161,6 +192,7 @@ export function ProductsList({ products }: ProductsListProps) {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <ExportExcelLink href="/api/export/products" />
           <Link
             href="/products/bulk"
             className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
@@ -218,7 +250,12 @@ export function ProductsList({ products }: ProductsListProps) {
                       {product.productCode}
                     </td>
                     <td className="px-4 py-2.5 font-medium text-slate-900">
-                      {product.productName}
+                      <span className="inline-flex items-center gap-1.5">
+                        {product.productName}
+                        {product.isCasting ? (
+                          <StatusBadge label="Casting" variant="info" />
+                        ) : null}
+                      </span>
                     </td>
                     <td className="px-4 py-2.5">
                       <StatusBadge

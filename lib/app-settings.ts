@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { AppSettings, PrismaClient } from "@/app/generated/prisma/client";
 import { Prisma } from "@/app/generated/prisma/client";
 import {
@@ -6,6 +7,11 @@ import {
   STOCK_SUBMITTALS_ROOT,
 } from "@/lib/job-folder-constants";
 import { QUOTE_PDF_FALLBACK_DIR } from "@/lib/quote-pdf-path";
+import {
+  DEFAULT_PRODUCT_CATALOG,
+  parseProductCatalog,
+  type ProductCatalogCategory,
+} from "@/lib/product-catalog-settings";
 import { withDatabaseRetry } from "@/lib/prisma";
 
 export type CompanyProfile = {
@@ -38,6 +44,7 @@ export type AppSettingsView = {
   drivers: string[];
   trailers: string[];
   truckCapacityLabel: string;
+  productCatalog: ProductCatalogCategory[];
   companyLogoPath: string | null;
 };
 
@@ -78,6 +85,7 @@ export const DEFAULT_APP_SETTINGS_DATA = {
   drivers: DEFAULT_DRIVERS,
   trailers: DEFAULT_TRAILERS,
   truckCapacityLabel: "80,000 lb",
+  productCatalog: DEFAULT_PRODUCT_CATALOG,
 };
 
 function parseStringList(value: unknown, fallback: string[]): string[] {
@@ -117,6 +125,7 @@ export function mapAppSettingsRow(row: AppSettings): AppSettingsView {
     drivers: parseStringList(row.drivers, DEFAULT_DRIVERS),
     trailers: parseStringList(row.trailers, DEFAULT_TRAILERS),
     truckCapacityLabel: row.truckCapacityLabel,
+    productCatalog: parseProductCatalog(row.productCatalog),
     companyLogoPath: row.companyLogoPath,
   };
 }
@@ -135,10 +144,10 @@ async function ensureAppSettingsRow(client: PrismaClient): Promise<AppSettings> 
   });
 }
 
-export async function getAppSettings(): Promise<AppSettingsView> {
+export const getAppSettings = cache(async (): Promise<AppSettingsView> => {
   const row = await withDatabaseRetry((client) => ensureAppSettingsRow(client));
   return mapAppSettingsRow(row);
-}
+});
 
 export async function getCompanyProfile(): Promise<CompanyProfile> {
   const settings = await getAppSettings();

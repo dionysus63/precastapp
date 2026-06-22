@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { AppPermission } from "@/app/generated/prisma/client";
+import { requirePermission } from "@/lib/auth/session";
 import {
   assertJobFolderPath,
   getJobFileForOpen,
@@ -25,16 +27,27 @@ export type ExplorerOpenResult = {
 };
 
 function revalidateFilesPaths(jobId?: string) {
-  revalidatePath("/files");
+  revalidatePath("/files", "page");
   if (jobId) {
-    revalidatePath(`/files/jobs/${jobId}`);
+    revalidatePath(`/files/jobs/${jobId}`, "page");
+    revalidatePath(`/jobs/${jobId}`, "page");
+    revalidatePath(`/jobs/${jobId}/edit`, "page");
   }
-  revalidatePath(`/jobs/${jobId}/edit`);
 }
 
-export async function syncAllFiles() {
-  await withDatabaseRetry((client) => syncAllJobFilesFromDisk(client));
+export type SyncAllFilesResult = {
+  synced: number;
+  skipped: number;
+  errors: { jobId: string; message: string }[];
+};
+
+export async function syncAllFiles(): Promise<SyncAllFilesResult> {
+  await requirePermission(AppPermission.FILES_MANAGE);
+  const result = await withDatabaseRetry((client) =>
+    syncAllJobFilesFromDisk(client),
+  );
   revalidatePath("/files");
+  return result;
 }
 
 export async function listRecentFiles(filters?: {
@@ -71,7 +84,18 @@ export async function getJobFilesForBrowser(jobId: string, category?: string) {
   });
 }
 
+export async function listJobFilesAction(
+  jobId: string,
+  folderCategory?: string,
+) {
+  await requirePermission(AppPermission.FILES_VIEW);
+  return withDatabaseRetry((client) =>
+    listJobFiles(client, jobId, folderCategory),
+  );
+}
+
 export async function uploadJobFileAction(formData: FormData) {
+  await requirePermission(AppPermission.FILES_MANAGE);
   const jobId = String(formData.get("jobId") ?? "").trim();
   const folderCategory = String(formData.get("folderCategory") ?? "").trim();
   const file = formData.get("file");
@@ -98,6 +122,7 @@ export async function uploadJobFileAction(formData: FormData) {
 export async function openJobFile(fileId: string): Promise<
   ExplorerOpenResult & { fileName: string }
 > {
+  await requirePermission(AppPermission.FILES_VIEW);
   const file = await withDatabaseRetry((client) =>
     getJobFileForOpen(client, fileId),
   );
@@ -116,6 +141,7 @@ export async function openJobFolderCategory(
   jobId: string,
   category: string,
 ): Promise<ExplorerOpenResult> {
+  await requirePermission(AppPermission.FILES_VIEW);
   const job = await withDatabaseRetry((client) =>
     assertJobFolderPath(client, jobId),
   );
@@ -129,6 +155,7 @@ export async function openJobFolderCategory(
 }
 
 export async function syncJobFilesAction(jobId: string) {
+  await requirePermission(AppPermission.FILES_MANAGE);
   await withDatabaseRetry((client) => syncJobFilesFromDisk(client, jobId));
   revalidateFilesPaths(jobId);
 }

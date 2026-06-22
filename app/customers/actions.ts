@@ -2,30 +2,43 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { CustomerStatus, AppPermission } from "@/app/generated/prisma/client";
+import { parseBulkCustomerStatus } from "@/components/customers/customer-utils";
+import { findSimilarCustomers as rankSimilarCustomers } from "@/lib/customer-name-similarity";
 import {
-  CustomerStatus,
-  CustomerType,
-} from "@/app/generated/prisma/client";
+  syncCustomerHeaderFromPrimaryContact,
+  upsertPrimaryContactFromHeader,
+} from "@/lib/customer-contact-sync";
+import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 
-const CUSTOMER_TYPES = Object.values(CustomerType);
+export type SimilarCustomerMatch = {
+  id: string;
+  name: string;
+  score: number;
+};
+
 const CUSTOMER_STATUSES = Object.values(CustomerStatus);
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function parseCustomerFormData(formData: FormData) {
+type CustomerRecordInput = {
+  name: string;
+  status: CustomerStatus;
+  primaryContactName: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  town: string | null;
+  state: string | null;
+  zip: string | null;
+  notes: string | null;
+};
+
+function parseCustomerFormData(formData: FormData): CustomerRecordInput {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) {
     throw new Error("Customer name is required.");
   }
-
-  const customerTypeRaw = String(formData.get("customerType") ?? "").trim();
-  if (
-    !customerTypeRaw ||
-    !CUSTOMER_TYPES.includes(customerTypeRaw as CustomerType)
-  ) {
-    throw new Error("Customer type is required.");
-  }
-  const customerType = customerTypeRaw as CustomerType;
 
   const statusRaw = String(formData.get("status") ?? "").trim();
   if (!statusRaw || !CUSTOMER_STATUSES.includes(statusRaw as CustomerStatus)) {
@@ -41,32 +54,103 @@ function parseCustomerFormData(formData: FormData) {
     throw new Error("Email must be a valid email address.");
   }
   const email = emailRaw || null;
-  const billingAddress =
-    String(formData.get("billingAddress") ?? "").trim() || null;
+  const address = String(formData.get("address") ?? "").trim() || null;
+  const town = String(formData.get("town") ?? "").trim() || null;
+  const state = String(formData.get("state") ?? "").trim() || null;
+  const zip = String(formData.get("zip") ?? "").trim() || null;
   const notes = String(formData.get("notes") ?? "").trim() || null;
 
   return {
     name,
-    customerType,
     status,
     primaryContactName,
     phone,
     email,
-    billingAddress,
+    address,
+    town,
+    state,
+    zip,
     notes,
   };
 }
 
-export async function createCustomer(formData: FormData) {
-  const data = parseCustomerFormData(formData);
+async function loadSimilarCustomerMatches(
+  name: string,
+): Promise<SimilarCustomerMatch[]> {
+  const candidates = await prisma.customer.findMany({
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
 
-  await prisma.customer.create({ data });
+  return rankSimilarCustomers(name, candidates);
+}
+
+export async function findSimilarCustomers(
+  name: string,
+): Promise<SimilarCustomerMatch[]> {
+  const trimmed = name.trim();
+  if (trimmed.length < 3) {
+    return [];
+  }
+
+  return loadSimilarCustomerMatches(trimmed);
+}
+
+export async function checkBulkCustomerDbDuplicates(
+  names: string[],
+): Promise<Record<string, string>> {
+  const candidates = await prisma.customer.findMany({
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+
+  const result: Record<string, string> = {};
+  for (const name of names) {
+    const trimmed = name.trim();
+    if (trimmed.length < 3) {
+      continue;
+    }
+    const matches = rankSimilarCustomers(trimmed, candidates, { limit: 1 });
+    if (matches.length > 0) {
+      result[name] = matches[0].name;
+    }
+  }
+
+  return result;
+}
+
+export async function createCustomer(formData: FormData) {
+  await requirePermission(AppPermission.CUSTOMERS_MANAGE);
+  const data = parseCustomerFormData(formData);
+  const confirmSimilar = formData.get("confirmSimilar") === "true";
+
+  if (!confirmSimilar) {
+    const matches = await loadSimilarCustomerMatches(data.name);
+    if (matches.length > 0) {
+      throw new Error(
+        "A customer with a similar name already exists. Review the matches or confirm to create anyway.",
+      );
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const customer = await tx.customer.create({ data });
+
+    await upsertPrimaryContactFromHeader(tx, customer.id, {
+      name: data.primaryContactName,
+      phone: data.phone,
+      email: data.email,
+    });
+
+    await syncCustomerHeaderFromPrimaryContact(tx, customer.id);
+  });
 
   revalidatePath("/customers");
   redirect("/customers");
 }
 
 export async function updateCustomer(formData: FormData) {
+  await requirePermission(AppPermission.CUSTOMERS_MANAGE);
   const id = String(formData.get("id") ?? "").trim();
   if (!id) {
     throw new Error("Customer id is required.");
@@ -74,9 +158,19 @@ export async function updateCustomer(formData: FormData) {
 
   const data = parseCustomerFormData(formData);
 
-  await prisma.customer.update({
-    where: { id },
-    data,
+  await prisma.$transaction(async (tx) => {
+    await tx.customer.update({
+      where: { id },
+      data,
+    });
+
+    await upsertPrimaryContactFromHeader(tx, id, {
+      name: data.primaryContactName,
+      phone: data.phone,
+      email: data.email,
+    });
+
+    await syncCustomerHeaderFromPrimaryContact(tx, id);
   });
 
   revalidatePath("/customers");
@@ -85,6 +179,7 @@ export async function updateCustomer(formData: FormData) {
 }
 
 export async function deleteCustomer(formData: FormData) {
+  await requirePermission(AppPermission.CUSTOMERS_MANAGE);
   const id = String(formData.get("id") ?? "").trim();
   if (!id) {
     throw new Error("Customer id is required.");
@@ -111,4 +206,101 @@ export async function deleteCustomer(formData: FormData) {
 
   revalidatePath("/customers");
   redirect("/customers");
+}
+
+type BulkImportRow = {
+  name?: string;
+  status?: string;
+  primaryContactName?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  town?: string;
+  state?: string;
+  zip?: string;
+  notes?: string;
+};
+
+function mapBulkImportRow(row: BulkImportRow, lineNumber: number): CustomerRecordInput {
+  const name = String(row.name ?? "").trim();
+  if (!name) {
+    throw new Error(`Line ${lineNumber}: customer name is required.`);
+  }
+
+  const statusRaw = parseBulkCustomerStatus(String(row.status ?? ""));
+  if (!statusRaw || !CUSTOMER_STATUSES.includes(statusRaw as CustomerStatus)) {
+    throw new Error(
+      `Line ${lineNumber}: status must be Active, Inactive, or Prospect.`,
+    );
+  }
+
+  const emailRaw = String(row.email ?? "").trim();
+  if (emailRaw && !EMAIL_PATTERN.test(emailRaw)) {
+    throw new Error(`Line ${lineNumber}: email must be a valid email address.`);
+  }
+
+  return {
+    name,
+    status: statusRaw as CustomerStatus,
+    primaryContactName: String(row.primaryContactName ?? "").trim() || null,
+    phone: String(row.phone ?? "").trim() || null,
+    email: emailRaw || null,
+    address: String(row.address ?? "").trim() || null,
+    town: String(row.town ?? "").trim() || null,
+    state: String(row.state ?? "").trim() || null,
+    zip: String(row.zip ?? "").trim() || null,
+    notes: String(row.notes ?? "").trim() || null,
+  };
+}
+
+export type ImportCustomersResult = { imported: number };
+
+export async function importCustomers(
+  formData: FormData,
+): Promise<ImportCustomersResult> {
+  await requirePermission(AppPermission.CUSTOMERS_MANAGE);
+  const raw = String(formData.get("customers") ?? "").trim();
+  if (!raw) {
+    throw new Error("No customers to import.");
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("Invalid import data.");
+  }
+
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    throw new Error("No customers to import.");
+  }
+
+  const customers = parsed.map((row, index) =>
+    mapBulkImportRow(row as BulkImportRow, index + 1),
+  );
+
+  await prisma.$transaction(async (tx) => {
+    await tx.customer.createMany({ data: customers });
+
+    for (const row of customers) {
+      const created = await tx.customer.findFirst({
+        where: { name: row.name },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      });
+      if (!created) {
+        continue;
+      }
+
+      await upsertPrimaryContactFromHeader(tx, created.id, {
+        name: row.primaryContactName,
+        phone: row.phone,
+        email: row.email,
+      });
+      await syncCustomerHeaderFromPrimaryContact(tx, created.id);
+    }
+  });
+
+  revalidatePath("/customers");
+  return { imported: customers.length };
 }

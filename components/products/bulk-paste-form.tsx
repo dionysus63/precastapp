@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { importProducts } from "@/app/products/actions";
 import { SectionCard } from "@/components/dashboard/section-card";
@@ -11,6 +12,10 @@ import {
   bulkPasteExample,
   productInputClassName,
 } from "@/components/products/product-utils";
+import {
+  isRecognizedBulkRingStyle,
+  parseBulkRingStyle,
+} from "@/lib/drain-ring-utils";
 
 function parseBulkPaste(text: string): BulkProductPasteRow[] {
   const lines = text
@@ -32,6 +37,10 @@ function parseBulkPaste(text: string): BulkProductPasteRow[] {
       weight = "",
       yards = "",
       trackInventory = "",
+      isDrainRing = "",
+      ringDiameterFeet = "",
+      heightFeet = "",
+      ringStyle = "",
     ] = cells;
 
     const issues: string[] = [];
@@ -43,7 +52,7 @@ function parseBulkPaste(text: string): BulkProductPasteRow[] {
       issues.push("Product name is required.");
     }
     if (cells.length < 9) {
-      issues.push("Expected 9 columns from Excel paste.");
+      issues.push("Expected at least 9 columns from Excel paste.");
     }
 
     const inventoryValue = trackInventory.toLowerCase();
@@ -53,6 +62,37 @@ function parseBulkPaste(text: string): BulkProductPasteRow[] {
       inventoryValue !== "no"
     ) {
       issues.push('Track inventory must be "Yes" or "No".');
+    }
+
+    const drainRingValue = isDrainRing.trim().toLowerCase();
+    const isDrainRingYes = drainRingValue === "yes";
+    if (
+      isDrainRing &&
+      drainRingValue !== "yes" &&
+      drainRingValue !== "no"
+    ) {
+      issues.push('Ring must be "Yes" or "No".');
+    }
+    if (isDrainRingYes) {
+      const diameter = Number(ringDiameterFeet.replace(/[^\d.]/g, ""));
+      const height = Number(heightFeet.replace(/[^\d.]/g, ""));
+      if (!ringDiameterFeet.trim() || !Number.isFinite(diameter) || diameter <= 0) {
+        issues.push("Rings require a pool diameter (ft).");
+      }
+      if (!heightFeet.trim() || !Number.isFinite(height) || height <= 0) {
+        issues.push("Rings require a ring height (ft).");
+      }
+      if (ringStyle.trim() && !isRecognizedBulkRingStyle(ringStyle)) {
+        issues.push('Style must be "DRAIN", "SAN", "SOL", or legacy "Yes"/"No".');
+      }
+      const style = parseBulkRingStyle(ringStyle);
+      if (style === "SANITARY" && ringDiameterFeet.trim()) {
+        if (Number.isFinite(diameter) && diameter !== 8 && diameter !== 10) {
+          issues.push("Sanitary rings are only available for 8' and 10' diameters.");
+        }
+      }
+    } else if (ringStyle.trim() && !isRecognizedBulkRingStyle(ringStyle)) {
+      issues.push('Style must be "DRAIN", "SAN", or legacy "Yes"/"No".');
     }
 
     return {
@@ -66,6 +106,10 @@ function parseBulkPaste(text: string): BulkProductPasteRow[] {
       weight,
       yards,
       trackInventory,
+      isDrainRing,
+      ringDiameterFeet,
+      heightFeet,
+      ringStyle,
       isValid: issues.length === 0,
       issues,
     };
@@ -73,10 +117,12 @@ function parseBulkPaste(text: string): BulkProductPasteRow[] {
 }
 
 export function BulkPasteForm() {
+  const router = useRouter();
   const [pasteText, setPasteText] = useState("");
   const [previewRows, setPreviewRows] = useState<BulkProductPasteRow[]>([]);
   const [hasParsed, setHasParsed] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [importComplete, setImportComplete] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const validCount = useMemo(
@@ -90,22 +136,29 @@ export function BulkPasteForm() {
     const rows = parseBulkPaste(pasteText);
     setPreviewRows(rows);
     setHasParsed(true);
+    setImportComplete(false);
   }
 
   function handleLoadExample() {
     setPasteText(bulkPasteExample);
     setPreviewRows([]);
     setHasParsed(false);
+    setImportComplete(false);
   }
 
   function handleClear() {
     setPasteText("");
     setPreviewRows([]);
     setHasParsed(false);
+    setImportComplete(false);
     setErrorMessage(null);
   }
 
   function handleImport() {
+    if (importComplete) {
+      return;
+    }
+
     const validRows = previewRows.filter((row) => row.isValid);
     if (validRows.length === 0) {
       return;
@@ -126,6 +179,10 @@ export function BulkPasteForm() {
             weight,
             yards,
             trackInventory,
+            isDrainRing,
+            ringDiameterFeet,
+            heightFeet,
+            ringStyle,
           }) => ({
             productCode,
             productName,
@@ -136,6 +193,10 @@ export function BulkPasteForm() {
             weight,
             yards,
             trackInventory,
+            isDrainRing,
+            ringDiameterFeet,
+            heightFeet,
+            ringStyle,
           }),
         ),
       ),
@@ -144,7 +205,10 @@ export function BulkPasteForm() {
     startTransition(async () => {
       try {
         setErrorMessage(null);
-        await importProducts(formData);
+        const result = await importProducts(formData);
+        setImportComplete(true);
+        router.push(`/products?imported=${result.imported}`);
+        router.refresh();
       } catch (error) {
         setErrorMessage(
           error instanceof Error ? error.message : "Import failed.",
@@ -157,7 +221,7 @@ export function BulkPasteForm() {
     <div className="space-y-4">
       <SectionCard
         title="Paste from Excel"
-        description="Copy rows from Excel and paste below. Columns should be tab-separated in the same order as the product catalog."
+        description="Copy rows from Excel and paste below. Columns should be tab-separated in the same order as the product catalog. For rings, use Style DRAIN, SAN, or SOL (quote pool lines use codes like R-10-DRAIN, R-10-SAN, and R-10-SOL)."
       >
         <div className="space-y-4">
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -238,6 +302,10 @@ export function BulkPasteForm() {
                     <th className="px-4 py-2.5 font-semibold">Weight</th>
                     <th className="px-4 py-2.5 font-semibold">Yards</th>
                     <th className="px-4 py-2.5 font-semibold">Track Inventory</th>
+                    <th className="px-4 py-2.5 font-semibold">Ring</th>
+                    <th className="px-4 py-2.5 font-semibold">Dia (ft)</th>
+                    <th className="px-4 py-2.5 font-semibold">Height (ft)</th>
+                    <th className="px-4 py-2.5 font-semibold">Style</th>
                     <th className="px-4 py-2.5 font-semibold">Issues</th>
                   </tr>
                 </thead>
@@ -280,6 +348,18 @@ export function BulkPasteForm() {
                       <td className="px-4 py-2.5 text-slate-600">
                         {row.trackInventory || "—"}
                       </td>
+                      <td className="px-4 py-2.5 text-slate-600">
+                        {row.isDrainRing || "—"}
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-600">
+                        {row.ringDiameterFeet || "—"}
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-600">
+                        {row.heightFeet || "—"}
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-600">
+                        {row.ringStyle || "—"}
+                      </td>
                       <td className="px-4 py-2.5 text-red-600">
                         {row.issues.length > 0 ? row.issues.join(" ") : "—"}
                       </td>
@@ -304,7 +384,7 @@ export function BulkPasteForm() {
               <button
                 type="button"
                 onClick={handleImport}
-                disabled={validCount === 0 || isPending}
+                disabled={validCount === 0 || isPending || importComplete}
                 className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isPending

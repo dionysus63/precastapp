@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { Prisma } from "@/app/generated/prisma/client";
+import { Prisma, AppPermission } from "@/app/generated/prisma/client";
 import { assertPathUnderStockSubmittalsRoot } from "@/lib/product-path-security";
+import { requirePermission } from "@/lib/auth/session";
 import {
   deleteProductDocument,
   getProductDocumentForOpen,
@@ -12,8 +13,17 @@ import {
   uploadProductDocument,
 } from "@/lib/product-submittals-service";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
+import {
+  assertSanitaryDrainRingAllowed,
+  isRecognizedBulkRingStyle,
+  parseBulkRingStyle,
+  parseDrainRingStyle,
+} from "@/lib/drain-ring-utils";
 import { launchWindowsFile, launchWindowsFolder } from "@/lib/windows-explorer";
-import { getStockSubmittalsRoot } from "@/lib/app-settings";
+import {
+  mergeCatalogWithInUseValues,
+} from "@/lib/product-catalog-settings";
+import { getProductCatalog } from "@/lib/product-catalog-settings.server";
 
 const PRODUCT_STATUSES = ["ACTIVE", "INACTIVE", "DISCONTINUED"] as const;
 const PRODUCT_TYPES = [
@@ -133,6 +143,61 @@ function parseProductFormData(formData: FormData) {
     0,
   );
 
+  const isDrainRing = String(formData.get("isDrainRing") ?? "no") === "yes";
+  const heightFeet = isDrainRing
+    ? parseOptionalNonNegativeDecimal(formData, "heightFeet", "Ring height")
+    : null;
+  const ringDiameterFeet = isDrainRing
+    ? parseOptionalNonNegativeDecimal(
+        formData,
+        "ringDiameterFeet",
+        "Pool diameter",
+      )
+    : null;
+
+  if (isDrainRing && (!heightFeet || !ringDiameterFeet)) {
+    throw new Error(
+      "Rings require both a ring height and a pool diameter.",
+    );
+  }
+
+  const drainRingStyle = isDrainRing
+    ? parseDrainRingStyle(String(formData.get("drainRingStyle") ?? "DRAIN"))
+    : "DRAIN";
+
+  if (isDrainRing) {
+    assertSanitaryDrainRingAllowed(
+      ringDiameterFeet ? Number(ringDiameterFeet) : null,
+      drainRingStyle,
+      "Product",
+    );
+  }
+
+  const isCasting = String(formData.get("isCasting") ?? "no") === "yes";
+
+  if (isCasting && isDrainRing) {
+    throw new Error("A product cannot be both a ring and a casting.");
+  }
+
+  const castingHeightFeet = isCasting
+    ? parseOptionalNonNegativeDecimal(
+        formData,
+        "castingHeightFeet",
+        "Casting height",
+      )
+    : null;
+  const castingClearOpeningInches = isCasting
+    ? parseOptionalNonNegativeDecimal(
+        formData,
+        "castingClearOpeningInches",
+        "Clear opening",
+      )
+    : null;
+
+  if (isCasting && !castingHeightFeet) {
+    throw new Error("Castings require a casting height.");
+  }
+
   return {
     productCode,
     name,
@@ -149,10 +214,17 @@ function parseProductFormData(formData: FormData) {
     reorderLevel,
     status,
     notes,
+    isDrainRing,
+    heightFeet: isCasting ? castingHeightFeet : heightFeet,
+    ringDiameterFeet,
+    drainRingStyle,
+    isCasting,
+    castingClearOpeningInches,
   };
 }
 
 export async function createProduct(formData: FormData) {
+  await requirePermission(AppPermission.PRODUCTS_MANAGE);
   const data = parseProductFormData(formData);
 
   await prisma.product.create({ data });
@@ -171,6 +243,10 @@ type BulkImportRow = {
   weight: string;
   yards: string;
   trackInventory: string;
+  isDrainRing?: string;
+  ringDiameterFeet?: string;
+  heightFeet?: string;
+  ringStyle?: string;
 };
 
 function parseBulkNumeric(
@@ -216,6 +292,57 @@ function mapBulkImportRow(row: BulkImportRow, lineNumber: number) {
   }
   const trackInventory = inventoryValue !== "no";
 
+  const drainRingValue = String(row.isDrainRing ?? "").trim().toLowerCase();
+  const isDrainRing = drainRingValue === "yes";
+  if (
+    row.isDrainRing?.trim() &&
+    drainRingValue !== "yes" &&
+    drainRingValue !== "no"
+  ) {
+    throw new Error(
+      `Line ${lineNumber}: Ring must be "Yes" or "No".`,
+    );
+  }
+
+  const heightFeet = isDrainRing
+    ? parseBulkNumeric(
+        String(row.heightFeet ?? ""),
+        "Ring height",
+        lineNumber,
+      )
+    : null;
+  const ringDiameterFeet = isDrainRing
+    ? parseBulkNumeric(
+        String(row.ringDiameterFeet ?? ""),
+        "Pool diameter",
+        lineNumber,
+      )
+    : null;
+
+  if (isDrainRing && (!heightFeet || !ringDiameterFeet)) {
+    throw new Error(
+      `Line ${lineNumber}: Rings require both a pool diameter and ring height.`,
+    );
+  }
+
+  const drainRingStyle = isDrainRing
+    ? parseBulkRingStyle(String(row.ringStyle ?? ""))
+    : "DRAIN";
+
+  if (row.ringStyle?.trim() && !isRecognizedBulkRingStyle(row.ringStyle)) {
+    throw new Error(
+      `Line ${lineNumber}: Style must be "DRAIN", "SAN", or legacy "Yes"/"No".`,
+    );
+  }
+
+  if (isDrainRing) {
+    assertSanitaryDrainRingAllowed(
+      ringDiameterFeet ? Number(ringDiameterFeet) : null,
+      drainRingStyle,
+      `Line ${lineNumber}`,
+    );
+  }
+
   return {
     productCode,
     name,
@@ -232,10 +359,19 @@ function mapBulkImportRow(row: BulkImportRow, lineNumber: number) {
     reorderLevel: 0,
     status: "ACTIVE" as ProductStatus,
     notes: null,
+    isDrainRing,
+    heightFeet,
+    ringDiameterFeet,
+    drainRingStyle,
   };
 }
 
-export async function importProducts(formData: FormData) {
+export type ImportProductsResult = { imported: number };
+
+export async function importProducts(
+  formData: FormData,
+): Promise<ImportProductsResult> {
+  await requirePermission(AppPermission.PRODUCTS_MANAGE);
   const raw = String(formData.get("products") ?? "").trim();
   if (!raw) {
     throw new Error("No products to import.");
@@ -275,9 +411,27 @@ export async function importProducts(formData: FormData) {
   }
 
   try {
-    await prisma.$transaction(
-      products.map((product) => prisma.product.create({ data: product })),
+    const currentCatalog = await getProductCatalog();
+    const catalogPairs = products.map((product) => ({
+      category: product.category,
+      subcategory: product.description ?? "",
+    }));
+    const updatedCatalog = mergeCatalogWithInUseValues(
+      currentCatalog,
+      catalogPairs,
     );
+
+    await prisma.$transaction(async (tx) => {
+      for (const product of products) {
+        await tx.product.create({ data: product });
+      }
+      await tx.appSettings.update({
+        where: { id: "default" },
+        data: {
+          productCatalog: updatedCatalog as Prisma.InputJsonValue,
+        },
+      });
+    });
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -291,7 +445,9 @@ export async function importProducts(formData: FormData) {
   }
 
   revalidatePath("/products");
-  redirect("/products");
+  revalidatePath("/products/new");
+  revalidatePath("/settings/products");
+  return { imported: products.length };
 }
 
 export type ProductExplorerOpenResult = {
@@ -307,6 +463,7 @@ function revalidateProductPaths(productId: string) {
 }
 
 export async function uploadProductDocumentAction(formData: FormData) {
+  await requirePermission(AppPermission.PRODUCTS_MANAGE);
   const productId = String(formData.get("productId") ?? "").trim();
   const documentType = String(formData.get("documentType") ?? "GENERIC_SUBMITTAL").trim();
   const file = formData.get("file");
@@ -327,6 +484,7 @@ export async function uploadProductDocumentAction(formData: FormData) {
 }
 
 export async function scanProductDocumentsAction(productId: string) {
+  await requirePermission(AppPermission.PRODUCTS_MANAGE);
   const result = await withDatabaseRetry((client) =>
     scanProductDocuments(client, productId),
   );
@@ -338,6 +496,7 @@ export async function scanProductDocumentsAction(productId: string) {
 export async function openProductDocument(
   documentId: string,
 ): Promise<ProductExplorerOpenResult & { documentName: string }> {
+  await requirePermission(AppPermission.FILES_VIEW);
   const document = await withDatabaseRetry((client) =>
     getProductDocumentForOpen(client, documentId),
   );
@@ -358,6 +517,7 @@ export async function openProductDocument(
 export async function openProductSubmittalsFolder(
   productId: string,
 ): Promise<ProductExplorerOpenResult> {
+  await requirePermission(AppPermission.FILES_VIEW);
   const product = await withDatabaseRetry((client) =>
     client.product.findUnique({
       where: { id: productId },
@@ -383,6 +543,7 @@ export async function openProductSubmittalsFolder(
 }
 
 export async function deleteProductDocumentAction(documentId: string) {
+  await requirePermission(AppPermission.PRODUCTS_MANAGE);
   const document = await withDatabaseRetry((client) =>
     client.productDocument.findUnique({
       where: { id: documentId },

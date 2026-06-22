@@ -1,29 +1,28 @@
 import { randomUUID } from "crypto";
 import type { Prisma } from "@/app/generated/prisma/client";
 
-export function formatDeliveryTicketNumber(
-  year: number,
-  sequenceNumber: number,
-): string {
-  const yearTwoDigit = year % 100;
-  return `DT-${String(yearTwoDigit).padStart(2, "0")}-${String(sequenceNumber).padStart(3, "0")}`;
+/** Sentinel year row in DeliveryTicketSequence for the global ticket counter. */
+export const GLOBAL_DELIVERY_TICKET_SEQUENCE_YEAR = 0;
+
+export function formatDeliveryTicketNumber(sequenceNumber: number): string {
+  return `DT${String(sequenceNumber).padStart(5, "0")}`;
 }
 
 export async function allocateDeliveryTicketNumber(
   tx: Prisma.TransactionClient,
-  year: number = new Date().getFullYear(),
 ) {
+  const calendarYear = new Date().getFullYear();
+
   const rows = await tx.$queryRaw<{ lastNumber: number }[]>`
     INSERT INTO "DeliveryTicketSequence" ("id", "year", "lastNumber", "createdAt", "updatedAt")
-    VALUES (${randomUUID()}, ${year}, 1, NOW(), NOW())
+    VALUES (${randomUUID()}, ${GLOBAL_DELIVERY_TICKET_SEQUENCE_YEAR}, 10001, NOW(), NOW())
     ON CONFLICT ("year")
     DO UPDATE SET "lastNumber" = "DeliveryTicketSequence"."lastNumber" + 1, "updatedAt" = NOW()
     RETURNING "lastNumber"
   `;
 
   const sequenceNumber = Number(rows[0].lastNumber);
-  const yearTwoDigit = year % 100;
-  const ticketNumber = formatDeliveryTicketNumber(year, sequenceNumber);
+  const ticketNumber = formatDeliveryTicketNumber(sequenceNumber);
 
   const duplicate = await tx.deliveryTicket.findUnique({
     where: { ticketNumber },
@@ -35,8 +34,8 @@ export async function allocateDeliveryTicketNumber(
   }
 
   return {
-    year,
-    yearTwoDigit,
+    year: calendarYear,
+    yearTwoDigit: calendarYear % 100,
     sequenceNumber,
     ticketNumber,
   };

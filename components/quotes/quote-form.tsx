@@ -12,12 +12,15 @@ import {
   type QuoteStatus,
   type QuoteType,
   DEFAULT_QUOTE_TAX_RATE,
+  drainRingDiameterFeetOptions,
   calculateQuoteTotals,
   formatQuoteCurrency,
   formatQuoteWeight,
   formatQuoteYards,
   getLineItemTotal,
   parseQuoteNumber,
+  pickDefaultCustomerContact,
+  type QuoteFormCustomerContactOption,
   quoteEstimatorFormOptions,
   quoteInputClassName,
   quoteLineItemTypeLabels,
@@ -28,6 +31,13 @@ import {
   quoteTypeFormOptions,
   quoteWorkflowSteps,
 } from "@/components/quotes/quote-utils";
+import {
+  diameterSupportsSanitaryDrainRing,
+  formatDrainRingPoolDescription,
+  formatRingQuoteItemCode,
+  getDrainRingStyleOptionsForDiameter,
+  type DrainRingStyle,
+} from "@/lib/drain-ring-utils";
 
 const quoteTableInputClassName =
   "w-full min-w-[4rem] rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 shadow-sm";
@@ -57,33 +67,87 @@ export function QuoteForm({
   configurableProducts,
   serviceOptions,
   priceLists = [],
+  initialJobId,
+  initialCustomerId,
+  initialJobBidderId,
   quoteDefaults,
 }: QuoteFormProps) {
-  const estimatorOptions =
+  const initialJob = initialJobId
+    ? jobs.find((job) => job.id === initialJobId)
+    : undefined;
+  const initialCustomer = initialCustomerId
+    ? customers.find((customer) => customer.id === initialCustomerId)
+    : initialJob?.customerId
+      ? customers.find((customer) => customer.id === initialJob.customerId)
+      : undefined;
+  const initialSelectedContact =
+    initialCustomer ? pickDefaultCustomerContact(initialCustomer.contacts) : null;
+  const baseEstimatorOptions =
     quoteDefaults?.estimators?.length
       ? quoteDefaults.estimators
       : quoteEstimatorFormOptions;
+  const defaultEstimator = quoteDefaults?.defaultEstimator?.trim() ?? "";
+  const matchedEstimator = defaultEstimator
+    ? baseEstimatorOptions.find(
+        (option) => option.toLowerCase() === defaultEstimator.toLowerCase(),
+      )
+    : undefined;
+  const estimatorOptions =
+    defaultEstimator && !matchedEstimator
+      ? [defaultEstimator, ...baseEstimatorOptions]
+      : baseEstimatorOptions;
   const paymentTermOptions =
     quoteDefaults?.paymentTerms?.length
       ? quoteDefaults.paymentTerms
       : quoteTermsFormOptions;
   const initialTaxRate = quoteDefaults?.defaultTaxRate ?? DEFAULT_QUOTE_TAX_RATE;
-  const initialEstimator = estimatorOptions[0] ?? "Nick";
+  const initialEstimator =
+    matchedEstimator ??
+    (defaultEstimator || (estimatorOptions[0] ?? "Nick"));
   const initialLeadTime = quoteDefaults?.defaultLeadTime ?? "";
   const initialExpirationDate = quoteDefaults?.defaultExpirationDate ?? "";
   const initialTerms = paymentTermOptions[0] ?? "";
 
   const [isPending, startTransition] = useTransition();
   const [lineItems, setLineItems] = useState<EditableQuoteLineItem[]>([]);
-  const [customerId, setCustomerId] = useState("");
-  const [customerName, setCustomerName] = useState("");
-  const [jobId, setJobId] = useState("");
-  const [jobNumber, setJobNumber] = useState("");
-  const [projectName, setProjectName] = useState("");
-  const [projectAddress, setProjectAddress] = useState("");
-  const [contactName, setContactName] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
-  const [contactPhone, setContactPhone] = useState("");
+  const [customerLocked, setCustomerLocked] = useState(
+    Boolean(initialCustomerId || initialJobBidderId),
+  );
+  const [jobBidderId, setJobBidderId] = useState(initialJobBidderId ?? "");
+  const [customerId, setCustomerId] = useState(
+    initialCustomerId ?? initialJob?.customerId ?? "",
+  );
+  const [customerName, setCustomerName] = useState(
+    initialCustomer?.name ?? initialJob?.customerName ?? "",
+  );
+  const [jobId, setJobId] = useState(initialJob?.id ?? "");
+  const [jobNumber, setJobNumber] = useState(initialJob?.jobNumber ?? "");
+  const [projectName, setProjectName] = useState(initialJob?.projectName ?? "");
+  const [projectAddress, setProjectAddress] = useState(
+    initialJob?.projectAddress ?? "",
+  );
+  const [contactId, setContactId] = useState(initialSelectedContact?.id ?? "");
+  const [contactTitle, setContactTitle] = useState(
+    initialSelectedContact?.title ?? "",
+  );
+  const [contactName, setContactName] = useState(
+    initialSelectedContact?.name ??
+      initialCustomer?.contactName ??
+      initialJob?.contactName ??
+      "",
+  );
+  const [contactEmail, setContactEmail] = useState(
+    initialSelectedContact?.email ??
+      initialCustomer?.contactEmail ??
+      initialJob?.contactEmail ??
+      "",
+  );
+  const [contactPhone, setContactPhone] = useState(
+    initialSelectedContact?.phone ??
+      initialCustomer?.contactPhone ??
+      initialJob?.contactPhone ??
+      "",
+  );
   const [status, setStatus] = useState<QuoteStatus>("DRAFT");
   const [quoteType, setQuoteType] = useState<QuoteType>("MIXED");
   const [estimator, setEstimator] = useState(initialEstimator);
@@ -127,6 +191,16 @@ export function QuoteForm({
   const [customWeight, setCustomWeight] = useState("");
   const [customYards, setCustomYards] = useState("");
 
+  const [drainRingModalOpen, setDrainRingModalOpen] = useState(false);
+  const [drainRingDiameter, setDrainRingDiameter] = useState("10");
+  const [drainRingPoolHeight, setDrainRingPoolHeight] = useState("20");
+  const [drainRingPoolCount, setDrainRingPoolCount] = useState("1");
+  const [drainRingPricePerFoot, setDrainRingPricePerFoot] = useState("0");
+  const [drainRingStyle, setDrainRingStyle] = useState<DrainRingStyle>("DRAIN");
+  const drainRingStyleOptions = getDrainRingStyleOptionsForDiameter(
+    Number(drainRingDiameter),
+  );
+
   const [selectedServiceItem, setSelectedServiceItem] = useState(
     serviceOptions[0]?.item ?? "Delivery",
   );
@@ -157,6 +231,61 @@ export function QuoteForm({
     () => calculateQuoteTotals(lineItems, taxRatePercent),
     [lineItems, taxRatePercent],
   );
+
+  const selectedCustomer = useMemo(
+    () => customers.find((customer) => customer.id === customerId),
+    [customers, customerId],
+  );
+
+  function applyContactSelection(contact: QuoteFormCustomerContactOption | null) {
+    if (!contact) {
+      setContactId("");
+      setContactTitle("");
+      return;
+    }
+
+    setContactId(contact.id);
+    setContactTitle(contact.title);
+    setContactName(contact.name);
+    setContactEmail(contact.email);
+    setContactPhone(contact.phone);
+  }
+
+  function clearContactLinkIfCustomized(
+    next: {
+      name?: string;
+      email?: string;
+      phone?: string;
+      title?: string;
+    },
+    linkedContactId: string,
+  ) {
+    if (!linkedContactId || !selectedCustomer) {
+      return;
+    }
+
+    const linked = selectedCustomer.contacts.find(
+      (contact) => contact.id === linkedContactId,
+    );
+    if (!linked) {
+      setContactId("");
+      return;
+    }
+
+    const name = next.name ?? contactName;
+    const email = next.email ?? contactEmail;
+    const phone = next.phone ?? contactPhone;
+    const title = next.title ?? contactTitle;
+
+    if (
+      name !== linked.name ||
+      email !== linked.email ||
+      phone !== linked.phone ||
+      title !== linked.title
+    ) {
+      setContactId("");
+    }
+  }
 
   function showFlash(type: FlashMessage["type"], text: string) {
     setFlashMessage({ type, text });
@@ -200,12 +329,15 @@ export function QuoteForm({
       customerId: customerId || null,
       customerName: customerName.trim(),
       jobId: jobId || null,
+      jobBidderId: jobBidderId || null,
       jobNumber: jobNumber || null,
       projectName: projectName.trim(),
       projectAddress: projectAddress.trim() || null,
       contactName: contactName.trim() || null,
       contactEmail: contactEmail.trim() || null,
       contactPhone: contactPhone.trim() || null,
+      contactId: contactId || null,
+      contactTitle: contactTitle.trim() || null,
       status,
       quoteType,
       estimator: estimator || null,
@@ -237,6 +369,10 @@ export function QuoteForm({
         total: getLineItemTotal(line),
         statusNote: line.statusNote ?? null,
         notes: null,
+        isDrainRing: line.isDrainRing ?? false,
+        ringDiameterFeet: line.ringDiameterFeet ?? null,
+        poolHeightFeet: line.poolHeightFeet ?? null,
+        drainRingStyle: line.drainRingStyle ?? "DRAIN",
       })),
       totals,
     };
@@ -264,6 +400,8 @@ export function QuoteForm({
 
   function handleCustomerChange(value: string) {
     setCustomerId(value);
+    setCustomerLocked(true);
+    setJobBidderId("");
 
     if (!value) {
       return;
@@ -275,9 +413,31 @@ export function QuoteForm({
     }
 
     setCustomerName(customer.name);
-    setContactName(customer.contactName);
-    setContactEmail(customer.contactEmail);
-    setContactPhone(customer.contactPhone);
+    const defaultContact = pickDefaultCustomerContact(customer.contacts);
+    if (defaultContact) {
+      applyContactSelection(defaultContact);
+    } else {
+      setContactId("");
+      setContactTitle("");
+      setContactName(customer.contactName);
+      setContactEmail(customer.contactEmail);
+      setContactPhone(customer.contactPhone);
+    }
+  }
+
+  function handleContactPickerChange(value: string) {
+    if (!value) {
+      setContactId("");
+      setContactTitle("");
+      return;
+    }
+
+    const contact = selectedCustomer?.contacts.find(
+      (entry) => entry.id === value,
+    );
+    if (contact) {
+      applyContactSelection(contact);
+    }
   }
 
   function handleJobChange(value: string) {
@@ -297,24 +457,26 @@ export function QuoteForm({
     setProjectName(job.projectName);
     setProjectAddress(job.projectAddress);
 
-    if (job.customerName) {
-      setCustomerName(job.customerName);
-    }
+    if (!customerLocked) {
+      if (job.customerName) {
+        setCustomerName(job.customerName);
+      }
 
-    if (job.customerId) {
-      setCustomerId(job.customerId);
-    }
+      if (job.customerId) {
+        setCustomerId(job.customerId);
+      }
 
-    if (job.contactName) {
-      setContactName(job.contactName);
-    }
+      if (job.contactName) {
+        setContactName(job.contactName);
+      }
 
-    if (job.contactEmail) {
-      setContactEmail(job.contactEmail);
-    }
+      if (job.contactEmail) {
+        setContactEmail(job.contactEmail);
+      }
 
-    if (job.contactPhone) {
-      setContactPhone(job.contactPhone);
+      if (job.contactPhone) {
+        setContactPhone(job.contactPhone);
+      }
     }
   }
 
@@ -450,6 +612,64 @@ export function QuoteForm({
       taxable: serviceTaxable,
       productId: service?.id ?? null,
     });
+  }
+
+  function handleAddDrainRing() {
+    const diameter = Number(drainRingDiameter);
+    const poolHeight = Number(drainRingPoolHeight);
+    const poolCount = Number(drainRingPoolCount);
+    const pricePerFoot = Number(drainRingPricePerFoot);
+
+    if (!Number.isFinite(diameter) || diameter <= 0) {
+      showFlash("error", "Choose a pool diameter for the ring line.");
+      return;
+    }
+    if (!Number.isFinite(poolHeight) || poolHeight <= 0) {
+      showFlash("error", "Pool height must be greater than zero.");
+      return;
+    }
+    if (!Number.isFinite(poolCount) || poolCount <= 0) {
+      showFlash("error", "Pool count must be greater than zero.");
+      return;
+    }
+
+    const totalFeet = Math.round(poolHeight * poolCount * 100) / 100;
+    if (
+      drainRingStyle === "SANITARY" &&
+      !diameterSupportsSanitaryDrainRing(diameter)
+    ) {
+      showFlash(
+        "error",
+        "Sanitary rings are only available for 8' and 10' diameters.",
+      );
+      return;
+    }
+    const style: DrainRingStyle = drainRingStyle;
+    addLineItem({
+      id: createLineId(),
+      lineNumber: lineItems.length + 1,
+      type: "STOCK_PRODUCT",
+      typeLabel: "Ring",
+      item: formatRingQuoteItemCode(diameter, style),
+      description: formatDrainRingPoolDescription({
+        poolCount,
+        poolHeight,
+        diameter,
+        style,
+      }),
+      qty: String(totalFeet),
+      unit: "LF",
+      unitPrice: pricePerFoot ? String(pricePerFoot) : "0",
+      weight: "",
+      yards: "",
+      taxable: true,
+      productId: null,
+      isDrainRing: true,
+      ringDiameterFeet: diameter,
+      poolHeightFeet: poolHeight,
+      drainRingStyle: style,
+    });
+    setDrainRingModalOpen(false);
   }
 
   function updateLineItem(
@@ -796,6 +1016,35 @@ export function QuoteForm({
               </div>
 
               <div className="grid gap-5 sm:grid-cols-3">
+                <div className="sm:col-span-3">
+                  <label
+                    htmlFor="quoteContactPicker"
+                    className="block text-xs font-medium text-slate-700"
+                  >
+                    Contact
+                  </label>
+                  <select
+                    id="quoteContactPicker"
+                    value={contactId}
+                    onChange={(event) =>
+                      handleContactPickerChange(event.target.value)
+                    }
+                    disabled={!customerId}
+                    className={quoteInputClassName}
+                  >
+                    <option value="">
+                      {customerId
+                        ? "Custom / enter manually"
+                        : "Select a customer first"}
+                    </option>
+                    {selectedCustomer?.contacts.map((contact) => (
+                      <option key={contact.id} value={contact.id}>
+                        {contact.name}
+                        {contact.title ? ` — ${contact.title}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label
                     htmlFor="contactName"
@@ -808,7 +1057,11 @@ export function QuoteForm({
                     name="contactName"
                     type="text"
                     value={contactName}
-                    onChange={(event) => setContactName(event.target.value)}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      clearContactLinkIfCustomized({ name: value }, contactId);
+                      setContactName(value);
+                    }}
                     className={quoteInputClassName}
                   />
                 </div>
@@ -824,7 +1077,11 @@ export function QuoteForm({
                     name="contactEmail"
                     type="email"
                     value={contactEmail}
-                    onChange={(event) => setContactEmail(event.target.value)}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      clearContactLinkIfCustomized({ email: value }, contactId);
+                      setContactEmail(value);
+                    }}
                     className={quoteInputClassName}
                   />
                 </div>
@@ -840,7 +1097,32 @@ export function QuoteForm({
                     name="contactPhone"
                     type="tel"
                     value={contactPhone}
-                    onChange={(event) => setContactPhone(event.target.value)}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      clearContactLinkIfCustomized({ phone: value }, contactId);
+                      setContactPhone(value);
+                    }}
+                    className={quoteInputClassName}
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="contactTitle"
+                    className="block text-xs font-medium text-slate-700"
+                  >
+                    Contact Role
+                  </label>
+                  <input
+                    id="contactTitle"
+                    name="contactTitle"
+                    type="text"
+                    value={contactTitle}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      clearContactLinkIfCustomized({ title: value }, contactId);
+                      setContactTitle(value);
+                    }}
+                    placeholder="Estimator, PM, etc."
                     className={quoteInputClassName}
                   />
                 </div>
@@ -946,6 +1228,13 @@ export function QuoteForm({
                     {option.label}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => setDrainRingModalOpen(true)}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  Add Ring Pool
+                </button>
               </div>
 
               <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
@@ -1741,6 +2030,149 @@ export function QuoteForm({
                 </div>
               </>
             ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {drainRingModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-4 shadow-lg">
+            <h3 className="text-sm font-semibold text-slate-900">
+              Add Ring Pool
+            </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Quote by total pool height. The line is stored in linear feet
+              (pool height x pool count) and fulfilled with individual rings of
+              this diameter.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Pool Diameter (ft)
+                </label>
+                <select
+                  value={drainRingDiameter}
+                  onChange={(event) => {
+                    setDrainRingDiameter(event.target.value);
+                    if (
+                      drainRingStyle === "SANITARY" &&
+                      !diameterSupportsSanitaryDrainRing(
+                        Number(event.target.value),
+                      )
+                    ) {
+                      setDrainRingStyle("DRAIN");
+                    }
+                  }}
+                  className={quoteInputClassName}
+                >
+                  {drainRingDiameterFeetOptions.map((diameter) => (
+                    <option key={diameter} value={String(diameter)}>
+                      {diameter}'
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Pool Height (ft)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={drainRingPoolHeight}
+                  onChange={(event) =>
+                    setDrainRingPoolHeight(event.target.value)
+                  }
+                  className={quoteInputClassName}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Number of Pools
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={drainRingPoolCount}
+                  onChange={(event) => setDrainRingPoolCount(event.target.value)}
+                  className={quoteInputClassName}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Style
+                </label>
+                <select
+                  value={drainRingStyle}
+                  onChange={(event) =>
+                    setDrainRingStyle(event.target.value as DrainRingStyle)
+                  }
+                  className={quoteInputClassName}
+                >
+                  {drainRingStyleOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Solid is available at all diameters. Sanitary is only for
+                  8&apos; and 10&apos;.
+                </p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Price per Foot
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={drainRingPricePerFoot}
+                  onChange={(event) =>
+                    setDrainRingPricePerFoot(event.target.value)
+                  }
+                  className={quoteInputClassName}
+                />
+              </div>
+            </div>
+            <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              {(() => {
+                const poolHeight = Number(drainRingPoolHeight);
+                const poolCount = Number(drainRingPoolCount);
+                const pricePerFoot = Number(drainRingPricePerFoot);
+                if (
+                  !Number.isFinite(poolHeight) ||
+                  !Number.isFinite(poolCount) ||
+                  poolHeight <= 0 ||
+                  poolCount <= 0
+                ) {
+                  return "Enter pool height and count to preview total feet.";
+                }
+                const totalFeet =
+                  Math.round(poolHeight * poolCount * 100) / 100;
+                const total = totalFeet * (pricePerFoot || 0);
+                return `${poolCount} pool(s) x ${poolHeight}' = ${totalFeet} LF · ${formatQuoteCurrency(total)}`;
+              })()}
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDrainRingModalOpen(false)}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAddDrainRing}
+                className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+              >
+                Add to Quote
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

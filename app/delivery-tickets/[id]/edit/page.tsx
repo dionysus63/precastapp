@@ -5,6 +5,7 @@ import { DeliveryTicketEditor } from "@/components/delivery-tickets/delivery-tic
 import { listJobsWithQuotes } from "@/app/operations/actions";
 import { getAppSettings } from "@/lib/app-settings";
 import { withDatabaseRetry } from "@/lib/prisma";
+import { formatDateIso } from "@/lib/delivery-dispatch-utils";
 
 type EditDeliveryTicketPageProps = {
   params: Promise<{ id: string }>;
@@ -20,7 +21,12 @@ export default async function EditDeliveryTicketPage({
       prisma.deliveryTicket.findUnique({
         where: { id },
         include: {
-          lineItems: { orderBy: { lineNumber: "asc" } },
+          lineItems: {
+            orderBy: { lineNumber: "asc" },
+            include: {
+              quoteLineItem: { select: { isDrainRing: true } },
+            },
+          },
         },
       }),
     ),
@@ -37,7 +43,10 @@ export default async function EditDeliveryTicketPage({
   }
 
   const defaultLines = ticket.lineItems.map((line) => ({
-    key: line.quoteLineItemId ?? line.id,
+    key:
+      line.quoteLineItem?.isDrainRing && line.quoteLineItemId && line.productId
+        ? `${line.quoteLineItemId}::${line.productId}`
+        : line.quoteLineItemId ?? line.id,
     quoteLineItemId: line.quoteLineItemId,
     productId: line.productId,
     jobStructureId: line.jobStructureId,
@@ -76,11 +85,12 @@ export default async function EditDeliveryTicketPage({
           defaultValues={{
             ticketType: ticket.ticketType,
             jobId: ticket.jobId ?? "",
+            quoteId: ticket.quoteId,
             customerName: ticket.customerName,
             projectName: ticket.projectName,
             deliveryAddress: ticket.deliveryAddress,
             deliveryDate: ticket.deliveryDate
-              ? ticket.deliveryDate.toISOString().slice(0, 10)
+              ? formatDateIso(ticket.deliveryDate)
               : null,
             deliveryTime: ticket.deliveryTime,
             truck: ticket.truck,

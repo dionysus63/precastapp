@@ -1,5 +1,7 @@
 "use server";
 
+import { AppPermission } from "@/app/generated/prisma/client";
+import { requirePermission } from "@/lib/auth/session";
 import { mapQuoteToDetailView } from "@/lib/quote-mapper";
 import { buildQuotePdfHtml } from "@/lib/quote-pdf-html";
 import {
@@ -20,6 +22,7 @@ export type GenerateQuotePdfResult =
 export async function generateQuotePdf(
   quoteId: string,
 ): Promise<GenerateQuotePdfResult> {
+  await requirePermission(AppPermission.QUOTES_MANAGE);
   if (!quoteId.trim()) {
     return { success: false, error: "Quote id is required." };
   }
@@ -96,6 +99,7 @@ export type GenerateSubmittalPackageResult =
 export async function generateSubmittalPackage(
   quoteId: string,
 ): Promise<GenerateSubmittalPackageResult> {
+  await requirePermission(AppPermission.QUOTES_MANAGE);
   if (!quoteId.trim()) {
     return { success: false, error: "Quote id is required." };
   }

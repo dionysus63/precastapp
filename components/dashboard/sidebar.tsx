@@ -2,44 +2,51 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { PermissionKey, UserRoleKey } from "@/lib/auth/constants";
+import { ROLE_LABELS } from "@/lib/auth/constants";
 import { navItems } from "./nav-items";
 
 export function Sidebar({
   appTitle = "Precast Ops",
-  appSubtitle = "Quoting & Inventory",
   logoUrl = null,
+  permissions,
+  userDisplayName,
+  userRole,
 }: {
   appTitle?: string;
-  appSubtitle?: string;
   logoUrl?: string | null;
+  permissions: PermissionKey[];
+  userDisplayName: string;
+  userRole: UserRoleKey;
 }) {
   const pathname = usePathname();
+  const visibleItems = navItems.filter((item) => {
+    if (!item.requiredPermission) {
+      return true;
+    }
+
+    return permissions.includes(item.requiredPermission);
+  });
 
   return (
-    <aside className="flex h-full w-60 shrink-0 flex-col border-r border-slate-200/80 bg-white">
+    <aside className="fixed inset-y-0 left-0 z-20 flex h-screen w-60 flex-col overflow-y-auto border-r border-slate-200/80 bg-white">
       <div className="border-b border-slate-100 px-4 py-4">
-        <div className="flex items-center gap-2.5">
-          {logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={logoUrl}
-              alt={`${appTitle} logo`}
-              className="h-8 w-8 rounded-lg object-contain"
-            />
-          ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-xs font-bold text-white">
-              PC
-            </div>
-          )}
-          <div>
-            <p className="text-sm font-semibold text-slate-900">{appTitle}</p>
-            <p className="text-[11px] text-slate-500">{appSubtitle}</p>
+        {logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={logoUrl}
+            alt={`${appTitle} logo`}
+            className="h-14 w-full max-w-[200px] object-contain object-left"
+          />
+        ) : (
+          <div className="flex h-14 max-w-[200px] items-center justify-center rounded bg-slate-900 px-4 text-sm font-bold tracking-wide text-white">
+            PC
           </div>
-        </div>
+        )}
       </div>
 
       <nav className="flex-1 space-y-0.5 px-2 py-3">
-        {navItems.map((item) => {
+        {visibleItems.map((item) => {
           const isActive =
             item.href === "/"
               ? pathname === "/"
@@ -62,8 +69,10 @@ export function Sidebar({
       </nav>
 
       <div className="border-t border-slate-100 px-4 py-3">
-        <p className="text-[11px] font-medium text-slate-500">Local POC</p>
-        <p className="text-[11px] text-slate-400">Static dashboard preview</p>
+        <p className="text-[11px] font-medium text-slate-700">
+          {userDisplayName}
+        </p>
+        <p className="text-[11px] text-slate-400">{ROLE_LABELS[userRole]}</p>
       </div>
     </aside>
   );

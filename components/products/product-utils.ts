@@ -23,6 +23,7 @@ export type ProductRow = {
   status: string;
   statusVariant: "success" | "neutral" | "warning";
   submittalCount: number;
+  isCasting?: boolean;
 };
 
 export const productTypeLabels: Record<ProductType, string> = {
@@ -284,6 +285,10 @@ export type BulkProductPasteRow = {
   weight: string;
   yards: string;
   trackInventory: string;
+  isDrainRing: string;
+  ringDiameterFeet: string;
+  heightFeet: string;
+  ringStyle: string;
   isValid: boolean;
   issues: string[];
 };
@@ -298,8 +303,16 @@ export const bulkPasteColumnHeaders = [
   "Weight",
   "Yards",
   "Track Inventory",
+  "Ring",
+  "Ring Diameter (ft)",
+  "Ring Height (ft)",
+  "Style (DRAIN/SAN/SOL)",
 ];
 
 export const bulkPasteExample = `VLT-60x84\t60x84 Utility Vault\tVaults\tTraffic Rated\tEach\t6200.00\t10200 lb\t3.1\tYes
 MH-48-R\t48" Manhole Riser\tManholes\tRiser\tEach\t980.00\t1650 lb\t0.5\tYes
-RW-6-H6\t6' Retaining Wall H6\tWalls\tH6 Panel\tLF\t142.00\t310 lb/LF\t0.06\tYes`;
+RW-6-H6\t6' Retaining Wall H6\tWalls\tH6 Panel\tLF\t142.00\t310 lb/LF\t0.06\tYes
+R-10-4-DRAIN\t10' Ring 4' tall\tRings\t10' dia\tEach\t850.00\t4200 lb\t0.8\tYes\tYes\t10\t4\tDRAIN
+R-10-4-SAN\t10' Ring 4' sanitary\tRings\t10' dia\tEach\t920.00\t4300 lb\t0.8\tYes\tYes\t10\t4\tSAN
+R-10-4-SOL\t10' Ring 4' solid\tRings\t10' dia\tEach\t900.00\t4150 lb\t0.8\tYes\tYes\t10\t4\tSOL
+R-8-2.5-SAN\t8' Ring 2.5' sanitary\tRings\t8' dia\tEach\t680.00\t2200 lb\t0.4\tYes\tYes\t8\t2.5\tSAN`;

@@ -1,10 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { AppPermission } from "@/app/generated/prisma/client";
+import { requirePermission } from "@/lib/auth/session";
 import { adjustInventory } from "@/lib/inventory-service";
 import { withDatabaseRetry } from "@/lib/prisma";
 
 export async function saveInventoryAdjustment(formData: FormData) {
+  await requirePermission(AppPermission.INVENTORY_MANAGE);
   const productId = String(formData.get("productId") ?? "").trim();
   const quantityChange = Number(formData.get("quantityChange"));
   const notes = String(formData.get("notes") ?? "").trim() || null;

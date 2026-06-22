@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "AppSettings" ADD COLUMN "productCatalog" JSONB NOT NULL DEFAULT '[{"name":"Vaults","subcategories":["Traffic Rated","Standard Duty","Light Duty"]},{"name":"Manholes","subcategories":["Riser","Cone","Base Section","Sanitary Sewer"]},{"name":"Walls","subcategories":["H6 Panel","H8 Panel","Corner Panel"]},{"name":"Slabs","subcategories":["Equipment Pad","Sidewalk Slab"]},{"name":"Drainage","subcategories":["Catch Basin","Sanitary Sewer"]},{"name":"Accessories","subcategories":["Lifting Hardware","Connection Hardware"]}]';

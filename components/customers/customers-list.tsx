@@ -7,12 +7,11 @@ import { StatusBadge } from "@/components/dashboard/status-badge";
 import {
   type CustomerRow,
   customerStatusFilterOptions,
-  customerTypeFilterOptions,
 } from "@/components/customers/customer-utils";
+import { ExportExcelLink } from "@/components/shared/export-excel-link";
 
 type SortColumn =
   | "name"
-  | "type"
   | "primaryContact"
   | "phone"
   | "email"
@@ -51,9 +50,6 @@ function compareCustomers(
   switch (column) {
     case "name":
       result = a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-      break;
-    case "type":
-      result = a.type.localeCompare(b.type, undefined, { sensitivity: "base" });
       break;
     case "primaryContact":
       result = a.primaryContact.localeCompare(b.primaryContact, undefined, {
@@ -128,7 +124,6 @@ function SortableHeader({
 export function CustomersList({ customers }: CustomersListProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [typeFilter, setTypeFilter] = useState("All");
   const [sortColumn, setSortColumn] = useState<SortColumn>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
@@ -153,15 +148,13 @@ export function CustomersList({ customers }: CustomersListProps) {
       const matchesStatus =
         statusFilter === "All" || customer.status === statusFilter;
 
-      const matchesType = typeFilter === "All" || customer.type === typeFilter;
-
-      return matchesSearch && matchesStatus && matchesType;
+      return matchesSearch && matchesStatus;
     });
 
     return [...filtered].sort((a, b) =>
       compareCustomers(a, b, sortColumn, sortDirection),
     );
-  }, [customers, search, statusFilter, typeFilter, sortColumn, sortDirection]);
+  }, [customers, search, statusFilter, sortColumn, sortDirection]);
 
   return (
     <div className="space-y-4">
@@ -185,24 +178,22 @@ export function CustomersList({ customers }: CustomersListProps) {
               </option>
             ))}
           </select>
-          <select
-            value={typeFilter}
-            onChange={(event) => setTypeFilter(event.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
-          >
-            {customerTypeFilterOptions.map((type) => (
-              <option key={type} value={type}>
-                Type: {type}
-              </option>
-            ))}
-          </select>
         </div>
-        <Link
-          href="/customers/new"
-          className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
-        >
-          Add Customer
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <ExportExcelLink href="/api/export/customers" />
+          <Link
+            href="/customers/bulk"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+          >
+            Bulk Add / Paste from Excel
+          </Link>
+          <Link
+            href="/customers/new"
+            className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
+          >
+            Add Customer
+          </Link>
+        </div>
       </div>
 
       <SectionCard
@@ -217,13 +208,6 @@ export function CustomersList({ customers }: CustomersListProps) {
                 <SortableHeader
                   column="name"
                   label="Customer Name"
-                  sortColumn={sortColumn}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                />
-                <SortableHeader
-                  column="type"
-                  label="Type"
                   sortColumn={sortColumn}
                   sortDirection={sortDirection}
                   onSort={handleSort}
@@ -284,7 +268,7 @@ export function CustomersList({ customers }: CustomersListProps) {
               {filteredCustomers.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={10}
+                    colSpan={9}
                     className="px-4 py-8 text-center text-sm text-slate-500"
                   >
                     {customers.length === 0
@@ -302,12 +286,6 @@ export function CustomersList({ customers }: CustomersListProps) {
                       >
                         {customer.name}
                       </Link>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <StatusBadge
-                        label={customer.type}
-                        variant={customer.typeVariant}
-                      />
                     </td>
                     <td className="px-4 py-2.5 text-slate-700">
                       {customer.primaryContact}

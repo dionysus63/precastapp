@@ -1,13 +1,22 @@
 import type { QuoteDetailView } from "@/components/quotes/quote-utils";
 import { formatSubmittalsStatus } from "@/lib/submittal-package";
 import {
+  formatDrainRingPoolDescription,
+  formatDrainRingStyleLabel,
+  type DrainRingStyle,
+} from "@/lib/drain-ring-utils";
+import {
   type QuoteRow,
   type QuoteStatus,
   type QuoteType,
+  type QuoteRelatedStructure,
   quoteLineItemTypeLabels,
   quoteStatusLabels,
   quoteTypeLabels,
 } from "@/components/quotes/quote-utils";
+import {
+  structureStatusOptions,
+} from "@/components/structures/structure-utils";
 
 export type QuoteRecord = {
   id: string;
@@ -23,6 +32,8 @@ export type QuoteRecord = {
   contactName: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
+  contactId: string | null;
+  contactTitle: string | null;
   status: string;
   quoteType: string;
   estimator: string | null;
@@ -45,6 +56,8 @@ export type QuoteRecord = {
   leadTime: string | null;
   deliveryNotes: string | null;
   priceListId: string | null;
+  sentAt: Date | null;
+  jobBidderId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -65,6 +78,10 @@ export type QuoteLineItemRecord = {
   total: { toString(): string };
   statusNote: string | null;
   notes: string | null;
+  isDrainRing?: boolean;
+  ringDiameterFeet?: { toString(): string } | null;
+  poolHeightFeet?: { toString(): string } | null;
+  drainRingStyle?: DrainRingStyle;
   product?: {
     id?: string;
     productCode: string;
@@ -80,7 +97,41 @@ export type QuoteLineItemRecord = {
 
 export type QuoteDetailRecord = QuoteRecord & {
   lineItems: QuoteLineItemRecord[];
+  jobBidder?: { customer: { name: string } } | null;
+  jobStructures?: Array<{
+    id: string;
+    jobId: string | null;
+    structureNumber: string | null;
+    description: string | null;
+    status: string;
+    needsSubmittal: boolean;
+    _count?: { documents: number };
+    job?: { id: string; folderPath: string | null } | null;
+  }>;
 };
+
+const structureStatusLabels: Record<string, string> = Object.fromEntries(
+  structureStatusOptions.map((option) => [option.value, option.label]),
+);
+
+function mapQuoteRelatedStructure(
+  structure: NonNullable<QuoteDetailRecord["jobStructures"]>[number],
+  quoteJobId: string | null,
+): QuoteRelatedStructure {
+  const jobId = structure.jobId ?? structure.job?.id ?? quoteJobId ?? "";
+
+  return {
+    id: structure.id,
+    structureNumber: structure.structureNumber ?? "—",
+    description: structure.description ?? "—",
+    status: structure.status,
+    statusLabel: structureStatusLabels[structure.status] ?? structure.status,
+    needsSubmittal: structure.needsSubmittal,
+    documentCount: structure._count?.documents ?? 0,
+    jobId,
+    folderPath: structure.job?.folderPath ?? null,
+  };
+}
 
 function statusVariant(
   status: string,
@@ -94,6 +145,7 @@ function statusVariant(
     case "REVISED":
       return "warning";
     case "LOST":
+    case "LOST_BC":
     case "EXPIRED":
     case "CANCELLED":
       return "neutral";
@@ -210,6 +262,40 @@ function mapLineTypeLabel(lineType: string) {
   );
 }
 
+function formatQuoteLineDescription(line: QuoteLineItemRecord): string {
+  if (line.isDrainRing && line.ringDiameterFeet && line.poolHeightFeet) {
+    const diameter = Number(line.ringDiameterFeet);
+    const poolHeight = Number(line.poolHeightFeet);
+    const quantity = Number(line.quantity);
+    const poolCount =
+      poolHeight > 0 ? Math.round((quantity / poolHeight) * 100) / 100 : 0;
+    if (Number.isFinite(diameter) && Number.isFinite(poolHeight) && poolCount > 0) {
+      return formatDrainRingPoolDescription({
+        poolCount,
+        poolHeight,
+        diameter,
+        style: line.drainRingStyle ?? "DRAIN",
+      });
+    }
+  }
+
+  const description = line.description?.trim();
+  if (description) {
+    return description;
+  }
+
+  return "—";
+}
+
+function formatQuoteLineTypeLabel(line: QuoteLineItemRecord): string {
+  if (line.isDrainRing) {
+    const style = formatDrainRingStyleLabel(line.drainRingStyle ?? "DRAIN");
+    return `Ring (${style})`;
+  }
+
+  return mapLineTypeLabel(line.lineType);
+}
+
 export function mapQuoteToRow(quote: QuoteRecord): QuoteRow {
   const status = quote.status as QuoteStatus;
   const quoteType = quote.quoteType as QuoteType;
@@ -251,6 +337,7 @@ export function mapQuoteToDetailView(quote: QuoteDetailRecord): QuoteDetailView 
     bidDueDate: formatQuoteDate(quote.bidDueDate),
     revision: `R${quote.revisionNumber}`,
     estimator: quote.estimator ?? "—",
+    jobId: quote.jobId,
     jobNumber: quote.jobNumber ?? "—",
     projectName: quote.projectName,
     projectAddress: quote.projectAddress?.trim() || "—",
@@ -258,7 +345,10 @@ export function mapQuoteToDetailView(quote: QuoteDetailRecord): QuoteDetailView 
     contactName: quote.contactName?.trim() || "—",
     contactEmail: quote.contactEmail?.trim() || "—",
     contactPhone: quote.contactPhone?.trim() || "—",
+    contactTitle: quote.contactTitle?.trim() || "—",
     quoteDate: formatQuoteDate(quote.quoteDate),
+    sentAt: formatQuoteDate(quote.sentAt),
+    bidListContractor: quote.jobBidder?.customer.name ?? null,
     expirationDate: formatQuoteDate(quote.expirationDate),
     priceList: "—",
     taxRate: `${Number.isFinite(taxRateNumber) ? taxRateNumber : 0}%`,
@@ -272,9 +362,9 @@ export function mapQuoteToDetailView(quote: QuoteDetailRecord): QuoteDetailView 
       id: line.id,
       lineNumber: line.lineNumber,
       type: line.lineType as QuoteDetailView["lineItems"][number]["type"],
-      typeLabel: mapLineTypeLabel(line.lineType),
+      typeLabel: formatQuoteLineTypeLabel(line),
       item: line.itemCode,
-      description: line.description?.trim() || "—",
+      description: formatQuoteLineDescription(line),
       qty: formatQuantity(line.quantity),
       unit: line.unit,
       unitPrice: formatCurrency(line.unitPrice),
@@ -300,10 +390,16 @@ export function mapQuoteToDetailView(quote: QuoteDetailRecord): QuoteDetailView 
         label: `${quote.quoteNumber} created`,
       },
     ],
+    relatedStructures: (quote.jobStructures ?? []).map((structure) =>
+      mapQuoteRelatedStructure(structure, quote.jobId),
+    ),
     relatedRecords: {
       jobNumber: quote.jobNumber ?? "—",
       customer: quote.customerName,
-      structures: "Not linked",
+      structures:
+        (quote.jobStructures?.length ?? 0) > 0
+          ? `${quote.jobStructures!.length} linked`
+          : "Not linked",
       documents: "0",
       submittals: formatSubmittalsStatus(quote),
       invoice: "Not created",

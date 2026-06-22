@@ -91,7 +91,9 @@ function isPrismaClientStale(client: PrismaClient) {
     !("deliveryTicket" in client) ||
     !("priceList" in client) ||
     !("appSettings" in client) ||
-    !("jobFile" in client)
+    !("jobFile" in client) ||
+    !("user" in client) ||
+    !("jobFavorite" in client)
   ) {
     return true;
   }

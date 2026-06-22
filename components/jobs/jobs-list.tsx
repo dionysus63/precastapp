@@ -12,16 +12,34 @@ import {
 } from "@/components/jobs/job-utils";
 import { CreateJobFolderButton } from "@/components/jobs/create-job-folder-button";
 import { OpenJobFolderButton } from "@/components/jobs/open-job-folder-button";
+import { JobFavoriteStar } from "@/components/jobs/job-favorite-star";
 
 type JobsListProps = {
   jobs: JobRow[];
+  favoriteJobIds: string[];
 };
 
-export function JobsList({ jobs }: JobsListProps) {
+export function JobsList({ jobs, favoriteJobIds }: JobsListProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [yearFilter, setYearFilter] = useState("All");
   const [customerFilter, setCustomerFilter] = useState("All");
+
+  const favoriteIdSet = useMemo(
+    () => new Set(favoriteJobIds),
+    [favoriteJobIds],
+  );
+
+  const jobsById = useMemo(
+    () => new Map(jobs.map((job) => [job.id, job])),
+    [jobs],
+  );
+
+  const favoriteJobs = useMemo(() => {
+    return favoriteJobIds
+      .map((jobId) => jobsById.get(jobId))
+      .filter((job): job is JobRow => job != null);
+  }, [favoriteJobIds, jobsById]);
 
   const yearFilterOptions = useMemo(
     () => buildJobYearFilterOptions(jobs.map((job) => job.year)),
@@ -57,6 +75,56 @@ export function JobsList({ jobs }: JobsListProps) {
 
   return (
     <div className="space-y-4">
+      <SectionCard
+        title="Your Favorites"
+        description={
+          favoriteJobs.length > 0
+            ? `${favoriteJobs.length} job${favoriteJobs.length === 1 ? "" : "s"} pinned for quick access`
+            : "Star jobs below for quick access"
+        }
+      >
+        {favoriteJobs.length === 0 ? (
+          <p className="text-xs text-slate-500">
+            No favorites yet. Click the star on any job in the list below.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {favoriteJobs.map((job) => (
+              <div
+                key={job.id}
+                className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs"
+              >
+                <JobFavoriteStar
+                  jobId={job.id}
+                  initialFavorited={favoriteIdSet.has(job.id)}
+                />
+                <Link
+                  href={`/jobs/${job.id}`}
+                  className="shrink-0 font-mono text-[11px] font-semibold text-slate-900 hover:text-slate-700"
+                >
+                  {job.jobNumber}
+                </Link>
+                <span className="text-slate-300">·</span>
+                <Link
+                  href={`/jobs/${job.id}`}
+                  className="max-w-[140px] truncate font-medium text-slate-800 hover:text-slate-600 sm:max-w-[200px]"
+                >
+                  {job.projectName}
+                </Link>
+                <span className="hidden text-slate-400 sm:inline">·</span>
+                <span className="hidden max-w-[120px] truncate text-slate-500 sm:inline">
+                  {job.customer}
+                </span>
+                <StatusBadge
+                  label={job.status}
+                  variant={job.statusVariant}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </SectionCard>
+
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:flex-wrap">
           <input
@@ -118,6 +186,9 @@ export function JobsList({ jobs }: JobsListProps) {
           <table className="min-w-full text-left text-xs">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
+                <th className="px-2 py-2.5 font-semibold">
+                  <span className="sr-only">Favorite</span>
+                </th>
                 <th className="px-4 py-2.5 font-semibold">Job Number</th>
                 <th className="px-4 py-2.5 font-semibold">Project Name</th>
                 <th className="px-4 py-2.5 font-semibold">Customer</th>
@@ -134,7 +205,7 @@ export function JobsList({ jobs }: JobsListProps) {
               {filteredJobs.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={10}
+                    colSpan={11}
                     className="px-4 py-8 text-center text-sm text-slate-500"
                   >
                     {jobs.length === 0
@@ -145,11 +216,27 @@ export function JobsList({ jobs }: JobsListProps) {
               ) : (
                 filteredJobs.map((job) => (
                   <tr key={job.id} className="hover:bg-slate-50/60">
+                    <td className="px-2 py-2.5">
+                      <JobFavoriteStar
+                        jobId={job.id}
+                        initialFavorited={favoriteIdSet.has(job.id)}
+                      />
+                    </td>
                     <td className="px-4 py-2.5 font-mono text-[11px] font-medium text-slate-900">
-                      {job.jobNumber}
+                      <Link
+                        href={`/jobs/${job.id}`}
+                        className="hover:text-slate-600 hover:underline"
+                      >
+                        {job.jobNumber}
+                      </Link>
                     </td>
                     <td className="px-4 py-2.5 font-medium text-slate-900">
-                      {job.projectName}
+                      <Link
+                        href={`/jobs/${job.id}`}
+                        className="hover:text-slate-600 hover:underline"
+                      >
+                        {job.projectName}
+                      </Link>
                     </td>
                     <td className="px-4 py-2.5 text-slate-700">{job.customer}</td>
                     <td className="px-4 py-2.5 text-slate-600">

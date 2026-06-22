@@ -4,37 +4,28 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
-import { SummaryCard } from "@/components/dashboard/summary-card";
+import { DispatcherWeekCalendar } from "@/components/delivery-tickets/dispatcher-week-calendar";
+import { TodaysLoadsPanel } from "@/components/delivery-tickets/todays-loads-panel";
 import {
   deliveryDateFilterOptions,
   deliveryDriverFilterOptions,
   deliveryJobFilterOptions,
   deliveryTicketStatusFilterOptions,
   deliveryTicketStatusLabels,
-  deliveryTicketSummaryCards,
   deliveryTruckFilterOptions,
   matchesDeliveryDateFilter,
   placeholderDeliveryTickets,
-  recentDeliveryActivity,
-  upcomingDeliveries,
   type DeliveryTicketRow,
 } from "@/components/delivery-tickets/delivery-ticket-utils";
 
 type DeliveryTicketsListProps = {
   tickets?: DeliveryTicketRow[];
-  summaryStats?: {
-    scheduledToday: number;
-    readyToShip: number;
-    inTransit: number;
-    deliveredThisWeek: number;
-    openTickets: number;
-  };
 };
 
 export function DeliveryTicketsList({
   tickets: ticketsProp,
-  summaryStats,
 }: DeliveryTicketsListProps = {}) {
+  const usingLiveData = ticketsProp != null;
   const tickets = ticketsProp ?? placeholderDeliveryTickets;
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -91,58 +82,9 @@ export function DeliveryTicketsList({
     tickets,
   ]);
 
-  const summaryCards = summaryStats
-    ? [
-        {
-          label: "Scheduled Today",
-          value: String(summaryStats.scheduledToday),
-          detail: "Deliveries on today's schedule",
-          accent: "sky" as const,
-        },
-        {
-          label: "Ready to Ship",
-          value: String(summaryStats.readyToShip),
-          detail: "Tickets cleared for loading",
-          accent: "emerald" as const,
-        },
-        {
-          label: "In Transit",
-          value: String(summaryStats.inTransit),
-          detail: "Currently on the road",
-          accent: "amber" as const,
-        },
-        {
-          label: "Delivered This Week",
-          value: String(summaryStats.deliveredThisWeek),
-          detail: "Completed deliveries",
-          accent: "emerald" as const,
-        },
-        {
-          label: "Open Tickets",
-          value: String(summaryStats.openTickets),
-          detail: "Draft, scheduled, or in transit",
-          accent: "rose" as const,
-        },
-      ]
-    : deliveryTicketSummaryCards;
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <button
-          type="button"
-          disabled
-          className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-400"
-        >
-          Export
-        </button>
-        <button
-          type="button"
-          disabled
-          className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-400"
-        >
-          Print Schedule
-        </button>
         <Link
           href="/delivery-tickets/reconcile"
           className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
@@ -157,11 +99,12 @@ export function DeliveryTicketsList({
         </Link>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {summaryCards.map((card) => (
-          <SummaryCard key={card.label} {...card} />
-        ))}
-      </div>
+      {usingLiveData ? (
+        <>
+          <DispatcherWeekCalendar tickets={tickets} />
+          <TodaysLoadsPanel tickets={tickets} />
+        </>
+      ) : null}
 
       <div className="flex flex-col gap-3 xl:flex-row xl:flex-wrap">
         <input
@@ -229,7 +172,7 @@ export function DeliveryTicketsList({
       </div>
 
       <SectionCard
-        title="Delivery Ticket List"
+        title="All Delivery Tickets"
         description={`${filteredTickets.length} ticket${filteredTickets.length === 1 ? "" : "s"} shown`}
         noPadding
       >
@@ -298,27 +241,12 @@ export function DeliveryTicketsList({
                         >
                           View
                         </Link>
-                        <button
-                          type="button"
-                          disabled
-                          className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-400"
+                        <Link
+                          href={`/delivery-tickets/${ticket.id}/preview`}
+                          className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
                         >
                           Print
-                        </button>
-                        <button
-                          type="button"
-                          disabled
-                          className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-400"
-                        >
-                          Mark Delivered
-                        </button>
-                        <button
-                          type="button"
-                          disabled
-                          className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-400"
-                        >
-                          More
-                        </button>
+                        </Link>
                       </div>
                     </td>
                   </tr>
@@ -328,65 +256,6 @@ export function DeliveryTicketsList({
           </table>
         </div>
       </SectionCard>
-
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <SectionCard
-          title="Upcoming Deliveries"
-          description="Compact schedule grouped by delivery date."
-        >
-          <div className="space-y-4">
-            {upcomingDeliveries.map((group) => (
-              <div key={group.date}>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  {group.date}
-                </p>
-                <ul className="mt-2 space-y-2">
-                  {group.deliveries.map((delivery) => (
-                    <li
-                      key={delivery.id}
-                      className="flex items-start justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5"
-                    >
-                      <div>
-                        <p className="font-mono text-[11px] font-medium text-slate-900">
-                          {delivery.ticketNumber}
-                        </p>
-                        <p className="mt-0.5 text-sm text-slate-800">
-                          {delivery.projectName}
-                        </p>
-                        <p className="mt-1 text-[11px] text-slate-500">
-                          {delivery.truck} · {delivery.driver}
-                        </p>
-                      </div>
-                      <span className="whitespace-nowrap text-[11px] font-medium text-slate-600">
-                        {delivery.time}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-
-        <SectionCard
-          title="Recent Delivery Activity"
-          description="Latest delivery ticket updates."
-        >
-          <ul className="space-y-3">
-            {recentDeliveryActivity.map((item) => (
-              <li
-                key={item.id}
-                className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5"
-              >
-                <p className="text-sm text-slate-800">{item.message}</p>
-                <p className="mt-1 text-[11px] text-slate-500">
-                  {item.timestamp}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </SectionCard>
-      </div>
     </div>
   );
 }

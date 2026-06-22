@@ -75,6 +75,7 @@ export async function buildQuotePdfHtml(quote: QuoteDetailView) {
   const customerFields = [
     fieldBlock("Customer Name", quote.customer),
     fieldBlock("Contact Name", quote.contactName),
+    fieldBlock("Contact Role", quote.contactTitle),
     fieldBlock("Contact Email", quote.contactEmail),
     fieldBlock("Contact Phone", quote.contactPhone),
     fieldBlock("Project Name", quote.projectName),

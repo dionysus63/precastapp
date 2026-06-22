@@ -79,7 +79,7 @@ export function JobForm({
             htmlFor="customerId"
             className="block text-xs font-medium text-slate-700"
           >
-            Customer
+            Awarded Contractor
           </label>
           <select
             id="customerId"
@@ -87,7 +87,7 @@ export function JobForm({
             defaultValue={defaultValues?.customerId ?? ""}
             className={jobInputClassName}
           >
-            <option value="">Select customer (optional)</option>
+            <option value="">No contractor yet (multi-bid)</option>
             {customers.map((customer) => (
               <option key={customer.id} value={customer.id}>
                 {customer.name}
@@ -101,7 +101,7 @@ export function JobForm({
             htmlFor="customerName"
             className="block text-xs font-medium text-slate-700"
           >
-            Customer Name
+            Contractor Name
           </label>
           <input
             id="customerName"
@@ -112,7 +112,8 @@ export function JobForm({
             className={jobInputClassName}
           />
           <p className="mt-2 text-xs text-slate-500">
-            Select a customer above, or enter a name here for one-off customers.
+            Set the awarded contractor if already known. For multi-bid jobs, leave
+            blank and use the Bidding tab to add contractors to the bid list.
           </p>
         </div>
       </div>

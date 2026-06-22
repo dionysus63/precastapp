@@ -1,3 +1,13 @@
+import type { QuoteStatus } from "@/components/quotes/quote-utils";
+
+export type JobStatusVariant =
+  | "success"
+  | "info"
+  | "warning"
+  | "neutral"
+  | "default"
+  | "danger";
+
 export type JobRow = {
   id: string;
   jobNumber: string;
@@ -11,6 +21,152 @@ export type JobRow = {
   awardedDate: string;
   folderPath: string | null;
   lastActivity: string;
+};
+
+export type JobDetailTab =
+  | "overview"
+  | "bidding"
+  | "quotes"
+  | "deliveries"
+  | "production"
+  | "invoices"
+  | "construction-plans"
+  | "files";
+
+export type JobRelatedQuote = {
+  id: string;
+  quoteNumber: string;
+  projectName: string;
+  customerName: string;
+  statusLabel: string;
+  statusVariant: JobStatusVariant;
+  total: string;
+  lastUpdated: string;
+};
+
+export type JobBidderContactOption = {
+  id: string;
+  name: string;
+  title: string;
+  email: string;
+  phone: string;
+  isPrimary: boolean;
+};
+
+export type JobBidderRow = {
+  id: string;
+  customerId: string;
+  customerName: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  contacts: JobBidderContactOption[];
+  defaultContactId: string | null;
+  isWinner: boolean;
+  quoteId: string | null;
+  quoteNumber: string | null;
+  quoteStatus: QuoteStatus | null;
+  quoteStatusLabel: string | null;
+  quoteStatusVariant: JobStatusVariant;
+  sentAt: string | null;
+};
+
+export type JobMasterQuoteOption = {
+  id: string;
+  quoteNumber: string;
+  lineItemCount: number;
+};
+
+export type JobBiddingSummary = {
+  bidderCount: number;
+  quotesSentCount: number;
+  summaryText: string;
+  isAwarded: boolean;
+};
+
+export type JobBidListCustomerOption = {
+  id: string;
+  name: string;
+};
+
+export type JobRelatedDelivery = {
+  id: string;
+  ticketNumber: string;
+  projectName: string;
+  statusLabel: string;
+  statusVariant: JobStatusVariant;
+  deliveryDate: string;
+  lastUpdated: string;
+};
+
+export type JobRelatedStructure = {
+  id: string;
+  structureNumber: string;
+  description: string;
+  typeLabel: string;
+  quantity: string;
+  status: string;
+  statusLabel: string;
+  statusVariant: JobStatusVariant;
+  needsSubmittal: boolean;
+  documentCount: number;
+  submittedDate: string;
+  madeDate: string;
+  shippedDate: string;
+};
+
+export type JobRelatedInvoice = {
+  id: string;
+  invoiceNumber: string;
+  ticketNumber: string;
+  statusLabel: string;
+  statusVariant: JobStatusVariant;
+  total: string;
+  invoiceDate: string;
+};
+
+export type JobInvoiceableDelivery = {
+  id: string;
+  ticketNumber: string;
+  projectName: string;
+  deliveryDate: string;
+};
+
+export type JobSummaryStat = {
+  label: string;
+  value: string;
+  detail: string;
+};
+
+export type JobDetailView = {
+  id: string;
+  jobNumber: string;
+  projectName: string;
+  customer: string;
+  customerId: string | null;
+  status: string;
+  statusVariant: JobStatusVariant;
+  year: number;
+  projectAddress: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  bidDate: string;
+  awardedDate: string;
+  folderPath: string | null;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+  stats: JobSummaryStat[];
+  structureStatusBreakdown: { label: string; count: number }[];
+  biddingSummary: JobBiddingSummary;
+  bidders: JobBidderRow[];
+  masterQuoteOptions: JobMasterQuoteOption[];
+  relatedQuotes: JobRelatedQuote[];
+  relatedDeliveries: JobRelatedDelivery[];
+  relatedStructures: JobRelatedStructure[];
+  relatedInvoices: JobRelatedInvoice[];
+  invoiceableDeliveries: JobInvoiceableDelivery[];
 };
 
 export const jobStatusLabels: Record<string, string> = {

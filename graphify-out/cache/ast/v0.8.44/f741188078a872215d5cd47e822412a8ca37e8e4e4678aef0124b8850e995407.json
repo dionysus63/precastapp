@@ -1,0 +1,1 @@
+{"nodes": [{"id": "c_projects_precastapp_prisma_migrations_20260620190000_delivery_ticket_global_numbering_migration_sql", "label": "migration.sql", "file_type": "code", "source_file": "prisma/migrations/20260620190000_delivery_ticket_global_numbering/migration.sql", "source_location": null}], "edges": []}

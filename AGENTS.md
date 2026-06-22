@@ -4,19 +4,29 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
-# Security posture: internal, trusted-network tool only
+# Security posture: internal, trusted-network tool
 
-This app has **no authentication or authorization layer** — there is no
-`middleware.ts`, no session/user model, and no per-action access checks.
-Every Server Action (creating/editing/deleting customers, jobs, and
-products, and opening job folders on the host machine) is reachable by
-anyone who can reach the running server.
+This app runs on a trusted internal LAN/VPN for a small office. It is **not**
+intended for public internet exposure.
 
-This is intentional: the app is designed to run only on a trusted internal
-LAN/VPN for a small office, not to be exposed on the open internet. Do not
-add features that assume any form of access control exists today, and do
-not deploy this app to a publicly reachable host without first adding a
-real authentication layer.
+## Authentication today
+
+- **Username-only sign-in** at `/login` (pick your account; no password yet)
+- **Database-backed sessions** (8-hour idle timeout, httpOnly cookie)
+- **Role-based permissions** with per-user grant/deny overrides
+- **Admin user management** at Settings → Users & Access (`USERS_MANAGE`)
+
+Password login is planned: the `User` model already has nullable `passwordHash`
+and `mustChangePassword` fields for a future upgrade.
+
+## Authorization
+
+- Sidebar and routes are filtered by effective permissions
+- Server actions call `requirePermission(...)` before mutations
+- Sensitive disk operations require `FILES_MANAGE`
+
+Do not deploy this app to a publicly reachable host without adding password
+authentication and reviewing permission boundaries first.
 
 # Project context
 

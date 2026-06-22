@@ -2,9 +2,12 @@ import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { ProductForm } from "@/components/products/product-form";
+import { getProductCatalog } from "@/lib/product-catalog-settings.server";
 import { createProduct } from "../actions";
 
-export default function NewProductPage() {
+export default async function NewProductPage() {
+  const catalog = await getProductCatalog();
+
   return (
     <DashboardShell
       title="New Product"
@@ -27,6 +30,7 @@ export default function NewProductPage() {
               action={createProduct}
               cancelHref="/products"
               submitLabel="Save Product"
+              catalog={catalog}
             />
           </SectionCard>
         </div>

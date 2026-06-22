@@ -25,6 +25,7 @@ export default function NewCustomerPage() {
           >
             <CustomerForm
               action={createCustomer}
+              enableSimilarNameCheck
               cancelHref="/customers"
               submitLabel="Save Customer"
             />

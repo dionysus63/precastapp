@@ -12,7 +12,20 @@ async function main() {
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
   console.log("Syncing job files from disk for all jobs with folders…");
-  await syncAllJobFilesFromDisk(prisma);
+  const result = await syncAllJobFilesFromDisk(prisma);
+
+  if (result.errors.length > 0) {
+    console.warn(
+      `Sync completed with ${result.errors.length} error(s) (${result.synced} synced, ${result.skipped} skipped).`,
+    );
+    for (const entry of result.errors) {
+      console.warn(`  Job ${entry.jobId}: ${entry.message}`);
+    }
+  } else {
+    console.log(
+      `Sync complete for ${result.synced} job folder(s)${result.skipped > 0 ? ` (${result.skipped} skipped)` : ""}.`,
+    );
+  }
 
   const count = await prisma.jobFile.count();
   console.log(`Sync complete. ${count} file record(s) in JobFile.`);

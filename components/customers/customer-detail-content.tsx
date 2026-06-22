@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CustomerContactsPanel } from "@/components/customers/customer-contacts-panel";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import type { CustomerDetailView } from "@/components/customers/customer-utils";
@@ -72,7 +73,6 @@ export function CustomerDetailContent({ customer }: CustomerDetailContentProps) 
               {customer.name}
             </h2>
             <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge label={customer.type} variant={customer.typeVariant} />
               <StatusBadge
                 label={customer.status}
                 variant={customer.statusVariant}
@@ -114,7 +114,6 @@ export function CustomerDetailContent({ customer }: CustomerDetailContentProps) 
           <SectionCard title="Customer Information">
             <dl className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               <DetailField label="Customer Name" value={customer.name} />
-              <DetailField label="Customer Type" value={customer.type} />
               <DetailField label="Status" value={customer.status} />
               <DetailField
                 label="Primary Contact Name"
@@ -122,15 +121,20 @@ export function CustomerDetailContent({ customer }: CustomerDetailContentProps) 
               />
               <DetailField label="Phone" value={customer.phone} />
               <DetailField label="Email" value={customer.email} />
-              <DetailField
-                label="Billing Address"
-                value={customer.billingAddress}
-              />
+              <DetailField label="Address" value={customer.address} />
+              <DetailField label="Town" value={customer.town} />
+              <DetailField label="State" value={customer.state} />
+              <DetailField label="Zip" value={customer.zip} />
               <DetailField label="Notes" value={customer.notes} />
               <DetailField label="Created Date" value={customer.createdAt} />
               <DetailField label="Updated Date" value={customer.updatedAt} />
             </dl>
           </SectionCard>
+
+          <CustomerContactsPanel
+            customerId={customer.id}
+            contacts={customer.contacts}
+          />
 
           <SectionCard title="Related Jobs" noPadding>
             <div className="overflow-x-auto">

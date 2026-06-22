@@ -3,7 +3,8 @@
 import { access, mkdir, unlink, writeFile } from "fs/promises";
 import path from "path";
 import { revalidatePath } from "next/cache";
-import { Prisma } from "@/app/generated/prisma/client";
+import { AppPermission, Prisma } from "@/app/generated/prisma/client";
+import { requirePermission } from "@/lib/auth/session";
 import { syncAllJobFilesFromDisk } from "@/lib/job-files-service";
 import {
   formatLinesList,
@@ -14,7 +15,27 @@ import {
   removeCompanyLogo,
   saveCompanyLogo,
 } from "@/lib/company-logo";
-import { withDatabaseRetry } from "@/lib/prisma";
+import {
+  conflictsNotCoveredByRenames,
+  findCatalogInUseConflicts,
+  formatProductCatalogInUseError,
+  parseCatalogRenamesFromFormData,
+  parseProductCatalogFromFormData,
+  renamesAffectingProducts,
+  validateCatalogRenames,
+  validateProductCatalog,
+} from "@/lib/product-catalog-settings";
+import {
+  applyProductCatalogRenames,
+  getProductCatalog,
+  getProductCatalogUsage,
+} from "@/lib/product-catalog-settings.server";
+import { writeAuditLog } from "@/lib/auth/audit";
+import {
+  isSettingsResetConfigured,
+  verifySettingsResetPassword,
+} from "@/lib/settings-reset-password";
+import { prisma, withDatabaseRetry } from "@/lib/prisma";
 
 export type SettingsActionResult = {
   error?: string;
@@ -27,7 +48,11 @@ function revalidateSettingsPaths() {
   revalidatePath("/settings/billing");
   revalidatePath("/settings/files");
   revalidatePath("/settings/operations");
+  revalidatePath("/settings/products");
   revalidatePath("/settings/system");
+  revalidatePath("/settings/data-reset");
+  revalidatePath("/products");
+  revalidatePath("/products/new");
   revalidatePath("/", "layout");
 }
 
@@ -52,18 +77,22 @@ async function updateAppSettings(
 }
 
 export async function createPriceListFormAction(formData: FormData): Promise<void> {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
   await createPriceList(formData);
 }
 
 export async function upsertPriceListItemFormAction(formData: FormData): Promise<void> {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
   await upsertPriceListItem(formData);
 }
 
 export async function deletePriceListItemFormAction(formData: FormData): Promise<void> {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
   await deletePriceListItem(formData);
 }
 
 export async function createPriceList(formData: FormData) {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
   const name = String(formData.get("name") ?? "").trim();
   const effectiveDateRaw = String(formData.get("effectiveDate") ?? "").trim();
   const isDefault = formData.get("isDefault") === "on";
@@ -102,6 +131,7 @@ export async function createPriceList(formData: FormData) {
 }
 
 export async function upsertPriceListItem(formData: FormData) {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
   const priceListId = String(formData.get("priceListId") ?? "").trim();
   const productId = String(formData.get("productId") ?? "").trim();
   const unitPrice = Number(formData.get("unitPrice"));
@@ -142,6 +172,7 @@ export async function upsertPriceListItem(formData: FormData) {
 }
 
 export async function deletePriceListItem(formData: FormData) {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
   const id = String(formData.get("id") ?? "").trim();
   const priceListId = String(formData.get("priceListId") ?? "").trim();
 
@@ -166,6 +197,7 @@ export async function deletePriceListItem(formData: FormData) {
 export async function updateCompanySettingsFormAction(
   formData: FormData,
 ): Promise<SettingsActionResult> {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
   const companyName = String(formData.get("companyName") ?? "").trim();
   const companyAddress = String(formData.get("companyAddress") ?? "").trim();
   const companyPhone = String(formData.get("companyPhone") ?? "").trim();
@@ -197,6 +229,7 @@ export async function updateCompanySettingsFormAction(
 export async function updateBillingSettingsFormAction(
   formData: FormData,
 ): Promise<SettingsActionResult> {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
   const defaultTaxRate = Number(formData.get("defaultTaxRate"));
   const quoteValidityDays = Number(formData.get("quoteValidityDays"));
   const invoiceDueDays = Number(formData.get("invoiceDueDays"));
@@ -234,6 +267,7 @@ export async function updateBillingSettingsFormAction(
 export async function updateFileSettingsFormAction(
   formData: FormData,
 ): Promise<SettingsActionResult> {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
   const jobsRoot = String(formData.get("jobsRoot") ?? "").trim();
   const quotePdfFallbackDir = String(
     formData.get("quotePdfFallbackDir") ?? "",
@@ -257,6 +291,7 @@ export async function updateFileSettingsFormAction(
 }
 
 export async function testStockSubmittalsRootWriteAccessAction(): Promise<SettingsActionResult> {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
   const settings = await getAppSettings();
   const testDir = path.join(
     settings.stockSubmittalsRoot,
@@ -284,6 +319,7 @@ export async function testStockSubmittalsRootWriteAccessAction(): Promise<Settin
 export async function updateOperationsSettingsFormAction(
   formData: FormData,
 ): Promise<SettingsActionResult> {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
   const truckCapacityLabel = String(
     formData.get("truckCapacityLabel") ?? "",
   ).trim();
@@ -314,7 +350,114 @@ export async function updateOperationsSettingsFormAction(
   });
 }
 
+export async function updateProductCatalogSettingsFormAction(
+  formData: FormData,
+): Promise<SettingsActionResult> {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
+
+  const raw = String(formData.get("productCatalog") ?? "").trim();
+  if (!raw) {
+    return { error: "Product catalog data is required." };
+  }
+
+  let catalog;
+  try {
+    catalog = parseProductCatalogFromFormData(raw);
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Invalid product catalog data.",
+    };
+  }
+
+  const validationError = validateProductCatalog(catalog);
+  if (validationError) {
+    return { error: validationError };
+  }
+
+  const rawRenames = String(formData.get("catalogRenames") ?? "").trim();
+  const confirmed = String(formData.get("confirmCatalogRenames") ?? "") === "1";
+
+  let renames;
+  try {
+    renames = parseCatalogRenamesFromFormData(rawRenames);
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Invalid catalog rename data.",
+    };
+  }
+
+  const [oldCatalog, usage] = await Promise.all([
+    getProductCatalog(),
+    getProductCatalogUsage(),
+  ]);
+
+  if (renames.length > 0) {
+    const renameValidationError = validateCatalogRenames(
+      renames,
+      oldCatalog,
+      catalog,
+    );
+    if (renameValidationError) {
+      return { error: renameValidationError };
+    }
+  }
+
+  const conflicts = findCatalogInUseConflicts(catalog, usage);
+  const uncoveredConflicts =
+    renames.length > 0
+      ? conflictsNotCoveredByRenames(conflicts, renames)
+      : conflicts;
+
+  if (uncoveredConflicts.length > 0) {
+    return { error: formatProductCatalogInUseError(uncoveredConflicts) };
+  }
+
+  if (
+    renames.length > 0 &&
+    renamesAffectingProducts(renames, usage) &&
+    !confirmed
+  ) {
+    return {
+      error: "Confirm catalog renames before updating products.",
+    };
+  }
+
+  if (renames.length > 0) {
+    try {
+      await withDatabaseRetry((client) =>
+        client.$transaction(async (tx) => {
+          await applyProductCatalogRenames(tx, renames);
+          await tx.appSettings.update({
+            where: { id: "default" },
+            data: {
+              productCatalog: catalog as Prisma.InputJsonValue,
+            },
+          });
+        }),
+      );
+      revalidateSettingsPaths();
+      return { success: "Settings saved." };
+    } catch (error) {
+      return {
+        error:
+          error instanceof Error ? error.message : "Could not save settings.",
+      };
+    }
+  }
+
+  return updateAppSettings({
+    productCatalog: catalog,
+  });
+}
+
 export async function testJobsRootWriteAccessAction(): Promise<SettingsActionResult> {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
   const settings = await getAppSettings();
   const testDir = path.join(settings.jobsRoot, ".precast-settings-test");
   const testFile = path.join(testDir, ".precast-write-test");
@@ -335,6 +478,7 @@ export async function testJobsRootWriteAccessAction(): Promise<SettingsActionRes
 }
 
 export async function checkJobsRootReadAccess(): Promise<boolean> {
+  await requirePermission(AppPermission.SETTINGS_VIEW);
   const settings = await getAppSettings();
   try {
     await access(settings.jobsRoot);
@@ -345,6 +489,7 @@ export async function checkJobsRootReadAccess(): Promise<boolean> {
 }
 
 export async function ensureYearSequencesAction(): Promise<SettingsActionResult> {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
   const year = new Date().getFullYear();
 
   try {
@@ -379,12 +524,22 @@ export async function ensureYearSequencesAction(): Promise<SettingsActionResult>
 }
 
 export async function syncAllJobFilesFromSettingsAction(): Promise<SettingsActionResult> {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
   try {
-    await withDatabaseRetry((client) => syncAllJobFilesFromDisk(client));
+    const result = await withDatabaseRetry((client) =>
+      syncAllJobFilesFromDisk(client),
+    );
     revalidatePath("/files");
     revalidatePath("/settings");
     revalidatePath("/settings/system");
-    return { success: "Job files synced from disk." };
+    if (result.errors.length > 0) {
+      return {
+        success: `Synced ${result.synced} job folder(s). ${result.errors.length} job(s) failed — ${result.errors[0]?.message ?? "see logs"}.`,
+      };
+    }
+    return {
+      success: `Job files synced from disk (${result.synced} job folder(s)${result.skipped > 0 ? `, ${result.skipped} skipped` : ""}).`,
+    };
   } catch (error) {
     return {
       error:
@@ -394,6 +549,7 @@ export async function syncAllJobFilesFromSettingsAction(): Promise<SettingsActio
 }
 
 export async function getDocumentNumberingPreview() {
+  await requirePermission(AppPermission.SETTINGS_VIEW);
   const year = new Date().getFullYear();
   const yearTwoDigit = String(year % 100).padStart(2, "0");
 
@@ -432,6 +588,7 @@ export async function getDocumentNumberingPreview() {
 }
 
 export async function getSettingsHubStatus() {
+  await requirePermission(AppPermission.SETTINGS_VIEW);
   const year = new Date().getFullYear();
   const yearTwoDigit = String(year % 100).padStart(2, "0");
 
@@ -472,6 +629,7 @@ export async function getSettingsHubStatus() {
 export async function uploadCompanyLogoFormAction(
   formData: FormData,
 ): Promise<SettingsActionResult> {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
   const file = formData.get("logo");
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Choose a logo file to upload." };
@@ -491,6 +649,7 @@ export async function uploadCompanyLogoFormAction(
 }
 
 export async function removeCompanyLogoFormAction(): Promise<SettingsActionResult> {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
   try {
     await removeCompanyLogo();
     revalidateSettingsPaths();
@@ -502,6 +661,124 @@ export async function removeCompanyLogoFormAction(): Promise<SettingsActionResul
         error instanceof Error ? error.message : "Could not remove logo.",
     };
   }
+}
+
+export type DataResetStats = {
+  productCount: number;
+  customerCount: number;
+  resetConfigured: boolean;
+};
+
+export async function getDataResetStats(): Promise<DataResetStats> {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
+
+  const [productCount, customerCount] = await Promise.all([
+    prisma.product.count(),
+    prisma.customer.count(),
+  ]);
+
+  return {
+    productCount,
+    customerCount,
+    resetConfigured: isSettingsResetConfigured(),
+  };
+}
+
+function parseResetPassword(formData: FormData): string {
+  return String(formData.get("resetPassword") ?? "").trim();
+}
+
+function resetPasswordError(): SettingsActionResult {
+  if (!isSettingsResetConfigured()) {
+    return {
+      error:
+        "Data reset is not configured. Set SETTINGS_RESET_PASSWORD in .env and restart the app.",
+    };
+  }
+
+  return { error: "Incorrect reset password." };
+}
+
+function revalidateAfterProductReset() {
+  revalidatePath("/products");
+  revalidatePath("/products/new");
+  revalidatePath("/products/bulk");
+  revalidatePath("/settings/products");
+  revalidatePath("/settings/price-lists");
+  revalidatePath("/inventory");
+  revalidatePath("/settings/data-reset");
+}
+
+function revalidateAfterCustomerReset() {
+  revalidatePath("/customers");
+  revalidatePath("/customers/new");
+  revalidatePath("/customers/bulk");
+  revalidatePath("/jobs");
+  revalidatePath("/quotes");
+  revalidatePath("/delivery-tickets");
+  revalidatePath("/settings/data-reset");
+}
+
+export async function clearAllProductsFormAction(
+  formData: FormData,
+): Promise<SettingsActionResult> {
+  const user = await requirePermission(AppPermission.SETTINGS_MANAGE);
+  const resetPassword = parseResetPassword(formData);
+
+  if (!verifySettingsResetPassword(resetPassword)) {
+    return resetPasswordError();
+  }
+
+  const productCount = await prisma.product.count();
+  if (productCount === 0) {
+    return { success: "No products to delete." };
+  }
+
+  const result = await prisma.product.deleteMany();
+
+  await writeAuditLog({
+    userId: user.id,
+    action: "settings.clear_all_products",
+    entityType: "Product",
+    summary: `${user.displayName} cleared all products (${result.count} deleted)`,
+    metadata: { deletedCount: result.count },
+  });
+
+  revalidateAfterProductReset();
+  return {
+    success: `Deleted ${result.count} product${result.count === 1 ? "" : "s"}.`,
+  };
+}
+
+export async function clearAllCustomersFormAction(
+  formData: FormData,
+): Promise<SettingsActionResult> {
+  const user = await requirePermission(AppPermission.SETTINGS_MANAGE);
+  const resetPassword = parseResetPassword(formData);
+
+  if (!verifySettingsResetPassword(resetPassword)) {
+    return resetPasswordError();
+  }
+
+  const customerCount = await prisma.customer.count();
+  if (customerCount === 0) {
+    return { success: "No customers to delete." };
+  }
+
+  const result = await prisma.customer.deleteMany();
+
+  await writeAuditLog({
+    userId: user.id,
+    action: "settings.clear_all_customers",
+    entityType: "Customer",
+    summary: `${user.displayName} cleared all customers (${result.count} deleted)`,
+    metadata: { deletedCount: result.count },
+  });
+
+  revalidateAfterCustomerReset();
+  return {
+    success: `Deleted ${result.count} customer${result.count === 1 ? "" : "s"}.`,
+  };
 }
 
 export { formatLinesList };

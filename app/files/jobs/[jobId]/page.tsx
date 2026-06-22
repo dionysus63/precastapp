@@ -1,10 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import {
-  JobFilesBrowser,
-  mapFilesForBrowser,
-} from "@/components/files/job-files-browser";
+import { JobFilesBrowser } from "@/components/files/job-files-browser";
+import { mapFilesForBrowser } from "@/lib/job-file-mapper";
 import { getJobFilesForBrowser } from "@/app/files/actions";
 import { withDatabaseRetry } from "@/lib/prisma";
 

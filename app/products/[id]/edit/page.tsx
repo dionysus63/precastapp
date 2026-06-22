@@ -5,6 +5,7 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import { ProductForm } from "@/components/products/product-form";
 import { getProductById } from "@/components/products/product-utils";
 import { previewSaveProduct } from "@/app/products/preview-actions";
+import { getProductCatalog } from "@/lib/product-catalog-settings.server";
 
 type EditProductPageProps = {
   params: Promise<{ id: string }>;
@@ -12,7 +13,10 @@ type EditProductPageProps = {
 
 export default async function EditProductPage({ params }: EditProductPageProps) {
   const { id } = await params;
-  const product = getProductById(id);
+  const [product, catalog] = await Promise.all([
+    Promise.resolve(getProductById(id)),
+    getProductCatalog(),
+  ]);
 
   if (!product) {
     notFound();
@@ -40,6 +44,7 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
               action={previewSaveProduct}
               cancelHref="/products"
               submitLabel="Save Changes"
+              catalog={catalog}
               defaultValues={{
                 productType: product.productType,
                 productCode: product.productCode,

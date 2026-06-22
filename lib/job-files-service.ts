@@ -221,6 +221,14 @@ async function scanCategoryDirectory(
     select: { id: true, filePath: true },
   });
 
+  // If the directory enumerated as empty but we have previously-indexed
+  // files for this category, treat it as a suspicious/transient read
+  // (e.g. a network-share hiccup) rather than evidence every file was
+  // deleted, and skip the cleanup pass to avoid wiping the index.
+  if (diskPaths.size === 0 && registered.length > 0) {
+    return;
+  }
+
   for (const row of registered) {
     if (!diskPaths.has(normalizePath(row.filePath))) {
       await client.jobFile.delete({ where: { id: row.id } });
@@ -244,25 +252,54 @@ export async function syncJobFilesFromDisk(
   }
 }
 
-export async function syncAllJobFilesFromDisk(client: PrismaClient) {
+export type SyncAllJobFilesResult = {
+  synced: number;
+  skipped: number;
+  errors: { jobId: string; message: string }[];
+};
+
+export async function syncAllJobFilesFromDisk(
+  client: PrismaClient,
+): Promise<SyncAllJobFilesResult> {
   const jobs = await client.job.findMany({
     where: { folderPath: { not: null } },
     select: { id: true, folderPath: true },
   });
 
+  const result: SyncAllJobFilesResult = {
+    synced: 0,
+    skipped: 0,
+    errors: [],
+  };
+
   for (const job of jobs) {
     if (!job.folderPath?.trim()) {
+      result.skipped += 1;
       continue;
     }
 
     try {
       if (await pathExists(job.folderPath)) {
         await syncJobFilesFromDisk(client, job.id);
+        result.synced += 1;
+      } else {
+        result.skipped += 1;
+        result.errors.push({
+          jobId: job.id,
+          message: `Job folder not found: ${job.folderPath}`,
+        });
       }
-    } catch {
-      // Skip jobs whose folders are missing or unreadable.
+    } catch (error) {
+      result.skipped += 1;
+      result.errors.push({
+        jobId: job.id,
+        message:
+          error instanceof Error ? error.message : "Could not sync job folder.",
+      });
     }
   }
+
+  return result;
 }
 
 export async function listJobFiles(
@@ -270,7 +307,11 @@ export async function listJobFiles(
   jobId: string,
   folderCategory?: string,
 ): Promise<JobFileRecord[]> {
-  await syncJobFilesFromDisk(client, jobId);
+  try {
+    await syncJobFilesFromDisk(client, jobId);
+  } catch (error) {
+    console.error(`Could not sync job files for ${jobId}:`, error);
+  }
 
   return client.jobFile.findMany({
     where: {

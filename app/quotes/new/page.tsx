@@ -10,6 +10,7 @@ import {
   defaultQuoteExpirationDate,
   getAppSettings,
 } from "@/lib/app-settings";
+import { requireAuth } from "@/lib/auth/session";
 import { mapProductToQuoteFormOption } from "@/lib/quote-mapper";
 import { withDatabaseRetry } from "@/lib/prisma";
 
@@ -28,7 +29,19 @@ function formatJobAddress(job: {
   return parts.join(", ");
 }
 
-export default async function NewQuotePage() {
+type NewQuotePageProps = {
+  searchParams: Promise<{
+    jobId?: string;
+    customerId?: string;
+    bidderId?: string;
+  }>;
+};
+
+export default async function NewQuotePage({
+  searchParams,
+}: NewQuotePageProps) {
+  const { jobId, customerId, bidderId } = await searchParams;
+  const user = await requireAuth();
   const appSettings = await getAppSettings();
   const defaultExpiration = defaultQuoteExpirationDate(
     appSettings.quoteValidityDays,
@@ -39,6 +52,11 @@ export default async function NewQuotePage() {
       Promise.all([
         prisma.customer.findMany({
           orderBy: { name: "asc" },
+          include: {
+            contacts: {
+              orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
+            },
+          },
         }),
         prisma.job.findMany({
           orderBy: [{ year: "desc" }, { sequenceNumber: "desc" }],
@@ -65,6 +83,14 @@ export default async function NewQuotePage() {
     contactName: customer.primaryContactName ?? "",
     contactEmail: customer.email ?? "",
     contactPhone: customer.phone ?? "",
+    contacts: customer.contacts.map((contact) => ({
+      id: contact.id,
+      name: contact.name,
+      title: contact.title ?? "",
+      email: contact.email ?? "",
+      phone: contact.phone ?? "",
+      isPrimary: contact.isPrimary,
+    })),
   }));
 
   const jobOptions = jobs.map((job) => ({
@@ -127,12 +153,16 @@ export default async function NewQuotePage() {
           )}
           serviceOptions={serviceOptions}
           priceLists={priceLists}
+          initialJobId={jobId}
+          initialCustomerId={customerId}
+          initialJobBidderId={bidderId}
           quoteDefaults={{
             defaultTaxRate: appSettings.defaultTaxRate,
             defaultLeadTime: appSettings.defaultLeadTime,
             defaultExpirationDate: defaultExpiration.toISOString().slice(0, 10),
             estimators: appSettings.estimators,
             paymentTerms: appSettings.paymentTerms,
+            defaultEstimator: user.displayName,
           }}
         />
       </div>

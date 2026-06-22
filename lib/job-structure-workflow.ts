@@ -17,12 +17,17 @@ function mapLineTypeToStructureType(lineType: QuoteLineType): StructureType {
   return "CUSTOM_STRUCTURE";
 }
 
+type StructureLinkClient = Pick<
+  PrismaClient,
+  "quote" | "jobStructure" | "quoteLineItem"
+>;
+
 /**
  * When a quote is WON, create JobStructure rows for configurable/custom lines
  * and link them on QuoteLineItem.jobStructureId.
  */
-export async function linkJobStructuresFromQuote(
-  client: PrismaClient,
+export async function linkJobStructuresFromQuoteInTransaction(
+  client: StructureLinkClient,
   quoteId: string,
 ): Promise<number> {
   const quote = await client.quote.findUnique({
@@ -76,6 +81,13 @@ export async function linkJobStructuresFromQuote(
   return created;
 }
 
+export async function linkJobStructuresFromQuote(
+  client: PrismaClient,
+  quoteId: string,
+): Promise<number> {
+  return linkJobStructuresFromQuoteInTransaction(client, quoteId);
+}
+
 export async function setJobStructureStatus(
   client: PrismaClient,
   jobStructureId: string,
@@ -84,13 +96,16 @@ export async function setJobStructureStatus(
   const now = new Date();
   const data: {
     status: StructureStatus;
+    submittedDate?: Date;
     approvedDate?: Date;
     productionDate?: Date;
     madeDate?: Date;
     shippedDate?: Date;
   } = { status };
 
-  if (status === "APPROVED") {
+  if (status === "SUBMITTED") {
+    data.submittedDate = now;
+  } else if (status === "APPROVED") {
     data.approvedDate = now;
   } else if (status === "IN_PRODUCTION") {
     data.productionDate = now;
@@ -106,10 +121,83 @@ export async function setJobStructureStatus(
   });
 }
 
+export async function submitJobStructureForApproval(
+  client: PrismaClient,
+  jobStructureId: string,
+): Promise<void> {
+  const structure = await client.jobStructure.findUnique({
+    where: { id: jobStructureId },
+    select: { status: true, needsSubmittal: true },
+  });
+
+  if (!structure) {
+    throw new Error("Structure was not found.");
+  }
+
+  if (structure.status !== "NOT_SUBMITTED") {
+    throw new Error("Only not-submitted structures can be marked as submitted.");
+  }
+
+  if (structure.needsSubmittal) {
+    const { countJobSpecificSubmittals } = await import(
+      "@/lib/job-structure-documents-service"
+    );
+    const submittalCount = await countJobSpecificSubmittals(
+      client,
+      jobStructureId,
+    );
+    if (submittalCount === 0) {
+      throw new Error(
+        "Upload at least one job-specific submittal before marking as submitted.",
+      );
+    }
+  }
+
+  await setJobStructureStatus(client, jobStructureId, "SUBMITTED");
+}
+
 export async function approveJobStructureForProduction(
   client: PrismaClient,
   jobStructureId: string,
 ): Promise<void> {
+  const structure = await client.jobStructure.findUnique({
+    where: { id: jobStructureId },
+    select: { status: true, needsSubmittal: true },
+  });
+
+  if (!structure) {
+    throw new Error("Structure was not found.");
+  }
+
+  if (structure.needsSubmittal && structure.status !== "SUBMITTED") {
+    throw new Error(
+      "Structure must be submitted before it can be approved for production.",
+    );
+  }
+
+  if (
+    !structure.needsSubmittal &&
+    structure.status !== "SUBMITTED" &&
+    structure.status !== "NOT_SUBMITTED"
+  ) {
+    throw new Error("Structure cannot be approved from its current status.");
+  }
+
+  if (structure.needsSubmittal) {
+    const { countJobSpecificSubmittals } = await import(
+      "@/lib/job-structure-documents-service"
+    );
+    const submittalCount = await countJobSpecificSubmittals(
+      client,
+      jobStructureId,
+    );
+    if (submittalCount === 0) {
+      throw new Error(
+        "Upload at least one job-specific submittal before approving for production.",
+      );
+    }
+  }
+
   await setJobStructureStatus(client, jobStructureId, "APPROVED");
 }
 

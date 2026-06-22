@@ -1,7 +1,10 @@
 import Link from "next/link";
+import { AppPermission } from "@/app/generated/prisma/client";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { SettingsShell } from "@/components/settings/settings-shell";
 import { getSettingsHubStatus } from "@/app/settings/actions";
+import { getCurrentUser, getUserPermissions } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/permissions";
 
 const settingSections = [
   {
@@ -30,9 +33,25 @@ const settingSections = [
     description: "Document numbering preview, file sync, and sequence setup.",
   },
   {
+    href: "/settings/data-reset",
+    title: "Data Reset",
+    description: "Clear all products or customers. Requires reset password.",
+  },
+  {
     href: "/settings/price-lists",
     title: "Price Lists",
     description: "Product pricing for quotes and walk-in delivery tickets.",
+  },
+  {
+    href: "/settings/products",
+    title: "Product Catalog",
+    description: "Product categories and subcategories used on the catalog forms.",
+  },
+  {
+    href: "/settings/users",
+    title: "Users & Access",
+    description: "Manage user accounts, roles, and permission overrides.",
+    adminOnly: true,
   },
 ];
 
@@ -62,6 +81,15 @@ function StatusChip({
 
 export default async function SettingsPage() {
   const status = await getSettingsHubStatus();
+  const user = await getCurrentUser();
+  const permissions = user ? getUserPermissions(user) : [];
+  const visibleSections = settingSections.filter((section) => {
+    if ("adminOnly" in section && section.adminOnly) {
+      return user ? hasPermission(user, AppPermission.USERS_MANAGE) : false;
+    }
+
+    return true;
+  });
 
   return (
     <SettingsShell
@@ -94,7 +122,7 @@ export default async function SettingsPage() {
 
       <SectionCard title="Configuration">
         <ul className="grid gap-4 sm:grid-cols-2">
-          {settingSections.map((section) => (
+          {visibleSections.map((section) => (
             <li
               key={section.href}
               className="rounded-lg border border-slate-100 bg-slate-50/50 p-4"

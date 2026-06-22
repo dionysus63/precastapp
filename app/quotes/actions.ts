@@ -2,8 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { Prisma } from "@/app/generated/prisma/client";
+import { AppPermission, Prisma } from "@/app/generated/prisma/client";
+import { requirePermission } from "@/lib/auth/session";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
+import {
+  assertSanitaryDrainRingAllowed,
+  parseDrainRingStyle,
+  type DrainRingStyle,
+} from "@/lib/drain-ring-utils";
+import { generateQuoteNumber } from "@/lib/quote-number";
 
 const QUOTE_STATUSES = [
   "DRAFT",
@@ -12,6 +19,7 @@ const QUOTE_STATUSES = [
   "REVISED",
   "WON",
   "LOST",
+  "LOST_BC",
   "EXPIRED",
   "CANCELLED",
 ] as const;
@@ -50,18 +58,25 @@ export type CreateQuoteLineItemInput = {
   total: number;
   statusNote: string | null;
   notes: string | null;
+  isDrainRing?: boolean;
+  ringDiameterFeet?: number | null;
+  poolHeightFeet?: number | null;
+  drainRingStyle?: DrainRingStyle;
 };
 
 export type CreateQuoteInput = {
   customerId: string | null;
   customerName: string;
   jobId: string | null;
+  jobBidderId?: string | null;
   jobNumber: string | null;
   projectName: string;
   projectAddress: string | null;
   contactName: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
+  contactId?: string | null;
+  contactTitle?: string | null;
   status: QuoteStatus;
   quoteType: QuoteType;
   estimator: string | null;
@@ -131,6 +146,15 @@ function validateCreateQuoteInput(input: CreateQuoteInput) {
     if (!QUOTE_LINE_TYPES.includes(line.lineType)) {
       throw new Error(`Line ${line.lineNumber}: invalid line type.`);
     }
+
+    if (line.isDrainRing) {
+      const style = parseDrainRingStyle(line.drainRingStyle ?? "DRAIN");
+      assertSanitaryDrainRingAllowed(
+        line.ringDiameterFeet ?? null,
+        style,
+        `Line ${line.lineNumber}`,
+      );
+    }
   }
 
   if (!QUOTE_STATUSES.includes(input.status)) {
@@ -140,28 +164,6 @@ function validateCreateQuoteInput(input: CreateQuoteInput) {
   if (!QUOTE_TYPES.includes(input.quoteType)) {
     throw new Error("Invalid quote type.");
   }
-}
-
-async function generateQuoteNumber(jobNumber: string | null) {
-  const yearSuffix = String(new Date().getFullYear() % 100).padStart(2, "0");
-  const base = jobNumber
-    ? `Q-${jobNumber}-R0`
-    : `Q-${yearSuffix}-NEW-R0`;
-
-  let candidate = base;
-  let suffix = 2;
-
-  while (
-    await prisma.quote.findUnique({
-      where: { quoteNumber: candidate },
-      select: { id: true },
-    })
-  ) {
-    candidate = `${base}-${suffix}`;
-    suffix += 1;
-  }
-
-  return candidate;
 }
 
 function toDecimal(value: number) {
@@ -179,17 +181,69 @@ function toOptionalDecimal(value: number | null) {
 export async function createQuote(
   input: CreateQuoteInput,
 ): Promise<{ error: string } | never> {
+  await requirePermission(AppPermission.QUOTES_MANAGE);
   try {
     validateCreateQuoteInput(input);
 
-    const quoteNumber = await generateQuoteNumber(input.jobNumber);
+    const quoteNumber = await generateQuoteNumber(prisma, input.jobNumber);
+
+    if (input.contactId) {
+      if (!input.customerId) {
+        throw new Error("A customer is required when selecting a contact.");
+      }
+
+      const contact = await prisma.contact.findFirst({
+        where: { id: input.contactId, customerId: input.customerId },
+        select: { id: true },
+      });
+      if (!contact) {
+        throw new Error("Selected contact does not belong to this customer.");
+      }
+    }
+
+    if (input.jobBidderId) {
+      const bidder = await prisma.jobBidder.findUnique({
+        where: { id: input.jobBidderId },
+        select: {
+          id: true,
+          jobId: true,
+          customerId: true,
+          quotes: { select: { id: true }, take: 1 },
+        },
+      });
+
+      if (!bidder) {
+        throw new Error("Bidder was not found on this job.");
+      }
+
+      if (input.jobId && bidder.jobId !== input.jobId) {
+        throw new Error("Bidder does not belong to the selected job.");
+      }
+
+      if (input.customerId && bidder.customerId !== input.customerId) {
+        throw new Error("Bidder does not belong to the selected customer.");
+      }
+
+      if (bidder.quotes.length > 0) {
+        throw new Error("This contractor already has a quote on this job.");
+      }
+    }
 
     const quote = await prisma.quote.create({
       data: {
         quoteNumber,
         revisionNumber: 0,
-        jobId: input.jobId,
-        customerId: input.customerId,
+        ...(input.jobId ? { job: { connect: { id: input.jobId } } } : {}),
+        ...(input.jobBidderId
+          ? { jobBidder: { connect: { id: input.jobBidderId } } }
+          : {}),
+        ...(input.customerId
+          ? { customer: { connect: { id: input.customerId } } }
+          : {}),
+        ...(input.contactId
+          ? { contact: { connect: { id: input.contactId } } }
+          : {}),
+        sentAt: input.status === "SENT" ? new Date() : null,
         jobNumber: input.jobNumber,
         customerName: input.customerName.trim(),
         projectName: input.projectName.trim(),
@@ -197,13 +251,16 @@ export async function createQuote(
         contactName: input.contactName,
         contactEmail: input.contactEmail,
         contactPhone: input.contactPhone,
+        contactTitle: input.contactTitle ?? null,
         status: input.status,
         quoteType: input.quoteType,
         estimator: input.estimator,
         quoteDate: parseOptionalDate(input.quoteDate),
         bidDueDate: parseOptionalDate(input.bidDueDate),
         expirationDate: parseOptionalDate(input.expirationDate),
-        priceListId: input.priceListId,
+        ...(input.priceListId
+          ? { priceList: { connect: { id: input.priceListId } } }
+          : {}),
         customerPO: input.customerPO,
         subtotal: toDecimal(input.totals.subtotal),
         discountAmount: toDecimal(input.totals.discount),
@@ -236,6 +293,12 @@ export async function createQuote(
             statusNote: line.statusNote,
             sortOrder: line.lineNumber,
             notes: line.notes,
+            isDrainRing: line.isDrainRing ?? false,
+            ringDiameterFeet: toOptionalDecimal(line.ringDiameterFeet ?? null),
+            poolHeightFeet: toOptionalDecimal(line.poolHeightFeet ?? null),
+            drainRingStyle: line.isDrainRing
+              ? parseDrainRingStyle(line.drainRingStyle ?? "DRAIN")
+              : "DRAIN",
           })),
         },
       },
@@ -270,6 +333,7 @@ const QUOTE_STATUS_VALUES = [
   "REVISED",
   "WON",
   "LOST",
+  "LOST_BC",
   "EXPIRED",
   "CANCELLED",
 ] as const;
@@ -277,15 +341,30 @@ const QUOTE_STATUS_VALUES = [
 type QuoteStatusValue = (typeof QUOTE_STATUS_VALUES)[number];
 
 export async function updateQuoteStatus(quoteId: string, status: QuoteStatusValue) {
+  await requirePermission(AppPermission.QUOTES_MANAGE);
   if (!QUOTE_STATUS_VALUES.includes(status)) {
     return { error: "Invalid quote status." };
   }
 
   try {
     await withDatabaseRetry(async (client) => {
+      const existing = await client.quote.findUnique({
+        where: { id: quoteId },
+        select: { sentAt: true },
+      });
+
+      if (!existing) {
+        throw new Error("Quote was not found.");
+      }
+
       await client.quote.update({
         where: { id: quoteId },
-        data: { status },
+        data: {
+          status,
+          ...(status === "SENT" && !existing.sentAt
+            ? { sentAt: new Date() }
+            : {}),
+        },
       });
 
       if (status === "WON") {

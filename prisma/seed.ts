@@ -8,6 +8,7 @@ import {
   DEFAULT_SEED_LOGO_PDF_PATH,
   seedLogoFromPdf,
 } from "../lib/company-logo";
+import { UserRole } from "../app/generated/prisma/client";
 
 async function main() {
   const pool = new Pool({
@@ -29,8 +30,8 @@ async function main() {
   }
 
   await prisma.deliveryTicketSequence.upsert({
-    where: { year },
-    create: { year, lastNumber: 0 },
+    where: { year: 0 },
+    create: { year: 0, lastNumber: 10000 },
     update: {},
   });
 
@@ -77,6 +78,25 @@ async function main() {
   console.log(
     `Seed complete: price list "${priceList.name}" with ${products.length} item(s).`,
   );
+
+  await prisma.user.upsert({
+    where: { username: "nick" },
+    create: {
+      username: "nick",
+      displayName: "Nick",
+      initials: "NP",
+      role: UserRole.ADMIN,
+      isActive: true,
+    },
+    update: {
+      displayName: "Nick",
+      initials: "NP",
+      role: UserRole.ADMIN,
+      isActive: true,
+    },
+  });
+
+  console.log("Seed complete: admin user Nick (username: nick).");
 
   await prisma.$disconnect();
   await pool.end();

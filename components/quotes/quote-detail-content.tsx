@@ -5,6 +5,8 @@ import { SummaryCard } from "@/components/dashboard/summary-card";
 import { GenerateSubmittalPackageButton } from "@/components/quotes/generate-submittal-package-button";
 import { LinkStructuresButton } from "@/components/quotes/link-structures-button";
 import { MarkWonButton } from "@/components/quotes/mark-won-button";
+import { JobStructureSubmittalActions } from "@/components/jobs/job-structure-submittal-actions";
+import { StructureManageLink } from "@/components/jobs/structure-manage-link";
 import type { QuoteDetailView } from "@/components/quotes/quote-utils";
 
 function DetailField({ label, value }: { label: string; value: string }) {
@@ -23,6 +25,11 @@ type QuoteDetailContentProps = {
 };
 
 export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
+  const backHref = quote.jobId
+    ? `/jobs/${quote.jobId}?tab=quotes`
+    : "/quotes";
+  const backLabel = quote.jobId ? "← Back to Job" : "← Back to Quotes";
+
   const topSummaryCards = [
     {
       label: "Quote Status",
@@ -60,10 +67,10 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
-          href="/quotes"
+          href={backHref}
           className="text-xs font-medium text-slate-500 hover:text-slate-900"
         >
-          ← Back to Quotes
+          {backLabel}
         </Link>
 
         <div className="flex flex-wrap gap-2">
@@ -116,6 +123,16 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
               <DetailField label="Quote Number" value={quote.quoteNumber} />
               <DetailField label="Revision Number" value={quote.revision} />
               <DetailField label="Job Number" value={quote.jobNumber} />
+              {quote.jobId ? (
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <Link
+                    href={`/jobs/${quote.jobId}?tab=production`}
+                    className="text-xs font-medium text-slate-700 hover:text-slate-900 hover:underline"
+                  >
+                    View job production →
+                  </Link>
+                </div>
+              ) : null}
               <DetailField label="Project Name" value={quote.projectName} />
               <DetailField label="Customer" value={quote.customer} />
               <DetailField
@@ -123,9 +140,17 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
                 value={quote.projectAddress}
               />
               <DetailField label="Contact Name" value={quote.contactName} />
+              <DetailField label="Contact Role" value={quote.contactTitle} />
               <DetailField label="Contact Email" value={quote.contactEmail} />
               <DetailField label="Contact Phone" value={quote.contactPhone} />
               <DetailField label="Quote Date" value={quote.quoteDate} />
+              <DetailField label="Sent Date" value={quote.sentAt} />
+              {quote.bidListContractor ? (
+                <DetailField
+                  label="Bid List Contractor"
+                  value={quote.bidListContractor}
+                />
+              ) : null}
               <DetailField label="Expiration Date" value={quote.expirationDate} />
               <DetailField label="Price List" value={quote.priceList} />
               <DetailField label="Tax Rate" value={quote.taxRate} />
@@ -210,6 +235,95 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
             </div>
           </SectionCard>
 
+          {quote.status === "WON" || quote.relatedStructures.length > 0 ? (
+            <SectionCard
+              title="Structures & Submittals"
+              description={
+                quote.relatedStructures.length > 0
+                  ? `${quote.relatedStructures.length} structure${
+                      quote.relatedStructures.length === 1 ? "" : "s"
+                    } linked from this quote`
+                  : "Link structures after marking this quote as won."
+              }
+              noPadding
+            >
+              {quote.relatedStructures.length === 0 ? (
+                <div className="space-y-3 px-4 py-6">
+                  <p className="text-sm text-slate-500">
+                    No job structures linked yet. Use Link structures to create
+                    production records from configurable and custom line items.
+                  </p>
+                  {quote.status === "WON" ? (
+                    <LinkStructuresButton quoteId={quote.id} />
+                  ) : null}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
+                        <th className="px-3 py-2.5 font-semibold">Structure</th>
+                        <th className="px-3 py-2.5 font-semibold">Description</th>
+                        <th className="px-3 py-2.5 font-semibold">Status</th>
+                        <th className="px-3 py-2.5 font-semibold">Docs</th>
+                        <th className="px-3 py-2.5 font-semibold">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {quote.relatedStructures.map((structure) => (
+                        <tr key={structure.id} className="hover:bg-slate-50/60">
+                          <td className="px-3 py-2.5 font-medium text-slate-900">
+                            <StructureManageLink
+                              jobId={structure.jobId}
+                              structureId={structure.id}
+                            >
+                              {structure.structureNumber}
+                            </StructureManageLink>
+                          </td>
+                          <td className="px-3 py-2.5 text-slate-700">
+                            {structure.description}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <StatusBadge
+                              label={structure.statusLabel}
+                              variant={
+                                structure.status === "MADE" ||
+                                structure.status === "SHIPPED"
+                                  ? "success"
+                                  : structure.status === "SUBMITTED"
+                                    ? "warning"
+                                    : structure.status === "APPROVED" ||
+                                        structure.status === "IN_PRODUCTION"
+                                      ? "info"
+                                      : "neutral"
+                              }
+                            />
+                          </td>
+                          <td className="px-3 py-2.5 text-slate-600">
+                            {structure.documentCount}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            {structure.jobId ? (
+                              <JobStructureSubmittalActions
+                                jobId={structure.jobId}
+                                jobStructureId={structure.id}
+                                status={structure.status}
+                                needsSubmittal={structure.needsSubmittal}
+                                folderPath={structure.folderPath}
+                              />
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </SectionCard>
+          ) : null}
+
           <SectionCard title="Notes and Terms">
             <dl className="grid gap-5">
               <DetailField
@@ -277,7 +391,16 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-slate-500">Job</dt>
                 <dd className="font-medium text-slate-900">
-                  {quote.relatedRecords.jobNumber}
+                  {quote.jobId ? (
+                    <Link
+                      href={`/jobs/${quote.jobId}?tab=production`}
+                      className="hover:underline"
+                    >
+                      {quote.relatedRecords.jobNumber}
+                    </Link>
+                  ) : (
+                    quote.relatedRecords.jobNumber
+                  )}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-3">
@@ -322,6 +445,22 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
           <SectionCard title="Actions">
             <div className="flex flex-col gap-2">
               <GenerateSubmittalPackageButton quoteId={quote.id} />
+              {quote.jobId ? (
+                <Link
+                  href={`/jobs/${quote.jobId}?tab=production`}
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-center text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Job Production & Submittals
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-400"
+                >
+                  Job Production & Submittals
+                </button>
+              )}
               <button
                 type="button"
                 disabled
@@ -335,13 +474,6 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
                 className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-400"
               >
                 Create Delivery Ticket
-              </button>
-              <button
-                type="button"
-                disabled
-                className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-400"
-              >
-                Add Structure Details
               </button>
             </div>
           </SectionCard>

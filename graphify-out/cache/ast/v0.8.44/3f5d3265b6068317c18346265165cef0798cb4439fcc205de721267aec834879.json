@@ -1,0 +1,1 @@
+{"nodes": [{"id": "c_projects_precastapp_prisma_migrations_20260622140000_drain_ring_style_solid_migration_sql", "label": "migration.sql", "file_type": "code", "source_file": "prisma/migrations/20260622140000_drain_ring_style_solid/migration.sql", "source_location": null}], "edges": []}

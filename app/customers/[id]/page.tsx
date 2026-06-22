@@ -2,6 +2,10 @@ import { notFound } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { CustomerDetailContent } from "@/components/customers/customer-detail-content";
 import { mapCustomerToDetailView } from "@/lib/customer-mapper";
+import {
+  ensurePrimaryContactBackfill,
+  syncCustomerHeaderFromPrimaryContact,
+} from "@/lib/customer-contact-sync";
 import { withDatabaseRetry } from "@/lib/prisma";
 
 type CustomerDetailPageProps = {
@@ -13,16 +17,40 @@ export default async function CustomerDetailPage({
 }: CustomerDetailPageProps) {
   const { id } = await params;
 
-  const customer = await withDatabaseRetry((prisma) =>
-    prisma.customer.findUnique({
+  const customer = await withDatabaseRetry(async (prisma) => {
+    const record = await prisma.customer.findUnique({
       where: { id },
       include: {
         jobs: {
           orderBy: { updatedAt: "desc" },
         },
+        contacts: {
+          orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
+        },
       },
-    }),
-  );
+    });
+
+    if (record) {
+      await ensurePrimaryContactBackfill(prisma, id);
+      await syncCustomerHeaderFromPrimaryContact(prisma, id);
+    }
+
+    if (!record) {
+      return null;
+    }
+
+    return prisma.customer.findUnique({
+      where: { id },
+      include: {
+        jobs: {
+          orderBy: { updatedAt: "desc" },
+        },
+        contacts: {
+          orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
+        },
+      },
+    });
+  });
 
   if (!customer) {
     notFound();
@@ -52,6 +80,7 @@ export default async function CustomerDetailPage({
     customer.jobs,
     relatedQuotes,
     relatedDeliveryTickets,
+    customer.contacts,
   );
 
   return (

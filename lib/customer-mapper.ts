@@ -1,5 +1,6 @@
-import type { Customer, DeliveryTicket, Job, Quote } from "@/app/generated/prisma/client";
+import type { Contact, Customer, DeliveryTicket, Job, Quote } from "@/app/generated/prisma/client";
 import type {
+  CustomerContactRow,
   CustomerDetailView,
   CustomerRelatedDeliveryTicket,
   CustomerRelatedJob,
@@ -13,29 +14,11 @@ import {
 } from "@/components/quotes/quote-utils";
 import { deliveryTicketStatusLabels } from "@/components/delivery-tickets/delivery-ticket-utils";
 
-const customerTypeLabels: Record<string, string> = {
-  COMMERCIAL: "Commercial",
-  RESIDENTIAL: "Residential",
-  CONTRACTOR: "Contractor",
-  OTHER: "Other",
-};
-
 const customerStatusLabels: Record<string, string> = {
   ACTIVE: "Active",
   INACTIVE: "Inactive",
   PROSPECT: "Prospect",
 };
-
-function typeVariant(type: string): CustomerRow["typeVariant"] {
-  switch (type) {
-    case "COMMERCIAL":
-      return "info";
-    case "RESIDENTIAL":
-      return "neutral";
-    default:
-      return "default";
-  }
-}
 
 function statusVariant(status: string): CustomerRow["statusVariant"] {
   switch (status) {
@@ -90,6 +73,7 @@ function quoteStatusVariant(
     case "REVISED":
       return "warning";
     case "LOST":
+    case "LOST_BC":
     case "EXPIRED":
     case "CANCELLED":
       return "neutral";
@@ -110,8 +94,6 @@ export function mapCustomerToRow(customer: Customer): CustomerRow {
   return {
     id: customer.id,
     name: customer.name,
-    type: customerTypeLabels[customer.customerType] ?? customer.customerType,
-    typeVariant: typeVariant(customer.customerType),
     primaryContact: customer.primaryContactName ?? "—",
     phone: customer.phone ?? "—",
     email: customer.email ?? "—",
@@ -166,28 +148,43 @@ export function mapDeliveryTicketToCustomerRelated(
   };
 }
 
+export function mapContactToRow(contact: Contact): CustomerContactRow {
+  return {
+    id: contact.id,
+    name: contact.name,
+    title: contact.title ?? "—",
+    email: contact.email ?? "—",
+    phone: contact.phone ?? "—",
+    isPrimary: contact.isPrimary,
+    notes: contact.notes ?? "—",
+  };
+}
+
 export function mapCustomerToDetailView(
   customer: Customer,
   relatedJobs: Job[],
   relatedQuotes: Quote[],
   relatedDeliveryTickets: DeliveryTicket[] = [],
+  contacts: Contact[] = [],
 ): CustomerDetailView {
   const row = mapCustomerToRow(customer);
 
   return {
     id: customer.id,
     name: customer.name,
-    type: row.type,
-    typeVariant: row.typeVariant,
     status: row.status,
     statusVariant: row.statusVariant,
     primaryContact: row.primaryContact,
     phone: row.phone,
     email: row.email,
-    billingAddress: customer.billingAddress ?? "—",
+    address: customer.address ?? "—",
+    town: customer.town ?? "—",
+    state: customer.state ?? "—",
+    zip: customer.zip ?? "—",
     notes: customer.notes ?? "—",
     createdAt: formatCustomerDate(customer.createdAt),
     updatedAt: formatCustomerDate(customer.updatedAt),
+    contacts: contacts.map(mapContactToRow),
     relatedJobs: relatedJobs.map(mapJobToCustomerRelated),
     relatedQuotes: relatedQuotes.map(mapQuoteToCustomerRelated),
     relatedDeliveryTickets: relatedDeliveryTickets.map(mapDeliveryTicketToCustomerRelated),

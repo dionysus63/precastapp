@@ -49,42 +49,139 @@ async function resolveUnitPrice(
   },
   quoteId: string | null,
   priceListId: string | null,
+  preloaded?: UnitPriceLookups,
 ): Promise<{ unitPrice: Prisma.Decimal; taxable: boolean }> {
   if (ticketLine.quoteLineItemId) {
-    const quoteLine = await client.quoteLineItem.findUnique({
-      where: { id: ticketLine.quoteLineItemId },
-      select: { unitPrice: true, taxable: true },
-    });
+    const quoteLine = preloaded?.quoteLines.get(ticketLine.quoteLineItemId);
     if (quoteLine) {
       return { unitPrice: quoteLine.unitPrice, taxable: quoteLine.taxable };
+    }
+    if (!preloaded) {
+      const fetched = await client.quoteLineItem.findUnique({
+        where: { id: ticketLine.quoteLineItemId },
+        select: { unitPrice: true, taxable: true },
+      });
+      if (fetched) {
+        return { unitPrice: fetched.unitPrice, taxable: fetched.taxable };
+      }
     }
   }
 
   if (ticketLine.productId && priceListId) {
-    const priceListItem = await client.priceListItem.findUnique({
-      where: {
-        priceListId_productId: {
-          priceListId,
-          productId: ticketLine.productId,
-        },
-      },
-    });
+    const priceListItem = preloaded?.priceListItems.get(ticketLine.productId);
     if (priceListItem) {
       return { unitPrice: priceListItem.unitPrice, taxable: true };
+    }
+    if (!preloaded) {
+      const fetched = await client.priceListItem.findUnique({
+        where: {
+          priceListId_productId: {
+            priceListId,
+            productId: ticketLine.productId,
+          },
+        },
+      });
+      if (fetched) {
+        return { unitPrice: fetched.unitPrice, taxable: true };
+      }
     }
   }
 
   if (ticketLine.productId) {
-    const product = await client.product.findUnique({
-      where: { id: ticketLine.productId },
-      select: { defaultPrice: true, taxable: true },
-    });
+    const product = preloaded?.products.get(ticketLine.productId);
     if (product?.defaultPrice) {
       return { unitPrice: product.defaultPrice, taxable: product.taxable };
+    }
+    if (!preloaded) {
+      const fetched = await client.product.findUnique({
+        where: { id: ticketLine.productId },
+        select: { defaultPrice: true, taxable: true },
+      });
+      if (fetched?.defaultPrice) {
+        return { unitPrice: fetched.defaultPrice, taxable: fetched.taxable };
+      }
     }
   }
 
   return { unitPrice: new Prisma.Decimal(0), taxable: true };
+}
+
+type UnitPriceLookups = {
+  quoteLines: Map<
+    string,
+    { unitPrice: Prisma.Decimal; taxable: boolean }
+  >;
+  priceListItems: Map<string, { unitPrice: Prisma.Decimal }>;
+  products: Map<
+    string,
+    { defaultPrice: Prisma.Decimal | null; taxable: boolean }
+  >;
+};
+
+async function preloadUnitPriceLookups(
+  client: PrismaClient,
+  ticketLines: Array<{
+    productId: string | null;
+    quoteLineItemId: string | null;
+  }>,
+  priceListId: string | null,
+): Promise<UnitPriceLookups> {
+  const quoteLineItemIds = [
+    ...new Set(
+      ticketLines
+        .map((line) => line.quoteLineItemId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const productIds = [
+    ...new Set(
+      ticketLines
+        .map((line) => line.productId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+
+  const [quoteLines, priceListItems, products] = await Promise.all([
+    quoteLineItemIds.length > 0
+      ? client.quoteLineItem.findMany({
+          where: { id: { in: quoteLineItemIds } },
+          select: { id: true, unitPrice: true, taxable: true },
+        })
+      : Promise.resolve([]),
+    priceListId && productIds.length > 0
+      ? client.priceListItem.findMany({
+          where: {
+            priceListId,
+            productId: { in: productIds },
+          },
+          select: { productId: true, unitPrice: true },
+        })
+      : Promise.resolve([]),
+    productIds.length > 0
+      ? client.product.findMany({
+          where: { id: { in: productIds } },
+          select: { id: true, defaultPrice: true, taxable: true },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  return {
+    quoteLines: new Map(
+      quoteLines.map((line) => [
+        line.id,
+        { unitPrice: line.unitPrice, taxable: line.taxable },
+      ]),
+    ),
+    priceListItems: new Map(
+      priceListItems.map((item) => [item.productId, { unitPrice: item.unitPrice }]),
+    ),
+    products: new Map(
+      products.map((product) => [
+        product.id,
+        { defaultPrice: product.defaultPrice, taxable: product.taxable },
+      ]),
+    ),
+  };
 }
 
 /**
@@ -137,12 +234,19 @@ export async function convertDeliveryTicketToInvoice(
     sortOrder: number;
   }[] = [];
 
+  const priceLookups = await preloadUnitPriceLookups(
+    client,
+    ticket.lineItems,
+    ticket.priceListId,
+  );
+
   for (const line of ticket.lineItems) {
     const { unitPrice, taxable } = await resolveUnitPrice(
       client,
       line,
       ticket.quoteId,
       ticket.priceListId,
+      priceLookups,
     );
     const total = unitPrice.mul(line.quantity);
     subtotal = subtotal.add(total);

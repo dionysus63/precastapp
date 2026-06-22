@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { AppPermission, type PrismaClient } from "@/app/generated/prisma/client";
+import { requirePermission } from "@/lib/auth/session";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
 import { saveDailyProductionEntry } from "@/lib/inventory-service";
 import {
@@ -8,13 +10,38 @@ import {
   linkJobStructuresFromQuote,
   markJobStructureMade,
   startJobStructureProduction,
+  submitJobStructureForApproval,
 } from "@/lib/job-structure-workflow";
 import {
   markDeliveryTicketDelivered,
 } from "@/lib/delivery-fulfillment";
 import { convertDeliveryTicketToInvoice } from "@/lib/invoicing-service";
 
+function parseReconciliationDate(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+async function revalidateStructurePaths(
+  client: PrismaClient,
+  jobStructureId: string,
+) {
+  const structure = await client.jobStructure.findUnique({
+    where: { id: jobStructureId },
+    select: { jobId: true },
+  });
+
+  revalidatePath("/production");
+  if (structure?.jobId) {
+    revalidatePath(`/jobs/${structure.jobId}`);
+    revalidatePath(`/jobs/${structure.jobId}/structures/${jobStructureId}`);
+  }
+}
+
 export async function linkStructuresForWonQuote(quoteId: string) {
+  await requirePermission(AppPermission.PRODUCTION_MANAGE);
   return withDatabaseRetry(async (client) => {
     const count = await linkJobStructuresFromQuote(client, quoteId);
     revalidatePath("/production");
@@ -23,28 +50,68 @@ export async function linkStructuresForWonQuote(quoteId: string) {
   });
 }
 
+export async function submitStructureForApproval(jobStructureId: string) {
+  await requirePermission(AppPermission.PRODUCTION_MANAGE);
+  try {
+    await withDatabaseRetry(async (client) => {
+      await submitJobStructureForApproval(client, jobStructureId);
+      await revalidateStructurePaths(client, jobStructureId);
+    });
+    return { success: true };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Could not submit structure.",
+    };
+  }
+}
+
 export async function approveStructureForProduction(jobStructureId: string) {
-  return withDatabaseRetry(async (client) => {
-    await approveJobStructureForProduction(client, jobStructureId);
-    revalidatePath("/production");
-  });
+  await requirePermission(AppPermission.PRODUCTION_MANAGE);
+  try {
+    await withDatabaseRetry(async (client) => {
+      await approveJobStructureForProduction(client, jobStructureId);
+      await revalidateStructurePaths(client, jobStructureId);
+    });
+    return { success: true };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Could not approve structure.",
+    };
+  }
 }
 
 export async function startStructureProduction(jobStructureId: string) {
-  return withDatabaseRetry(async (client) => {
-    await startJobStructureProduction(client, jobStructureId);
-    revalidatePath("/production");
-  });
+  await requirePermission(AppPermission.PRODUCTION_MANAGE);
+  try {
+    await withDatabaseRetry(async (client) => {
+      await startJobStructureProduction(client, jobStructureId);
+      await revalidateStructurePaths(client, jobStructureId);
+    });
+    return { success: true };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Could not start production.",
+    };
+  }
 }
 
 export async function markStructureMade(jobStructureId: string) {
-  return withDatabaseRetry(async (client) => {
-    await markJobStructureMade(client, jobStructureId);
-    revalidatePath("/production");
-  });
+  await requirePermission(AppPermission.PRODUCTION_MANAGE);
+  try {
+    await withDatabaseRetry(async (client) => {
+      await markJobStructureMade(client, jobStructureId);
+      await revalidateStructurePaths(client, jobStructureId);
+    });
+    return { success: true };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Could not mark structure made.",
+    };
+  }
 }
 
 export async function saveProductionEntry(formData: FormData) {
+  await requirePermission(AppPermission.PRODUCTION_MANAGE);
   const productionDateRaw = String(formData.get("productionDate") ?? "").trim();
   if (!productionDateRaw) {
     return { error: "Production date is required." };
@@ -91,6 +158,7 @@ export async function saveProductionEntry(formData: FormData) {
 }
 
 export async function deliverTicket(deliveryTicketId: string) {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
   try {
     await withDatabaseRetry((client) =>
       markDeliveryTicketDelivered(client, deliveryTicketId),
@@ -108,6 +176,7 @@ export async function deliverTicket(deliveryTicketId: string) {
 }
 
 export async function convertTicketToInvoice(deliveryTicketId: string) {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
   try {
     const invoiceId = await withDatabaseRetry((client) =>
       convertDeliveryTicketToInvoice(client, deliveryTicketId),
@@ -127,6 +196,7 @@ export async function updateTicketPaperVerification(
   deliveryTicketId: string,
   formData: FormData,
 ) {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
   const paperTicketPrinted = formData.get("paperTicketPrinted") === "on";
   const paperTicketVerified = formData.get("paperTicketVerified") === "on";
   const verifiedBy = String(formData.get("verifiedBy") ?? "").trim() || null;
@@ -147,6 +217,7 @@ export async function updateTicketPaperVerification(
 }
 
 export async function confirmDeliveryDayReconciliation(formData: FormData) {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
   const dateRaw = String(formData.get("reconciliationDate") ?? "").trim();
   const confirmedBy = String(formData.get("confirmedBy") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim() || null;
@@ -155,7 +226,10 @@ export async function confirmDeliveryDayReconciliation(formData: FormData) {
     return { error: "Date and confirmed-by are required." };
   }
 
-  const reconciliationDate = new Date(dateRaw);
+  const reconciliationDate = parseReconciliationDate(dateRaw);
+  if (!reconciliationDate) {
+    return { error: "Invalid date." };
+  }
 
   await withDatabaseRetry((client) =>
     client.deliveryDayReconciliation.upsert({
@@ -231,10 +305,11 @@ export async function listStockProductsForProduction() {
 }
 
 export async function listTicketsForReconciliation(date: string) {
-  const reconciliationDate = new Date(date);
-  const start = new Date(reconciliationDate);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(reconciliationDate);
+  const start = parseReconciliationDate(date);
+  if (!start) {
+    return { tickets: [], reconciliation: null };
+  }
+  const end = new Date(start);
   end.setHours(23, 59, 59, 999);
 
   return withDatabaseRetry(async (client) => {
@@ -277,7 +352,6 @@ export async function listJobsWithQuotes() {
         quotes: {
           where: { status: "WON" },
           orderBy: { revisionNumber: "desc" },
-          take: 1,
           select: { id: true, quoteNumber: true },
         },
       },

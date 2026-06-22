@@ -12,13 +12,6 @@ datasource db {
   provider = "postgresql"
 }
 
-enum CustomerType {
-  COMMERCIAL
-  RESIDENTIAL
-  CONTRACTOR
-  OTHER
-}
-
 enum CustomerStatus {
   ACTIVE
   INACTIVE
@@ -44,6 +37,7 @@ enum QuoteStatus {
   REVISED
   WON
   LOST
+  LOST_BC
   EXPIRED
   CANCELLED
 }
@@ -86,6 +80,12 @@ enum ProductDocumentType {
   OTHER
 }
 
+enum DrainRingStyle {
+  DRAIN
+  SANITARY
+  SOLID
+}
+
 model Product {
   id                   String        @id @default(cuid())
   productCode          String        @unique
@@ -105,7 +105,13 @@ model Product {
   yardLocation         String?
   status               ProductStatus @default(ACTIVE)
   notes                String?
-  createdAt            DateTime      @default(now())
+  isDrainRing          Boolean         @default(false)
+  heightFeet           Decimal?        @db.Decimal(6, 2)
+  ringDiameterFeet     Decimal?        @db.Decimal(6, 2)
+  drainRingStyle       DrainRingStyle  @default(DRAIN)
+  isCasting                 Boolean    @default(false)
+  castingClearOpeningInches Decimal?   @db.Decimal(6, 2)
+  createdAt            DateTime        @default(now())
   updatedAt            DateTime      @updatedAt
 
   documents               ProductDocument[]
@@ -117,6 +123,9 @@ model Product {
   productionLines         DailyProductionLine[]
   priceListItems          PriceListItem[]
   invoiceLineItems        InvoiceLineItem[]
+
+  @@index([isDrainRing, ringDiameterFeet, drainRingStyle])
+  @@index([isCasting])
 }
 
 model ProductDocument {
@@ -137,20 +146,23 @@ model ProductDocument {
 }
 
 model Customer {
-  id                  String         @id @default(cuid())
-  name                String
-  customerType        CustomerType   @default(CONTRACTOR)
-  status              CustomerStatus @default(ACTIVE)
-  primaryContactName  String?
-  phone               String?
-  email               String?
-  billingAddress      String?
-  notes               String?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
+  id                 String         @id @default(cuid())
+  name               String
+  status             CustomerStatus @default(ACTIVE)
+  primaryContactName String?
+  phone              String?
+  email              String?
+  address            String?
+  town               String?
+  state              String?
+  zip                String?
+  notes              String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
   contacts        Contact[]
   jobs            Job[]
+  jobBidders      JobBidder[]
   quotes          Quote[]
   deliveryTickets DeliveryTicket[]
   invoices        Invoice[]
@@ -169,6 +181,7 @@ model Contact {
   updatedAt  DateTime @updatedAt
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  quotes   Quote[]
 
   @@index([customerId])
 }
@@ -199,16 +212,38 @@ model Job {
 
   customer        Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
   files           JobFile[]
+  bidders         JobBidder[]
   quotes          Quote[]
   jobStructures   JobStructure[]
   deliveryTickets DeliveryTicket[]
   invoices        Invoice[]
+  favorites       JobFavorite[]
 
   @@unique([year, sequenceNumber])
   @@index([customerId])
   @@index([year])
   @@index([yearTwoDigit])
   @@index([status])
+}
+
+/// Contractor invited to bid on a job (bid list entry).
+model JobBidder {
+  id         String   @id @default(cuid())
+  jobId      String
+  customerId String
+  sortOrder  Int      @default(0)
+  isWinner   Boolean  @default(false)
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  job      Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  quotes   Quote[]
+
+  @@unique([jobId, customerId])
+  @@index([jobId])
+  @@index([customerId])
 }
 
 model JobSequence {
@@ -230,7 +265,98 @@ model JobFile {
 
   job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
+  @@unique([jobId, filePath])
   @@index([jobId])
+}
+
+enum StructureShape {
+  CIRCULAR
+  RECTANGULAR
+}
+
+enum SectionRole {
+  BASE
+  RISER
+}
+
+enum StructureTemplateStatus {
+  ACTIVE
+  INACTIVE
+}
+
+/// Reusable structure template (e.g. Suffolk County sanitary manhole) configured
+/// in the Structures tab. Drives the Drill Sheet Workbook calculations.
+model StructureTemplate {
+  id              String                  @id @default(cuid())
+  name            String                  @unique
+  agencyStandard  String?
+  shape           StructureShape          @default(CIRCULAR)
+  minimumBrickFeet Decimal                @default(0.3333) @db.Decimal(6, 4)
+  keyClearanceFeet Decimal                @default(0.3333) @db.Decimal(6, 4)
+  status          StructureTemplateStatus @default(ACTIVE)
+  notes           String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  diameters     StructureTemplateDiameter[]
+  bootSizes     StructureTemplateBootSize[]
+  jobStructures JobStructure[]
+
+  @@index([shape])
+  @@index([status])
+}
+
+/// One offered inside diameter for a structure template, with its mold limit and
+/// top-slab heights for the keyed / non-keyed cases.
+model StructureTemplateDiameter {
+  id                       String   @id @default(cuid())
+  templateId               String
+  insideDiameterFeet       Decimal  @db.Decimal(6, 2)
+  moldMaxHeightFeet        Decimal  @db.Decimal(6, 2)
+  topSlabHeightWithKeyFeet Decimal? @db.Decimal(6, 4)
+  topSlabHeightNoKeyFeet   Decimal? @db.Decimal(6, 4)
+  sortOrder                Int      @default(0)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  template StructureTemplate          @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  sections StructureTemplateSection[]
+
+  @@unique([templateId, insideDiameterFeet])
+  @@index([templateId])
+}
+
+/// A standard pourable section height (base or riser) available for a diameter.
+/// The Drill Sheet Workbook auto-picks a base + riser combination from these.
+model StructureTemplateSection {
+  id         String      @id @default(cuid())
+  diameterId String
+  role       SectionRole
+  heightFeet Decimal     @db.Decimal(6, 4)
+  label      String?
+  sortOrder  Int         @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  diameter StructureTemplateDiameter @relation(fields: [diameterId], references: [id], onDelete: Cascade)
+
+  @@index([diameterId])
+}
+
+/// Pipe-diameter to boot-hole-diameter lookup for a template (drives the sump).
+model StructureTemplateBootSize {
+  id                 String   @id @default(cuid())
+  templateId         String
+  pipeDiameterInches Decimal  @db.Decimal(6, 2)
+  holeDiameterInches Decimal  @db.Decimal(6, 2)
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  template StructureTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, pipeDiameterInches])
+  @@index([templateId])
 }
 
 enum StructureType {
@@ -259,10 +385,11 @@ enum JobStructureDocumentType {
 
 /// Job-specific structure instance derived from a product template or custom design.
 model JobStructure {
-  id              String          @id @default(cuid())
-  jobId           String?
-  quoteId         String?
-  productId       String?
+  id                  String          @id @default(cuid())
+  jobId               String?
+  quoteId             String?
+  productId           String?
+  structureTemplateId String?
   structureType   StructureType
   structureNumber String?
   description     String?
@@ -285,10 +412,12 @@ model JobStructure {
   job                    Job?                     @relation(fields: [jobId], references: [id], onDelete: SetNull)
   quote                  Quote?                   @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   product                Product?                 @relation(fields: [productId], references: [id], onDelete: SetNull)
+  structureTemplate      StructureTemplate?       @relation(fields: [structureTemplateId], references: [id], onDelete: SetNull)
   quoteLineItems         QuoteLineItem[]
   deliveryTicketLineItems DeliveryTicketLineItem[]
   openings               JobStructureOpening[]
   castings               JobStructureCasting[]
+  sections               JobStructureSection[]
   dimensions             JobStructureDimension?
   manholeDetail          JobStructureManholeDetail?
   documents              JobStructureDocument[]
@@ -296,7 +425,24 @@ model JobStructure {
   @@index([jobId])
   @@index([quoteId])
   @@index([productId])
+  @@index([structureTemplateId])
   @@index([status])
+}
+
+/// Base/riser breakdown of a configured drill-sheet structure's precast wall.
+model JobStructureSection {
+  id             String      @id @default(cuid())
+  jobStructureId String
+  role           SectionRole
+  heightFeet     Decimal     @db.Decimal(6, 4)
+  label          String?
+  sortOrder      Int         @default(0)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  jobStructure JobStructure @relation(fields: [jobStructureId], references: [id], onDelete: Cascade)
+
+  @@index([jobStructureId])
 }
 
 model JobStructureOpening {
@@ -372,9 +518,19 @@ model JobStructureManholeDetail {
   id                    String   @id @default(cuid())
   jobStructureId        String   @unique
   manholeStandard       String?
+  contractorName        String?
+  projectName           String?
+  sheetDate             DateTime?
+  hasSteps              Boolean  @default(false)
   rimElevation          Decimal? @db.Decimal(12, 4)
   lowestInvertElevation Decimal? @db.Decimal(12, 4)
   requiredWallHeight    Decimal? @db.Decimal(12, 4)
+  invertToTopFeet       Decimal? @db.Decimal(12, 4)
+  castingHeightFeet     Decimal? @db.Decimal(12, 4)
+  topSlabHeightFeet     Decimal? @db.Decimal(12, 4)
+  sumpFeet              Decimal? @db.Decimal(12, 4)
+  brickAdjustmentFeet   Decimal? @db.Decimal(12, 4)
+  hasKey                Boolean  @default(true)
   baseSlabThickness     Decimal? @db.Decimal(12, 4)
   topSlabThickness      Decimal? @db.Decimal(12, 4)
   insideDiameter        Decimal? @db.Decimal(12, 4)
@@ -413,6 +569,7 @@ model Quote {
   revisionNumber     Int         @default(0)
   originalQuoteId    String?
   jobId              String?
+  jobBidderId        String?
   customerId         String?
   jobNumber          String?
   customerName       String
@@ -421,6 +578,8 @@ model Quote {
   contactName        String?
   contactEmail       String?
   contactPhone       String?
+  contactId          String?
+  contactTitle       String?
   status             QuoteStatus @default(DRAFT)
   quoteType          QuoteType   @default(MIXED)
   estimator          String?
@@ -443,11 +602,14 @@ model Quote {
   termsAndConditions String?
   leadTime           String?
   deliveryNotes      String?
+  sentAt             DateTime?
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
 
   job             Job?             @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  jobBidder       JobBidder?       @relation(fields: [jobBidderId], references: [id], onDelete: SetNull)
   customer        Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  contact         Contact?         @relation(fields: [contactId], references: [id], onDelete: SetNull)
   priceList       PriceList?       @relation(fields: [priceListId], references: [id], onDelete: SetNull)
   lineItems       QuoteLineItem[]
   jobStructures   JobStructure[]
@@ -455,7 +617,9 @@ model Quote {
   invoices        Invoice[]
 
   @@index([jobId])
+  @@index([jobBidderId])
   @@index([customerId])
+  @@index([contactId])
   @@index([priceListId])
   @@index([status])
   @@index([quoteDate])
@@ -481,6 +645,10 @@ model QuoteLineItem {
   statusNote     String?
   sortOrder      Int           @default(0)
   notes          String?
+  isDrainRing      Boolean        @default(false)
+  ringDiameterFeet Decimal?       @db.Decimal(6, 2)
+  poolHeightFeet   Decimal?       @db.Decimal(6, 2)
+  drainRingStyle   DrainRingStyle @default(DRAIN)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
@@ -527,7 +695,7 @@ enum DeliveryItemStatus {
 }
 
 /// Delivery ticket for scheduling and tracking job deliveries.
-/// Ticket numbers follow DT-YY-### format (e.g. DT-26-001); generation logic to be added later.
+/// Ticket numbers follow DT##### format (e.g. DT10001); global sequence starting at 10001.
 model DeliveryTicket {
   id                     String               @id @default(cuid())
   ticketNumber           String               @unique
@@ -627,7 +795,7 @@ model DeliveryTicketLineItem {
   @@index([jobStructureId])
 }
 
-/// Per-year sequence counter for delivery ticket numbers (DT-YY-###).
+/// Global sequence counter for delivery ticket numbers (year=0 row; DT10001+).
 model DeliveryTicketSequence {
   id         String   @id @default(cuid())
   year       Int      @unique
@@ -863,6 +1031,105 @@ model AppSettings {
   drivers            Json
   trailers           Json
   truckCapacityLabel String
+  productCatalog     Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  ESTIMATOR
+  DISPATCHER
+  PRODUCTION
+  OFFICE
+  READ_ONLY
+}
+
+enum AppPermission {
+  CUSTOMERS_VIEW
+  CUSTOMERS_MANAGE
+  PRODUCTS_VIEW
+  PRODUCTS_MANAGE
+  STRUCTURES_VIEW
+  STRUCTURES_MANAGE
+  JOBS_VIEW
+  JOBS_MANAGE
+  QUOTES_VIEW
+  QUOTES_MANAGE
+  PRODUCTION_VIEW
+  PRODUCTION_MANAGE
+  INVOICES_VIEW
+  INVOICES_MANAGE
+  DELIVERY_VIEW
+  DELIVERY_MANAGE
+  INVENTORY_VIEW
+  INVENTORY_MANAGE
+  FILES_VIEW
+  FILES_MANAGE
+  SETTINGS_VIEW
+  SETTINGS_MANAGE
+  USERS_MANAGE
+}
+
+model User {
+  id                 String          @id @default(cuid())
+  username           String          @unique
+  displayName        String
+  initials           String
+  email              String?
+  role               UserRole        @default(OFFICE)
+  grantedPermissions AppPermission[] @default([])
+  deniedPermissions  AppPermission[] @default([])
+  passwordHash       String?
+  mustChangePassword Boolean         @default(false)
+  isActive           Boolean         @default(true)
+  lastLoginAt        DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  sessions      Session[]
+  auditLogs     AuditLog[]
+  jobFavorites  JobFavorite[]
+}
+
+model JobFavorite {
+  id        String   @id @default(cuid())
+  userId    String
+  jobId     String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, jobId])
+  @@index([userId])
+  @@index([jobId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String?
+  entityId   String?
+  summary    String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
 }

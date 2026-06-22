@@ -20,6 +20,7 @@ export type ProductRecord = {
   yardLocation: string | null;
   status: string;
   notes: string | null;
+  isCasting?: boolean;
   _count?: {
     documents: number;
   };
@@ -221,7 +222,7 @@ export function mapProductToRow(product: ProductRecord): ProductRow {
     productTypeLabel: productTypeLabel(product.productType),
     productTypeVariant: productTypeVariant(product.productType),
     category: product.category,
-    subcategory: "—",
+    subcategory: product.description?.trim() || "—",
     categoryVariant: categoryVariant(product.category),
     unit: product.unit,
     defaultPrice: formatCurrency(product.defaultPrice),
@@ -231,5 +232,6 @@ export function mapProductToRow(product: ProductRecord): ProductRow {
     status: productStatusLabels[product.status] ?? product.status,
     statusVariant: statusVariant(product.status),
     submittalCount: product._count?.documents ?? 0,
+    isCasting: product.isCasting ?? false,
   };
 }

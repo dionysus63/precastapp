@@ -18,14 +18,22 @@ export type JobWithoutFolderRow = {
   projectName: string;
 };
 
-function formatDateTime(value: Date) {
+export type JobFileBrowserItem = {
+  id: string;
+  fileName: string;
+  folderCategory: string;
+  updatedAt: string;
+};
+
+function formatDateTime(value: Date | string) {
+  const date = typeof value === "string" ? new Date(value) : value;
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  }).format(value);
+  }).format(date);
 }
 
 export function mapJobFileToListRow(file: JobFileWithJob): JobFileListRow {
@@ -65,4 +73,20 @@ export function mapJobFileRecordToRow(
     folderCategory: file.folderCategory,
     updatedAt: formatDateTime(file.updatedAt),
   };
+}
+
+export function mapFilesForBrowser(
+  files: {
+    id: string;
+    fileName: string;
+    folderCategory: string;
+    updatedAt: Date;
+  }[],
+): JobFileBrowserItem[] {
+  return files.map((file) => ({
+    id: file.id,
+    fileName: file.fileName,
+    folderCategory: file.folderCategory,
+    updatedAt: formatDateTime(file.updatedAt),
+  }));
 }

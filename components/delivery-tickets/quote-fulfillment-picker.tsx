@@ -91,8 +91,21 @@ type JobQuoteSelectorProps = {
 
 export function JobQuoteSelector({ jobs }: JobQuoteSelectorProps) {
   const [jobId, setJobId] = useState("");
+  const [quoteId, setQuoteId] = useState("");
   const selectedJob = jobs.find((job) => job.id === jobId);
-  const quote = selectedJob?.quotes[0];
+  const quote =
+    selectedJob?.quotes.find((entry) => entry.id === quoteId) ??
+    selectedJob?.quotes[0];
+
+  function handleJobChange(nextJobId: string) {
+    setJobId(nextJobId);
+    const nextJob = jobs.find((job) => job.id === nextJobId);
+    setQuoteId(nextJob?.quotes[0]?.id ?? "");
+  }
+
+  function handleQuoteChange(nextQuoteId: string) {
+    setQuoteId(nextQuoteId);
+  }
 
   return (
     <div className="space-y-5">
@@ -105,7 +118,7 @@ export function JobQuoteSelector({ jobs }: JobQuoteSelectorProps) {
             <select
               id="jobId"
               value={jobId}
-              onChange={(event) => setJobId(event.target.value)}
+              onChange={(event) => handleJobChange(event.target.value)}
               className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
             >
               <option value="">Select job…</option>
@@ -117,10 +130,27 @@ export function JobQuoteSelector({ jobs }: JobQuoteSelectorProps) {
             </select>
           </div>
           <div>
-            <label className="text-xs font-medium text-slate-700">Won quote</label>
-            <p className="mt-2 text-xs text-slate-600">
-              {quote ? quote.quoteNumber : "Select a job with a WON quote"}
-            </p>
+            <label htmlFor="quoteId" className="text-xs font-medium text-slate-700">
+              Won quote
+            </label>
+            {selectedJob && selectedJob.quotes.length > 0 ? (
+              <select
+                id="quoteId"
+                value={quoteId || selectedJob.quotes[0].id}
+                onChange={(event) => handleQuoteChange(event.target.value)}
+                className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
+              >
+                {selectedJob.quotes.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.quoteNumber}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="mt-2 text-xs text-slate-600">
+                {selectedJob ? "No won quote on this job" : "Select a job with a WON quote"}
+              </p>
+            )}
           </div>
         </div>
       </SectionCard>

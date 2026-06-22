@@ -11,7 +11,9 @@ import {
 } from "@/app/delivery-tickets/actions";
 import { getQuoteFulfillmentForTicket } from "@/app/operations/actions";
 import { SectionCard } from "@/components/dashboard/section-card";
+import { StatusBadge } from "@/components/dashboard/status-badge";
 import type { QuoteLineFulfillment } from "@/lib/delivery-fulfillment";
+import { formatDrainRingStyleLabel } from "@/lib/drain-ring-utils";
 
 type JobOption = {
   id: string;
@@ -64,6 +66,13 @@ export type DeliveryTicketEditorProps = {
 const inputClass =
   "mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm";
 
+function todayDateInputValue(): string {
+  const date = new Date();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 function initialFleetSelect(value: string | null | undefined, options: string[]) {
   if (!value) {
     return { selected: "", other: "" };
@@ -72,6 +81,54 @@ function initialFleetSelect(value: string | null | undefined, options: string[])
     return { selected: value, other: "" };
   }
   return { selected: "__other__", other: value };
+}
+
+function formatLineTypeLabel(lineType: string): string {
+  return lineType.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatWeight(value: number): string {
+  return `${value.toLocaleString()} lb`;
+}
+
+function parseEditorWeight(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function getEffectiveWeightEach(
+  editorLine: EditorLine | undefined,
+  fulfillmentLine: QuoteLineFulfillment,
+): number | null {
+  const fromEditor = editorLine ? parseEditorWeight(editorLine.weightEach) : null;
+  if (fromEditor != null) {
+    return fromEditor;
+  }
+  return fulfillmentLine.weightEach;
+}
+
+function mergeFulfillmentIntoLine(
+  existing: EditorLine,
+  meta: QuoteLineFulfillment,
+): EditorLine {
+  return {
+    ...existing,
+    productId: meta.productId,
+    jobStructureId: meta.jobStructureId,
+    lineType: meta.lineType as EditorLine["lineType"],
+    itemCode: meta.itemCode,
+    description: meta.description ?? "",
+    unit: existing.unit.trim() ? existing.unit : meta.unit,
+    weightEach: existing.weightEach.trim()
+      ? existing.weightEach
+      : meta.weightEach != null
+        ? String(meta.weightEach)
+        : "",
+  };
 }
 
 function mapFulfillmentToLine(meta: QuoteLineFulfillment): EditorLine {
@@ -84,10 +141,41 @@ function mapFulfillmentToLine(meta: QuoteLineFulfillment): EditorLine {
     itemCode: meta.itemCode,
     description: meta.description ?? "",
     quantity: meta.eligible && meta.remainingQty > 0 ? String(meta.remainingQty) : "0",
-    unit: "EA",
-    weightEach: "",
+    unit: meta.unit,
+    weightEach: meta.weightEach != null ? String(meta.weightEach) : "",
     yardLocation: "",
   };
+}
+
+function isDrainRingEditorKey(key: string): boolean {
+  return key.includes("::");
+}
+
+function fulfillmentMetaForEditorLine(
+  line: EditorLine,
+  fulfillmentById: Map<string, QuoteLineFulfillment>,
+): QuoteLineFulfillment | undefined {
+  if (isDrainRingEditorKey(line.key)) {
+    return line.quoteLineItemId
+      ? fulfillmentById.get(line.quoteLineItemId)
+      : undefined;
+  }
+  return fulfillmentById.get(line.key);
+}
+
+function initialQuoteId(
+  jobId: string,
+  defaultQuoteId: string | null | undefined,
+  jobs: JobOption[],
+): string {
+  const job = jobs.find((entry) => entry.id === jobId);
+  if (!job || job.quotes.length === 0) {
+    return "";
+  }
+  if (defaultQuoteId && job.quotes.some((entry) => entry.id === defaultQuoteId)) {
+    return defaultQuoteId;
+  }
+  return job.quotes[0].id;
 }
 
 export function DeliveryTicketEditor({
@@ -105,6 +193,13 @@ export function DeliveryTicketEditor({
     defaultValues?.ticketType ?? "JOB",
   );
   const [jobId, setJobId] = useState(defaultValues?.jobId ?? "");
+  const [quoteId, setQuoteId] = useState(() =>
+    initialQuoteId(defaultValues?.jobId ?? "", defaultValues?.quoteId, jobs),
+  );
+  const [deliveryDate, setDeliveryDate] = useState(
+    defaultValues?.deliveryDate ?? todayDateInputValue(),
+  );
+  const [deliveryTime, setDeliveryTime] = useState(defaultValues?.deliveryTime ?? "");
   const [fulfillment, setFulfillment] = useState<QuoteLineFulfillment[]>([]);
   const [lines, setLines] = useState<EditorLine[]>(defaultValues?.lines ?? []);
   const [selectedLineIds, setSelectedLineIds] = useState<Set<string>>(
@@ -144,33 +239,114 @@ export function DeliveryTicketEditor({
     }
   }, [defaultValues?.lines]);
 
+  useEffect(() => {
+    if (defaultValues?.deliveryDate) {
+      setDeliveryDate(defaultValues.deliveryDate);
+    }
+    if (defaultValues?.deliveryTime != null) {
+      setDeliveryTime(defaultValues.deliveryTime);
+    }
+  }, [defaultValues?.deliveryDate, defaultValues?.deliveryTime]);
+
+  function handleJobChange(nextJobId: string) {
+    setJobId(nextJobId);
+    const nextJob = jobs.find((job) => job.id === nextJobId);
+    setQuoteId(nextJob?.quotes[0]?.id ?? "");
+    setLines([]);
+    setSelectedLineIds(new Set());
+    setError(null);
+  }
+
+  function handleQuoteChange(nextQuoteId: string) {
+    if (nextQuoteId === quoteId) {
+      return;
+    }
+    setQuoteId(nextQuoteId);
+    setLines([]);
+    setSelectedLineIds(new Set());
+    setError(null);
+  }
+
   const selectedJob = jobs.find((job) => job.id === jobId);
-  const quote = selectedJob?.quotes[0];
+  const quote =
+    selectedJob?.quotes.find((entry) => entry.id === quoteId) ??
+    selectedJob?.quotes[0];
 
   useEffect(() => {
-    if (ticketType !== "JOB" || !quote?.id) {
+    if (ticketType !== "JOB" || !quoteId) {
       setFulfillment([]);
       return;
     }
-    void getQuoteFulfillmentForTicket(quote.id, ticketId).then(setFulfillment);
-  }, [ticketType, quote?.id, ticketId]);
+    void getQuoteFulfillmentForTicket(quoteId, ticketId).then(setFulfillment);
+  }, [ticketType, quoteId, ticketId]);
+
+  const fulfillmentById = useMemo(
+    () => new Map(fulfillment.map((line) => [line.quoteLineItemId, line])),
+    [fulfillment],
+  );
+
+  const linesByKey = useMemo(
+    () => new Map(lines.map((line) => [line.key, line])),
+    [lines],
+  );
+
+  useEffect(() => {
+    if (fulfillment.length === 0) {
+      return;
+    }
+
+    setLines((current) => {
+      let changed = false;
+      const next = current.map((line) => {
+        if (isDrainRingEditorKey(line.key)) {
+          return line;
+        }
+        if (!selectedLineIds.has(line.key)) {
+          return line;
+        }
+        const meta = fulfillmentById.get(line.key);
+        if (!meta || line.weightEach.trim() || meta.weightEach == null) {
+          return line;
+        }
+        changed = true;
+        return {
+          ...line,
+          weightEach: String(meta.weightEach),
+          unit: line.unit.trim() ? line.unit : meta.unit,
+        };
+      });
+      return changed ? next : current;
+    });
+  }, [fulfillment, fulfillmentById, selectedLineIds]);
 
   const totalWeight = useMemo(() => {
     return lines
       .filter((line) => selectedLineIds.has(line.key))
       .reduce((sum, line) => {
         const qty = Number(line.quantity) || 0;
-        const each = Number(line.weightEach) || 0;
+        const meta = fulfillmentMetaForEditorLine(line, fulfillmentById);
+        const each =
+          meta != null
+            ? getEffectiveWeightEach(line, meta) ?? 0
+            : parseEditorWeight(line.weightEach) ?? 0;
         return sum + qty * each;
       }, 0);
-  }, [lines, selectedLineIds]);
+  }, [lines, selectedLineIds, fulfillmentById]);
 
   function toggleLine(meta: QuoteLineFulfillment, checked: boolean) {
+    if (meta.isDrainRing) {
+      return;
+    }
     if (checked) {
       setSelectedLineIds((current) => new Set([...current, meta.quoteLineItemId]));
       setLines((current) => {
-        if (current.some((line) => line.key === meta.quoteLineItemId)) {
-          return current;
+        const existing = current.find((line) => line.key === meta.quoteLineItemId);
+        if (existing) {
+          return current.map((line) =>
+            line.key === meta.quoteLineItemId
+              ? mergeFulfillmentIntoLine(line, meta)
+              : line,
+          );
         }
         return [...current, mapFulfillmentToLine(meta)];
       });
@@ -180,25 +356,101 @@ export function DeliveryTicketEditor({
         next.delete(meta.quoteLineItemId);
         return next;
       });
+      // Exact key match only — drain ring SKU lines use quoteLineItemId::productId keys.
+      setLines((current) =>
+        current.filter((line) => line.key !== meta.quoteLineItemId),
+      );
     }
+  }
+
+  function drainRingLineKey(quoteLineItemId: string, productId: string) {
+    return `${quoteLineItemId}::${productId}`;
+  }
+
+  function getDrainRingCount(quoteLineItemId: string, productId: string): string {
+    const key = drainRingLineKey(quoteLineItemId, productId);
+    return linesByKey.get(key)?.quantity ?? "";
+  }
+
+  function getDrainRingFeetUsed(meta: QuoteLineFulfillment): number {
+    return meta.drainRingOptions.reduce((sum, option) => {
+      const count = Number(getDrainRingCount(meta.quoteLineItemId, option.productId)) || 0;
+      return sum + count * option.heightFeet;
+    }, 0);
+  }
+
+  function setDrainRingCount(
+    meta: QuoteLineFulfillment,
+    option: QuoteLineFulfillment["drainRingOptions"][number],
+    value: string,
+  ) {
+    const key = drainRingLineKey(meta.quoteLineItemId, option.productId);
+    const numeric = Number(value);
+    const active = value.trim() !== "" && Number.isFinite(numeric) && numeric > 0;
+
+    setLines((current) => {
+      const existing = current.find((line) => line.key === key);
+      if (!active) {
+        return current.filter((line) => line.key !== key);
+      }
+      if (existing) {
+        return current.map((line) =>
+          line.key === key ? { ...line, quantity: value } : line,
+        );
+      }
+      return [
+        ...current,
+        {
+          key,
+          quoteLineItemId: meta.quoteLineItemId,
+          productId: option.productId,
+          jobStructureId: null,
+          lineType: "STOCK_PRODUCT",
+          itemCode: option.productCode,
+          description: `${option.name} (${option.heightFeet}' ring)`,
+          quantity: value,
+          unit: "EA",
+          weightEach: option.weightEach != null ? String(option.weightEach) : "",
+          yardLocation: "",
+        },
+      ];
+    });
+
+    setSelectedLineIds((current) => {
+      const next = new Set(current);
+      if (active) {
+        next.add(key);
+      } else {
+        next.delete(key);
+      }
+      return next;
+    });
   }
 
   function buildPayload(status: SaveDeliveryTicketInput["status"]): SaveDeliveryTicketInput {
     const activeLines = lines.filter((line) => selectedLineIds.has(line.key));
     const linePayload: DeliveryTicketLineInput[] = activeLines
       .filter((line) => Number(line.quantity) > 0)
-      .map((line) => ({
-        quoteLineItemId: line.quoteLineItemId,
-        productId: line.productId,
-        jobStructureId: line.jobStructureId,
-        lineType: line.lineType,
-        itemCode: line.itemCode,
-        description: line.description || null,
-        quantity: Number(line.quantity),
-        unit: line.unit,
-        weightEach: line.weightEach ? Number(line.weightEach) : null,
-        yardLocation: line.yardLocation || null,
-      }));
+      .map((line) => {
+        const meta = fulfillmentMetaForEditorLine(line, fulfillmentById);
+        const weightEach =
+          meta != null
+            ? getEffectiveWeightEach(line, meta)
+            : parseEditorWeight(line.weightEach);
+
+        return {
+          quoteLineItemId: line.quoteLineItemId,
+          productId: line.productId,
+          jobStructureId: line.jobStructureId,
+          lineType: line.lineType,
+          itemCode: line.itemCode,
+          description: line.description || null,
+          quantity: Number(line.quantity),
+          unit: line.unit,
+          weightEach,
+          yardLocation: line.yardLocation || null,
+        };
+      });
 
     return {
       ticketType,
@@ -210,8 +462,8 @@ export function DeliveryTicketEditor({
       customerName: selectedJob?.customerName ?? defaultValues?.customerName ?? "",
       projectName: selectedJob?.projectName ?? defaultValues?.projectName ?? "",
       deliveryAddress: defaultValues?.deliveryAddress ?? null,
-      deliveryDate: defaultValues?.deliveryDate ?? null,
-      deliveryTime: defaultValues?.deliveryTime ?? null,
+      deliveryDate: deliveryDate.trim() || null,
+      deliveryTime: deliveryTime.trim() || null,
       truck: resolveFleetValue(truck, truckOther, trucks),
       driver: resolveFleetValue(driver, driverOther, drivers),
       trailer: resolveFleetValue(trailer, trailerOther, trailers),
@@ -258,11 +510,43 @@ export function DeliveryTicketEditor({
         </div>
       </SectionCard>
 
+      <SectionCard title="Schedule">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="deliveryDate" className="block text-xs font-medium text-slate-700">
+              Delivery date
+            </label>
+            <input
+              id="deliveryDate"
+              type="date"
+              value={deliveryDate}
+              onChange={(event) => setDeliveryDate(event.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label htmlFor="deliveryTime" className="block text-xs font-medium text-slate-700">
+              Delivery time
+            </label>
+            <input
+              id="deliveryTime"
+              type="time"
+              value={deliveryTime}
+              onChange={(event) => setDeliveryTime(event.target.value)}
+              className={inputClass}
+            />
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          Required when scheduling a delivery.
+        </p>
+      </SectionCard>
+
       {ticketType === "JOB" ? (
         <SectionCard title="Job and quote">
           <select
             value={jobId}
-            onChange={(event) => setJobId(event.target.value)}
+            onChange={(event) => handleJobChange(event.target.value)}
             className={inputClass}
           >
             <option value="">Select job…</option>
@@ -272,34 +556,185 @@ export function DeliveryTicketEditor({
               </option>
             ))}
           </select>
-          <p className="mt-2 text-xs text-slate-500">
-            Won quote: {quote?.quoteNumber ?? "None"}
-          </p>
+          {selectedJob ? (
+            selectedJob.quotes.length > 0 ? (
+              <div className="mt-3">
+                <label
+                  htmlFor="quoteId"
+                  className="block text-xs font-medium text-slate-700"
+                >
+                  Won quote
+                </label>
+                <select
+                  id="quoteId"
+                  value={quoteId}
+                  onChange={(event) => handleQuoteChange(event.target.value)}
+                  className={inputClass}
+                >
+                  {selectedJob.quotes.map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {entry.quoteNumber}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-slate-500">No won quote on this job.</p>
+            )
+          ) : null}
         </SectionCard>
       ) : null}
 
       {ticketType === "JOB" && quote ? (
-        <SectionCard title="Quote lines for this load" noPadding>
+        <SectionCard
+          title="Quote lines for this load"
+          description="Select items for this delivery and confirm quantities and weights."
+          noPadding
+        >
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-xs">
               <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
                 <tr>
                   <th className="px-3 py-2">Pick</th>
                   <th className="px-3 py-2">Item</th>
-                  <th className="px-3 py-2">Quoted</th>
-                  <th className="px-3 py-2">Shipped</th>
                   <th className="px-3 py-2">Remaining</th>
-                  <th className="px-3 py-2">On load</th>
-                  <th className="px-3 py-2">Eligible</th>
+                  <th className="px-3 py-2">Qty on load</th>
+                  <th className="px-3 py-2">Weight each</th>
+                  <th className="px-3 py-2">Line weight</th>
+                  <th className="px-3 py-2">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {fulfillment.map((line) => {
-                  const editorLine = lines.find((l) => l.key === line.quoteLineItemId);
+                  if (line.isDrainRing) {
+                    const feetUsed = getDrainRingFeetUsed(line);
+                    const feetRemainingAfter =
+                      Math.round((line.remainingQty - feetUsed) * 100) / 100;
+                    const poolHeight = line.poolHeightFeet ?? 0;
+                    const poolsRemaining =
+                      poolHeight > 0
+                        ? Math.round((feetRemainingAfter / poolHeight) * 100) / 100
+                        : null;
+                    const overLimit = feetUsed > line.remainingQty + 0.001;
+                    return (
+                      <tr key={line.quoteLineItemId} className="bg-slate-50/40">
+                        <td className="px-3 py-3 align-top" colSpan={7}>
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <div>
+                              <span className="font-medium text-slate-900">
+                                {line.displayName}
+                              </span>
+                              <span className="ml-2 text-slate-500">
+                                {line.itemCode}
+                              </span>
+                              {line.ringDiameterFeet ? (
+                                <span className="ml-2 text-slate-500">
+                                  {line.ringDiameterFeet}' diameter ·{" "}
+                                  {formatDrainRingStyleLabel(line.drainRingStyle)}
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="text-slate-600">
+                              {line.remainingQty} of {line.quotedQty} LF remaining ·{" "}
+                              {line.shippedQty} shipped
+                            </div>
+                          </div>
+                          {line.description ? (
+                            <div className="mt-0.5 text-slate-500">
+                              {line.description}
+                            </div>
+                          ) : null}
+
+                          {line.drainRingOptions.length === 0 ? (
+                            <p className="mt-2 text-slate-500">
+                              {line.eligibilityReason ??
+                                "No ring SKUs available for this diameter."}
+                            </p>
+                          ) : (
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                              {line.drainRingOptions.map((option) => (
+                                <div
+                                  key={option.productId}
+                                  className="rounded-lg border border-slate-200 bg-white px-3 py-2"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-medium text-slate-800">
+                                      {option.heightFeet}' ring
+                                    </span>
+                                    <span className="text-slate-400">
+                                      {option.productCode}
+                                    </span>
+                                  </div>
+                                  <div className="mt-1 text-slate-500">
+                                    {option.currentStock != null
+                                      ? `${option.currentStock} in stock`
+                                      : "Not tracked"}
+                                  </div>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={getDrainRingCount(
+                                      line.quoteLineItemId,
+                                      option.productId,
+                                    )}
+                                    placeholder="0"
+                                    className="mt-2 w-full rounded border border-slate-200 px-2 py-1"
+                                    onChange={(event) =>
+                                      setDrainRingCount(
+                                        line,
+                                        option,
+                                        event.target.value,
+                                      )
+                                    }
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-slate-600">
+                            <span>
+                              On load:{" "}
+                              <span className="font-semibold text-slate-900">
+                                {feetUsed} LF
+                              </span>
+                            </span>
+                            <span
+                              className={
+                                overLimit
+                                  ? "font-semibold text-red-600"
+                                  : "text-slate-600"
+                              }
+                            >
+                              Remaining after load: {feetRemainingAfter} LF
+                              {poolsRemaining != null
+                                ? ` (~${poolsRemaining} pools)`
+                                : ""}
+                            </span>
+                            {overLimit ? (
+                              <span className="font-semibold text-red-600">
+                                Exceeds remaining feet
+                              </span>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  const editorLine = linesByKey.get(line.quoteLineItemId);
                   const checked = selectedLineIds.has(line.quoteLineItemId);
+                  const qty = editorLine ? Number(editorLine.quantity) || 0 : 0;
+                  const effectiveWeightEach = getEffectiveWeightEach(editorLine, line);
+                  const lineWeight = qty * (effectiveWeightEach ?? 0);
+                  const weightInputValue = editorLine
+                    ? editorLine.weightEach.trim() ||
+                      (line.weightEach != null ? String(line.weightEach) : "")
+                    : "";
                   return (
                     <tr key={line.quoteLineItemId}>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 align-top">
                         <input
                           type="checkbox"
                           checked={checked}
@@ -307,21 +742,31 @@ export function DeliveryTicketEditor({
                           onChange={(event) => toggleLine(line, event.target.checked)}
                         />
                       </td>
-                      <td className="px-3 py-2">
-                        <div className="font-medium">{line.itemCode}</div>
-                        <div className="text-slate-500">{line.description}</div>
+                      <td className="px-3 py-2 align-top">
+                        <div className="font-medium text-slate-900">{line.displayName}</div>
+                        <div className="mt-0.5 text-slate-500">{line.itemCode}</div>
+                        {line.description ? (
+                          <div className="mt-1 text-slate-500">{line.description}</div>
+                        ) : null}
+                        <div className="mt-1">
+                          <StatusBadge
+                            label={formatLineTypeLabel(line.lineType)}
+                            variant="neutral"
+                          />
+                        </div>
                       </td>
-                      <td className="px-3 py-2">{line.quotedQty}</td>
-                      <td className="px-3 py-2">{line.shippedQty}</td>
-                      <td className="px-3 py-2">{line.remainingQty}</td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 align-top text-slate-700">
+                        <div>{line.remainingQty} of {line.quotedQty}</div>
+                        <div className="text-slate-500">{line.shippedQty} shipped</div>
+                      </td>
+                      <td className="px-3 py-2 align-top">
                         {checked && editorLine ? (
                           <input
                             type="number"
                             min="0"
                             max={line.remainingQty}
                             value={editorLine.quantity}
-                            className="w-16 rounded border border-slate-200 px-1 py-0.5"
+                            className="w-20 rounded border border-slate-200 px-2 py-1"
                             onChange={(event) =>
                               setLines((current) =>
                                 current.map((row) =>
@@ -336,13 +781,54 @@ export function DeliveryTicketEditor({
                           "—"
                         )}
                       </td>
-                      <td className="px-3 py-2">
-                        {line.eligible ? "Yes" : (line.eligibilityReason ?? "No")}
+                      <td className="px-3 py-2 align-top">
+                        {checked && editorLine ? (
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={weightInputValue}
+                            placeholder="—"
+                            className="w-24 rounded border border-slate-200 px-2 py-1"
+                            onChange={(event) =>
+                              setLines((current) =>
+                                current.map((row) =>
+                                  row.key === line.quoteLineItemId
+                                    ? { ...row, weightEach: event.target.value }
+                                    : row,
+                                ),
+                              )
+                            }
+                          />
+                        ) : line.weightEach != null ? (
+                          formatWeight(line.weightEach)
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="px-3 py-2 align-top font-medium text-slate-900">
+                        {checked && lineWeight > 0 ? formatWeight(lineWeight) : "—"}
+                      </td>
+                      <td className="px-3 py-2 align-top text-slate-600">
+                        {line.eligible ? "Ready" : (line.eligibilityReason ?? "Not ready")}
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
+              <tfoot className="border-t border-slate-200 bg-slate-50/80">
+                <tr>
+                  <td colSpan={5} className="px-3 py-3 text-right font-medium text-slate-700">
+                    Total load weight
+                  </td>
+                  <td className="px-3 py-3 font-semibold text-slate-900">
+                    {totalWeight > 0 ? formatWeight(totalWeight) : "—"}
+                  </td>
+                  <td className="px-3 py-3 text-slate-500">
+                    Capacity: {truckCapacityLabel}
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </SectionCard>
@@ -453,7 +939,8 @@ export function DeliveryTicketEditor({
       <SectionCard title="Summary">
         <p className="text-xs text-slate-600">
           {selectedLineIds.size} line(s) selected
-          {totalWeight > 0 ? ` · ${totalWeight.toLocaleString()} lb est.` : ""}
+          {totalWeight > 0 ? ` · ${formatWeight(totalWeight)} on this load` : ""}
+          {deliveryDate ? ` · scheduled for ${deliveryDate}` : ""}
         </p>
       </SectionCard>
 

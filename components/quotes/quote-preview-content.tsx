@@ -192,6 +192,7 @@ export function QuotePreviewContent({
             <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <PreviewField label="Customer Name" value={quote.customer} />
               <PreviewField label="Contact Name" value={quote.contactName} />
+              <PreviewField label="Contact Role" value={quote.contactTitle} />
               <PreviewField label="Contact Email" value={quote.contactEmail} />
               <PreviewField label="Contact Phone" value={quote.contactPhone} />
               <PreviewField label="Project Name" value={quote.projectName} />
