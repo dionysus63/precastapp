@@ -10,6 +10,8 @@
     "lint": "eslint",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:sync-files": "npx tsx scripts/sync-job-files.ts",
+    "seed:drill": "npx tsx scripts/seed-drill-sheet-fixture.ts",
+    "shot:drill": "npx tsx scripts/screenshot-drill-sheet.ts",
     "postinstall": "prisma generate && puppeteer browsers install chrome",
     "puppeteer:install": "puppeteer browsers install chrome"
   },
