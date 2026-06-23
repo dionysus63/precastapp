@@ -282,8 +282,16 @@ export function getBootSymbol(
 
   const center = { x: placement.x, y: placement.y };
   const arrowTail = polarToXY(angle, layout.radius - 6, layout.cx, layout.cy);
-  const arrowTip = polarToXY(angle, layout.radius + 26, layout.cx, layout.cy);
-  const badge = polarToXY(angle, layout.radius + 20, layout.cx, layout.cy);
+  const arrowTip = polarToXY(angle, layout.radius + 18, layout.cx, layout.cy);
+  // Badge sits beside the arrow (offset tangentially), not directly in line
+  // with it — otherwise it collides with the arrowhead and the hole-label
+  // text further out along the same radial line (matches the example).
+  const badgeRadial = polarToXY(angle, layout.radius + 14, layout.cx, layout.cy);
+  const tangentOffset = 13;
+  const badge = {
+    x: badgeRadial.x + tangent.x * tangentOffset,
+    y: badgeRadial.y + tangent.y * tangentOffset,
+  };
 
   // Bowtie: two triangles meeting at center, opening along the tangent and
   // spanning the wall along the radial direction.

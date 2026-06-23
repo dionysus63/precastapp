@@ -73,7 +73,7 @@ function drawCircle(
         let labelText = "";
         if (opening.isLowInvert && callout.holeLabel) {
           // Low invert: hole label centered above the circle (matches example PNG).
-          labelText = `<text x="${n(cx)}" y="${n(cy - radius - 10)}" text-anchor="middle" font-size="10" fill="#111827">${escapeHtml(callout.holeLabel)}</text>`;
+          labelText = `<text x="${n(cx)}" y="${n(cy - radius - 24)}" text-anchor="middle" font-size="10" fill="#111827">${escapeHtml(callout.holeLabel)}</text>`;
         } else if (callout.holeLabel) {
           const labelPos = polarToXY(angle, radius + 28, cx, cy);
           const dx = labelPos.x - cx;
