@@ -51,7 +51,7 @@ function drawCircle(
   result: DrillSheetResult | null,
 ): string {
   const { cx, cy, radius } = layout;
-  const spokes = getKnockoutSpokes(layout, 8, 12, 32)
+  const spokes = getKnockoutSpokes(layout, 8, 16, 42)
     .map(
       (s) =>
         `<line x1="${n(s.x1)}" y1="${n(s.y1)}" x2="${n(s.x2)}" y2="${n(s.y2)}" stroke="#9ca3af" stroke-width="1" />`,
@@ -73,21 +73,21 @@ function drawCircle(
         let labelText = "";
         if (opening.isLowInvert && callout.holeLabel) {
           // Low invert: hole label centered above the circle (matches example PNG).
-          labelText = `<text x="${n(cx)}" y="${n(cy - radius - 24)}" text-anchor="middle" font-size="10" fill="#111827">${escapeHtml(callout.holeLabel)}</text>`;
+          labelText = `<text x="${n(cx)}" y="${n(cy - radius - 26)}" text-anchor="middle" font-size="13" fill="#111827">${escapeHtml(callout.holeLabel)}</text>`;
         } else if (callout.holeLabel) {
-          const labelPos = polarToXY(angle, radius + 28, cx, cy);
+          const labelPos = polarToXY(angle, radius + 37, cx, cy);
           const dx = labelPos.x - cx;
           const anchor =
-            Math.abs(dx) < 18 ? "middle" : dx > 0 ? "start" : "end";
+            Math.abs(dx) < 24 ? "middle" : dx > 0 ? "start" : "end";
           const below = labelPos.y > cy;
-          labelText = `<text x="${n(labelPos.x)}" y="${n(below ? labelPos.y + 12 : labelPos.y - 4)}" text-anchor="${anchor}" font-size="10" fill="#111827">${escapeHtml(callout.holeLabel)}</text>`;
+          labelText = `<text x="${n(labelPos.x)}" y="${n(below ? labelPos.y + 16 : labelPos.y - 6)}" text-anchor="${anchor}" font-size="13" fill="#111827">${escapeHtml(callout.holeLabel)}</text>`;
         }
 
         const bowtie = `<polygon points="${n(boot.bowtie[0].x)},${n(boot.bowtie[0].y)} ${n(boot.bowtie[1].x)},${n(boot.bowtie[1].y)} ${n(boot.center.x)},${n(boot.center.y)}" fill="#ffffff" stroke="#111827" stroke-width="1.2" /><polygon points="${n(boot.bowtie[2].x)},${n(boot.bowtie[2].y)} ${n(boot.bowtie[3].x)},${n(boot.bowtie[3].y)} ${n(boot.center.x)},${n(boot.center.y)}" fill="#ffffff" stroke="#111827" stroke-width="1.2" />`;
 
         const arrow = `<line x1="${n(boot.arrowTail.x)}" y1="${n(boot.arrowTail.y)}" x2="${n(boot.arrowTip.x)}" y2="${n(boot.arrowTip.y)}" stroke="#111827" stroke-width="1.2" marker-end="url(#plan-arrow)" />`;
 
-        const badgeMark = `<circle cx="${n(badge.x)}" cy="${n(badge.y)}" r="7" fill="#ffffff" stroke="#111827" stroke-width="1" /><text x="${n(badge.x)}" y="${n(badge.y + 3)}" text-anchor="middle" font-size="9" font-weight="700" fill="#111827">${escapeHtml(placement.label)}</text>`;
+        const badgeMark = `<circle cx="${n(badge.x)}" cy="${n(badge.y)}" r="9" fill="#ffffff" stroke="#111827" stroke-width="1" /><text x="${n(badge.x)}" y="${n(badge.y + 4)}" text-anchor="middle" font-size="12" font-weight="700" fill="#111827">${escapeHtml(placement.label)}</text>`;
 
         return `${arrow}${bowtie}${badgeMark}${labelText}`;
       })
@@ -95,28 +95,32 @@ function drawCircle(
   }
 
   return `
-    <text x="${n(cx)}" y="14" text-anchor="middle" font-size="11" font-weight="700" fill="#111827">${escapeHtml(title)}</text>
-    ${subtitle ? `<text x="${n(cx)}" y="26" text-anchor="middle" font-size="9" fill="#374151">${escapeHtml(subtitle)}</text>` : ""}
+    <text x="${n(cx)}" y="20" text-anchor="middle" font-size="15" font-weight="700" fill="#111827">${escapeHtml(title)}</text>
+    ${subtitle ? `<text x="${n(cx)}" y="37" text-anchor="middle" font-size="12" fill="#374151">${escapeHtml(subtitle)}</text>` : ""}
     <circle cx="${n(cx)}" cy="${n(cy)}" r="${n(radius)}" fill="#ffffff" stroke="#111827" stroke-width="1.5" />
-    <circle cx="${n(cx)}" cy="${n(cy)}" r="${n(radius - 4)}" fill="none" stroke="#111827" stroke-width="0.75" />
-    <circle cx="${n(cx)}" cy="${n(cy)}" r="1.5" fill="#111827" />
+    <circle cx="${n(cx)}" cy="${n(cy)}" r="${n(radius - 6)}" fill="none" stroke="#111827" stroke-width="0.75" />
+    <circle cx="${n(cx)}" cy="${n(cy)}" r="2" fill="#111827" />
     ${spokes}
     ${openings}
   `;
 }
 
 function buildPlanSvg(result: DrillSheetResult): string {
+  // Pixel-measured against docs/drill-sheet-target.png: the reference's
+  // circles are ~1.45x the diameter an earlier pass used relative to the
+  // page width. Radius/cx below are derived from that measurement (see
+  // commit history), not eyeballed.
   const width = 520;
-  const height = 270;
-  const cy = 140;
-  const radius = 72;
+  const height = 310;
+  const cy = 175;
+  const radius = 96;
   const base = drawCircle(
-    { cx: 150, cy, radius },
+    { cx: 137, cy, radius },
     "BASE SECTION",
     "(RIGHT SIDE UP)",
     result,
   );
-  const riser = drawCircle({ cx: 370, cy, radius }, "RISER", "", null);
+  const riser = drawCircle({ cx: 383, cy, radius }, "RISER", "", null);
 
   return `
     <svg viewBox="0 0 ${width} ${height}" width="100%" preserveAspectRatio="xMidYMid meet" role="img">
@@ -600,21 +604,21 @@ export async function buildDrillSheetPdfHtml(
       }
       .head { display: flex; justify-content: space-between; align-items: flex-start; }
       .brand { display: flex; align-items: flex-start; gap: 8px; flex-shrink: 0; }
-      .logo { max-height: 80px; max-width: 200px; object-fit: contain; }
+      .logo { max-height: 75px; max-width: 260px; object-fit: contain; }
       .company-name { font-size: 17px; font-weight: 700; margin: 0; }
       .company-meta { font-size: 10px; color: #4b5563; margin: 1px 0 0; white-space: nowrap; }
       .approved { font-size: 14px; padding-top: 4px; white-space: nowrap; flex-shrink: 0; }
       .approved .ul {
         display: inline-block;
-        width: 160px;
+        width: 130px;
         border-bottom: 1px solid #111827;
         margin-left: 4px;
       }
-      .fields { margin: 8px 0 6px; }
-      .field { font-size: 14px; line-height: 1.5; }
+      .fields { margin: 6px 0 4px; }
+      .field { font-size: 14px; line-height: 1.3; }
       .field .fl { color: #111827; }
       .field .fv { font-weight: 400; }
-      .circles { margin: 2px 0 4px; page-break-inside: avoid; break-inside: avoid; }
+      .circles { margin: 0 0 2px; page-break-inside: avoid; break-inside: avoid; }
       .circles svg { display: block; width: 100%; height: auto; }
       .bottom {
         display: flex;
@@ -627,7 +631,7 @@ export async function buildDrillSheetPdfHtml(
       .bottom-right { flex: 1; min-width: 0; }
       .bottom-right svg { display: block; width: 100%; height: auto; }
       table.calc { border-collapse: collapse; margin: 0 0 6px; width: 100%; }
-      table.calc td { padding: 1px 3px; font-size: 14px; }
+      table.calc td { padding: 0 3px; font-size: 14px; line-height: 1.1; }
       table.calc td.lbl { text-align: right; }
       table.calc td.num {
         text-align: right;
@@ -640,11 +644,11 @@ export async function buildDrillSheetPdfHtml(
       .use-line:first-of-type { margin-top: 6px; }
       .use-col1 { display: inline-block; min-width: 90px; }
       .use-col2 { display: inline-block; }
-      .brick-line { margin: 2px 0 8px; font-size: 14px; }
+      .brick-line { margin: 2px 0 5px; font-size: 14px; }
       table.grid { border-collapse: collapse; width: 100%; }
       table.grid th, table.grid td {
         border: 1px solid #111827;
-        padding: 3px 8px;
+        padding: 2px 6px;
         text-align: center;
         font-size: 14px;
       }

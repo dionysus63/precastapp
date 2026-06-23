@@ -271,7 +271,7 @@ export type BootSymbol = {
 export function getBootSymbol(
   placement: OpeningPlacement,
   layout: DiagramLayout,
-  glyphHalf = 7,
+  glyphHalf = 9,
 ): BootSymbol {
   const angle = placement.angleDeg;
   const radians = (angle * Math.PI) / 180;
@@ -281,13 +281,13 @@ export function getBootSymbol(
   const tangent = { x: -radial.y, y: radial.x };
 
   const center = { x: placement.x, y: placement.y };
-  const arrowTail = polarToXY(angle, layout.radius - 6, layout.cx, layout.cy);
-  const arrowTip = polarToXY(angle, layout.radius + 18, layout.cx, layout.cy);
+  const arrowTail = polarToXY(angle, layout.radius - 8, layout.cx, layout.cy);
+  const arrowTip = polarToXY(angle, layout.radius + 24, layout.cx, layout.cy);
   // Badge sits beside the arrow (offset tangentially), not directly in line
   // with it — otherwise it collides with the arrowhead and the hole-label
   // text further out along the same radial line (matches the example).
-  const badgeRadial = polarToXY(angle, layout.radius + 14, layout.cx, layout.cy);
-  const tangentOffset = 13;
+  const badgeRadial = polarToXY(angle, layout.radius + 18, layout.cx, layout.cy);
+  const tangentOffset = 18;
   const badge = {
     x: badgeRadial.x + tangent.x * tangentOffset,
     y: badgeRadial.y + tangent.y * tangentOffset,
