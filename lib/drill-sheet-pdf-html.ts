@@ -51,7 +51,7 @@ function drawCircle(
   result: DrillSheetResult | null,
 ): string {
   const { cx, cy, radius } = layout;
-  const spokes = getKnockoutSpokes(layout, 8, 10, 26)
+  const spokes = getKnockoutSpokes(layout, 8, 12, 32)
     .map(
       (s) =>
         `<line x1="${n(s.x1)}" y1="${n(s.y1)}" x2="${n(s.x2)}" y2="${n(s.y2)}" stroke="#9ca3af" stroke-width="1" />`,
@@ -107,16 +107,16 @@ function drawCircle(
 
 function buildPlanSvg(result: DrillSheetResult): string {
   const width = 520;
-  const height = 210;
-  const cy = 120;
-  const radius = 58;
+  const height = 270;
+  const cy = 140;
+  const radius = 72;
   const base = drawCircle(
-    { cx: 132, cy, radius },
+    { cx: 150, cy, radius },
     "BASE SECTION",
     "(RIGHT SIDE UP)",
     result,
   );
-  const riser = drawCircle({ cx: 388, cy, radius }, "RISER", "", null);
+  const riser = drawCircle({ cx: 370, cy, radius }, "RISER", "", null);
 
   return `
     <svg viewBox="0 0 ${width} ${height}" width="100%" preserveAspectRatio="xMidYMid meet" role="img">
@@ -636,8 +636,10 @@ export async function buildDrillSheetPdfHtml(
       }
       table.calc tr.u td.num { border-bottom: 1px solid #111827; }
       table.calc tr.total td { font-weight: 700; padding-top: 3px; }
-      .use-line { font-weight: 400; margin: 6px 0 2px; font-size: 14px; }
-      .use-line span { margin-right: 10px; }
+      .use-line { font-weight: 400; margin: 2px 0; font-size: 14px; }
+      .use-line:first-of-type { margin-top: 6px; }
+      .use-col1 { display: inline-block; min-width: 90px; }
+      .use-col2 { display: inline-block; }
       .brick-line { margin: 2px 0 8px; font-size: 14px; }
       table.grid { border-collapse: collapse; width: 100%; }
       table.grid th, table.grid td {
@@ -676,12 +678,15 @@ export async function buildDrillSheetPdfHtml(
       <div class="circles">${planSvg}</div>
 
       <div class="bottom">
-        <div class="bottom-left data-font">
+        <div class="bottom-left">
           <table class="calc">${calcRows}</table>
           <div class="use-line">
-            <span>USE: ${escapeHtml(insideDiameterLabel)}</span>
-            <span>Base: ${escapeHtml(baseHeightLabel(result))}</span>
-            <span>Riser: ${escapeHtml(summarizeRisers(result))}</span>
+            <span class="use-col1">USE: ${escapeHtml(insideDiameterLabel)}</span>
+            <span class="use-col2">Base: ${escapeHtml(baseHeightLabel(result))}</span>
+          </div>
+          <div class="use-line">
+            <span class="use-col1"></span>
+            <span class="use-col2">Riser: ${escapeHtml(summarizeRisers(result))}</span>
           </div>
           <div class="brick-line">Brick Adjustment: ${escapeHtml(brickInches)}</div>
           <table class="grid">
