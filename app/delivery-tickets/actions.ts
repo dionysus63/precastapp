@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { AppPermission, Prisma } from "@/app/generated/prisma/client";
 import type {
   DeliveryLineType,
@@ -101,6 +100,7 @@ async function validateLines(
     );
     const byId = new Map(fulfillment.map((line) => [line.quoteLineItemId, line]));
     const drainRingFeetByLine = new Map<string, number>();
+    const castingPiecesByAssembly = new Map<string, Map<string, number>>();
 
     for (const line of input.lines) {
       if (!line.quoteLineItemId) continue;
@@ -134,6 +134,14 @@ async function validateLines(
         continue;
       }
 
+      if (meta.isCastingAssembly) {
+        if (!line.productId) continue;
+        const pieces = castingPiecesByAssembly.get(line.quoteLineItemId) ?? new Map<string, number>();
+        pieces.set(line.productId, (pieces.get(line.productId) ?? 0) + line.quantity);
+        castingPiecesByAssembly.set(line.quoteLineItemId, pieces);
+        continue;
+      }
+
       if (line.quantity > meta.remainingQty) {
         throw new Error(
           `Quantity for ${line.itemCode} exceeds remaining (${meta.remainingQty}).`,
@@ -154,6 +162,22 @@ async function validateLines(
         const over = Math.round((feet - meta.remainingQty) * 100) / 100;
         throw new Error(
           `${meta.displayName} exceeds remaining (${meta.remainingQty} LF) by ${over} LF.`,
+        );
+      }
+    }
+
+    for (const [quoteLineItemId, piecesByProduct] of castingPiecesByAssembly) {
+      const meta = byId.get(quoteLineItemId);
+      if (!meta || meta.castingComponentOptions.length === 0) continue;
+      let sets = Number.POSITIVE_INFINITY;
+      for (const option of meta.castingComponentOptions) {
+        const pieces = piecesByProduct.get(option.productId) ?? 0;
+        sets = Math.min(sets, Math.floor(pieces / option.quantity));
+      }
+      const setsUsed = Number.isFinite(sets) ? sets : 0;
+      if (setsUsed > meta.remainingQty) {
+        throw new Error(
+          `${meta.displayName}: sets on this load (${setsUsed}) exceed remaining (${meta.remainingQty}).`,
         );
       }
     }
@@ -231,7 +255,13 @@ function ticketData(input: SaveDeliveryTicketInput) {
   };
 }
 
-export async function createDeliveryTicket(input: SaveDeliveryTicketInput) {
+export type DeliveryTicketActionResult =
+  | { success: true; ticketId: string }
+  | { error: string };
+
+export async function createDeliveryTicket(
+  input: SaveDeliveryTicketInput,
+): Promise<DeliveryTicketActionResult> {
   await requirePermission(AppPermission.DELIVERY_MANAGE);
   if (!input.customerName.trim() || !input.projectName.trim()) {
     return { error: "Customer and project name are required." };
@@ -260,16 +290,8 @@ export async function createDeliveryTicket(input: SaveDeliveryTicketInput) {
     );
 
     revalidatePath("/delivery-tickets");
-    redirect(`/delivery-tickets/${ticket.id}`);
+    return { success: true, ticketId: ticket.id };
   } catch (error) {
-    if (
-      error &&
-      typeof error === "object" &&
-      "digest" in error &&
-      String((error as { digest?: string }).digest).startsWith("NEXT_REDIRECT")
-    ) {
-      throw error;
-    }
     return {
       error:
         error instanceof Error ? error.message : "Could not create delivery ticket.",
@@ -280,7 +302,7 @@ export async function createDeliveryTicket(input: SaveDeliveryTicketInput) {
 export async function updateDeliveryTicket(
   ticketId: string,
   input: SaveDeliveryTicketInput,
-) {
+): Promise<DeliveryTicketActionResult> {
   await requirePermission(AppPermission.DELIVERY_MANAGE);
   if (!input.customerName.trim() || !input.projectName.trim()) {
     return { error: "Customer and project name are required." };
@@ -320,16 +342,8 @@ export async function updateDeliveryTicket(
 
     revalidatePath("/delivery-tickets");
     revalidatePath(`/delivery-tickets/${ticketId}`);
-    redirect(`/delivery-tickets/${ticketId}`);
+    return { success: true, ticketId };
   } catch (error) {
-    if (
-      error &&
-      typeof error === "object" &&
-      "digest" in error &&
-      String((error as { digest?: string }).digest).startsWith("NEXT_REDIRECT")
-    ) {
-      throw error;
-    }
     return {
       error:
         error instanceof Error ? error.message : "Could not update delivery ticket.",
@@ -397,13 +411,3 @@ export async function updateDeliveryTicketStatus(
   }
 }
 
-export async function listDeliveryTicketsForPage() {
-  return withDatabaseRetry((client) =>
-    client.deliveryTicket.findMany({
-      orderBy: [{ deliveryDate: "desc" }, { createdAt: "desc" }],
-      include: {
-        lineItems: { select: { id: true, totalWeight: true } },
-      },
-    }),
-  );
-}

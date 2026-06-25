@@ -71,9 +71,13 @@ export function CustomerForm({
 
     const timeoutId = window.setTimeout(() => {
       startSimilarCheck(async () => {
-        const matches = await findSimilarCustomers(trimmed);
-        setSimilarMatches(matches);
-        setShowConfirmPanel(false);
+        try {
+          const matches = await findSimilarCustomers(trimmed);
+          setSimilarMatches(matches);
+          setShowConfirmPanel(false);
+        } catch {
+          setSimilarMatches([]);
+        }
       });
     }, 400);
 

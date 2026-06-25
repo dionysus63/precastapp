@@ -11,8 +11,16 @@ import {
 } from "@/app/delivery-tickets/actions";
 import { getQuoteFulfillmentForTicket } from "@/app/operations/actions";
 import { SectionCard } from "@/components/dashboard/section-card";
+import { RichTextContent } from "@/components/ui/rich-text-content";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import type { QuoteLineFulfillment } from "@/lib/delivery-fulfillment";
+import { formatWeightLb } from "@/lib/format";
+import {
+  castingAssemblyEditorKey,
+  formatCastingPieceRoleLabel,
+  isCastingAssemblyEditorKey,
+  type CastingPieceRole,
+} from "@/lib/casting-utils";
 import { formatDrainRingStyleLabel } from "@/lib/drain-ring-utils";
 
 type JobOption = {
@@ -88,7 +96,7 @@ function formatLineTypeLabel(lineType: string): string {
 }
 
 function formatWeight(value: number): string {
-  return `${value.toLocaleString()} lb`;
+  return formatWeightLb(value);
 }
 
 function parseEditorWeight(value: string): number | null {
@@ -107,6 +115,11 @@ function getEffectiveWeightEach(
   const fromEditor = editorLine ? parseEditorWeight(editorLine.weightEach) : null;
   if (fromEditor != null) {
     return fromEditor;
+  }
+  // Casting piece lines point to the parent assembly's fulfillment; don't fall
+  // back to the assembly's set weight for individual pieces.
+  if (editorLine && isCastingAssemblyEditorKey(editorLine.key)) {
+    return null;
   }
   return fulfillmentLine.weightEach;
 }
@@ -148,6 +161,10 @@ function mapFulfillmentToLine(meta: QuoteLineFulfillment): EditorLine {
 }
 
 function isDrainRingEditorKey(key: string): boolean {
+  return key.includes("::") && !isCastingAssemblyEditorKey(key);
+}
+
+function isCompositeEditorKey(key: string): boolean {
   return key.includes("::");
 }
 
@@ -155,7 +172,7 @@ function fulfillmentMetaForEditorLine(
   line: EditorLine,
   fulfillmentById: Map<string, QuoteLineFulfillment>,
 ): QuoteLineFulfillment | undefined {
-  if (isDrainRingEditorKey(line.key)) {
+  if (isCompositeEditorKey(line.key)) {
     return line.quoteLineItemId
       ? fulfillmentById.get(line.quoteLineItemId)
       : undefined;
@@ -298,7 +315,7 @@ export function DeliveryTicketEditor({
     setLines((current) => {
       let changed = false;
       const next = current.map((line) => {
-        if (isDrainRingEditorKey(line.key)) {
+        if (isCompositeEditorKey(line.key)) {
           return line;
         }
         if (!selectedLineIds.has(line.key)) {
@@ -334,7 +351,7 @@ export function DeliveryTicketEditor({
   }, [lines, selectedLineIds, fulfillmentById]);
 
   function toggleLine(meta: QuoteLineFulfillment, checked: boolean) {
-    if (meta.isDrainRing) {
+    if (meta.isDrainRing || meta.isCastingAssembly) {
       return;
     }
     if (checked) {
@@ -427,6 +444,72 @@ export function DeliveryTicketEditor({
     });
   }
 
+  function getCastingPieceCount(
+    quoteLineItemId: string,
+    pieceRole: CastingPieceRole,
+  ): string {
+    const key = castingAssemblyEditorKey(quoteLineItemId, pieceRole);
+    return linesByKey.get(key)?.quantity ?? "";
+  }
+
+  function getCastingSetsUsed(meta: QuoteLineFulfillment): number {
+    let sets = Number.POSITIVE_INFINITY;
+    for (const option of meta.castingComponentOptions) {
+      const count =
+        Number(getCastingPieceCount(meta.quoteLineItemId, option.pieceRole)) || 0;
+      sets = Math.min(sets, Math.floor(count / option.quantity));
+    }
+    return Number.isFinite(sets) ? sets : 0;
+  }
+
+  function setCastingPieceCount(
+    meta: QuoteLineFulfillment,
+    option: QuoteLineFulfillment["castingComponentOptions"][number],
+    value: string,
+  ) {
+    const key = castingAssemblyEditorKey(meta.quoteLineItemId, option.pieceRole);
+    const numeric = Number(value);
+    const active = value.trim() !== "" && Number.isFinite(numeric) && numeric > 0;
+
+    setLines((current) => {
+      const existing = current.find((line) => line.key === key);
+      if (!active) {
+        return current.filter((line) => line.key !== key);
+      }
+      if (existing) {
+        return current.map((line) =>
+          line.key === key ? { ...line, quantity: value } : line,
+        );
+      }
+      return [
+        ...current,
+        {
+          key,
+          quoteLineItemId: meta.quoteLineItemId,
+          productId: option.productId,
+          jobStructureId: null,
+          lineType: "STOCK_PRODUCT",
+          itemCode: option.productCode,
+          description: `${option.name} (${formatCastingPieceRoleLabel(option.pieceRole)})`,
+          quantity: value,
+          unit: "EA",
+          weightEach: option.weightEach != null ? String(option.weightEach) : "",
+          yardLocation: "",
+        },
+      ];
+    });
+
+    setSelectedLineIds((current) => {
+      const next = new Set(current);
+      if (active) {
+        next.add(key);
+      } else {
+        next.delete(key);
+      }
+      return next;
+    });
+  }
+
   function buildPayload(status: SaveDeliveryTicketInput["status"]): SaveDeliveryTicketInput {
     const activeLines = lines.filter((line) => selectedLineIds.has(line.key));
     const linePayload: DeliveryTicketLineInput[] = activeLines
@@ -479,9 +562,10 @@ export function DeliveryTicketEditor({
         mode === "edit" && ticketId
           ? await updateDeliveryTicket(ticketId, payload)
           : await createDeliveryTicket(payload);
-      if (result?.error) {
+      if ("error" in result && result.error) {
         setError(result.error);
-      } else {
+      } else if ("success" in result && result.success) {
+        router.push(`/delivery-tickets/${result.ticketId}`);
         router.refresh();
       }
     });
@@ -606,6 +690,117 @@ export function DeliveryTicketEditor({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {fulfillment.map((line) => {
+                  if (line.isCastingAssembly) {
+                    const setsUsed = getCastingSetsUsed(line);
+                    const setsRemainingAfter = line.remainingQty - setsUsed;
+                    const overLimit = setsUsed > line.remainingQty + 0.001;
+                    return (
+                      <tr key={line.quoteLineItemId} className="bg-slate-50/40">
+                        <td className="px-3 py-3 align-top" colSpan={7}>
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <div>
+                              <span className="font-medium text-slate-900">
+                                {line.displayName}
+                              </span>
+                              <span className="ml-2 text-slate-500">
+                                {line.itemCode}
+                              </span>
+                              <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-800">
+                                Casting
+                              </span>
+                            </div>
+                            <div className="text-slate-600">
+                              {line.remainingQty} of {line.quotedQty} EA remaining ·{" "}
+                              {line.shippedQty} shipped
+                            </div>
+                          </div>
+                          {line.description ? (
+                            <div className="mt-0.5 text-slate-500">
+                              <RichTextContent value={line.description} />
+                            </div>
+                          ) : null}
+
+                          {line.castingComponentOptions.length === 0 ? (
+                            <p className="mt-2 text-slate-500">
+                              {line.eligibilityReason ??
+                                "No BOM components linked to this casting."}
+                            </p>
+                          ) : (
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                              {line.castingComponentOptions.map((option) => (
+                                <div
+                                  key={`${option.pieceRole}-${option.productId}`}
+                                  className="rounded-lg border border-slate-200 bg-white px-3 py-2"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-medium text-slate-800">
+                                      {formatCastingPieceRoleLabel(option.pieceRole)}
+                                    </span>
+                                    <span className="text-slate-400">
+                                      {option.productCode}
+                                    </span>
+                                  </div>
+                                  <div className="mt-1 text-slate-500">
+                                    {option.name}
+                                    {option.quantity > 1
+                                      ? ` · ${option.quantity} per set`
+                                      : ""}
+                                  </div>
+                                  <div className="text-slate-500">
+                                    {option.currentStock != null
+                                      ? `${option.currentStock} in stock`
+                                      : "Not tracked"}
+                                  </div>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={getCastingPieceCount(
+                                      line.quoteLineItemId,
+                                      option.pieceRole,
+                                    )}
+                                    placeholder="0"
+                                    className="mt-2 w-full rounded border border-slate-200 px-2 py-1"
+                                    onChange={(event) =>
+                                      setCastingPieceCount(
+                                        line,
+                                        option,
+                                        event.target.value,
+                                      )
+                                    }
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-slate-600">
+                            <span>
+                              On load:{" "}
+                              <span className="font-semibold text-slate-900">
+                                {setsUsed} full set{setsUsed === 1 ? "" : "s"}
+                              </span>
+                            </span>
+                            <span
+                              className={
+                                overLimit
+                                  ? "font-semibold text-red-600"
+                                  : "text-slate-600"
+                              }
+                            >
+                              Remaining after load: {setsRemainingAfter} EA
+                            </span>
+                            {overLimit ? (
+                              <span className="font-semibold text-red-600">
+                                Exceeds remaining quantity
+                              </span>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+
                   if (line.isDrainRing) {
                     const feetUsed = getDrainRingFeetUsed(line);
                     const feetRemainingAfter =
@@ -641,7 +836,7 @@ export function DeliveryTicketEditor({
                           </div>
                           {line.description ? (
                             <div className="mt-0.5 text-slate-500">
-                              {line.description}
+                              <RichTextContent value={line.description} />
                             </div>
                           ) : null}
 
@@ -746,7 +941,9 @@ export function DeliveryTicketEditor({
                         <div className="font-medium text-slate-900">{line.displayName}</div>
                         <div className="mt-0.5 text-slate-500">{line.itemCode}</div>
                         {line.description ? (
-                          <div className="mt-1 text-slate-500">{line.description}</div>
+                          <div className="mt-1 text-slate-500">
+                            <RichTextContent value={line.description} />
+                          </div>
                         ) : null}
                         <div className="mt-1">
                           <StatusBadge

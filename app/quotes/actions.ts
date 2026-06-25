@@ -2,7 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { AppPermission, Prisma } from "@/app/generated/prisma/client";
+import {
+  AppPermission,
+  Prisma,
+  QuoteLineType,
+  QuoteStatus,
+  QuoteType,
+} from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
 import {
@@ -11,41 +17,21 @@ import {
   type DrainRingStyle,
 } from "@/lib/drain-ring-utils";
 import { generateQuoteNumber } from "@/lib/quote-number";
+import { computeMoneyTotals } from "@/lib/money";
+import { computeDeliveryAmount } from "@/lib/quotes/money-rules";
+import { canEditQuote } from "@/lib/quotes/edit-rules";
 
-const QUOTE_STATUSES = [
-  "DRAFT",
-  "IN_REVIEW",
-  "SENT",
-  "REVISED",
-  "WON",
-  "LOST",
-  "LOST_BC",
-  "EXPIRED",
-  "CANCELLED",
-] as const;
+const QUOTE_STATUSES = Object.values(QuoteStatus);
+const QUOTE_TYPES = Object.values(QuoteType);
+const QUOTE_LINE_TYPES = Object.values(QuoteLineType);
 
-const QUOTE_TYPES = [
-  "STOCK_ONLY",
-  "CONFIGURABLE_STRUCTURES",
-  "CUSTOM_STRUCTURES",
-  "MIXED",
-] as const;
-
-const QUOTE_LINE_TYPES = [
-  "STOCK_PRODUCT",
-  "CONFIGURABLE_STRUCTURE",
-  "CUSTOM_STRUCTURE",
-  "SERVICE",
-  "MISC",
-] as const;
-
-type QuoteStatus = (typeof QUOTE_STATUSES)[number];
-type QuoteType = (typeof QUOTE_TYPES)[number];
-type QuoteLineType = (typeof QUOTE_LINE_TYPES)[number];
+type QuoteStatusValue = (typeof QUOTE_STATUSES)[number];
+type QuoteTypeValue = (typeof QUOTE_TYPES)[number];
+type QuoteLineTypeValue = (typeof QUOTE_LINE_TYPES)[number];
 
 export type CreateQuoteLineItemInput = {
   lineNumber: number;
-  lineType: QuoteLineType;
+  lineType: QuoteLineTypeValue;
   productId: string | null;
   itemCode: string;
   description: string;
@@ -77,8 +63,8 @@ export type CreateQuoteInput = {
   contactPhone: string | null;
   contactId?: string | null;
   contactTitle?: string | null;
-  status: QuoteStatus;
-  quoteType: QuoteType;
+  status: QuoteStatusValue;
+  quoteType: QuoteTypeValue;
   estimator: string | null;
   quoteDate: string | null;
   bidDueDate: string | null;
@@ -170,6 +156,47 @@ function toDecimal(value: number) {
   return new Prisma.Decimal(value);
 }
 
+function isQuoteNumberConflict(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  );
+}
+
+function computeQuoteFinancials(input: CreateQuoteInput) {
+  const computed = computeMoneyTotals(
+    input.lineItems.map((line) => ({
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+      taxable: line.taxable,
+    })),
+    input.taxRate,
+  );
+  const totalWeight = input.lineItems.reduce(
+    (sum, line) =>
+      line.weight != null
+        ? sum.add(new Prisma.Decimal(line.weight).mul(line.quantity))
+        : sum,
+    new Prisma.Decimal(0),
+  );
+  const totalYards = input.lineItems.reduce(
+    (sum, line) =>
+      line.yards != null
+        ? sum.add(new Prisma.Decimal(line.yards).mul(line.quantity))
+        : sum,
+    new Prisma.Decimal(0),
+  );
+  const deliveryAmount = computeDeliveryAmount(
+    input.lineItems.map((line) => ({
+      lineType: line.lineType,
+      itemCode: line.itemCode,
+      description: line.description,
+    })),
+    computed.lineTotals,
+  );
+  return { computed, totalWeight, totalYards, deliveryAmount };
+}
+
 function toOptionalDecimal(value: number | null) {
   if (value === null || !Number.isFinite(value) || value <= 0) {
     return null;
@@ -180,12 +207,13 @@ function toOptionalDecimal(value: number | null) {
 
 export async function createQuote(
   input: CreateQuoteInput,
+  previewAfterSave = false,
 ): Promise<{ error: string } | never> {
   await requirePermission(AppPermission.QUOTES_MANAGE);
   try {
     validateCreateQuoteInput(input);
 
-    const quoteNumber = await generateQuoteNumber(prisma, input.jobNumber);
+    let quoteNumber = await generateQuoteNumber(prisma, input.jobNumber);
 
     if (input.contactId) {
       if (!input.customerId) {
@@ -229,9 +257,15 @@ export async function createQuote(
       }
     }
 
-    const quote = await prisma.quote.create({
+    // Recompute every money figure on the server with Decimal math. Client
+    // totals (input.totals / line.total) are deliberately ignored for
+    // persistence so a tampered or stale payload cannot store bogus amounts.
+    const { computed, totalWeight, totalYards, deliveryAmount } = computeQuoteFinancials(input);
+
+    const createQuoteRecord = (quoteNum: string) =>
+      prisma.quote.create({
       data: {
-        quoteNumber,
+        quoteNumber: quoteNum,
         revisionNumber: 0,
         ...(input.jobId ? { job: { connect: { id: input.jobId } } } : {}),
         ...(input.jobBidderId
@@ -262,22 +296,22 @@ export async function createQuote(
           ? { priceList: { connect: { id: input.priceListId } } }
           : {}),
         customerPO: input.customerPO,
-        subtotal: toDecimal(input.totals.subtotal),
-        discountAmount: toDecimal(input.totals.discount),
-        deliveryAmount: toDecimal(input.totals.delivery),
-        taxableAmount: toDecimal(input.totals.taxableAmount),
+        subtotal: computed.subtotal,
+        discountAmount: new Prisma.Decimal(0),
+        deliveryAmount,
+        taxableAmount: computed.taxableAmount,
         taxRate: toDecimal(input.taxRate),
-        salesTax: toDecimal(input.totals.salesTax),
-        total: toDecimal(input.totals.total),
-        totalWeight: toDecimal(input.totals.totalWeight),
-        totalYards: toDecimal(input.totals.totalYards),
+        salesTax: computed.salesTax,
+        total: computed.total,
+        totalWeight,
+        totalYards,
         internalNotes: input.internalNotes,
         customerNotes: input.customerNotes,
         termsAndConditions: input.termsAndConditions,
         leadTime: input.leadTime,
         deliveryNotes: input.deliveryNotes,
         lineItems: {
-          create: input.lineItems.map((line) => ({
+          create: input.lineItems.map((line, index) => ({
             lineNumber: line.lineNumber,
             lineType: line.lineType,
             productId: line.productId,
@@ -289,7 +323,7 @@ export async function createQuote(
             weight: toOptionalDecimal(line.weight),
             yards: toOptionalDecimal(line.yards),
             taxable: line.taxable,
-            total: toDecimal(line.total),
+            total: computed.lineTotals[index],
             statusNote: line.statusNote,
             sortOrder: line.lineNumber,
             notes: line.notes,
@@ -305,8 +339,33 @@ export async function createQuote(
       select: { id: true },
     });
 
+    // The quote number is generated by a check-then-insert, so a concurrent
+    // create could grab the same candidate. The DB unique constraint is the
+    // backstop: on a collision, regenerate (which now sees the committed row
+    // and bumps the suffix) and retry.
+    let quote!: { id: string };
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        quote = await createQuoteRecord(quoteNumber);
+        break;
+      } catch (error) {
+        if (isQuoteNumberConflict(error)) {
+          if (attempt >= 4) {
+            throw new Error("Could not generate a unique quote number. Please try again.");
+          }
+          quoteNumber = await generateQuoteNumber(prisma, input.jobNumber);
+          continue;
+        }
+        throw error;
+      }
+    }
+
     revalidatePath("/quotes");
-    redirect(`/quotes/${quote.id}`);
+    redirect(
+      previewAfterSave
+        ? `/quotes/${quote.id}/preview`
+        : `/quotes/${quote.id}`,
+    );
   } catch (error) {
     if (
       error &&
@@ -326,19 +385,190 @@ export async function createQuote(
   }
 }
 
-const QUOTE_STATUS_VALUES = [
-  "DRAFT",
-  "IN_REVIEW",
-  "SENT",
-  "REVISED",
-  "WON",
-  "LOST",
-  "LOST_BC",
-  "EXPIRED",
-  "CANCELLED",
-] as const;
+export async function updateQuote(
+  quoteId: string,
+  input: CreateQuoteInput,
+  previewAfterSave = false,
+): Promise<{ error: string } | never> {
+  await requirePermission(AppPermission.QUOTES_MANAGE);
 
-type QuoteStatusValue = (typeof QUOTE_STATUS_VALUES)[number];
+  if (!quoteId.trim()) {
+    return { error: "Quote id is required." };
+  }
+
+  try {
+    validateCreateQuoteInput(input);
+
+    const existing = await withDatabaseRetry((client) =>
+      client.quote.findUnique({
+        where: { id: quoteId },
+        select: {
+          id: true,
+          status: true,
+          originalQuoteId: true,
+          revisionNumber: true,
+        },
+      }),
+    );
+
+    if (!existing) {
+      return { error: "Quote was not found." };
+    }
+
+    let supersededBy: { id: string } | null = null;
+    if (existing.status === "REVISED") {
+      const rootId = existing.originalQuoteId ?? existing.id;
+      const successor = await withDatabaseRetry((client) =>
+        client.quote.findFirst({
+          where: {
+            OR: [{ id: rootId }, { originalQuoteId: rootId }],
+            revisionNumber: { gt: existing.revisionNumber },
+          },
+          orderBy: { revisionNumber: "asc" },
+          select: { id: true },
+        }),
+      );
+      supersededBy = successor;
+    }
+
+    if (
+      !canEditQuote(
+        existing.status as (typeof QUOTE_STATUSES)[number],
+        supersededBy,
+      )
+    ) {
+      return {
+        error:
+          "This quote can no longer be edited. Revise it to create a new revision instead.",
+      };
+    }
+
+    if (input.contactId) {
+      if (!input.customerId) {
+        throw new Error("A customer is required when selecting a contact.");
+      }
+
+      const contact = await prisma.contact.findFirst({
+        where: { id: input.contactId, customerId: input.customerId },
+        select: { id: true },
+      });
+      if (!contact) {
+        throw new Error("Selected contact does not belong to this customer.");
+      }
+    }
+
+    const { computed, totalWeight, totalYards, deliveryAmount } = computeQuoteFinancials(input);
+
+    await withDatabaseRetry((client) =>
+      client.$transaction(async (tx) => {
+        await tx.quoteLineItem.deleteMany({ where: { quoteId } });
+
+        await tx.quote.update({
+          where: { id: quoteId },
+          data: {
+            ...(input.jobId
+              ? { job: { connect: { id: input.jobId } } }
+              : { job: { disconnect: true } }),
+            ...(input.jobBidderId
+              ? { jobBidder: { connect: { id: input.jobBidderId } } }
+              : { jobBidder: { disconnect: true } }),
+            ...(input.customerId
+              ? { customer: { connect: { id: input.customerId } } }
+              : { customer: { disconnect: true } }),
+            ...(input.contactId
+              ? { contact: { connect: { id: input.contactId } } }
+              : { contact: { disconnect: true } }),
+            ...(input.priceListId
+              ? { priceList: { connect: { id: input.priceListId } } }
+              : { priceList: { disconnect: true } }),
+            jobNumber: input.jobNumber,
+            customerName: input.customerName,
+            projectName: input.projectName,
+            projectAddress: input.projectAddress,
+            contactName: input.contactName,
+            contactEmail: input.contactEmail,
+            contactPhone: input.contactPhone,
+            contactTitle: input.contactTitle,
+            status: input.status,
+            quoteType: input.quoteType,
+            estimator: input.estimator,
+            quoteDate: parseOptionalDate(input.quoteDate),
+            bidDueDate: parseOptionalDate(input.bidDueDate),
+            expirationDate: parseOptionalDate(input.expirationDate),
+            customerPO: input.customerPO,
+            subtotal: computed.subtotal,
+            discountAmount: new Prisma.Decimal(0),
+            deliveryAmount,
+            taxableAmount: computed.taxableAmount,
+            taxRate: toDecimal(input.taxRate),
+            salesTax: computed.salesTax,
+            total: computed.total,
+            totalWeight,
+            totalYards,
+            internalNotes: input.internalNotes,
+            customerNotes: input.customerNotes,
+            termsAndConditions: input.termsAndConditions,
+            leadTime: input.leadTime,
+            deliveryNotes: input.deliveryNotes,
+            lineItems: {
+              create: input.lineItems.map((line, index) => ({
+                lineNumber: line.lineNumber,
+                lineType: line.lineType,
+                productId: line.productId,
+                itemCode: line.itemCode,
+                description: line.description,
+                quantity: toDecimal(line.quantity),
+                unit: line.unit,
+                unitPrice: toDecimal(line.unitPrice),
+                weight: toOptionalDecimal(line.weight),
+                yards: toOptionalDecimal(line.yards),
+                taxable: line.taxable,
+                total: computed.lineTotals[index],
+                statusNote: line.statusNote,
+                sortOrder: line.lineNumber,
+                notes: line.notes,
+                isDrainRing: line.isDrainRing ?? false,
+                ringDiameterFeet: toOptionalDecimal(line.ringDiameterFeet ?? null),
+                poolHeightFeet: toOptionalDecimal(line.poolHeightFeet ?? null),
+                drainRingStyle: line.isDrainRing
+                  ? parseDrainRingStyle(line.drainRingStyle ?? "DRAIN")
+                  : "DRAIN",
+              })),
+            },
+          },
+        });
+      }),
+    );
+
+    revalidatePath("/quotes");
+    revalidatePath(`/quotes/${quoteId}`);
+    revalidatePath(`/quotes/${quoteId}/preview`);
+    revalidatePath(`/quotes/${quoteId}/edit`);
+    redirect(
+      previewAfterSave
+        ? `/quotes/${quoteId}/preview`
+        : `/quotes/${quoteId}`,
+    );
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "digest" in error &&
+      String((error as { digest?: string }).digest).startsWith("NEXT_REDIRECT")
+    ) {
+      throw error;
+    }
+
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not update quote. Please try again.",
+    };
+  }
+}
+
+const QUOTE_STATUS_VALUES = QUOTE_STATUSES;
 
 export async function updateQuoteStatus(quoteId: string, status: QuoteStatusValue) {
   await requirePermission(AppPermission.QUOTES_MANAGE);
@@ -388,10 +618,38 @@ export async function updateQuoteStatus(quoteId: string, status: QuoteStatusValu
 }
 
 export async function listPriceListsForForm() {
+  await requirePermission(AppPermission.QUOTES_MANAGE);
   return withDatabaseRetry((client) =>
     client.priceList.findMany({
       orderBy: [{ isDefault: "desc" }, { name: "asc" }],
       select: { id: true, name: true, isDefault: true },
     }),
   );
+}
+
+export async function reviseQuote(
+  quoteId: string,
+): Promise<{ success: true; newQuoteId: string } | { error: string }> {
+  await requirePermission(AppPermission.QUOTES_MANAGE);
+
+  try {
+    const newQuoteId = await withDatabaseRetry(async (client) => {
+      const { reviseQuoteInTransaction } = await import("@/lib/quote-revision");
+      return client.$transaction((tx) => reviseQuoteInTransaction(tx, quoteId));
+    });
+
+    revalidatePath("/quotes");
+    revalidatePath(`/quotes/${quoteId}`);
+    revalidatePath(`/quotes/${newQuoteId}`);
+    revalidatePath("/production");
+
+    return { success: true, newQuoteId };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not revise quote. Please try again.",
+    };
+  }
 }

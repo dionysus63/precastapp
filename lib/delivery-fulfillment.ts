@@ -9,6 +9,12 @@ import {
   formatDrainRingStyleLabel,
   type DrainRingStyle,
 } from "@/lib/drain-ring-utils";
+import {
+  formatCastingPieceRoleLabel,
+  type CastingComponentOption,
+  type CastingPieceRole,
+} from "@/lib/casting-utils";
+import { loadCastingComponentOptionsForAssembly } from "@/lib/casting-service";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -46,6 +52,8 @@ export type QuoteLineFulfillment = {
   poolHeightFeet: number | null;
   drainRingStyle: DrainRingStyle;
   drainRingOptions: DrainRingOption[];
+  isCastingAssembly: boolean;
+  castingComponentOptions: CastingComponentOption[];
 };
 
 function resolveDisplayName(line: {
@@ -86,14 +94,94 @@ function resolveWeightEach(line: {
   return null;
 }
 
+/** Walk previousLineItemId chains; map each current line id to [self, ...ancestors]. */
+async function buildQuoteLineLineageMap(
+  client: DbClient,
+  currentLineIds: string[],
+): Promise<Map<string, string[]>> {
+  if (currentLineIds.length === 0) {
+    return new Map();
+  }
+
+  const prevById = new Map<string, string | null>();
+  const pending = new Set(currentLineIds);
+
+  while (pending.size > 0) {
+    const batch = [...pending];
+    pending.clear();
+
+    const rows = await client.quoteLineItem.findMany({
+      where: { id: { in: batch } },
+      select: { id: true, previousLineItemId: true },
+    });
+
+    for (const row of rows) {
+      prevById.set(row.id, row.previousLineItemId);
+      if (row.previousLineItemId && !prevById.has(row.previousLineItemId)) {
+        pending.add(row.previousLineItemId);
+      }
+    }
+  }
+
+  const lineage = new Map<string, string[]>();
+  for (const lineId of currentLineIds) {
+    const chain: string[] = [];
+    const seen = new Set<string>();
+    let current: string | null = lineId;
+    while (current && !seen.has(current)) {
+      seen.add(current);
+      chain.push(current);
+      current = prevById.get(current) ?? null;
+    }
+    lineage.set(lineId, chain);
+  }
+
+  return lineage;
+}
+
+function allLineageIds(lineageMap: Map<string, string[]>): string[] {
+  return [...new Set([...lineageMap.values()].flat())];
+}
+
+function rollUpDecimalTotals(
+  lineageMap: Map<string, string[]>,
+  rawTotals: Map<string, Prisma.Decimal>,
+): Map<string, Prisma.Decimal> {
+  const rolled = new Map<string, Prisma.Decimal>();
+  for (const [currentId, chain] of lineageMap) {
+    let sum = new Prisma.Decimal(0);
+    for (const id of chain) {
+      sum = sum.add(rawTotals.get(id) ?? new Prisma.Decimal(0));
+    }
+    rolled.set(currentId, sum);
+  }
+  return rolled;
+}
+
+function rollUpNumberTotals(
+  lineageMap: Map<string, string[]>,
+  rawTotals: Map<string, number>,
+): Map<string, number> {
+  const rolled = new Map<string, number>();
+  for (const [currentId, chain] of lineageMap) {
+    let sum = 0;
+    for (const id of chain) {
+      sum += rawTotals.get(id) ?? 0;
+    }
+    rolled.set(currentId, sum);
+  }
+  return rolled;
+}
+
 export async function getShippedQuantityForQuoteLine(
   client: DbClient,
   quoteLineItemId: string,
   excludeTicketId?: string,
 ): Promise<Prisma.Decimal> {
+  const lineageMap = await buildQuoteLineLineageMap(client, [quoteLineItemId]);
   const quantities = await loadShippedQuantitiesByQuoteLineId(
     client,
-    [quoteLineItemId],
+    lineageMap,
     excludeTicketId,
   );
   return quantities.get(quoteLineItemId) ?? new Prisma.Decimal(0);
@@ -108,9 +196,10 @@ export async function getShippedFeetForDrainRingLine(
   quoteLineItemId: string,
   excludeTicketId?: string,
 ): Promise<number> {
+  const lineageMap = await buildQuoteLineLineageMap(client, [quoteLineItemId]);
   const feetByLineId = await loadShippedFeetByQuoteLineId(
     client,
-    [quoteLineItemId],
+    lineageMap,
     excludeTicketId,
   );
   return feetByLineId.get(quoteLineItemId) ?? 0;
@@ -118,9 +207,10 @@ export async function getShippedFeetForDrainRingLine(
 
 async function loadShippedQuantitiesByQuoteLineId(
   client: DbClient,
-  quoteLineItemIds: string[],
+  lineageMap: Map<string, string[]>,
   excludeTicketId?: string,
 ): Promise<Map<string, Prisma.Decimal>> {
+  const quoteLineItemIds = allLineageIds(lineageMap);
   if (quoteLineItemIds.length === 0) {
     return new Map();
   }
@@ -136,23 +226,24 @@ async function loadShippedQuantitiesByQuoteLineId(
     select: { quoteLineItemId: true, quantity: true },
   });
 
-  const totals = new Map<string, Prisma.Decimal>();
+  const rawTotals = new Map<string, Prisma.Decimal>();
   for (const line of lines) {
     if (!line.quoteLineItemId) {
       continue;
     }
-    const current = totals.get(line.quoteLineItemId) ?? new Prisma.Decimal(0);
-    totals.set(line.quoteLineItemId, current.add(line.quantity));
+    const current = rawTotals.get(line.quoteLineItemId) ?? new Prisma.Decimal(0);
+    rawTotals.set(line.quoteLineItemId, current.add(line.quantity));
   }
 
-  return totals;
+  return rollUpDecimalTotals(lineageMap, rawTotals);
 }
 
 async function loadShippedFeetByQuoteLineId(
   client: DbClient,
-  quoteLineItemIds: string[],
+  lineageMap: Map<string, string[]>,
   excludeTicketId?: string,
 ): Promise<Map<string, number>> {
+  const quoteLineItemIds = allLineageIds(lineageMap);
   if (quoteLineItemIds.length === 0) {
     return new Map();
   }
@@ -172,7 +263,7 @@ async function loadShippedFeetByQuoteLineId(
     },
   });
 
-  const totals = new Map<string, number>();
+  const rawTotals = new Map<string, number>();
   for (const line of lines) {
     if (!line.quoteLineItemId) {
       continue;
@@ -180,14 +271,14 @@ async function loadShippedFeetByQuoteLineId(
     const heightFeet = line.product?.heightFeet
       ? Number(line.product.heightFeet)
       : 0;
-    const current = totals.get(line.quoteLineItemId) ?? 0;
-    totals.set(
+    const current = rawTotals.get(line.quoteLineItemId) ?? 0;
+    rawTotals.set(
       line.quoteLineItemId,
       current + heightFeet * Number(line.quantity),
     );
   }
 
-  return totals;
+  return rollUpNumberTotals(lineageMap, rawTotals);
 }
 
 function drainRingCatalogKey(
@@ -209,6 +300,120 @@ function isQuoteLineDrainRing(line: {
       line.poolHeightFeet != null &&
       line.productId == null)
   );
+}
+
+function isQuoteLineCastingAssembly(line: {
+  productId: string | null;
+  product?: { castingRole?: string | null } | null;
+}): boolean {
+  return line.product?.castingRole === "ASSEMBLY";
+}
+
+async function loadShippedCastingSetsByQuoteLineId(
+  client: DbClient,
+  castingLines: Array<{
+    id: string;
+    productId: string | null;
+  }>,
+  lineageMap: Map<string, string[]>,
+  excludeTicketId?: string,
+): Promise<Map<string, number>> {
+  if (castingLines.length === 0) {
+    return new Map();
+  }
+
+  const lineIds = allLineageIds(
+    new Map(
+      castingLines.map((line) => [line.id, lineageMap.get(line.id) ?? [line.id]]),
+    ),
+  );
+  const assemblyIds = [
+    ...new Set(
+      castingLines
+        .map((line) => line.productId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+
+  const [deliveryLines, bomRows] = await Promise.all([
+    client.deliveryTicketLineItem.findMany({
+      where: {
+        quoteLineItemId: { in: lineIds },
+        deliveryTicket: {
+          status: "DELIVERED",
+          ...(excludeTicketId ? { id: { not: excludeTicketId } } : {}),
+        },
+      },
+      select: {
+        quoteLineItemId: true,
+        quantity: true,
+        productId: true,
+      },
+    }),
+    client.productCastingComponent.findMany({
+      where: { assemblyId: { in: assemblyIds } },
+      select: {
+        assemblyId: true,
+        componentId: true,
+        pieceRole: true,
+        quantity: true,
+      },
+    }),
+  ]);
+
+  const bomByAssembly = new Map<
+    string,
+    Array<{ componentId: string; pieceRole: CastingPieceRole; quantity: number }>
+  >();
+  for (const row of bomRows) {
+    const items = bomByAssembly.get(row.assemblyId) ?? [];
+    items.push({
+      componentId: row.componentId,
+      pieceRole: row.pieceRole,
+      quantity: row.quantity,
+    });
+    bomByAssembly.set(row.assemblyId, items);
+  }
+
+  const totals = new Map<string, number>();
+  for (const line of castingLines) {
+    if (!line.productId) {
+      continue;
+    }
+    const bom = bomByAssembly.get(line.productId) ?? [];
+    if (bom.length === 0) {
+      totals.set(line.id, 0);
+      continue;
+    }
+
+    const chain = lineageMap.get(line.id) ?? [line.id];
+    const chainDeliveries = deliveryLines.filter(
+      (entry) =>
+        entry.quoteLineItemId != null &&
+        chain.includes(entry.quoteLineItemId),
+    );
+
+    const shippedByComponent = new Map<string, number>();
+    for (const entry of chainDeliveries) {
+      if (!entry.productId) {
+        continue;
+      }
+      shippedByComponent.set(
+        entry.productId,
+        (shippedByComponent.get(entry.productId) ?? 0) +
+          Number(entry.quantity),
+      );
+    }
+
+    let sets = Number.POSITIVE_INFINITY;
+    for (const row of bom) {
+      const shipped = shippedByComponent.get(row.componentId) ?? 0;
+      sets = Math.min(sets, Math.floor(shipped / row.quantity));
+    }
+    totals.set(line.id, Number.isFinite(sets) ? sets : 0);
+  }
+
+  return totals;
 }
 
 async function loadDrainRingCatalogByLine(
@@ -307,6 +512,7 @@ export async function getQuoteLineFulfillment(
               weight: true,
               currentStockQuantity: true,
               trackInventory: true,
+              castingRole: true,
             },
           },
           jobStructure: {
@@ -328,16 +534,62 @@ export async function getQuoteLineFulfillment(
   }
 
   const lineIds = quote.lineItems.map((line) => line.id);
+  const lineageMap = await buildQuoteLineLineageMap(client, lineIds);
   const drainRingLines = quote.lineItems.filter((line) => isQuoteLineDrainRing(line));
+  const castingAssemblyLines = quote.lineItems.filter((line) =>
+    isQuoteLineCastingAssembly(line),
+  );
   const standardLineIds = quote.lineItems
-    .filter((line) => !isQuoteLineDrainRing(line))
+    .filter(
+      (line) =>
+        !isQuoteLineDrainRing(line) && !isQuoteLineCastingAssembly(line),
+    )
     .map((line) => line.id);
 
-  const [shippedQuantities, shippedFeet, drainRingCatalog] = await Promise.all([
-    loadShippedQuantitiesByQuoteLineId(client, standardLineIds, excludeTicketId),
-    loadShippedFeetByQuoteLineId(client, lineIds, excludeTicketId),
-    loadDrainRingCatalogByLine(client, drainRingLines),
-  ]);
+  const standardLineage = new Map<string, string[]>();
+  for (const id of standardLineIds) {
+    const chain = lineageMap.get(id);
+    if (chain) {
+      standardLineage.set(id, chain);
+    }
+  }
+
+  const [shippedQuantities, shippedFeet, drainRingCatalog, shippedCastingSets] =
+    await Promise.all([
+      loadShippedQuantitiesByQuoteLineId(client, standardLineage, excludeTicketId),
+      loadShippedFeetByQuoteLineId(client, lineageMap, excludeTicketId),
+      loadDrainRingCatalogByLine(client, drainRingLines),
+      loadShippedCastingSetsByQuoteLineId(
+        client,
+        castingAssemblyLines.map((line) => ({
+          id: line.id,
+          productId: line.productId,
+        })),
+        lineageMap,
+        excludeTicketId,
+      ),
+    ]);
+
+  const uniqueAssemblyProductIds = [
+    ...new Set(
+      castingAssemblyLines
+        .map((line) => line.productId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const optionsByProductId = new Map<string, CastingComponentOption[]>();
+  await Promise.all(
+    uniqueAssemblyProductIds.map(async (productId) => {
+      const options = await loadCastingComponentOptionsForAssembly(client, productId);
+      optionsByProductId.set(productId, options);
+    }),
+  );
+  const castingOptionsByLineId = new Map<string, CastingComponentOption[]>();
+  for (const line of castingAssemblyLines) {
+    if (line.productId) {
+      castingOptionsByLineId.set(line.id, optionsByProductId.get(line.productId) ?? []);
+    }
+  }
 
   const result: QuoteLineFulfillment[] = [];
 
@@ -404,6 +656,64 @@ export async function getQuoteLineFulfillment(
           : null,
         drainRingStyle,
         drainRingOptions,
+        isCastingAssembly: false,
+        castingComponentOptions: [],
+      });
+      continue;
+    }
+
+    if (isQuoteLineCastingAssembly(line)) {
+      const castingComponentOptions =
+        castingOptionsByLineId.get(line.id) ?? [];
+      const quotedQty = Number(line.quantity);
+      const shippedQty = shippedCastingSets.get(line.id) ?? 0;
+      const remainingQty = Math.max(0, quotedQty - shippedQty);
+
+      let eligible = remainingQty > 0;
+      let eligibilityReason: string | null = null;
+      if (remainingQty <= 0) {
+        eligible = false;
+        eligibilityReason = "Fully shipped";
+      } else if (castingComponentOptions.length === 0) {
+        eligible = false;
+        eligibilityReason = "No BOM components linked to this casting";
+      } else {
+        const hasStock = castingComponentOptions.some(
+          (option) =>
+            !option.trackInventory ||
+            (option.currentStock != null && option.currentStock > 0),
+        );
+        if (!hasStock) {
+          eligible = true;
+          eligibilityReason = "No casting pieces in stock";
+        }
+      }
+
+      result.push({
+        quoteLineItemId: line.id,
+        lineNumber: line.lineNumber,
+        lineType: line.lineType,
+        itemCode: line.itemCode,
+        description: line.description,
+        displayName: resolveDisplayName(line),
+        unit: line.unit || "EA",
+        weightEach: resolveWeightEach(line),
+        quotedQty,
+        shippedQty,
+        remainingQty,
+        eligible,
+        eligibilityReason,
+        jobStructureId: line.jobStructureId,
+        jobStructureStatus: null,
+        productId: line.productId,
+        currentStock: null,
+        isDrainRing: false,
+        ringDiameterFeet: null,
+        poolHeightFeet: null,
+        drainRingStyle: "DRAIN",
+        drainRingOptions: [],
+        isCastingAssembly: true,
+        castingComponentOptions,
       });
       continue;
     }
@@ -463,6 +773,8 @@ export async function getQuoteLineFulfillment(
       poolHeightFeet: null,
       drainRingStyle: "DRAIN",
       drainRingOptions: [],
+      isCastingAssembly: false,
+      castingComponentOptions: [],
     });
   }
 
@@ -490,6 +802,8 @@ export async function markDeliveryTicketDelivered(
     throw new Error("Delivery ticket not found.");
   }
 
+  // Fast path: skip opening a transaction when already delivered. The
+  // authoritative guard is the conditional update inside the transaction below.
   if (ticket.status === "DELIVERED") {
     return;
   }
@@ -497,14 +811,21 @@ export async function markDeliveryTicketDelivered(
   const deliveredAt = new Date();
 
   await client.$transaction(async (tx) => {
-    await tx.deliveryTicket.update({
-      where: { id: deliveryTicketId },
+    // Atomic compare-and-set: only one concurrent caller can flip the ticket
+    // out of its non-DELIVERED state. The losing transaction sees count === 0
+    // (after the winner commits) and stops, so stock is never deducted twice.
+    const claimed = await tx.deliveryTicket.updateMany({
+      where: { id: deliveryTicketId, status: { not: "DELIVERED" } },
       data: {
         status: "DELIVERED",
         deliveredAt,
         signedBy: options?.signedBy ?? ticket.signedBy,
       },
     });
+
+    if (claimed.count === 0) {
+      return;
+    }
 
     for (const line of ticket.lineItems) {
       if (

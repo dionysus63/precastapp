@@ -88,23 +88,27 @@ export function BulkPasteForm() {
       .map((row) => row.name);
 
     if (namesToCheck.length > 0) {
-      checkBulkCustomerDbDuplicates(namesToCheck).then((duplicates) => {
-        setPreviewRows((current) =>
-          current.map((row) => {
-            const match = duplicates[row.name];
-            if (!match) {
-              return row;
-            }
-            return {
-              ...row,
-              issues: [
-                ...row.issues,
-                `Possible duplicate of existing customer "${match}".`,
-              ],
-            };
-          }),
-        );
-      });
+      checkBulkCustomerDbDuplicates(namesToCheck)
+        .then((duplicates) => {
+          setPreviewRows((current) =>
+            current.map((row) => {
+              const match = duplicates[row.name];
+              if (!match) {
+                return row;
+              }
+              return {
+                ...row,
+                issues: [
+                  ...row.issues,
+                  `Possible duplicate of existing customer "${match}".`,
+                ],
+              };
+            }),
+          );
+        })
+        .catch(() => {
+          // Permission error or network failure — skip duplicate detection.
+        });
     }
   }
 
