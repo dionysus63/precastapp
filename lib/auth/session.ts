@@ -17,6 +17,14 @@ export { SESSION_COOKIE_NAME };
 
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 8;
 
+/** Secure cookies are ignored by browsers on plain HTTP (LAN deploys). Set SESSION_COOKIE_SECURE=true only behind HTTPS. */
+function useSecureSessionCookie(): boolean {
+  const explicit = process.env.SESSION_COOKIE_SECURE?.trim().toLowerCase();
+  if (explicit === "true") return true;
+  if (explicit === "false") return false;
+  return false;
+}
+
 function getSessionExpiryDate(): Date {
   return new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000);
 }
@@ -37,7 +45,7 @@ export async function createSession(userId: string): Promise<string> {
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: useSecureSessionCookie(),
     path: "/",
     expires: expiresAt,
   });

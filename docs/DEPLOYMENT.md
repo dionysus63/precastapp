@@ -143,6 +143,8 @@ cd C:\Apps\precastapp
 ```env
 DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/precastapp"
 NODE_ENV=production
+# LAN HTTP — do not set SESSION_COOKIE_SECURE=true unless you add HTTPS
+SESSION_COOKIE_SECURE=false
 SETTINGS_RESET_PASSWORD=your-long-random-secret
 
 # Optional — Send Quote via Office 365 SMTP
@@ -366,7 +368,7 @@ Register a Windows Scheduled Task to run that script nightly.
 | Cannot write to jobs root | Fix UNC permissions for service account; test in Settings |
 | Port 3000 unreachable | Firewall rule; service running; `Get-Service PrecastApp` |
 | Electron — cannot connect | Server running; correct URL in installer or `%APPDATA%\Precast Ops\config.json`; on office LAN/VPN |
-| Session cookie issues over HTTP | Production uses `secure: true` only when `NODE_ENV=production` — internal HTTP on LAN is OK |
+| Session cookie issues over HTTP | Leave `SESSION_COOKIE_SECURE` unset or `false` for LAN HTTP; set `true` only behind HTTPS. Restart app after `.env` change. |
 
 ---
 
