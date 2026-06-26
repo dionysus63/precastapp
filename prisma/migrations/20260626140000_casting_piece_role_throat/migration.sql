@@ -1,0 +1,1 @@
+ALTER TYPE "CastingPieceRole" ADD VALUE 'THROAT';

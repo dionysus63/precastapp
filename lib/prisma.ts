@@ -98,6 +98,14 @@ function isPrismaClientStale(client: PrismaClient) {
     return true;
   }
 
+  // Quote revision lineage fields added after initial bootstrap.
+  if (
+    !("previousLineItemId" in Prisma.QuoteLineItemScalarFieldEnum) ||
+    !("originalQuoteId" in Prisma.QuoteScalarFieldEnum)
+  ) {
+    return true;
+  }
+
   // Existing delegate but missing newly generated AppSettings fields.
   for (const field of REQUIRED_APP_SETTINGS_FIELDS) {
     if (!(field in Prisma.AppSettingsScalarFieldEnum)) {

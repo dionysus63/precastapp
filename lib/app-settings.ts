@@ -12,7 +12,37 @@ import {
   parseProductCatalog,
   type ProductCatalogCategory,
 } from "@/lib/product-catalog-settings";
+import {
+  DEFAULT_RING_BUILDER_CONFIG,
+  parseRingBuilderConfig,
+  type RingBuilderConfig,
+} from "@/lib/ring-builder-settings";
+import {
+  DEFAULT_DELIVERY_TICKET_COPY1_TITLE,
+  DEFAULT_DELIVERY_TICKET_COPY2_TITLE,
+  DEFAULT_DELIVERY_TICKET_COPY3_TITLE,
+  DEFAULT_DELIVERY_TICKET_FOOTER_TEXT,
+  DEFAULT_DRIVERS,
+  DEFAULT_ESTIMATORS,
+  DEFAULT_PAYMENT_TERMS,
+  DEFAULT_QUOTE_FOOTER_TEXT,
+  DEFAULT_TRAILERS,
+  DEFAULT_TRUCKS,
+} from "@/lib/app-settings-defaults";
 import { withDatabaseRetry } from "@/lib/prisma";
+
+export {
+  DEFAULT_DELIVERY_TICKET_COPY1_TITLE,
+  DEFAULT_DELIVERY_TICKET_COPY2_TITLE,
+  DEFAULT_DELIVERY_TICKET_COPY3_TITLE,
+  DEFAULT_DELIVERY_TICKET_FOOTER_TEXT,
+  DEFAULT_DRIVERS,
+  DEFAULT_ESTIMATORS,
+  DEFAULT_PAYMENT_TERMS,
+  DEFAULT_QUOTE_FOOTER_TEXT,
+  DEFAULT_TRAILERS,
+  DEFAULT_TRUCKS,
+} from "@/lib/app-settings-defaults";
 
 export type CompanyProfile = {
   name: string;
@@ -30,6 +60,10 @@ export type AppSettingsView = {
   appTitle: string;
   appSubtitle: string;
   quoteFooterText: string | null;
+  deliveryTicketCopy1Title: string;
+  deliveryTicketCopy2Title: string;
+  deliveryTicketCopy3Title: string;
+  deliveryTicketFooterText: string;
   jobsRoot: string;
   quotePdfFallbackDir: string;
   stockSubmittalsRoot: string;
@@ -45,22 +79,9 @@ export type AppSettingsView = {
   trailers: string[];
   truckCapacityLabel: string;
   productCatalog: ProductCatalogCategory[];
+  ringBuilderConfig: RingBuilderConfig;
   companyLogoPath: string | null;
 };
-
-export const DEFAULT_PAYMENT_TERMS = [
-  "Standard Precast Terms",
-  "Net 30",
-  "50% Deposit / Balance on Delivery",
-];
-
-export const DEFAULT_ESTIMATORS = ["Nick", "Mike"];
-export const DEFAULT_TRUCKS = ["Truck 1", "Truck 3", "Lowboy"];
-export const DEFAULT_DRIVERS = ["Mike", "Anthony", "TBD"];
-export const DEFAULT_TRAILERS = ["Flatbed Trailer", "Lowboy Trailer", "None"];
-
-export const DEFAULT_QUOTE_FOOTER_TEXT =
-  "Thank you for the opportunity to quote your project.\nThis quote is valid until the expiration date shown above.";
 
 export const DEFAULT_APP_SETTINGS_DATA = {
   id: "default" as const,
@@ -71,6 +92,10 @@ export const DEFAULT_APP_SETTINGS_DATA = {
   appTitle: "Precast Ops",
   appSubtitle: "Quoting & Inventory",
   quoteFooterText: DEFAULT_QUOTE_FOOTER_TEXT,
+  deliveryTicketCopy1Title: DEFAULT_DELIVERY_TICKET_COPY1_TITLE,
+  deliveryTicketCopy2Title: DEFAULT_DELIVERY_TICKET_COPY2_TITLE,
+  deliveryTicketCopy3Title: DEFAULT_DELIVERY_TICKET_COPY3_TITLE,
+  deliveryTicketFooterText: DEFAULT_DELIVERY_TICKET_FOOTER_TEXT,
   jobsRoot: JOBS_ROOT,
   quotePdfFallbackDir: QUOTE_PDF_FALLBACK_DIR,
   stockSubmittalsRoot: STOCK_SUBMITTALS_ROOT,
@@ -86,6 +111,7 @@ export const DEFAULT_APP_SETTINGS_DATA = {
   trailers: DEFAULT_TRAILERS,
   truckCapacityLabel: "80,000 lb",
   productCatalog: DEFAULT_PRODUCT_CATALOG,
+  ringBuilderConfig: DEFAULT_RING_BUILDER_CONFIG,
 };
 
 function parseStringList(value: unknown, fallback: string[]): string[] {
@@ -111,6 +137,14 @@ export function mapAppSettingsRow(row: AppSettings): AppSettingsView {
     appTitle: row.appTitle,
     appSubtitle: row.appSubtitle,
     quoteFooterText: row.quoteFooterText,
+    deliveryTicketCopy1Title:
+      row.deliveryTicketCopy1Title?.trim() || DEFAULT_DELIVERY_TICKET_COPY1_TITLE,
+    deliveryTicketCopy2Title:
+      row.deliveryTicketCopy2Title?.trim() || DEFAULT_DELIVERY_TICKET_COPY2_TITLE,
+    deliveryTicketCopy3Title:
+      row.deliveryTicketCopy3Title?.trim() || DEFAULT_DELIVERY_TICKET_COPY3_TITLE,
+    deliveryTicketFooterText:
+      row.deliveryTicketFooterText?.trim() || DEFAULT_DELIVERY_TICKET_FOOTER_TEXT,
     jobsRoot: row.jobsRoot,
     quotePdfFallbackDir: row.quotePdfFallbackDir,
     stockSubmittalsRoot: row.stockSubmittalsRoot,
@@ -126,6 +160,7 @@ export function mapAppSettingsRow(row: AppSettings): AppSettingsView {
     trailers: parseStringList(row.trailers, DEFAULT_TRAILERS),
     truckCapacityLabel: row.truckCapacityLabel,
     productCatalog: parseProductCatalog(row.productCatalog),
+    ringBuilderConfig: parseRingBuilderConfig(row.ringBuilderConfig),
     companyLogoPath: row.companyLogoPath,
   };
 }

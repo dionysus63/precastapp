@@ -1,0 +1,9 @@
+{
+  "name": "precastops-desktop",
+  "productName": "Precast Ops",
+  "version": "0.1.0",
+  "private": true,
+  "main": "main.mjs",
+  "description": "Desktop client for Precast Ops (loads office server over LAN)",
+  "author": "Long Island Precast"
+}

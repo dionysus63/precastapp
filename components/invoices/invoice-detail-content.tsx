@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { SummaryCard } from "@/components/dashboard/summary-card";
+import { RichTextContent } from "@/components/ui/rich-text-content";
 import type { InvoiceDetailView } from "@/lib/invoice-mapper";
 
 function DetailField({ label, value }: { label: string; value: string }) {
@@ -121,7 +122,9 @@ export function InvoiceDetailContent({
                     <tr key={line.id}>
                       <td className="px-3 py-2">{line.lineNumber}</td>
                       <td className="px-3 py-2 font-medium">{line.itemCode}</td>
-                      <td className="px-3 py-2">{line.description}</td>
+                      <td className="px-3 py-2">
+                        <RichTextContent value={line.description} />
+                      </td>
                       <td className="px-3 py-2">{line.quantity}</td>
                       <td className="px-3 py-2">{line.unit}</td>
                       <td className="px-3 py-2">{line.unitPrice}</td>

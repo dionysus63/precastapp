@@ -6,6 +6,8 @@ import type {
   DeliveryLineType,
   DeliveryTicketStatus,
   DeliveryTicketType,
+  FulfillmentMethod,
+  TicketPaymentMethod,
 } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { allocateDeliveryTicketNumber } from "@/lib/delivery-ticket-number";
@@ -15,7 +17,20 @@ import {
   markDeliveryTicketDelivered,
 } from "@/lib/delivery-fulfillment";
 import { formatDrainRingStyleLabel } from "@/lib/drain-ring-utils";
+import { generateSubmittalPackageForDeliveryTicket } from "@/lib/submittal-package";
+import { maybeCreatePayNowInvoiceForTicket } from "@/lib/invoicing-service";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
+
+export type TicketProductOption = {
+  id: string;
+  productCode: string;
+  name: string;
+  unit: string;
+  weight: number | null;
+  defaultPrice: number | null;
+  currentStock: number | null;
+  trackInventory: boolean;
+};
 
 export type DeliveryTicketLineInput = {
   quoteLineItemId?: string | null;
@@ -33,7 +48,11 @@ export type DeliveryTicketLineInput = {
 
 export type SaveDeliveryTicketInput = {
   ticketType: DeliveryTicketType;
+  fulfillmentMethod?: FulfillmentMethod;
   status: DeliveryTicketStatus;
+  paymentMethod?: TicketPaymentMethod | null;
+  paymentReceived?: boolean;
+  pickedUpBy?: string | null;
   jobId?: string | null;
   quoteId?: string | null;
   customerId?: string | null;
@@ -220,7 +239,11 @@ function ticketData(input: SaveDeliveryTicketInput) {
 
   return {
     ticketType: input.ticketType,
+    fulfillmentMethod: input.fulfillmentMethod ?? "DELIVERY",
     status: input.status,
+    paymentMethod: input.paymentMethod ?? null,
+    paymentReceived: input.paymentReceived ?? false,
+    pickedUpBy: input.pickedUpBy ?? null,
     jobId: input.jobId ?? null,
     quoteId: input.quoteId ?? null,
     customerId: input.customerId ?? null,
@@ -351,6 +374,79 @@ export async function updateDeliveryTicket(
   }
 }
 
+export async function listStockProductsForTicket(): Promise<
+  TicketProductOption[]
+> {
+  await requirePermission(AppPermission.DELIVERY_VIEW);
+  const products = await withDatabaseRetry((client) =>
+    client.product.findMany({
+      where: { status: "ACTIVE" },
+      orderBy: { productCode: "asc" },
+      select: {
+        id: true,
+        productCode: true,
+        name: true,
+        unit: true,
+        weight: true,
+        defaultPrice: true,
+        currentStockQuantity: true,
+        trackInventory: true,
+      },
+    }),
+  );
+
+  return products.map((product) => ({
+    id: product.id,
+    productCode: product.productCode,
+    name: product.name,
+    unit: product.unit,
+    weight: product.weight != null ? Number(product.weight) : null,
+    defaultPrice: product.defaultPrice != null ? Number(product.defaultPrice) : null,
+    currentStock: product.trackInventory ? product.currentStockQuantity : null,
+    trackInventory: product.trackInventory,
+  }));
+}
+
+export type GenerateTicketSubmittalResult =
+  | {
+      success: true;
+      filePath: string;
+      missing: string[];
+      skipped: string[];
+      includedCount: number;
+    }
+  | { success: false; error: string };
+
+export async function generateDeliveryTicketSubmittalPackage(
+  ticketId: string,
+): Promise<GenerateTicketSubmittalResult> {
+  await requirePermission(AppPermission.DELIVERY_VIEW);
+  if (!ticketId.trim()) {
+    return { success: false, error: "Ticket id is required." };
+  }
+
+  try {
+    const result = await withDatabaseRetry((client) =>
+      generateSubmittalPackageForDeliveryTicket(client, ticketId),
+    );
+    return {
+      success: true,
+      filePath: result.filePath,
+      missing: result.missing,
+      skipped: result.skipped,
+      includedCount: result.includedCount,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to generate submittal package.",
+    };
+  }
+}
+
 const STATUS_FLOW: Record<string, DeliveryTicketStatus[]> = {
   DRAFT: ["SCHEDULED", "CANCELLED"],
   SCHEDULED: ["IN_TRANSIT", "DELIVERED", "CANCELLED"],
@@ -382,10 +478,19 @@ export async function updateDeliveryTicketStatus(
       return { error: `Cannot change status from ${ticket.status} to ${status}.` };
     }
 
+    let invoiceWarning: string | null = null;
     if (status === "DELIVERED") {
       await withDatabaseRetry((client) =>
         markDeliveryTicketDelivered(client, ticketId),
       );
+      const invoiceResult = await withDatabaseRetry((client) =>
+        maybeCreatePayNowInvoiceForTicket(client, ticketId),
+      );
+      if (invoiceResult.error) {
+        invoiceWarning = `Ticket completed, but the pay-now invoice could not be created: ${invoiceResult.error}`;
+      } else if (invoiceResult.invoiceId) {
+        revalidatePath("/invoices");
+      }
     } else if (status === "CANCELLED" && ticket.status === "DELIVERED") {
       await withDatabaseRetry((client) =>
         cancelDeliveredTicket(client, ticketId),
@@ -401,8 +506,9 @@ export async function updateDeliveryTicketStatus(
 
     revalidatePath("/delivery-tickets");
     revalidatePath(`/delivery-tickets/${ticketId}`);
+    revalidatePath("/walk-ins");
     revalidatePath("/inventory");
-    return { success: true };
+    return { success: true, warning: invoiceWarning };
   } catch (error) {
     return {
       error:

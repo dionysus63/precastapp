@@ -4,10 +4,8 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { resolveDatabaseUrl } from "../lib/database-url";
 import { DEFAULT_APP_SETTINGS_DATA } from "../lib/app-settings";
-import {
-  DEFAULT_SEED_LOGO_PDF_PATH,
-  seedLogoFromPdf,
-} from "../lib/company-logo";
+import { DEFAULT_SEED_LOGO_PDF_PATH } from "../lib/company-logo";
+import { seedLogoFromPdf } from "../lib/company-logo-raster";
 import { UserRole } from "../app/generated/prisma/client";
 
 async function main() {

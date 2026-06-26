@@ -7,6 +7,11 @@ import type {
 import { getSubmittalsJobSubfolder } from "@/lib/app-settings";
 import { assertPathUnderJobFolder } from "@/lib/job-path-security";
 import { sanitizeFilenamePart } from "@/lib/quote-pdf-path";
+import { assertUploadAllowed } from "@/lib/upload-validation";
+import {
+  resolveUniqueFilePath,
+  sanitizeFileName,
+} from "@/lib/file-upload-utils";
 
 const VALID_DOCUMENT_TYPES = new Set<JobStructureDocumentType>([
   "CUT_SHEET",
@@ -40,33 +45,6 @@ async function pathExists(targetPath: string) {
   } catch {
     return false;
   }
-}
-
-function sanitizeFileName(fileName: string) {
-  const base = path.basename(fileName.trim());
-  if (!base || base === "." || base === "..") {
-    throw new Error("Invalid file name.");
-  }
-  return base.replace(/[<>:"/\\|?*]/g, "_");
-}
-
-async function resolveUniqueFilePath(directory: string, fileName: string) {
-  const exactPath = path.join(directory, fileName);
-  if (!(await pathExists(exactPath))) {
-    return exactPath;
-  }
-
-  const ext = path.extname(fileName);
-  const stem = path.basename(fileName, ext);
-
-  for (let suffix = 1; suffix <= 999; suffix += 1) {
-    const candidate = path.join(directory, `${stem}-${suffix}${ext}`);
-    if (!(await pathExists(candidate))) {
-      return candidate;
-    }
-  }
-
-  throw new Error(`Could not find an available file name for "${fileName}".`);
 }
 
 async function assertJobStructureWithFolder(
@@ -140,6 +118,8 @@ export async function uploadJobStructureDocument(
   documentType: string,
   file: File,
 ) {
+  assertUploadAllowed(file);
+
   const { structure, jobFolderPath } = await assertJobStructureWithFolder(
     client,
     jobStructureId,

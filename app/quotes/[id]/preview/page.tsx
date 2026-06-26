@@ -1,12 +1,9 @@
 import { notFound } from "next/navigation";
 import { QuotePreviewContent } from "@/components/quotes/quote-preview-content";
-import { mapQuoteToDetailView } from "@/lib/quote-mapper";
-import { getCompanyProfile } from "@/lib/app-settings";
-import {
-  companyLogoApiUrl,
-  getCompanyLogoUpdatedAt,
-} from "@/lib/company-logo";
+import { canEditQuote } from "@/lib/quotes/edit-rules";
+import { canSendQuote } from "@/lib/quotes/send-rules";
 import { withDatabaseRetry } from "@/lib/prisma";
+import type { QuoteStatus } from "@/app/generated/prisma/client";
 
 type QuotePreviewPageProps = {
   params: Promise<{ id: string }>;
@@ -18,10 +15,15 @@ export default async function QuotePreviewPage({ params }: QuotePreviewPageProps
   const quote = await withDatabaseRetry((prisma) =>
     prisma.quote.findUnique({
       where: { id },
-      include: {
-        lineItems: {
-          orderBy: [{ sortOrder: "asc" }, { lineNumber: "asc" }],
-        },
+      select: {
+        id: true,
+        quoteNumber: true,
+        status: true,
+        originalQuoteId: true,
+        revisionNumber: true,
+        projectName: true,
+        contactName: true,
+        contactEmail: true,
       },
     }),
   );
@@ -30,19 +32,32 @@ export default async function QuotePreviewPage({ params }: QuotePreviewPageProps
     notFound();
   }
 
-  const detail = mapQuoteToDetailView(quote);
-  const [company, logoUpdatedAt] = await Promise.all([
-    getCompanyProfile(),
-    getCompanyLogoUpdatedAt(),
-  ]);
-  const logoUrl = logoUpdatedAt ? companyLogoApiUrl(logoUpdatedAt) : null;
+  let supersededBy: { id: string } | null = null;
+  if (quote.status === "REVISED") {
+    const rootId = quote.originalQuoteId ?? quote.id;
+    supersededBy = await withDatabaseRetry((prisma) =>
+      prisma.quote.findFirst({
+        where: {
+          OR: [{ id: rootId }, { originalQuoteId: rootId }],
+          revisionNumber: { gt: quote.revisionNumber },
+        },
+        orderBy: { revisionNumber: "asc" },
+        select: { id: true },
+      }),
+    );
+  }
+
+  const status = quote.status as QuoteStatus;
 
   return (
     <QuotePreviewContent
-      quote={detail}
       quoteId={quote.id}
-      company={company}
-      logoUrl={logoUrl}
+      quoteNumber={quote.quoteNumber}
+      canEdit={canEditQuote(status, supersededBy)}
+      canSend={canSendQuote(status, supersededBy)}
+      contactEmail={quote.contactEmail?.trim() ?? ""}
+      contactName={quote.contactName?.trim() ?? ""}
+      projectName={quote.projectName}
     />
   );
 }

@@ -3,97 +3,124 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { importProducts } from "@/app/products/actions";
+import {
+  importProducts,
+  validateCastingAssemblyImportCodesAction,
+  validateCastingBulkImportSuppliersAction,
+} from "@/app/products/actions";
+import type { ProductKind } from "@/app/generated/prisma/client";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import {
   type BulkProductPasteRow,
-  bulkPasteColumnHeaders,
-  bulkPasteExample,
   productInputClassName,
+  productKindLabels,
 } from "@/components/products/product-utils";
 import {
-  isRecognizedBulkRingStyle,
-  parseBulkRingStyle,
-} from "@/lib/drain-ring-utils";
+  bulkImportKinds,
+  bulkPasteExamples,
+  getBulkPasteBaseHeaders,
+  getBulkPasteHeaders,
+  usesCastingBulkPasteBaseHeaders,
+  validateBulkPasteRow,
+} from "@/lib/product-kinds";
 
-function parseBulkPaste(text: string): BulkProductPasteRow[] {
+const kindFieldKeys: Record<ProductKind, string[]> = {
+  STANDARD: [],
+  DRAIN_RING: ["ringDiameterFeet", "heightFeet", "ringStyle"],
+  PIPE: ["pipeDiameterInches", "pipeLengthFeet", "pipeClass", "pipeJointType"],
+  CASTING_ASSEMBLY: [
+    "castingHeightFeet",
+    "castingClearOpeningInches",
+    "frameProductCode",
+    "coverGrateProductCode",
+    "hoodProductCode",
+    "throatProductCode",
+  ],
+  CASTING_COMPONENT: ["castingPieceRole"],
+};
+
+function parseBulkPaste(text: string, kind: ProductKind): BulkProductPasteRow[] {
   const lines = text
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
 
+  const expectedColumns = getBulkPasteHeaders(kind).length;
+  const baseHeaderCount = getBulkPasteBaseHeaders(kind).length;
+  const kindKeys = kindFieldKeys[kind];
+  const castingBase = usesCastingBulkPasteBaseHeaders(kind);
+
   return lines.map((line, index) => {
     const delimiter = line.includes("\t") ? "\t" : ",";
     const cells = line.split(delimiter).map((cell) => cell.trim());
 
-    const [
-      productCode = "",
-      productName = "",
-      category = "",
-      subcategory = "",
-      unit = "",
-      defaultPrice = "",
-      weight = "",
-      yards = "",
-      trackInventory = "",
-      isDrainRing = "",
-      ringDiameterFeet = "",
-      heightFeet = "",
-      ringStyle = "",
-    ] = cells;
+    let productCode = "";
+    let productName = "";
+    let category = "";
+    let subcategory = "";
+    let unit = "";
+    let defaultPrice = "";
+    let weight = "";
+    let yards = "";
+    let supplier = "";
+    let trackInventory = "";
+    let kindCells: string[] = [];
+
+    if (castingBase) {
+      [
+        productCode = "",
+        productName = "",
+        category = "",
+        subcategory = "",
+        unit = "",
+        defaultPrice = "",
+        weight = "",
+        supplier = "",
+        trackInventory = "",
+        ...kindCells
+      ] = cells;
+    } else {
+      [
+        productCode = "",
+        productName = "",
+        category = "",
+        subcategory = "",
+        unit = "",
+        defaultPrice = "",
+        weight = "",
+        yards = "",
+        trackInventory = "",
+        ...kindCells
+      ] = cells;
+    }
+
+    const kindFields: Record<string, string> = {};
+    kindKeys.forEach((key, fieldIndex) => {
+      kindFields[key] = kindCells[fieldIndex] ?? "";
+    });
 
     const issues: string[] = [];
-
-    if (!productCode) {
-      issues.push("Product code is required.");
+    if (cells.length < baseHeaderCount) {
+      issues.push(`Expected at least ${baseHeaderCount} base columns.`);
     }
-    if (!productName) {
-      issues.push("Product name is required.");
-    }
-    if (cells.length < 9) {
-      issues.push("Expected at least 9 columns from Excel paste.");
+    if (cells.length < expectedColumns) {
+      issues.push(`Expected ${expectedColumns} columns for ${productKindLabels[kind]}.`);
     }
 
-    const inventoryValue = trackInventory.toLowerCase();
-    if (
-      trackInventory &&
-      inventoryValue !== "yes" &&
-      inventoryValue !== "no"
-    ) {
-      issues.push('Track inventory must be "Yes" or "No".');
-    }
-
-    const drainRingValue = isDrainRing.trim().toLowerCase();
-    const isDrainRingYes = drainRingValue === "yes";
-    if (
-      isDrainRing &&
-      drainRingValue !== "yes" &&
-      drainRingValue !== "no"
-    ) {
-      issues.push('Ring must be "Yes" or "No".');
-    }
-    if (isDrainRingYes) {
-      const diameter = Number(ringDiameterFeet.replace(/[^\d.]/g, ""));
-      const height = Number(heightFeet.replace(/[^\d.]/g, ""));
-      if (!ringDiameterFeet.trim() || !Number.isFinite(diameter) || diameter <= 0) {
-        issues.push("Rings require a pool diameter (ft).");
-      }
-      if (!heightFeet.trim() || !Number.isFinite(height) || height <= 0) {
-        issues.push("Rings require a ring height (ft).");
-      }
-      if (ringStyle.trim() && !isRecognizedBulkRingStyle(ringStyle)) {
-        issues.push('Style must be "DRAIN", "SAN", "SOL", or legacy "Yes"/"No".');
-      }
-      const style = parseBulkRingStyle(ringStyle);
-      if (style === "SANITARY" && ringDiameterFeet.trim()) {
-        if (Number.isFinite(diameter) && diameter !== 8 && diameter !== 10) {
-          issues.push("Sanitary rings are only available for 8' and 10' diameters.");
-        }
-      }
-    } else if (ringStyle.trim() && !isRecognizedBulkRingStyle(ringStyle)) {
-      issues.push('Style must be "DRAIN", "SAN", or legacy "Yes"/"No".');
-    }
+    issues.push(
+      ...validateBulkPasteRow(
+        kind,
+        {
+          productCode,
+          productName,
+          trackInventory,
+          supplier,
+          kindFields,
+        },
+        index + 1,
+      ),
+    );
 
     return {
       lineNumber: index + 1,
@@ -105,25 +132,112 @@ function parseBulkPaste(text: string): BulkProductPasteRow[] {
       defaultPrice,
       weight,
       yards,
+      supplier,
       trackInventory,
-      isDrainRing,
-      ringDiameterFeet,
-      heightFeet,
-      ringStyle,
+      kindFields,
       isValid: issues.length === 0,
       issues,
     };
   });
 }
 
+function kindPreviewColumns(kind: ProductKind): Array<{
+  key: string;
+  label: string;
+  getValue: (row: BulkProductPasteRow) => string;
+}> {
+  const base = [
+    { key: "line", label: "Line", getValue: (row: BulkProductPasteRow) => String(row.lineNumber) },
+    { key: "status", label: "Status", getValue: () => "" },
+    { key: "productCode", label: "Product Code", getValue: (row: BulkProductPasteRow) => row.productCode },
+    { key: "productName", label: "Product Name", getValue: (row: BulkProductPasteRow) => row.productName },
+    { key: "category", label: "Category", getValue: (row: BulkProductPasteRow) => row.category },
+    { key: "subcategory", label: "Subcategory", getValue: (row: BulkProductPasteRow) => row.subcategory },
+    { key: "unit", label: "Unit", getValue: (row: BulkProductPasteRow) => row.unit },
+    { key: "defaultPrice", label: "Default Price", getValue: (row: BulkProductPasteRow) => row.defaultPrice },
+    { key: "weight", label: "Weight", getValue: (row: BulkProductPasteRow) => row.weight },
+  ];
+
+  if (!usesCastingBulkPasteBaseHeaders(kind)) {
+    base.push({
+      key: "yards",
+      label: "Yards",
+      getValue: (row: BulkProductPasteRow) => row.yards,
+    });
+  } else {
+    base.push({
+      key: "supplier",
+      label: "Supplier",
+      getValue: (row: BulkProductPasteRow) => row.supplier,
+    });
+  }
+
+  base.push({
+    key: "trackInventory",
+    label: "Track Inventory",
+    getValue: (row: BulkProductPasteRow) => row.trackInventory,
+  });
+
+  const kindCols = getBulkPasteHeaders(kind)
+    .slice(getBulkPasteBaseHeaders(kind).length)
+    .map((label, index) => {
+      const fieldKey = kindFieldKeys[kind][index] ?? `field${index}`;
+      return {
+        key: fieldKey,
+        label,
+        getValue: (row: BulkProductPasteRow) => row.kindFields[fieldKey] ?? "",
+      };
+    });
+
+  return [
+    ...base,
+    ...kindCols,
+    {
+      key: "issues",
+      label: "Issues",
+      getValue: (row: BulkProductPasteRow) =>
+        row.issues.length > 0 ? row.issues.join(" ") : "—",
+    },
+  ];
+}
+
+function mergePreviewIssues(
+  rows: BulkProductPasteRow[],
+  issueMaps: Array<Record<number, string[]>>,
+): BulkProductPasteRow[] {
+  return rows.map((row) => {
+    const extraIssues = issueMaps.flatMap((map) => map[row.lineNumber] ?? []);
+    if (extraIssues.length === 0) {
+      return row;
+    }
+    const issues = [...row.issues, ...extraIssues];
+    return {
+      ...row,
+      issues,
+      isValid: issues.length === 0,
+    };
+  });
+}
+
 export function BulkPasteForm() {
   const router = useRouter();
+  const [productKind, setProductKind] = useState<ProductKind>("STANDARD");
   const [pasteText, setPasteText] = useState("");
   const [previewRows, setPreviewRows] = useState<BulkProductPasteRow[]>([]);
   const [hasParsed, setHasParsed] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [importComplete, setImportComplete] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [isValidatingCodes, startCodeValidation] = useTransition();
+
+  const columnHeaders = useMemo(
+    () => getBulkPasteHeaders(productKind),
+    [productKind],
+  );
+  const previewColumns = useMemo(
+    () => kindPreviewColumns(productKind),
+    [productKind],
+  );
 
   const validCount = useMemo(
     () => previewRows.filter((row) => row.isValid).length,
@@ -132,15 +246,76 @@ export function BulkPasteForm() {
 
   const invalidCount = previewRows.length - validCount;
 
+  function handleKindChange(nextKind: ProductKind) {
+    setProductKind(nextKind);
+    setPreviewRows([]);
+    setHasParsed(false);
+    setImportComplete(false);
+    setPasteText("");
+  }
+
   function handleParsePreview() {
-    const rows = parseBulkPaste(pasteText);
-    setPreviewRows(rows);
+    const rows = parseBulkPaste(pasteText, productKind);
     setHasParsed(true);
     setImportComplete(false);
+    setErrorMessage(null);
+
+    const needsSupplierValidation =
+      productKind === "CASTING_COMPONENT" || productKind === "CASTING_ASSEMBLY";
+    const needsAssemblyCodeValidation = productKind === "CASTING_ASSEMBLY";
+
+    if (!needsSupplierValidation && !needsAssemblyCodeValidation) {
+      setPreviewRows(rows);
+      return;
+    }
+
+    const structurallyValidRows = rows.filter((row) => row.issues.length === 0);
+    if (structurallyValidRows.length === 0) {
+      setPreviewRows(rows);
+      return;
+    }
+
+    startCodeValidation(async () => {
+      try {
+        const issueMaps: Array<Record<number, string[]>> = [];
+
+        if (needsSupplierValidation) {
+          const supplierIssues = await validateCastingBulkImportSuppliersAction(
+            structurallyValidRows.map((row) => ({
+              lineNumber: row.lineNumber,
+              supplier: row.supplier,
+            })),
+          );
+          issueMaps.push(supplierIssues);
+        }
+
+        if (needsAssemblyCodeValidation) {
+          const codeIssues = await validateCastingAssemblyImportCodesAction(
+            structurallyValidRows.map((row) => ({
+              lineNumber: row.lineNumber,
+            frameProductCode: row.kindFields.frameProductCode ?? "",
+            coverGrateProductCode: row.kindFields.coverGrateProductCode ?? "",
+            hoodProductCode: row.kindFields.hoodProductCode ?? "",
+            throatProductCode: row.kindFields.throatProductCode ?? "",
+            })),
+          );
+          issueMaps.push(codeIssues);
+        }
+
+        setPreviewRows(mergePreviewIssues(rows, issueMaps));
+      } catch (error) {
+        setPreviewRows(rows);
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Could not validate import rows.",
+        );
+      }
+    });
   }
 
   function handleLoadExample() {
-    setPasteText(bulkPasteExample);
+    setPasteText(bulkPasteExamples[productKind]);
     setPreviewRows([]);
     setHasParsed(false);
     setImportComplete(false);
@@ -165,6 +340,7 @@ export function BulkPasteForm() {
     }
 
     const formData = new FormData();
+    formData.set("productKind", productKind);
     formData.set(
       "products",
       JSON.stringify(
@@ -178,11 +354,9 @@ export function BulkPasteForm() {
             defaultPrice,
             weight,
             yards,
+            supplier,
             trackInventory,
-            isDrainRing,
-            ringDiameterFeet,
-            heightFeet,
-            ringStyle,
+            kindFields,
           }) => ({
             productCode,
             productName,
@@ -192,11 +366,9 @@ export function BulkPasteForm() {
             defaultPrice,
             weight,
             yards,
+            supplier,
             trackInventory,
-            isDrainRing,
-            ringDiameterFeet,
-            heightFeet,
-            ringStyle,
+            kindFields,
           }),
         ),
       ),
@@ -221,15 +393,38 @@ export function BulkPasteForm() {
     <div className="space-y-4">
       <SectionCard
         title="Paste from Excel"
-        description="Copy rows from Excel and paste below. Columns should be tab-separated in the same order as the product catalog. For rings, use Style DRAIN, SAN, or SOL (quote pool lines use codes like R-10-DRAIN, R-10-SAN, and R-10-SOL)."
+        description="Choose a product kind, then paste tab-separated rows matching that kind's columns. Each kind has its own column layout — rings, pipe, casting components, casting assemblies, and standard stock are imported separately."
       >
         <div className="space-y-4">
+          <div>
+            <label
+              htmlFor="bulkProductKind"
+              className="block text-xs font-medium text-slate-700"
+            >
+              Product Kind
+            </label>
+            <select
+              id="bulkProductKind"
+              value={productKind}
+              onChange={(event) =>
+                handleKindChange(event.target.value as ProductKind)
+              }
+              className={productInputClassName}
+            >
+              {bulkImportKinds.map((kind) => (
+                <option key={kind} value={kind}>
+                  {productKindLabels[kind]}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
             <p className="text-xs font-medium text-slate-700">
-              Expected column order
+              Expected column order ({productKindLabels[productKind]})
             </p>
             <p className="mt-1 text-[11px] text-slate-500">
-              {bulkPasteColumnHeaders.join(" → ")}
+              {columnHeaders.join(" → ")}
             </p>
           </div>
 
@@ -254,14 +449,16 @@ export function BulkPasteForm() {
             <button
               type="button"
               onClick={handleParsePreview}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+              disabled={isValidatingCodes}
+              className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Parse Preview
+              {isValidatingCodes ? "Validating..." : "Parse Preview"}
             </button>
             <button
               type="button"
               onClick={handleLoadExample}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              disabled={!bulkPasteExamples[productKind]}
+              className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Load Example
             </button>
@@ -291,78 +488,42 @@ export function BulkPasteForm() {
               <table className="min-w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                    <th className="px-4 py-2.5 font-semibold">Line</th>
-                    <th className="px-4 py-2.5 font-semibold">Status</th>
-                    <th className="px-4 py-2.5 font-semibold">Product Code</th>
-                    <th className="px-4 py-2.5 font-semibold">Product Name</th>
-                    <th className="px-4 py-2.5 font-semibold">Category</th>
-                    <th className="px-4 py-2.5 font-semibold">Subcategory</th>
-                    <th className="px-4 py-2.5 font-semibold">Unit</th>
-                    <th className="px-4 py-2.5 font-semibold">Default Price</th>
-                    <th className="px-4 py-2.5 font-semibold">Weight</th>
-                    <th className="px-4 py-2.5 font-semibold">Yards</th>
-                    <th className="px-4 py-2.5 font-semibold">Track Inventory</th>
-                    <th className="px-4 py-2.5 font-semibold">Ring</th>
-                    <th className="px-4 py-2.5 font-semibold">Dia (ft)</th>
-                    <th className="px-4 py-2.5 font-semibold">Height (ft)</th>
-                    <th className="px-4 py-2.5 font-semibold">Style</th>
-                    <th className="px-4 py-2.5 font-semibold">Issues</th>
+                    {previewColumns.map((column) => (
+                      <th
+                        key={column.key}
+                        className="px-4 py-2.5 font-semibold"
+                      >
+                        {column.label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {previewRows.map((row) => (
                     <tr key={row.lineNumber} className="hover:bg-slate-50/60">
-                      <td className="px-4 py-2.5 text-slate-500">
-                        {row.lineNumber}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <StatusBadge
-                          label={row.isValid ? "Valid" : "Invalid"}
-                          variant={row.isValid ? "success" : "danger"}
-                        />
-                      </td>
-                      <td className="px-4 py-2.5 font-mono text-[11px] text-slate-900">
-                        {row.productCode || "—"}
-                      </td>
-                      <td className="px-4 py-2.5 text-slate-900">
-                        {row.productName || "—"}
-                      </td>
-                      <td className="px-4 py-2.5 text-slate-600">
-                        {row.category || "—"}
-                      </td>
-                      <td className="px-4 py-2.5 text-slate-600">
-                        {row.subcategory || "—"}
-                      </td>
-                      <td className="px-4 py-2.5 text-slate-600">
-                        {row.unit || "—"}
-                      </td>
-                      <td className="px-4 py-2.5 text-slate-900">
-                        {row.defaultPrice || "—"}
-                      </td>
-                      <td className="px-4 py-2.5 text-slate-600">
-                        {row.weight || "—"}
-                      </td>
-                      <td className="px-4 py-2.5 text-slate-600">
-                        {row.yards || "—"}
-                      </td>
-                      <td className="px-4 py-2.5 text-slate-600">
-                        {row.trackInventory || "—"}
-                      </td>
-                      <td className="px-4 py-2.5 text-slate-600">
-                        {row.isDrainRing || "—"}
-                      </td>
-                      <td className="px-4 py-2.5 text-slate-600">
-                        {row.ringDiameterFeet || "—"}
-                      </td>
-                      <td className="px-4 py-2.5 text-slate-600">
-                        {row.heightFeet || "—"}
-                      </td>
-                      <td className="px-4 py-2.5 text-slate-600">
-                        {row.ringStyle || "—"}
-                      </td>
-                      <td className="px-4 py-2.5 text-red-600">
-                        {row.issues.length > 0 ? row.issues.join(" ") : "—"}
-                      </td>
+                      {previewColumns.map((column) => (
+                        <td
+                          key={column.key}
+                          className={`px-4 py-2.5 ${
+                            column.key === "issues"
+                              ? "text-red-600"
+                              : column.key === "productCode"
+                                ? "font-mono text-[11px] text-slate-900"
+                                : column.key === "status"
+                                  ? ""
+                                  : "text-slate-600"
+                          }`}
+                        >
+                          {column.key === "status" ? (
+                            <StatusBadge
+                              label={row.isValid ? "Valid" : "Invalid"}
+                              variant={row.isValid ? "success" : "danger"}
+                            />
+                          ) : (
+                            column.getValue(row) || "—"
+                          )}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>
@@ -384,7 +545,12 @@ export function BulkPasteForm() {
               <button
                 type="button"
                 onClick={handleImport}
-                disabled={validCount === 0 || isPending || importComplete}
+                disabled={
+                  validCount === 0 ||
+                  isPending ||
+                  isValidatingCodes ||
+                  importComplete
+                }
                 className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isPending

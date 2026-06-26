@@ -1,5 +1,8 @@
 import type { PrismaClient } from "@/app/generated/prisma/client";
-import type { QuoteLineType } from "@/app/generated/prisma/client";
+import type {
+  DeliveryTicketStatus,
+  QuoteLineType,
+} from "@/app/generated/prisma/client";
 import { Prisma } from "@/app/generated/prisma/client";
 import {
   deductInventoryForDeliveredTicket,
@@ -17,6 +20,14 @@ import {
 import { loadCastingComponentOptionsForAssembly } from "@/lib/casting-service";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
+
+export const DELIVERED_TICKET_STATUS: DeliveryTicketStatus = "DELIVERED";
+
+export const SCHEDULED_TICKET_STATUSES: DeliveryTicketStatus[] = [
+  "SCHEDULED",
+  "LOADING",
+  "IN_TRANSIT",
+];
 
 export type DrainRingOption = {
   productId: string;
@@ -209,6 +220,7 @@ async function loadShippedQuantitiesByQuoteLineId(
   client: DbClient,
   lineageMap: Map<string, string[]>,
   excludeTicketId?: string,
+  ticketStatuses: readonly DeliveryTicketStatus[] = [DELIVERED_TICKET_STATUS],
 ): Promise<Map<string, Prisma.Decimal>> {
   const quoteLineItemIds = allLineageIds(lineageMap);
   if (quoteLineItemIds.length === 0) {
@@ -219,7 +231,7 @@ async function loadShippedQuantitiesByQuoteLineId(
     where: {
       quoteLineItemId: { in: quoteLineItemIds },
       deliveryTicket: {
-        status: "DELIVERED",
+        status: { in: [...ticketStatuses] },
         ...(excludeTicketId ? { id: { not: excludeTicketId } } : {}),
       },
     },
@@ -242,6 +254,7 @@ async function loadShippedFeetByQuoteLineId(
   client: DbClient,
   lineageMap: Map<string, string[]>,
   excludeTicketId?: string,
+  ticketStatuses: readonly DeliveryTicketStatus[] = [DELIVERED_TICKET_STATUS],
 ): Promise<Map<string, number>> {
   const quoteLineItemIds = allLineageIds(lineageMap);
   if (quoteLineItemIds.length === 0) {
@@ -252,7 +265,7 @@ async function loadShippedFeetByQuoteLineId(
     where: {
       quoteLineItemId: { in: quoteLineItemIds },
       deliveryTicket: {
-        status: "DELIVERED",
+        status: { in: [...ticketStatuses] },
         ...(excludeTicketId ? { id: { not: excludeTicketId } } : {}),
       },
     },
@@ -317,6 +330,7 @@ async function loadShippedCastingSetsByQuoteLineId(
   }>,
   lineageMap: Map<string, string[]>,
   excludeTicketId?: string,
+  ticketStatuses: readonly DeliveryTicketStatus[] = [DELIVERED_TICKET_STATUS],
 ): Promise<Map<string, number>> {
   if (castingLines.length === 0) {
     return new Map();
@@ -340,7 +354,7 @@ async function loadShippedCastingSetsByQuoteLineId(
       where: {
         quoteLineItemId: { in: lineIds },
         deliveryTicket: {
-          status: "DELIVERED",
+          status: { in: [...ticketStatuses] },
           ...(excludeTicketId ? { id: { not: excludeTicketId } } : {}),
         },
       },
@@ -776,6 +790,93 @@ export async function getQuoteLineFulfillment(
       isCastingAssembly: false,
       castingComponentOptions: [],
     });
+  }
+
+  return result;
+}
+
+/**
+ * Scheduled (not yet delivered) quantities per quote line on open tickets.
+ * Uses the same units as shipped: LF for drain rings, EA sets for castings, EA otherwise.
+ */
+export async function getQuoteLineScheduledQuantities(
+  client: DbClient,
+  quoteId: string,
+  excludeTicketId?: string,
+): Promise<Map<string, number>> {
+  const quote = await client.quote.findUnique({
+    where: { id: quoteId },
+    include: {
+      lineItems: {
+        orderBy: { lineNumber: "asc" },
+        include: {
+          product: { select: { castingRole: true } },
+        },
+      },
+    },
+  });
+
+  if (!quote) {
+    return new Map();
+  }
+
+  const lineIds = quote.lineItems.map((line) => line.id);
+  const lineageMap = await buildQuoteLineLineageMap(client, lineIds);
+  const drainRingLines = quote.lineItems.filter((line) => isQuoteLineDrainRing(line));
+  const castingAssemblyLines = quote.lineItems.filter((line) =>
+    isQuoteLineCastingAssembly(line),
+  );
+  const standardLineIds = quote.lineItems
+    .filter(
+      (line) =>
+        !isQuoteLineDrainRing(line) && !isQuoteLineCastingAssembly(line),
+    )
+    .map((line) => line.id);
+
+  const standardLineage = new Map<string, string[]>();
+  for (const id of standardLineIds) {
+    const chain = lineageMap.get(id);
+    if (chain) {
+      standardLineage.set(id, chain);
+    }
+  }
+
+  const [scheduledQuantities, scheduledFeet, scheduledCastingSets] =
+    await Promise.all([
+      loadShippedQuantitiesByQuoteLineId(
+        client,
+        standardLineage,
+        excludeTicketId,
+        SCHEDULED_TICKET_STATUSES,
+      ),
+      loadShippedFeetByQuoteLineId(
+        client,
+        lineageMap,
+        excludeTicketId,
+        SCHEDULED_TICKET_STATUSES,
+      ),
+      loadShippedCastingSetsByQuoteLineId(
+        client,
+        castingAssemblyLines.map((line) => ({
+          id: line.id,
+          productId: line.productId,
+        })),
+        lineageMap,
+        excludeTicketId,
+        SCHEDULED_TICKET_STATUSES,
+      ),
+    ]);
+
+  const result = new Map<string, number>();
+  for (const line of quote.lineItems) {
+    if (isQuoteLineDrainRing(line)) {
+      result.set(line.id, scheduledFeet.get(line.id) ?? 0);
+    } else if (isQuoteLineCastingAssembly(line)) {
+      result.set(line.id, scheduledCastingSets.get(line.id) ?? 0);
+    } else {
+      const scheduled = scheduledQuantities.get(line.id) ?? new Prisma.Decimal(0);
+      result.set(line.id, Number(scheduled));
+    }
   }
 
   return result;

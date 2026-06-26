@@ -5,9 +5,13 @@ import { randomUUID } from "crypto";
 import { PDFDocument } from "pdf-lib";
 import type { PrismaClient } from "@/app/generated/prisma/client";
 import {
+  getJobsRoot,
   getQuotePdfFallbackDir,
+  getStockSubmittalsRoot,
   getSubmittalsJobSubfolder,
 } from "@/lib/app-settings";
+import { assertPathUnderJobsRoot } from "@/lib/job-path-security";
+import { assertPathUnderStockSubmittalsRoot } from "@/lib/product-path-security";
 import { registerJobFile } from "@/lib/job-files-service";
 import {
   buildSubmittalPackageBaseName,
@@ -42,6 +46,33 @@ export type SubmittalStatusQuote = {
 
 function productDedupeKey(product: { id?: string; productCode: string }) {
   return product.id ?? product.productCode;
+}
+
+export async function fetchDeliveryTicketForSubmittalPackage(
+  client: PrismaClient,
+  ticketId: string,
+) {
+  return client.deliveryTicket.findUnique({
+    where: { id: ticketId },
+    include: {
+      lineItems: {
+        where: { productId: { not: null } },
+        orderBy: [{ sortOrder: "asc" }, { lineNumber: "asc" }],
+        include: {
+          product: {
+            include: {
+              documents: {
+                where: {
+                  documentType: { in: PRODUCT_SUBMITTAL_DOCUMENT_TYPES },
+                },
+                orderBy: { uploadedAt: "asc" },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
 }
 
 export async function fetchQuoteForSubmittalPackage(
@@ -180,6 +211,152 @@ async function appendImageFile(merged: PDFDocument, filePath: string) {
   throw new Error(`Unsupported image type: ${path.basename(filePath)}`);
 }
 
+async function mergeSubmittalPdfBytes(input: {
+  ticketNumber: string;
+  customerName: string;
+  projectName: string;
+  deliveryDate: Date | null;
+  products: SubmittalCoverProduct[];
+  missing: string[];
+  files: { productCode: string; documentName: string; filePath: string }[];
+}): Promise<{ pdfBytes: Uint8Array; missing: string[]; skipped: string[] }> {
+  const coverHtml = await buildSubmittalCoverHtml({
+    quoteNumber: input.ticketNumber,
+    customerName: input.customerName,
+    projectName: input.projectName,
+    quoteDate: input.deliveryDate
+      ? new Intl.DateTimeFormat("en-US").format(input.deliveryDate)
+      : "—",
+    products: input.products,
+    missingProducts: input.missing,
+  });
+
+  const tempCoverPath = path.join(
+    os.tmpdir(),
+    `precast-submittal-cover-${randomUUID()}.pdf`,
+  );
+
+  const merged = await PDFDocument.create();
+  const skipped: string[] = [];
+  const stockSubmittalsRoot = await getStockSubmittalsRoot();
+
+  try {
+    await writeQuotePdfFromHtml(coverHtml, tempCoverPath);
+    await appendPdfFile(merged, tempCoverPath);
+
+    for (const file of input.files) {
+      const ext = path.extname(file.filePath).toLowerCase();
+      try {
+        assertPathUnderStockSubmittalsRoot(stockSubmittalsRoot, file.filePath);
+        if (ext === ".pdf") {
+          await appendPdfFile(merged, file.filePath);
+        } else if (ext === ".png" || ext === ".jpg" || ext === ".jpeg") {
+          await appendImageFile(merged, file.filePath);
+        } else {
+          skipped.push(`${file.productCode}: ${file.documentName}`);
+        }
+      } catch {
+        skipped.push(`${file.productCode}: ${file.documentName}`);
+      }
+    }
+
+    const pdfBytes = await merged.save();
+    return { pdfBytes, missing: input.missing, skipped };
+  } finally {
+    await unlink(tempCoverPath).catch(() => undefined);
+  }
+}
+
+export async function buildSubmittalPackagePdfBytesForDeliveryTicket(
+  client: PrismaClient,
+  ticketId: string,
+): Promise<{
+  pdfBytes: Uint8Array;
+  ticketNumber: string;
+  missing: string[];
+  skipped: string[];
+}> {
+  const ticket = await fetchDeliveryTicketForSubmittalPackage(client, ticketId);
+  if (!ticket) {
+    throw new Error("Delivery ticket not found.");
+  }
+
+  const { products, missing, files } = collectSubmittalSources(ticket);
+  const { pdfBytes, missing: missingProducts, skipped } =
+    await mergeSubmittalPdfBytes({
+      ticketNumber: ticket.ticketNumber,
+      customerName: ticket.customerName,
+      projectName: ticket.projectName,
+      deliveryDate: ticket.deliveryDate,
+      products,
+      missing,
+      files,
+    });
+
+  return {
+    pdfBytes,
+    ticketNumber: ticket.ticketNumber,
+    missing: missingProducts,
+    skipped,
+  };
+}
+
+export async function generateSubmittalPackageForDeliveryTicket(
+  client: PrismaClient,
+  ticketId: string,
+) {
+  const ticket = await fetchDeliveryTicketForSubmittalPackage(client, ticketId);
+  if (!ticket) {
+    throw new Error("Delivery ticket not found.");
+  }
+
+  const { products, missing, files } = collectSubmittalSources(ticket);
+
+  let jobFolderPath: string | null = null;
+  if (ticket.jobId) {
+    const job = await client.job.findUnique({
+      where: { id: ticket.jobId },
+      select: { folderPath: true },
+    });
+    jobFolderPath = job?.folderPath ?? null;
+  }
+
+  const { pdfBytes, skipped } = await mergeSubmittalPdfBytes({
+    ticketNumber: ticket.ticketNumber,
+    customerName: ticket.customerName,
+    projectName: ticket.projectName,
+    deliveryDate: ticket.deliveryDate,
+    products,
+    missing,
+    files,
+  });
+
+  const outputDirectory = await resolveSubmittalPackageDirectory(jobFolderPath);
+  const baseName = buildSubmittalPackageBaseName(
+    ticket.ticketNumber,
+    ticket.customerName,
+  );
+  const outputPath = await resolveQuotePdfOutputPath(outputDirectory, baseName);
+
+  if (jobFolderPath) {
+    assertPathUnderJobsRoot(await getJobsRoot(), outputPath);
+  }
+
+  await writeFile(outputPath, pdfBytes);
+
+  if (ticket.jobId && jobFolderPath) {
+    const submittalsSubfolder = await getSubmittalsJobSubfolder();
+    await registerJobFile(client, ticket.jobId, outputPath, submittalsSubfolder);
+  }
+
+  return {
+    filePath: outputPath,
+    missing,
+    skipped,
+    includedCount: files.length - skipped.length,
+  };
+}
+
 export async function generateSubmittalPackageForQuote(
   client: PrismaClient,
   quoteId: string,
@@ -218,6 +395,7 @@ export async function generateSubmittalPackageForQuote(
 
   const merged = await PDFDocument.create();
   const skipped: string[] = [];
+  const stockSubmittalsRoot = await getStockSubmittalsRoot();
 
   try {
     await writeQuotePdfFromHtml(coverHtml, tempCoverPath);
@@ -226,6 +404,9 @@ export async function generateSubmittalPackageForQuote(
     for (const file of files) {
       const ext = path.extname(file.filePath).toLowerCase();
       try {
+        // filePath comes from the DB; only read documents that live under the
+        // stock submittals root so a poisoned path can't exfiltrate other files.
+        assertPathUnderStockSubmittalsRoot(stockSubmittalsRoot, file.filePath);
         if (ext === ".pdf") {
           await appendPdfFile(merged, file.filePath);
         } else if (ext === ".png" || ext === ".jpg" || ext === ".jpeg") {
@@ -244,6 +425,12 @@ export async function generateSubmittalPackageForQuote(
       quote.customerName,
     );
     const outputPath = await resolveQuotePdfOutputPath(outputDirectory, baseName);
+
+    // The job folder comes from the DB; keep the write inside the jobs root.
+    if (jobFolderPath) {
+      assertPathUnderJobsRoot(await getJobsRoot(), outputPath);
+    }
+
     const pdfBytes = await merged.save();
     await writeFile(outputPath, pdfBytes);
 

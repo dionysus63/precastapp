@@ -186,6 +186,41 @@ export default async function CompanySettingsPage({
               className={settingsTextareaClassName}
             />
           </SettingsField>
+          <SettingsField
+            label="Delivery ticket copy 1 name"
+            hint="Filled into the Copy Name field on each printed page (e.g. Customer Copy)."
+          >
+            <input
+              name="deliveryTicketCopy1Title"
+              defaultValue={settings.deliveryTicketCopy1Title}
+              className={settingsInputClassName}
+            />
+          </SettingsField>
+          <SettingsField label="Delivery ticket copy 2 name">
+            <input
+              name="deliveryTicketCopy2Title"
+              defaultValue={settings.deliveryTicketCopy2Title}
+              className={settingsInputClassName}
+            />
+          </SettingsField>
+          <SettingsField label="Delivery ticket copy 3 name">
+            <input
+              name="deliveryTicketCopy3Title"
+              defaultValue={settings.deliveryTicketCopy3Title}
+              className={settingsInputClassName}
+            />
+          </SettingsField>
+          <SettingsField
+            label="Delivery ticket PDF footer"
+            hint="Return policy and disclaimer text. One paragraph per line."
+          >
+            <textarea
+              name="deliveryTicketFooterText"
+              rows={5}
+              defaultValue={settings.deliveryTicketFooterText}
+              className={settingsTextareaClassName}
+            />
+          </SettingsField>
           <button type="submit" className={settingsSubmitClassName}>
             Save
           </button>

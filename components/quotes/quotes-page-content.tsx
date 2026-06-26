@@ -1,137 +1,55 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { SummaryCard } from "@/components/dashboard/summary-card";
+import { PaginationControls } from "@/components/common/pagination-controls";
 import {
+  useDebouncedSearchParam,
+  useListQuery,
+} from "@/components/common/use-list-query";
+import {
+  type QuoteActivityItem,
   type QuoteRow,
   quoteDueDateFilterOptions,
-  quoteEstimatorFilterOptions,
-  quoteStatusFilterOptions,
-  quoteSummaryCards,
-  quoteTypeFilterOptions,
+  quoteStatusFormOptions,
+  quoteTypeLabels,
   quoteYearFilterOptions,
-  recentQuoteActivity,
 } from "@/components/quotes/quote-utils";
+import type { QuoteSummaryCard } from "@/lib/quotes/list-summary";
+import type { PageInfo } from "@/lib/list-params";
 
-type QuotesPageContentProps = {
-  quotes?: QuoteRow[];
+type QuotesPageContentFilters = {
+  search: string;
+  status: string;
+  estimator: string;
+  year: string;
+  type: string;
+  due: string;
 };
 
-function EmptyQuotesMessage({
-  hasQuotes,
-  filteredCount,
-}: {
-  hasQuotes: boolean;
-  filteredCount: number;
-}) {
-  if (!hasQuotes) {
-    return (
-      <span>
-        No quotes yet.{" "}
-        <Link href="/quotes/new" className="font-medium text-slate-900 underline">
-          Create your first quote.
-        </Link>
-      </span>
-    );
-  }
-
-  if (filteredCount === 0) {
-    return <>No quotes match your search or filters.</>;
-  }
-
-  return null;
-}
-
-function parseQuoteDate(value: string) {
-  const [month, day, year] = value.split("/").map(Number);
-  return new Date(year, month - 1, day);
-}
-
-function matchesDueDateFilter(bidDueDate: string, dueDateFilter: string) {
-  if (dueDateFilter === "All") {
-    return true;
-  }
-
-  const due = parseQuoteDate(bidDueDate);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const weekEnd = new Date(today);
-  weekEnd.setDate(today.getDate() + 7);
-  const monthEnd = new Date(today);
-  monthEnd.setDate(today.getDate() + 30);
-
-  if (dueDateFilter === "Due This Week") {
-    return due >= today && due <= weekEnd;
-  }
-
-  if (dueDateFilter === "Overdue") {
-    return due < today;
-  }
-
-  if (dueDateFilter === "Next 30 Days") {
-    return due >= today && due <= monthEnd;
-  }
-
-  return true;
-}
+type QuotesPageContentProps = {
+  quotes: QuoteRow[];
+  pageInfo: PageInfo;
+  filters: QuotesPageContentFilters;
+  summaryCards: QuoteSummaryCard[];
+  recentActivity: QuoteActivityItem[];
+  estimatorFilterOptions: string[];
+};
 
 export function QuotesPageContent({
-  quotes = [],
+  quotes,
+  pageInfo,
+  filters,
+  summaryCards,
+  recentActivity,
+  estimatorFilterOptions,
 }: QuotesPageContentProps) {
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [estimatorFilter, setEstimatorFilter] = useState("All");
-  const [yearFilter, setYearFilter] = useState("All");
-  const [quoteTypeFilter, setQuoteTypeFilter] = useState("All");
-  const [dueDateFilter, setDueDateFilter] = useState("All");
+  const { setParams } = useListQuery();
+  const { search, setSearch } = useDebouncedSearchParam("q", filters.search);
 
-  const filteredQuotes = useMemo(() => {
-    return quotes.filter((quote) => {
-      const matchesSearch =
-        search.trim() === "" ||
-        quote.quoteNumber.toLowerCase().includes(search.toLowerCase()) ||
-        quote.jobNumber.toLowerCase().includes(search.toLowerCase()) ||
-        quote.customer.toLowerCase().includes(search.toLowerCase()) ||
-        quote.projectName.toLowerCase().includes(search.toLowerCase());
-
-      const matchesStatus =
-        statusFilter === "All" || quote.statusLabel === statusFilter;
-
-      const matchesEstimator =
-        estimatorFilter === "All" || quote.estimator === estimatorFilter;
-
-      const matchesYear =
-        yearFilter === "All" || String(quote.year) === yearFilter;
-
-      const matchesQuoteType =
-        quoteTypeFilter === "All" || quote.quoteTypeLabel === quoteTypeFilter;
-
-      const matchesDueDate = matchesDueDateFilter(
-        quote.bidDueDate,
-        dueDateFilter,
-      );
-
-      return (
-        matchesSearch &&
-        matchesStatus &&
-        matchesEstimator &&
-        matchesYear &&
-        matchesQuoteType &&
-        matchesDueDate
-      );
-    });
-  }, [
-    quotes,
-    search,
-    statusFilter,
-    estimatorFilter,
-    yearFilter,
-    quoteTypeFilter,
-    dueDateFilter,
-  ]);
+  const quoteTypeOptions = Object.entries(quoteTypeLabels);
 
   return (
     <div className="space-y-4">
@@ -152,7 +70,7 @@ export function QuotesPageContent({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {quoteSummaryCards.map((card) => (
+        {summaryCards.map((card) => (
           <SummaryCard key={card.label} {...card} />
         ))}
       </div>
@@ -166,30 +84,31 @@ export function QuotesPageContent({
           className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm placeholder:text-slate-400 xl:max-w-sm"
         />
         <select
-          value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value)}
+          value={filters.status || "All"}
+          onChange={(event) => setParams({ status: event.target.value })}
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
         >
-          {quoteStatusFilterOptions.map((status) => (
-            <option key={status} value={status}>
-              Status: {status}
+          <option value="All">Status: All</option>
+          {quoteStatusFormOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              Status: {option.label}
             </option>
           ))}
         </select>
         <select
-          value={estimatorFilter}
-          onChange={(event) => setEstimatorFilter(event.target.value)}
+          value={filters.estimator || "All"}
+          onChange={(event) => setParams({ estimator: event.target.value })}
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
         >
-          {quoteEstimatorFilterOptions.map((estimator) => (
+          {estimatorFilterOptions.map((estimator) => (
             <option key={estimator} value={estimator}>
               Estimator: {estimator}
             </option>
           ))}
         </select>
         <select
-          value={yearFilter}
-          onChange={(event) => setYearFilter(event.target.value)}
+          value={filters.year || "All"}
+          onChange={(event) => setParams({ year: event.target.value })}
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
         >
           {quoteYearFilterOptions.map((year) => (
@@ -199,19 +118,20 @@ export function QuotesPageContent({
           ))}
         </select>
         <select
-          value={quoteTypeFilter}
-          onChange={(event) => setQuoteTypeFilter(event.target.value)}
+          value={filters.type || "All"}
+          onChange={(event) => setParams({ type: event.target.value })}
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
         >
-          {quoteTypeFilterOptions.map((quoteType) => (
-            <option key={quoteType} value={quoteType}>
-              Quote Type: {quoteType}
+          <option value="All">Quote Type: All</option>
+          {quoteTypeOptions.map(([value, label]) => (
+            <option key={value} value={value}>
+              Quote Type: {label}
             </option>
           ))}
         </select>
         <select
-          value={dueDateFilter}
-          onChange={(event) => setDueDateFilter(event.target.value)}
+          value={filters.due || "All"}
+          onChange={(event) => setParams({ due: event.target.value })}
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
         >
           {quoteDueDateFilterOptions.map((dueDate) => (
@@ -224,7 +144,7 @@ export function QuotesPageContent({
 
       <SectionCard
         title="Quote List"
-        description={`${filteredQuotes.length} quote${filteredQuotes.length === 1 ? "" : "s"} shown`}
+        description={`${pageInfo.total.toLocaleString()} quote${pageInfo.total === 1 ? "" : "s"} match`}
         noPadding
       >
         <div className="overflow-x-auto">
@@ -246,20 +166,29 @@ export function QuotesPageContent({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredQuotes.length === 0 ? (
+              {quotes.length === 0 ? (
                 <tr>
                   <td
                     colSpan={12}
                     className="px-4 py-8 text-center text-sm text-slate-500"
                   >
-                    <EmptyQuotesMessage
-                      hasQuotes={quotes.length > 0}
-                      filteredCount={filteredQuotes.length}
-                    />
+                    {pageInfo.total === 0 ? (
+                      <span>
+                        No quotes match your search or filters.{" "}
+                        <Link
+                          href="/quotes/new"
+                          className="font-medium text-slate-900 underline"
+                        >
+                          Create a quote.
+                        </Link>
+                      </span>
+                    ) : (
+                      "No quotes on this page."
+                    )}
                   </td>
                 </tr>
               ) : (
-                filteredQuotes.map((quote) => (
+                quotes.map((quote) => (
                   <tr key={quote.id} className="hover:bg-slate-50/60">
                     <td className="px-4 py-2.5 font-mono text-[11px] font-medium text-slate-900">
                       {quote.quoteNumber}
@@ -337,6 +266,14 @@ export function QuotesPageContent({
             </tbody>
           </table>
         </div>
+        <PaginationControls
+          page={pageInfo.page}
+          totalPages={pageInfo.totalPages}
+          fromIndex={pageInfo.fromIndex}
+          toIndex={pageInfo.toIndex}
+          total={pageInfo.total}
+          noun="quote"
+        />
       </SectionCard>
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
@@ -345,7 +282,7 @@ export function QuotesPageContent({
           description="Latest quote updates across your pipeline."
         >
           <ul className="space-y-3">
-            {recentQuoteActivity.map((item) => (
+            {recentActivity.map((item) => (
               <li
                 key={item.id}
                 className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5"
@@ -359,10 +296,7 @@ export function QuotesPageContent({
           </ul>
         </SectionCard>
 
-        <SectionCard
-          title="Quick Actions"
-          description="Common quote workflows."
-        >
+        <SectionCard title="Quick Actions" description="Common quote workflows.">
           <div className="flex flex-col gap-2">
             <Link
               href="/quotes/new"

@@ -1,26 +1,13 @@
 import { Prisma, type Prisma as PrismaTypes } from "@/app/generated/prisma/client";
-import { parseDrainRingStyle } from "@/lib/drain-ring-utils";
 import { getPrimaryContactForCustomer, contactToSnapshot } from "@/lib/customer-contact-sync";
 import { generateQuoteNumber } from "@/lib/quote-number";
+import {
+  computeQuoteTotalsFromLines,
+  mapLineItemForCreate,
+  toQuoteDecimal,
+} from "@/lib/quote-copy";
 
 type TransactionClient = PrismaTypes.TransactionClient;
-
-function toDecimal(value: Prisma.Decimal | number | string) {
-  return new Prisma.Decimal(value.toString());
-}
-
-function toOptionalDecimal(value: Prisma.Decimal | number | string | null) {
-  if (value === null) {
-    return null;
-  }
-
-  const parsed = Number.parseFloat(value.toString());
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return null;
-  }
-
-  return new Prisma.Decimal(parsed);
-}
 
 export async function cloneQuoteForBidder(
   tx: TransactionClient,
@@ -82,6 +69,9 @@ export async function cloneQuoteForBidder(
 
   const primaryContact = contactSnapshot;
 
+  const { computed, totalWeight, totalYards, deliveryAmount } =
+    computeQuoteTotalsFromLines(template.lineItems, template.taxRate);
+
   const quote = await tx.quote.create({
     data: {
       quoteNumber,
@@ -123,45 +113,24 @@ export async function cloneQuoteForBidder(
         ? { priceList: { connect: { id: template.priceListId } } }
         : {}),
       customerPO: null,
-      subtotal: toDecimal(template.subtotal),
-      discountAmount: toDecimal(template.discountAmount),
-      deliveryAmount: toDecimal(template.deliveryAmount),
-      taxableAmount: toDecimal(template.taxableAmount),
-      taxRate: toDecimal(template.taxRate),
-      salesTax: toDecimal(template.salesTax),
-      total: toDecimal(template.total),
-      totalWeight: toDecimal(template.totalWeight),
-      totalYards: toDecimal(template.totalYards),
+      subtotal: computed.subtotal,
+      discountAmount: new Prisma.Decimal(0),
+      deliveryAmount,
+      taxableAmount: computed.taxableAmount,
+      taxRate: toQuoteDecimal(template.taxRate),
+      salesTax: computed.salesTax,
+      total: computed.total,
+      totalWeight,
+      totalYards,
       internalNotes: template.internalNotes,
       customerNotes: template.customerNotes,
       termsAndConditions: template.termsAndConditions,
       leadTime: template.leadTime,
       deliveryNotes: template.deliveryNotes,
       lineItems: {
-        create: template.lineItems.map((line) => ({
-          lineNumber: line.lineNumber,
-          lineType: line.lineType,
-          productId: line.productId,
-          jobStructureId: null,
-          itemCode: line.itemCode,
-          description: line.description,
-          quantity: toDecimal(line.quantity),
-          unit: line.unit,
-          unitPrice: toDecimal(line.unitPrice),
-          weight: toOptionalDecimal(line.weight),
-          yards: toOptionalDecimal(line.yards),
-          taxable: line.taxable,
-          total: toDecimal(line.total),
-          statusNote: line.statusNote,
-          sortOrder: line.sortOrder,
-          notes: line.notes,
-          isDrainRing: line.isDrainRing,
-          ringDiameterFeet: toOptionalDecimal(line.ringDiameterFeet),
-          poolHeightFeet: toOptionalDecimal(line.poolHeightFeet),
-          drainRingStyle: line.isDrainRing
-            ? parseDrainRingStyle(line.drainRingStyle)
-            : "DRAIN",
-        })),
+        create: template.lineItems.map((line, index) =>
+          mapLineItemForCreate(line, computed.lineTotals[index]),
+        ),
       },
     },
     select: { id: true },

@@ -12,7 +12,9 @@ import {
   JobFilesBrowser,
 } from "@/components/files/job-files-browser";
 import type { JobFileBrowserItem } from "@/lib/job-file-mapper";
-import type { JobDetailTab, JobDetailView } from "@/components/jobs/job-utils";
+import { JobDeliveriesTable } from "@/components/jobs/job-deliveries-table";
+import { JobProgressPanel } from "@/components/jobs/job-progress-panel";
+import type { JobDetailTab, JobDetailView, JobProgressView } from "@/components/jobs/job-utils";
 
 const CONSTRUCTION_PLANS_CATEGORY = "01 Construction Plans";
 
@@ -25,6 +27,7 @@ type JobDetailContentProps = {
   fileCategory: string;
   isFavorited: boolean;
   bidListCustomers?: { id: string; name: string }[];
+  progress?: JobProgressView | null;
 };
 
 const TAB_ORDER: JobDetailTab[] = [
@@ -32,6 +35,7 @@ const TAB_ORDER: JobDetailTab[] = [
   "bidding",
   "quotes",
   "deliveries",
+  "progress",
   "production",
   "invoices",
   "construction-plans",
@@ -43,6 +47,7 @@ const TAB_LABELS: Record<JobDetailTab, string> = {
   bidding: "Bidding",
   quotes: "Quotes",
   deliveries: "Deliveries",
+  progress: "Progress",
   production: "Production",
   invoices: "Invoices",
   "construction-plans": "Construction Plans",
@@ -126,11 +131,13 @@ export function JobDetailContent({
   fileCategory,
   isFavorited,
   bidListCustomers = [],
+  progress = null,
 }: JobDetailContentProps) {
   const tabCounts: Partial<Record<JobDetailTab, number>> = {
     bidding: detail.bidders.length,
     quotes: detail.relatedQuotes.length,
     deliveries: detail.relatedDeliveries.length,
+    progress: progress?.lines.length,
     production: detail.relatedStructures.length,
     invoices: detail.relatedInvoices.length,
   };
@@ -366,10 +373,18 @@ export function JobDetailContent({
             detail.relatedDeliveries.length === 1 ? "" : "s"
           }`}
           action={
-            <NewRecordLink
-              href={`/delivery-tickets/new?jobId=${detail.id}`}
-              label="New Delivery Ticket"
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href={`/delivery-tickets/new?jobId=${detail.id}&fulfillment=pickup`}
+                className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                New Pickup Ticket
+              </Link>
+              <NewRecordLink
+                href={`/delivery-tickets/new?jobId=${detail.id}`}
+                label="New Delivery Ticket"
+              />
+            </div>
           }
           noPadding
         >
@@ -385,44 +400,15 @@ export function JobDetailContent({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {detail.relatedDeliveries.length === 0 ? (
-                  <EmptyRow
-                    colSpan={5}
-                    message="No delivery tickets for this job yet."
-                  />
-                ) : (
-                  detail.relatedDeliveries.map((ticket) => (
-                    <tr key={ticket.id} className="hover:bg-slate-50/60">
-                      <td className="px-3 py-2.5">
-                        <Link
-                          href={`/delivery-tickets/${ticket.id}`}
-                          className="font-medium text-slate-900 hover:text-slate-700"
-                        >
-                          {ticket.ticketNumber}
-                        </Link>
-                      </td>
-                      <td className="px-3 py-2.5 text-slate-700">
-                        {ticket.projectName}
-                      </td>
-                      <td className="px-3 py-2.5 text-slate-600">
-                        {ticket.deliveryDate}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <StatusBadge
-                          label={ticket.statusLabel}
-                          variant={ticket.statusVariant}
-                        />
-                      </td>
-                      <td className="px-3 py-2.5 text-slate-600">
-                        {ticket.lastUpdated}
-                      </td>
-                    </tr>
-                  ))
-                )}
+                <JobDeliveriesTable deliveries={detail.relatedDeliveries} />
               </tbody>
             </table>
           </div>
         </SectionCard>
+      ) : null}
+
+      {activeTab === "progress" && progress ? (
+        <JobProgressPanel jobId={detail.id} progress={progress} />
       ) : null}
 
       {activeTab === "production" ? (

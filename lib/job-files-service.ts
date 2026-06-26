@@ -2,6 +2,11 @@ import { access, readdir, stat, writeFile } from "fs/promises";
 import path from "path";
 import type { PrismaClient } from "@/app/generated/prisma/client";
 import { JOB_SUBFOLDERS } from "@/lib/job-folder-constants";
+import { assertUploadAllowed } from "@/lib/upload-validation";
+import {
+  resolveUniqueFilePath,
+  sanitizeFileName,
+} from "@/lib/file-upload-utils";
 
 export type JobFolderCategory = (typeof JOB_SUBFOLDERS)[number];
 
@@ -94,33 +99,6 @@ export async function assertJobFolderPath(
   return { ...job, folderPath };
 }
 
-function sanitizeFileName(fileName: string) {
-  const base = path.basename(fileName.trim());
-  if (!base || base === "." || base === "..") {
-    throw new Error("Invalid file name.");
-  }
-  return base.replace(/[<>:"/\\|?*]/g, "_");
-}
-
-async function resolveUniqueFilePath(directory: string, fileName: string) {
-  const exactPath = path.join(directory, fileName);
-  if (!(await pathExists(exactPath))) {
-    return exactPath;
-  }
-
-  const ext = path.extname(fileName);
-  const stem = path.basename(fileName, ext);
-
-  for (let suffix = 1; suffix <= 999; suffix += 1) {
-    const candidate = path.join(directory, `${stem}-${suffix}${ext}`);
-    if (!(await pathExists(candidate))) {
-      return candidate;
-    }
-  }
-
-  throw new Error(`Could not find an available file name for "${fileName}".`);
-}
-
 export async function registerJobFile(
   client: PrismaClient,
   jobId: string,
@@ -175,7 +153,7 @@ async function scanCategoryDirectory(
   }
 
   const entries = await readdir(categoryPath, { withFileTypes: true });
-  const diskPaths = new Set<string>();
+  const diskFiles = new Map<string, string>();
 
   for (const entry of entries) {
     if (!entry.isFile()) {
@@ -183,56 +161,62 @@ async function scanCategoryDirectory(
     }
 
     const filePath = normalizePath(path.join(categoryPath, entry.name));
-    diskPaths.add(filePath);
-
-    const existing = await client.jobFile.findFirst({
-      where: { jobId, filePath },
-    });
-
-    if (existing) {
-      if (
-        existing.fileName !== entry.name ||
-        existing.folderCategory !== folderCategory
-      ) {
-        await client.jobFile.update({
-          where: { id: existing.id },
-          data: {
-            fileName: entry.name,
-            folderCategory,
-            updatedAt: new Date(),
-          },
-        });
-      }
-      continue;
-    }
-
-    await client.jobFile.create({
-      data: {
-        jobId,
-        fileName: entry.name,
-        filePath,
-        folderCategory,
-      },
-    });
+    diskFiles.set(filePath, entry.name);
   }
 
+  // Load the whole category index once instead of one findFirst per disk file.
   const registered = await client.jobFile.findMany({
     where: { jobId, folderCategory },
-    select: { id: true, filePath: true },
+    select: { id: true, filePath: true, fileName: true },
   });
+  const registeredByPath = new Map(
+    registered.map((row) => [normalizePath(row.filePath), row]),
+  );
+
+  const toCreate: {
+    jobId: string;
+    fileName: string;
+    filePath: string;
+    folderCategory: string;
+  }[] = [];
+
+  for (const [filePath, fileName] of diskFiles) {
+    const existing = registeredByPath.get(filePath);
+    if (!existing) {
+      toCreate.push({ jobId, fileName, filePath, folderCategory });
+      continue;
+    }
+    if (existing.fileName !== fileName) {
+      await client.jobFile.update({
+        where: { id: existing.id },
+        data: { fileName, updatedAt: new Date() },
+      });
+    }
+  }
+
+  if (toCreate.length > 0) {
+    await client.jobFile.createMany({
+      data: toCreate,
+      skipDuplicates: true,
+    });
+  }
 
   // If the directory enumerated as empty but we have previously-indexed
   // files for this category, treat it as a suspicious/transient read
   // (e.g. a network-share hiccup) rather than evidence every file was
   // deleted, and skip the cleanup pass to avoid wiping the index.
-  if (diskPaths.size === 0 && registered.length > 0) {
+  if (diskFiles.size === 0 && registered.length > 0) {
     return;
   }
 
-  for (const row of registered) {
-    if (!diskPaths.has(normalizePath(row.filePath))) {
-      await client.jobFile.delete({ where: { id: row.id } });
-    }
+  const idsToDelete = registered
+    .filter((row) => !diskFiles.has(normalizePath(row.filePath)))
+    .map((row) => row.id);
+
+  if (idsToDelete.length > 0) {
+    await client.jobFile.deleteMany({
+      where: { id: { in: idsToDelete } },
+    });
   }
 }
 
@@ -302,17 +286,17 @@ export async function syncAllJobFilesFromDisk(
   return result;
 }
 
+/**
+ * Read-only listing of indexed job files. Does NOT scan the disk; callers that
+ * need to reconcile the index with disk must invoke `syncJobFilesFromDisk`
+ * explicitly (e.g. on upload or an explicit "Refresh" action). Keeping this
+ * read-only avoids a 10-folder disk scan on every page load.
+ */
 export async function listJobFiles(
   client: PrismaClient,
   jobId: string,
   folderCategory?: string,
 ): Promise<JobFileRecord[]> {
-  try {
-    await syncJobFilesFromDisk(client, jobId);
-  } catch (error) {
-    console.error(`Could not sync job files for ${jobId}:`, error);
-  }
-
   return client.jobFile.findMany({
     where: {
       jobId,
@@ -402,6 +386,8 @@ export async function uploadJobFile(
   if (!isJobFolderCategory(folderCategory)) {
     throw new Error(`Invalid folder category: ${folderCategory}`);
   }
+
+  assertUploadAllowed(file);
 
   const job = await assertJobFolderPath(client, jobId);
   const categoryPath = resolveCategoryPath(job.folderPath, folderCategory);

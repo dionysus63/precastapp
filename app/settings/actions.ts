@@ -11,10 +11,8 @@ import {
   getAppSettings,
   parseLinesList,
 } from "@/lib/app-settings";
-import {
-  removeCompanyLogo,
-  saveCompanyLogo,
-} from "@/lib/company-logo";
+import { removeCompanyLogo } from "@/lib/company-logo";
+import { saveCompanyLogo } from "@/lib/company-logo-raster";
 import {
   conflictsNotCoveredByRenames,
   findCatalogInUseConflicts,
@@ -30,6 +28,10 @@ import {
   getProductCatalog,
   getProductCatalogUsage,
 } from "@/lib/product-catalog-settings.server";
+import {
+  parseRingBuilderConfigFromFormData,
+  validateRingBuilderConfig,
+} from "@/lib/ring-builder-settings";
 import { writeAuditLog } from "@/lib/auth/audit";
 import {
   isSettingsResetConfigured,
@@ -49,9 +51,12 @@ function revalidateSettingsPaths() {
   revalidatePath("/settings/files");
   revalidatePath("/settings/operations");
   revalidatePath("/settings/products");
+  revalidatePath("/settings/rings");
+  revalidatePath("/settings/casting-suppliers");
   revalidatePath("/settings/system");
   revalidatePath("/settings/data-reset");
   revalidatePath("/products");
+  revalidatePath("/quotes/new");
   revalidatePath("/products/new");
   revalidatePath("/", "layout");
 }
@@ -206,6 +211,14 @@ export async function updateCompanySettingsFormAction(
   const appSubtitle = String(formData.get("appSubtitle") ?? "").trim();
   const quoteFooterText =
     String(formData.get("quoteFooterText") ?? "").trim() || null;
+  const deliveryTicketCopy1Title =
+    String(formData.get("deliveryTicketCopy1Title") ?? "").trim() || null;
+  const deliveryTicketCopy2Title =
+    String(formData.get("deliveryTicketCopy2Title") ?? "").trim() || null;
+  const deliveryTicketCopy3Title =
+    String(formData.get("deliveryTicketCopy3Title") ?? "").trim() || null;
+  const deliveryTicketFooterText =
+    String(formData.get("deliveryTicketFooterText") ?? "").trim() || null;
 
   if (!companyName || !companyAddress || !companyPhone || !companyEmail) {
     return { error: "Company name, address, phone, and email are required." };
@@ -223,6 +236,10 @@ export async function updateCompanySettingsFormAction(
     appTitle,
     appSubtitle,
     quoteFooterText,
+    deliveryTicketCopy1Title,
+    deliveryTicketCopy2Title,
+    deliveryTicketCopy3Title,
+    deliveryTicketFooterText,
   });
 }
 
@@ -453,6 +470,38 @@ export async function updateProductCatalogSettingsFormAction(
 
   return updateAppSettings({
     productCatalog: catalog,
+  });
+}
+
+export async function updateRingBuilderSettingsFormAction(
+  formData: FormData,
+): Promise<SettingsActionResult> {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
+
+  const raw = String(formData.get("ringBuilderConfig") ?? "").trim();
+  if (!raw) {
+    return { error: "Ring builder configuration data is required." };
+  }
+
+  let config;
+  try {
+    config = parseRingBuilderConfigFromFormData(raw);
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Invalid ring builder configuration data.",
+    };
+  }
+
+  const validationError = validateRingBuilderConfig(config);
+  if (validationError) {
+    return { error: validationError };
+  }
+
+  return updateAppSettings({
+    ringBuilderConfig: config,
   });
 }
 
@@ -765,19 +814,26 @@ export async function clearAllCustomersFormAction(
     return { success: "No customers to delete." };
   }
 
-  const result = await prisma.customer.deleteMany();
+  const result = await prisma.$transaction(async (tx) => {
+    const biddersDeleted = await tx.jobBidder.deleteMany();
+    const customersDeleted = await tx.customer.deleteMany();
+    return { biddersDeleted: biddersDeleted.count, customersDeleted: customersDeleted.count };
+  });
 
   await writeAuditLog({
     userId: user.id,
     action: "settings.clear_all_customers",
     entityType: "Customer",
-    summary: `${user.displayName} cleared all customers (${result.count} deleted)`,
-    metadata: { deletedCount: result.count },
+    summary: `${user.displayName} cleared all customers (${result.customersDeleted} deleted, ${result.biddersDeleted} bid list entries removed)`,
+    metadata: {
+      deletedCount: result.customersDeleted,
+      biddersDeleted: result.biddersDeleted,
+    },
   });
 
   revalidateAfterCustomerReset();
   return {
-    success: `Deleted ${result.count} customer${result.count === 1 ? "" : "s"}.`,
+    success: `Deleted ${result.customersDeleted} customer${result.customersDeleted === 1 ? "" : "s"}.`,
   };
 }
 

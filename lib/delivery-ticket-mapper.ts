@@ -1,6 +1,8 @@
 import type { DeliveryTicketDetailView } from "@/components/delivery-tickets/delivery-ticket-utils";
 import type { DeliveryTicketRow } from "@/components/delivery-tickets/delivery-ticket-utils";
 import { deliveryTicketStatusLabels } from "@/components/delivery-tickets/delivery-ticket-utils";
+import { formatWeightLb } from "@/lib/format";
+import { deliveryTicketStatusVariant } from "@/lib/status-variants";
 
 type DbDeliveryTicket = {
   id: string;
@@ -63,21 +65,6 @@ function formatDateIsoLocal(value: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function formatWeight(value: { toString(): string } | null): string {
-  if (!value) return "—";
-  return `${Number(value).toLocaleString()} lb`;
-}
-
-function statusVariant(
-  status: string,
-): "success" | "info" | "warning" | "neutral" | "default" {
-  if (status === "DELIVERED") return "success";
-  if (status === "IN_TRANSIT" || status === "LOADING") return "warning";
-  if (status === "SCHEDULED") return "info";
-  if (status === "CANCELLED") return "neutral";
-  return "default";
-}
-
 export function mapDbDeliveryTicketToDetailView(
   ticket: DbDeliveryTicket,
 ): DeliveryTicketDetailView {
@@ -91,13 +78,13 @@ export function mapDbDeliveryTicketToDetailView(
     subtitle: `${ticket.projectName} — ${ticket.customerName}`,
     status: statusKey as DeliveryTicketDetailView["status"],
     statusLabel,
-    statusVariant: statusVariant(ticket.status),
+    statusVariant: deliveryTicketStatusVariant(ticket.status),
     deliveryDate: formatDate(ticket.deliveryDate),
     deliveryTime: ticket.deliveryTime ?? "—",
     truck: ticket.truck ?? "—",
     trailer: ticket.trailer ?? "—",
     driver: ticket.driver ?? "—",
-    totalWeight: formatWeight(ticket.totalWeight),
+    totalWeight: formatWeightLb(ticket.totalWeight),
     jobNumber: ticket.jobNumber ?? "—",
     projectName: ticket.projectName,
     customer: ticket.customerName,
@@ -123,8 +110,8 @@ export function mapDbDeliveryTicketToDetailView(
       description: line.description ?? "—",
       qty: line.quantity.toString(),
       unit: line.unit,
-      weightEach: formatWeight(line.weightEach),
-      totalWeight: formatWeight(line.totalWeight),
+      weightEach: formatWeightLb(line.weightEach),
+      totalWeight: formatWeightLb(line.totalWeight),
       yardLocation: line.yardLocation ?? "—",
       status: line.status.replace(/_/g, " "),
       statusVariant: "info" as const,
@@ -132,7 +119,7 @@ export function mapDbDeliveryTicketToDetailView(
     })),
     summary: {
       totalItems: String(ticket.totalItems ?? ticket.lineItems.length),
-      totalWeight: formatWeight(ticket.totalWeight),
+      totalWeight: formatWeightLb(ticket.totalWeight),
       truckCapacity: "—",
       remainingCapacity: "—",
       deliveryDate: formatDate(ticket.deliveryDate),
@@ -172,16 +159,6 @@ export function mapDbDeliveryTicketToDetailView(
   };
 }
 
-function listStatusVariant(
-  status: string,
-): DeliveryTicketRow["statusVariant"] {
-  if (status === "DELIVERED") return "success";
-  if (status === "IN_TRANSIT" || status === "LOADING") return "warning";
-  if (status === "SCHEDULED") return "info";
-  if (status === "CANCELLED") return "neutral";
-  return "default";
-}
-
 export function mapDbDeliveryTicketToListRow(ticket: {
   id: string;
   ticketNumber: string;
@@ -193,11 +170,12 @@ export function mapDbDeliveryTicketToListRow(ticket: {
   truck: string | null;
   driver: string | null;
   status: string;
-  lineItems: { totalWeight: { toString(): string } | null }[];
+  totalItems: number | null;
+  totalWeight: { toString(): string } | null;
+  _count: { lineItems: number };
 }): DeliveryTicketRow {
-  const totalWeight = ticket.lineItems.reduce((sum, line) => {
-    return sum + (line.totalWeight ? Number(line.totalWeight) : 0);
-  }, 0);
+  const totalWeight = ticket.totalWeight ? Number(ticket.totalWeight) : 0;
+  const itemCount = ticket.totalItems ?? ticket._count.lineItems;
 
   return {
     id: ticket.id,
@@ -213,8 +191,8 @@ export function mapDbDeliveryTicketToListRow(ticket: {
     truck: ticket.truck ?? "—",
     driver: ticket.driver ?? "—",
     status: ticket.status as DeliveryTicketRow["status"],
-    statusVariant: listStatusVariant(ticket.status),
-    items: ticket.lineItems.length,
+    statusVariant: deliveryTicketStatusVariant(ticket.status),
+    items: itemCount,
     totalWeight: totalWeight > 0 ? `${totalWeight.toLocaleString()} lb` : "—",
   };
 }

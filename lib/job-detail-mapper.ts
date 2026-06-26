@@ -2,6 +2,7 @@ import type {
   Contact,
   Customer,
   DeliveryTicket,
+  DeliveryTicketLineItem,
   Invoice,
   Job,
   JobBidder,
@@ -13,6 +14,7 @@ import {
   type JobBidderContactOption,
   type JobBidderRow,
   type JobBiddingSummary,
+  type JobDeliveryLineItem,
   type JobDetailView,
   type JobInvoiceableDelivery,
   type JobMasterQuoteOption,
@@ -23,6 +25,8 @@ import {
   type JobStatusVariant,
 } from "@/components/jobs/job-utils";
 import { quoteStatusLabels, type QuoteStatus } from "@/components/quotes/quote-utils";
+import { formatDateShort, formatUsd, formatWeightLb } from "@/lib/format";
+import { jobStatusVariant, quoteStatusVariant } from "@/lib/status-variants";
 import {
   deliveryTicketStatusLabels,
   type DeliveryTicketStatus,
@@ -32,7 +36,18 @@ import {
 } from "@/components/structures/structure-utils";
 import { mapStructureForJobList } from "@/lib/job-structure-detail-mapper";
 
-type DecimalLike = { toString(): string };
+type DeliveryTicketLineItemSummary = Pick<
+  DeliveryTicketLineItem,
+  | "id"
+  | "lineNumber"
+  | "itemCode"
+  | "description"
+  | "quantity"
+  | "unit"
+  | "totalWeight"
+  | "status"
+  | "yardLocation"
+>;
 
 export type JobWithRelations = Job & {
   quotes: (Quote & { _count?: { lineItems: number } })[];
@@ -40,7 +55,10 @@ export type JobWithRelations = Job & {
     customer: Customer & { contacts: Contact[] };
     quotes: Quote[];
   })[];
-  deliveryTickets: (DeliveryTicket & { invoice?: { id: string } | null })[];
+  deliveryTickets: (DeliveryTicket & {
+    invoice?: { id: string } | null;
+    lineItems?: DeliveryTicketLineItemSummary[];
+  })[];
   jobStructures: (JobStructure & { _count?: { documents: number } })[];
   invoices: (Invoice & { deliveryTicket?: { ticketNumber: string } | null })[];
 };
@@ -49,59 +67,7 @@ function formatDate(date: Date | null | undefined): string {
   if (!date) {
     return "—";
   }
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(date);
-}
-
-function formatCurrency(value: DecimalLike | null | undefined): string {
-  const amount = value == null ? 0 : Number.parseFloat(value.toString());
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(Number.isFinite(amount) ? amount : 0);
-}
-
-function jobStatusVariant(status: string): JobStatusVariant {
-  switch (status) {
-    case "ACTIVE":
-    case "AWARDED":
-    case "COMPLETE":
-      return "success";
-    case "QUOTING":
-    case "SUBMITTED":
-    case "LEAD":
-      return "info";
-    case "ON_HOLD":
-      return "warning";
-    case "LOST":
-    case "CANCELLED":
-      return "danger";
-    default:
-      return "neutral";
-  }
-}
-
-function quoteStatusVariant(status: string): JobStatusVariant {
-  switch (status) {
-    case "WON":
-      return "success";
-    case "SENT":
-    case "IN_REVIEW":
-      return "info";
-    case "REVISED":
-      return "warning";
-    case "LOST":
-    case "LOST_BC":
-    case "EXPIRED":
-    case "CANCELLED":
-      return "danger";
-    default:
-      return "default";
-  }
+  return formatDateShort(date);
 }
 
 function deliveryStatusVariant(status: string): JobStatusVariant {
@@ -152,7 +118,7 @@ function mapQuote(quote: Quote): JobRelatedQuote {
     customerName: quote.customerName,
     statusLabel: quoteStatusLabels[status] ?? quote.status,
     statusVariant: quoteStatusVariant(quote.status),
-    total: formatCurrency(quote.total),
+    total: formatUsd(quote.total ?? 0),
     lastUpdated: formatDate(quote.updatedAt),
   };
 }
@@ -275,7 +241,45 @@ function mapMasterQuoteOptions(
     }));
 }
 
-function mapDelivery(ticket: DeliveryTicket): JobRelatedDelivery {
+function deliveryItemStatusVariant(status: string): JobStatusVariant {
+  switch (status) {
+    case "DELIVERED":
+    case "LOADED":
+    case "READY":
+      return "success";
+    case "LOADING":
+      return "info";
+    case "NOT_READY":
+      return "warning";
+    case "CANCELLED":
+      return "danger";
+    default:
+      return "neutral";
+  }
+}
+
+function mapDeliveryLineItem(
+  line: DeliveryTicketLineItemSummary,
+): JobDeliveryLineItem {
+  return {
+    id: line.id,
+    lineNumber: line.lineNumber,
+    itemCode: line.itemCode,
+    description: line.description ?? "—",
+    quantity: Number(line.quantity).toLocaleString("en-US", {
+      maximumFractionDigits: 4,
+    }),
+    unit: line.unit,
+    totalWeight: formatWeightLb(line.totalWeight),
+    yardLocation: line.yardLocation ?? "—",
+    statusLabel: line.status.replace(/_/g, " "),
+    statusVariant: deliveryItemStatusVariant(line.status),
+  };
+}
+
+function mapDelivery(
+  ticket: DeliveryTicket & { lineItems?: DeliveryTicketLineItemSummary[] },
+): JobRelatedDelivery {
   const status = ticket.status as DeliveryTicketStatus;
   return {
     id: ticket.id,
@@ -285,6 +289,7 @@ function mapDelivery(ticket: DeliveryTicket): JobRelatedDelivery {
     statusVariant: deliveryStatusVariant(ticket.status),
     deliveryDate: formatDate(ticket.deliveryDate),
     lastUpdated: formatDate(ticket.updatedAt),
+    lineItems: (ticket.lineItems ?? []).map(mapDeliveryLineItem),
   };
 }
 
@@ -303,7 +308,7 @@ function mapInvoice(
     ticketNumber: invoice.deliveryTicket?.ticketNumber ?? "—",
     statusLabel: invoice.status.replace(/_/g, " "),
     statusVariant: invoiceStatusVariant(invoice.status),
-    total: formatCurrency(invoice.total),
+    total: formatUsd(invoice.total),
     invoiceDate: formatDate(invoice.invoiceDate),
   };
 }
@@ -358,11 +363,11 @@ export function mapJobToDetailView(job: JobWithRelations): JobDetailView {
     {
       label: "Quotes",
       value: String(job.quotes.length),
-      detail: `${formatCurrency(totalQuoted)} quoted`,
+      detail: `${formatUsd(totalQuoted)} quoted`,
     },
     {
       label: "Won Value",
-      value: formatCurrency(wonQuoted),
+      value: formatUsd(wonQuoted),
       detail: `${job.quotes.filter((q) => q.status === "WON").length} won`,
     },
     {
@@ -380,7 +385,7 @@ export function mapJobToDetailView(job: JobWithRelations): JobDetailView {
     {
       label: "Invoices",
       value: String(job.invoices.length),
-      detail: `${formatCurrency(invoicedTotal)} invoiced`,
+      detail: `${formatUsd(invoicedTotal)} invoiced`,
     },
   ];
 

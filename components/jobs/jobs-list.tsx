@@ -1,77 +1,56 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
+import { PaginationControls } from "@/components/common/pagination-controls";
+import {
+  useDebouncedSearchParam,
+  useListQuery,
+} from "@/components/common/use-list-query";
 import {
   type JobRow,
-  buildJobCustomerFilterOptions,
-  buildJobYearFilterOptions,
-  jobStatusFilterOptions,
+  jobStatusFormOptions,
 } from "@/components/jobs/job-utils";
 import { CreateJobFolderButton } from "@/components/jobs/create-job-folder-button";
 import { OpenJobFolderButton } from "@/components/jobs/open-job-folder-button";
 import { JobFavoriteStar } from "@/components/jobs/job-favorite-star";
+import type { PageInfo } from "@/lib/list-params";
+
+type JobsListFilters = {
+  search: string;
+  status: string;
+  year: string;
+  customer: string;
+};
 
 type JobsListProps = {
   jobs: JobRow[];
+  favoriteJobs: JobRow[];
   favoriteJobIds: string[];
+  pageInfo: PageInfo;
+  filters: JobsListFilters;
+  yearOptions: string[];
+  customerOptions: string[];
 };
 
-export function JobsList({ jobs, favoriteJobIds }: JobsListProps) {
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [yearFilter, setYearFilter] = useState("All");
-  const [customerFilter, setCustomerFilter] = useState("All");
+export function JobsList({
+  jobs,
+  favoriteJobs,
+  favoriteJobIds,
+  pageInfo,
+  filters,
+  yearOptions,
+  customerOptions,
+}: JobsListProps) {
+  const { setParams } = useListQuery();
+  const { search, setSearch } = useDebouncedSearchParam("q", filters.search);
 
   const favoriteIdSet = useMemo(
     () => new Set(favoriteJobIds),
     [favoriteJobIds],
   );
-
-  const jobsById = useMemo(
-    () => new Map(jobs.map((job) => [job.id, job])),
-    [jobs],
-  );
-
-  const favoriteJobs = useMemo(() => {
-    return favoriteJobIds
-      .map((jobId) => jobsById.get(jobId))
-      .filter((job): job is JobRow => job != null);
-  }, [favoriteJobIds, jobsById]);
-
-  const yearFilterOptions = useMemo(
-    () => buildJobYearFilterOptions(jobs.map((job) => job.year)),
-    [jobs],
-  );
-
-  const customerFilterOptions = useMemo(
-    () => buildJobCustomerFilterOptions(jobs.map((job) => job.customer)),
-    [jobs],
-  );
-
-  const filteredJobs = useMemo(() => {
-    return jobs.filter((job) => {
-      const matchesSearch =
-        search.trim() === "" ||
-        job.jobNumber.toLowerCase().includes(search.toLowerCase()) ||
-        job.projectName.toLowerCase().includes(search.toLowerCase()) ||
-        job.customer.toLowerCase().includes(search.toLowerCase()) ||
-        job.projectAddress.toLowerCase().includes(search.toLowerCase());
-
-      const matchesStatus =
-        statusFilter === "All" || job.status === statusFilter;
-
-      const matchesYear =
-        yearFilter === "All" || String(job.year) === yearFilter;
-
-      const matchesCustomer =
-        customerFilter === "All" || job.customer === customerFilter;
-
-      return matchesSearch && matchesStatus && matchesYear && matchesCustomer;
-    });
-  }, [jobs, search, statusFilter, yearFilter, customerFilter]);
 
   return (
     <div className="space-y-4">
@@ -115,10 +94,7 @@ export function JobsList({ jobs, favoriteJobIds }: JobsListProps) {
                 <span className="hidden max-w-[120px] truncate text-slate-500 sm:inline">
                   {job.customer}
                 </span>
-                <StatusBadge
-                  label={job.status}
-                  variant={job.statusVariant}
-                />
+                <StatusBadge label={job.status} variant={job.statusVariant} />
               </div>
             ))}
           </div>
@@ -135,33 +111,34 @@ export function JobsList({ jobs, favoriteJobIds }: JobsListProps) {
             className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm placeholder:text-slate-400 lg:max-w-xs"
           />
           <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
+            value={filters.status || "All"}
+            onChange={(event) => setParams({ status: event.target.value })}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
           >
-            {jobStatusFilterOptions.map((status) => (
-              <option key={status} value={status}>
-                Status: {status}
+            <option value="All">Status: All</option>
+            {jobStatusFormOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                Status: {option.label}
               </option>
             ))}
           </select>
           <select
-            value={yearFilter}
-            onChange={(event) => setYearFilter(event.target.value)}
+            value={filters.year || "All"}
+            onChange={(event) => setParams({ year: event.target.value })}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
           >
-            {yearFilterOptions.map((year) => (
+            {yearOptions.map((year) => (
               <option key={year} value={year}>
                 Year: {year}
               </option>
             ))}
           </select>
           <select
-            value={customerFilter}
-            onChange={(event) => setCustomerFilter(event.target.value)}
+            value={filters.customer || "All"}
+            onChange={(event) => setParams({ customer: event.target.value })}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
           >
-            {customerFilterOptions.map((customer) => (
+            {customerOptions.map((customer) => (
               <option key={customer} value={customer}>
                 Customer: {customer}
               </option>
@@ -179,7 +156,7 @@ export function JobsList({ jobs, favoriteJobIds }: JobsListProps) {
 
       <SectionCard
         title="Job List"
-        description={`${filteredJobs.length} job${filteredJobs.length === 1 ? "" : "s"} shown`}
+        description={`${pageInfo.total.toLocaleString()} job${pageInfo.total === 1 ? "" : "s"} match`}
         noPadding
       >
         <div className="overflow-x-auto">
@@ -202,19 +179,19 @@ export function JobsList({ jobs, favoriteJobIds }: JobsListProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredJobs.length === 0 ? (
+              {jobs.length === 0 ? (
                 <tr>
                   <td
                     colSpan={11}
                     className="px-4 py-8 text-center text-sm text-slate-500"
                   >
-                    {jobs.length === 0
-                      ? "No jobs yet. Create your first job to get started."
-                      : "No jobs match your search or filters."}
+                    {pageInfo.total === 0
+                      ? "No jobs match your search or filters."
+                      : "No jobs on this page."}
                   </td>
                 </tr>
               ) : (
-                filteredJobs.map((job) => (
+                jobs.map((job) => (
                   <tr key={job.id} className="hover:bg-slate-50/60">
                     <td className="px-2 py-2.5">
                       <JobFavoriteStar
@@ -289,6 +266,14 @@ export function JobsList({ jobs, favoriteJobIds }: JobsListProps) {
             </tbody>
           </table>
         </div>
+        <PaginationControls
+          page={pageInfo.page}
+          totalPages={pageInfo.totalPages}
+          fromIndex={pageInfo.fromIndex}
+          toIndex={pageInfo.toIndex}
+          total={pageInfo.total}
+          noun="job"
+        />
       </SectionCard>
     </div>
   );

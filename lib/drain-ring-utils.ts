@@ -1,6 +1,6 @@
 export type DrainRingStyle = "DRAIN" | "SANITARY" | "SOLID";
 
-export const DRAIN_RING_SANITARY_DIAMETERS = [8, 10] as const;
+export const DRAIN_RING_SANITARY_DIAMETERS = [8, 10, 12] as const;
 
 export const drainRingStyleFormOptions: {
   value: DrainRingStyle;
@@ -15,6 +15,17 @@ export function diameterSupportsSanitaryDrainRing(diameter: number): boolean {
   return DRAIN_RING_SANITARY_DIAMETERS.includes(
     diameter as (typeof DRAIN_RING_SANITARY_DIAMETERS)[number],
   );
+}
+
+export function formatSanitaryDrainRingDiametersLabel(): string {
+  const feet = DRAIN_RING_SANITARY_DIAMETERS.map((diameter) => `${diameter}'`);
+  if (feet.length <= 1) {
+    return feet[0] ?? "";
+  }
+  if (feet.length === 2) {
+    return `${feet[0]} and ${feet[1]}`;
+  }
+  return `${feet.slice(0, -1).join(", ")}, and ${feet[feet.length - 1]}`;
 }
 
 export function getDrainRingStyleOptionsForDiameter(diameter: number): {
@@ -117,7 +128,7 @@ export function assertSanitaryDrainRingAllowed(
   }
   if (diameter == null || !diameterSupportsSanitaryDrainRing(diameter)) {
     throw new Error(
-      `${context}: Sanitary rings are only available for 8' and 10' diameters.`,
+      `${context}: Sanitary rings are only available for ${formatSanitaryDrainRingDiametersLabel()} diameters.`,
     );
   }
 }

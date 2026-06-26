@@ -1,11 +1,22 @@
 import type { ProductRow, ProductType } from "@/components/products/product-utils";
 import { productTypeLabels } from "@/components/products/product-utils";
+import { formatUsd } from "@/lib/format";
+import {
+  formatProductKindBadgeLabel,
+} from "@/lib/product-kinds";
+import {
+  productStatusVariant,
+  productTypeVariant,
+} from "@/lib/status-variants";
+
+import type { ProductKind } from "@/app/generated/prisma/client";
 
 export type ProductRecord = {
   id: string;
   productCode: string;
   name: string;
   productType: string;
+  productKind?: ProductKind;
   category: string;
   description: string | null;
   unit: string;
@@ -21,6 +32,7 @@ export type ProductRecord = {
   status: string;
   notes: string | null;
   isCasting?: boolean;
+  castingRole?: string | null;
   _count?: {
     documents: number;
   };
@@ -92,41 +104,6 @@ function categoryVariant(category: string): ProductRow["categoryVariant"] {
   }
 }
 
-function statusVariant(status: string): ProductRow["statusVariant"] {
-  switch (status) {
-    case "ACTIVE":
-      return "success";
-    case "DISCONTINUED":
-      return "warning";
-    default:
-      return "neutral";
-  }
-}
-
-function productTypeVariant(productType: string): ProductRow["productTypeVariant"] {
-  switch (productType) {
-    case "STOCK":
-      return "success";
-    case "CONFIGURABLE":
-      return "info";
-    case "CUSTOM_STRUCTURE":
-      return "warning";
-    default:
-      return "neutral";
-  }
-}
-
-function formatCurrency(value: ProductRecord["defaultPrice"]) {
-  if (value === null || value === undefined) {
-    return "—";
-  }
-
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(Number(value));
-}
-
 function formatDecimal(value: ProductRecord["weight"]) {
   if (value === null || value === undefined) {
     return "—";
@@ -191,8 +168,8 @@ export function mapProductToDetail(
     category: product.category,
     description: product.description ?? "—",
     unit: product.unit,
-    defaultPrice: formatCurrency(product.defaultPrice),
-    cost: formatCurrency(product.cost),
+    defaultPrice: formatUsd(product.defaultPrice),
+    cost: formatUsd(product.cost),
     weight: formatDecimal(product.weight),
     yards: formatDecimal(product.yards),
     taxable: formatYesNo(product.taxable),
@@ -201,7 +178,7 @@ export function mapProductToDetail(
     reorderLevel: String(product.reorderLevel),
     yardLocation: product.yardLocation ?? "—",
     status: productStatusLabels[product.status] ?? product.status,
-    statusVariant: statusVariant(product.status),
+    statusVariant: productStatusVariant(product.status),
     notes: product.notes ?? "—",
     documents: documents.map((document) => ({
       id: document.id,
@@ -214,6 +191,9 @@ export function mapProductToDetail(
 }
 
 export function mapProductToRow(product: ProductRecord): ProductRow {
+  const productKind = product.productKind ?? "STANDARD";
+  const kindLabel = formatProductKindBadgeLabel(productKind);
+
   return {
     id: product.id,
     productCode: product.productCode,
@@ -225,13 +205,16 @@ export function mapProductToRow(product: ProductRecord): ProductRow {
     subcategory: product.description?.trim() || "—",
     categoryVariant: categoryVariant(product.category),
     unit: product.unit,
-    defaultPrice: formatCurrency(product.defaultPrice),
+    defaultPrice: formatUsd(product.defaultPrice),
     weight: formatDecimal(product.weight),
     yards: formatDecimal(product.yards),
     trackInventory: product.trackInventory,
     status: productStatusLabels[product.status] ?? product.status,
-    statusVariant: statusVariant(product.status),
+    statusVariant: productStatusVariant(product.status),
     submittalCount: product._count?.documents ?? 0,
     isCasting: product.isCasting ?? false,
+    castingRole: product.castingRole ?? undefined,
+    productKind,
+    productKindLabel: kindLabel ?? undefined,
   };
 }

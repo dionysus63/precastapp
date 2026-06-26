@@ -9,7 +9,7 @@ import {
 } from "@/lib/customer-contact-sync";
 import { withDatabaseRetry } from "@/lib/prisma";
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { isValidEmail } from "@/lib/validation/email";
 
 export type CustomerContactInput = {
   name: string;
@@ -27,7 +27,7 @@ function validateContactInput(input: CustomerContactInput) {
 
   const phone = input.phone?.trim() || null;
   const emailRaw = input.email?.trim() || "";
-  if (emailRaw && !EMAIL_PATTERN.test(emailRaw)) {
+  if (emailRaw && !isValidEmail(emailRaw)) {
     throw new Error("Email must be a valid email address.");
   }
 

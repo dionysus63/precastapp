@@ -15,7 +15,10 @@ import {
 import {
   markDeliveryTicketDelivered,
 } from "@/lib/delivery-fulfillment";
-import { convertDeliveryTicketToInvoice } from "@/lib/invoicing-service";
+import {
+  convertDeliveryTicketToInvoice,
+  maybeCreatePayNowInvoiceForTicket,
+} from "@/lib/invoicing-service";
 
 function parseReconciliationDate(value: string): Date | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
@@ -163,10 +166,22 @@ export async function deliverTicket(deliveryTicketId: string) {
     await withDatabaseRetry((client) =>
       markDeliveryTicketDelivered(client, deliveryTicketId),
     );
+    const invoiceResult = await withDatabaseRetry((client) =>
+      maybeCreatePayNowInvoiceForTicket(client, deliveryTicketId),
+    );
     revalidatePath("/delivery-tickets");
     revalidatePath(`/delivery-tickets/${deliveryTicketId}`);
+    revalidatePath("/walk-ins");
     revalidatePath("/inventory");
-    return { success: true };
+    if (invoiceResult.invoiceId) {
+      revalidatePath("/invoices");
+    }
+    return {
+      success: true,
+      warning: invoiceResult.error
+        ? `Ticket completed, but the pay-now invoice could not be created: ${invoiceResult.error}`
+        : null,
+    };
   } catch (error) {
     return {
       error:
@@ -256,6 +271,7 @@ export async function getQuoteFulfillmentForTicket(
   quoteId: string,
   excludeTicketId?: string,
 ) {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
   const { getQuoteLineFulfillment } = await import("@/lib/delivery-fulfillment");
   return withDatabaseRetry((client) =>
     getQuoteLineFulfillment(client, quoteId, excludeTicketId),
@@ -263,6 +279,7 @@ export async function getQuoteFulfillmentForTicket(
 }
 
 export async function listProductionQueue() {
+  await requirePermission(AppPermission.PRODUCTION_VIEW);
   return withDatabaseRetry((client) =>
     client.jobStructure.findMany({
       where: { status: { in: ["APPROVED", "IN_PRODUCTION"] } },
@@ -277,6 +294,7 @@ export async function listProductionQueue() {
 }
 
 export async function listInventoryProducts() {
+  await requirePermission(AppPermission.INVENTORY_VIEW);
   return withDatabaseRetry((client) =>
     client.product.findMany({
       where: { trackInventory: true, status: "ACTIVE" },
@@ -295,6 +313,7 @@ export async function listInventoryProducts() {
 }
 
 export async function listStockProductsForProduction() {
+  await requirePermission(AppPermission.PRODUCTION_VIEW);
   return withDatabaseRetry((client) =>
     client.product.findMany({
       where: { trackInventory: true, status: "ACTIVE", productType: "STOCK" },
@@ -305,6 +324,7 @@ export async function listStockProductsForProduction() {
 }
 
 export async function listTicketsForReconciliation(date: string) {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
   const start = parseReconciliationDate(date);
   if (!start) {
     return { tickets: [], reconciliation: null };
@@ -340,6 +360,7 @@ export async function listTicketsForReconciliation(date: string) {
 }
 
 export async function listJobsWithQuotes() {
+  await requirePermission(AppPermission.DELIVERY_VIEW);
   return withDatabaseRetry((client) =>
     client.job.findMany({
       orderBy: { jobNumber: "desc" },

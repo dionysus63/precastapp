@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@/app/generated/prisma/client";
 import { Prisma } from "@/app/generated/prisma/client";
 import { defaultInvoiceDueDate, getAppSettings } from "@/lib/app-settings";
+import { computeMoneyTotals } from "@/lib/money";
 
 function mapDeliveryLineTypeToInvoiceLineType(
   lineType: string,
@@ -17,7 +18,9 @@ function mapDeliveryLineTypeToInvoiceLineType(
   return "MISC";
 }
 
-async function nextInvoiceNumber(client: PrismaClient): Promise<{
+async function nextInvoiceNumber(
+  client: PrismaClient | Prisma.TransactionClient,
+): Promise<{
   invoiceNumber: string;
   year: number;
   yearTwoDigit: number;
@@ -50,11 +53,15 @@ async function resolveUnitPrice(
   quoteId: string | null,
   priceListId: string | null,
   preloaded?: UnitPriceLookups,
-): Promise<{ unitPrice: Prisma.Decimal; taxable: boolean }> {
+): Promise<{ unitPrice: Prisma.Decimal; taxable: boolean; resolved: boolean }> {
   if (ticketLine.quoteLineItemId) {
     const quoteLine = preloaded?.quoteLines.get(ticketLine.quoteLineItemId);
     if (quoteLine) {
-      return { unitPrice: quoteLine.unitPrice, taxable: quoteLine.taxable };
+      return {
+        unitPrice: quoteLine.unitPrice,
+        taxable: quoteLine.taxable,
+        resolved: true,
+      };
     }
     if (!preloaded) {
       const fetched = await client.quoteLineItem.findUnique({
@@ -62,7 +69,11 @@ async function resolveUnitPrice(
         select: { unitPrice: true, taxable: true },
       });
       if (fetched) {
-        return { unitPrice: fetched.unitPrice, taxable: fetched.taxable };
+        return {
+          unitPrice: fetched.unitPrice,
+          taxable: fetched.taxable,
+          resolved: true,
+        };
       }
     }
   }
@@ -70,7 +81,7 @@ async function resolveUnitPrice(
   if (ticketLine.productId && priceListId) {
     const priceListItem = preloaded?.priceListItems.get(ticketLine.productId);
     if (priceListItem) {
-      return { unitPrice: priceListItem.unitPrice, taxable: true };
+      return { unitPrice: priceListItem.unitPrice, taxable: true, resolved: true };
     }
     if (!preloaded) {
       const fetched = await client.priceListItem.findUnique({
@@ -82,7 +93,7 @@ async function resolveUnitPrice(
         },
       });
       if (fetched) {
-        return { unitPrice: fetched.unitPrice, taxable: true };
+        return { unitPrice: fetched.unitPrice, taxable: true, resolved: true };
       }
     }
   }
@@ -90,7 +101,11 @@ async function resolveUnitPrice(
   if (ticketLine.productId) {
     const product = preloaded?.products.get(ticketLine.productId);
     if (product?.defaultPrice) {
-      return { unitPrice: product.defaultPrice, taxable: product.taxable };
+      return {
+        unitPrice: product.defaultPrice,
+        taxable: product.taxable,
+        resolved: true,
+      };
     }
     if (!preloaded) {
       const fetched = await client.product.findUnique({
@@ -98,12 +113,18 @@ async function resolveUnitPrice(
         select: { defaultPrice: true, taxable: true },
       });
       if (fetched?.defaultPrice) {
-        return { unitPrice: fetched.defaultPrice, taxable: fetched.taxable };
+        return {
+          unitPrice: fetched.defaultPrice,
+          taxable: fetched.taxable,
+          resolved: true,
+        };
       }
     }
   }
 
-  return { unitPrice: new Prisma.Decimal(0), taxable: true };
+  // No quote line, price-list entry, or product default price. Signal
+  // unresolved so the caller can fail closed instead of billing at $0.
+  return { unitPrice: new Prisma.Decimal(0), taxable: true, resolved: false };
 }
 
 type UnitPriceLookups = {
@@ -185,6 +206,55 @@ async function preloadUnitPriceLookups(
 }
 
 /**
+ * For a delivered customer-pickup ticket marked "pay now", create the invoice
+ * automatically. Returns the (existing or new) invoice id, or a soft error
+ * message so the caller can surface a warning without failing completion.
+ */
+export async function maybeCreatePayNowInvoiceForTicket(
+  client: PrismaClient,
+  deliveryTicketId: string,
+): Promise<{ invoiceId: string | null; error: string | null }> {
+  const ticket = await client.deliveryTicket.findUnique({
+    where: { id: deliveryTicketId },
+    select: {
+      status: true,
+      fulfillmentMethod: true,
+      paymentMethod: true,
+      invoice: { select: { id: true } },
+    },
+  });
+
+  if (
+    !ticket ||
+    ticket.status !== "DELIVERED" ||
+    ticket.fulfillmentMethod !== "PICKUP" ||
+    ticket.paymentMethod !== "PAY_NOW"
+  ) {
+    return { invoiceId: null, error: null };
+  }
+
+  if (ticket.invoice) {
+    return { invoiceId: ticket.invoice.id, error: null };
+  }
+
+  try {
+    const invoiceId = await convertDeliveryTicketToInvoice(
+      client,
+      deliveryTicketId,
+    );
+    return { invoiceId, error: null };
+  } catch (error) {
+    return {
+      invoiceId: null,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not auto-create the pay-now invoice.",
+    };
+  }
+}
+
+/**
  * Create one invoice from a delivered delivery ticket (1:1).
  */
 export async function convertDeliveryTicketToInvoice(
@@ -212,27 +282,12 @@ export async function convertDeliveryTicketToInvoice(
     throw new Error("An invoice already exists for this ticket.");
   }
 
-  const numbering = await nextInvoiceNumber(client);
+  const settings = await getAppSettings();
 
-  let subtotal = new Prisma.Decimal(0);
-  let taxableAmount = new Prisma.Decimal(0);
-  const taxRate = ticket.quote?.taxRate ?? new Prisma.Decimal(0);
-
-  const lineData: {
-    lineNumber: number;
-    lineType: ReturnType<typeof mapDeliveryLineTypeToInvoiceLineType>;
-    quoteLineItemId: string | null;
-    deliveryTicketLineItemId: string;
-    productId: string | null;
-    itemCode: string;
-    description: string | null;
-    quantity: Prisma.Decimal;
-    unit: string;
-    unitPrice: Prisma.Decimal;
-    taxable: boolean;
-    total: Prisma.Decimal;
-    sortOrder: number;
-  }[] = [];
+  // Fall back to the configured default tax rate when the ticket has no linked
+  // quote, so taxable customers aren't silently billed at 0%.
+  const taxRate =
+    ticket.quote?.taxRate ?? new Prisma.Decimal(settings.defaultTaxRate);
 
   const priceLookups = await preloadUnitPriceLookups(
     client,
@@ -240,67 +295,87 @@ export async function convertDeliveryTicketToInvoice(
     ticket.priceListId,
   );
 
+  const resolvedLines: Array<{
+    line: (typeof ticket.lineItems)[number];
+    unitPrice: Prisma.Decimal;
+    taxable: boolean;
+  }> = [];
+
   for (const line of ticket.lineItems) {
-    const { unitPrice, taxable } = await resolveUnitPrice(
+    const { unitPrice, taxable, resolved } = await resolveUnitPrice(
       client,
       line,
       ticket.quoteId,
       ticket.priceListId,
       priceLookups,
     );
-    const total = unitPrice.mul(line.quantity);
-    subtotal = subtotal.add(total);
-    if (taxable) {
-      taxableAmount = taxableAmount.add(total);
+
+    if (!resolved) {
+      throw new Error(
+        `No price found for line "${line.itemCode}". Set a unit price via the quote, price list, or product default before invoicing.`,
+      );
     }
 
-    lineData.push({
-      lineNumber: line.lineNumber,
-      lineType: mapDeliveryLineTypeToInvoiceLineType(line.lineType),
-      quoteLineItemId: line.quoteLineItemId,
-      deliveryTicketLineItemId: line.id,
-      productId: line.productId,
-      itemCode: line.itemCode,
-      description: line.description,
-      quantity: line.quantity,
-      unit: line.unit,
-      unitPrice,
-      taxable,
-      total,
-      sortOrder: line.sortOrder,
-    });
+    resolvedLines.push({ line, unitPrice, taxable });
   }
 
-  const salesTax = taxableAmount.mul(taxRate).div(100);
-  const total = subtotal.add(salesTax);
+  // Authoritative Decimal totals with shared cent-rounding (matches quotes).
+  const computed = computeMoneyTotals(
+    resolvedLines.map((entry) => ({
+      quantity: entry.line.quantity,
+      unitPrice: entry.unitPrice,
+      taxable: entry.taxable,
+    })),
+    taxRate,
+  );
 
-  const settings = await getAppSettings();
+  const lineData = resolvedLines.map((entry, index) => ({
+    lineNumber: entry.line.lineNumber,
+    lineType: mapDeliveryLineTypeToInvoiceLineType(entry.line.lineType),
+    quoteLineItemId: entry.line.quoteLineItemId,
+    deliveryTicketLineItemId: entry.line.id,
+    productId: entry.line.productId,
+    itemCode: entry.line.itemCode,
+    description: entry.line.description,
+    quantity: entry.line.quantity,
+    unit: entry.line.unit,
+    unitPrice: entry.unitPrice,
+    taxable: entry.taxable,
+    total: computed.lineTotals[index],
+    sortOrder: entry.line.sortOrder,
+  }));
+
   const dueDate = defaultInvoiceDueDate(settings.invoiceDueDays);
 
-  const invoice = await client.invoice.create({
-    data: {
-      invoiceNumber: numbering.invoiceNumber,
-      year: numbering.year,
-      yearTwoDigit: numbering.yearTwoDigit,
-      sequenceNumber: numbering.sequenceNumber,
-      deliveryTicketId: ticket.id,
-      jobId: ticket.jobId,
-      quoteId: ticket.quoteId,
-      customerId: ticket.customerId,
-      jobNumber: ticket.jobNumber,
-      customerName: ticket.customerName,
-      projectName: ticket.projectName,
-      status: "DRAFT",
-      subtotal,
-      taxableAmount,
-      taxRate,
-      salesTax,
-      total,
-      invoiceDate: new Date(),
-      dueDate,
-      lineItems: { create: lineData },
-    },
-    select: { id: true },
+  // Allocate the invoice number and create the row in one transaction so a
+  // failure can't consume a sequence number and leave a permanent gap.
+  const invoice = await client.$transaction(async (tx) => {
+    const numbering = await nextInvoiceNumber(tx);
+    return tx.invoice.create({
+      data: {
+        invoiceNumber: numbering.invoiceNumber,
+        year: numbering.year,
+        yearTwoDigit: numbering.yearTwoDigit,
+        sequenceNumber: numbering.sequenceNumber,
+        deliveryTicketId: ticket.id,
+        jobId: ticket.jobId,
+        quoteId: ticket.quoteId,
+        customerId: ticket.customerId,
+        jobNumber: ticket.jobNumber,
+        customerName: ticket.customerName,
+        projectName: ticket.projectName,
+        status: "DRAFT",
+        subtotal: computed.subtotal,
+        taxableAmount: computed.taxableAmount,
+        taxRate,
+        salesTax: computed.salesTax,
+        total: computed.total,
+        invoiceDate: new Date(),
+        dueDate,
+        lineItems: { create: lineData },
+      },
+      select: { id: true },
+    });
   });
 
   return invoice.id;

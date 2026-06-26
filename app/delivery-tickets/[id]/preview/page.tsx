@@ -1,28 +1,24 @@
 import { notFound } from "next/navigation";
 import { DeliveryTicketPreviewContent } from "@/components/delivery-tickets/delivery-ticket-preview-content";
-import { mapDbDeliveryTicketToDetailView } from "@/lib/delivery-ticket-mapper";
-import { getCompanyProfile } from "@/lib/app-settings";
-import {
-  companyLogoApiUrl,
-  getCompanyLogoUpdatedAt,
-} from "@/lib/company-logo";
 import { withDatabaseRetry } from "@/lib/prisma";
 
 type DeliveryTicketPreviewPageProps = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
 };
 
 export default async function DeliveryTicketPreviewPage({
   params,
+  searchParams,
 }: DeliveryTicketPreviewPageProps) {
   const { id } = await params;
+  const { from } = await searchParams;
+  const fromWalkIns = from === "walk-ins";
 
   const ticket = await withDatabaseRetry((prisma) =>
     prisma.deliveryTicket.findUnique({
       where: { id },
-      include: {
-        lineItems: { orderBy: { lineNumber: "asc" } },
-      },
+      select: { id: true, ticketNumber: true },
     }),
   );
 
@@ -30,19 +26,12 @@ export default async function DeliveryTicketPreviewPage({
     notFound();
   }
 
-  const detail = mapDbDeliveryTicketToDetailView(ticket);
-  const [company, logoUpdatedAt] = await Promise.all([
-    getCompanyProfile(),
-    getCompanyLogoUpdatedAt(),
-  ]);
-  const logoUrl = logoUpdatedAt ? companyLogoApiUrl(logoUpdatedAt) : null;
-
   return (
     <DeliveryTicketPreviewContent
-      ticket={detail}
       ticketId={ticket.id}
-      company={company}
-      logoUrl={logoUrl}
+      ticketNumber={ticket.ticketNumber}
+      backHref={fromWalkIns ? "/walk-ins" : undefined}
+      backLabel={fromWalkIns ? "Back to Walk-Ins" : undefined}
     />
   );
 }

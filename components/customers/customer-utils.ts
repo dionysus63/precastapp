@@ -57,7 +57,7 @@ export const bulkPasteExample = `Smith Construction LLC\tActive\tJohn Smith\t631
 Bay Shore Pools\tProspect\tMaria Lopez\t631-555-0200\tmaria@bayshore.com\t45 Ocean Ave\tBay Shore\tNY\t11706\t
 `;
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { isValidEmail } from "@/lib/validation/email";
 
 export function parseBulkCustomerStatus(value: string): string | null {
   const trimmed = value.trim();
@@ -125,7 +125,7 @@ export function validateBulkCustomerPasteRow(
     issues.push("Status must be Active, Inactive, or Prospect.");
   }
 
-  if (row.email.trim() && !EMAIL_PATTERN.test(row.email.trim())) {
+  if (row.email.trim() && !isValidEmail(row.email.trim())) {
     issues.push("Email must be a valid email address.");
   }
 

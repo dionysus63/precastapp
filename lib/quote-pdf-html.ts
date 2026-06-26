@@ -5,6 +5,7 @@ import {
   type CompanyProfile,
 } from "@/lib/app-settings";
 import { getCompanyLogoDataUri } from "@/lib/company-logo";
+import { sanitizeRichText } from "@/lib/rich-text";
 
 function escapeHtml(value: string) {
   return value
@@ -62,7 +63,7 @@ export async function buildQuotePdfHtml(quote: QuoteDetailView) {
             (line) => `
         <tr>
           <td class="item">${escapeHtml(line.item)}</td>
-          <td>${escapeHtml(line.description)}</td>
+          <td class="rich-text">${sanitizeRichText(line.description)}</td>
           <td class="num">${escapeHtml(line.qty)}</td>
           <td>${escapeHtml(line.unit)}</td>
           <td class="num">${escapeHtml(line.unitPrice)}</td>
@@ -219,6 +220,11 @@ export async function buildQuotePdfHtml(quote: QuoteDetailView) {
         vertical-align: top;
       }
       tbody td.item { font-weight: 600; }
+      tbody td.rich-text b,
+      tbody td.rich-text strong { font-weight: 700; }
+      tbody td.rich-text i,
+      tbody td.rich-text em { font-style: italic; }
+      tbody td.rich-text u { text-decoration: underline; }
       tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }
       tbody td.total { font-weight: 600; }
       tbody td.empty {

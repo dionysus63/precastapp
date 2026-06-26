@@ -28,6 +28,10 @@ export const DEFAULT_PRODUCT_CATALOG: ProductCatalogCategory[] = [
     name: "Accessories",
     subcategories: ["Lifting Hardware", "Connection Hardware"],
   },
+  {
+    name: "Castings",
+    subcategories: ["Traffic Rated", "Sanitary", "Water", "Other"],
+  },
 ];
 
 function normalizeSubcategories(value: unknown): string[] {

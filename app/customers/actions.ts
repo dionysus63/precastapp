@@ -11,6 +11,12 @@ import {
 } from "@/lib/customer-contact-sync";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import {
+  getEnum,
+  getOptionalString,
+  getRequiredString,
+} from "@/lib/server/form-data";
+import { isValidEmail } from "@/lib/validation/email";
 
 export type SimilarCustomerMatch = {
   id: string;
@@ -19,7 +25,6 @@ export type SimilarCustomerMatch = {
 };
 
 const CUSTOMER_STATUSES = Object.values(CustomerStatus);
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type CustomerRecordInput = {
   name: string;
@@ -35,30 +40,22 @@ type CustomerRecordInput = {
 };
 
 function parseCustomerFormData(formData: FormData): CustomerRecordInput {
-  const name = String(formData.get("name") ?? "").trim();
-  if (!name) {
-    throw new Error("Customer name is required.");
-  }
-
-  const statusRaw = String(formData.get("status") ?? "").trim();
-  if (!statusRaw || !CUSTOMER_STATUSES.includes(statusRaw as CustomerStatus)) {
-    throw new Error("Status is required.");
-  }
-  const status = statusRaw as CustomerStatus;
-
-  const primaryContactName =
-    String(formData.get("primaryContactName") ?? "").trim() || null;
-  const phone = String(formData.get("phone") ?? "").trim() || null;
+  const name = getRequiredString(formData, "name", "Customer name");
+  const status = getEnum(formData, "status", CUSTOMER_STATUSES, {
+    label: "status",
+  });
+  const primaryContactName = getOptionalString(formData, "primaryContactName");
+  const phone = getOptionalString(formData, "phone");
   const emailRaw = String(formData.get("email") ?? "").trim();
-  if (emailRaw && !EMAIL_PATTERN.test(emailRaw)) {
+  if (emailRaw && !isValidEmail(emailRaw)) {
     throw new Error("Email must be a valid email address.");
   }
   const email = emailRaw || null;
-  const address = String(formData.get("address") ?? "").trim() || null;
-  const town = String(formData.get("town") ?? "").trim() || null;
-  const state = String(formData.get("state") ?? "").trim() || null;
-  const zip = String(formData.get("zip") ?? "").trim() || null;
-  const notes = String(formData.get("notes") ?? "").trim() || null;
+  const address = getOptionalString(formData, "address");
+  const town = getOptionalString(formData, "town");
+  const state = getOptionalString(formData, "state");
+  const zip = getOptionalString(formData, "zip");
+  const notes = getOptionalString(formData, "notes");
 
   return {
     name,
@@ -88,6 +85,7 @@ async function loadSimilarCustomerMatches(
 export async function findSimilarCustomers(
   name: string,
 ): Promise<SimilarCustomerMatch[]> {
+  await requirePermission(AppPermission.CUSTOMERS_MANAGE);
   const trimmed = name.trim();
   if (trimmed.length < 3) {
     return [];
@@ -99,6 +97,7 @@ export async function findSimilarCustomers(
 export async function checkBulkCustomerDbDuplicates(
   names: string[],
 ): Promise<Record<string, string>> {
+  await requirePermission(AppPermission.CUSTOMERS_MANAGE);
   const candidates = await prisma.customer.findMany({
     select: { id: true, name: true },
     orderBy: { name: "asc" },
@@ -235,7 +234,7 @@ function mapBulkImportRow(row: BulkImportRow, lineNumber: number): CustomerRecor
   }
 
   const emailRaw = String(row.email ?? "").trim();
-  if (emailRaw && !EMAIL_PATTERN.test(emailRaw)) {
+  if (emailRaw && !isValidEmail(emailRaw)) {
     throw new Error(`Line ${lineNumber}: email must be a valid email address.`);
   }
 

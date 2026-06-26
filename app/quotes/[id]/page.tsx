@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { QuoteDetailContent } from "@/components/quotes/quote-detail-content";
@@ -47,7 +48,24 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
     notFound();
   }
 
-  const detail = mapQuoteToDetailView(quote);
+  const rootId = quote.originalQuoteId ?? quote.id;
+  const revisionFamily = await withDatabaseRetry((prisma) =>
+    prisma.quote.findMany({
+      where: {
+        OR: [{ id: rootId }, { originalQuoteId: rootId }],
+      },
+      orderBy: { revisionNumber: "asc" },
+      select: {
+        id: true,
+        quoteNumber: true,
+        revisionNumber: true,
+        status: true,
+        createdAt: true,
+      },
+    }),
+  );
+
+  const detail = mapQuoteToDetailView({ ...quote, revisionFamily });
 
   return (
     <DashboardShell title={detail.title} subtitle={detail.subtitle}>

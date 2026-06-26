@@ -5,6 +5,8 @@ import { SummaryCard } from "@/components/dashboard/summary-card";
 import { TicketOperationsPanel } from "@/components/delivery-tickets/ticket-operations-panel";
 import { TicketPdfButton } from "@/components/delivery-tickets/ticket-pdf-button";
 import { TicketStatusActions } from "@/components/delivery-tickets/ticket-status-actions";
+import { TicketSubmittalButton } from "@/components/delivery-tickets/ticket-submittal-button";
+import { RichTextContent } from "@/components/ui/rich-text-content";
 import type { DeliveryTicketDetailView } from "@/components/delivery-tickets/delivery-ticket-utils";
 
 function DetailField({ label, value }: { label: string; value: string }) {
@@ -43,13 +45,27 @@ function RelatedRecordRow({
   );
 }
 
+type PickupInfo = {
+  fulfillmentMethod: "DELIVERY" | "PICKUP";
+  paymentMethod: "PAY_NOW" | "ON_ACCOUNT" | null;
+  paymentReceived: boolean;
+  pickedUpBy: string | null;
+};
+
 type DeliveryTicketDetailContentProps = {
   ticket: DeliveryTicketDetailView;
   ticketId?: string;
   ticketStatus?: string;
   hasInvoice?: boolean;
   invoiceId?: string | null;
+  pickupInfo?: PickupInfo | null;
 };
+
+function paymentMethodLabel(method: PickupInfo["paymentMethod"]): string {
+  if (method === "PAY_NOW") return "Pay now";
+  if (method === "ON_ACCOUNT") return "Charge to account";
+  return "Not specified";
+}
 
 export function DeliveryTicketDetailContent({
   ticket,
@@ -57,7 +73,9 @@ export function DeliveryTicketDetailContent({
   ticketStatus,
   hasInvoice = false,
   invoiceId = null,
+  pickupInfo = null,
 }: DeliveryTicketDetailContentProps) {
+  const isPickup = pickupInfo?.fulfillmentMethod === "PICKUP";
   const topSummaryCards = [
     {
       label: "Status",
@@ -117,6 +135,7 @@ export function DeliveryTicketDetailContent({
                 Preview/Print
               </Link>
               <TicketPdfButton ticketId={ticketId} />
+              <TicketSubmittalButton ticketId={ticketId} />
             </>
           ) : (
             <button
@@ -254,7 +273,7 @@ export function DeliveryTicketDetailContent({
                         {line.item}
                       </td>
                       <td className="px-3 py-2.5 text-slate-600">
-                        {line.description}
+                        <RichTextContent value={line.description} />
                       </td>
                       <td className="px-3 py-2.5 text-slate-600">{line.qty}</td>
                       <td className="px-3 py-2.5 text-slate-600">{line.unit}</td>
@@ -298,6 +317,44 @@ export function DeliveryTicketDetailContent({
         </div>
 
         <aside className="space-y-4">
+          {isPickup && pickupInfo ? (
+            <SectionCard title="Pickup & Payment">
+              <dl className="space-y-3 text-xs">
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-slate-500">Fulfillment</dt>
+                  <dd className="font-medium text-slate-900">
+                    Customer pickup
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-slate-500">Payment</dt>
+                  <dd className="font-medium text-slate-900">
+                    {paymentMethodLabel(pickupInfo.paymentMethod)}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-slate-500">Payment received</dt>
+                  <dd>
+                    <StatusBadge
+                      label={pickupInfo.paymentReceived ? "Paid" : "Unpaid"}
+                      variant={
+                        pickupInfo.paymentReceived ? "success" : "warning"
+                      }
+                    />
+                  </dd>
+                </div>
+                {pickupInfo.pickedUpBy ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-slate-500">Picked up by</dt>
+                    <dd className="font-medium text-slate-900">
+                      {pickupInfo.pickedUpBy}
+                    </dd>
+                  </div>
+                ) : null}
+              </dl>
+            </SectionCard>
+          ) : null}
+
           <SectionCard title="Delivery Summary">
             <dl className="space-y-3 text-xs">
               {[

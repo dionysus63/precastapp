@@ -14,109 +14,78 @@ import { launchWindowsFolder } from "@/lib/open-windows-folder";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
 import { launchWindowsFile, launchWindowsFolder as launchFolder } from "@/lib/windows-explorer";
 import { assertPathUnderJobFolder } from "@/lib/job-path-security";
-import { AppPermission, Prisma } from "@/app/generated/prisma/client";
+import { AppPermission, JobStatus, Prisma } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import {
+  getEnum,
+  getOptionalDate,
+  getOptionalString,
+  getRequiredString,
+} from "@/lib/server/form-data";
 
-const JOB_STATUSES = [
-  "LEAD",
-  "QUOTING",
-  "SUBMITTED",
-  "AWARDED",
-  "ACTIVE",
-  "ON_HOLD",
-  "COMPLETE",
-  "LOST",
-  "CANCELLED",
-] as const;
-
-type JobStatus = (typeof JOB_STATUSES)[number];
-
-function parseOptionalDate(formData: FormData, field: string) {
-  const raw = String(formData.get(field) ?? "").trim();
-  if (!raw) {
-    return null;
-  }
-
-  const date = new Date(`${raw}T00:00:00`);
-  if (Number.isNaN(date.getTime())) {
-    throw new Error(`Invalid ${field}.`);
-  }
-
-  return date;
-}
+const JOB_STATUSES = Object.values(JobStatus);
 
 function parseJobFormData(formData: FormData) {
-  const projectName = String(formData.get("projectName") ?? "").trim();
-  if (!projectName) {
-    throw new Error("Project name is required.");
-  }
-
-  const jobYearRaw = String(formData.get("jobYear") ?? "").trim();
-  if (!jobYearRaw) {
-    throw new Error("Job year is required.");
-  }
+  const projectName = getRequiredString(formData, "projectName", "Project name");
+  const jobYearRaw = getRequiredString(formData, "jobYear", "Job year");
 
   const year = Number(jobYearRaw);
   if (!Number.isInteger(year) || year < 2000 || year > 2099) {
     throw new Error("Job year must be a valid year.");
   }
 
-  const status = String(formData.get("status") ?? "QUOTING").trim();
-  if (!JOB_STATUSES.includes(status as JobStatus)) {
-    throw new Error("Invalid job status.");
-  }
+  const status = getEnum(formData, "status", JOB_STATUSES, {
+    label: "job status",
+    defaultValue: "QUOTING",
+  });
 
-  const customerId = String(formData.get("customerId") ?? "").trim() || null;
+  const customerId = getOptionalString(formData, "customerId");
   const manualCustomerName = String(formData.get("customerName") ?? "").trim();
 
   return {
     projectName,
     year,
-    status: status as JobStatus,
+    status,
     customerId,
     manualCustomerName,
-    projectAddress: String(formData.get("projectAddress") ?? "").trim() || null,
-    city: String(formData.get("city") ?? "").trim() || null,
-    state: String(formData.get("state") ?? "").trim() || null,
-    zip: String(formData.get("zip") ?? "").trim() || null,
-    bidDate: parseOptionalDate(formData, "bidDate"),
-    awardedDate: parseOptionalDate(formData, "awardedDate"),
-    contactName: String(formData.get("contactName") ?? "").trim() || null,
-    contactEmail: String(formData.get("contactEmail") ?? "").trim() || null,
-    contactPhone: String(formData.get("contactPhone") ?? "").trim() || null,
-    notes: String(formData.get("notes") ?? "").trim() || null,
+    projectAddress: getOptionalString(formData, "projectAddress"),
+    city: getOptionalString(formData, "city"),
+    state: getOptionalString(formData, "state"),
+    zip: getOptionalString(formData, "zip"),
+    bidDate: getOptionalDate(formData, "bidDate"),
+    awardedDate: getOptionalDate(formData, "awardedDate"),
+    contactName: getOptionalString(formData, "contactName"),
+    contactEmail: getOptionalString(formData, "contactEmail"),
+    contactPhone: getOptionalString(formData, "contactPhone"),
+    notes: getOptionalString(formData, "notes"),
   };
 }
 
 function parseJobUpdateFormData(formData: FormData) {
-  const projectName = String(formData.get("projectName") ?? "").trim();
-  if (!projectName) {
-    throw new Error("Project name is required.");
-  }
+  const projectName = getRequiredString(formData, "projectName", "Project name");
+  const status = getEnum(formData, "status", JOB_STATUSES, {
+    label: "job status",
+    defaultValue: "QUOTING",
+  });
 
-  const status = String(formData.get("status") ?? "QUOTING").trim();
-  if (!JOB_STATUSES.includes(status as JobStatus)) {
-    throw new Error("Invalid job status.");
-  }
-
-  const customerId = String(formData.get("customerId") ?? "").trim() || null;
+  const customerId = getOptionalString(formData, "customerId");
   const manualCustomerName = String(formData.get("customerName") ?? "").trim();
 
   return {
     projectName,
-    status: status as JobStatus,
+    status,
     customerId,
     manualCustomerName,
-    projectAddress: String(formData.get("projectAddress") ?? "").trim() || null,
-    city: String(formData.get("city") ?? "").trim() || null,
-    state: String(formData.get("state") ?? "").trim() || null,
-    zip: String(formData.get("zip") ?? "").trim() || null,
-    bidDate: parseOptionalDate(formData, "bidDate"),
-    awardedDate: parseOptionalDate(formData, "awardedDate"),
-    contactName: String(formData.get("contactName") ?? "").trim() || null,
-    contactEmail: String(formData.get("contactEmail") ?? "").trim() || null,
-    contactPhone: String(formData.get("contactPhone") ?? "").trim() || null,
-    notes: String(formData.get("notes") ?? "").trim() || null,
+    projectAddress: getOptionalString(formData, "projectAddress"),
+    city: getOptionalString(formData, "city"),
+    state: getOptionalString(formData, "state"),
+    zip: getOptionalString(formData, "zip"),
+    bidDate: getOptionalDate(formData, "bidDate"),
+    awardedDate: getOptionalDate(formData, "awardedDate"),
+    contactName: getOptionalString(formData, "contactName"),
+    contactEmail: getOptionalString(formData, "contactEmail"),
+    contactPhone: getOptionalString(formData, "contactPhone"),
+    notes: getOptionalString(formData, "notes"),
   };
 }
 

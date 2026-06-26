@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import type { CastingSupplierOrigin, ProductKind } from "@/app/generated/prisma/client";
 import {
   type ProductType,
   productInputClassName,
@@ -11,9 +12,23 @@ import {
   productUnitFormOptions,
 } from "@/components/products/product-utils";
 import {
+  productKindFormOptions,
+  suggestedKindForCategory,
+} from "@/lib/product-kinds";
+import {
   type DrainRingStyle,
+  formatSanitaryDrainRingDiametersLabel,
   getDrainRingStyleOptionsForDiameter,
 } from "@/lib/drain-ring-utils";
+import {
+  castingAssemblyBomRoleOrder,
+  castingAssemblyOptionalBomRoles,
+  castingPieceRoleFormOptions,
+  formatCastingPieceRoleLabel,
+  formatCastingSupplierOriginLabel,
+  type CastingPieceRole,
+  type CastingRole,
+} from "@/lib/casting-utils";
 import {
   getCategoryNames,
   getSubcategoriesForCategory,
@@ -25,6 +40,7 @@ export type ProductFormValues = {
   productCode?: string;
   productName?: string;
   productType?: ProductType;
+  productKind?: ProductKind;
   category?: string;
   subcategory?: string;
   unit?: string;
@@ -40,9 +56,34 @@ export type ProductFormValues = {
   ringDiameterFeet?: string;
   drainRingStyle?: DrainRingStyle;
   isCasting?: "yes" | "no";
+  castingRole?: CastingRole | "";
+  castingPieceRole?: CastingPieceRole | "";
+  castingSupplierId?: string;
   castingHeightFeet?: string;
   castingClearOpeningInches?: string;
+  pipeDiameterInches?: string;
+  pipeLengthFeet?: string;
+  pipeClass?: string;
+  pipeJointType?: string;
+  castingBom?: Array<{
+    pieceRole: CastingPieceRole;
+    componentId: string;
+    quantity: number;
+  }>;
   notes?: string;
+};
+
+export type CastingComponentPickerOption = {
+  id: string;
+  productCode: string;
+  name: string;
+  castingPieceRole: CastingPieceRole | null;
+};
+
+export type CastingSupplierOption = {
+  id: string;
+  name: string;
+  origin: CastingSupplierOrigin;
 };
 
 const drainRingDiameterOptions = ["4", "6", "8", "10", "12"];
@@ -52,7 +93,10 @@ type ProductFormProps = {
   cancelHref: string;
   submitLabel: string;
   catalog: ProductCatalogCategory[];
+  castingSuppliers?: CastingSupplierOption[];
+  castingComponents?: CastingComponentPickerOption[];
   defaultValues?: ProductFormValues;
+  productId?: string;
 };
 
 export function ProductForm({
@@ -60,7 +104,10 @@ export function ProductForm({
   cancelHref,
   submitLabel,
   catalog,
+  castingSuppliers = [],
+  castingComponents = [],
   defaultValues,
+  productId,
 }: ProductFormProps) {
   const mergedCatalog = useMemo(
     () =>
@@ -87,17 +134,58 @@ export function ProductForm({
       ? defaultValues.subcategory
       : (initialSubcategories[0] ?? "");
 
+  const resolveInitialProductKind = (): ProductKind => {
+    if (defaultValues?.productKind) {
+      return defaultValues.productKind;
+    }
+    if (defaultValues?.isDrainRing === "yes") {
+      return "DRAIN_RING";
+    }
+    if (defaultValues?.castingRole === "ASSEMBLY") {
+      return "CASTING_ASSEMBLY";
+    }
+    if (defaultValues?.castingRole === "COMPONENT") {
+      return "CASTING_COMPONENT";
+    }
+    return "STANDARD";
+  };
+
+  const [productKind, setProductKind] = useState<ProductKind>(
+    resolveInitialProductKind(),
+  );
   const [productType, setProductType] = useState<ProductType>(
     defaultValues?.productType ?? "STOCK",
   );
   const [category, setCategory] = useState(initialCategory);
   const [subcategory, setSubcategory] = useState(initialSubcategory);
-  const [isDrainRing, setIsDrainRing] = useState(
-    defaultValues?.isDrainRing === "yes",
+  const [castingRole, setCastingRole] = useState<CastingRole | "">(
+    defaultValues?.castingRole ??
+      (resolveInitialProductKind() === "CASTING_ASSEMBLY"
+        ? "ASSEMBLY"
+        : resolveInitialProductKind() === "CASTING_COMPONENT"
+          ? "COMPONENT"
+          : defaultValues?.isCasting === "yes"
+            ? "ASSEMBLY"
+            : ""),
   );
-  const [isCasting, setIsCasting] = useState(
-    defaultValues?.isCasting === "yes",
+  const [castingPieceRole, setCastingPieceRole] = useState<CastingPieceRole | "">(
+    defaultValues?.castingPieceRole ?? "",
   );
+  const [bomRows, setBomRows] = useState<
+    Array<{ pieceRole: CastingPieceRole; componentId: string; quantity: string }>
+  >(() => {
+    if (defaultValues?.castingBom?.length) {
+      return defaultValues.castingBom.map((row) => ({
+        pieceRole: row.pieceRole,
+        componentId: row.componentId,
+        quantity: String(row.quantity),
+      }));
+    }
+    return [
+      { pieceRole: "FRAME", componentId: "", quantity: "1" },
+      { pieceRole: "COVER_GRATE", componentId: "", quantity: "1" },
+    ];
+  });
   const [ringDiameterFeet, setRingDiameterFeet] = useState(
     defaultValues?.ringDiameterFeet ?? "10",
   );
@@ -117,6 +205,18 @@ export function ProductForm({
     }
   }
 
+  function handleProductKindChange(nextKind: ProductKind) {
+    setProductKind(nextKind);
+    if (nextKind === "CASTING_ASSEMBLY") {
+      setCastingRole("ASSEMBLY");
+    } else if (nextKind === "CASTING_COMPONENT") {
+      setCastingRole("COMPONENT");
+    } else {
+      setCastingRole("");
+      setCastingPieceRole("");
+    }
+  }
+
   function handleCategoryChange(nextCategory: string) {
     setCategory(nextCategory);
     const nextSubcategories = getSubcategoriesForCategory(
@@ -128,10 +228,70 @@ export function ProductForm({
         ? current
         : (nextSubcategories[0] ?? ""),
     );
+    const suggested = suggestedKindForCategory(nextCategory);
+    if (suggested && productKind === "STANDARD") {
+      handleProductKindChange(suggested);
+    }
+  }
+
+  function updateBomRow(
+    pieceRole: CastingPieceRole,
+    patch: Partial<{ componentId: string; quantity: string }>,
+  ) {
+    setBomRows((current) =>
+      current.map((row) =>
+        row.pieceRole === pieceRole ? { ...row, ...patch } : row,
+      ),
+    );
+  }
+
+  function toggleOptionalBomRow(role: CastingPieceRole, enabled: boolean) {
+    setBomRows((current) => {
+      const hasRole = current.some((row) => row.pieceRole === role);
+      if (enabled && !hasRole) {
+        return [
+          ...current,
+          {
+            pieceRole: role,
+            componentId: "",
+            quantity: "1",
+          },
+        ];
+      }
+      if (!enabled && hasRole) {
+        return current.filter((row) => row.pieceRole !== role);
+      }
+      return current;
+    });
+  }
+
+  const showCastingSection =
+    productKind === "CASTING_ASSEMBLY" || productKind === "CASTING_COMPONENT";
+  const orderedBomRows = castingAssemblyBomRoleOrder
+    .map((role) => bomRows.find((row) => row.pieceRole === role))
+    .filter((row): row is (typeof bomRows)[number] => row != null);
+
+  function handleSubmit(formData: FormData) {
+    if (castingRole === "ASSEMBLY") {
+      formData.set(
+        "castingBomPayload",
+        JSON.stringify(
+          bomRows
+            .filter((row) => row.componentId.trim())
+            .map((row) => ({
+              pieceRole: row.pieceRole,
+              componentId: row.componentId,
+              quantity: Number(row.quantity) || 1,
+            })),
+        ),
+      );
+    }
+    return action(formData);
   }
 
   return (
-    <form action={action} className="space-y-5">
+    <form action={handleSubmit} className="space-y-5">
+      {productId ? <input type="hidden" name="id" value={productId} /> : null}
       <div>
         <label
           htmlFor="productType"
@@ -157,6 +317,35 @@ export function ProductForm({
         </select>
         <p className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
           {productTypeHelperText[productType]}
+        </p>
+      </div>
+
+      <div>
+        <label
+          htmlFor="productKind"
+          className="block text-xs font-medium text-slate-700"
+        >
+          Product Kind *
+        </label>
+        <select
+          id="productKind"
+          name="productKind"
+          required
+          value={productKind}
+          onChange={(event) =>
+            handleProductKindChange(event.target.value as ProductKind)
+          }
+          className={productInputClassName}
+        >
+          {productKindFormOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <p className="mt-2 text-xs text-slate-500">
+          Physical catalog kind — controls which profile fields apply (rings,
+          castings, pipe, or standard stock).
         </p>
       </div>
 
@@ -307,7 +496,7 @@ export function ProductForm({
         />
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className={`grid gap-5 ${showCastingSection ? "sm:grid-cols-1" : "sm:grid-cols-2"}`}>
         <div>
           <label
             htmlFor="weight"
@@ -327,24 +516,26 @@ export function ProductForm({
           />
         </div>
 
-        <div>
-          <label
-            htmlFor="yards"
-            className="block text-xs font-medium text-slate-700"
-          >
-            Yards
-          </label>
-          <input
-            id="yards"
-            name="yards"
-            type="number"
-            min="0"
-            step="0.0001"
-            defaultValue={defaultValues?.yards ?? ""}
-            placeholder="2.4"
-            className={productInputClassName}
-          />
-        </div>
+        {!showCastingSection ? (
+          <div>
+            <label
+              htmlFor="yards"
+              className="block text-xs font-medium text-slate-700"
+            >
+              Yards
+            </label>
+            <input
+              id="yards"
+              name="yards"
+              type="number"
+              min="0"
+              step="0.0001"
+              defaultValue={defaultValues?.yards ?? ""}
+              placeholder="2.4"
+              className={productInputClassName}
+            />
+          </div>
+        ) : null}
       </div>
 
       <div className="grid gap-5 sm:grid-cols-3">
@@ -371,17 +562,33 @@ export function ProductForm({
             htmlFor="currentStockQuantity"
             className="block text-xs font-medium text-slate-700"
           >
-            Current Stock Quantity
+            {productId ? "Current Stock Quantity" : "Opening Stock Quantity"}
           </label>
-          <input
-            id="currentStockQuantity"
-            name="currentStockQuantity"
-            type="number"
-            min="0"
-            step="1"
-            defaultValue={defaultValues?.currentStockQuantity ?? "0"}
-            className={productInputClassName}
-          />
+          {productId ? (
+            <>
+              <input
+                id="currentStockQuantity"
+                type="text"
+                readOnly
+                value={defaultValues?.currentStockQuantity ?? "0"}
+                className={`${productInputClassName} bg-slate-50 text-slate-500`}
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Stock changes go through Inventory → Adjust so the on-hand count
+                stays in sync with the transaction ledger.
+              </p>
+            </>
+          ) : (
+            <input
+              id="currentStockQuantity"
+              name="currentStockQuantity"
+              type="number"
+              min="0"
+              step="1"
+              defaultValue={defaultValues?.currentStockQuantity ?? "0"}
+              className={productInputClassName}
+            />
+          )}
         </div>
 
         <div>
@@ -403,32 +610,15 @@ export function ProductForm({
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-        <div>
-          <label
-            htmlFor="isDrainRing"
-            className="block text-xs font-medium text-slate-700"
-          >
-            Ring
-          </label>
-          <select
-            id="isDrainRing"
-            name="isDrainRing"
-            value={isDrainRing ? "yes" : "no"}
-            onChange={(event) => setIsDrainRing(event.target.value === "yes")}
-            className={productInputClassName}
-          >
-            <option value="no">No</option>
-            <option value="yes">Yes — stocked ring SKU</option>
-          </select>
-          <p className="mt-2 text-xs text-slate-500">
-            Rings are quoted by total pool height (linear feet) but stocked and
-            shipped as individual rings. Set the ring height and pool diameter
-            so deliveries can credit feet back to the quote.
+      {productKind === "DRAIN_RING" ? (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <input type="hidden" name="isDrainRing" value="yes" />
+          <p className="text-xs font-medium text-slate-700">Drain Ring Profile</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Rings are quoted by total pool height but stocked and shipped as
+            individual rings.
           </p>
-        </div>
 
-        {isDrainRing ? (
           <div className="mt-4 grid gap-5 sm:grid-cols-2">
             <div>
               <label
@@ -476,7 +666,7 @@ export function ProductForm({
               </select>
               <p className="mt-2 text-xs text-slate-500">
                 Solid is available at all diameters. Sanitary is only available
-                for 8&apos; and 10&apos; diameters.
+                for {formatSanitaryDrainRingDiametersLabel()} diameters.
               </p>
             </div>
 
@@ -503,78 +693,308 @@ export function ProductForm({
               </p>
             </div>
           </div>
-        ) : null}
-      </div>
-
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-        <div>
-          <label
-            htmlFor="isCasting"
-            className="block text-xs font-medium text-slate-700"
-          >
-            Casting
-          </label>
-          <select
-            id="isCasting"
-            name="isCasting"
-            value={isCasting ? "yes" : "no"}
-            onChange={(event) => setIsCasting(event.target.value === "yes")}
-            className={productInputClassName}
-          >
-            <option value="no">No</option>
-            <option value="yes">Yes — frame/cover casting</option>
-          </select>
-          <p className="mt-2 text-xs text-slate-500">
-            Castings are selected on drill sheets and subtracted from the rim by
-            their height. Enter the height that is removed from the wall.
-          </p>
         </div>
+      ) : (
+        <input type="hidden" name="isDrainRing" value="no" />
+      )}
 
-        {isCasting ? (
+      {productKind === "PIPE" ? (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-medium text-slate-700">Pipe Profile</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Stock pipe SKUs sold and tracked by diameter, length, and class.
+          </p>
           <div className="mt-4 grid gap-5 sm:grid-cols-2">
             <div>
               <label
-                htmlFor="castingHeightFeet"
+                htmlFor="pipeDiameterInches"
                 className="block text-xs font-medium text-slate-700"
               >
-                Casting Height (ft)
+                Pipe Diameter (in) *
               </label>
               <input
-                id="castingHeightFeet"
-                name="castingHeightFeet"
+                id="pipeDiameterInches"
+                name="pipeDiameterInches"
                 type="number"
                 min="0"
-                step="0.01"
-                defaultValue={defaultValues?.castingHeightFeet ?? ""}
-                placeholder="0.67"
-                className={productInputClassName}
-              />
-              <p className="mt-2 text-xs text-slate-500">
-                Decimal feet (e.g. 0.67 for an 8&quot; frame).
-              </p>
-            </div>
-
-            <div>
-              <label
-                htmlFor="castingClearOpeningInches"
-                className="block text-xs font-medium text-slate-700"
-              >
-                Clear Opening (in)
-              </label>
-              <input
-                id="castingClearOpeningInches"
-                name="castingClearOpeningInches"
-                type="number"
-                min="0"
-                step="0.01"
-                defaultValue={defaultValues?.castingClearOpeningInches ?? ""}
+                step="1"
+                required
+                defaultValue={defaultValues?.pipeDiameterInches ?? ""}
                 placeholder="24"
                 className={productInputClassName}
               />
             </div>
+            <div>
+              <label
+                htmlFor="pipeLengthFeet"
+                className="block text-xs font-medium text-slate-700"
+              >
+                Pipe Length (ft) *
+              </label>
+              <input
+                id="pipeLengthFeet"
+                name="pipeLengthFeet"
+                type="number"
+                min="0"
+                step="0.5"
+                required
+                defaultValue={defaultValues?.pipeLengthFeet ?? ""}
+                placeholder="8"
+                className={productInputClassName}
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="pipeClass"
+                className="block text-xs font-medium text-slate-700"
+              >
+                Class
+              </label>
+              <input
+                id="pipeClass"
+                name="pipeClass"
+                type="text"
+                defaultValue={defaultValues?.pipeClass ?? ""}
+                placeholder="III"
+                className={productInputClassName}
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="pipeJointType"
+                className="block text-xs font-medium text-slate-700"
+              >
+                Joint Type
+              </label>
+              <input
+                id="pipeJointType"
+                name="pipeJointType"
+                type="text"
+                defaultValue={defaultValues?.pipeJointType ?? ""}
+                placeholder="RCP"
+                className={productInputClassName}
+              />
+            </div>
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
+
+      {showCastingSection ? (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-4">
+          <div>
+            <label
+              htmlFor="castingRole"
+              className="block text-xs font-medium text-slate-700"
+            >
+              Casting Role *
+            </label>
+            <input type="hidden" name="castingRole" value={castingRole} />
+            <p className="mt-1 text-xs text-slate-600">
+              {productKind === "CASTING_ASSEMBLY"
+                ? "Assembly — full casting (quoted & drill sheet)"
+                : "Component — frame, cover/grate, hood, or throat piece"}
+            </p>
+          </div>
+
+          <div>
+            <label
+              htmlFor="castingSupplierId"
+              className="block text-xs font-medium text-slate-700"
+            >
+              Supplier *
+            </label>
+            {castingSuppliers.length > 0 ? (
+              <select
+                id="castingSupplierId"
+                name="castingSupplierId"
+                required
+                defaultValue={defaultValues?.castingSupplierId ?? ""}
+                className={productInputClassName}
+              >
+                <option value="">Select supplier…</option>
+                {castingSuppliers.map((supplier) => (
+                  <option key={supplier.id} value={supplier.id}>
+                    {supplier.name} ({formatCastingSupplierOriginLabel(supplier.origin)})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="mt-1 space-y-2">
+                <p className="text-xs text-amber-700">
+                  No casting suppliers are set up yet. Add suppliers in{" "}
+                  <Link
+                    href="/settings/casting-suppliers"
+                    className="font-medium underline hover:text-amber-900"
+                  >
+                    Settings → Casting Suppliers
+                  </Link>{" "}
+                  before saving a casting product.
+                </p>
+                <input type="hidden" name="castingSupplierId" value="" />
+              </div>
+            )}
+          </div>
+
+          {castingRole === "COMPONENT" ? (
+            <div>
+              <label
+                htmlFor="castingPieceRole"
+                className="block text-xs font-medium text-slate-700"
+              >
+                Piece Role *
+              </label>
+              <select
+                id="castingPieceRole"
+                name="castingPieceRole"
+                required
+                value={castingPieceRole}
+                onChange={(event) =>
+                  setCastingPieceRole(event.target.value as CastingPieceRole)
+                }
+                className={productInputClassName}
+              >
+                <option value="">Select piece…</option>
+                {castingPieceRoleFormOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+
+          {castingRole === "ASSEMBLY" ? (
+            <>
+              <input type="hidden" name="isCasting" value="yes" />
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="castingHeightFeet"
+                    className="block text-xs font-medium text-slate-700"
+                  >
+                    Casting Height (ft) *
+                  </label>
+                  <input
+                    id="castingHeightFeet"
+                    name="castingHeightFeet"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    defaultValue={defaultValues?.castingHeightFeet ?? ""}
+                    placeholder="0.67"
+                    className={productInputClassName}
+                  />
+                  <p className="mt-2 text-xs text-slate-500">
+                    Used on drill sheets — height removed from the wall at the
+                    rim.
+                  </p>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="castingClearOpeningInches"
+                    className="block text-xs font-medium text-slate-700"
+                  >
+                    Clear Opening (in)
+                  </label>
+                  <input
+                    id="castingClearOpeningInches"
+                    name="castingClearOpeningInches"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    defaultValue={defaultValues?.castingClearOpeningInches ?? ""}
+                    placeholder="24"
+                    className={productInputClassName}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-medium text-slate-700">
+                    Bill of Materials
+                  </p>
+                  <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
+                    {castingAssemblyOptionalBomRoles.map((role) => (
+                      <label
+                        key={role}
+                        className="flex items-center gap-2 text-xs text-slate-600"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={bomRows.some((row) => row.pieceRole === role)}
+                          onChange={(event) =>
+                            toggleOptionalBomRow(role, event.target.checked)
+                          }
+                        />
+                        Include {formatCastingPieceRoleLabel(role).toLowerCase()}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {orderedBomRows.map((row) => (
+                    <div
+                      key={row.pieceRole}
+                      className="grid gap-2 sm:grid-cols-[120px_minmax(0,1fr)_80px]"
+                    >
+                      <span className="self-center text-xs font-medium text-slate-700">
+                        {formatCastingPieceRoleLabel(row.pieceRole)}
+                      </span>
+                      <select
+                        value={row.componentId}
+                        onChange={(event) =>
+                          updateBomRow(row.pieceRole, {
+                            componentId: event.target.value,
+                          })
+                        }
+                        className={productInputClassName}
+                      >
+                        <option value="">Select component…</option>
+                        {castingComponents
+                          .filter(
+                            (option) =>
+                              !option.castingPieceRole ||
+                              option.castingPieceRole === row.pieceRole,
+                          )
+                          .map((option) => (
+                            <option key={option.id} value={option.id}>
+                              {option.productCode} — {option.name}
+                            </option>
+                          ))}
+                      </select>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={row.quantity}
+                        onChange={(event) =>
+                          updateBomRow(row.pieceRole, {
+                            quantity: event.target.value,
+                          })
+                        }
+                        className={productInputClassName}
+                        aria-label={`${formatCastingPieceRoleLabel(row.pieceRole)} quantity`}
+                      />
+                    </div>
+                  ))}
+                </div>
+                {castingComponents.length === 0 ? (
+                  <p className="mt-2 text-xs text-amber-700">
+                    Create frame and cover/grate component products first, then
+                    link them here.
+                  </p>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <input type="hidden" name="isCasting" value="no" />
+          )}
+        </div>
+      ) : (
+        <input type="hidden" name="isCasting" value="no" />
+      )}
 
       <div>
         <label

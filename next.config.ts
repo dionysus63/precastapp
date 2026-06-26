@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["nodemailer"],
   experimental: {
     serverActions: {
       // Construction plans and submittals are often multi-MB PDFs/DWGs.

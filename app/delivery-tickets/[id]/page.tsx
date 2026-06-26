@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { DeliveryTicketDetailContent } from "@/components/delivery-tickets/delivery-ticket-detail-content";
-import { getDeliveryTicketDetailById } from "@/components/delivery-tickets/delivery-ticket-utils";
 import { mapDbDeliveryTicketToDetailView } from "@/lib/delivery-ticket-mapper";
 import { withDatabaseRetry } from "@/lib/prisma";
 
@@ -24,33 +23,30 @@ export default async function DeliveryTicketDetailPage({
     }),
   );
 
-  if (dbTicket) {
-    const ticket = mapDbDeliveryTicketToDetailView(dbTicket);
-    if (dbTicket.invoice) {
-      ticket.relatedRecords.invoice = dbTicket.invoice.invoiceNumber;
-    }
-
-    return (
-      <DashboardShell title={ticket.title} subtitle={ticket.subtitle}>
-        <DeliveryTicketDetailContent
-          ticket={ticket}
-          ticketId={dbTicket.id}
-          ticketStatus={dbTicket.status}
-          hasInvoice={Boolean(dbTicket.invoice)}
-          invoiceId={dbTicket.invoice?.id ?? null}
-        />
-      </DashboardShell>
-    );
-  }
-
-  const sample = getDeliveryTicketDetailById(id);
-  if (!sample) {
+  if (!dbTicket) {
     notFound();
   }
 
+  const ticket = mapDbDeliveryTicketToDetailView(dbTicket);
+  if (dbTicket.invoice) {
+    ticket.relatedRecords.invoice = dbTicket.invoice.invoiceNumber;
+  }
+
   return (
-    <DashboardShell title={sample.title} subtitle={sample.subtitle}>
-      <DeliveryTicketDetailContent ticket={sample} />
+    <DashboardShell title={ticket.title} subtitle={ticket.subtitle}>
+      <DeliveryTicketDetailContent
+        ticket={ticket}
+        ticketId={dbTicket.id}
+        ticketStatus={dbTicket.status}
+        hasInvoice={Boolean(dbTicket.invoice)}
+        invoiceId={dbTicket.invoice?.id ?? null}
+        pickupInfo={{
+          fulfillmentMethod: dbTicket.fulfillmentMethod,
+          paymentMethod: dbTicket.paymentMethod,
+          paymentReceived: dbTicket.paymentReceived,
+          pickedUpBy: dbTicket.pickedUpBy,
+        }}
+      />
     </DashboardShell>
   );
 }

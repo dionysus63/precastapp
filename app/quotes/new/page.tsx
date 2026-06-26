@@ -13,6 +13,21 @@ import {
 import { requireAuth } from "@/lib/auth/session";
 import { mapProductToQuoteFormOption } from "@/lib/quote-mapper";
 import { withDatabaseRetry } from "@/lib/prisma";
+import type { Prisma } from "@/app/generated/prisma/client";
+
+const QUOTE_PRODUCT_OPTION_SELECT = {
+  id: true,
+  productCode: true,
+  name: true,
+  category: true,
+  description: true,
+  unit: true,
+  defaultPrice: true,
+  weight: true,
+  yards: true,
+  taxable: true,
+  castingRole: true,
+} satisfies Prisma.ProductSelect;
 
 function formatJobAddress(job: {
   projectAddress: string | null;
@@ -47,31 +62,66 @@ export default async function NewQuotePage({
     appSettings.quoteValidityDays,
   );
 
-  const [customers, jobs, stockProducts, configurableProducts, serviceProducts, priceLists] =
+  const [customers, jobs, stockProducts, configurableProducts, serviceProducts, ringSlabProducts, priceLists] =
     await withDatabaseRetry((prisma) =>
       Promise.all([
         prisma.customer.findMany({
           orderBy: { name: "asc" },
-          include: {
+          select: {
+            id: true,
+            name: true,
+            primaryContactName: true,
+            email: true,
+            phone: true,
             contacts: {
               orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
+              select: {
+                id: true,
+                name: true,
+                title: true,
+                email: true,
+                phone: true,
+                isPrimary: true,
+              },
             },
           },
         }),
         prisma.job.findMany({
           orderBy: [{ year: "desc" }, { sequenceNumber: "desc" }],
+          select: {
+            id: true,
+            jobNumber: true,
+            projectName: true,
+            projectAddress: true,
+            city: true,
+            state: true,
+            zip: true,
+            customerId: true,
+            customerName: true,
+            contactName: true,
+            contactEmail: true,
+            contactPhone: true,
+          },
         }),
         prisma.product.findMany({
           where: { productType: "STOCK", status: "ACTIVE" },
           orderBy: { productCode: "asc" },
+          select: QUOTE_PRODUCT_OPTION_SELECT,
         }),
         prisma.product.findMany({
           where: { productType: "CONFIGURABLE", status: "ACTIVE" },
           orderBy: { productCode: "asc" },
+          select: QUOTE_PRODUCT_OPTION_SELECT,
         }),
         prisma.product.findMany({
           where: { productType: "SERVICE", status: "ACTIVE" },
           orderBy: { productCode: "asc" },
+          select: QUOTE_PRODUCT_OPTION_SELECT,
+        }),
+        prisma.product.findMany({
+          where: { status: "ACTIVE" },
+          orderBy: { productCode: "asc" },
+          select: QUOTE_PRODUCT_OPTION_SELECT,
         }),
         listPriceListsForForm(),
       ]),
@@ -147,12 +197,24 @@ export default async function NewQuotePage({
         <QuoteForm
           customers={customerOptions}
           jobs={jobOptions}
-          stockProducts={stockProducts.map(mapProductToQuoteFormOption)}
+          stockProducts={stockProducts
+            .map(mapProductToQuoteFormOption)
+            .sort((a, b) => {
+              if (a.isCastingAssembly && !b.isCastingAssembly) {
+                return -1;
+              }
+              if (!a.isCastingAssembly && b.isCastingAssembly) {
+                return 1;
+              }
+              return a.code.localeCompare(b.code);
+            })}
           configurableProducts={configurableProducts.map(
             mapProductToQuoteFormOption,
           )}
           serviceOptions={serviceOptions}
           priceLists={priceLists}
+          ringBuilderConfig={appSettings.ringBuilderConfig}
+          ringSlabProducts={ringSlabProducts.map(mapProductToQuoteFormOption)}
           initialJobId={jobId}
           initialCustomerId={customerId}
           initialJobBidderId={bidderId}

@@ -37,6 +37,9 @@ type ProductOption = {
   name: string;
   unit: string;
   weight: number | null;
+  defaultPrice?: number | null;
+  currentStock?: number | null;
+  trackInventory?: boolean;
 };
 
 type EditorLine = {
@@ -209,6 +212,24 @@ export function DeliveryTicketEditor({
   const [ticketType, setTicketType] = useState<"JOB" | "WALK_IN">(
     defaultValues?.ticketType ?? "JOB",
   );
+  const [fulfillmentMethod, setFulfillmentMethod] = useState<
+    "DELIVERY" | "PICKUP"
+  >(defaultValues?.fulfillmentMethod ?? "DELIVERY");
+  const [paymentMethod, setPaymentMethod] = useState<
+    "PAY_NOW" | "ON_ACCOUNT" | ""
+  >(defaultValues?.paymentMethod ?? "");
+  const [paymentReceived, setPaymentReceived] = useState(
+    defaultValues?.paymentReceived ?? false,
+  );
+  const [pickedUpBy, setPickedUpBy] = useState(defaultValues?.pickedUpBy ?? "");
+  const [walkInCustomer, setWalkInCustomer] = useState(
+    defaultValues?.customerName ?? "",
+  );
+  const [walkInReference, setWalkInReference] = useState(
+    defaultValues?.projectName ?? "",
+  );
+  const [walkInSearch, setWalkInSearch] = useState("");
+  const [walkInQty, setWalkInQty] = useState("1");
   const [jobId, setJobId] = useState(defaultValues?.jobId ?? "");
   const [quoteId, setQuoteId] = useState(() =>
     initialQuoteId(defaultValues?.jobId ?? "", defaultValues?.quoteId, jobs),
@@ -216,7 +237,6 @@ export function DeliveryTicketEditor({
   const [deliveryDate, setDeliveryDate] = useState(
     defaultValues?.deliveryDate ?? todayDateInputValue(),
   );
-  const [deliveryTime, setDeliveryTime] = useState(defaultValues?.deliveryTime ?? "");
   const [fulfillment, setFulfillment] = useState<QuoteLineFulfillment[]>([]);
   const [lines, setLines] = useState<EditorLine[]>(defaultValues?.lines ?? []);
   const [selectedLineIds, setSelectedLineIds] = useState<Set<string>>(
@@ -260,10 +280,7 @@ export function DeliveryTicketEditor({
     if (defaultValues?.deliveryDate) {
       setDeliveryDate(defaultValues.deliveryDate);
     }
-    if (defaultValues?.deliveryTime != null) {
-      setDeliveryTime(defaultValues.deliveryTime);
-    }
-  }, [defaultValues?.deliveryDate, defaultValues?.deliveryTime]);
+  }, [defaultValues?.deliveryDate]);
 
   function handleJobChange(nextJobId: string) {
     setJobId(nextJobId);
@@ -510,6 +527,69 @@ export function DeliveryTicketEditor({
     });
   }
 
+  const isPickup = ticketType === "WALK_IN" || fulfillmentMethod === "PICKUP";
+
+  const walkInResults = useMemo(() => {
+    const q = walkInSearch.trim().toLowerCase();
+    const list = q
+      ? products.filter((product) =>
+          `${product.productCode} ${product.name}`.toLowerCase().includes(q),
+        )
+      : products;
+    return list.slice(0, 20);
+  }, [products, walkInSearch]);
+
+  function generateLineKey(): string {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+      return crypto.randomUUID();
+    }
+    return `walkin-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+
+  function addWalkInLine(productId: string) {
+    const product = products.find((entry) => entry.id === productId);
+    if (!product) {
+      return;
+    }
+    const qty = walkInQty.trim() || "1";
+    const key = generateLineKey();
+    const newLine: EditorLine = {
+      key,
+      quoteLineItemId: null,
+      productId: product.id,
+      jobStructureId: null,
+      lineType: "STOCK_PRODUCT",
+      itemCode: product.productCode,
+      description: product.name,
+      quantity: qty,
+      unit: product.unit || "EA",
+      weightEach: product.weight != null ? String(product.weight) : "",
+      yardLocation: "",
+    };
+    setLines((current) => [...current, newLine]);
+    setSelectedLineIds((current) => new Set([...current, key]));
+    setWalkInSearch("");
+    setWalkInQty("1");
+    setError(null);
+  }
+
+  function updateWalkInLine(key: string, field: keyof EditorLine, value: string) {
+    setLines((current) =>
+      current.map((line) =>
+        line.key === key ? { ...line, [field]: value } : line,
+      ),
+    );
+  }
+
+  function removeLine(key: string) {
+    setLines((current) => current.filter((line) => line.key !== key));
+    setSelectedLineIds((current) => {
+      const next = new Set(current);
+      next.delete(key);
+      return next;
+    });
+  }
+
   function buildPayload(status: SaveDeliveryTicketInput["status"]): SaveDeliveryTicketInput {
     const activeLines = lines.filter((line) => selectedLineIds.has(line.key));
     const linePayload: DeliveryTicketLineInput[] = activeLines
@@ -535,18 +615,28 @@ export function DeliveryTicketEditor({
         };
       });
 
+    const isWalkIn = ticketType === "WALK_IN";
+
     return {
       ticketType,
+      fulfillmentMethod: isWalkIn ? "PICKUP" : fulfillmentMethod,
       status,
+      paymentMethod: isPickup ? (paymentMethod || null) : null,
+      paymentReceived: isPickup ? paymentReceived : false,
+      pickedUpBy: isPickup ? pickedUpBy.trim() || null : null,
       jobId: ticketType === "JOB" ? jobId || null : null,
       quoteId: ticketType === "JOB" ? quote?.id ?? null : null,
       quoteNumber: ticketType === "JOB" ? quote?.quoteNumber ?? null : null,
       jobNumber: selectedJob?.jobNumber ?? null,
-      customerName: selectedJob?.customerName ?? defaultValues?.customerName ?? "",
-      projectName: selectedJob?.projectName ?? defaultValues?.projectName ?? "",
+      customerName: isWalkIn
+        ? walkInCustomer.trim()
+        : selectedJob?.customerName ?? defaultValues?.customerName ?? "",
+      projectName: isWalkIn
+        ? walkInReference.trim() || "Walk-in sale"
+        : selectedJob?.projectName ?? defaultValues?.projectName ?? "",
       deliveryAddress: defaultValues?.deliveryAddress ?? null,
       deliveryDate: deliveryDate.trim() || null,
-      deliveryTime: deliveryTime.trim() || null,
+      deliveryTime: null,
       truck: resolveFleetValue(truck, truckOther, trucks),
       driver: resolveFleetValue(driver, driverOther, drivers),
       trailer: resolveFleetValue(trailer, trailerOther, trailers),
@@ -575,7 +665,11 @@ export function DeliveryTicketEditor({
     <div className="space-y-4">
       <SectionCard title="Ticket type">
         <div className="flex gap-4 text-xs">
-          <label className="flex items-center gap-2">
+          <label
+            className={`flex items-center gap-2 text-slate-700 ${
+              ticketType === "JOB" ? "font-semibold text-slate-900" : ""
+            }`}
+          >
             <input
               type="radio"
               checked={ticketType === "JOB"}
@@ -583,7 +677,11 @@ export function DeliveryTicketEditor({
             />
             Job ticket
           </label>
-          <label className="flex items-center gap-2">
+          <label
+            className={`flex items-center gap-2 text-slate-700 ${
+              ticketType === "WALK_IN" ? "font-semibold text-slate-900" : ""
+            }`}
+          >
             <input
               type="radio"
               checked={ticketType === "WALK_IN"}
@@ -592,37 +690,66 @@ export function DeliveryTicketEditor({
             Walk-in
           </label>
         </div>
+        {ticketType === "JOB" ? (
+          <div className="mt-4 border-t border-slate-100 pt-3">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Fulfillment
+            </p>
+            <div className="flex gap-4 text-xs">
+              <label
+                className={`flex items-center gap-2 text-slate-700 ${
+                  fulfillmentMethod === "DELIVERY"
+                    ? "font-semibold text-slate-900"
+                    : ""
+                }`}
+              >
+                <input
+                  type="radio"
+                  checked={fulfillmentMethod === "DELIVERY"}
+                  onChange={() => setFulfillmentMethod("DELIVERY")}
+                />
+                We deliver
+              </label>
+              <label
+                className={`flex items-center gap-2 text-slate-700 ${
+                  fulfillmentMethod === "PICKUP"
+                    ? "font-semibold text-slate-900"
+                    : ""
+                }`}
+              >
+                <input
+                  type="radio"
+                  checked={fulfillmentMethod === "PICKUP"}
+                  onChange={() => setFulfillmentMethod("PICKUP")}
+                />
+                Customer pickup
+              </label>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-3 text-xs text-slate-500">
+            Walk-in tickets are always customer pickups.
+          </p>
+        )}
       </SectionCard>
 
       <SectionCard title="Schedule">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label htmlFor="deliveryDate" className="block text-xs font-medium text-slate-700">
-              Delivery date
-            </label>
-            <input
-              id="deliveryDate"
-              type="date"
-              value={deliveryDate}
-              onChange={(event) => setDeliveryDate(event.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label htmlFor="deliveryTime" className="block text-xs font-medium text-slate-700">
-              Delivery time
-            </label>
-            <input
-              id="deliveryTime"
-              type="time"
-              value={deliveryTime}
-              onChange={(event) => setDeliveryTime(event.target.value)}
-              className={inputClass}
-            />
-          </div>
+        <div>
+          <label htmlFor="deliveryDate" className="block text-xs font-medium text-slate-700">
+            {isPickup ? "Pickup date" : "Delivery date"}
+          </label>
+          <input
+            id="deliveryDate"
+            type="date"
+            value={deliveryDate}
+            onChange={(event) => setDeliveryDate(event.target.value)}
+            className={inputClass}
+          />
         </div>
         <p className="mt-2 text-xs text-slate-500">
-          Required when scheduling a delivery.
+          {isPickup
+            ? "Set the date the customer plans to pick up."
+            : "Required when scheduling a delivery."}
         </p>
       </SectionCard>
 
@@ -1031,15 +1158,234 @@ export function DeliveryTicketEditor({
         </SectionCard>
       ) : null}
 
-      {ticketType === "WALK_IN" && products.length > 0 ? (
-        <SectionCard title="Walk-in products" description="Select stock products for this ticket.">
-          <p className="text-xs text-slate-500">
-            Walk-in line picking uses product catalog — add lines via product selection in a future pass. Use job tickets for quote-driven loads.
-          </p>
+      {ticketType === "WALK_IN" ? (
+        <SectionCard
+          title="Walk-in customer"
+          description="Name the customer (or reference) for this counter sale."
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs font-medium text-slate-700">
+                Customer name
+              </label>
+              <input
+                value={walkInCustomer}
+                onChange={(event) => setWalkInCustomer(event.target.value)}
+                placeholder="Cash sale / customer name"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-700">
+                Reference / PO (optional)
+              </label>
+              <input
+                value={walkInReference}
+                onChange={(event) => setWalkInReference(event.target.value)}
+                placeholder="Walk-in sale"
+                className={inputClass}
+              />
+            </div>
+          </div>
         </SectionCard>
       ) : null}
 
-      {trucks.length > 0 || drivers.length > 0 || trailers.length > 0 ? (
+      {ticketType === "WALK_IN" ? (
+        <SectionCard
+          title="Products on this ticket"
+          description="Add stock products the customer is buying."
+        >
+          {products.length === 0 ? (
+            <p className="text-xs text-slate-500">
+              No active products are available to add.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-end gap-2">
+                <div className="min-w-[16rem] flex-1">
+                  <label className="block text-xs font-medium text-slate-700">
+                    Search products
+                  </label>
+                  <input
+                    type="search"
+                    value={walkInSearch}
+                    onChange={(event) => setWalkInSearch(event.target.value)}
+                    placeholder="Search product code, name..."
+                    className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm placeholder:text-slate-400"
+                  />
+                </div>
+                <div className="w-24">
+                  <label className="block text-xs font-medium text-slate-700">
+                    Qty
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={walkInQty}
+                    onChange={(event) => setWalkInQty(event.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+              {walkInResults.length > 0 ? (
+                <ul className="max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white">
+                  {walkInResults.map((product) => (
+                    <li key={product.id}>
+                      <button
+                        type="button"
+                        onClick={() => addWalkInLine(product.id)}
+                        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs hover:bg-slate-50"
+                      >
+                        <span>
+                          <span className="font-medium text-slate-900">
+                            {product.productCode}
+                          </span>
+                          <span className="ml-2 text-slate-600">
+                            {product.name}
+                          </span>
+                        </span>
+                        {product.currentStock != null ? (
+                          <span className="shrink-0 text-slate-500">
+                            {product.currentStock} in stock
+                          </span>
+                        ) : null}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-slate-500">
+                  {walkInSearch.trim()
+                    ? "No products match your search."
+                    : "Type to search products."}
+                </p>
+              )}
+            </div>
+          )}
+
+          {lines.length > 0 ? (
+            <div className="mt-4 overflow-x-auto">
+              <table className="min-w-full text-left text-xs">
+                <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+                  <tr>
+                    <th className="px-3 py-2">Item</th>
+                    <th className="px-3 py-2">Qty</th>
+                    <th className="px-3 py-2">Unit</th>
+                    <th className="px-3 py-2">Weight each</th>
+                    <th className="px-3 py-2">Line weight</th>
+                    <th className="px-3 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {lines.map((line) => {
+                    const qty = Number(line.quantity) || 0;
+                    const each = parseEditorWeight(line.weightEach) ?? 0;
+                    return (
+                      <tr key={line.key}>
+                        <td className="px-3 py-2">
+                          <span className="font-medium text-slate-900">
+                            {line.itemCode}
+                          </span>
+                          <span className="ml-2 text-slate-500">
+                            {line.description}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={line.quantity}
+                            onChange={(event) =>
+                              updateWalkInLine(line.key, "quantity", event.target.value)
+                            }
+                            className="w-20 rounded border border-slate-200 px-2 py-1 text-xs"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-slate-600">{line.unit}</td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={line.weightEach}
+                            onChange={(event) =>
+                              updateWalkInLine(line.key, "weightEach", event.target.value)
+                            }
+                            className="w-24 rounded border border-slate-200 px-2 py-1 text-xs"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-slate-600">
+                          {each > 0 ? formatWeight(qty * each) : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <button
+                            type="button"
+                            onClick={() => removeLine(line.key)}
+                            className="text-xs font-medium text-red-600 hover:text-red-800"
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </SectionCard>
+      ) : null}
+
+      {isPickup ? (
+        <SectionCard
+          title="Pickup & payment"
+          description="How the customer is paying and who is picking up."
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs font-medium text-slate-700">
+                Payment method
+              </label>
+              <select
+                value={paymentMethod}
+                onChange={(event) =>
+                  setPaymentMethod(
+                    event.target.value as "PAY_NOW" | "ON_ACCOUNT" | "",
+                  )
+                }
+                className={inputClass}
+              >
+                <option value="">Not specified</option>
+                <option value="PAY_NOW">Pay now</option>
+                <option value="ON_ACCOUNT">Charge to account</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-700">
+                Picked up by (optional)
+              </label>
+              <input
+                value={pickedUpBy}
+                onChange={(event) => setPickedUpBy(event.target.value)}
+                placeholder="Name on pickup"
+                className={inputClass}
+              />
+            </div>
+          </div>
+          <label className="mt-3 flex items-center gap-2 text-xs text-slate-700">
+            <input
+              type="checkbox"
+              checked={paymentReceived}
+              onChange={(event) => setPaymentReceived(event.target.checked)}
+            />
+            Payment received
+          </label>
+        </SectionCard>
+      ) : null}
+
+      {!isPickup && (trucks.length > 0 || drivers.length > 0 || trailers.length > 0) ? (
         <SectionCard
           title="Fleet & crew"
           description={`Capacity reference: ${truckCapacityLabel}`}
@@ -1168,7 +1514,7 @@ export function DeliveryTicketEditor({
           onClick={() => submit("SCHEDULED")}
           className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
         >
-          Schedule Delivery
+          {isPickup ? "Schedule Pickup" : "Schedule Delivery"}
         </button>
       </div>
     </div>

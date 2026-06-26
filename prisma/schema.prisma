@@ -86,6 +86,53 @@ enum DrainRingStyle {
   SOLID
 }
 
+enum CastingSupplierOrigin {
+  DOMESTIC
+  IMPORTED
+}
+
+enum CastingSupplierStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CastingRole {
+  ASSEMBLY
+  COMPONENT
+}
+
+enum CastingPieceRole {
+  FRAME
+  COVER_GRATE
+  HOOD
+  THROAT
+}
+
+enum ProductKind {
+  STANDARD
+  DRAIN_RING
+  CASTING_ASSEMBLY
+  CASTING_COMPONENT
+  PIPE
+}
+
+model CastingSupplier {
+  id        String                @id @default(cuid())
+  name      String                @unique
+  origin    CastingSupplierOrigin
+  sortOrder Int                   @default(0)
+  status    CastingSupplierStatus @default(ACTIVE)
+  notes     String?
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  products         Product[]
+  purchaseReceipts PurchaseReceiptEntry[]
+
+  @@index([status])
+  @@index([sortOrder])
+}
+
 model Product {
   id                   String        @id @default(cuid())
   productCode          String        @unique
@@ -105,12 +152,20 @@ model Product {
   yardLocation         String?
   status               ProductStatus @default(ACTIVE)
   notes                String?
+  productKind               ProductKind      @default(STANDARD)
   isDrainRing          Boolean         @default(false)
   heightFeet           Decimal?        @db.Decimal(6, 2)
   ringDiameterFeet     Decimal?        @db.Decimal(6, 2)
   drainRingStyle       DrainRingStyle  @default(DRAIN)
-  isCasting                 Boolean    @default(false)
-  castingClearOpeningInches Decimal?   @db.Decimal(6, 2)
+  isCasting                 Boolean          @default(false)
+  castingClearOpeningInches Decimal?         @db.Decimal(6, 2)
+  castingRole               CastingRole?
+  castingPieceRole          CastingPieceRole?
+  castingSupplierId         String?
+  pipeDiameterInches        Decimal?         @db.Decimal(6, 2)
+  pipeLengthFeet            Decimal?         @db.Decimal(6, 2)
+  pipeClass                 String?
+  pipeJointType             String?
   createdAt            DateTime        @default(now())
   updatedAt            DateTime      @updatedAt
 
@@ -121,11 +176,39 @@ model Product {
   deliveryTicketLineItems DeliveryTicketLineItem[]
   inventoryTransactions   InventoryTransaction[]
   productionLines         DailyProductionLine[]
+  purchaseReceiptLines    PurchaseReceiptLine[]
   priceListItems          PriceListItem[]
   invoiceLineItems        InvoiceLineItem[]
+  castingSupplier         CastingSupplier?              @relation(fields: [castingSupplierId], references: [id], onDelete: SetNull)
+  castingAssemblyComponents ProductCastingComponent[]   @relation("CastingAssembly")
+  castingComponentOf        ProductCastingComponent[]   @relation("CastingComponent")
 
+  @@index([productKind])
   @@index([isDrainRing, ringDiameterFeet, drainRingStyle])
   @@index([isCasting])
+  @@index([castingRole])
+  @@index([castingSupplierId])
+  @@index([productKind, pipeDiameterInches])
+}
+
+/// BOM link: full casting assembly → frame/cover/grate component SKUs.
+model ProductCastingComponent {
+  id          String           @id @default(cuid())
+  assemblyId  String
+  componentId String
+  pieceRole   CastingPieceRole
+  quantity    Int              @default(1)
+  sortOrder   Int              @default(0)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  assembly  Product @relation("CastingAssembly", fields: [assemblyId], references: [id], onDelete: Cascade)
+  component Product @relation("CastingComponent", fields: [componentId], references: [id], onDelete: Restrict)
+
+  @@unique([assemblyId, pieceRole])
+  @@unique([assemblyId, componentId])
+  @@index([assemblyId])
+  @@index([componentId])
 }
 
 model ProductDocument {
@@ -611,6 +694,8 @@ model Quote {
   customer        Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
   contact         Contact?         @relation(fields: [contactId], references: [id], onDelete: SetNull)
   priceList       PriceList?       @relation(fields: [priceListId], references: [id], onDelete: SetNull)
+  originalQuote   Quote?           @relation("QuoteRevisions", fields: [originalQuoteId], references: [id], onDelete: SetNull)
+  revisions       Quote[]          @relation("QuoteRevisions")
   lineItems       QuoteLineItem[]
   jobStructures   JobStructure[]
   deliveryTickets DeliveryTicket[]
@@ -621,19 +706,21 @@ model Quote {
   @@index([customerId])
   @@index([contactId])
   @@index([priceListId])
+  @@index([originalQuoteId])
   @@index([status])
   @@index([quoteDate])
 }
 
 /// Individual line on a quote: stock product, configurable/custom structure, service, or misc item.
 model QuoteLineItem {
-  id             String        @id @default(cuid())
-  quoteId        String
-  lineNumber     Int
-  lineType       QuoteLineType
-  productId      String?
-  jobStructureId String?
-  itemCode       String
+  id                 String        @id @default(cuid())
+  quoteId            String
+  previousLineItemId String?
+  lineNumber         Int
+  lineType           QuoteLineType
+  productId          String?
+  jobStructureId     String?
+  itemCode           String
   description    String?
   quantity       Decimal       @default(1) @db.Decimal(12, 4)
   unit           String        @default("EA")
@@ -653,12 +740,15 @@ model QuoteLineItem {
   updatedAt      DateTime      @updatedAt
 
   quote                   Quote                    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  previousLineItem        QuoteLineItem?           @relation("QuoteLineLineage", fields: [previousLineItemId], references: [id], onDelete: SetNull)
+  supersededBy            QuoteLineItem[]          @relation("QuoteLineLineage")
   product                 Product?                 @relation(fields: [productId], references: [id], onDelete: SetNull)
   jobStructure            JobStructure?            @relation(fields: [jobStructureId], references: [id], onDelete: SetNull)
   deliveryTicketLineItems DeliveryTicketLineItem[]
   invoiceLineItems        InvoiceLineItem[]
 
   @@index([quoteId])
+  @@index([previousLineItemId])
   @@index([productId])
   @@index([jobStructureId])
 }
@@ -694,6 +784,18 @@ enum DeliveryItemStatus {
   CANCELLED
 }
 
+/// Whether the company delivers the load or the customer picks it up.
+enum FulfillmentMethod {
+  DELIVERY
+  PICKUP
+}
+
+/// How a pickup / walk-in customer is paying for the load.
+enum TicketPaymentMethod {
+  PAY_NOW
+  ON_ACCOUNT
+}
+
 /// Delivery ticket for scheduling and tracking job deliveries.
 /// Ticket numbers follow DT##### format (e.g. DT10001); global sequence starting at 10001.
 model DeliveryTicket {
@@ -703,6 +805,7 @@ model DeliveryTicket {
   yearTwoDigit           Int
   sequenceNumber         Int
   ticketType             DeliveryTicketType   @default(JOB)
+  fulfillmentMethod      FulfillmentMethod    @default(DELIVERY)
   status                 DeliveryTicketStatus @default(DRAFT)
   jobId                  String?
   quoteId                String?
@@ -730,6 +833,9 @@ model DeliveryTicket {
   forkliftRequired       Boolean              @default(false)
   totalItems             Int?
   totalWeight            Decimal?             @db.Decimal(12, 2)
+  paymentMethod          TicketPaymentMethod?
+  paymentReceived        Boolean              @default(false)
+  pickedUpBy             String?
   driverNotes            String?
   internalNotes          String?
   customerNotes          String?
@@ -759,6 +865,7 @@ model DeliveryTicket {
   @@index([deliveryDate])
   @@index([yearTwoDigit])
   @@index([ticketType])
+  @@index([fulfillmentMethod])
 }
 
 /// Individual line on a delivery ticket: stock product, structure, service, or misc item.
@@ -809,11 +916,13 @@ enum InventoryTransactionType {
   DELIVERY
   ADJUSTMENT
   REVERSAL
+  PURCHASE_RECEIPT
 }
 
 enum InventoryReferenceType {
   DAILY_PRODUCTION_LINE
   DELIVERY_TICKET_LINE_ITEM
+  PURCHASE_RECEIPT_LINE
 }
 
 /// Append-only ledger for stock inventory changes.
@@ -833,6 +942,7 @@ model InventoryTransaction {
 
   @@index([productId])
   @@index([transactionDate])
+  @@index([productId, transactionDate])
   @@index([referenceType, referenceId])
 }
 
@@ -862,6 +972,38 @@ model DailyProductionLine {
   product         Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productionEntryId])
+  @@index([productId])
+}
+
+/// Batch entry for purchased casting inventory received from a supplier.
+model PurchaseReceiptEntry {
+  id           String   @id @default(cuid())
+  receiptDate  DateTime @db.Date
+  supplierId   String?
+  batchLabel   String?
+  enteredBy    String?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  supplier CastingSupplier?     @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  lines    PurchaseReceiptLine[]
+
+  @@index([receiptDate])
+  @@index([supplierId])
+}
+
+/// One product/qty row on a purchase receipt entry.
+model PurchaseReceiptLine {
+  id                String  @id @default(cuid())
+  purchaseReceiptId String
+  productId         String
+  quantityReceived  Decimal @db.Decimal(12, 4)
+
+  purchaseReceipt PurchaseReceiptEntry @relation(fields: [purchaseReceiptId], references: [id], onDelete: Cascade)
+  product         Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseReceiptId])
   @@index([productId])
 }
 
@@ -1013,6 +1155,10 @@ model AppSettings {
   appTitle        String
   appSubtitle     String
   quoteFooterText String?
+  deliveryTicketCopy1Title   String?
+  deliveryTicketCopy2Title   String?
+  deliveryTicketCopy3Title   String?
+  deliveryTicketFooterText   String?
   companyLogoPath   String?
   // paths
   jobsRoot            String
@@ -1032,6 +1178,7 @@ model AppSettings {
   trailers           Json
   truckCapacityLabel String
   productCatalog     Json
+  ringBuilderConfig  Json     @default("[]")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

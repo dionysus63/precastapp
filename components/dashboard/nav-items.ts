@@ -54,6 +54,11 @@ export const navItems: NavItem[] = [
     requiredPermission: "DELIVERY_VIEW",
   },
   {
+    label: "Walk-Ins",
+    href: "/walk-ins",
+    requiredPermission: "DELIVERY_VIEW",
+  },
+  {
     label: "Inventory",
     href: "/inventory",
     requiredPermission: "INVENTORY_VIEW",

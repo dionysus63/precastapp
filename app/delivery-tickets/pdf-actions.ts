@@ -1,26 +1,69 @@
 "use server";
 
+import { writeFile } from "fs/promises";
 import path from "path";
 import { revalidatePath } from "next/cache";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
-import { mapDbDeliveryTicketToDetailView } from "@/lib/delivery-ticket-mapper";
-import { buildDeliveryTicketPdfHtml } from "@/lib/delivery-ticket-pdf-html";
+import { DELIVERY_TICKET_PDF_INCLUDE } from "@/lib/delivery-ticket-pdf-data";
+import { generateDeliveryTicketPdfBytes } from "@/lib/delivery-ticket-pdf-fill";
 import {
+  getJobsRoot,
   getJobSubfolders,
   getQuotePdfFallbackDir,
 } from "@/lib/app-settings";
+import { assertPathUnderJobsRoot } from "@/lib/job-path-security";
 import {
   buildQuotePdfBaseName,
   resolveQuotePdfOutputPath,
 } from "@/lib/quote-pdf-path";
-import { writeQuotePdfFromHtml } from "@/lib/quote-pdf";
 import { registerJobFile } from "@/lib/job-files-service";
 import { withDatabaseRetry } from "@/lib/prisma";
 
 export type GenerateDeliveryTicketPdfResult =
   | { success: true; filePath: string }
   | { success: false; error: string };
+
+export type DeliveryTicketPdfPreviewResult =
+  | { success: true; base64: string }
+  | { success: false; error: string };
+
+async function loadTicketForPdf(ticketId: string) {
+  return withDatabaseRetry((prisma) =>
+    prisma.deliveryTicket.findUnique({
+      where: { id: ticketId },
+      include: DELIVERY_TICKET_PDF_INCLUDE,
+    }),
+  );
+}
+
+export async function getDeliveryTicketPdfPreviewBase64(
+  ticketId: string,
+): Promise<DeliveryTicketPdfPreviewResult> {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+  if (!ticketId.trim()) {
+    return { success: false, error: "Ticket id is required." };
+  }
+
+  try {
+    const ticket = await loadTicketForPdf(ticketId);
+    if (!ticket) {
+      return { success: false, error: "Delivery ticket not found." };
+    }
+
+    const pdfBytes = await generateDeliveryTicketPdfBytes(ticket);
+    return {
+      success: true,
+      base64: Buffer.from(pdfBytes).toString("base64"),
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Failed to generate delivery ticket preview.";
+    return { success: false, error: message };
+  }
+}
 
 export async function generateDeliveryTicketPdf(
   ticketId: string,
@@ -31,14 +74,7 @@ export async function generateDeliveryTicketPdf(
   }
 
   try {
-    const ticket = await withDatabaseRetry((prisma) =>
-      prisma.deliveryTicket.findUnique({
-        where: { id: ticketId },
-        include: {
-          lineItems: { orderBy: { lineNumber: "asc" } },
-        },
-      }),
-    );
+    const ticket = await loadTicketForPdf(ticketId);
 
     if (!ticket) {
       return { success: false, error: "Delivery ticket not found." };
@@ -55,8 +91,7 @@ export async function generateDeliveryTicketPdf(
       jobFolderPath = job?.folderPath ?? null;
     }
 
-    const detail = mapDbDeliveryTicketToDetailView(ticket);
-    const html = await buildDeliveryTicketPdfHtml(detail);
+    const pdfBytes = await generateDeliveryTicketPdfBytes(ticket);
     const baseName = buildQuotePdfBaseName(
       ticket.ticketNumber,
       ticket.customerName,
@@ -70,7 +105,12 @@ export async function generateDeliveryTicketPdf(
       : path.join(fallbackDir, "..", "DeliveryTickets");
     const outputPath = await resolveQuotePdfOutputPath(outputDirectory, baseName);
 
-    await writeQuotePdfFromHtml(html, outputPath);
+    // The job folder comes from the DB; keep the write inside the jobs root.
+    if (jobFolderPath?.trim()) {
+      assertPathUnderJobsRoot(await getJobsRoot(), outputPath);
+    }
+
+    await writeFile(outputPath, pdfBytes);
 
     await withDatabaseRetry((client) =>
       client.deliveryTicket.update({

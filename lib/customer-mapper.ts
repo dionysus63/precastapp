@@ -13,6 +13,11 @@ import {
   type QuoteStatus,
 } from "@/components/quotes/quote-utils";
 import { deliveryTicketStatusLabels } from "@/components/delivery-tickets/delivery-ticket-utils";
+import { formatDateShort, formatUsd } from "@/lib/format";
+import {
+  customerStatusVariant,
+  quoteStatusVariant,
+} from "@/lib/status-variants";
 
 const customerStatusLabels: Record<string, string> = {
   ACTIVE: "Active",
@@ -20,23 +25,8 @@ const customerStatusLabels: Record<string, string> = {
   PROSPECT: "Prospect",
 };
 
-function statusVariant(status: string): CustomerRow["statusVariant"] {
-  switch (status) {
-    case "ACTIVE":
-      return "success";
-    case "PROSPECT":
-      return "warning";
-    default:
-      return "neutral";
-  }
-}
-
 export function formatCustomerDate(date: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(date);
+  return formatDateShort(date);
 }
 
 function formatDate(date: Date) {
@@ -61,35 +51,6 @@ function jobStatusVariant(status: string): CustomerRelatedJob["statusVariant"] {
   }
 }
 
-function quoteStatusVariant(
-  status: string,
-): CustomerRelatedQuote["statusVariant"] {
-  switch (status) {
-    case "WON":
-      return "success";
-    case "SENT":
-    case "IN_REVIEW":
-      return "info";
-    case "REVISED":
-      return "warning";
-    case "LOST":
-    case "LOST_BC":
-    case "EXPIRED":
-    case "CANCELLED":
-      return "neutral";
-    default:
-      return "default";
-  }
-}
-
-function formatCurrency(value: Quote["total"]) {
-  const amount = Number.parseFloat(value.toString());
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(Number.isFinite(amount) ? amount : 0);
-}
-
 export function mapCustomerToRow(customer: Customer): CustomerRow {
   return {
     id: customer.id,
@@ -98,7 +59,7 @@ export function mapCustomerToRow(customer: Customer): CustomerRow {
     phone: customer.phone ?? "—",
     email: customer.email ?? "—",
     status: customerStatusLabels[customer.status] ?? customer.status,
-    statusVariant: statusVariant(customer.status),
+    statusVariant: customerStatusVariant(customer.status),
     openQuotes: 0,
     balance: "$0",
     lastActivity: formatDate(customer.updatedAt),
@@ -126,7 +87,7 @@ export function mapQuoteToCustomerRelated(quote: Quote): CustomerRelatedQuote {
     status: quote.status,
     statusLabel: quoteStatusLabels[status] ?? quote.status,
     statusVariant: quoteStatusVariant(quote.status),
-    total: formatCurrency(quote.total),
+    total: formatUsd(quote.total),
     lastUpdated: formatCustomerDate(quote.updatedAt),
   };
 }

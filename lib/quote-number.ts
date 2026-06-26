@@ -9,13 +9,15 @@ type DbClient = Prisma.TransactionClient | {
   };
 };
 
-export async function generateQuoteNumber(
-  client: DbClient,
-  jobNumber: string | null,
-): Promise<string> {
-  const yearSuffix = String(new Date().getFullYear() % 100).padStart(2, "0");
-  const base = jobNumber ? `Q-${jobNumber}-R0` : `Q-${yearSuffix}-NEW-R0`;
+/** Strip trailing revision suffix (-R0, -R1, -R0-2, etc.) from a quote number. */
+export function stripRevisionSuffix(quoteNumber: string): string {
+  return quoteNumber.replace(/-R\d+(-\d+)?$/, "");
+}
 
+async function findAvailableQuoteNumber(
+  client: DbClient,
+  base: string,
+): Promise<string> {
   let candidate = base;
   let suffix = 2;
 
@@ -30,4 +32,23 @@ export async function generateQuoteNumber(
   }
 
   return candidate;
+}
+
+export async function generateQuoteNumber(
+  client: DbClient,
+  jobNumber: string | null,
+): Promise<string> {
+  const yearSuffix = String(new Date().getFullYear() % 100).padStart(2, "0");
+  const base = jobNumber ? `Q-${jobNumber}-R0` : `Q-${yearSuffix}-NEW-R0`;
+  return findAvailableQuoteNumber(client, base);
+}
+
+/** Generate a quote number for revision N of an existing quote family. */
+export async function generateRevisionQuoteNumber(
+  client: DbClient,
+  sourceQuoteNumber: string,
+  revisionNumber: number,
+): Promise<string> {
+  const base = `${stripRevisionSuffix(sourceQuoteNumber)}-R${revisionNumber}`;
+  return findAvailableQuoteNumber(client, base);
 }

@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Precast Ops
 
-## Getting Started
+Internal business app for quoting, jobs, inventory, and production — Next.js, Prisma, PostgreSQL, and Windows job-folder integration.
 
-First, run the development server:
+## Local development
 
-```bash
+See **[COMMANDS.md](COMMANDS.md)** for daily workflow (`npm run dev`, Prisma, troubleshooting).
+
+```powershell
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open **http://localhost:3000**
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Desktop shell (optional)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+With the dev server running:
 
-## Learn More
+```powershell
+npm run electron:dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Office deployment
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+This app runs on a **Windows server on your LAN** with PostgreSQL and UNC job folders. Staff use a **Precast Ops desktop app** (Electron thin client) — not a browser bookmark.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Full guide:** **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**
 
-## Deploy on Vercel
+| Step | Script / doc |
+|------|----------------|
+| Fill in server details | [docs/deployment-server-info.md](docs/deployment-server-info.md) |
+| Check prerequisites | `.\scripts\deploy\install-prerequisites.ps1` |
+| Verify UNC access | `.\scripts\deploy\verify-unc-access.ps1` |
+| Build & migrate server | `.\scripts\deploy\deploy-app.ps1` |
+| Smoke test server | `.\scripts\deploy\start-production.ps1` |
+| Windows service | `.\scripts\deploy\install-windows-service.ps1` |
+| Build desktop installer | `.\scripts\deploy\build-electron-client.ps1` |
+| Staff rollout | [docs/office-rollout.md](docs/office-rollout.md) |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Copy [`.env.example`](.env.example) to `.env` on the server before deploying.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project docs
+
+| Doc | Purpose |
+|-----|---------|
+| [AGENTS.md](AGENTS.md) | Auth, security, database rules |
+| [COMMANDS.md](COMMANDS.md) | Dev commands |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Production office deploy |

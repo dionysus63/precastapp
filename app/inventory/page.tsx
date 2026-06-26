@@ -38,6 +38,12 @@ export default async function InventoryPage() {
     >
       <div className="mb-4 flex flex-wrap justify-end gap-2">
         <Link
+          href="/inventory/receive"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-sm hover:bg-slate-50"
+        >
+          Receive Castings
+        </Link>
+        <Link
           href="/inventory/adjust"
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-sm hover:bg-slate-50"
         >

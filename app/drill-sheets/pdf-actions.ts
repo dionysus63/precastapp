@@ -16,6 +16,8 @@ import {
 import { writeQuotePdfFromHtml } from "@/lib/quote-pdf";
 import { registerJobFile } from "@/lib/job-files-service";
 import { launchWindowsFile } from "@/lib/windows-explorer";
+import { getJobsRoot } from "@/lib/app-settings";
+import { assertPathUnderJobsRoot } from "@/lib/job-path-security";
 import { withDatabaseRetry } from "@/lib/prisma";
 
 export type GenerateDrillSheetPdfResult =
@@ -71,6 +73,11 @@ export async function generateDrillSheetPdf(
       outputDirectory,
       baseName,
     );
+
+    // The job folder comes from the DB; keep the write inside the jobs root.
+    if (jobFolderPath) {
+      assertPathUnderJobsRoot(await getJobsRoot(), outputPath);
+    }
 
     await writeQuotePdfFromHtml(html, outputPath);
 

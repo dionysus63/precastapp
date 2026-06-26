@@ -2,6 +2,7 @@
   "name": "precastapp",
   "version": "0.1.0",
   "private": true,
+  "main": "electron/main.mjs",
   "scripts": {
     "dev": "next dev",
     "predev": "prisma generate",
@@ -10,14 +11,21 @@
     "lint": "eslint",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:sync-files": "npx tsx scripts/sync-job-files.ts",
-    "postinstall": "prisma generate && puppeteer browsers install chrome",
+    "deploy:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy/install-prerequisites.ps1",
+    "deploy:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy/deploy-app.ps1",
+    "deploy:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy/start-production.ps1",
+    "electron:dev": "electron .",
+    "electron:build": "electron-builder --win --x64",
+    "postinstall": "prisma generate && node scripts/copy-pdf-worker.mjs && puppeteer browsers install chrome",
     "puppeteer:install": "puppeteer browsers install chrome"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "next": "16.2.9",
+    "nodemailer": "^9.0.1",
     "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.0.227",
     "pg": "^8.21.0",
     "prisma": "^7.8.0",
     "puppeteer": "^25.1.0",
@@ -28,13 +36,38 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "electron": "^35.7.5",
+    "electron-builder": "^25.1.8",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
     "tsx": "^4.22.4",
     "typescript": "^5"
+  },
+  "build": {
+    "appId": "com.li-precast.precastops",
+    "productName": "Precast Ops",
+    "directories": {
+      "app": "electron",
+      "output": "dist/electron"
+    },
+    "extraResources": [
+      {
+        "from": "electron/config.default.json",
+        "to": "config.default.json"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

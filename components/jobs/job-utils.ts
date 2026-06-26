@@ -28,6 +28,7 @@ export type JobDetailTab =
   | "bidding"
   | "quotes"
   | "deliveries"
+  | "progress"
   | "production"
   | "invoices"
   | "construction-plans"
@@ -89,6 +90,19 @@ export type JobBidListCustomerOption = {
   name: string;
 };
 
+export type JobDeliveryLineItem = {
+  id: string;
+  lineNumber: number;
+  itemCode: string;
+  description: string;
+  quantity: string;
+  unit: string;
+  totalWeight: string;
+  yardLocation: string;
+  statusLabel: string;
+  statusVariant: JobStatusVariant;
+};
+
 export type JobRelatedDelivery = {
   id: string;
   ticketNumber: string;
@@ -97,6 +111,42 @@ export type JobRelatedDelivery = {
   statusVariant: JobStatusVariant;
   deliveryDate: string;
   lastUpdated: string;
+  lineItems: JobDeliveryLineItem[];
+};
+
+export type JobProgressLine = {
+  quoteLineItemId: string;
+  lineNumber: number;
+  itemCode: string;
+  description: string;
+  displayName: string;
+  unit: string;
+  awardedQty: string;
+  shippedQty: string;
+  scheduledQty: string;
+  remainingQty: string;
+  stockLevel: string;
+  submittalStatus: string;
+  submittalStatusVariant: JobStatusVariant;
+  submittalDocCount: number;
+  structureStatus: string;
+  structureStatusVariant: JobStatusVariant;
+  lineType: string;
+  jobStructureId: string | null;
+};
+
+export type JobProgressSummary = {
+  totalLines: number;
+  fullyShippedLines: number;
+  partiallyShippedLines: number;
+  notShippedLines: number;
+};
+
+export type JobProgressView = {
+  quoteId: string | null;
+  quoteNumber: string | null;
+  lines: JobProgressLine[];
+  summary: JobProgressSummary;
 };
 
 export type JobRelatedStructure = {

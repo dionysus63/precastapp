@@ -55,12 +55,14 @@ export async function listRecentFiles(filters?: {
   folderCategory?: string;
   customerName?: string;
 }) {
+  await requirePermission(AppPermission.FILES_VIEW);
   return withDatabaseRetry((client) =>
     listRecentJobFiles(client, 50, filters),
   );
 }
 
 export async function listJobsMissingFolders() {
+  await requirePermission(AppPermission.FILES_VIEW);
   return withDatabaseRetry((client) =>
     client.job.findMany({
       where: { OR: [{ folderPath: null }, { folderPath: "" }] },
@@ -77,6 +79,7 @@ export async function listJobsMissingFolders() {
 }
 
 export async function getJobFilesForBrowser(jobId: string, category?: string) {
+  await requirePermission(AppPermission.FILES_VIEW);
   return withDatabaseRetry(async (client) => {
     const job = await assertJobFolderPath(client, jobId);
     const files = await listJobFiles(client, jobId, category);

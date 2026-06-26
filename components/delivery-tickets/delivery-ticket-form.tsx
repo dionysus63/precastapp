@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { SectionCard } from "@/components/dashboard/section-card";
+import { RichTextContent } from "@/components/ui/rich-text-content";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import {
   deliveryTicketCustomerOptions,
@@ -438,7 +439,7 @@ export function DeliveryTicketForm() {
                         {line.item}
                       </td>
                       <td className="px-3 py-2.5 text-slate-700">
-                        {line.description}
+                        <RichTextContent value={line.description} />
                       </td>
                       <td className="px-3 py-2.5 text-slate-700">{line.qty}</td>
                       <td className="px-3 py-2.5 text-slate-700">{line.unit}</td>

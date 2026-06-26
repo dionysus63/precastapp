@@ -10,7 +10,12 @@ import {
   formatOptionalString,
   formatYesNo,
 } from "@/lib/excel-export";
+import { productKindLabels } from "@/lib/product-kinds";
 import { prisma } from "@/lib/prisma";
+import {
+  formatCastingPieceRoleLabel,
+  formatCastingRoleLabel,
+} from "@/lib/casting-utils";
 
 const productStatusLabels: Record<string, string> = {
   ACTIVE: "Active",
@@ -32,6 +37,7 @@ export const productExportHeaders = [
   "Product Code",
   "Product Name",
   "Product Type",
+  "Product Kind",
   "Category",
   "Subcategory",
   "Unit",
@@ -46,10 +52,17 @@ export const productExportHeaders = [
   "Yard Location",
   "Status",
   "Notes",
-  "Ring",
   "Ring Diameter (ft)",
   "Ring Height (ft)",
   "Style (DRAIN/SAN/SOL)",
+  "Casting Role",
+  "Casting Piece Role",
+  "Casting Clear Opening (in)",
+  "Casting Supplier ID",
+  "Pipe Diameter (in)",
+  "Pipe Length (ft)",
+  "Pipe Class",
+  "Pipe Joint Type",
   "Product ID",
   "Created",
   "Updated",
@@ -60,10 +73,16 @@ function mapProductToExportRow(product: Product): unknown[] {
     productTypeLabels[product.productType as ProductType] ??
     product.productType.replaceAll("_", " ");
 
+  const isRing = product.productKind === "DRAIN_RING";
+  const isCasting =
+    product.productKind === "CASTING_ASSEMBLY" ||
+    product.productKind === "CASTING_COMPONENT";
+
   return [
     product.productCode,
     product.name,
     productType,
+    productKindLabels[product.productKind],
     product.category,
     formatOptionalString(product.description),
     product.unit,
@@ -78,10 +97,27 @@ function mapProductToExportRow(product: Product): unknown[] {
     formatOptionalString(product.yardLocation),
     productStatusLabels[product.status] ?? product.status,
     formatOptionalString(product.notes),
-    formatYesNo(product.isDrainRing),
-    formatOptionalDecimal(product.ringDiameterFeet),
-    formatOptionalDecimal(product.heightFeet),
-    product.isDrainRing ? formatDrainRingStyle(product.drainRingStyle) : "",
+    isRing ? formatOptionalDecimal(product.ringDiameterFeet) : "",
+    isRing ? formatOptionalDecimal(product.heightFeet) : "",
+    isRing ? formatDrainRingStyle(product.drainRingStyle) : "",
+    isCasting ? formatCastingRoleLabel(product.castingRole) : "",
+    isCasting
+      ? formatCastingPieceRoleLabel(product.castingPieceRole)
+      : "",
+    product.productKind === "CASTING_ASSEMBLY"
+      ? formatOptionalDecimal(product.castingClearOpeningInches)
+      : "",
+    formatOptionalString(product.castingSupplierId),
+    product.productKind === "PIPE"
+      ? formatOptionalDecimal(product.pipeDiameterInches)
+      : "",
+    product.productKind === "PIPE"
+      ? formatOptionalDecimal(product.pipeLengthFeet)
+      : "",
+    product.productKind === "PIPE" ? formatOptionalString(product.pipeClass) : "",
+    product.productKind === "PIPE"
+      ? formatOptionalString(product.pipeJointType)
+      : "",
     product.id,
     formatExportDate(product.createdAt),
     formatExportDate(product.updatedAt),

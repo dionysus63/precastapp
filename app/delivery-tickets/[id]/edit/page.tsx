@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { DeliveryTicketEditor } from "@/components/delivery-tickets/delivery-ticket-editor";
 import { listJobsWithQuotes } from "@/app/operations/actions";
+import { listStockProductsForTicket } from "@/app/delivery-tickets/actions";
 import { getAppSettings } from "@/lib/app-settings";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { formatDateIso } from "@/lib/delivery-dispatch-utils";
@@ -16,7 +17,7 @@ export default async function EditDeliveryTicketPage({
 }: EditDeliveryTicketPageProps) {
   const { id } = await params;
 
-  const [ticket, jobs, settings] = await Promise.all([
+  const [ticket, jobs, products, settings] = await Promise.all([
     withDatabaseRetry((prisma) =>
       prisma.deliveryTicket.findUnique({
         where: { id },
@@ -31,6 +32,7 @@ export default async function EditDeliveryTicketPage({
       }),
     ),
     listJobsWithQuotes(),
+    listStockProductsForTicket(),
     getAppSettings(),
   ]);
 
@@ -76,6 +78,7 @@ export default async function EditDeliveryTicketPage({
           mode="edit"
           ticketId={ticket.id}
           jobs={jobs}
+          products={products}
           fleetOptions={{
             trucks: settings.trucks,
             drivers: settings.drivers,
@@ -84,6 +87,10 @@ export default async function EditDeliveryTicketPage({
           }}
           defaultValues={{
             ticketType: ticket.ticketType,
+            fulfillmentMethod: ticket.fulfillmentMethod,
+            paymentMethod: ticket.paymentMethod,
+            paymentReceived: ticket.paymentReceived,
+            pickedUpBy: ticket.pickedUpBy,
             jobId: ticket.jobId ?? "",
             quoteId: ticket.quoteId,
             customerName: ticket.customerName,

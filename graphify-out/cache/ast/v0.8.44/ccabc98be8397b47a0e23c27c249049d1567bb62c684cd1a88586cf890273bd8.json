@@ -1,0 +1,1 @@
+{"nodes": [{"id": "c_projects_precastapp_prisma_migrations_20260623220000_inventory_transaction_product_date_index_migration_sql", "label": "migration.sql", "file_type": "code", "source_file": "prisma/migrations/20260623220000_inventory_transaction_product_date_index/migration.sql", "source_location": null}], "edges": []}

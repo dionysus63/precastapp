@@ -256,6 +256,8 @@ export async function launchWindowsFile(
   }
 
   const normalizedPath = normalizePath(filePath);
+  const root = options?.allowedRoot ?? (await getJobsRoot());
+  assertPathUnderRoot(root, normalizedPath);
   await assertFileExists(normalizedPath);
   const selectArg = explorerSelectArg(normalizedPath);
   await launchExplorer(

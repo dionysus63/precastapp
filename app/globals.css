@@ -24,3 +24,37 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.rich-text-content b,
+.rich-text-content strong {
+  font-weight: 700;
+}
+
+.rich-text-content i,
+.rich-text-content em {
+  font-style: italic;
+}
+
+.rich-text-content u {
+  text-decoration: underline;
+}
+
+.rich-text-editor:empty::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.rich-text-editor b,
+.rich-text-editor strong {
+  font-weight: 700;
+}
+
+.rich-text-editor i,
+.rich-text-editor em {
+  font-style: italic;
+}
+
+.rich-text-editor u {
+  text-decoration: underline;
+}

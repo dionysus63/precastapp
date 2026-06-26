@@ -25,6 +25,7 @@ export type ProductionQueueItem = {
   productCode: string | null;
   productName: string | null;
   needsSubmittal: boolean;
+  madeDate: string | null;
 };
 
 function StructurePrimaryName({ item }: { item: ProductionQueueItem }) {
@@ -156,6 +157,87 @@ export function ProductionQueue({ items }: ProductionQueueProps) {
         Approve submitted structures, then start production and mark them made.
         Custom structures need submittals uploaded on the structure detail page
         first.
+      </div>
+    </SectionCard>
+  );
+}
+
+export function ReadyToShipPanel({ items }: { items: ProductionQueueItem[] }) {
+  return (
+    <SectionCard
+      title="Ready to Ship"
+      description="Job-specific structures made and waiting to be shipped."
+      noPadding
+    >
+      {items.length === 0 ? (
+        <p className="px-4 py-6 text-sm text-slate-500">
+          No structures waiting to ship.
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-xs">
+            <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+              <tr>
+                <th className="px-4 py-2 font-semibold">Structure</th>
+                <th className="px-4 py-2 font-semibold">Job</th>
+                <th className="px-4 py-2 font-semibold">Quote</th>
+                <th className="px-4 py-2 font-semibold">Qty</th>
+                <th className="px-4 py-2 font-semibold">Made</th>
+                <th className="px-4 py-2 font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {items.map((item) => (
+                <tr key={item.id} className="text-slate-800">
+                  <td className="px-4 py-2">
+                    <div className="font-medium text-slate-900">
+                      <StructurePrimaryName item={item} />
+                    </div>
+                    <div className="text-slate-500">
+                      {item.description ?? item.productName ?? "—"}
+                    </div>
+                  </td>
+                  <td className="px-4 py-2">
+                    {item.jobNumber ? (
+                      <span>
+                        {item.jobNumber}
+                        <span className="block text-slate-500">
+                          {item.projectName}
+                        </span>
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="px-4 py-2">{item.quoteNumber ?? "—"}</td>
+                  <td className="px-4 py-2">
+                    {item.quantity ?? "—"} {item.unit ?? ""}
+                  </td>
+                  <td className="px-4 py-2">{item.madeDate ?? "—"}</td>
+                  <td className="px-4 py-2">
+                    {item.jobId ? (
+                      <Link
+                        href={`/jobs/${item.jobId}?tab=deliveries`}
+                        className="rounded border border-slate-200 px-2 py-1 text-[11px] hover:bg-slate-50"
+                      >
+                        Deliveries
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div className="border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
+        Schedule loads from{" "}
+        <Link href="/delivery-tickets" className="font-medium text-slate-700 hover:underline">
+          Delivery Tickets
+        </Link>
+        . Structures move to shipped when their ticket is marked delivered.
       </div>
     </SectionCard>
   );

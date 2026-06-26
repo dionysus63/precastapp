@@ -1,86 +1,50 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
+import { PaginationControls } from "@/components/common/pagination-controls";
+import {
+  useDebouncedSearchParam,
+  useListQuery,
+} from "@/components/common/use-list-query";
 import { DispatcherWeekCalendar } from "@/components/delivery-tickets/dispatcher-week-calendar";
 import { TodaysLoadsPanel } from "@/components/delivery-tickets/todays-loads-panel";
 import {
   deliveryDateFilterOptions,
   deliveryDriverFilterOptions,
   deliveryJobFilterOptions,
-  deliveryTicketStatusFilterOptions,
+  deliveryTicketStatusFormOptions,
   deliveryTicketStatusLabels,
   deliveryTruckFilterOptions,
-  matchesDeliveryDateFilter,
-  placeholderDeliveryTickets,
   type DeliveryTicketRow,
 } from "@/components/delivery-tickets/delivery-ticket-utils";
+import type { PageInfo } from "@/lib/list-params";
+
+type DeliveryTicketsListFilters = {
+  search: string;
+  status: string;
+  driver: string;
+  truck: string;
+  job: string;
+  date: string;
+};
 
 type DeliveryTicketsListProps = {
-  tickets?: DeliveryTicketRow[];
+  tickets: DeliveryTicketRow[];
+  scheduleTickets: DeliveryTicketRow[];
+  pageInfo: PageInfo;
+  filters: DeliveryTicketsListFilters;
 };
 
 export function DeliveryTicketsList({
-  tickets: ticketsProp,
-}: DeliveryTicketsListProps = {}) {
-  const usingLiveData = ticketsProp != null;
-  const tickets = ticketsProp ?? placeholderDeliveryTickets;
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [deliveryDateFilter, setDeliveryDateFilter] = useState("All");
-  const [driverFilter, setDriverFilter] = useState("All");
-  const [truckFilter, setTruckFilter] = useState("All");
-  const [jobFilter, setJobFilter] = useState("All");
-
-  const filteredTickets = useMemo(() => {
-    return tickets.filter((ticket) => {
-      const matchesSearch =
-        search.trim() === "" ||
-        ticket.ticketNumber.toLowerCase().includes(search.toLowerCase()) ||
-        ticket.jobNumber.toLowerCase().includes(search.toLowerCase()) ||
-        ticket.customer.toLowerCase().includes(search.toLowerCase()) ||
-        ticket.projectName.toLowerCase().includes(search.toLowerCase()) ||
-        ticket.truck.toLowerCase().includes(search.toLowerCase()) ||
-        ticket.driver.toLowerCase().includes(search.toLowerCase());
-
-      const statusLabel = deliveryTicketStatusLabels[ticket.status];
-      const matchesStatus =
-        statusFilter === "All" || statusLabel === statusFilter;
-
-      const matchesDeliveryDate = matchesDeliveryDateFilter(
-        ticket.deliveryDate,
-        deliveryDateFilter,
-      );
-
-      const matchesDriver =
-        driverFilter === "All" || ticket.driver === driverFilter;
-
-      const matchesTruck =
-        truckFilter === "All" || ticket.truck === truckFilter;
-
-      const matchesJob =
-        jobFilter === "All" || ticket.jobNumber === jobFilter;
-
-      return (
-        matchesSearch &&
-        matchesStatus &&
-        matchesDeliveryDate &&
-        matchesDriver &&
-        matchesTruck &&
-        matchesJob
-      );
-    });
-  }, [
-    search,
-    statusFilter,
-    deliveryDateFilter,
-    driverFilter,
-    truckFilter,
-    jobFilter,
-    tickets,
-  ]);
+  tickets,
+  scheduleTickets,
+  pageInfo,
+  filters,
+}: DeliveryTicketsListProps) {
+  const { setParams } = useListQuery();
+  const { search, setSearch } = useDebouncedSearchParam("q", filters.search);
 
   return (
     <div className="space-y-4">
@@ -99,12 +63,8 @@ export function DeliveryTicketsList({
         </Link>
       </div>
 
-      {usingLiveData ? (
-        <>
-          <DispatcherWeekCalendar tickets={tickets} />
-          <TodaysLoadsPanel tickets={tickets} />
-        </>
-      ) : null}
+      <DispatcherWeekCalendar tickets={scheduleTickets} />
+      <TodaysLoadsPanel tickets={scheduleTickets} />
 
       <div className="flex flex-col gap-3 xl:flex-row xl:flex-wrap">
         <input
@@ -115,19 +75,20 @@ export function DeliveryTicketsList({
           className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm placeholder:text-slate-400 xl:max-w-sm"
         />
         <select
-          value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value)}
+          value={filters.status || "All"}
+          onChange={(event) => setParams({ status: event.target.value })}
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
         >
-          {deliveryTicketStatusFilterOptions.map((status) => (
-            <option key={status} value={status}>
-              Status: {status}
+          <option value="All">Status: All</option>
+          {deliveryTicketStatusFormOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              Status: {option.label}
             </option>
           ))}
         </select>
         <select
-          value={deliveryDateFilter}
-          onChange={(event) => setDeliveryDateFilter(event.target.value)}
+          value={filters.date || "All"}
+          onChange={(event) => setParams({ date: event.target.value })}
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
         >
           {deliveryDateFilterOptions.map((date) => (
@@ -137,8 +98,8 @@ export function DeliveryTicketsList({
           ))}
         </select>
         <select
-          value={driverFilter}
-          onChange={(event) => setDriverFilter(event.target.value)}
+          value={filters.driver || "All"}
+          onChange={(event) => setParams({ driver: event.target.value })}
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
         >
           {deliveryDriverFilterOptions.map((driver) => (
@@ -148,8 +109,8 @@ export function DeliveryTicketsList({
           ))}
         </select>
         <select
-          value={truckFilter}
-          onChange={(event) => setTruckFilter(event.target.value)}
+          value={filters.truck || "All"}
+          onChange={(event) => setParams({ truck: event.target.value })}
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
         >
           {deliveryTruckFilterOptions.map((truck) => (
@@ -159,8 +120,8 @@ export function DeliveryTicketsList({
           ))}
         </select>
         <select
-          value={jobFilter}
-          onChange={(event) => setJobFilter(event.target.value)}
+          value={filters.job || "All"}
+          onChange={(event) => setParams({ job: event.target.value })}
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
         >
           {deliveryJobFilterOptions.map((job) => (
@@ -173,7 +134,7 @@ export function DeliveryTicketsList({
 
       <SectionCard
         title="All Delivery Tickets"
-        description={`${filteredTickets.length} ticket${filteredTickets.length === 1 ? "" : "s"} shown`}
+        description={`${pageInfo.total.toLocaleString()} ticket${pageInfo.total === 1 ? "" : "s"} match`}
         noPadding
       >
         <div className="overflow-x-auto">
@@ -194,7 +155,7 @@ export function DeliveryTicketsList({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredTickets.length === 0 ? (
+              {tickets.length === 0 ? (
                 <tr>
                   <td
                     colSpan={11}
@@ -204,7 +165,7 @@ export function DeliveryTicketsList({
                   </td>
                 </tr>
               ) : (
-                filteredTickets.map((ticket) => (
+                tickets.map((ticket) => (
                   <tr key={ticket.id} className="hover:bg-slate-50/60">
                     <td className="px-4 py-2.5 font-mono text-[11px] font-medium text-slate-900">
                       {ticket.ticketNumber}
@@ -255,6 +216,14 @@ export function DeliveryTicketsList({
             </tbody>
           </table>
         </div>
+        <PaginationControls
+          page={pageInfo.page}
+          totalPages={pageInfo.totalPages}
+          fromIndex={pageInfo.fromIndex}
+          toIndex={pageInfo.toIndex}
+          total={pageInfo.total}
+          noun="ticket"
+        />
       </SectionCard>
     </div>
   );

@@ -3,8 +3,10 @@ import {
   ApproveStructuresPanel,
   NeedsSubmittalPanel,
   ProductionQueue,
+  ReadyToShipPanel,
   type ProductionQueueItem,
 } from "@/components/production/production-queue";
+import { formatDateShort } from "@/lib/format";
 import { withDatabaseRetry } from "@/lib/prisma";
 
 function mapStructure(row: {
@@ -13,6 +15,7 @@ function mapStructure(row: {
   description: string | null;
   status: string;
   needsSubmittal: boolean;
+  madeDate: Date | null;
   quantity: { toString(): string } | null;
   unit: string | null;
   job: { id: string; jobNumber: string; projectName: string } | null;
@@ -33,6 +36,7 @@ function mapStructure(row: {
     productCode: row.product?.productCode ?? null,
     productName: row.product?.name ?? null,
     needsSubmittal: row.needsSubmittal,
+    madeDate: row.madeDate ? formatDateShort(row.madeDate) : null,
   };
 }
 
@@ -43,12 +47,19 @@ const structureInclude = {
 } as const;
 
 export default async function ProductionPage() {
-  const [queue, awaiting, needsSubmittal, skippableApproval] =
+  const [queue, readyToShip, awaiting, needsSubmittal, skippableApproval] =
     await Promise.all([
       withDatabaseRetry((prisma) =>
         prisma.jobStructure.findMany({
           where: { status: { in: ["APPROVED", "IN_PRODUCTION"] } },
           orderBy: [{ productionDate: "asc" }, { createdAt: "asc" }],
+          include: structureInclude,
+        }),
+      ),
+      withDatabaseRetry((prisma) =>
+        prisma.jobStructure.findMany({
+          where: { status: "MADE" },
+          orderBy: [{ madeDate: "asc" }, { createdAt: "asc" }],
           include: structureInclude,
         }),
       ),
@@ -81,10 +92,11 @@ export default async function ProductionPage() {
   return (
     <DashboardShell
       title="Production"
-      subtitle="Approve, track, and mark job-specific structures as made."
+      subtitle="Approve, track, and mark job-specific structures as made, and view structures ready to ship."
     >
       <div className="space-y-5">
         <ProductionQueue items={queue.map(mapStructure)} />
+        <ReadyToShipPanel items={readyToShip.map(mapStructure)} />
         <NeedsSubmittalPanel structures={needsSubmittal.map(mapStructure)} />
         <ApproveStructuresPanel
           pendingStructures={awaiting.map(mapStructure)}

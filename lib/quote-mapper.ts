@@ -5,7 +5,11 @@ import {
   formatDrainRingStyleLabel,
   type DrainRingStyle,
 } from "@/lib/drain-ring-utils";
+import { canEditQuote } from "@/lib/quotes/edit-rules";
+import { canSendQuote } from "@/lib/quotes/send-rules";
 import {
+  type QuoteFormInitialValues,
+  type QuoteLineItemType,
   type QuoteRow,
   type QuoteStatus,
   type QuoteType,
@@ -17,6 +21,13 @@ import {
 import {
   structureStatusOptions,
 } from "@/components/structures/structure-utils";
+import {
+  formatQuantity,
+  formatUsd,
+  formatWeightLb,
+  formatYards,
+} from "@/lib/format";
+import { quoteStatusVariant } from "@/lib/status-variants";
 
 export type QuoteRecord = {
   id: string;
@@ -95,6 +106,14 @@ export type QuoteLineItemRecord = {
   } | null;
 };
 
+export type QuoteRevisionSummary = {
+  id: string;
+  quoteNumber: string;
+  revisionNumber: number;
+  status: string;
+  createdAt: Date;
+};
+
 export type QuoteDetailRecord = QuoteRecord & {
   lineItems: QuoteLineItemRecord[];
   jobBidder?: { customer: { name: string } } | null;
@@ -108,6 +127,7 @@ export type QuoteDetailRecord = QuoteRecord & {
     _count?: { documents: number };
     job?: { id: string; folderPath: string | null } | null;
   }>;
+  revisionFamily?: QuoteRevisionSummary[];
 };
 
 const structureStatusLabels: Record<string, string> = Object.fromEntries(
@@ -133,25 +153,16 @@ function mapQuoteRelatedStructure(
   };
 }
 
-function statusVariant(
-  status: string,
-): QuoteRow["statusVariant"] {
-  switch (status) {
-    case "WON":
-      return "success";
-    case "SENT":
-    case "IN_REVIEW":
-      return "info";
-    case "REVISED":
-      return "warning";
-    case "LOST":
-    case "LOST_BC":
-    case "EXPIRED":
-    case "CANCELLED":
-      return "neutral";
-    default:
-      return "default";
+function formatQuoteDateLong(date: Date | null | undefined) {
+  if (!date) {
+    return "—";
   }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
 }
 
 function formatQuoteDate(date: Date | null | undefined) {
@@ -166,74 +177,23 @@ function formatQuoteDate(date: Date | null | undefined) {
   }).format(date);
 }
 
-function formatQuoteDateLong(date: Date | null | undefined) {
+function toQuoteFormDateValue(date: Date | null | undefined): string {
   if (!date) {
-    return "—";
+    return "";
   }
 
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(date);
+  return date.toISOString().slice(0, 10);
 }
 
-function formatCurrency(value: { toString(): string } | number) {
-  const amount =
-    typeof value === "number" ? value : Number.parseFloat(value.toString());
-  if (!Number.isFinite(amount)) {
-    return "—";
+function toQuoteFormNumberValue(
+  value: { toString(): string } | null | undefined,
+): string {
+  if (!value) {
+    return "";
   }
 
-  return amount.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
-}
-
-function formatWeight(value: { toString(): string } | number | null) {
-  if (value === null) {
-    return "—";
-  }
-
-  const amount =
-    typeof value === "number" ? value : Number.parseFloat(value.toString());
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return "—";
-  }
-
-  return `${amount.toLocaleString("en-US", { maximumFractionDigits: 0 })} lb`;
-}
-
-function formatYards(value: { toString(): string } | number | null) {
-  if (value === null) {
-    return "—";
-  }
-
-  const amount =
-    typeof value === "number" ? value : Number.parseFloat(value.toString());
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return "—";
-  }
-
-  return amount.toLocaleString("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
-}
-
-function formatQuantity(value: { toString(): string }) {
-  const amount = Number.parseFloat(value.toString());
-  if (!Number.isFinite(amount)) {
-    return value.toString();
-  }
-
-  return amount.toLocaleString("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 4,
-  });
+  const parsed = Number.parseFloat(value.toString());
+  return Number.isFinite(parsed) ? String(parsed) : "";
 }
 
 function formatLineNotes(
@@ -253,6 +213,45 @@ function deriveOriginalQuoteNumber(quote: QuoteDetailRecord) {
   }
 
   return quote.quoteNumber.replace(/-R\d+(-\d+)?$/, "-R0");
+}
+
+function mapRevisionHistory(
+  quote: QuoteDetailRecord,
+  family: QuoteRevisionSummary[],
+) {
+  return family.map((entry) => {
+    const status = entry.status as QuoteStatus;
+    const statusLabel = quoteStatusLabels[status] ?? entry.status;
+    const isCurrent = entry.id === quote.id;
+    return {
+      id: entry.id,
+      label: `${entry.quoteNumber} — ${statusLabel}${isCurrent ? " (this quote)" : ""}`,
+      isCurrent,
+    };
+  });
+}
+
+function deriveSupersededBy(
+  quote: QuoteDetailRecord,
+  family: QuoteRevisionSummary[],
+) {
+  if (quote.status !== "REVISED") {
+    return null;
+  }
+
+  const successor = family
+    .filter((entry) => entry.revisionNumber > quote.revisionNumber)
+    .sort((a, b) => a.revisionNumber - b.revisionNumber)[0];
+
+  if (!successor) {
+    return null;
+  }
+
+  return {
+    id: successor.id,
+    quoteNumber: successor.quoteNumber,
+    revision: `R${successor.revisionNumber}`,
+  };
 }
 
 function mapLineTypeLabel(lineType: string) {
@@ -296,7 +295,25 @@ function formatQuoteLineTypeLabel(line: QuoteLineItemRecord): string {
   return mapLineTypeLabel(line.lineType);
 }
 
-export function mapQuoteToRow(quote: QuoteRecord): QuoteRow {
+export type QuoteListRecord = Pick<
+  QuoteRecord,
+  | "id"
+  | "quoteNumber"
+  | "revisionNumber"
+  | "jobNumber"
+  | "projectName"
+  | "customerName"
+  | "quoteType"
+  | "status"
+  | "bidDueDate"
+  | "total"
+  | "estimator"
+  | "updatedAt"
+  | "quoteDate"
+  | "createdAt"
+>;
+
+export function mapQuoteToRow(quote: QuoteListRecord): QuoteRow {
   const status = quote.status as QuoteStatus;
   const quoteType = quote.quoteType as QuoteType;
 
@@ -311,9 +328,9 @@ export function mapQuoteToRow(quote: QuoteRecord): QuoteRow {
     quoteTypeLabel: quoteTypeLabels[quoteType] ?? quote.quoteType,
     status,
     statusLabel: quoteStatusLabels[status] ?? quote.status,
-    statusVariant: statusVariant(quote.status),
+    statusVariant: quoteStatusVariant(quote.status),
     bidDueDate: formatQuoteDate(quote.bidDueDate),
-    total: formatCurrency(quote.total),
+    total: formatUsd(quote.total),
     estimator: quote.estimator ?? "—",
     lastUpdated: formatQuoteDateLong(quote.updatedAt),
     year: quote.quoteDate?.getFullYear() ?? quote.createdAt.getFullYear(),
@@ -323,6 +340,16 @@ export function mapQuoteToRow(quote: QuoteRecord): QuoteRow {
 export function mapQuoteToDetailView(quote: QuoteDetailRecord): QuoteDetailView {
   const status = quote.status as QuoteStatus;
   const taxRateNumber = Number.parseFloat(quote.taxRate.toString());
+  const revisionFamily = quote.revisionFamily ?? [
+    {
+      id: quote.id,
+      quoteNumber: quote.quoteNumber,
+      revisionNumber: quote.revisionNumber,
+      status: quote.status,
+      createdAt: quote.createdAt,
+    },
+  ];
+  const supersededBy = deriveSupersededBy(quote, revisionFamily);
 
   return {
     id: quote.id,
@@ -332,8 +359,8 @@ export function mapQuoteToDetailView(quote: QuoteDetailRecord): QuoteDetailView 
     subtitle: `${quote.projectName} — ${quote.customerName}`,
     status,
     statusLabel: quoteStatusLabels[status] ?? quote.status,
-    statusVariant: statusVariant(quote.status),
-    total: formatCurrency(quote.total),
+    statusVariant: quoteStatusVariant(quote.status),
+    total: formatUsd(quote.total),
     bidDueDate: formatQuoteDate(quote.bidDueDate),
     revision: `R${quote.revisionNumber}`,
     estimator: quote.estimator ?? "—",
@@ -344,6 +371,7 @@ export function mapQuoteToDetailView(quote: QuoteDetailRecord): QuoteDetailView 
     customer: quote.customerName,
     contactName: quote.contactName?.trim() || "—",
     contactEmail: quote.contactEmail?.trim() || "—",
+    contactEmailAddress: quote.contactEmail?.trim() ?? "",
     contactPhone: quote.contactPhone?.trim() || "—",
     contactTitle: quote.contactTitle?.trim() || "—",
     quoteDate: formatQuoteDate(quote.quoteDate),
@@ -367,29 +395,28 @@ export function mapQuoteToDetailView(quote: QuoteDetailRecord): QuoteDetailView 
       description: formatQuoteLineDescription(line),
       qty: formatQuantity(line.quantity),
       unit: line.unit,
-      unitPrice: formatCurrency(line.unitPrice),
-      weight: formatWeight(line.weight),
+      unitPrice: formatUsd(line.unitPrice),
+      weight: formatWeightLb(line.weight),
       yards: formatYards(line.yards),
       taxable: line.taxable,
-      total: formatCurrency(line.total),
+      total: formatUsd(line.total),
       statusNotes: formatLineNotes(line.statusNote, line.notes),
     })),
     summary: {
-      subtotal: formatCurrency(quote.subtotal),
-      discount: formatCurrency(quote.discountAmount),
-      delivery: formatCurrency(quote.deliveryAmount),
-      taxableAmount: formatCurrency(quote.taxableAmount),
-      salesTax: formatCurrency(quote.salesTax),
-      total: formatCurrency(quote.total),
-      totalWeight: formatWeight(quote.totalWeight),
+      subtotal: formatUsd(quote.subtotal),
+      discount: formatUsd(quote.discountAmount),
+      delivery: formatUsd(quote.deliveryAmount),
+      taxableAmount: formatUsd(quote.taxableAmount),
+      salesTax: formatUsd(quote.salesTax),
+      total: formatUsd(quote.total),
+      totalWeight: formatWeightLb(quote.totalWeight),
       totalYards: formatYards(quote.totalYards),
     },
-    revisionHistory: [
-      {
-        id: "rev-created",
-        label: `${quote.quoteNumber} created`,
-      },
-    ],
+    revisionHistory: mapRevisionHistory(quote, revisionFamily),
+    canRevise: status === "SENT" || status === "WON",
+    canEdit: canEditQuote(status, supersededBy),
+    canSend: canSendQuote(status, supersededBy),
+    supersededBy,
     relatedStructures: (quote.jobStructures ?? []).map((structure) =>
       mapQuoteRelatedStructure(structure, quote.jobId),
     ),
@@ -408,21 +435,96 @@ export function mapQuoteToDetailView(quote: QuoteDetailRecord): QuoteDetailView 
   };
 }
 
+export function mapQuoteToFormInitialValues(
+  quote: QuoteDetailRecord,
+): QuoteFormInitialValues {
+  const taxRateNumber = Number.parseFloat(quote.taxRate.toString());
+
+  return {
+    quoteNumber: quote.quoteNumber,
+    customerId: quote.customerId ?? "",
+    customerName: quote.customerName,
+    jobId: quote.jobId ?? "",
+    jobBidderId: quote.jobBidderId ?? "",
+    jobNumber: quote.jobNumber ?? "",
+    projectName: quote.projectName,
+    projectAddress: quote.projectAddress?.trim() ?? "",
+    contactId: quote.contactId ?? "",
+    contactTitle: quote.contactTitle?.trim() ?? "",
+    contactName: quote.contactName?.trim() ?? "",
+    contactEmail: quote.contactEmail?.trim() ?? "",
+    contactPhone: quote.contactPhone?.trim() ?? "",
+    status: quote.status as QuoteStatus,
+    quoteType: quote.quoteType as QuoteType,
+    estimator: quote.estimator?.trim() ?? "",
+    quoteDate: toQuoteFormDateValue(quote.quoteDate),
+    bidDueDate: toQuoteFormDateValue(quote.bidDueDate),
+    expirationDate: toQuoteFormDateValue(quote.expirationDate),
+    customerPo: quote.customerPO?.trim() ?? "",
+    priceListId: quote.priceListId ?? "",
+    taxRate: Number.isFinite(taxRateNumber) ? String(taxRateNumber) : "0",
+    internalNotes: quote.internalNotes?.trim() ?? "",
+    customerNotes: quote.customerNotes?.trim() ?? "",
+    leadTime: quote.leadTime?.trim() ?? "",
+    deliveryNotes: quote.deliveryNotes?.trim() ?? "",
+    termsAndConditions: quote.termsAndConditions?.trim() ?? "",
+    lineItems: quote.lineItems.map((line) => ({
+      id: line.id,
+      lineNumber: line.lineNumber,
+      type: line.lineType as QuoteLineItemType,
+      typeLabel: formatQuoteLineTypeLabel(line),
+      item: line.itemCode,
+      description: line.description?.trim() ?? "",
+      qty: toQuoteFormNumberValue(line.quantity),
+      unit: line.unit,
+      unitPrice: toQuoteFormNumberValue(line.unitPrice),
+      weight: line.weight ? toQuoteFormNumberValue(line.weight) : "",
+      yards: line.yards ? toQuoteFormNumberValue(line.yards) : "",
+      taxable: line.taxable,
+      productId: line.productId,
+      statusNote: line.statusNote,
+      isDrainRing: line.isDrainRing ?? false,
+      ringDiameterFeet: line.ringDiameterFeet
+        ? Number.parseFloat(line.ringDiameterFeet.toString())
+        : null,
+      poolHeightFeet: line.poolHeightFeet
+        ? Number.parseFloat(line.poolHeightFeet.toString())
+        : null,
+      drainRingStyle: (line.drainRingStyle ?? "DRAIN") as DrainRingStyle,
+    })),
+  };
+}
+
 export function mapProductToQuoteFormOption(product: {
   id: string;
   productCode: string;
   name: string;
+  category: string;
   description: string | null;
   unit: string;
   defaultPrice: { toString(): string } | null;
   weight: { toString(): string } | null;
   yards: { toString(): string } | null;
   taxable: boolean;
+  castingRole?: string | null;
 }) {
+  const isCastingAssembly = product.castingRole === "ASSEMBLY";
+  const isCastingComponent = product.castingRole === "COMPONENT";
+  const subcategory = product.description?.trim() || "";
+  const baseDescription = subcategory || product.name;
+  const description = isCastingAssembly
+    ? `${baseDescription} [Casting assembly]`
+    : isCastingComponent
+      ? `${baseDescription} [Casting piece]`
+      : baseDescription;
+
   return {
     id: product.id,
     code: product.productCode,
-    description: product.description?.trim() || product.name,
+    name: product.name,
+    description,
+    category: product.category,
+    subcategory,
     unit: product.unit,
     unitPrice: product.defaultPrice
       ? Number.parseFloat(product.defaultPrice.toString())
@@ -432,5 +534,7 @@ export function mapProductToQuoteFormOption(product: {
       : 0,
     yards: product.yards ? Number.parseFloat(product.yards.toString()) : 0,
     taxable: product.taxable,
+    isCastingAssembly,
+    isCastingComponent,
   };
 }

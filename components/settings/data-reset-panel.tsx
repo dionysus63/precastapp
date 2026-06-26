@@ -113,8 +113,9 @@ export function DataResetPanel({ stats }: DataResetPanelProps) {
         <h3 className="text-sm font-semibold text-red-900">Clear all customers</h3>
         <p className="mt-2 text-xs text-red-800">
           Deletes every customer ({stats.customerCount} currently in the
-          database) and their contacts. Jobs, quotes, delivery tickets, and
-          invoices remain but no longer reference a customer.
+          database) and their contacts. Job bid list entries for those
+          customers are removed. Jobs, quotes, delivery tickets, and invoices
+          remain but no longer reference a customer.
         </p>
         <div className="mt-4 space-y-3">
           <div>

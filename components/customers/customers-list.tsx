@@ -1,14 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
+import { PaginationControls } from "@/components/common/pagination-controls";
+import {
+  useDebouncedSearchParam,
+  useListQuery,
+} from "@/components/common/use-list-query";
 import {
   type CustomerRow,
-  customerStatusFilterOptions,
+  customerStatusFormOptions,
 } from "@/components/customers/customer-utils";
 import { ExportExcelLink } from "@/components/shared/export-excel-link";
+import type { PageInfo } from "@/lib/list-params";
 
 type SortColumn =
   | "name"
@@ -16,68 +21,19 @@ type SortColumn =
   | "phone"
   | "email"
   | "status"
-  | "openQuotes"
-  | "balance"
   | "lastActivity";
 
 type SortDirection = "asc" | "desc";
 
 type CustomersListProps = {
   customers: CustomerRow[];
+  pageInfo: PageInfo;
+  filters: { search: string; status: string };
+  sort: { column: SortColumn; direction: SortDirection };
 };
 
 const sortableHeaderClassName =
   "cursor-pointer px-4 py-2.5 font-semibold transition-colors hover:bg-slate-100 hover:text-slate-700 select-none";
-
-function parseBalance(value: string) {
-  const amount = Number.parseFloat(value.replace(/[^0-9.-]/g, ""));
-  return Number.isFinite(amount) ? amount : 0;
-}
-
-function parseActivityDate(value: string) {
-  const timestamp = Date.parse(value);
-  return Number.isFinite(timestamp) ? timestamp : 0;
-}
-
-function compareCustomers(
-  a: CustomerRow,
-  b: CustomerRow,
-  column: SortColumn,
-  direction: SortDirection,
-) {
-  let result = 0;
-
-  switch (column) {
-    case "name":
-      result = a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-      break;
-    case "primaryContact":
-      result = a.primaryContact.localeCompare(b.primaryContact, undefined, {
-        sensitivity: "base",
-      });
-      break;
-    case "phone":
-      result = a.phone.localeCompare(b.phone, undefined, { sensitivity: "base" });
-      break;
-    case "email":
-      result = a.email.localeCompare(b.email, undefined, { sensitivity: "base" });
-      break;
-    case "status":
-      result = a.status.localeCompare(b.status, undefined, { sensitivity: "base" });
-      break;
-    case "openQuotes":
-      result = a.openQuotes - b.openQuotes;
-      break;
-    case "balance":
-      result = parseBalance(a.balance) - parseBalance(b.balance);
-      break;
-    case "lastActivity":
-      result = parseActivityDate(a.lastActivity) - parseActivityDate(b.lastActivity);
-      break;
-  }
-
-  return direction === "asc" ? result : -result;
-}
 
 type SortableHeaderProps = {
   column: SortColumn;
@@ -121,40 +77,20 @@ function SortableHeader({
   );
 }
 
-export function CustomersList({ customers }: CustomersListProps) {
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [sortColumn, setSortColumn] = useState<SortColumn>("name");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+export function CustomersList({
+  customers,
+  pageInfo,
+  filters,
+  sort,
+}: CustomersListProps) {
+  const { setParams } = useListQuery();
+  const { search, setSearch } = useDebouncedSearchParam("q", filters.search);
 
   function handleSort(column: SortColumn) {
-    if (sortColumn === column) {
-      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
-      return;
-    }
-
-    setSortColumn(column);
-    setSortDirection("asc");
+    const nextDirection: SortDirection =
+      sort.column === column && sort.direction === "asc" ? "desc" : "asc";
+    setParams({ sort: column, dir: nextDirection });
   }
-
-  const filteredCustomers = useMemo(() => {
-    const filtered = customers.filter((customer) => {
-      const matchesSearch =
-        search.trim() === "" ||
-        customer.name.toLowerCase().includes(search.toLowerCase()) ||
-        customer.primaryContact.toLowerCase().includes(search.toLowerCase()) ||
-        customer.email.toLowerCase().includes(search.toLowerCase());
-
-      const matchesStatus =
-        statusFilter === "All" || customer.status === statusFilter;
-
-      return matchesSearch && matchesStatus;
-    });
-
-    return [...filtered].sort((a, b) =>
-      compareCustomers(a, b, sortColumn, sortDirection),
-    );
-  }, [customers, search, statusFilter, sortColumn, sortDirection]);
 
   return (
     <div className="space-y-4">
@@ -168,13 +104,14 @@ export function CustomersList({ customers }: CustomersListProps) {
             className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm placeholder:text-slate-400 sm:max-w-xs"
           />
           <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
+            value={filters.status || "All"}
+            onChange={(event) => setParams({ status: event.target.value })}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
           >
-            {customerStatusFilterOptions.map((status) => (
-              <option key={status} value={status}>
-                Status: {status}
+            <option value="All">Status: All</option>
+            {customerStatusFormOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                Status: {option.label}
               </option>
             ))}
           </select>
@@ -198,7 +135,7 @@ export function CustomersList({ customers }: CustomersListProps) {
 
       <SectionCard
         title="Customer Directory"
-        description={`${filteredCustomers.length} customer${filteredCustomers.length === 1 ? "" : "s"} shown`}
+        description={`${pageInfo.total.toLocaleString()} customer${pageInfo.total === 1 ? "" : "s"} match`}
         noPadding
       >
         <div className="overflow-x-auto">
@@ -208,76 +145,64 @@ export function CustomersList({ customers }: CustomersListProps) {
                 <SortableHeader
                   column="name"
                   label="Customer Name"
-                  sortColumn={sortColumn}
-                  sortDirection={sortDirection}
+                  sortColumn={sort.column}
+                  sortDirection={sort.direction}
                   onSort={handleSort}
                 />
                 <SortableHeader
                   column="primaryContact"
                   label="Primary Contact"
-                  sortColumn={sortColumn}
-                  sortDirection={sortDirection}
+                  sortColumn={sort.column}
+                  sortDirection={sort.direction}
                   onSort={handleSort}
                 />
                 <SortableHeader
                   column="phone"
                   label="Phone"
-                  sortColumn={sortColumn}
-                  sortDirection={sortDirection}
+                  sortColumn={sort.column}
+                  sortDirection={sort.direction}
                   onSort={handleSort}
                 />
                 <SortableHeader
                   column="email"
                   label="Email"
-                  sortColumn={sortColumn}
-                  sortDirection={sortDirection}
+                  sortColumn={sort.column}
+                  sortDirection={sort.direction}
                   onSort={handleSort}
                 />
                 <SortableHeader
                   column="status"
                   label="Status"
-                  sortColumn={sortColumn}
-                  sortDirection={sortDirection}
+                  sortColumn={sort.column}
+                  sortDirection={sort.direction}
                   onSort={handleSort}
                 />
-                <SortableHeader
-                  column="openQuotes"
-                  label="Open Quotes"
-                  sortColumn={sortColumn}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                />
-                <SortableHeader
-                  column="balance"
-                  label="Balance"
-                  sortColumn={sortColumn}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                />
+                <th className="px-4 py-2.5 font-semibold">Open Quotes</th>
+                <th className="px-4 py-2.5 font-semibold">Balance</th>
                 <SortableHeader
                   column="lastActivity"
                   label="Last Activity"
-                  sortColumn={sortColumn}
-                  sortDirection={sortDirection}
+                  sortColumn={sort.column}
+                  sortDirection={sort.direction}
                   onSort={handleSort}
                 />
                 <th className="px-4 py-2.5 font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredCustomers.length === 0 ? (
+              {customers.length === 0 ? (
                 <tr>
                   <td
                     colSpan={9}
                     className="px-4 py-8 text-center text-sm text-slate-500"
                   >
-                    {customers.length === 0
-                      ? "No customers yet. Add your first customer to get started."
-                      : "No customers match your search or filters."}
+                    {pageInfo.total === 0
+                      ? "No customers match your search or filters."
+                      : "No customers on this page."}
                   </td>
                 </tr>
               ) : (
-                filteredCustomers.map((customer) => (
+                customers.map((customer) => (
                   <tr key={customer.id} className="hover:bg-slate-50/60">
                     <td className="px-4 py-2.5 font-medium text-slate-900">
                       <Link
@@ -333,6 +258,14 @@ export function CustomersList({ customers }: CustomersListProps) {
             </tbody>
           </table>
         </div>
+        <PaginationControls
+          page={pageInfo.page}
+          totalPages={pageInfo.totalPages}
+          fromIndex={pageInfo.fromIndex}
+          toIndex={pageInfo.toIndex}
+          total={pageInfo.total}
+          noun="customer"
+        />
       </SectionCard>
     </div>
   );

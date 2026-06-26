@@ -1,19 +1,54 @@
 import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { SectionCard } from "@/components/dashboard/section-card";
+import { PaginationControls } from "@/components/common/pagination-controls";
 import { formatFeetInches } from "@/lib/drill-sheet";
-import { prisma } from "@/lib/prisma";
+import { withDatabaseRetry } from "@/lib/prisma";
+import {
+  buildPageInfo,
+  parsePageParam,
+  type RawSearchParams,
+} from "@/lib/list-params";
+import type { Prisma } from "@/app/generated/prisma/client";
 
-export default async function DrillSheetsPage() {
-  const sheets = await prisma.jobStructure.findMany({
-    where: { structureTemplateId: { not: null } },
-    orderBy: { createdAt: "desc" },
-    include: {
-      structureTemplate: { select: { name: true } },
-      manholeDetail: true,
-      job: { select: { jobNumber: true, projectName: true } },
-    },
-  });
+const where: Prisma.JobStructureWhereInput = {
+  structureTemplateId: { not: null },
+};
+
+export default async function DrillSheetsPage({
+  searchParams,
+}: {
+  searchParams: Promise<RawSearchParams>;
+}) {
+  const params = await searchParams;
+  const requestedPage = parsePageParam(params.page);
+
+  const total = await withDatabaseRetry((prisma) =>
+    prisma.jobStructure.count({ where }),
+  );
+  const pageInfo = buildPageInfo(total, requestedPage);
+
+  const sheets = await withDatabaseRetry((prisma) =>
+    prisma.jobStructure.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: pageInfo.skip,
+      take: pageInfo.take,
+      select: {
+        id: true,
+        structureNumber: true,
+        structureTemplate: { select: { name: true } },
+        manholeDetail: {
+          select: {
+            insideDiameter: true,
+            requiredWallHeight: true,
+            projectName: true,
+          },
+        },
+        job: { select: { projectName: true } },
+      },
+    }),
+  );
 
   return (
     <DashboardShell
@@ -31,7 +66,7 @@ export default async function DrillSheetsPage() {
 
       <SectionCard
         title="Drill Sheets"
-        description={`${sheets.length} sheet${sheets.length === 1 ? "" : "s"}`}
+        description={`${pageInfo.total.toLocaleString()} sheet${pageInfo.total === 1 ? "" : "s"}`}
         noPadding
       >
         <div className="overflow-x-auto">
@@ -104,6 +139,14 @@ export default async function DrillSheetsPage() {
             </tbody>
           </table>
         </div>
+        <PaginationControls
+          page={pageInfo.page}
+          totalPages={pageInfo.totalPages}
+          fromIndex={pageInfo.fromIndex}
+          toIndex={pageInfo.toIndex}
+          total={pageInfo.total}
+          noun="sheet"
+        />
       </SectionCard>
     </DashboardShell>
   );

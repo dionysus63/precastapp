@@ -6,6 +6,7 @@ import { SummaryCard } from "@/components/dashboard/summary-card";
 import { quoteStatusLabels, type QuoteStatus } from "@/components/quotes/quote-utils";
 import { jobStatusLabels } from "@/components/jobs/job-utils";
 import { withDatabaseRetry } from "@/lib/prisma";
+import { formatUsd } from "@/lib/format";
 
 function CompactTable({ children }: { children: React.ReactNode }) {
   return (
@@ -13,15 +14,6 @@ function CompactTable({ children }: { children: React.ReactNode }) {
       <table className="min-w-full text-left text-xs">{children}</table>
     </div>
   );
-}
-
-function formatCurrency(value: { toString(): string }) {
-  const amount = Number(value);
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(Number.isFinite(amount) ? amount : 0);
 }
 
 export default async function Home() {
@@ -36,12 +28,22 @@ export default async function Home() {
     pendingInvoicesCount,
     pendingInvoicesTotal,
     pendingInvoices,
-    lowStockProducts,
+    inventoryAlerts,
+    inventoryAlertsCount,
     productionQueueCount,
     scheduledDeliveriesToday,
     inTransitCount,
-  ] = await withDatabaseRetry((prisma) =>
-    Promise.all([
+  ] = await withDatabaseRetry((prisma) => {
+    // Compare two columns in SQL (Prisma field reference) instead of loading
+    // every reorder-tracked product and filtering in memory.
+    const lowStockWhere = {
+      trackInventory: true,
+      status: "ACTIVE" as const,
+      reorderLevel: { gt: 0 },
+      currentStockQuantity: { lte: prisma.product.fields.reorderLevel },
+    };
+
+    return Promise.all([
       prisma.quote.count({
         where: { status: { in: ["DRAFT", "IN_REVIEW", "SENT", "REVISED"] } },
       }),
@@ -71,13 +73,18 @@ export default async function Home() {
         take: 3,
       }),
       prisma.product.findMany({
-        where: {
-          trackInventory: true,
-          status: "ACTIVE",
-          reorderLevel: { gt: 0 },
-        },
+        where: lowStockWhere,
         orderBy: { currentStockQuantity: "asc" },
+        take: 3,
+        select: {
+          id: true,
+          name: true,
+          productCode: true,
+          currentStockQuantity: true,
+          unit: true,
+        },
       }),
+      prisma.product.count({ where: lowStockWhere }),
       prisma.jobStructure.count({
         where: { status: { in: ["APPROVED", "IN_PRODUCTION"] } },
       }),
@@ -91,18 +98,11 @@ export default async function Home() {
         },
       }),
       prisma.deliveryTicket.count({ where: { status: "IN_TRANSIT" } }),
-    ]),
-  );
-
-  const inventoryAlerts = lowStockProducts
-    .filter((p) => p.currentStockQuantity <= p.reorderLevel)
-    .slice(0, 3);
-  const inventoryAlertsCount = lowStockProducts.filter(
-    (p) => p.currentStockQuantity <= p.reorderLevel,
-  ).length;
+    ]);
+  });
 
   const outstandingTotal = pendingInvoicesTotal._sum.total
-    ? formatCurrency(pendingInvoicesTotal._sum.total)
+    ? formatUsd(pendingInvoicesTotal._sum.total)
     : "$0";
 
   const summaryCards = [
@@ -214,7 +214,7 @@ export default async function Home() {
                         />
                       </td>
                       <td className="px-4 py-2.5 text-right font-medium text-slate-900">
-                        {formatCurrency(quote.total)}
+                        {formatUsd(quote.total)}
                       </td>
                     </tr>
                   ))
@@ -320,7 +320,7 @@ export default async function Home() {
                         <StatusBadge label={invoice.status} variant="warning" />
                       </td>
                       <td className="px-4 py-2.5 text-right font-medium text-slate-900">
-                        {formatCurrency(invoice.total)}
+                        {formatUsd(invoice.total)}
                       </td>
                     </tr>
                   ))

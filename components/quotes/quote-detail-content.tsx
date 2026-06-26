@@ -5,8 +5,11 @@ import { SummaryCard } from "@/components/dashboard/summary-card";
 import { GenerateSubmittalPackageButton } from "@/components/quotes/generate-submittal-package-button";
 import { LinkStructuresButton } from "@/components/quotes/link-structures-button";
 import { MarkWonButton } from "@/components/quotes/mark-won-button";
+import { ReviseQuoteButton } from "@/components/quotes/revise-quote-button";
+import { SendQuoteButton } from "@/components/quotes/send-quote-button";
 import { JobStructureSubmittalActions } from "@/components/jobs/job-structure-submittal-actions";
 import { StructureManageLink } from "@/components/jobs/structure-manage-link";
+import { RichTextContent } from "@/components/ui/rich-text-content";
 import type { QuoteDetailView } from "@/components/quotes/quote-utils";
 
 function DetailField({ label, value }: { label: string; value: string }) {
@@ -74,26 +77,54 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
         </Link>
 
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-400"
-          >
-            Revise Quote
-          </button>
+          {quote.canEdit ? (
+            <Link
+              href={`/quotes/${quote.id}/edit`}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Edit Quote
+            </Link>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-400"
+            >
+              Edit Quote
+            </button>
+          )}
+          {quote.canRevise ? (
+            <ReviseQuoteButton quoteId={quote.id} />
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-400"
+            >
+              Revise Quote
+            </button>
+          )}
           <Link
             href={`/quotes/${quote.id}/preview`}
             className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
           >
             Preview PDF
           </Link>
-          <button
-            type="button"
-            disabled
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-400"
-          >
-            Send Quote
-          </button>
+          <SendQuoteButton
+            quoteId={quote.id}
+            quoteNumber={quote.quoteNumber}
+            contactEmail={quote.contactEmailAddress}
+            contactName={quote.contactName === "—" ? "" : quote.contactName}
+            projectName={quote.projectName}
+            disabled={!quote.canSend}
+            disabledReason={
+              quote.supersededBy
+                ? "This quote was superseded by a newer revision."
+                : !quote.canSend
+                  ? "This quote cannot be sent in its current status."
+                  : undefined
+            }
+          />
           {quote.status !== "WON" ? (
             <MarkWonButton quoteId={quote.id} />
           ) : null}
@@ -115,6 +146,18 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
           <SummaryCard key={card.label} {...card} />
         ))}
       </div>
+
+      {quote.supersededBy ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          This quote was revised.{" "}
+          <Link
+            href={`/quotes/${quote.supersededBy.id}`}
+            className="font-semibold underline hover:text-amber-950"
+          >
+            Open {quote.supersededBy.quoteNumber} ({quote.supersededBy.revision})
+          </Link>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-4">
@@ -204,7 +247,7 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
                         {line.item}
                       </td>
                       <td className="px-3 py-2.5 text-slate-600">
-                        {line.description}
+                        <RichTextContent value={line.description} />
                       </td>
                       <td className="px-3 py-2.5 text-slate-600">{line.qty}</td>
                       <td className="px-3 py-2.5 text-slate-600">{line.unit}</td>
@@ -378,9 +421,22 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
               {quote.revisionHistory.map((entry) => (
                 <li
                   key={entry.id}
-                  className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2 text-xs text-slate-700"
+                  className={`rounded-lg border px-3 py-2 text-xs ${
+                    entry.isCurrent
+                      ? "border-sky-200 bg-sky-50/60 font-medium text-sky-900"
+                      : "border-slate-100 bg-slate-50/60 text-slate-700"
+                  }`}
                 >
-                  {entry.label}
+                  {entry.isCurrent ? (
+                    entry.label
+                  ) : (
+                    <Link
+                      href={`/quotes/${entry.id}`}
+                      className="hover:underline"
+                    >
+                      {entry.label}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>
@@ -444,6 +500,14 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
 
           <SectionCard title="Actions">
             <div className="flex flex-col gap-2">
+              {quote.canEdit ? (
+                <Link
+                  href={`/quotes/${quote.id}/edit`}
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-center text-xs font-semibold text-white hover:bg-slate-800"
+                >
+                  Edit Quote
+                </Link>
+              ) : null}
               <GenerateSubmittalPackageButton quoteId={quote.id} />
               {quote.jobId ? (
                 <Link

@@ -7,6 +7,7 @@ import { mapFilesForBrowser } from "@/lib/job-file-mapper";
 import type { JobDetailTab } from "@/components/jobs/job-utils";
 import { getJobFilesForBrowser } from "@/app/files/actions";
 import { mapJobToDetailView } from "@/lib/job-detail-mapper";
+import { getJobProgress } from "@/lib/job-progress";
 import { getFavoriteJobIdsForUser } from "@/lib/job-favorites";
 import { getCurrentUser } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
@@ -26,6 +27,7 @@ const VALID_TABS: JobDetailTab[] = [
   "bidding",
   "quotes",
   "deliveries",
+  "progress",
   "production",
   "invoices",
   "construction-plans",
@@ -72,7 +74,23 @@ export default async function JobDetailPage({
           },
           deliveryTickets: {
             orderBy: { updatedAt: "desc" },
-            include: { invoice: { select: { id: true } } },
+            include: {
+              invoice: { select: { id: true } },
+              lineItems: {
+                orderBy: [{ sortOrder: "asc" }, { lineNumber: "asc" }],
+                select: {
+                  id: true,
+                  lineNumber: true,
+                  itemCode: true,
+                  description: true,
+                  quantity: true,
+                  unit: true,
+                  totalWeight: true,
+                  status: true,
+                  yardLocation: true,
+                },
+              },
+            },
           },
           jobStructures: {
             orderBy: { updatedAt: "desc" },
@@ -96,6 +114,11 @@ export default async function JobDetailPage({
   }
 
   const detail = mapJobToDetailView(job);
+
+  const progress =
+    activeTab === "progress"
+      ? await withDatabaseRetry((prisma) => getJobProgress(prisma, id))
+      : null;
 
   const fileCategory = category ?? "All";
   let files: ReturnType<typeof mapFilesForBrowser> = [];
@@ -126,6 +149,7 @@ export default async function JobDetailPage({
         files={files}
         fileCategory={fileCategory}
         isFavorited={favoriteJobIds.includes(id)}
+        progress={progress}
         bidListCustomers={bidListCustomers.map((customer) => ({
           id: customer.id,
           name: customer.name,

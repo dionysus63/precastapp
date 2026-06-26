@@ -1,15 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
+import { PaginationControls } from "@/components/common/pagination-controls";
+import {
+  useDebouncedSearchParam,
+  useListQuery,
+} from "@/components/common/use-list-query";
 import {
   type ProductRow,
   productInventoryFilterOptions,
-  productStatusFilterOptions,
+  productStatusFormOptions,
   productSubmittalsFilterOptions,
-  productTypeFilterOptions,
+  productTypeLabels,
 } from "@/components/products/product-utils";
 import { ExportExcelLink } from "@/components/shared/export-excel-link";
 import {
@@ -17,32 +22,44 @@ import {
   buildSubcategoryFilterOptions,
   mergeCatalogWithInUseValues,
   type ProductCatalogCategory,
+  type ProductCatalogInUsePair,
 } from "@/lib/product-catalog-settings";
+import type { PageInfo } from "@/lib/list-params";
+import {
+  productKindBadgeVariant,
+} from "@/lib/product-kinds";
+
+type ProductsListFilters = {
+  search: string;
+  type: string;
+  category: string;
+  subcategory: string;
+  status: string;
+  inventory: string;
+  submittals: string;
+};
 
 type ProductsListProps = {
   products: ProductRow[];
   catalog: ProductCatalogCategory[];
+  inUsePairs: ProductCatalogInUsePair[];
+  pageInfo: PageInfo;
+  filters: ProductsListFilters;
 };
 
-export function ProductsList({ products, catalog }: ProductsListProps) {
-  const [search, setSearch] = useState("");
-  const [productTypeFilter, setProductTypeFilter] = useState("All");
-  const [categoryFilter, setCategoryFilter] = useState("All");
-  const [subcategoryFilter, setSubcategoryFilter] = useState("All");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [inventoryFilter, setInventoryFilter] = useState("All");
-  const [submittalsFilter, setSubmittalsFilter] = useState("All");
+export function ProductsList({
+  products,
+  catalog,
+  inUsePairs,
+  pageInfo,
+  filters,
+}: ProductsListProps) {
+  const { setParams } = useListQuery();
+  const { search, setSearch } = useDebouncedSearchParam("q", filters.search);
 
   const mergedCatalog = useMemo(
-    () =>
-      mergeCatalogWithInUseValues(
-        catalog,
-        products.map((product) => ({
-          category: product.category,
-          subcategory: product.subcategory,
-        })),
-      ),
-    [catalog, products],
+    () => mergeCatalogWithInUseValues(catalog, inUsePairs),
+    [catalog, inUsePairs],
   );
 
   const categoryFilterOptions = useMemo(
@@ -51,63 +68,12 @@ export function ProductsList({ products, catalog }: ProductsListProps) {
   );
 
   const subcategoryFilterOptions = useMemo(
-    () => buildSubcategoryFilterOptions(mergedCatalog, categoryFilter),
-    [mergedCatalog, categoryFilter],
+    () =>
+      buildSubcategoryFilterOptions(mergedCatalog, filters.category || "All"),
+    [mergedCatalog, filters.category],
   );
 
-  const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
-      const matchesSearch =
-        search.trim() === "" ||
-        product.productCode.toLowerCase().includes(search.toLowerCase()) ||
-        product.productName.toLowerCase().includes(search.toLowerCase()) ||
-        product.category.toLowerCase().includes(search.toLowerCase()) ||
-        product.subcategory.toLowerCase().includes(search.toLowerCase()) ||
-        product.productTypeLabel.toLowerCase().includes(search.toLowerCase());
-
-      const matchesProductType =
-        productTypeFilter === "All" ||
-        product.productTypeLabel === productTypeFilter;
-
-      const matchesCategory =
-        categoryFilter === "All" || product.category === categoryFilter;
-
-      const matchesSubcategory =
-        subcategoryFilter === "All" || product.subcategory === subcategoryFilter;
-
-      const matchesStatus =
-        statusFilter === "All" || product.status === statusFilter;
-
-      const matchesInventory =
-        inventoryFilter === "All" ||
-        (inventoryFilter === "Yes" && product.trackInventory) ||
-        (inventoryFilter === "No" && !product.trackInventory);
-
-      const matchesSubmittals =
-        submittalsFilter === "All" ||
-        (submittalsFilter === "Has submittals" && product.submittalCount > 0) ||
-        (submittalsFilter === "Missing submittals" && product.submittalCount === 0);
-
-      return (
-        matchesSearch &&
-        matchesProductType &&
-        matchesCategory &&
-        matchesSubcategory &&
-        matchesStatus &&
-        matchesInventory &&
-        matchesSubmittals
-      );
-    });
-  }, [
-    products,
-    search,
-    productTypeFilter,
-    categoryFilter,
-    subcategoryFilter,
-    statusFilter,
-    inventoryFilter,
-    submittalsFilter,
-  ]);
+  const productTypeOptions = Object.entries(productTypeLabels);
 
   return (
     <div className="space-y-4">
@@ -121,22 +87,22 @@ export function ProductsList({ products, catalog }: ProductsListProps) {
             className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm placeholder:text-slate-400 lg:max-w-xs"
           />
           <select
-            value={productTypeFilter}
-            onChange={(event) => setProductTypeFilter(event.target.value)}
+            value={filters.type || "All"}
+            onChange={(event) => setParams({ type: event.target.value })}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
           >
-            {productTypeFilterOptions.map((productType) => (
-              <option key={productType} value={productType}>
-                Product Type: {productType}
+            <option value="All">Product Type: All</option>
+            {productTypeOptions.map(([value, label]) => (
+              <option key={value} value={value}>
+                Product Type: {label}
               </option>
             ))}
           </select>
           <select
-            value={categoryFilter}
-            onChange={(event) => {
-              setCategoryFilter(event.target.value);
-              setSubcategoryFilter("All");
-            }}
+            value={filters.category || "All"}
+            onChange={(event) =>
+              setParams({ category: event.target.value, subcategory: null })
+            }
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
           >
             {categoryFilterOptions.map((category) => (
@@ -146,8 +112,8 @@ export function ProductsList({ products, catalog }: ProductsListProps) {
             ))}
           </select>
           <select
-            value={subcategoryFilter}
-            onChange={(event) => setSubcategoryFilter(event.target.value)}
+            value={filters.subcategory || "All"}
+            onChange={(event) => setParams({ subcategory: event.target.value })}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
           >
             {subcategoryFilterOptions.map((subcategory) => (
@@ -157,19 +123,20 @@ export function ProductsList({ products, catalog }: ProductsListProps) {
             ))}
           </select>
           <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
+            value={filters.status || "All"}
+            onChange={(event) => setParams({ status: event.target.value })}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
           >
-            {productStatusFilterOptions.map((status) => (
-              <option key={status} value={status}>
-                Status: {status}
+            <option value="All">Status: All</option>
+            {productStatusFormOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                Status: {option.label}
               </option>
             ))}
           </select>
           <select
-            value={inventoryFilter}
-            onChange={(event) => setInventoryFilter(event.target.value)}
+            value={filters.inventory || "All"}
+            onChange={(event) => setParams({ inventory: event.target.value })}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
           >
             {productInventoryFilterOptions.map((option) => (
@@ -179,8 +146,8 @@ export function ProductsList({ products, catalog }: ProductsListProps) {
             ))}
           </select>
           <select
-            value={submittalsFilter}
-            onChange={(event) => setSubmittalsFilter(event.target.value)}
+            value={filters.submittals || "All"}
+            onChange={(event) => setParams({ submittals: event.target.value })}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
           >
             {productSubmittalsFilterOptions.map((option) => (
@@ -210,7 +177,7 @@ export function ProductsList({ products, catalog }: ProductsListProps) {
 
       <SectionCard
         title="Product Catalog"
-        description={`${filteredProducts.length} product${filteredProducts.length === 1 ? "" : "s"} shown`}
+        description={`${pageInfo.total.toLocaleString()} product${pageInfo.total === 1 ? "" : "s"} match`}
         noPadding
       >
         <div className="overflow-x-auto">
@@ -232,19 +199,19 @@ export function ProductsList({ products, catalog }: ProductsListProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredProducts.length === 0 ? (
+              {products.length === 0 ? (
                 <tr>
                   <td
                     colSpan={12}
                     className="px-4 py-8 text-center text-sm text-slate-500"
                   >
-                    {products.length === 0
-                      ? "No products yet. Add your first product to get started."
-                      : "No products match your search or filters."}
+                    {pageInfo.total === 0
+                      ? "No products match your search or filters."
+                      : "No products on this page."}
                   </td>
                 </tr>
               ) : (
-                filteredProducts.map((product) => (
+                products.map((product) => (
                   <tr key={product.id} className="hover:bg-slate-50/60">
                     <td className="px-4 py-2.5 font-mono text-[11px] font-medium text-slate-900">
                       {product.productCode}
@@ -252,7 +219,14 @@ export function ProductsList({ products, catalog }: ProductsListProps) {
                     <td className="px-4 py-2.5 font-medium text-slate-900">
                       <span className="inline-flex items-center gap-1.5">
                         {product.productName}
-                        {product.isCasting ? (
+                        {product.productKindLabel ? (
+                          <StatusBadge
+                            label={product.productKindLabel}
+                            variant={productKindBadgeVariant(
+                              product.productKind ?? "STANDARD",
+                            )}
+                          />
+                        ) : product.isCasting ? (
                           <StatusBadge label="Casting" variant="info" />
                         ) : null}
                       </span>
@@ -308,6 +282,14 @@ export function ProductsList({ products, catalog }: ProductsListProps) {
             </tbody>
           </table>
         </div>
+        <PaginationControls
+          page={pageInfo.page}
+          totalPages={pageInfo.totalPages}
+          fromIndex={pageInfo.fromIndex}
+          toIndex={pageInfo.toIndex}
+          total={pageInfo.total}
+          noun="product"
+        />
       </SectionCard>
     </div>
   );

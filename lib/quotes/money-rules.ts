@@ -1,0 +1,130 @@
+import { Decimal, toDecimal, type DecimalInstance, type DecimalLike } from "@/lib/decimal";
+import {
+  computeMoneyTotals,
+  type MoneyLineInput,
+} from "@/lib/money";
+
+/** True when a SERVICE line represents a delivery charge (item code or description). */
+export function isDeliveryServiceLine(
+  lineType: string,
+  itemCode: string | null | undefined,
+  description: string | null | undefined,
+): boolean {
+  if (lineType !== "SERVICE") {
+    return false;
+  }
+  const item = (itemCode ?? "").toLowerCase();
+  const desc = (description ?? "").toLowerCase();
+  return item.includes("delivery") || desc.includes("delivery");
+}
+
+/** Sum extended totals for delivery SERVICE lines (server-side Decimal math). */
+export function computeDeliveryAmount(
+  lines: Array<{
+    lineType: string;
+    itemCode?: string | null;
+    description?: string | null;
+  }>,
+  lineTotals: DecimalInstance[],
+): DecimalInstance {
+  return lines.reduce((sum, line, index) => {
+    if (
+      isDeliveryServiceLine(line.lineType, line.itemCode, line.description)
+    ) {
+      return sum.add(lineTotals[index]);
+    }
+    return sum;
+  }, new Decimal(0));
+}
+
+export type QuotePreviewTotals = {
+  subtotal: number;
+  discount: number;
+  delivery: number;
+  taxableAmount: number;
+  salesTax: number;
+  total: number;
+  totalWeight: number;
+  totalYards: number;
+  lineTotals: number[];
+};
+
+export type QuotePreviewLineInput = MoneyLineInput & {
+  lineType: string;
+  itemCode?: string | null;
+  description?: string | null;
+  weight?: DecimalLike | null;
+  yards?: DecimalLike | null;
+};
+
+function toNumber(value: DecimalInstance): number {
+  return value.toNumber();
+}
+
+/**
+ * Client-safe quote totals preview using the same Decimal rounding policy as
+ * server persistence (`lib/money.ts`).
+ */
+export function computeQuotePreviewTotals(
+  lines: QuotePreviewLineInput[],
+  taxRatePercent: DecimalLike,
+): QuotePreviewTotals {
+  const computed = computeMoneyTotals(
+    lines.map((line) => ({
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+      taxable: line.taxable,
+    })),
+    taxRatePercent,
+  );
+
+  const delivery = lines.reduce((sum, line, index) => {
+    if (
+      isDeliveryServiceLine(line.lineType, line.itemCode, line.description)
+    ) {
+      return sum + toNumber(computed.lineTotals[index]);
+    }
+    return sum;
+  }, 0);
+
+  const totalWeight = lines.reduce((sum, line) => {
+    const qty = toDecimal(line.quantity);
+    const weight =
+      line.weight != null && line.weight !== ""
+        ? toDecimal(line.weight)
+        : null;
+    return weight != null ? sum + qty.mul(weight).toNumber() : sum;
+  }, 0);
+
+  const totalYards = lines.reduce((sum, line) => {
+    const qty = toDecimal(line.quantity);
+    const yards =
+      line.yards != null && line.yards !== ""
+        ? toDecimal(line.yards)
+        : null;
+    return yards != null ? sum + qty.mul(yards).toNumber() : sum;
+  }, 0);
+
+  return {
+    subtotal: toNumber(computed.subtotal),
+    discount: 0,
+    delivery,
+    taxableAmount: toNumber(computed.taxableAmount),
+    salesTax: toNumber(computed.salesTax),
+    total: toNumber(computed.total),
+    totalWeight,
+    totalYards,
+    lineTotals: computed.lineTotals.map(toNumber),
+  };
+}
+
+/** Per-line extended total rounded to cents (matches persisted line totals). */
+export function computeLineItemTotal(
+  quantity: DecimalLike,
+  unitPrice: DecimalLike,
+): number {
+  return toDecimal(quantity)
+    .mul(toDecimal(unitPrice))
+    .toDecimalPlaces(2)
+    .toNumber();
+}

@@ -48,6 +48,16 @@ const settingSections = [
     description: "Product categories and subcategories used on the catalog forms.",
   },
   {
+    href: "/settings/rings",
+    title: "Ring Builder",
+    description: "Top and bottom slab options shown per ring diameter and style.",
+  },
+  {
+    href: "/settings/casting-suppliers",
+    title: "Casting Suppliers",
+    description: "Domestic and imported vendors for cast iron casting products.",
+  },
+  {
     href: "/settings/users",
     title: "Users & Access",
     description: "Manage user accounts, roles, and permission overrides.",

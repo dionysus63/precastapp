@@ -2,11 +2,20 @@ import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { ProductForm } from "@/components/products/product-form";
+import {
+  listActiveCastingSuppliers,
+  listCastingComponentProducts,
+} from "@/lib/casting-service";
 import { getProductCatalog } from "@/lib/product-catalog-settings.server";
+import { prisma } from "@/lib/prisma";
 import { createProduct } from "../actions";
 
 export default async function NewProductPage() {
-  const catalog = await getProductCatalog();
+  const [catalog, castingSuppliers, castingComponents] = await Promise.all([
+    getProductCatalog(),
+    listActiveCastingSuppliers(prisma),
+    listCastingComponentProducts(prisma),
+  ]);
 
   return (
     <DashboardShell
@@ -31,6 +40,13 @@ export default async function NewProductPage() {
               cancelHref="/products"
               submitLabel="Save Product"
               catalog={catalog}
+              castingSuppliers={castingSuppliers}
+              castingComponents={castingComponents.map((component) => ({
+                id: component.id,
+                productCode: component.productCode,
+                name: component.name,
+                castingPieceRole: component.castingPieceRole,
+              }))}
             />
           </SectionCard>
         </div>

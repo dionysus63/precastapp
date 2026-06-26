@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { updateDeliveryTicketStatus } from "@/app/delivery-tickets/actions";
 import type { DeliveryTicketStatus } from "@/components/delivery-tickets/delivery-ticket-utils";
 
@@ -18,16 +18,23 @@ export function TicketStatusActions({
 }: TicketStatusActionsProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [message, setMessage] = useState<string | null>(null);
 
   function run(next: DeliveryTicketStatus) {
     startTransition(async () => {
-      await updateDeliveryTicketStatus(ticketId, next);
+      setMessage(null);
+      const result = await updateDeliveryTicketStatus(ticketId, next);
+      if ("error" in result && result.error) {
+        setMessage(result.error);
+      } else if ("warning" in result && result.warning) {
+        setMessage(result.warning);
+      }
       router.refresh();
     });
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       {status === "DRAFT" ? (
         <button
           type="button"
@@ -57,6 +64,9 @@ export function TicketStatusActions({
         >
           Mark Delivered
         </button>
+      ) : null}
+      {message ? (
+        <span className="w-full text-[10px] text-amber-700">{message}</span>
       ) : null}
     </div>
   );
