@@ -22,7 +22,7 @@ const CUSTOMER_SORT_FIELDS = {
 
 type CustomerSortColumn = keyof typeof CUSTOMER_SORT_FIELDS;
 
-const VALID_CUSTOMER_STATUSES = new Set(
+const VALID_CUSTOMER_STATUSES = new Set<string>(
   customerStatusFormOptions.map((option) => option.value),
 );
 

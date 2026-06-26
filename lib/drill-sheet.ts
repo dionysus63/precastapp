@@ -189,8 +189,8 @@ export function selectSections(
   );
   const riserSizes = riserOptions.map((section) => section.heightFeet);
 
-  let best: { sections: ComputedSection[]; wallHeightFeet: number } | null =
-    null;
+  type BestResult = { sections: ComputedSection[]; wallHeightFeet: number };
+  const result: { best: BestResult | null } = { best: null };
 
   const considerBase = (base: ComputedSection | null) => {
     const baseHeight = base ? base.heightFeet : 0;
@@ -201,7 +201,7 @@ export function selectSections(
     const total = round4(
       baseHeight + riserHeights.reduce((sum, value) => sum + value, 0),
     );
-    if (!best || total > best.wallHeightFeet + EPSILON) {
+    if (!result.best || total > result.best.wallHeightFeet + EPSILON) {
       const sections: ComputedSection[] = [];
       if (base) {
         sections.push(base);
@@ -216,7 +216,7 @@ export function selectSections(
           label: option?.label ?? null,
         });
       }
-      best = { sections, wallHeightFeet: total };
+      result.best = { sections, wallHeightFeet: total };
     }
   };
 
@@ -231,9 +231,9 @@ export function selectSections(
       });
     }
     // Fall back to the smallest base if none fit under the target.
-    if (!best || best.wallHeightFeet <= EPSILON) {
+    if (result.best === null || result.best.wallHeightFeet <= EPSILON) {
       const smallestBase = baseOptions[baseOptions.length - 1];
-      best = {
+      result.best = {
         sections: [
           {
             role: "BASE",
@@ -246,7 +246,7 @@ export function selectSections(
     }
   }
 
-  return best ?? { sections: [], wallHeightFeet: 0 };
+  return result.best ?? { sections: [], wallHeightFeet: 0 };
 }
 
 function getTopSlabHeight(diameter: DiameterConfig, hasKey: boolean): number {

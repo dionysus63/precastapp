@@ -1,3 +1,5 @@
+import type { StatusVariant } from "@/lib/status-variants";
+
 export type QuoteStatus =
   | "DRAFT"
   | "IN_REVIEW"
@@ -26,7 +28,7 @@ export type QuoteRow = {
   quoteTypeLabel: string;
   status: QuoteStatus;
   statusLabel: string;
-  statusVariant: "success" | "info" | "warning" | "neutral" | "default";
+  statusVariant: StatusVariant;
   bidDueDate: string;
   total: string;
   estimator: string;
@@ -249,7 +251,7 @@ export type QuoteDetailView = {
   subtitle: string;
   status: QuoteStatus;
   statusLabel: string;
-  statusVariant: "success" | "info" | "warning" | "neutral" | "default";
+  statusVariant: StatusVariant;
   total: string;
   bidDueDate: string;
   revision: string;

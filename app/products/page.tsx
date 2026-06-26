@@ -17,10 +17,10 @@ import {
 import type { ProductCatalogInUsePair } from "@/lib/product-catalog-settings";
 import type { Prisma } from "@/app/generated/prisma/client";
 
-const VALID_PRODUCT_TYPES = new Set(
+const VALID_PRODUCT_TYPES = new Set<string>(
   productTypeFormOptions.map((option) => option.value),
 );
-const VALID_PRODUCT_STATUSES = new Set(
+const VALID_PRODUCT_STATUSES = new Set<string>(
   productStatusFormOptions.map((option) => option.value),
 );
 

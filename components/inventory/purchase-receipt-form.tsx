@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { savePurchaseReceipt } from "@/app/inventory/actions";
 import { SectionCard } from "@/components/dashboard/section-card";
-import { formatCastingPieceRoleLabel } from "@/lib/casting-utils";
+import { formatCastingPieceRoleLabel, type CastingPieceRole } from "@/lib/casting-utils";
 
 type ProductOption = {
   id: string;
   productCode: string;
   name: string;
   unit: string;
-  castingPieceRole: string | null;
+  castingPieceRole: CastingPieceRole | null;
 };
 
 type AssemblyOption = {
@@ -20,7 +20,7 @@ type AssemblyOption = {
   productCode: string;
   name: string;
   components: Array<{
-    pieceRole: string;
+    pieceRole: CastingPieceRole;
     quantity: number;
     component: { id: string; productCode: string; name: string };
   }>;

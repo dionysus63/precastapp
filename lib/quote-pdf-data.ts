@@ -1,3 +1,4 @@
+import type { Prisma } from "@/app/generated/prisma/client";
 import {
   formatDrainRingPoolDescription,
   type DrainRingStyle,
@@ -8,9 +9,9 @@ import type { QuoteDrawLineItem } from "@/lib/quote-pdf-line-items";
 
 export const QUOTE_PDF_INCLUDE = {
   lineItems: {
-    orderBy: [{ sortOrder: "asc" as const }, { lineNumber: "asc" as const }],
+    orderBy: [{ sortOrder: "asc" }, { lineNumber: "asc" }],
   },
-} as const;
+} satisfies Prisma.QuoteInclude;
 
 export type DbQuoteForPdf = QuoteRecord & {
   lineItems: QuoteLineItemRecord[];

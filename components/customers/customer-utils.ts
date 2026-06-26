@@ -5,7 +5,7 @@ export type CustomerRow = {
   phone: string;
   email: string;
   status: string;
-  statusVariant: "success" | "warning" | "neutral";
+  statusVariant: import("@/lib/status-variants").StatusVariant;
   openQuotes: number;
   balance: string;
   lastActivity: string;
@@ -142,7 +142,7 @@ export type CustomerRelatedJob = {
   jobNumber: string;
   projectName: string;
   status: string;
-  statusVariant: "success" | "info" | "warning" | "neutral";
+  statusVariant: import("@/lib/status-variants").StatusVariant;
   lastActivity: string;
 };
 
@@ -152,7 +152,7 @@ export type CustomerRelatedQuote = {
   projectName: string;
   status: string;
   statusLabel: string;
-  statusVariant: "success" | "info" | "warning" | "neutral" | "default";
+  statusVariant: import("@/lib/status-variants").StatusVariant;
   total: string;
   lastUpdated: string;
 };

@@ -124,19 +124,17 @@ function parseTemplatePayload(formData: FormData): TemplatePayload {
       `Diameter #${index + 1} mold max height`,
     );
     const sectionsRaw = Array.isArray(row.sections) ? row.sections : [];
-    const sections: SectionPayload[] = sectionsRaw
-      .map((section) => {
+    const sections: SectionPayload[] = sectionsRaw.flatMap((section) => {
         const sectionRow = section as Record<string, unknown>;
         const heightFeet = Number(sectionRow.heightFeet);
         if (!Number.isFinite(heightFeet) || heightFeet <= 0) {
-          return null;
+          return [];
         }
         const role: SectionRole =
           sectionRow.role === "RISER" ? "RISER" : "BASE";
         const label = String(sectionRow.label ?? "").trim() || null;
-        return { role, heightFeet, label };
-      })
-      .filter((section): section is SectionPayload => section !== null);
+        return [{ role, heightFeet, label }];
+      });
 
     return {
       insideDiameterFeet,

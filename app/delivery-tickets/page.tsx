@@ -27,7 +27,7 @@ const DELIVERY_LIST_SELECT = {
   _count: { select: { lineItems: true } },
 } satisfies Prisma.DeliveryTicketSelect;
 
-const VALID_DELIVERY_STATUSES = new Set(
+const VALID_DELIVERY_STATUSES = new Set<string>(
   deliveryTicketStatusFormOptions.map((option) => option.value),
 );
 

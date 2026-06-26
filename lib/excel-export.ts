@@ -18,7 +18,7 @@ export function buildWorkbookBuffer(
 }
 
 export function excelResponse(buffer: Buffer, filename: string): Response {
-  return new Response(buffer, {
+  return new Response(new Uint8Array(buffer), {
     status: 200,
     headers: {
       "Content-Type":
