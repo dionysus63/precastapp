@@ -1,13 +1,18 @@
 import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StructureTemplateForm } from "@/components/structures/structure-template-form";
-import { createStructureTemplate } from "@/app/structures/actions";
+import {
+  createStructureTemplate,
+  loadCastingProductOptions,
+} from "@/app/structures/actions";
 
-export default function NewStructureTemplatePage() {
+export default async function NewStructureTemplatePage() {
+  const castingOptions = await loadCastingProductOptions();
+
   return (
     <DashboardShell
       title="New Structure Template"
-      subtitle="Define the diameters, sections, top slabs, and boot sizes for a structure type."
+      subtitle="Define thicknesses, casting, connection type, and offered diameters."
     >
       <Link
         href="/structures"
@@ -21,6 +26,7 @@ export default function NewStructureTemplatePage() {
           action={createStructureTemplate}
           cancelHref="/structures"
           submitLabel="Create Template"
+          castingOptions={castingOptions}
         />
       </div>
     </DashboardShell>

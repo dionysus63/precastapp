@@ -8,40 +8,34 @@ import {
   structureTableInputClassName,
 } from "@/components/structures/structure-utils";
 
-type SectionRole = "BASE" | "RISER";
-
-type SectionField = {
-  id: string;
-  role: SectionRole;
-  heightFeet: string;
-  label: string;
-};
-
 type DiameterField = {
   id: string;
   insideDiameterFeet: string;
-  moldMaxHeightFeet: string;
-  topSlabHeightWithKeyFeet: string;
-  topSlabHeightNoKeyFeet: string;
-  sections: SectionField[];
 };
 
-type BootField = {
+export type CastingOption = {
   id: string;
-  pipeDiameterInches: string;
-  holeDiameterInches: string;
+  name: string;
+  heightFeet: number | null;
 };
 
 export type StructureTemplateFormValue = {
   name: string;
   agencyStandard: string;
   shape: "CIRCULAR" | "RECTANGULAR";
-  minimumBrickFeet: string;
-  keyClearanceFeet: string;
+  wallThicknessInches: string;
+  baseSlabThicknessInches: string;
+  topSlabThicknessInches: string;
+  castingProductId: string;
+  minimumBrickInches: string;
+  connectionType: "KOR_N_SEAL" | "CAST_IN" | "GROUTED" | "OTHER";
+  sumpMode: "DEFAULT" | "FIXED";
+  sumpFixedInches: string;
+  openingToJointMinTopInches: string;
+  openingToJointMinBottomInches: string;
   status: "ACTIVE" | "INACTIVE";
   notes: string;
   diameters: DiameterField[];
-  bootSizes: BootField[];
 };
 
 type StructureTemplateFormProps = {
@@ -49,41 +43,34 @@ type StructureTemplateFormProps = {
   cancelHref: string;
   submitLabel: string;
   defaultValue?: StructureTemplateFormValue;
+  castingOptions: CastingOption[];
 };
 
 function uid() {
   return crypto.randomUUID();
 }
 
-function createSection(role: SectionRole): SectionField {
-  return { id: uid(), role, heightFeet: "", label: "" };
-}
-
 function createDiameter(): DiameterField {
-  return {
-    id: uid(),
-    insideDiameterFeet: "",
-    moldMaxHeightFeet: "",
-    topSlabHeightWithKeyFeet: "",
-    topSlabHeightNoKeyFeet: "",
-    sections: [createSection("BASE"), createSection("RISER")],
-  };
-}
-
-function createBoot(): BootField {
-  return { id: uid(), pipeDiameterInches: "", holeDiameterInches: "" };
+  return { id: uid(), insideDiameterFeet: "" };
 }
 
 const defaultFormValue: StructureTemplateFormValue = {
   name: "",
   agencyStandard: "",
   shape: "CIRCULAR",
-  minimumBrickFeet: "0.3333",
-  keyClearanceFeet: "0.3333",
+  wallThicknessInches: "8",
+  baseSlabThicknessInches: "8",
+  topSlabThicknessInches: "16",
+  castingProductId: "",
+  minimumBrickInches: "4",
+  connectionType: "KOR_N_SEAL",
+  sumpMode: "DEFAULT",
+  sumpFixedInches: "",
+  openingToJointMinTopInches: "4",
+  openingToJointMinBottomInches: "4",
   status: "ACTIVE",
   notes: "",
   diameters: [createDiameter()],
-  bootSizes: [createBoot()],
 };
 
 export function StructureTemplateForm({
@@ -91,24 +78,40 @@ export function StructureTemplateForm({
   cancelHref,
   submitLabel,
   defaultValue,
+  castingOptions,
 }: StructureTemplateFormProps) {
   const initial = defaultValue ?? defaultFormValue;
   const [name, setName] = useState(initial.name);
   const [agencyStandard, setAgencyStandard] = useState(initial.agencyStandard);
   const [shape, setShape] = useState(initial.shape);
-  const [minimumBrickFeet, setMinimumBrickFeet] = useState(
-    initial.minimumBrickFeet,
+  const [wallThicknessInches, setWallThicknessInches] = useState(
+    initial.wallThicknessInches,
   );
-  const [keyClearanceFeet, setKeyClearanceFeet] = useState(
-    initial.keyClearanceFeet,
+  const [baseSlabThicknessInches, setBaseSlabThicknessInches] = useState(
+    initial.baseSlabThicknessInches,
   );
+  const [topSlabThicknessInches, setTopSlabThicknessInches] = useState(
+    initial.topSlabThicknessInches,
+  );
+  const [castingProductId, setCastingProductId] = useState(
+    initial.castingProductId,
+  );
+  const [minimumBrickInches, setMinimumBrickInches] = useState(
+    initial.minimumBrickInches,
+  );
+  const [connectionType, setConnectionType] = useState(initial.connectionType);
+  const [sumpMode, setSumpMode] = useState(initial.sumpMode);
+  const [sumpFixedInches, setSumpFixedInches] = useState(
+    initial.sumpFixedInches,
+  );
+  const [openingToJointMinTopInches, setOpeningToJointMinTopInches] =
+    useState(initial.openingToJointMinTopInches);
+  const [openingToJointMinBottomInches, setOpeningToJointMinBottomInches] =
+    useState(initial.openingToJointMinBottomInches);
   const [status, setStatus] = useState(initial.status);
   const [notes, setNotes] = useState(initial.notes);
   const [diameters, setDiameters] = useState<DiameterField[]>(
     initial.diameters.length > 0 ? initial.diameters : [createDiameter()],
-  );
-  const [bootSizes, setBootSizes] = useState<BootField[]>(
-    initial.bootSizes.length > 0 ? initial.bootSizes : [createBoot()],
   );
 
   const payloadJson = useMemo(() => {
@@ -116,100 +119,40 @@ export function StructureTemplateForm({
       name,
       agencyStandard,
       shape,
-      minimumBrickFeet,
-      keyClearanceFeet,
+      wallThicknessInches,
+      baseSlabThicknessInches,
+      topSlabThicknessInches,
+      castingProductId: castingProductId || null,
+      minimumBrickInches,
+      connectionType,
+      sumpMode,
+      sumpFixedInches: sumpMode === "FIXED" ? sumpFixedInches : null,
+      openingToJointMinTopInches,
+      openingToJointMinBottomInches,
       status,
       notes,
-      diameters: diameters.map((diameter) => ({
-        insideDiameterFeet: diameter.insideDiameterFeet,
-        moldMaxHeightFeet: diameter.moldMaxHeightFeet,
-        topSlabHeightWithKeyFeet: diameter.topSlabHeightWithKeyFeet,
-        topSlabHeightNoKeyFeet: diameter.topSlabHeightNoKeyFeet,
-        sections: diameter.sections.map((section) => ({
-          role: section.role,
-          heightFeet: section.heightFeet,
-          label: section.label,
-        })),
-      })),
-      bootSizes: bootSizes.map((boot) => ({
-        pipeDiameterInches: boot.pipeDiameterInches,
-        holeDiameterInches: boot.holeDiameterInches,
+      diameters: diameters.map((d) => ({
+        insideDiameterFeet: d.insideDiameterFeet,
       })),
     });
   }, [
     name,
     agencyStandard,
     shape,
-    minimumBrickFeet,
-    keyClearanceFeet,
+    wallThicknessInches,
+    baseSlabThicknessInches,
+    topSlabThicknessInches,
+    castingProductId,
+    minimumBrickInches,
+    connectionType,
+    sumpMode,
+    sumpFixedInches,
+    openingToJointMinTopInches,
+    openingToJointMinBottomInches,
     status,
     notes,
     diameters,
-    bootSizes,
   ]);
-
-  function updateDiameter(
-    id: string,
-    field: keyof Omit<DiameterField, "id" | "sections">,
-    value: string,
-  ) {
-    setDiameters((rows) =>
-      rows.map((row) => (row.id === id ? { ...row, [field]: value } : row)),
-    );
-  }
-
-  function updateSection(
-    diameterId: string,
-    sectionId: string,
-    field: keyof Omit<SectionField, "id">,
-    value: string,
-  ) {
-    setDiameters((rows) =>
-      rows.map((row) =>
-        row.id === diameterId
-          ? {
-              ...row,
-              sections: row.sections.map((section) =>
-                section.id === sectionId
-                  ? { ...section, [field]: value }
-                  : section,
-              ),
-            }
-          : row,
-      ),
-    );
-  }
-
-  function addSection(diameterId: string, role: SectionRole) {
-    setDiameters((rows) =>
-      rows.map((row) =>
-        row.id === diameterId
-          ? { ...row, sections: [...row.sections, createSection(role)] }
-          : row,
-      ),
-    );
-  }
-
-  function removeSection(diameterId: string, sectionId: string) {
-    setDiameters((rows) =>
-      rows.map((row) =>
-        row.id === diameterId
-          ? {
-              ...row,
-              sections: row.sections.filter(
-                (section) => section.id !== sectionId,
-              ),
-            }
-          : row,
-      ),
-    );
-  }
-
-  function updateBoot(id: string, field: keyof Omit<BootField, "id">, value: string) {
-    setBootSizes((rows) =>
-      rows.map((row) => (row.id === id ? { ...row, [field]: value } : row)),
-    );
-  }
 
   return (
     <form action={action} className="space-y-4">
@@ -226,7 +169,7 @@ export function StructureTemplateForm({
                 type="text"
                 required
                 value={name}
-                onChange={(event) => setName(event.target.value)}
+                onChange={(e) => setName(e.target.value)}
                 placeholder="Suffolk County Sanitary Manhole"
                 className={structureInputClassName}
               />
@@ -238,8 +181,7 @@ export function StructureTemplateForm({
               <input
                 type="text"
                 value={agencyStandard}
-                onChange={(event) => setAgencyStandard(event.target.value)}
-                placeholder="Suffolk County DPW"
+                onChange={(e) => setAgencyStandard(e.target.value)}
                 className={structureInputClassName}
               />
             </div>
@@ -252,8 +194,8 @@ export function StructureTemplateForm({
               </label>
               <select
                 value={shape}
-                onChange={(event) =>
-                  setShape(event.target.value as "CIRCULAR" | "RECTANGULAR")
+                onChange={(e) =>
+                  setShape(e.target.value as "CIRCULAR" | "RECTANGULAR")
                 }
                 className={structureInputClassName}
               >
@@ -265,35 +207,40 @@ export function StructureTemplateForm({
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-700">
-                Minimum Brick (ft)
+                Default Casting
               </label>
-              <input
-                type="number"
-                min="0"
-                step="0.0001"
-                value={minimumBrickFeet}
-                onChange={(event) => setMinimumBrickFeet(event.target.value)}
+              <select
+                value={castingProductId}
+                onChange={(e) => setCastingProductId(e.target.value)}
                 className={structureInputClassName}
-              />
-              <p className="mt-1 text-[11px] text-slate-500">
-                4&quot; = 0.3333&apos;
-              </p>
+              >
+                <option value="">— Select —</option>
+                {castingOptions.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                    {c.heightFeet != null ? ` (${c.heightFeet}')` : ""}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-700">
-                Key Clearance (ft)
+                Connection Type
               </label>
-              <input
-                type="number"
-                min="0"
-                step="0.0001"
-                value={keyClearanceFeet}
-                onChange={(event) => setKeyClearanceFeet(event.target.value)}
+              <select
+                value={connectionType}
+                onChange={(e) =>
+                  setConnectionType(
+                    e.target.value as StructureTemplateFormValue["connectionType"],
+                  )
+                }
                 className={structureInputClassName}
-              />
-              <p className="mt-1 text-[11px] text-slate-500">
-                Min from pipe hole to keyway.
-              </p>
+              >
+                <option value="KOR_N_SEAL">Kor-N-Seal Boot</option>
+                <option value="CAST_IN">Cast-In</option>
+                <option value="GROUTED">Grouted</option>
+                <option value="OTHER">Other</option>
+              </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-700">
@@ -301,14 +248,130 @@ export function StructureTemplateForm({
               </label>
               <select
                 value={status}
-                onChange={(event) =>
-                  setStatus(event.target.value as "ACTIVE" | "INACTIVE")
+                onChange={(e) =>
+                  setStatus(e.target.value as "ACTIVE" | "INACTIVE")
                 }
                 className={structureInputClassName}
               >
                 <option value="ACTIVE">Active</option>
                 <option value="INACTIVE">Inactive</option>
               </select>
+            </div>
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-700">
+                Wall Thickness (in)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={wallThicknessInches}
+                onChange={(e) => setWallThicknessInches(e.target.value)}
+                className={structureInputClassName}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-700">
+                Base Slab Thickness (in)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={baseSlabThicknessInches}
+                onChange={(e) => setBaseSlabThicknessInches(e.target.value)}
+                className={structureInputClassName}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-700">
+                Top Slab Thickness (in, incl. key)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={topSlabThicknessInches}
+                onChange={(e) => setTopSlabThicknessInches(e.target.value)}
+                className={structureInputClassName}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-700">
+                Minimum Brick (in)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={minimumBrickInches}
+                onChange={(e) => setMinimumBrickInches(e.target.value)}
+                className={structureInputClassName}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-700">
+                Sump Mode
+              </label>
+              <select
+                value={sumpMode}
+                onChange={(e) =>
+                  setSumpMode(e.target.value as "DEFAULT" | "FIXED")
+                }
+                className={structureInputClassName}
+              >
+                <option value="DEFAULT">Default (centered in hole)</option>
+                <option value="FIXED">Fixed distance</option>
+              </select>
+            </div>
+            {sumpMode === "FIXED" ? (
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Fixed Sump (in)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={sumpFixedInches}
+                  onChange={(e) => setSumpFixedInches(e.target.value)}
+                  className={structureInputClassName}
+                />
+              </div>
+            ) : null}
+            <div>
+              <label className="block text-xs font-medium text-slate-700">
+                Opening-to-Joint Min Top (in)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={openingToJointMinTopInches}
+                onChange={(e) => setOpeningToJointMinTopInches(e.target.value)}
+                className={structureInputClassName}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-700">
+                Opening-to-Joint Min Bottom (in)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={openingToJointMinBottomInches}
+                onChange={(e) =>
+                  setOpeningToJointMinBottomInches(e.target.value)
+                }
+                className={structureInputClassName}
+              />
             </div>
           </div>
 
@@ -319,7 +382,7 @@ export function StructureTemplateForm({
             <textarea
               rows={2}
               value={notes}
-              onChange={(event) => setNotes(event.target.value)}
+              onChange={(e) => setNotes(e.target.value)}
               className={structureInputClassName}
             />
           </div>
@@ -327,8 +390,8 @@ export function StructureTemplateForm({
       </SectionCard>
 
       <SectionCard
-        title="Diameters"
-        description="Each diameter has a mold max height, top-slab heights, and the standard base/riser pours the workbook can stack."
+        title="Offered Diameters"
+        description="Inside diameters available for this template. Mold limits and pricing are configured in Settings → Structure Diameters."
         action={
           <button
             type="button"
@@ -338,298 +401,56 @@ export function StructureTemplateForm({
             Add Diameter
           </button>
         }
-      >
-        <div className="space-y-5">
-          {diameters.map((diameter, index) => (
-            <div
-              key={diameter.id}
-              className="rounded-lg border border-slate-200 p-4"
-            >
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-semibold text-slate-700">
-                  Diameter #{index + 1}
-                </h4>
-                {diameters.length > 1 ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setDiameters((rows) =>
-                        rows.filter((row) => row.id !== diameter.id),
-                      )
-                    }
-                    className="text-[11px] font-medium text-rose-600 hover:text-rose-800"
-                  >
-                    Remove
-                  </button>
-                ) : null}
-              </div>
-
-              <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div>
-                  <label className="block text-[11px] font-medium text-slate-600">
-                    Inside Diameter (ft) *
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={diameter.insideDiameterFeet}
-                    onChange={(event) =>
-                      updateDiameter(
-                        diameter.id,
-                        "insideDiameterFeet",
-                        event.target.value,
-                      )
-                    }
-                    placeholder="4.5"
-                    className={structureInputClassName}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-medium text-slate-600">
-                    Mold Max Height (ft) *
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={diameter.moldMaxHeightFeet}
-                    onChange={(event) =>
-                      updateDiameter(
-                        diameter.id,
-                        "moldMaxHeightFeet",
-                        event.target.value,
-                      )
-                    }
-                    placeholder="6"
-                    className={structureInputClassName}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-medium text-slate-600">
-                    Top Slab w/ Key (ft)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.0001"
-                    value={diameter.topSlabHeightWithKeyFeet}
-                    onChange={(event) =>
-                      updateDiameter(
-                        diameter.id,
-                        "topSlabHeightWithKeyFeet",
-                        event.target.value,
-                      )
-                    }
-                    placeholder="1.08"
-                    className={structureInputClassName}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-medium text-slate-600">
-                    Top Slab No Key (ft)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.0001"
-                    value={diameter.topSlabHeightNoKeyFeet}
-                    onChange={(event) =>
-                      updateDiameter(
-                        diameter.id,
-                        "topSlabHeightNoKeyFeet",
-                        event.target.value,
-                      )
-                    }
-                    placeholder="1.33"
-                    className={structureInputClassName}
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Standard Sections
-                  </span>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => addSection(diameter.id, "BASE")}
-                      className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
-                    >
-                      Add Base
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => addSection(diameter.id, "RISER")}
-                      className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
-                    >
-                      Add Riser
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-2 overflow-x-auto rounded-lg border border-slate-100">
-                  <table className="min-w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                        <th className="px-3 py-2 font-semibold">Role</th>
-                        <th className="px-3 py-2 font-semibold">Height (ft)</th>
-                        <th className="px-3 py-2 font-semibold">Label</th>
-                        <th className="px-3 py-2 font-semibold"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {diameter.sections.map((section) => (
-                        <tr key={section.id}>
-                          <td className="px-3 py-1.5">
-                            <select
-                              value={section.role}
-                              onChange={(event) =>
-                                updateSection(
-                                  diameter.id,
-                                  section.id,
-                                  "role",
-                                  event.target.value,
-                                )
-                              }
-                              className={structureTableInputClassName}
-                            >
-                              <option value="BASE">Base</option>
-                              <option value="RISER">Riser</option>
-                            </select>
-                          </td>
-                          <td className="px-3 py-1.5">
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.0001"
-                              value={section.heightFeet}
-                              onChange={(event) =>
-                                updateSection(
-                                  diameter.id,
-                                  section.id,
-                                  "heightFeet",
-                                  event.target.value,
-                                )
-                              }
-                              placeholder="6"
-                              className={structureTableInputClassName}
-                            />
-                          </td>
-                          <td className="px-3 py-1.5">
-                            <input
-                              type="text"
-                              value={section.label}
-                              onChange={(event) =>
-                                updateSection(
-                                  diameter.id,
-                                  section.id,
-                                  "label",
-                                  event.target.value,
-                                )
-                              }
-                              placeholder="6'-0&quot; base"
-                              className={structureTableInputClassName}
-                            />
-                          </td>
-                          <td className="px-3 py-1.5 text-right">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                removeSection(diameter.id, section.id)
-                              }
-                              className="text-[11px] font-medium text-rose-600 hover:text-rose-800"
-                            >
-                              Remove
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </SectionCard>
-
-      <SectionCard
-        title="Boot / Hole Sizes"
-        description="Pipe diameter to boot hole diameter. Drives the sump = (hole - pipe) / 2."
-        action={
-          <button
-            type="button"
-            onClick={() => setBootSizes((rows) => [...rows, createBoot()])}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            Add Boot Size
-          </button>
-        }
         noPadding
       >
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-xs">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                <th className="px-4 py-2.5 font-semibold">Pipe Diameter (in)</th>
-                <th className="px-4 py-2.5 font-semibold">Hole Diameter (in)</th>
+                <th className="px-4 py-2.5 font-semibold">Inside Diameter (ft)</th>
                 <th className="px-4 py-2.5 font-semibold"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {bootSizes.map((boot) => (
-                <tr key={boot.id}>
+              {diameters.map((diameter, index) => (
+                <tr key={diameter.id}>
                   <td className="px-4 py-1.5">
                     <input
                       type="number"
                       min="0"
                       step="0.01"
-                      value={boot.pipeDiameterInches}
-                      onChange={(event) =>
-                        updateBoot(
-                          boot.id,
-                          "pipeDiameterInches",
-                          event.target.value,
+                      value={diameter.insideDiameterFeet}
+                      onChange={(e) =>
+                        setDiameters((rows) =>
+                          rows.map((row) =>
+                            row.id === diameter.id
+                              ? { ...row, insideDiameterFeet: e.target.value }
+                              : row,
+                          ),
                         )
                       }
-                      placeholder="8"
-                      className={structureTableInputClassName}
-                    />
-                  </td>
-                  <td className="px-4 py-1.5">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={boot.holeDiameterInches}
-                      onChange={(event) =>
-                        updateBoot(
-                          boot.id,
-                          "holeDiameterInches",
-                          event.target.value,
-                        )
-                      }
-                      placeholder="12"
+                      placeholder="4.5"
                       className={structureTableInputClassName}
                     />
                   </td>
                   <td className="px-4 py-1.5 text-right">
-                    {bootSizes.length > 1 ? (
+                    {diameters.length > 1 ? (
                       <button
                         type="button"
                         onClick={() =>
-                          setBootSizes((rows) =>
-                            rows.filter((row) => row.id !== boot.id),
+                          setDiameters((rows) =>
+                            rows.filter((row) => row.id !== diameter.id),
                           )
                         }
                         className="text-[11px] font-medium text-rose-600 hover:text-rose-800"
                       >
                         Remove
                       </button>
-                    ) : null}
+                    ) : (
+                      <span className="text-[11px] text-slate-400">
+                        #{index + 1}
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}

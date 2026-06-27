@@ -16,6 +16,7 @@
     "deploy:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy/start-production.ps1",
     "electron:dev": "electron .",
     "electron:build": "electron-builder --win --x64",
+    "electron:publish": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy/publish-electron-update.ps1",
     "postinstall": "prisma generate && node scripts/copy-pdf-worker.mjs && puppeteer browsers install chrome",
     "puppeteer:install": "puppeteer browsers install chrome"
   },
@@ -51,6 +52,7 @@
   "build": {
     "appId": "com.li-precast.precastops",
     "productName": "Precast Ops",
+    "icon": "electron/icon.png",
     "directories": {
       "app": "electron",
       "output": "dist/electron"
@@ -63,11 +65,16 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "icon.png"
+      "icon": "electron/icon.png"
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true
+    },
+    "publish": {
+      "provider": "generic",
+      "url": "http://localhost:3000/updates"
     }
   }
 }

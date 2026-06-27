@@ -28,14 +28,20 @@ Open **[http://localhost:3000](http://localhost:3000)**
 
 ## Electron desktop client
 
-Thin shell that loads the server URL. Does not replace the server — staff PCs need the server running on the LAN.
+Thin shell that loads the server URL. **Build on the dev PC.** The server runs the app; staff PCs only run the installer.
+
+| Machine | Path |
+|---------|------|
+| Dev PC | `C:\Projects\precastapp` |
+| Server | `C:\Apps\precastapp` |
 
 
-| Command                                                                           | Purpose                                                                    |
-| --------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `npm run electron:dev`                                                            | Open desktop app against `http://localhost:3000` (run `npm run dev` first) |
-| `npm run electron:build`                                                          | Build Windows NSIS installer to `dist/electron/`                           |
-| `.\scripts\deploy\build-electron-client.ps1 -ServerUrl "http://precast-srv:3000"` | Set server URL and build installer                                         |
+| Command                                                                           | Where | Purpose                                                                    |
+| --------------------------------------------------------------------------------- | ----- | -------------------------------------------------------------------------- |
+| `npm run electron:dev`                                                            | Dev PC | Open desktop app against `http://localhost:3000` (run `npm run dev` first) |
+| `npm run electron:build`                                                          | Dev PC | Build Windows NSIS installer to `dist/electron/`                           |
+| `.\scripts\deploy\build-electron-client.ps1 -ServerUrl "http://192.168.1.20:3000"` | Dev PC | Set server URL and build installer                                         |
+| `.\scripts\deploy\publish-electron-update.ps1 -ServerUrl "http://192.168.1.20:3000" -CopyTo "\\LIP-TITAN\C$\Apps\precastapp\public\updates"` | Dev PC | Build + copy auto-update files to the **server** |
 
 
 Override dev server URL: `$env:PRECAST_SERVER_URL="http://localhost:3000"; npm run electron:dev`
@@ -194,6 +200,7 @@ Full step-by-step guide: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**
 | `.\scripts\deploy\backup-database.ps1`         | `pg_dump` backup (schedule nightly)               |
 | `.\scripts\deploy\post-deploy-config.ps1`      | Post-deploy checklist + optional file sync        |
 | `.\scripts\deploy\build-electron-client.ps1`   | Build Precast Ops desktop installer for staff PCs |
+| `.\scripts\deploy\publish-electron-update.ps1` | Build + publish desktop auto-update to server `public/updates/` |
 
 
 Checklist template: [docs/deployment-server-info.md](docs/deployment-server-info.md)  

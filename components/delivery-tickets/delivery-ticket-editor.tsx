@@ -77,6 +77,9 @@ export type DeliveryTicketEditorProps = {
 const inputClass =
   "mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm";
 
+const inlineTableInputClass =
+  "rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 placeholder:text-slate-400";
+
 function todayDateInputValue(): string {
   const date = new Date();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -887,7 +890,7 @@ export function DeliveryTicketEditor({
                                       option.pieceRole,
                                     )}
                                     placeholder="0"
-                                    className="mt-2 w-full rounded border border-slate-200 px-2 py-1"
+                                    className={`mt-2 w-full ${inlineTableInputClass}`}
                                     onChange={(event) =>
                                       setCastingPieceCount(
                                         line,
@@ -1001,7 +1004,7 @@ export function DeliveryTicketEditor({
                                       option.productId,
                                     )}
                                     placeholder="0"
-                                    className="mt-2 w-full rounded border border-slate-200 px-2 py-1"
+                                    className={`mt-2 w-full ${inlineTableInputClass}`}
                                     onChange={(event) =>
                                       setDrainRingCount(
                                         line,
@@ -1090,7 +1093,7 @@ export function DeliveryTicketEditor({
                             min="0"
                             max={line.remainingQty}
                             value={editorLine.quantity}
-                            className="w-20 rounded border border-slate-200 px-2 py-1"
+                            className={`w-20 ${inlineTableInputClass}`}
                             onChange={(event) =>
                               setLines((current) =>
                                 current.map((row) =>
@@ -1105,7 +1108,7 @@ export function DeliveryTicketEditor({
                           "—"
                         )}
                       </td>
-                      <td className="px-3 py-2 align-top">
+                      <td className="px-3 py-2 align-top text-slate-700">
                         {checked && editorLine ? (
                           <input
                             type="number"
@@ -1113,7 +1116,7 @@ export function DeliveryTicketEditor({
                             step="0.01"
                             value={weightInputValue}
                             placeholder="—"
-                            className="w-24 rounded border border-slate-200 px-2 py-1"
+                            className={`w-24 ${inlineTableInputClass}`}
                             onChange={(event) =>
                               setLines((current) =>
                                 current.map((row) =>
@@ -1300,7 +1303,7 @@ export function DeliveryTicketEditor({
                             onChange={(event) =>
                               updateWalkInLine(line.key, "quantity", event.target.value)
                             }
-                            className="w-20 rounded border border-slate-200 px-2 py-1 text-xs"
+                            className={`w-20 ${inlineTableInputClass}`}
                           />
                         </td>
                         <td className="px-3 py-2 text-slate-600">{line.unit}</td>
@@ -1313,7 +1316,7 @@ export function DeliveryTicketEditor({
                             onChange={(event) =>
                               updateWalkInLine(line.key, "weightEach", event.target.value)
                             }
-                            className="w-24 rounded border border-slate-200 px-2 py-1 text-xs"
+                            className={`w-24 ${inlineTableInputClass}`}
                           />
                         </td>
                         <td className="px-3 py-2 text-slate-600">

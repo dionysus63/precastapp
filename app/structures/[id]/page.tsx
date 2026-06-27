@@ -6,7 +6,10 @@ import {
   type StructureTemplateFormValue,
 } from "@/components/structures/structure-template-form";
 import { DeleteStructureTemplateButton } from "@/components/structures/delete-structure-template-button";
-import { updateStructureTemplate } from "@/app/structures/actions";
+import {
+  updateStructureTemplate,
+  loadCastingProductOptions,
+} from "@/app/structures/actions";
 import { prisma } from "@/lib/prisma";
 
 type EditStructureTemplatePageProps = {
@@ -22,16 +25,15 @@ export default async function EditStructureTemplatePage({
 }: EditStructureTemplatePageProps) {
   const { id } = await params;
 
-  const template = await prisma.structureTemplate.findUnique({
-    where: { id },
-    include: {
-      diameters: {
-        orderBy: { sortOrder: "asc" },
-        include: { sections: { orderBy: { sortOrder: "asc" } } },
+  const [template, castingOptions] = await Promise.all([
+    prisma.structureTemplate.findUnique({
+      where: { id },
+      include: {
+        diameters: { orderBy: { sortOrder: "asc" } },
       },
-      bootSizes: { orderBy: { pipeDiameterInches: "asc" } },
-    },
-  });
+    }),
+    loadCastingProductOptions(),
+  ]);
 
   if (!template) {
     notFound();
@@ -41,29 +43,25 @@ export default async function EditStructureTemplatePage({
     name: template.name,
     agencyStandard: template.agencyStandard ?? "",
     shape: template.shape as "CIRCULAR" | "RECTANGULAR",
-    minimumBrickFeet: decimalToString(template.minimumBrickFeet),
-    keyClearanceFeet: decimalToString(template.keyClearanceFeet),
+    wallThicknessInches: decimalToString(template.wallThicknessInches),
+    baseSlabThicknessInches: decimalToString(template.baseSlabThicknessInches),
+    topSlabThicknessInches: decimalToString(template.topSlabThicknessInches),
+    castingProductId: template.castingProductId ?? "",
+    minimumBrickInches: decimalToString(template.minimumBrickInches),
+    connectionType: template.connectionType as StructureTemplateFormValue["connectionType"],
+    sumpMode: template.sumpMode as "DEFAULT" | "FIXED",
+    sumpFixedInches: decimalToString(template.sumpFixedInches),
+    openingToJointMinTopInches: decimalToString(
+      template.openingToJointMinTopInches,
+    ),
+    openingToJointMinBottomInches: decimalToString(
+      template.openingToJointMinBottomInches,
+    ),
     status: template.status as "ACTIVE" | "INACTIVE",
     notes: template.notes ?? "",
     diameters: template.diameters.map((diameter) => ({
       id: diameter.id,
       insideDiameterFeet: decimalToString(diameter.insideDiameterFeet),
-      moldMaxHeightFeet: decimalToString(diameter.moldMaxHeightFeet),
-      topSlabHeightWithKeyFeet: decimalToString(
-        diameter.topSlabHeightWithKeyFeet,
-      ),
-      topSlabHeightNoKeyFeet: decimalToString(diameter.topSlabHeightNoKeyFeet),
-      sections: diameter.sections.map((section) => ({
-        id: section.id,
-        role: section.role as "BASE" | "RISER",
-        heightFeet: decimalToString(section.heightFeet),
-        label: section.label ?? "",
-      })),
-    })),
-    bootSizes: template.bootSizes.map((boot) => ({
-      id: boot.id,
-      pipeDiameterInches: decimalToString(boot.pipeDiameterInches),
-      holeDiameterInches: decimalToString(boot.holeDiameterInches),
     })),
   };
 
@@ -72,7 +70,7 @@ export default async function EditStructureTemplatePage({
   return (
     <DashboardShell
       title={`Edit ${template.name}`}
-      subtitle="Update diameters, sections, top slabs, and boot sizes."
+      subtitle="Update template configuration and offered diameters."
     >
       <div className="flex items-center justify-between">
         <Link
@@ -90,6 +88,7 @@ export default async function EditStructureTemplatePage({
           cancelHref="/structures"
           submitLabel="Save Changes"
           defaultValue={defaultValue}
+          castingOptions={castingOptions}
         />
       </div>
     </DashboardShell>

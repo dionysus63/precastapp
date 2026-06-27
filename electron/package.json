@@ -5,5 +5,8 @@
   "private": true,
   "main": "main.mjs",
   "description": "Desktop client for Precast Ops (loads office server over LAN)",
-  "author": "Long Island Precast"
+  "author": "Long Island Precast",
+  "dependencies": {
+    "electron-updater": "^6.6.2"
+  }
 }

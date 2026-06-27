@@ -305,14 +305,79 @@ npm run electron:dev
 
 Override dev URL: `$env:PRECAST_SERVER_URL="http://localhost:3000"; npm run electron:dev`
 
-### Client updates
+### Client updates (auto-update from server)
 
-When the server hostname or IP changes:
+Three machines are involved — keep them separate:
 
-- Rebuild the installer with the new `-ServerUrl`, redeploy to all PCs, **or**
-- Edit `%APPDATA%\Precast Ops\config.json` on each PC.
+| Machine | Role | Repo path | IP / name (yours) |
+|---------|------|-----------|-------------------|
+| **Dev PC** | Write code, build installers, `git push` | `C:\Projects\precastapp` | Your desk PC |
+| **Server** | Runs the app 24/7, hosts update files | `C:\Apps\precastapp` | `LIP-TITAN` / `192.168.1.20` |
+| **Staff PCs** | Run Precast Ops desktop app only | *(no repo)* | Office workstations |
 
-App updates (new Electron version): rebuild installer and reinstall — auto-update is not included in v1.
+After the **first manual install** on each staff PC, desktop updates come from the **server** at `http://192.168.1.20:3000/updates/`. Clients check ~15 seconds after launch and every 4 hours.
+
+---
+
+#### A. Server app updates (quotes, jobs, UI — most changes)
+
+**On the server only** — staff PCs need nothing:
+
+```powershell
+Stop-Service PrecastApp
+cd C:\Apps\precastapp
+git pull
+.\scripts\deploy\deploy-app.ps1 -SkipInstall
+Start-Service PrecastApp
+```
+
+Code reaches the server via **GitHub/GitLab**: you `git push` from the dev PC, then `git pull` on the server.
+
+---
+
+#### B. Desktop shell updates (Electron auto-update)
+
+**Build on the dev PC.** **Host the files on the server.** Staff PCs update themselves.
+
+**Step 1 — Dev PC:** commit/push your changes, then bump `version` in [`electron/package.json`](../electron/package.json) (e.g. `0.1.0` → `0.1.1`).
+
+**Step 2 — Dev PC:** build and copy update files to the server over the network:
+
+```powershell
+cd C:\Projects\precastapp
+git pull
+.\scripts\deploy\publish-electron-update.ps1 `
+  -ServerUrl "http://192.168.1.20:3000" `
+  -CopyTo "\\LIP-TITAN\C$\Apps\precastapp\public\updates"
+```
+
+Use the server hostname or `\\192.168.1.20\C$\Apps\precastapp\public\updates` if the share path works better. You need write access to that folder (admin share or a file share you create).
+
+**Step 3 — Server (once, first time only):** ensure the updates folder exists:
+
+```powershell
+New-Item -ItemType Directory -Path C:\Apps\precastapp\public\updates -Force
+```
+
+Also `git pull` on the server so middleware allows `/updates` without login (if you haven’t already).
+
+**Step 4 — Any PC:** verify the feed is live:
+
+```powershell
+Invoke-WebRequest "http://192.168.1.20:3000/updates/latest.yml"
+```
+
+**Step 5 — Staff PCs:** they see “Update ready — Restart now” on the next check. No manual reinstall.
+
+**First install on each staff PC** is still manual (USB, share, or copy `dist\electron\Precast Ops Setup x.x.x.exe` from the dev PC after the build step).
+
+---
+
+#### C. Server URL change only
+
+Edit `%APPDATA%\Precast Ops\config.json` on each staff PC, or publish a new desktop build from the dev PC with the new `-ServerUrl`.
+
+See [`public/updates/README.md`](../public/updates/README.md).
 
 ---
 
@@ -338,14 +403,16 @@ Register a Windows Scheduled Task to run that script nightly.
 
 ## Ongoing maintenance
 
-| Task | Action |
-|------|--------|
-| Server code updates | `git pull` → `deploy-app.ps1` → restart `PrecastApp` service |
-| Client updates | Rebuild installer → reinstall on staff PCs (or edit `%APPDATA%\Precast Ops\config.json` for URL-only changes) |
-| Schema changes | `npx prisma migrate deploy` + `npx prisma generate` |
-| Database backup | `backup-database.ps1` on a schedule |
-| Job files | Existing share backup policy |
-| Re-index files | `npm run db:sync-files` after bulk moves |
+| Task | Where | Action |
+|------|-------|--------|
+| Server app updates | **Server** | `git pull` → `deploy-app.ps1` → restart `PrecastApp` |
+| Push code to server | **Dev PC** then **Server** | Dev: `git push` → Server: `git pull` |
+| Desktop shell updates | **Dev PC** → **Server** | Dev: bump `electron/package.json` version → `publish-electron-update.ps1 -CopyTo \\SERVER\...` → Staff restart when prompted |
+| Server URL change only | **Staff PCs** | Edit `%APPDATA%\Precast Ops\config.json` |
+| Schema changes | **Server** | `npx prisma migrate deploy` + `npx prisma generate` (via `deploy-app.ps1`) |
+| Database backup | **Server** | `backup-database.ps1` on a schedule |
+| Job files | File share | Existing share backup policy |
+| Re-index files | **Server** | `npm run db:sync-files` after bulk moves |
 
 ---
 

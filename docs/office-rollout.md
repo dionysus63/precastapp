@@ -4,31 +4,40 @@ Use after the app is running as a Windows service and smoke-tested.
 
 ## 1. Server URL for the desktop app
 
-Pick one stable address and bake it into the Electron installer:
+Pick one stable address (your server: **`http://192.168.1.20:3000`** or **`http://LIP-TITAN:3000`**).
 
-| Option | Example |
-|--------|---------|
-| Hostname (preferred) | `http://precast-srv:3000` |
-| IP address | `http://192.168.1.50:3000` |
+Ensure staff PCs resolve the hostname if you use a name instead of the IP.
 
-Ensure office PCs resolve the hostname (DNS A record or hosts file on each PC if needed).
-
-Build the installer:
-
-```powershell
-.\scripts\deploy\build-electron-client.ps1 -ServerUrl "http://precast-srv:3000"
-```
-
-## 2. Install Precast Ops on each PC
+## 2. First install on each staff PC
 
 **Do not** give staff browser bookmarks — use the desktop app only.
 
-1. Copy `dist/electron/Precast Ops Setup x.x.x.exe` to a share or deploy via GPO/RMM.
-2. Run the installer on each staff PC.
-3. Silent install (optional): `Precast Ops Setup.exe /S`
-4. Pin **Precast Ops** to Start menu / taskbar.
+### On the dev PC — build the installer
 
-If the server URL changes later, either rebuild the installer or edit on each PC:
+```powershell
+cd C:\Projects\precastapp
+.\scripts\deploy\publish-electron-update.ps1 `
+  -ServerUrl "http://192.168.1.20:3000" `
+  -CopyTo "\\LIP-TITAN\C$\Apps\precastapp\public\updates"
+```
+
+Copy `dist\electron\Precast Ops Setup x.x.x.exe` to a USB or file share.
+
+### On each staff PC — install once
+
+1. Run **Precast Ops Setup.exe** (or silent: `Precast Ops Setup.exe /S`).
+2. If needed, create `%APPDATA%\Precast Ops\config.json` with `{ "serverUrl": "http://192.168.1.20:3000" }`.
+3. Pin **Precast Ops** to Start menu / taskbar.
+
+### On the server — one-time folder setup
+
+```powershell
+New-Item -ItemType Directory -Path C:\Apps\precastapp\public\updates -Force
+```
+
+**Later desktop updates** are published from the **dev PC** to the **server** (`public\updates`). Staff PCs download automatically and restart when prompted.
+
+If the server URL changes later, edit on each staff PC:
 
 `%APPDATA%\Precast Ops\config.json`
 
@@ -102,6 +111,7 @@ Document internally:
 - Who restarts the `PrecastApp` Windows service
 - Who runs server deploy updates (`docs/DEPLOYMENT.md` Phase 5)
 - Who rebuilds/redeploys the Electron installer
+- Who publishes desktop updates (`publish-electron-update.ps1`)
 - Where the filled [deployment-server-info.md](deployment-server-info.md) lives
 
 ## 7. Post-rollout verification (first week)

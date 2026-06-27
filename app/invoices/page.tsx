@@ -49,12 +49,12 @@ export default async function InvoicesPage() {
                         {invoice.invoiceNumber}
                       </Link>
                     </td>
-                    <td className="px-4 py-2">
+                    <td className="px-4 py-2 text-slate-700">
                       {invoice.deliveryTicket.ticketNumber}
                     </td>
-                    <td className="px-4 py-2">{invoice.customerName}</td>
-                    <td className="px-4 py-2">{invoice.projectName}</td>
-                    <td className="px-4 py-2">
+                    <td className="px-4 py-2 text-slate-700">{invoice.customerName}</td>
+                    <td className="px-4 py-2 text-slate-700">{invoice.projectName}</td>
+                    <td className="px-4 py-2 font-medium text-slate-900">
                       ${Number(invoice.total).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-4 py-2">

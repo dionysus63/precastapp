@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { MarkPickedUpControl } from "@/components/walk-ins/mark-picked-up-control";
 
@@ -52,48 +53,60 @@ function paymentLabel(row: WalkInRow): string {
   return "Payment TBD";
 }
 
+function jobNameLine(row: WalkInRow): string {
+  if (row.ticketType === "JOB") {
+    if (row.jobNumber && row.projectName) {
+      return `${row.jobNumber} — ${row.projectName}`;
+    }
+    return row.projectName || row.jobNumber || "Job pickup";
+  }
+  return row.projectName || "Walk-in sale";
+}
+
+function dateLine(row: WalkInRow): string {
+  if (!row.dateLabel) {
+    return "No date set";
+  }
+  return row.timeLabel ? `${row.dateLabel} · ${row.timeLabel}` : row.dateLabel;
+}
+
+function itemsPaymentLine(row: WalkInRow): string {
+  const items =
+    row.totalItems != null
+      ? `${row.totalItems} item${row.totalItems === 1 ? "" : "s"}`
+      : null;
+  const payment = paymentLabel(row);
+  return items ? `${items} · ${payment}` : payment;
+}
+
+const tileLineClass = "text-xs leading-5 text-slate-700";
+
 function PickupCardBody({ row }: { row: WalkInRow }) {
   return (
-    <>
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-slate-900">{row.ticketNumber}</p>
-          <p className="text-xs text-slate-600">{row.customerName}</p>
-        </div>
-        <StatusBadge
-          label={row.status.replace(/_/g, " ")}
-          variant={statusVariant(row.status)}
-        />
-      </div>
-
-      <p className="mt-1 text-xs text-slate-500">
-        {row.ticketType === "JOB"
-          ? `${row.jobNumber ?? "Job"} · ${row.projectName}`
-          : row.projectName}
-      </p>
-
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
-        {row.dateLabel ? (
-          <span>
-            {row.dateLabel}
-            {row.timeLabel ? ` · ${row.timeLabel}` : ""}
-          </span>
-        ) : (
-          <span>No date set</span>
-        )}
-        {row.totalItems != null ? <span>{row.totalItems} item(s)</span> : null}
-        <span
-          className={
-            row.paymentReceived
-              ? "font-medium text-green-700"
-              : "font-medium text-slate-600"
-          }
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0 space-y-0">
+        <p className={`${tileLineClass} font-semibold text-slate-900`}>
+          {row.customerName}
+        </p>
+        <p className={tileLineClass}>{jobNameLine(row)}</p>
+        <p className={tileLineClass}>{dateLine(row)}</p>
+        <p className={tileLineClass}>{row.ticketNumber}</p>
+        <p
+          className={`${tileLineClass} ${
+            row.paymentReceived ? "text-green-700" : ""
+          }`}
         >
-          {paymentLabel(row)}
-        </span>
-        {row.pickedUpBy ? <span>Pickup: {row.pickedUpBy}</span> : null}
+          {itemsPaymentLine(row)}
+        </p>
+        {row.pickedUpBy ? (
+          <p className={tileLineClass}>Picked up by {row.pickedUpBy}</p>
+        ) : null}
       </div>
-    </>
+      <StatusBadge
+        label={row.status.replace(/_/g, " ")}
+        variant={statusVariant(row.status)}
+      />
+    </div>
   );
 }
 
@@ -132,6 +145,39 @@ function CompletedPickupCard({ row }: { row: WalkInRow }) {
   );
 }
 
+function PickupTileSection({
+  title,
+  description,
+  emptyMessage,
+  rows,
+  renderCard,
+}: {
+  title: string;
+  description: string;
+  emptyMessage: string;
+  rows: WalkInRow[];
+  renderCard: (row: WalkInRow) => ReactNode;
+}) {
+  return (
+    <section>
+      <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+      <p className="mb-3 text-xs text-slate-500">{description}</p>
+      {rows.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-xs text-slate-500">
+          {emptyMessage}
+        </p>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {rows.map((row) => renderCard(row))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+const newTicketLinkClass =
+  "inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50";
+
 export function WalkInsBoard({
   calledIn,
   completed,
@@ -144,58 +190,33 @@ export function WalkInsBoard({
       <div className="flex flex-wrap gap-2">
         <Link
           href="/delivery-tickets/new?type=walkin"
-          className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
+          className={newTicketLinkClass}
         >
           New Walk-In Sale
         </Link>
         <Link
           href="/delivery-tickets/new?fulfillment=pickup"
-          className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+          className={newTicketLinkClass}
         >
           New Pickup Ticket
         </Link>
       </div>
 
-      <section>
-        <h2 className="text-sm font-semibold text-slate-900">
-          Called-in pickups
-        </h2>
-        <p className="mb-3 text-xs text-slate-500">
-          Pre-arranged orders waiting for the customer. Use preview links to
-          print the ticket and submittals.
-        </p>
-        {calledIn.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-xs text-slate-500">
-            No pickups are waiting right now.
-          </p>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {calledIn.map((row) => (
-              <CalledInPickupCard key={row.id} row={row} />
-            ))}
-          </div>
-        )}
-      </section>
+      <PickupTileSection
+        title="Called-in pickups"
+        description="Pre-arranged orders waiting for the customer. Use preview links to print the ticket and submittals."
+        emptyMessage="No pickups are waiting right now."
+        rows={calledIn}
+        renderCard={(row) => <CalledInPickupCard key={row.id} row={row} />}
+      />
 
-      <section>
-        <h2 className="text-sm font-semibold text-slate-900">
-          Recently completed
-        </h2>
-        <p className="mb-3 text-xs text-slate-500">
-          Walk-ins and pickups handled recently.
-        </p>
-        {completed.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-xs text-slate-500">
-            Nothing completed yet.
-          </p>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {completed.map((row) => (
-              <CompletedPickupCard key={row.id} row={row} />
-            ))}
-          </div>
-        )}
-      </section>
+      <PickupTileSection
+        title="Recently completed"
+        description="Walk-ins and pickups handled recently."
+        emptyMessage="Nothing completed yet."
+        rows={completed}
+        renderCard={(row) => <CompletedPickupCard key={row.id} row={row} />}
+      />
     </div>
   );
 }

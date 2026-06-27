@@ -5,19 +5,29 @@ import { StatusBadge } from "@/components/dashboard/status-badge";
 import { prisma } from "@/lib/prisma";
 
 export default async function StructuresPage() {
-  const templates = await prisma.structureTemplate.findMany({
-    orderBy: { name: "asc" },
-    include: {
-      _count: { select: { diameters: true, bootSizes: true } },
-    },
-  });
+  const [templates, pipeOpeningCount] = await Promise.all([
+    prisma.structureTemplate.findMany({
+      orderBy: { name: "asc" },
+      include: {
+        castingProduct: { select: { name: true } },
+        _count: { select: { diameters: true } },
+      },
+    }),
+    prisma.pipeOpeningSize.count(),
+  ]);
 
   return (
     <DashboardShell
       title="Structures"
-      subtitle="Reusable structure templates that drive the Drill Sheet Workbook."
+      subtitle="Structure templates and pipe opening size catalog for the Drill Sheet Workbook."
     >
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex flex-wrap justify-end gap-2">
+        <Link
+          href="/structures/pipe-openings"
+          className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+        >
+          Pipe Opening Sizes ({pipeOpeningCount})
+        </Link>
         <Link
           href="/structures/new"
           className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
@@ -38,8 +48,8 @@ export default async function StructuresPage() {
                 <th className="px-4 py-2.5 font-semibold">Name</th>
                 <th className="px-4 py-2.5 font-semibold">Agency / Standard</th>
                 <th className="px-4 py-2.5 font-semibold">Shape</th>
+                <th className="px-4 py-2.5 font-semibold">Casting</th>
                 <th className="px-4 py-2.5 font-semibold">Diameters</th>
-                <th className="px-4 py-2.5 font-semibold">Boot Sizes</th>
                 <th className="px-4 py-2.5 font-semibold">Status</th>
                 <th className="px-4 py-2.5 font-semibold">Actions</th>
               </tr>
@@ -67,10 +77,10 @@ export default async function StructuresPage() {
                       {template.shape === "CIRCULAR" ? "Circular" : "Rectangular"}
                     </td>
                     <td className="px-4 py-2.5 text-slate-600">
-                      {template._count.diameters}
+                      {template.castingProduct?.name ?? "—"}
                     </td>
                     <td className="px-4 py-2.5 text-slate-600">
-                      {template._count.bootSizes}
+                      {template._count.diameters}
                     </td>
                     <td className="px-4 py-2.5">
                       <StatusBadge

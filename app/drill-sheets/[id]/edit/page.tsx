@@ -19,16 +19,24 @@ export default async function EditDrillSheetPage({
 }: EditDrillSheetPageProps) {
   const { id } = await params;
 
-  const [sheet, { templateOptions, castingOptions, jobOptions }] =
-    await Promise.all([
-      prisma.jobStructure.findUnique({
-        where: { id },
-        include: drillSheetDetailInclude,
-      }),
-      loadDrillSheetFormOptions(),
-    ]);
+  const [
+    sheet,
+    {
+      templateOptions,
+      castingOptions,
+      jobOptions,
+      pipeOpeningSizes,
+      diameterConfigs,
+    },
+  ] = await Promise.all([
+    prisma.jobStructure.findUnique({
+      where: { id },
+      include: drillSheetDetailInclude,
+    }),
+    loadDrillSheetFormOptions(),
+  ]);
 
-  if (!sheet || !sheet.manholeDetail) {
+  if (!sheet || !sheet.calc) {
     notFound();
   }
 
@@ -38,7 +46,6 @@ export default async function EditDrillSheetPage({
   const initialValues = buildDrillSheetFormValues(
     sheet,
     template?.diameters ?? [],
-    template?.minimumBrickFeet ?? null,
   );
 
   const updateAction = updateDrillSheet.bind(null, id);
@@ -66,6 +73,8 @@ export default async function EditDrillSheetPage({
             templates={templateOptions}
             castings={castingOptions}
             jobs={jobOptions}
+            pipeOpeningSizes={pipeOpeningSizes}
+            diameterConfigs={diameterConfigs}
             initialValues={initialValues}
             cancelHref={`/drill-sheets/${id}`}
             submitLabel="Save Changes"

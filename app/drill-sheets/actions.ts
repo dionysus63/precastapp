@@ -9,16 +9,17 @@ import {
   computeDrillSheet,
   type DrillSheetInput,
   type DrillSheetResult,
+  type PipeConnectionType,
 } from "@/lib/drill-sheet";
-import { angleToClockPosition } from "@/lib/drill-sheet-diagram";
 
 type OpeningPayload = {
   label: string;
+  pipeMaterial: string;
+  pipeSizeInches: string;
   pipeType: string;
-  pipeDiameterInches: string;
   invertElevation: string;
-  hasBoot: boolean;
   angle: string;
+  connectionType: PipeConnectionType | "";
 };
 
 type DrillSheetPayload = {
@@ -32,8 +33,6 @@ type DrillSheetPayload = {
   date: string;
   hasSteps: boolean;
   rimElevation: string;
-  hasKeyOverride: boolean | null;
-  brickAdjustmentOverrideFeet: string;
   openings: OpeningPayload[];
 };
 
@@ -76,11 +75,12 @@ function parsePayload(formData: FormData): DrillSheetPayload {
     const row = item as Record<string, unknown>;
     return {
       label: String(row.label ?? "").trim(),
+      pipeMaterial: String(row.pipeMaterial ?? "").trim(),
+      pipeSizeInches: String(row.pipeSizeInches ?? "").trim(),
       pipeType: String(row.pipeType ?? "").trim(),
-      pipeDiameterInches: String(row.pipeDiameterInches ?? "").trim(),
       invertElevation: String(row.invertElevation ?? "").trim(),
-      hasBoot: row.hasBoot !== false,
       angle: String(row.angle ?? "").trim(),
+      connectionType: String(row.connectionType ?? "") as PipeConnectionType | "",
     };
   });
 
@@ -97,15 +97,6 @@ function parsePayload(formData: FormData): DrillSheetPayload {
     date: String(data.date ?? "").trim(),
     hasSteps: data.hasSteps === true,
     rimElevation: String(data.rimElevation ?? "").trim(),
-    hasKeyOverride:
-      data.hasKeyOverride === true
-        ? true
-        : data.hasKeyOverride === false
-          ? false
-          : null,
-    brickAdjustmentOverrideFeet: String(
-      data.brickAdjustmentOverrideFeet ?? "",
-    ).trim(),
     openings,
   };
 }
@@ -120,16 +111,16 @@ type LoadedDrillSheet = {
 async function loadAndCompute(
   payload: DrillSheetPayload,
 ): Promise<LoadedDrillSheet> {
-  const template = await prisma.structureTemplate.findUnique({
-    where: { id: payload.templateId },
-    include: {
-      bootSizes: true,
-      diameters: {
-        where: { id: payload.diameterId },
-        include: { sections: { orderBy: { sortOrder: "asc" } } },
+  const [template, pipeOpeningSizes, diameterConfigs] = await Promise.all([
+    prisma.structureTemplate.findUnique({
+      where: { id: payload.templateId },
+      include: {
+        diameters: { where: { id: payload.diameterId } },
       },
-    },
-  });
+    }),
+    prisma.pipeOpeningSize.findMany(),
+    prisma.structureDiameterConfig.findMany(),
+  ]);
 
   if (!template) {
     throw new Error("Structure template not found.");
@@ -139,11 +130,24 @@ async function loadAndCompute(
     throw new Error("Selected diameter not found on the template.");
   }
 
+  const insideDiameterFeet = Number(diameter.insideDiameterFeet);
+  const diameterConfig = diameterConfigs.find(
+    (config) =>
+      Math.abs(Number(config.insideDiameterFeet) - insideDiameterFeet) < 1e-6,
+  );
+  if (!diameterConfig) {
+    throw new Error(
+      `No diameter configuration found for ${insideDiameterFeet}'. Add it in Settings → Structure Diameters.`,
+    );
+  }
+
   let casting: { id: string; name: string; heightFeet: number | null } | null =
     null;
-  if (payload.castingProductId) {
+  const castingId =
+    payload.castingProductId ?? template.castingProductId ?? null;
+  if (castingId) {
     const product = await prisma.product.findUnique({
-      where: { id: payload.castingProductId },
+      where: { id: castingId },
       select: { id: true, name: true, heightFeet: true },
     });
     if (product) {
@@ -159,91 +163,104 @@ async function loadAndCompute(
     rimElevation: parseNum(payload.rimElevation),
     castingHeightFeet: casting?.heightFeet ?? 0,
     diameter: {
-      insideDiameterFeet: Number(diameter.insideDiameterFeet),
-      moldMaxHeightFeet: Number(diameter.moldMaxHeightFeet),
-      topSlabHeightWithKeyFeet:
-        diameter.topSlabHeightWithKeyFeet === null
-          ? null
-          : Number(diameter.topSlabHeightWithKeyFeet),
-      topSlabHeightNoKeyFeet:
-        diameter.topSlabHeightNoKeyFeet === null
-          ? null
-          : Number(diameter.topSlabHeightNoKeyFeet),
-      sections: diameter.sections.map((section) => ({
-        role: section.role as "BASE" | "RISER",
-        heightFeet: Number(section.heightFeet),
-        label: section.label,
-      })),
+      insideDiameterFeet,
+      maxBaseHeightFeet: Number(diameterConfig.maxBaseHeightFeet),
+      maxRiserHeightFeet: Number(diameterConfig.maxRiserHeightFeet),
+      keyHeightFeet: Number(diameterConfig.keyHeightFeet),
+      wallPricePerFoot: Number(diameterConfig.wallPricePerFoot),
+      basePrice: Number(diameterConfig.basePrice),
     },
     template: {
-      minimumBrickFeet: Number(template.minimumBrickFeet),
-      keyClearanceFeet: Number(template.keyClearanceFeet),
-      bootSizes: template.bootSizes.map((boot) => ({
-        pipeDiameterInches: Number(boot.pipeDiameterInches),
-        holeDiameterInches: Number(boot.holeDiameterInches),
-      })),
+      wallThicknessInches: Number(template.wallThicknessInches),
+      baseSlabThicknessInches: Number(template.baseSlabThicknessInches),
+      topSlabThicknessInches: Number(template.topSlabThicknessInches),
+      minimumBrickInches: Number(template.minimumBrickInches),
+      connectionType: template.connectionType,
+      sumpMode: template.sumpMode,
+      sumpFixedInches:
+        template.sumpFixedInches != null
+          ? Number(template.sumpFixedInches)
+          : null,
+      openingToJointMinTopInches: Number(template.openingToJointMinTopInches),
+      openingToJointMinBottomInches: Number(
+        template.openingToJointMinBottomInches,
+      ),
     },
+    pipeOpeningSizes: pipeOpeningSizes.map((entry) => ({
+      pipeMaterial: entry.pipeMaterial,
+      pipeSizeInches: Number(entry.pipeSizeInches),
+      pipeType: entry.pipeType,
+      holeDiameterInches: Number(entry.holeDiameterInches),
+      bootModel: entry.bootModel,
+      pricePerBoot:
+        entry.pricePerBoot != null ? Number(entry.pricePerBoot) : null,
+    })),
     openings: payload.openings.map((opening) => ({
       label: opening.label,
+      pipeMaterial: opening.pipeMaterial,
+      pipeSizeInches: parseNum(opening.pipeSizeInches),
       pipeType: opening.pipeType,
-      pipeDiameterInches: parseNum(opening.pipeDiameterInches),
       invertElevation: parseNum(opening.invertElevation),
-      hasBoot: opening.hasBoot,
       angleDegrees: parseNum(opening.angle),
+      connectionType: opening.connectionType || null,
     })),
-    hasKeyOverride: payload.hasKeyOverride,
-    brickAdjustmentOverrideFeet: parseNum(payload.brickAdjustmentOverrideFeet),
   };
 
   return {
     template,
-    insideDiameterFeet: Number(diameter.insideDiameterFeet),
+    insideDiameterFeet,
     casting: casting ? { id: casting.id, name: casting.name } : null,
     result: computeDrillSheet(input),
   };
 }
 
-function buildManholeDetailData(
-  template: { agencyStandard: string | null },
+function buildCalcData(
   payload: DrillSheetPayload,
   result: DrillSheetResult,
   insideDiameterFeet: number,
 ) {
   const sheetDate = payload.date ? new Date(`${payload.date}T00:00:00`) : null;
   return {
-    manholeStandard: template.agencyStandard,
     contractorName: payload.contractor || null,
     projectName: payload.project || null,
     sheetDate,
     hasSteps: payload.hasSteps,
     rimElevation: decimal(result.rimElevation),
-    lowestInvertElevation: decimal(result.lowInvertElevation),
-    requiredWallHeight: decimal(result.wallHeightFeet),
-    invertToTopFeet: decimal(result.invertToTopFeet),
-    castingHeightFeet: decimal(result.castingHeightFeet),
-    topSlabHeightFeet: decimal(result.topSlabHeightFeet),
+    lowestInvertFeet: decimal(result.lowInvertElevation),
     sumpFeet: decimal(result.sumpFeet),
-    brickAdjustmentFeet: decimal(result.brickAdjustmentFeet),
+    castingHeightFeet: decimal(result.castingHeightFeet),
+    topSlabThicknessFeet: decimal(result.topSlabThicknessFeet),
+    wallHeightFeet: decimal(result.wallHeightFeet),
+    brickFeet: decimal(result.brickFeet),
     hasKey: result.hasKey,
-    insideDiameter: decimal(insideDiameterFeet),
+    totalHeightFeet: decimal(result.totalHeightFeet),
+    insideDiameterFeet: decimal(insideDiameterFeet),
+    baseSlabThicknessFeet: decimal(result.baseSlabThicknessFeet),
+    wallPrice: decimal(result.wallPrice),
+    bootsPrice: decimal(result.bootsPrice),
+    totalPrice: decimal(result.totalPrice),
+    errorMessage: result.errorMessage,
   };
 }
 
 function buildOpeningsCreate(result: DrillSheetResult) {
-  return result.openings.map((opening, index) => {
-    const angleDeg = opening.isLowInvert ? 0 : (opening.angleDegrees ?? 0);
-    return {
-      openingNumber: index + 1,
-      wallLocation: opening.label || String.fromCharCode(65 + index),
-      clockPosition: angleToClockPosition(angleDeg),
-      pipeType: opening.pipeType || null,
-      pipeDiameter: decimal(opening.pipeDiameterInches),
-      invertElevation: decimal(opening.invertElevation),
-      holeDiameter: decimal(opening.holeDiameterInches),
-      bootType: opening.hasBoot ? "Kor-N-Seal" : null,
-      angle: decimal(angleDeg),
-    };
-  });
+  return result.openings.map((opening, index) => ({
+    openingNumber: index + 1,
+    label: opening.label || String.fromCharCode(65 + index),
+    invertElevation: decimal(opening.invertElevation),
+    pipeSizeInches: decimal(opening.pipeSizeInches),
+    pipeMaterial: opening.pipeMaterial || null,
+    pipeType: opening.pipeType || null,
+    angle: decimal(opening.isLowInvert ? 0 : (opening.angleDegrees ?? 0)),
+    connectionType: opening.connectionType ?? null,
+    holeDiameterInches: decimal(opening.holeDiameterInches),
+    bootModel: opening.bootModel,
+    topOfPipeFeet: decimal(opening.topOfPipeFeet),
+    bottomOfOpeningFeet: decimal(opening.bottomOfOpeningFeet),
+    topOfOpeningFeet: decimal(opening.topOfOpeningFeet),
+    baseTopToOpeningBottomInches: opening.baseTopToOpeningBottomInches,
+    pricePerBoot: decimal(opening.pricePerBoot),
+  }));
 }
 
 function buildSectionsCreate(result: DrillSheetResult) {
@@ -283,13 +300,8 @@ export async function createDrillSheet(formData: FormData) {
       description: `${insideDiameterFeet}' ${template.name}`,
       quantity: new Prisma.Decimal("1"),
       unit: "EA",
-      manholeDetail: {
-        create: buildManholeDetailData(
-          template,
-          payload,
-          result,
-          insideDiameterFeet,
-        ),
+      calc: {
+        create: buildCalcData(payload, result, insideDiameterFeet),
       },
       openings: { create: buildOpeningsCreate(result) },
       sections: { create: buildSectionsCreate(result) },
@@ -310,7 +322,7 @@ export async function updateDrillSheet(
 
   const existing = await prisma.jobStructure.findUnique({
     where: { id: drillSheetId },
-    select: { id: true, manholeDetail: { select: { id: true } } },
+    select: { id: true, calc: { select: { id: true } } },
   });
   if (!existing) {
     throw new Error("Drill sheet not found.");
@@ -318,12 +330,7 @@ export async function updateDrillSheet(
 
   const { template, insideDiameterFeet, casting, result } =
     await loadAndCompute(payload);
-  const manholeData = buildManholeDetailData(
-    template,
-    payload,
-    result,
-    insideDiameterFeet,
-  );
+  const calcData = buildCalcData(payload, result, insideDiameterFeet);
   const castingCreate = buildCastingCreate(casting);
 
   await prisma.jobStructure.update({
@@ -333,9 +340,9 @@ export async function updateDrillSheet(
       jobId: payload.jobId ?? null,
       structureNumber: payload.manholeNumber || null,
       description: `${insideDiameterFeet}' ${template.name}`,
-      manholeDetail: existing.manholeDetail
-        ? { update: manholeData }
-        : { create: manholeData },
+      calc: existing.calc
+        ? { update: calcData }
+        : { create: calcData },
       openings: { deleteMany: {}, create: buildOpeningsCreate(result) },
       sections: { deleteMany: {}, create: buildSectionsCreate(result) },
       castings: castingCreate

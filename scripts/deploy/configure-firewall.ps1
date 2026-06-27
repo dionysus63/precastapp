@@ -26,14 +26,20 @@ if ($existing) {
 Write-Host "Creating firewall rule: $ruleName" -ForegroundColor Cyan
 Write-Host "  Allow TCP $Port from $Subnet"
 
-New-NetFirewallRule `
-    -DisplayName $ruleName `
-    -Direction Inbound `
-    -Action Allow `
-    -Protocol TCP `
-    -LocalPort $Port `
-    -RemoteAddress $Subnet `
-    -Profile Domain, Private `
-    | Out-Null
+try {
+    New-NetFirewallRule `
+        -DisplayName $ruleName `
+        -Direction Inbound `
+        -Action Allow `
+        -Protocol TCP `
+        -LocalPort $Port `
+        -RemoteAddress $Subnet `
+        -Profile Domain, Private `
+        | Out-Null
+} catch {
+    Write-Host "ERROR: Failed to create firewall rule. Run PowerShell as Administrator." -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+    exit 1
+}
 
 Write-Host "[OK] Rule created. Office PCs on $Subnet can reach port $Port." -ForegroundColor Green

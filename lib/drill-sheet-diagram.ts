@@ -11,7 +11,7 @@ import type { ComputedOpening, DrillSheetResult } from "@/lib/drill-sheet";
 export type OpeningPlacement = {
   label: string;
   pipeType: string | null;
-  pipeDiameterInches: number | null;
+  pipeSizeInches: number | null;
   holeDiameterInches: number | null;
   isLowInvert: boolean;
   angleDeg: number;
@@ -53,7 +53,7 @@ export function getOpeningPlacements(
     return {
       label: opening.label?.trim() || String.fromCharCode(65 + index),
       pipeType: opening.pipeType ?? null,
-      pipeDiameterInches: opening.pipeDiameterInches,
+      pipeSizeInches: opening.pipeSizeInches,
       holeDiameterInches: opening.holeDiameterInches,
       isLowInvert: opening.isLowInvert,
       angleDeg,
@@ -105,8 +105,8 @@ export function getOpeningCallout(
   lowInvertElevation: number | null,
 ): OpeningCallout {
   const diaText =
-    opening.pipeDiameterInches != null ? `${opening.pipeDiameterInches}"` : "";
-  const boot = opening.hasBoot ? "Yes" : "No";
+    opening.pipeSizeInches != null ? `${opening.pipeSizeInches}"` : "";
+  const boot = opening.connectionType === "KOR_N_SEAL" ? "Yes" : "No";
   const typeText = opening.pipeType?.trim() || "";
   const headLabel = [typeText, boot, diaText].filter(Boolean).join("  ");
 
@@ -175,18 +175,18 @@ export function getElevationBreakdown(
       heightFeet: result.castingHeightFeet,
     });
   }
-  if (result.brickAdjustmentFeet > 0) {
+  if (result.brickFeet > 0) {
     bands.push({
       key: "BRICK",
       label: "Brick",
-      heightFeet: result.brickAdjustmentFeet,
+      heightFeet: result.brickFeet,
     });
   }
-  if (result.topSlabHeightFeet > 0) {
+  if (result.topSlabThicknessFeet > 0) {
     bands.push({
       key: "TOPSLAB",
       label: "Top Slab",
-      heightFeet: result.topSlabHeightFeet,
+      heightFeet: result.topSlabThicknessFeet,
     });
   }
   for (const riser of risers) {
@@ -205,9 +205,9 @@ export function getElevationBreakdown(
   const rim = result.rimElevation;
   const topOfBrick = rim != null ? round2(rim - result.castingHeightFeet) : null;
   const topOfSlab =
-    topOfBrick != null ? round2(topOfBrick - result.brickAdjustmentFeet) : null;
+    topOfBrick != null ? round2(topOfBrick - result.brickFeet) : null;
   const topOfWall =
-    topOfSlab != null ? round2(topOfSlab - result.topSlabHeightFeet) : null;
+    topOfSlab != null ? round2(topOfSlab - result.topSlabThicknessFeet) : null;
   const floor =
     result.lowInvertElevation != null
       ? round2(result.lowInvertElevation - result.sumpFeet)

@@ -38,10 +38,11 @@ export default async function DrillSheetsPage({
         id: true,
         structureNumber: true,
         structureTemplate: { select: { name: true } },
-        manholeDetail: {
+        calc: {
           select: {
-            insideDiameter: true,
-            requiredWallHeight: true,
+            insideDiameterFeet: true,
+            wallHeightFeet: true,
+            totalPrice: true,
             projectName: true,
           },
         },
@@ -77,6 +78,7 @@ export default async function DrillSheetsPage({
                 <th className="px-4 py-2.5 font-semibold">Template</th>
                 <th className="px-4 py-2.5 font-semibold">Diameter</th>
                 <th className="px-4 py-2.5 font-semibold">Wall Height</th>
+                <th className="px-4 py-2.5 font-semibold">Price</th>
                 <th className="px-4 py-2.5 font-semibold">Project</th>
                 <th className="px-4 py-2.5 font-semibold">Actions</th>
               </tr>
@@ -85,7 +87,7 @@ export default async function DrillSheetsPage({
               {sheets.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     className="px-4 py-8 text-center text-sm text-slate-500"
                   >
                     No drill sheets yet. Create one to get started.
@@ -101,21 +103,22 @@ export default async function DrillSheetsPage({
                       {sheet.structureTemplate?.name ?? "—"}
                     </td>
                     <td className="px-4 py-2.5 text-slate-600">
-                      {sheet.manholeDetail?.insideDiameter != null
-                        ? formatFeetInches(
-                            Number(sheet.manholeDetail.insideDiameter),
-                          )
+                      {sheet.calc?.insideDiameterFeet != null
+                        ? formatFeetInches(Number(sheet.calc.insideDiameterFeet))
                         : "—"}
                     </td>
                     <td className="px-4 py-2.5 text-slate-600 tabular-nums">
-                      {sheet.manholeDetail?.requiredWallHeight != null
-                        ? `${formatFeetInches(Number(sheet.manholeDetail.requiredWallHeight))} (${Number(sheet.manholeDetail.requiredWallHeight).toFixed(2)}')`
+                      {sheet.calc?.wallHeightFeet != null
+                        ? formatFeetInches(Number(sheet.calc.wallHeightFeet))
+                        : "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-slate-600 tabular-nums">
+                      {sheet.calc?.totalPrice != null
+                        ? `$${Number(sheet.calc.totalPrice).toFixed(2)}`
                         : "—"}
                     </td>
                     <td className="px-4 py-2.5 text-slate-600">
-                      {sheet.manholeDetail?.projectName ??
-                        sheet.job?.projectName ??
-                        "—"}
+                      {sheet.calc?.projectName ?? sheet.job?.projectName ?? "—"}
                     </td>
                     <td className="px-4 py-2.5">
                       <div className="flex gap-1.5">

@@ -35,8 +35,20 @@ if (-not (Test-Path "node_modules\electron")) {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
+$electronDir = Join-Path $repoRoot "electron"
+Write-Host "Installing Electron shell dependencies..." -ForegroundColor Cyan
+Push-Location $electronDir
+npm install --omit=dev
+if ($LASTEXITCODE -ne 0) {
+    Pop-Location
+    exit $LASTEXITCODE
+}
+Pop-Location
+
+$publishUrl = "$trimmed/updates"
 Write-Host "Running electron-builder..." -ForegroundColor Cyan
-npm run electron:build
+Write-Host "  Publish feed: $publishUrl"
+npm run electron:build -- --config.publish.provider=generic --config.publish.url="$publishUrl"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $outputDir = Join-Path $repoRoot "dist\electron"
@@ -52,6 +64,8 @@ if ($installers.Count -gt 0) {
     }
     Write-Host ""
     Write-Host "Copy the installer to staff PCs or deploy via GPO/RMM." -ForegroundColor Cyan
+    Write-Host "For auto-update, publish to the server:" -ForegroundColor Cyan
+    Write-Host "  .\scripts\deploy\publish-electron-update.ps1 -ServerUrl `"$trimmed`" -SkipBuild" -ForegroundColor Gray
     Write-Host "Staff can override the URL later via %APPDATA%\Precast Ops\config.json" -ForegroundColor Gray
 } else {
     Write-Host "Build finished. Check $outputDir for output files." -ForegroundColor Yellow

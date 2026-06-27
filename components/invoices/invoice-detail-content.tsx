@@ -117,18 +117,22 @@ export function InvoiceDetailContent({
                     <th className="px-3 py-2 font-semibold">Total</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 text-slate-700">
                   {invoice.lineItems.map((line) => (
-                    <tr key={line.id}>
-                      <td className="px-3 py-2">{line.lineNumber}</td>
-                      <td className="px-3 py-2 font-medium">{line.itemCode}</td>
-                      <td className="px-3 py-2">
+                    <tr key={line.id} className="hover:bg-slate-50/60">
+                      <td className="px-3 py-2 text-slate-700">{line.lineNumber}</td>
+                      <td className="px-3 py-2 font-medium text-slate-900">
+                        {line.itemCode}
+                      </td>
+                      <td className="px-3 py-2 text-slate-600">
                         <RichTextContent value={line.description} />
                       </td>
-                      <td className="px-3 py-2">{line.quantity}</td>
-                      <td className="px-3 py-2">{line.unit}</td>
-                      <td className="px-3 py-2">{line.unitPrice}</td>
-                      <td className="px-3 py-2 font-medium">{line.total}</td>
+                      <td className="px-3 py-2 text-slate-600">{line.quantity}</td>
+                      <td className="px-3 py-2 text-slate-600">{line.unit}</td>
+                      <td className="px-3 py-2 text-slate-700">{line.unitPrice}</td>
+                      <td className="px-3 py-2 font-medium text-slate-900">
+                        {line.total}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

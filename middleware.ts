@@ -14,6 +14,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Desktop client auto-update files (latest.yml + installer) — no login required.
+  if (pathname.startsWith("/updates")) {
+    return NextResponse.next();
+  }
+
   if (!hasSession && !pathname.startsWith("/api/")) {
     return NextResponse.redirect(new URL("/login", request.url));
   }

@@ -53,6 +53,11 @@ const settingSections = [
     description: "Top and bottom slab options shown per ring diameter and style.",
   },
   {
+    href: "/settings/diameters",
+    title: "Structure Diameters",
+    description: "Mold limits, key heights, and wall pricing per inside diameter.",
+  },
+  {
     href: "/settings/casting-suppliers",
     title: "Casting Suppliers",
     description: "Domestic and imported vendors for cast iron casting products.",

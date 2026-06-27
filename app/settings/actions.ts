@@ -783,19 +783,29 @@ export async function clearAllProductsFormAction(
     return { success: "No products to delete." };
   }
 
-  const result = await prisma.product.deleteMany();
+  const result = await prisma.$transaction(async (tx) => {
+    const castingLinksDeleted = await tx.productCastingComponent.deleteMany();
+    const productsDeleted = await tx.product.deleteMany();
+    return {
+      castingLinksDeleted: castingLinksDeleted.count,
+      productsDeleted: productsDeleted.count,
+    };
+  });
 
   await writeAuditLog({
     userId: user.id,
     action: "settings.clear_all_products",
     entityType: "Product",
-    summary: `${user.displayName} cleared all products (${result.count} deleted)`,
-    metadata: { deletedCount: result.count },
+    summary: `${user.displayName} cleared all products (${result.productsDeleted} deleted, ${result.castingLinksDeleted} casting BOM links removed)`,
+    metadata: {
+      deletedCount: result.productsDeleted,
+      castingLinksDeleted: result.castingLinksDeleted,
+    },
   });
 
   revalidateAfterProductReset();
   return {
-    success: `Deleted ${result.count} product${result.count === 1 ? "" : "s"}.`,
+    success: `Deleted ${result.productsDeleted} product${result.productsDeleted === 1 ? "" : "s"}.`,
   };
 }
 

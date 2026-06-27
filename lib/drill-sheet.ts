@@ -1,43 +1,56 @@
-// Pure calculation helpers for circular manhole drill sheets.
+// Pure calculation helpers for drill sheets.
 //
 // All elevations and heights are expressed in DECIMAL FEET unless a name ends in
-// `Inches`. These functions are framework-agnostic (no Prisma / React imports) so
-// they can run on the server (actions) and in the browser (live preview).
+// `Inches`. Framework-agnostic (no Prisma / React imports).
 
 export type SectionRole = "BASE" | "RISER";
 
-export type BootSize = {
-  pipeDiameterInches: number;
-  holeDiameterInches: number;
-};
+export type PipeConnectionType =
+  | "KOR_N_SEAL"
+  | "CAST_IN"
+  | "GROUTED"
+  | "OTHER";
 
-export type TemplateSectionOption = {
-  role: SectionRole;
-  heightFeet: number;
-  label?: string | null;
+export type SumpMode = "DEFAULT" | "FIXED";
+
+export type PipeOpeningSizeEntry = {
+  pipeMaterial: string;
+  pipeSizeInches: number;
+  pipeType: string;
+  holeDiameterInches: number;
+  bootModel?: string | null;
+  pricePerBoot?: number | null;
 };
 
 export type DiameterConfig = {
   insideDiameterFeet: number;
-  moldMaxHeightFeet: number;
-  topSlabHeightWithKeyFeet: number | null;
-  topSlabHeightNoKeyFeet: number | null;
-  sections: TemplateSectionOption[];
+  maxBaseHeightFeet: number;
+  maxRiserHeightFeet: number;
+  keyHeightFeet: number;
+  wallPricePerFoot: number;
+  basePrice: number;
 };
 
 export type TemplateConfig = {
-  minimumBrickFeet: number;
-  keyClearanceFeet: number;
-  bootSizes: BootSize[];
+  wallThicknessInches: number;
+  baseSlabThicknessInches: number;
+  topSlabThicknessInches: number;
+  minimumBrickInches: number;
+  connectionType: PipeConnectionType;
+  sumpMode: SumpMode;
+  sumpFixedInches: number | null;
+  openingToJointMinTopInches: number;
+  openingToJointMinBottomInches: number;
 };
 
 export type DrillSheetOpeningInput = {
   label?: string | null;
+  pipeMaterial?: string | null;
+  pipeSizeInches: number | null;
   pipeType?: string | null;
-  pipeDiameterInches: number | null;
   invertElevation: number | null;
-  hasBoot: boolean;
   angleDegrees?: number | null;
+  connectionType?: PipeConnectionType | null;
 };
 
 export type DrillSheetInput = {
@@ -45,11 +58,8 @@ export type DrillSheetInput = {
   castingHeightFeet: number | null;
   diameter: DiameterConfig;
   template: TemplateConfig;
+  pipeOpeningSizes: PipeOpeningSizeEntry[];
   openings: DrillSheetOpeningInput[];
-  /** Force key on/off instead of auto-determining from clearance. */
-  hasKeyOverride?: boolean | null;
-  /** Override the computed brick adjustment (decimal feet). */
-  brickAdjustmentOverrideFeet?: number | null;
 };
 
 export type ComputedSection = {
@@ -60,7 +70,13 @@ export type ComputedSection = {
 
 export type ComputedOpening = DrillSheetOpeningInput & {
   holeDiameterInches: number | null;
+  bootModel: string | null;
+  pricePerBoot: number | null;
   isLowInvert: boolean;
+  topOfPipeFeet: number | null;
+  bottomOfOpeningFeet: number | null;
+  topOfOpeningFeet: number | null;
+  baseTopToOpeningBottomInches: number | null;
 };
 
 export type DrillSheetResult = {
@@ -68,47 +84,74 @@ export type DrillSheetResult = {
   lowInvertElevation: number | null;
   invertToTopFeet: number | null;
   castingHeightFeet: number;
-  topSlabHeightFeet: number;
+  topSlabThicknessFeet: number;
   sumpFeet: number;
-  availableFeet: number | null;
+  rawAvailableFeet: number | null;
   wallHeightFeet: number;
-  brickAdjustmentFeet: number;
+  brickFeet: number;
   hasKey: boolean;
+  totalHeightFeet: number | null;
+  baseSlabThicknessFeet: number | null;
   sections: ComputedSection[];
   openings: ComputedOpening[];
+  wallPrice: number;
+  bootsPrice: number;
+  totalPrice: number;
+  errorMessage: string | null;
   warnings: string[];
 };
 
-const SCALE = 100; // hundredths of a foot for integer section math
 const EPSILON = 1e-6;
+const SIX_INCHES_FEET = 0.5;
 
 function round4(value: number): number {
   return Math.round((value + EPSILON) * 10000) / 10000;
 }
 
-/** Looks up the boot hole diameter for a pipe size; returns null if not configured. */
-export function lookupHoleDiameter(
-  bootSizes: BootSize[],
-  pipeDiameterInches: number | null,
-): number | null {
-  if (pipeDiameterInches == null) {
-    return null;
-  }
-  const match = bootSizes.find(
-    (boot) => Math.abs(boot.pipeDiameterInches - pipeDiameterInches) < EPSILON,
-  );
-  return match ? match.holeDiameterInches : null;
+function round2(value: number): number {
+  return Math.round((value + EPSILON) * 100) / 100;
 }
 
-/** Sump (floor to low invert) in feet = (hole - pipe) / 2, in inches, converted. */
-export function computeSumpFeet(
+function inchesToFeet(inches: number): number {
+  return inches / 12;
+}
+
+/** Looks up a pipe opening size entry by material, size, and type. */
+export function lookupPipeOpeningSize(
+  catalog: PipeOpeningSizeEntry[],
+  material: string | null | undefined,
+  sizeInches: number | null,
+  type: string | null | undefined,
+): PipeOpeningSizeEntry | null {
+  if (
+    !material ||
+    sizeInches == null ||
+    !type ||
+    !Number.isFinite(sizeInches)
+  ) {
+    return null;
+  }
+  const mat = material.trim().toLowerCase();
+  const typ = type.trim().toLowerCase();
+  return (
+    catalog.find(
+      (entry) =>
+        entry.pipeMaterial.trim().toLowerCase() === mat &&
+        Math.abs(entry.pipeSizeInches - sizeInches) < EPSILON &&
+        entry.pipeType.trim().toLowerCase() === typ,
+    ) ?? null
+  );
+}
+
+/** Sump in feet from hole/pipe sizes (pipe centered in hole). */
+export function computeDefaultSumpFeet(
   holeDiameterInches: number | null,
-  pipeDiameterInches: number | null,
+  pipeSizeInches: number | null,
 ): number {
-  if (holeDiameterInches == null || pipeDiameterInches == null) {
+  if (holeDiameterInches == null || pipeSizeInches == null) {
     return 0;
   }
-  const sumpInches = (holeDiameterInches - pipeDiameterInches) / 2;
+  const sumpInches = (holeDiameterInches - pipeSizeInches) / 2;
   return round4(Math.max(sumpInches, 0) / 12);
 }
 
@@ -122,165 +165,30 @@ export function computeInvertToTopFeet(
   return round4(rimElevation - lowInvertElevation);
 }
 
-/**
- * Maximizes the total riser height that is <= target using the given riser sizes
- * with unlimited repeats. Returns the chosen riser heights (decimal feet).
- */
-function maximizeRisers(riserSizesFeet: number[], targetFeet: number): number[] {
-  const target = Math.floor(targetFeet * SCALE + EPSILON);
-  const sizes = riserSizesFeet
-    .map((feet) => Math.round(feet * SCALE))
-    .filter((size) => size > 0);
+/** Round wall height DOWN to nearest 6", ensuring brick >= minimum. */
+export function computeWallHeightFeet(
+  rawAvailableFeet: number,
+  minimumBrickInches: number,
+): { wallHeightFeet: number; brickFeet: number } {
+  const minBrickFeet = inchesToFeet(minimumBrickInches);
+  let wallHeightFeet =
+    Math.floor(rawAvailableFeet / SIX_INCHES_FEET + EPSILON) * SIX_INCHES_FEET;
+  let brickFeet = round4(rawAvailableFeet - wallHeightFeet);
 
-  if (target <= 0 || sizes.length === 0) {
-    return [];
+  if (brickFeet < minBrickFeet - EPSILON && wallHeightFeet >= SIX_INCHES_FEET) {
+    wallHeightFeet = round4(wallHeightFeet - SIX_INCHES_FEET);
+    brickFeet = round4(rawAvailableFeet - wallHeightFeet);
   }
 
-  const reachable = new Array<boolean>(target + 1).fill(false);
-  const parentSize = new Array<number>(target + 1).fill(0);
-  reachable[0] = true;
-
-  for (let value = 1; value <= target; value += 1) {
-    for (const size of sizes) {
-      if (size <= value && reachable[value - size]) {
-        reachable[value] = true;
-        parentSize[value] = size;
-        break;
-      }
-    }
-  }
-
-  let best = target;
-  while (best > 0 && !reachable[best]) {
-    best -= 1;
-  }
-
-  const chosen: number[] = [];
-  let cursor = best;
-  while (cursor > 0) {
-    const size = parentSize[cursor];
-    if (size <= 0) {
-      break;
-    }
-    chosen.push(round4(size / SCALE));
-    cursor -= size;
-  }
-
-  return chosen;
+  wallHeightFeet = round4(Math.max(wallHeightFeet, 0));
+  brickFeet = round4(Math.max(brickFeet, 0));
+  return { wallHeightFeet, brickFeet };
 }
 
-/**
- * Picks a base + riser combination whose total wall height is as close as
- * possible to (but not exceeding) `maxWallFeet`, preferring a single base.
- */
-export function selectSections(
-  diameter: DiameterConfig,
-  maxWallFeet: number,
-): { sections: ComputedSection[]; wallHeightFeet: number } {
-  const moldMax = diameter.moldMaxHeightFeet;
-  const fits = (height: number) =>
-    moldMax > 0 ? height <= moldMax + EPSILON : true;
-
-  const baseOptions = diameter.sections
-    .filter((section) => section.role === "BASE" && fits(section.heightFeet))
-    .sort((a, b) => b.heightFeet - a.heightFeet);
-  const riserOptions = diameter.sections.filter(
-    (section) => section.role === "RISER" && fits(section.heightFeet),
-  );
-  const riserSizes = riserOptions.map((section) => section.heightFeet);
-
-  type BestResult = { sections: ComputedSection[]; wallHeightFeet: number };
-  const result: { best: BestResult | null } = { best: null };
-
-  const considerBase = (base: ComputedSection | null) => {
-    const baseHeight = base ? base.heightFeet : 0;
-    if (baseHeight > maxWallFeet + EPSILON) {
-      return;
-    }
-    const riserHeights = maximizeRisers(riserSizes, maxWallFeet - baseHeight);
-    const total = round4(
-      baseHeight + riserHeights.reduce((sum, value) => sum + value, 0),
-    );
-    if (!result.best || total > result.best.wallHeightFeet + EPSILON) {
-      const sections: ComputedSection[] = [];
-      if (base) {
-        sections.push(base);
-      }
-      for (const height of riserHeights) {
-        const option = riserOptions.find(
-          (riser) => Math.abs(riser.heightFeet - height) < EPSILON,
-        );
-        sections.push({
-          role: "RISER",
-          heightFeet: height,
-          label: option?.label ?? null,
-        });
-      }
-      result.best = { sections, wallHeightFeet: total };
-    }
-  };
-
-  if (baseOptions.length === 0) {
-    considerBase(null);
-  } else {
-    for (const base of baseOptions) {
-      considerBase({
-        role: "BASE",
-        heightFeet: base.heightFeet,
-        label: base.label ?? null,
-      });
-    }
-    // Fall back to the smallest base if none fit under the target.
-    if (result.best === null || result.best.wallHeightFeet <= EPSILON) {
-      const smallestBase = baseOptions[baseOptions.length - 1];
-      result.best = {
-        sections: [
-          {
-            role: "BASE",
-            heightFeet: smallestBase.heightFeet,
-            label: smallestBase.label ?? null,
-          },
-        ],
-        wallHeightFeet: round4(smallestBase.heightFeet),
-      };
-    }
-  }
-
-  return result.best ?? { sections: [], wallHeightFeet: 0 };
-}
-
-function getTopSlabHeight(diameter: DiameterConfig, hasKey: boolean): number {
-  const withKey = diameter.topSlabHeightWithKeyFeet ?? 0;
-  const noKey = diameter.topSlabHeightNoKeyFeet ?? withKey;
-  return hasKey ? withKey : noKey;
-}
-
-/** Top elevation of the highest pipe boot hole, or null if undeterminable. */
-function highestHoleTopElevation(openings: ComputedOpening[]): number | null {
-  let highest: number | null = null;
-  for (const opening of openings) {
-    if (
-      opening.invertElevation == null ||
-      opening.pipeDiameterInches == null ||
-      opening.holeDiameterInches == null
-    ) {
-      continue;
-    }
-    const holeTop =
-      opening.invertElevation +
-      opening.pipeDiameterInches / 2 / 12 +
-      opening.holeDiameterInches / 2 / 12;
-    if (highest == null || holeTop > highest) {
-      highest = holeTop;
-    }
-  }
-  return highest;
-}
-
-/** Resolves boot hole sizes and flags the lowest-invert opening. */
 function resolveOpenings(
   openings: DrillSheetOpeningInput[],
-  bootSizes: BootSize[],
+  catalog: PipeOpeningSizeEntry[],
+  templateConnectionType: PipeConnectionType,
 ): ComputedOpening[] {
   let lowInvert: number | null = null;
   for (const opening of openings) {
@@ -292,146 +200,484 @@ function resolveOpenings(
     }
   }
 
-  return openings.map((opening) => ({
+  return openings.map((opening) => {
+    const match = lookupPipeOpeningSize(
+      catalog,
+      opening.pipeMaterial,
+      opening.pipeSizeInches,
+      opening.pipeType,
+    );
+    const connectionType =
+      opening.connectionType ?? templateConnectionType;
+    return {
+      ...opening,
+      connectionType,
+      holeDiameterInches: match?.holeDiameterInches ?? null,
+      bootModel: match?.bootModel ?? null,
+      pricePerBoot: match?.pricePerBoot ?? null,
+      isLowInvert:
+        opening.invertElevation != null &&
+        lowInvert != null &&
+        Math.abs(opening.invertElevation - lowInvert) < EPSILON,
+      topOfPipeFeet: null,
+      bottomOfOpeningFeet: null,
+      topOfOpeningFeet: null,
+      baseTopToOpeningBottomInches: null,
+    };
+  });
+}
+
+function computeOpeningGeometry(
+  opening: ComputedOpening,
+  wallThicknessInches: number,
+  sumpFeet: number,
+  floorElevation: number | null,
+  baseSlabThicknessInches: number,
+): ComputedOpening {
+  if (opening.invertElevation == null) {
+    return opening;
+  }
+  const pipeSize = opening.pipeSizeInches ?? 0;
+  const holeSize = opening.holeDiameterInches ?? pipeSize;
+  const wallFt = inchesToFeet(wallThicknessInches);
+  const baseSlabFt = inchesToFeet(baseSlabThicknessInches);
+
+  const topOfPipeFeet = round4(
+    opening.invertElevation + inchesToFeet(pipeSize / 2) + wallFt,
+  );
+  const bottomOfOpeningFeet = round4(opening.invertElevation - sumpFeet);
+  const topOfOpeningFeet = round4(
+    opening.invertElevation + inchesToFeet(holeSize / 2),
+  );
+
+  let baseTopToOpeningBottomInches: number | null = null;
+  if (floorElevation != null) {
+    const baseTopElevation = floorElevation + baseSlabFt;
+    const distFeet = bottomOfOpeningFeet - baseTopElevation;
+    baseTopToOpeningBottomInches = Math.round(distFeet * 12);
+  }
+
+  return {
     ...opening,
-    holeDiameterInches: opening.hasBoot
-      ? lookupHoleDiameter(bootSizes, opening.pipeDiameterInches)
-      : null,
-    isLowInvert:
-      opening.invertElevation != null &&
-      lowInvert != null &&
-      Math.abs(opening.invertElevation - lowInvert) < EPSILON,
-  }));
+    topOfPipeFeet,
+    bottomOfOpeningFeet,
+    topOfOpeningFeet,
+    baseTopToOpeningBottomInches,
+  };
+}
+
+function getTopSlabThicknessFeet(
+  template: TemplateConfig,
+  diameter: DiameterConfig,
+  hasKey: boolean,
+): number {
+  const full = inchesToFeet(template.topSlabThicknessInches);
+  if (hasKey) {
+    return round4(full);
+  }
+  return round4(Math.max(full - diameter.keyHeightFeet, 0));
+}
+
+function highestOpeningTop(openings: ComputedOpening[]): number | null {
+  let highest: number | null = null;
+  for (const opening of openings) {
+    if (opening.topOfOpeningFeet != null) {
+      if (highest == null || opening.topOfOpeningFeet > highest) {
+        highest = opening.topOfOpeningFeet;
+      }
+    }
+  }
+  return highest;
+}
+
+/** Top of precast wall elevation (below top slab). */
+function wallTopElevation(
+  floorElevation: number,
+  wallHeightFeet: number,
+): number {
+  return round4(floorElevation + wallHeightFeet);
+}
+
+function openingViolatesJointClearance(
+  opening: ComputedOpening,
+  jointElevation: number,
+  minTopInches: number,
+  minBottomInches: number,
+): boolean {
+  if (
+    opening.topOfOpeningFeet == null ||
+    opening.bottomOfOpeningFeet == null
+  ) {
+    return false;
+  }
+  const minTopFt = inchesToFeet(minTopInches);
+  const minBottomFt = inchesToFeet(minBottomInches);
+  const distFromTop = jointElevation - opening.topOfOpeningFeet;
+  const distFromBottom = opening.bottomOfOpeningFeet - jointElevation;
+  if (distFromTop >= 0 && distFromTop < minTopFt - EPSILON) {
+    return true;
+  }
+  if (distFromBottom >= 0 && distFromBottom < minBottomFt - EPSILON) {
+    return true;
+  }
+  return false;
+}
+
+/** Split wall height into base + riser sections respecting mold limits and joint clearance. */
+export function selectSections(
+  wallHeightFeet: number,
+  diameter: DiameterConfig,
+  template: TemplateConfig,
+  floorElevation: number | null,
+  openings: ComputedOpening[],
+): { sections: ComputedSection[]; warnings: string[] } {
+  const warnings: string[] = [];
+  if (wallHeightFeet <= EPSILON) {
+    return { sections: [], warnings };
+  }
+
+  const maxBase = diameter.maxBaseHeightFeet;
+  const maxRiser = diameter.maxRiserHeightFeet;
+
+  let baseHeight = Math.min(wallHeightFeet, maxBase);
+  let remaining = round4(wallHeightFeet - baseHeight);
+  const sections: ComputedSection[] = [];
+
+  if (baseHeight > EPSILON) {
+    sections.push({ role: "BASE", heightFeet: round4(baseHeight) });
+  }
+
+  while (remaining > EPSILON) {
+    const riserHeight = Math.min(remaining, maxRiser);
+    sections.push({ role: "RISER", heightFeet: round4(riserHeight) });
+    remaining = round4(remaining - riserHeight);
+  }
+
+  if (floorElevation != null && sections.length > 1) {
+    let cumulative = 0;
+    for (let i = 0; i < sections.length - 1; i += 1) {
+      cumulative = round4(cumulative + sections[i].heightFeet);
+      const jointElev = round4(floorElevation + cumulative);
+      for (const opening of openings) {
+        if (
+          openingViolatesJointClearance(
+            opening,
+            jointElev,
+            template.openingToJointMinTopInches,
+            template.openingToJointMinBottomInches,
+          )
+        ) {
+          warnings.push(
+            `Section joint at ${jointElev.toFixed(2)}' may be too close to opening ${opening.label ?? ""}.`,
+          );
+        }
+      }
+    }
+  }
+
+  if (remaining > EPSILON) {
+    warnings.push(
+      `Could not fit all wall height into sections (remaining ${remaining.toFixed(2)}').`,
+    );
+  }
+
+  return { sections, warnings };
+}
+
+function computePricing(
+  wallHeightFeet: number,
+  diameter: DiameterConfig,
+  openings: ComputedOpening[],
+): { wallPrice: number; bootsPrice: number; totalPrice: number } {
+  const wallPrice = round2(
+    diameter.basePrice + wallHeightFeet * diameter.wallPricePerFoot,
+  );
+  let bootsPrice = 0;
+  for (const opening of openings) {
+    if (
+      opening.connectionType === "KOR_N_SEAL" &&
+      opening.pricePerBoot != null
+    ) {
+      bootsPrice += opening.pricePerBoot;
+    }
+  }
+  bootsPrice = round2(bootsPrice);
+  return {
+    wallPrice,
+    bootsPrice,
+    totalPrice: round2(wallPrice + bootsPrice),
+  };
 }
 
 /**
- * Computes a full circular manhole drill sheet from rim/invert inputs.
- *
- * Wall Height = (Rim - Low Invert) - Casting - Top Slab + Sump - Brick.
- * The base/riser combo is auto-picked to leave brick >= the template minimum,
- * and the key is determined from pipe clearance (both overridable).
+ * Computes a full drill sheet from rim/invert inputs.
  */
 export function computeDrillSheet(input: DrillSheetInput): DrillSheetResult {
   const warnings: string[] = [];
-  const openings = resolveOpenings(input.openings, input.template.bootSizes);
+  const template = input.template;
+  const diameter = input.diameter;
+  const castingHeightFeet = input.castingHeightFeet ?? 0;
 
-  const lowInvertOpening = openings.find((opening) => opening.isLowInvert);
+  let openings = resolveOpenings(
+    input.openings,
+    input.pipeOpeningSizes,
+    template.connectionType,
+  );
+
+  const lowInvertOpening = openings.find((o) => o.isLowInvert);
   const lowInvertElevation = lowInvertOpening?.invertElevation ?? null;
 
-  const sumpFeet = lowInvertOpening
-    ? computeSumpFeet(
-        lowInvertOpening.holeDiameterInches,
-        lowInvertOpening.pipeDiameterInches,
-      )
-    : 0;
-
-  if (lowInvertOpening && lowInvertOpening.hasBoot) {
-    if (lowInvertOpening.pipeDiameterInches == null) {
-      warnings.push("Low-invert opening is missing a pipe diameter.");
-    } else if (lowInvertOpening.holeDiameterInches == null) {
+  for (const opening of openings) {
+    if (
+      opening.pipeSizeInches != null &&
+      (opening.pipeMaterial || opening.pipeType) &&
+      opening.holeDiameterInches == null
+    ) {
       warnings.push(
-        `No boot hole size configured for a ${lowInvertOpening.pipeDiameterInches}" pipe; sump is 0.`,
+        `No pipe opening size configured for ${opening.pipeMaterial ?? ""} ${opening.pipeSizeInches}" ${opening.pipeType ?? ""}.`,
       );
     }
+  }
+
+  let sumpFeet = 0;
+  if (template.sumpMode === "FIXED" && template.sumpFixedInches != null) {
+    sumpFeet = round4(inchesToFeet(template.sumpFixedInches));
+  } else if (lowInvertOpening) {
+    sumpFeet = computeDefaultSumpFeet(
+      lowInvertOpening.holeDiameterInches,
+      lowInvertOpening.pipeSizeInches,
+    );
   }
 
   const invertToTopFeet = computeInvertToTopFeet(
     input.rimElevation,
     lowInvertElevation,
   );
-  const castingHeightFeet = input.castingHeightFeet ?? 0;
-  const minBrick = input.template.minimumBrickFeet ?? 0;
 
-  const computeForKey = (hasKey: boolean) => {
-    const topSlabHeightFeet = getTopSlabHeight(input.diameter, hasKey);
+  const minBrickFeet = inchesToFeet(template.minimumBrickInches);
+
+  const computeHeights = (hasKey: boolean) => {
+    const topSlabThicknessFeet = getTopSlabThicknessFeet(
+      template,
+      diameter,
+      hasKey,
+    );
     if (invertToTopFeet == null) {
       return {
         hasKey,
-        topSlabHeightFeet,
-        availableFeet: null as number | null,
-        sections: [] as ComputedSection[],
+        topSlabThicknessFeet,
+        rawAvailableFeet: null as number | null,
         wallHeightFeet: 0,
-        brickAdjustmentFeet: 0,
+        brickFeet: 0,
       };
     }
-    const availableFeet = round4(
-      invertToTopFeet - castingHeightFeet - topSlabHeightFeet + sumpFeet,
+    const rawAvailableFeet = round4(
+      invertToTopFeet -
+        castingHeightFeet -
+        topSlabThicknessFeet +
+        sumpFeet,
     );
-    const maxWall = Math.max(availableFeet - minBrick, 0);
-    const { sections, wallHeightFeet } = selectSections(
-      input.diameter,
-      maxWall,
+    const { wallHeightFeet, brickFeet } = computeWallHeightFeet(
+      rawAvailableFeet,
+      template.minimumBrickInches,
     );
-    const brickAdjustmentFeet = round4(availableFeet - wallHeightFeet);
     return {
       hasKey,
-      topSlabHeightFeet,
-      availableFeet,
-      sections,
+      topSlabThicknessFeet,
+      rawAvailableFeet,
       wallHeightFeet,
-      brickAdjustmentFeet,
+      brickFeet,
     };
   };
 
-  let hasKey: boolean;
-  if (input.hasKeyOverride != null) {
-    hasKey = input.hasKeyOverride;
-  } else {
-    // Pass 1: assume a key, then check that the highest hole clears the keyway.
-    const trial = computeForKey(true);
-    hasKey = true;
-    const highestHole = highestHoleTopElevation(openings);
-    if (
-      trial.availableFeet != null &&
-      lowInvertElevation != null &&
-      highestHole != null
-    ) {
-      const floorElevation = lowInvertElevation - sumpFeet;
-      const wallTopElevation = floorElevation + trial.wallHeightFeet;
-      if (wallTopElevation - highestHole < input.template.keyClearanceFeet) {
-        hasKey = false;
+  let hasKey = true;
+  let heights = computeHeights(true);
+  let errorMessage: string | null = null;
+
+  const floorElevation =
+    lowInvertElevation != null ? round4(lowInvertElevation - sumpFeet) : null;
+
+  openings = openings.map((opening) =>
+    computeOpeningGeometry(
+      opening,
+      template.wallThicknessInches,
+      sumpFeet,
+      floorElevation,
+      template.baseSlabThicknessInches,
+    ),
+  );
+
+  const highestOpening = highestOpeningTop(openings);
+  const minTopFt = inchesToFeet(template.openingToJointMinTopInches);
+
+  if (
+    floorElevation != null &&
+    highestOpening != null &&
+    heights.rawAvailableFeet != null
+  ) {
+    const wallTop = wallTopElevation(floorElevation, heights.wallHeightFeet);
+    if (wallTop - highestOpening < minTopFt - EPSILON) {
+      hasKey = false;
+      heights = computeHeights(false);
+      const wallTopNoKey = wallTopElevation(
+        floorElevation,
+        heights.wallHeightFeet,
+      );
+      if (wallTopNoKey - highestOpening < minTopFt - EPSILON) {
+        errorMessage = `Highest pipe opening top (${highestOpening.toFixed(2)}') is too close to the top of the wall (${wallTopNoKey.toFixed(2)}'). Minimum clearance is ${template.openingToJointMinTopInches}".`;
       }
     }
   }
 
-  const result = computeForKey(hasKey);
-
-  let brickAdjustmentFeet = result.brickAdjustmentFeet;
-  let wallHeightFeet = result.wallHeightFeet;
-  let sections = result.sections;
-  if (input.brickAdjustmentOverrideFeet != null && result.availableFeet != null) {
-    brickAdjustmentFeet = round4(input.brickAdjustmentOverrideFeet);
-    const maxWall = Math.max(result.availableFeet - brickAdjustmentFeet, 0);
-    const reselected = selectSections(input.diameter, maxWall);
-    sections = reselected.sections;
-    wallHeightFeet = reselected.wallHeightFeet;
-    brickAdjustmentFeet = round4(result.availableFeet - wallHeightFeet);
-  }
-
-  if (result.availableFeet != null && brickAdjustmentFeet < minBrick - EPSILON) {
+  if (heights.brickFeet < minBrickFeet - EPSILON) {
     warnings.push(
-      `Brick adjustment (${brickAdjustmentFeet.toFixed(2)}') is below the ${minBrick.toFixed(2)}' minimum.`,
+      `Brick (${heights.brickFeet.toFixed(2)}') is below the ${minBrickFeet.toFixed(2)}' minimum.`,
     );
   }
-  if (sections.length === 0 && invertToTopFeet != null) {
-    warnings.push("No base/riser sections are configured for this diameter.");
+
+  const { sections, warnings: sectionWarnings } = selectSections(
+    heights.wallHeightFeet,
+    diameter,
+    template,
+    floorElevation,
+    openings,
+  );
+  warnings.push(...sectionWarnings);
+
+  if (sections.length === 0 && invertToTopFeet != null && heights.wallHeightFeet > EPSILON) {
+    warnings.push("No sections could be configured for this wall height.");
   }
+
+  const pricing = computePricing(heights.wallHeightFeet, diameter, openings);
+
+  const baseSlabThicknessFeet = round4(
+    inchesToFeet(template.baseSlabThicknessInches),
+  );
+
+  const totalHeightFeet =
+    invertToTopFeet != null
+      ? round4(
+          heights.wallHeightFeet +
+            heights.topSlabThicknessFeet +
+            castingHeightFeet +
+            inchesToFeet(template.baseSlabThicknessInches),
+        )
+      : null;
 
   return {
     rimElevation: input.rimElevation,
     lowInvertElevation,
     invertToTopFeet,
     castingHeightFeet: round4(castingHeightFeet),
-    topSlabHeightFeet: round4(result.topSlabHeightFeet),
+    topSlabThicknessFeet: round4(heights.topSlabThicknessFeet),
     sumpFeet,
-    availableFeet: result.availableFeet,
-    wallHeightFeet: round4(wallHeightFeet),
-    brickAdjustmentFeet,
+    rawAvailableFeet: heights.rawAvailableFeet,
+    wallHeightFeet: round4(heights.wallHeightFeet),
+    brickFeet: round4(heights.brickFeet),
     hasKey,
+    totalHeightFeet,
+    baseSlabThicknessFeet,
     sections,
     openings,
+    wallPrice: pricing.wallPrice,
+    bootsPrice: pricing.bootsPrice,
+    totalPrice: pricing.totalPrice,
+    errorMessage,
     warnings,
   };
+}
+
+export type StructureElevation = {
+  label: string;
+  elevation: number;
+};
+
+/**
+ * Ordered elevation ladder from rim down to bottom of bottom slab,
+ * including each precast section joint within the wall.
+ */
+export function getStructureElevations(
+  result: DrillSheetResult,
+): StructureElevation[] {
+  if (result.rimElevation == null) {
+    return [];
+  }
+
+  const entries: StructureElevation[] = [];
+  let current = round4(result.rimElevation);
+
+  entries.push({ label: "Rim Elevation", elevation: current });
+
+  current = round4(current - result.castingHeightFeet);
+  entries.push({
+    label: "Bottom of Casting / Top of Brick",
+    elevation: current,
+  });
+
+  current = round4(current - result.brickFeet);
+  entries.push({ label: "Top of Top Slab", elevation: current });
+
+  current = round4(current - result.topSlabThicknessFeet);
+  entries.push({
+    label: "Bottom of Top Slab (Joint / Top of Wall)",
+    elevation: current,
+  });
+
+  const topOfWall = current;
+  const reversedSections = [...result.sections].reverse();
+
+  for (let i = 0; i < reversedSections.length - 1; i += 1) {
+    const above = reversedSections[i];
+    const below = reversedSections[i + 1];
+    current = round4(current - above.heightFeet);
+    const aboveLabel = above.role === "BASE" ? "Base" : "Riser";
+    const belowLabel = below.role === "BASE" ? "Base" : "Riser";
+    entries.push({
+      label: `Joint (${aboveLabel} / ${belowLabel})`,
+      elevation: current,
+    });
+  }
+
+  if (
+    result.lowInvertElevation != null &&
+    result.sumpFeet != null
+  ) {
+    const floor = round4(result.lowInvertElevation - result.sumpFeet);
+    entries.push({
+      label: "Top of Bottom Slab (Floor)",
+      elevation: floor,
+    });
+
+    if (
+      result.baseSlabThicknessFeet != null &&
+      result.baseSlabThicknessFeet > EPSILON
+    ) {
+      entries.push({
+        label: "Bottom of Bottom Slab",
+        elevation: round4(floor - result.baseSlabThicknessFeet),
+      });
+    }
+  } else if (reversedSections.length > 0) {
+    const floorFromWall = round4(
+      topOfWall -
+        reversedSections.reduce((sum, section) => sum + section.heightFeet, 0),
+    );
+    entries.push({
+      label: "Top of Bottom Slab (Floor)",
+      elevation: floorFromWall,
+    });
+    if (
+      result.baseSlabThicknessFeet != null &&
+      result.baseSlabThicknessFeet > EPSILON
+    ) {
+      entries.push({
+        label: "Bottom of Bottom Slab",
+        elevation: round4(floorFromWall - result.baseSlabThicknessFeet),
+      });
+    }
+  }
+
+  return entries;
 }
 
 /** Formats decimal feet as a foot-inch string, e.g. 10.5 -> 10'-6". */
@@ -448,4 +694,14 @@ export function formatFeetInches(feet: number | null | undefined): string {
     inches = 0;
   }
   return `${sign}${wholeFeet}'-${inches}"`;
+}
+
+export function formatCurrency(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) {
+    return "—";
+  }
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(value);
 }

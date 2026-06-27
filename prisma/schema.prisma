@@ -182,6 +182,7 @@ model Product {
   castingSupplier         CastingSupplier?              @relation(fields: [castingSupplierId], references: [id], onDelete: SetNull)
   castingAssemblyComponents ProductCastingComponent[]   @relation("CastingAssembly")
   castingComponentOf        ProductCastingComponent[]   @relation("CastingComponent")
+  structureTemplates        StructureTemplate[]         @relation("TemplateCasting")
 
   @@index([productKind])
   @@index([isDrainRing, ringDiameterFeet, drainRingStyle])
@@ -367,79 +368,94 @@ enum StructureTemplateStatus {
   INACTIVE
 }
 
-/// Reusable structure template (e.g. Suffolk County sanitary manhole) configured
-/// in the Structures tab. Drives the Drill Sheet Workbook calculations.
-model StructureTemplate {
-  id              String                  @id @default(cuid())
-  name            String                  @unique
-  agencyStandard  String?
-  shape           StructureShape          @default(CIRCULAR)
-  minimumBrickFeet Decimal                @default(0.3333) @db.Decimal(6, 4)
-  keyClearanceFeet Decimal                @default(0.3333) @db.Decimal(6, 4)
-  status          StructureTemplateStatus @default(ACTIVE)
-  notes           String?
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
+enum PipeConnectionType {
+  KOR_N_SEAL
+  CAST_IN
+  GROUTED
+  OTHER
+}
 
-  diameters     StructureTemplateDiameter[]
-  bootSizes     StructureTemplateBootSize[]
-  jobStructures JobStructure[]
+enum SumpMode {
+  DEFAULT
+  FIXED
+}
+
+/// Reusable structure template configured in the Structures tab.
+/// Drives the Drill Sheet Workbook calculations.
+model StructureTemplate {
+  id                          String                  @id @default(cuid())
+  name                        String                  @unique
+  agencyStandard              String?
+  shape                       StructureShape          @default(CIRCULAR)
+  wallThicknessInches         Decimal                 @default(8) @db.Decimal(6, 2)
+  baseSlabThicknessInches     Decimal                 @default(8) @db.Decimal(6, 2)
+  topSlabThicknessInches      Decimal                 @default(16) @db.Decimal(6, 2)
+  castingProductId            String?
+  minimumBrickInches          Decimal                 @default(4) @db.Decimal(6, 2)
+  connectionType              PipeConnectionType      @default(KOR_N_SEAL)
+  sumpMode                    SumpMode                @default(DEFAULT)
+  sumpFixedInches             Decimal?                @db.Decimal(6, 2)
+  openingToJointMinTopInches    Decimal               @default(4) @db.Decimal(6, 2)
+  openingToJointMinBottomInches Decimal               @default(4) @db.Decimal(6, 2)
+  status                      StructureTemplateStatus @default(ACTIVE)
+  notes                       String?
+  createdAt                   DateTime                @default(now())
+  updatedAt                   DateTime                @updatedAt
+
+  castingProduct Product? @relation("TemplateCasting", fields: [castingProductId], references: [id], onDelete: SetNull)
+  diameters      StructureTemplateDiameter[]
+  jobStructures  JobStructure[]
 
   @@index([shape])
   @@index([status])
+  @@index([castingProductId])
 }
 
-/// One offered inside diameter for a structure template, with its mold limit and
-/// top-slab heights for the keyed / non-keyed cases.
+/// One offered inside diameter for a structure template.
 model StructureTemplateDiameter {
-  id                       String   @id @default(cuid())
-  templateId               String
-  insideDiameterFeet       Decimal  @db.Decimal(6, 2)
-  moldMaxHeightFeet        Decimal  @db.Decimal(6, 2)
-  topSlabHeightWithKeyFeet Decimal? @db.Decimal(6, 4)
-  topSlabHeightNoKeyFeet   Decimal? @db.Decimal(6, 4)
-  sortOrder                Int      @default(0)
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
-
-  template StructureTemplate          @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  sections StructureTemplateSection[]
-
-  @@unique([templateId, insideDiameterFeet])
-  @@index([templateId])
-}
-
-/// A standard pourable section height (base or riser) available for a diameter.
-/// The Drill Sheet Workbook auto-picks a base + riser combination from these.
-model StructureTemplateSection {
-  id         String      @id @default(cuid())
-  diameterId String
-  role       SectionRole
-  heightFeet Decimal     @db.Decimal(6, 4)
-  label      String?
-  sortOrder  Int         @default(0)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-
-  diameter StructureTemplateDiameter @relation(fields: [diameterId], references: [id], onDelete: Cascade)
-
-  @@index([diameterId])
-}
-
-/// Pipe-diameter to boot-hole-diameter lookup for a template (drives the sump).
-model StructureTemplateBootSize {
   id                 String   @id @default(cuid())
   templateId         String
-  pipeDiameterInches Decimal  @db.Decimal(6, 2)
-  holeDiameterInches Decimal  @db.Decimal(6, 2)
-  notes              String?
+  insideDiameterFeet Decimal  @db.Decimal(6, 2)
+  sortOrder          Int      @default(0)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   template StructureTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
-  @@unique([templateId, pipeDiameterInches])
+  @@unique([templateId, insideDiameterFeet])
   @@index([templateId])
+}
+
+/// Global pipe opening size catalog: material + size + type → hole diameter, boot, price.
+model PipeOpeningSize {
+  id                 String   @id @default(cuid())
+  pipeMaterial       String
+  pipeSizeInches     Decimal  @db.Decimal(6, 2)
+  pipeType           String
+  holeDiameterInches Decimal  @db.Decimal(6, 2)
+  bootModel          String?
+  pricePerBoot       Decimal? @db.Decimal(12, 2)
+  sortOrder          Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([pipeMaterial, pipeSizeInches, pipeType])
+  @@index([pipeMaterial])
+  @@index([pipeSizeInches])
+}
+
+/// Global per-diameter mold limits and pricing (Settings).
+model StructureDiameterConfig {
+  id                 String   @id @default(cuid())
+  insideDiameterFeet Decimal  @unique @db.Decimal(6, 2)
+  maxBaseHeightFeet  Decimal  @db.Decimal(6, 2)
+  maxRiserHeightFeet Decimal  @db.Decimal(6, 2)
+  keyHeightFeet      Decimal  @db.Decimal(6, 4)
+  wallPricePerFoot   Decimal  @default(0) @db.Decimal(12, 2)
+  basePrice          Decimal  @default(0) @db.Decimal(12, 2)
+  sortOrder          Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 }
 
 enum StructureType {
@@ -502,7 +518,7 @@ model JobStructure {
   castings               JobStructureCasting[]
   sections               JobStructureSection[]
   dimensions             JobStructureDimension?
-  manholeDetail          JobStructureManholeDetail?
+  calc                   JobStructureCalc?
   documents              JobStructureDocument[]
 
   @@index([jobId])
@@ -529,23 +545,26 @@ model JobStructureSection {
 }
 
 model JobStructureOpening {
-  id              String   @id @default(cuid())
-  jobStructureId  String
-  openingNumber   Int?
-  wallLocation    String?
-  clockPosition   String?
-  pipeType        String?
-  pipeDiameter    Decimal? @db.Decimal(12, 4)
-  connectionType  String?
-  invertElevation Decimal? @db.Decimal(12, 4)
-  holeDiameter    Decimal? @db.Decimal(12, 4)
-  bootType        String?
-  gasketType      String?
-  sleeveType      String?
-  angle           Decimal? @db.Decimal(12, 4)
-  notes           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                           String              @id @default(cuid())
+  jobStructureId               String
+  openingNumber                Int?
+  label                        String?
+  invertElevation              Decimal?            @db.Decimal(12, 4)
+  pipeSizeInches               Decimal?            @db.Decimal(6, 2)
+  pipeMaterial                 String?
+  pipeType                     String?
+  angle                        Decimal?            @db.Decimal(12, 4)
+  connectionType               PipeConnectionType?
+  holeDiameterInches           Decimal?            @db.Decimal(6, 2)
+  bootModel                    String?
+  topOfPipeFeet                Decimal?            @db.Decimal(12, 4)
+  bottomOfOpeningFeet          Decimal?            @db.Decimal(12, 4)
+  topOfOpeningFeet             Decimal?            @db.Decimal(12, 4)
+  baseTopToOpeningBottomInches Int?
+  pricePerBoot                 Decimal?            @db.Decimal(12, 2)
+  notes                        String?
+  createdAt                    DateTime            @default(now())
+  updatedAt                    DateTime            @updatedAt
 
   jobStructure JobStructure @relation(fields: [jobStructureId], references: [id], onDelete: Cascade)
 
@@ -597,32 +616,31 @@ model JobStructureDimension {
   jobStructure JobStructure @relation(fields: [jobStructureId], references: [id], onDelete: Cascade)
 }
 
-model JobStructureManholeDetail {
-  id                    String   @id @default(cuid())
-  jobStructureId        String   @unique
-  manholeStandard       String?
+model JobStructureCalc {
+  id                    String    @id @default(cuid())
+  jobStructureId        String    @unique
   contractorName        String?
   projectName           String?
   sheetDate             DateTime?
-  hasSteps              Boolean  @default(false)
-  rimElevation          Decimal? @db.Decimal(12, 4)
-  lowestInvertElevation Decimal? @db.Decimal(12, 4)
-  requiredWallHeight    Decimal? @db.Decimal(12, 4)
-  invertToTopFeet       Decimal? @db.Decimal(12, 4)
-  castingHeightFeet     Decimal? @db.Decimal(12, 4)
-  topSlabHeightFeet     Decimal? @db.Decimal(12, 4)
-  sumpFeet              Decimal? @db.Decimal(12, 4)
-  brickAdjustmentFeet   Decimal? @db.Decimal(12, 4)
-  hasKey                Boolean  @default(true)
-  baseSlabThickness     Decimal? @db.Decimal(12, 4)
-  topSlabThickness      Decimal? @db.Decimal(12, 4)
-  insideDiameter        Decimal? @db.Decimal(12, 4)
-  coneOrFlatTop         String?
-  frameAndCoverType     String?
-  chimneyHeight         Decimal? @db.Decimal(12, 4)
-  notes                 String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  hasSteps              Boolean   @default(false)
+  rimElevation          Decimal?  @db.Decimal(12, 4)
+  lowestInvertFeet      Decimal?  @db.Decimal(12, 4)
+  sumpFeet              Decimal?  @db.Decimal(12, 4)
+  castingHeightFeet     Decimal?  @db.Decimal(12, 4)
+  topSlabThicknessFeet  Decimal?  @db.Decimal(12, 4)
+  wallHeightFeet        Decimal?  @db.Decimal(12, 4)
+  brickFeet               Decimal?  @db.Decimal(12, 4)
+  hasKey                  Boolean   @default(true)
+  totalHeightFeet         Decimal?  @db.Decimal(12, 4)
+  insideDiameterFeet      Decimal?  @db.Decimal(12, 4)
+  baseSlabThicknessFeet   Decimal?  @db.Decimal(12, 4)
+  wallPrice               Decimal?  @db.Decimal(12, 2)
+  bootsPrice              Decimal?  @db.Decimal(12, 2)
+  totalPrice              Decimal?  @db.Decimal(12, 2)
+  errorMessage            String?
+  notes                   String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   jobStructure JobStructure @relation(fields: [jobStructureId], references: [id], onDelete: Cascade)
 }

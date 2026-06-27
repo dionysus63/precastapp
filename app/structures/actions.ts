@@ -6,41 +6,32 @@ import { Prisma, AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 
-type SectionRole = "BASE" | "RISER";
-
 type StructureShape = "CIRCULAR" | "RECTANGULAR";
-
 type StructureTemplateStatus = "ACTIVE" | "INACTIVE";
-
-type SectionPayload = {
-  role: SectionRole;
-  heightFeet: number;
-  label?: string | null;
-};
+type PipeConnectionType = "KOR_N_SEAL" | "CAST_IN" | "GROUTED" | "OTHER";
+type SumpMode = "DEFAULT" | "FIXED";
 
 type DiameterPayload = {
   insideDiameterFeet: number;
-  moldMaxHeightFeet: number;
-  topSlabHeightWithKeyFeet: number | null;
-  topSlabHeightNoKeyFeet: number | null;
-  sections: SectionPayload[];
-};
-
-type BootSizePayload = {
-  pipeDiameterInches: number;
-  holeDiameterInches: number;
 };
 
 type TemplatePayload = {
   name: string;
   agencyStandard: string | null;
   shape: StructureShape;
-  minimumBrickFeet: number;
-  keyClearanceFeet: number;
+  wallThicknessInches: number;
+  baseSlabThicknessInches: number;
+  topSlabThicknessInches: number;
+  castingProductId: string | null;
+  minimumBrickInches: number;
+  connectionType: PipeConnectionType;
+  sumpMode: SumpMode;
+  sumpFixedInches: number | null;
+  openingToJointMinTopInches: number;
+  openingToJointMinBottomInches: number;
   status: StructureTemplateStatus;
   notes: string | null;
   diameters: DiameterPayload[];
-  bootSizes: BootSizePayload[];
 };
 
 function decimal(value: number): Prisma.Decimal {
@@ -99,14 +90,19 @@ function parseTemplatePayload(formData: FormData): TemplatePayload {
   const status: StructureTemplateStatus =
     data.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
 
-  const minimumBrickFeet = requireNonNegativeNumber(
-    data.minimumBrickFeet,
-    "Minimum brick",
-  );
-  const keyClearanceFeet = requireNonNegativeNumber(
-    data.keyClearanceFeet,
-    "Key clearance",
-  );
+  const connectionTypes: PipeConnectionType[] = [
+    "KOR_N_SEAL",
+    "CAST_IN",
+    "GROUTED",
+    "OTHER",
+  ];
+  const connectionType = connectionTypes.includes(
+    data.connectionType as PipeConnectionType,
+  )
+    ? (data.connectionType as PipeConnectionType)
+    : "KOR_N_SEAL";
+
+  const sumpMode: SumpMode = data.sumpMode === "FIXED" ? "FIXED" : "DEFAULT";
 
   const diametersRaw = Array.isArray(data.diameters) ? data.diameters : [];
   if (diametersRaw.length === 0) {
@@ -115,37 +111,11 @@ function parseTemplatePayload(formData: FormData): TemplatePayload {
 
   const diameters: DiameterPayload[] = diametersRaw.map((item, index) => {
     const row = item as Record<string, unknown>;
-    const insideDiameterFeet = requirePositiveNumber(
-      row.insideDiameterFeet,
-      `Diameter #${index + 1} inside diameter`,
-    );
-    const moldMaxHeightFeet = requirePositiveNumber(
-      row.moldMaxHeightFeet,
-      `Diameter #${index + 1} mold max height`,
-    );
-    const sectionsRaw = Array.isArray(row.sections) ? row.sections : [];
-    const sections: SectionPayload[] = sectionsRaw.flatMap((section) => {
-        const sectionRow = section as Record<string, unknown>;
-        const heightFeet = Number(sectionRow.heightFeet);
-        if (!Number.isFinite(heightFeet) || heightFeet <= 0) {
-          return [];
-        }
-        const role: SectionRole =
-          sectionRow.role === "RISER" ? "RISER" : "BASE";
-        const label = String(sectionRow.label ?? "").trim() || null;
-        return [{ role, heightFeet, label }];
-      });
-
     return {
-      insideDiameterFeet,
-      moldMaxHeightFeet,
-      topSlabHeightWithKeyFeet: optionalNonNegativeNumber(
-        row.topSlabHeightWithKeyFeet,
+      insideDiameterFeet: requirePositiveNumber(
+        row.insideDiameterFeet,
+        `Diameter #${index + 1} inside diameter`,
       ),
-      topSlabHeightNoKeyFeet: optionalNonNegativeNumber(
-        row.topSlabHeightNoKeyFeet,
-      ),
-      sections,
     };
   });
 
@@ -159,44 +129,46 @@ function parseTemplatePayload(formData: FormData): TemplatePayload {
     diameterKeys.add(diameter.insideDiameterFeet);
   }
 
-  const bootRaw = Array.isArray(data.bootSizes) ? data.bootSizes : [];
-  const bootSizes: BootSizePayload[] = bootRaw
-    .map((item) => {
-      const row = item as Record<string, unknown>;
-      const pipeDiameterInches = Number(row.pipeDiameterInches);
-      const holeDiameterInches = Number(row.holeDiameterInches);
-      if (
-        !Number.isFinite(pipeDiameterInches) ||
-        pipeDiameterInches <= 0 ||
-        !Number.isFinite(holeDiameterInches) ||
-        holeDiameterInches <= 0
-      ) {
-        return null;
-      }
-      return { pipeDiameterInches, holeDiameterInches };
-    })
-    .filter((boot): boot is BootSizePayload => boot !== null);
-
-  const bootKeys = new Set<number>();
-  for (const boot of bootSizes) {
-    if (bootKeys.has(boot.pipeDiameterInches)) {
-      throw new Error(
-        `Duplicate boot entry for a ${boot.pipeDiameterInches}" pipe.`,
-      );
-    }
-    bootKeys.add(boot.pipeDiameterInches);
-  }
-
   return {
     name,
     agencyStandard: String(data.agencyStandard ?? "").trim() || null,
     shape,
-    minimumBrickFeet,
-    keyClearanceFeet,
+    wallThicknessInches: requirePositiveNumber(
+      data.wallThicknessInches,
+      "Wall thickness",
+    ),
+    baseSlabThicknessInches: requirePositiveNumber(
+      data.baseSlabThicknessInches,
+      "Base slab thickness",
+    ),
+    topSlabThicknessInches: requirePositiveNumber(
+      data.topSlabThicknessInches,
+      "Top slab thickness",
+    ),
+    castingProductId: data.castingProductId
+      ? String(data.castingProductId)
+      : null,
+    minimumBrickInches: requireNonNegativeNumber(
+      data.minimumBrickInches,
+      "Minimum brick",
+    ),
+    connectionType,
+    sumpMode,
+    sumpFixedInches:
+      sumpMode === "FIXED"
+        ? requirePositiveNumber(data.sumpFixedInches, "Fixed sump distance")
+        : optionalNonNegativeNumber(data.sumpFixedInches),
+    openingToJointMinTopInches: requireNonNegativeNumber(
+      data.openingToJointMinTopInches,
+      "Opening-to-joint min (top)",
+    ),
+    openingToJointMinBottomInches: requireNonNegativeNumber(
+      data.openingToJointMinBottomInches,
+      "Opening-to-joint min (bottom)",
+    ),
     status,
     notes: String(data.notes ?? "").trim() || null,
     diameters,
-    bootSizes,
   };
 }
 
@@ -205,37 +177,27 @@ function buildNestedCreate(payload: TemplatePayload) {
     name: payload.name,
     agencyStandard: payload.agencyStandard,
     shape: payload.shape,
-    minimumBrickFeet: decimal(payload.minimumBrickFeet),
-    keyClearanceFeet: decimal(payload.keyClearanceFeet),
+    wallThicknessInches: decimal(payload.wallThicknessInches),
+    baseSlabThicknessInches: decimal(payload.baseSlabThicknessInches),
+    topSlabThicknessInches: decimal(payload.topSlabThicknessInches),
+    castingProductId: payload.castingProductId,
+    minimumBrickInches: decimal(payload.minimumBrickInches),
+    connectionType: payload.connectionType,
+    sumpMode: payload.sumpMode,
+    sumpFixedInches:
+      payload.sumpFixedInches === null
+        ? null
+        : decimal(payload.sumpFixedInches),
+    openingToJointMinTopInches: decimal(payload.openingToJointMinTopInches),
+    openingToJointMinBottomInches: decimal(
+      payload.openingToJointMinBottomInches,
+    ),
     status: payload.status,
     notes: payload.notes,
     diameters: {
       create: payload.diameters.map((diameter, index) => ({
         insideDiameterFeet: decimal(diameter.insideDiameterFeet),
-        moldMaxHeightFeet: decimal(diameter.moldMaxHeightFeet),
-        topSlabHeightWithKeyFeet:
-          diameter.topSlabHeightWithKeyFeet === null
-            ? null
-            : decimal(diameter.topSlabHeightWithKeyFeet),
-        topSlabHeightNoKeyFeet:
-          diameter.topSlabHeightNoKeyFeet === null
-            ? null
-            : decimal(diameter.topSlabHeightNoKeyFeet),
         sortOrder: index,
-        sections: {
-          create: diameter.sections.map((section, sectionIndex) => ({
-            role: section.role,
-            heightFeet: decimal(section.heightFeet),
-            label: section.label,
-            sortOrder: sectionIndex,
-          })),
-        },
-      })),
-    },
-    bootSizes: {
-      create: payload.bootSizes.map((boot) => ({
-        pipeDiameterInches: decimal(boot.pipeDiameterInches),
-        holeDiameterInches: decimal(boot.holeDiameterInches),
       })),
     },
   };
@@ -279,9 +241,6 @@ export async function updateStructureTemplate(
       await tx.structureTemplateDiameter.deleteMany({
         where: { templateId },
       });
-      await tx.structureTemplateBootSize.deleteMany({
-        where: { templateId },
-      });
 
       const nested = buildNestedCreate(payload);
       await tx.structureTemplate.update({
@@ -290,12 +249,19 @@ export async function updateStructureTemplate(
           name: nested.name,
           agencyStandard: nested.agencyStandard,
           shape: nested.shape,
-          minimumBrickFeet: nested.minimumBrickFeet,
-          keyClearanceFeet: nested.keyClearanceFeet,
+          wallThicknessInches: nested.wallThicknessInches,
+          baseSlabThicknessInches: nested.baseSlabThicknessInches,
+          topSlabThicknessInches: nested.topSlabThicknessInches,
+          castingProductId: nested.castingProductId,
+          minimumBrickInches: nested.minimumBrickInches,
+          connectionType: nested.connectionType,
+          sumpMode: nested.sumpMode,
+          sumpFixedInches: nested.sumpFixedInches,
+          openingToJointMinTopInches: nested.openingToJointMinTopInches,
+          openingToJointMinBottomInches: nested.openingToJointMinBottomInches,
           status: nested.status,
           notes: nested.notes,
           diameters: nested.diameters,
-          bootSizes: nested.bootSizes,
         },
       });
     });
@@ -315,4 +281,18 @@ export async function deleteStructureTemplate(templateId: string) {
 
   revalidatePath("/structures");
   redirect("/structures");
+}
+
+export async function loadCastingProductOptions() {
+  await requirePermission(AppPermission.STRUCTURES_VIEW);
+  const products = await prisma.product.findMany({
+    where: { isCasting: true, status: "ACTIVE" },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, heightFeet: true },
+  });
+  return products.map((p) => ({
+    id: p.id,
+    name: p.name,
+    heightFeet: p.heightFeet ? Number(p.heightFeet) : null,
+  }));
 }

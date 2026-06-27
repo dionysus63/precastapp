@@ -25,6 +25,11 @@
 /electron/node_modules/
 /electron/package-lock.json
 
+# Hosted desktop update payloads (published by publish-electron-update.ps1)
+/public/updates/*
+!/public/updates/.gitkeep
+!/public/updates/README.md
+
 # misc
 .DS_Store
 *.pem

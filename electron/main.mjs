@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, shell } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
 import { loadConfig, validateServerUrl } from "./config.mjs";
+import { initAutoUpdater } from "./updater.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -96,9 +97,15 @@ function createWindow() {
 
   void mainWindow.loadURL(startUrl);
 
+  initAutoUpdater(mainWindow, getServerUrl);
+
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
+}
+
+if (process.platform === "win32") {
+  app.setAppUserModelId("com.li-precast.precastops");
 }
 
 const gotLock = app.requestSingleInstanceLock();
