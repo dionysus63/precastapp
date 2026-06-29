@@ -1,4 +1,5 @@
 import type { StatusVariant } from "@/lib/status-variants";
+import type { QuoteStructureConfig } from "@/lib/quotes/structure-workbook";
 
 export type QuoteStatus =
   | "DRAFT"
@@ -23,6 +24,7 @@ export type QuoteRow = {
   revision: string;
   jobNumber: string;
   projectName: string;
+  scopeLabel: string | null;
   customer: string;
   quoteType: QuoteType;
   quoteTypeLabel: string;
@@ -47,7 +49,8 @@ export type QuoteLineItemType =
   | "CONFIGURABLE_STRUCTURE"
   | "CUSTOM_STRUCTURE"
   | "SERVICE"
-  | "MISC";
+  | "MISC"
+  | "CATEGORY";
 
 export type QuoteLineItemRow = {
   id: string;
@@ -84,6 +87,7 @@ export type EditableQuoteLineItem = {
   ringDiameterFeet?: number | null;
   poolHeightFeet?: number | null;
   drainRingStyle?: "DRAIN" | "SANITARY" | "SOLID";
+  structureConfig?: QuoteStructureConfig | null;
 };
 
 export type QuoteFormInitialValues = {
@@ -94,6 +98,7 @@ export type QuoteFormInitialValues = {
   jobBidderId: string;
   jobNumber: string;
   projectName: string;
+  scopeLabel: string;
   projectAddress: string;
   contactId: string;
   contactTitle: string;
@@ -243,6 +248,16 @@ export type QuoteRelatedStructure = {
   folderPath: string | null;
 };
 
+export type QuoteCustomerTab = {
+  id: string;
+  customerName: string;
+  quoteNumber: string;
+  statusLabel: string;
+  statusVariant: StatusVariant;
+  total: string;
+  isCurrent: boolean;
+};
+
 export type QuoteDetailView = {
   id: string;
   quoteNumber: string;
@@ -256,9 +271,11 @@ export type QuoteDetailView = {
   bidDueDate: string;
   revision: string;
   estimator: string;
+  createdBy: string;
   jobId: string | null;
   jobNumber: string;
   projectName: string;
+  scopeLabel: string | null;
   projectAddress: string;
   customer: string;
   contactName: string;
@@ -312,4 +329,5 @@ export type QuoteDetailView = {
     invoice: string;
     deliveryTickets: string;
   };
+  customerTabs: QuoteCustomerTab[];
 };

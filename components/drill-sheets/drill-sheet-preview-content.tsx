@@ -1,31 +1,55 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
-import {
-  DrillSheetPreview,
-  type DrillSheetPreviewMeta,
-} from "@/components/drill-sheets/drill-sheet-preview";
+import { useCallback, useState, useTransition } from "react";
 import { generateDrillSheetPdf } from "@/app/drill-sheets/pdf-actions";
-import type { DrillSheetResult } from "@/lib/drill-sheet";
+import {
+  DrillSheetPdfCanvasPreview,
+  getDrillSheetPreviewPrintUrl,
+  type DrillSheetPdfPreviewInfo,
+} from "@/components/drill-sheets/drill-sheet-pdf-canvas-preview";
+import { printPdfUrl } from "@/lib/print-pdf-url";
 
 type DrillSheetPreviewContentProps = {
-  meta: DrillSheetPreviewMeta;
-  result: DrillSheetResult;
   drillSheetId: string;
+  manholeNumber: string;
+  templateName: string;
+  projectName: string;
 };
 
+function formatVariantLabel(key: string): string {
+  const [riser, keyPart] = key.split("-");
+  const riserLabel = riser === "riser" ? "Riser" : "No Riser";
+  const keyLabel = keyPart === "key" ? "Key" : "No Key";
+  return `${riserLabel} + ${keyLabel}`;
+}
+
 export function DrillSheetPreviewContent({
-  meta,
-  result,
   drillSheetId,
+  manholeNumber,
+  templateName,
+  projectName,
 }: DrillSheetPreviewContentProps) {
+  const [previewSheet, setPreviewSheet] = useState(1);
+  const [sheetCount, setSheetCount] = useState(1);
+  const [previewInfo, setPreviewInfo] = useState<DrillSheetPdfPreviewInfo | null>(
+    null,
+  );
   const [isPending, startTransition] = useTransition();
   const [pdfResult, setPdfResult] = useState<
     | { type: "success"; filePath: string }
     | { type: "error"; message: string }
     | null
   >(null);
+
+  const handleSheetCountChange = useCallback((count: number) => {
+    setSheetCount(count);
+    setPreviewSheet((current) => Math.min(current, Math.max(count, 1)));
+  }, []);
+
+  function handlePrint() {
+    printPdfUrl(getDrillSheetPreviewPrintUrl(drillSheetId));
+  }
 
   function handleGeneratePdf() {
     setPdfResult(null);
@@ -52,7 +76,7 @@ export function DrillSheetPreviewContent({
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={handlePrint}
               className="rounded border border-neutral-300 bg-white px-4 py-1.5 text-sm font-semibold text-neutral-800 hover:bg-neutral-50"
             >
               Print
@@ -63,15 +87,47 @@ export function DrillSheetPreviewContent({
               disabled={isPending}
               className="rounded border border-neutral-800 bg-neutral-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isPending ? "Generating..." : "Generate PDF"}
+              {isPending ? "Saving…" : "Save to Job Folder"}
             </button>
           </div>
         </div>
+
+        {previewInfo ? (
+          <div className="mx-auto max-w-[8.5in] border-t border-neutral-100 bg-neutral-50 px-4 py-2 text-xs text-neutral-700">
+            {previewInfo.source === "template" ? (
+              <p>
+                Using template PDF{" "}
+                <span className="font-medium">
+                  {previewInfo.templateName ?? "uploaded form"}
+                </span>
+                {previewInfo.templateVariant &&
+                previewInfo.templateVariant !== previewInfo.computedVariant ? (
+                  <>
+                    {" "}
+                    (slot: {formatVariantLabel(previewInfo.templateVariant)}; sheet
+                    computed as {formatVariantLabel(previewInfo.computedVariant)})
+                  </>
+                ) : (
+                  <> ({formatVariantLabel(previewInfo.computedVariant)})</>
+                )}
+              </p>
+            ) : (
+              <p>
+                No matching template PDF for{" "}
+                <span className="font-medium">
+                  {formatVariantLabel(previewInfo.computedVariant)}
+                </span>
+                . Showing generated layout instead — upload a PDF to that slot on
+                the structure template.
+              </p>
+            )}
+          </div>
+        ) : null}
+
         {pdfResult?.type === "success" ? (
           <div className="mx-auto max-w-[8.5in] border-t border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-            <p className="font-semibold">PDF generated successfully.</p>
+            <p className="font-semibold">PDF saved to job folder.</p>
             <p className="mt-1 break-all text-emerald-800">
-              Saved to:{" "}
               <span className="font-mono text-xs">{pdfResult.filePath}</span>
             </p>
           </div>
@@ -83,23 +139,48 @@ export function DrillSheetPreviewContent({
         ) : null}
       </div>
 
-      <div className="min-h-screen bg-neutral-200 py-8 print:bg-white print:py-0">
-        <article
-          className="mx-auto w-full max-w-[8.5in] bg-white px-10 py-10 shadow-lg print:max-w-none print:px-0 print:py-0 print:shadow-none"
-          style={{ minHeight: "11in" }}
-        >
-          <header className="mb-6 border-b border-neutral-300 pb-4">
-            <h1 className="text-2xl font-bold text-neutral-900">
-              Drill Sheet {meta.manholeNumber ? `— ${meta.manholeNumber}` : ""}
+      <div className="min-h-screen bg-neutral-200 py-4 print:bg-white print:py-0">
+        <div className="mx-auto w-full max-w-[8.5in] px-4 print:max-w-none print:px-0">
+          <header className="mb-3 print:hidden">
+            <h1 className="text-xl font-bold text-neutral-900">
+              Drill Sheet {manholeNumber ? `— ${manholeNumber}` : ""}
             </h1>
-            <p className="mt-1 text-sm text-neutral-700">
-              {meta.templateName || "Circular manhole"}
-              {meta.project ? ` — ${meta.project}` : ""}
+            <p className="mt-0.5 text-sm text-neutral-700">
+              {templateName || "Circular manhole"}
+              {projectName ? ` — ${projectName}` : ""}
             </p>
           </header>
 
-          <DrillSheetPreview meta={meta} result={result} />
-        </article>
+          {sheetCount > 1 ? (
+            <div className="mb-3 flex flex-wrap gap-2 print:hidden">
+              {Array.from({ length: sheetCount }, (_, index) => {
+                const sheetNumber = index + 1;
+                const isActive = sheetNumber === previewSheet;
+                return (
+                  <button
+                    key={sheetNumber}
+                    type="button"
+                    onClick={() => setPreviewSheet(sheetNumber)}
+                    className={`rounded border px-3 py-1 text-xs font-semibold ${
+                      isActive
+                        ? "border-neutral-800 bg-neutral-900 text-white"
+                        : "border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50"
+                    }`}
+                  >
+                    Sheet {sheetNumber}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
+          <DrillSheetPdfCanvasPreview
+            drillSheetId={drillSheetId}
+            activeSheet={previewSheet}
+            onSheetCountChange={handleSheetCountChange}
+            onPreviewInfoChange={setPreviewInfo}
+          />
+        </div>
       </div>
     </>
   );

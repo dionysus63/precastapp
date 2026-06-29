@@ -11,6 +11,7 @@ import { JobStructureSubmittalActions } from "@/components/jobs/job-structure-su
 import { StructureManageLink } from "@/components/jobs/structure-manage-link";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import type { QuoteDetailView } from "@/components/quotes/quote-utils";
+import { isCategoryLineItem } from "@/lib/quotes/constants";
 
 function DetailField({ label, value }: { label: string; value: string }) {
   return (
@@ -159,6 +160,66 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
         </div>
       ) : null}
 
+      {(quote.scopeLabel || quote.customerTabs.length > 1) ? (
+        <section className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {quote.scopeLabel ? (
+                  <span className="inline-flex rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-900">
+                    {quote.scopeLabel}
+                  </span>
+                ) : null}
+                <StatusBadge
+                  label={quote.statusLabel}
+                  variant={quote.statusVariant}
+                />
+              </div>
+              <p className="text-sm font-medium text-slate-900">
+                {quote.projectName}
+              </p>
+              <p className="text-xs text-slate-600">
+                {quote.jobNumber !== "—" ? `${quote.jobNumber} · ` : ""}
+                {quote.customer}
+              </p>
+            </div>
+            <div className="text-right text-xs text-slate-500">
+              <p className="font-mono text-sm font-semibold text-slate-900">
+                {quote.quoteNumber}
+              </p>
+              <p className="mt-0.5">{quote.revision}</p>
+            </div>
+          </div>
+
+          {quote.customerTabs.length > 1 ? (
+            <div className="mt-4 border-t border-slate-100 pt-4">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                Same quote for {quote.customerTabs.length} customers
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {quote.customerTabs.map((tab) => (
+                  <Link
+                    key={tab.id}
+                    href={`/quotes/${tab.id}`}
+                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                      tab.isCurrent
+                        ? "border-slate-900 bg-slate-900 text-white"
+                        : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span>{tab.customerName}</span>
+                    <StatusBadge
+                      label={tab.statusLabel}
+                      variant={tab.statusVariant}
+                    />
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-4">
           <SectionCard title="Quote Information">
@@ -166,6 +227,9 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
               <DetailField label="Quote Number" value={quote.quoteNumber} />
               <DetailField label="Revision Number" value={quote.revision} />
               <DetailField label="Job Number" value={quote.jobNumber} />
+              {quote.scopeLabel ? (
+                <DetailField label="Scope / Area" value={quote.scopeLabel} />
+              ) : null}
               {quote.jobId ? (
                 <div className="sm:col-span-2 lg:col-span-3">
                   <Link
@@ -187,6 +251,7 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
               <DetailField label="Contact Email" value={quote.contactEmail} />
               <DetailField label="Contact Phone" value={quote.contactPhone} />
               <DetailField label="Quote Date" value={quote.quoteDate} />
+              <DetailField label="Created By" value={quote.createdBy} />
               <DetailField label="Sent Date" value={quote.sentAt} />
               {quote.bidListContractor ? (
                 <DetailField
@@ -235,43 +300,78 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
                       </td>
                     </tr>
                   ) : (
-                    quote.lineItems.map((line) => (
-                    <tr key={line.id} className="hover:bg-slate-50/60">
-                      <td className="px-3 py-2.5 text-slate-700">
-                        {line.lineNumber}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <StatusBadge label={line.typeLabel} variant="neutral" />
-                      </td>
-                      <td className="px-3 py-2.5 font-medium text-slate-900">
-                        {line.item}
-                      </td>
-                      <td className="px-3 py-2.5 text-slate-600">
-                        <RichTextContent value={line.description} />
-                      </td>
-                      <td className="px-3 py-2.5 text-slate-600">{line.qty}</td>
-                      <td className="px-3 py-2.5 text-slate-600">{line.unit}</td>
-                      <td className="px-3 py-2.5 text-slate-700">
-                        {line.unitPrice}
-                      </td>
-                      <td className="px-3 py-2.5 text-slate-600">
-                        {line.weight}
-                      </td>
-                      <td className="px-3 py-2.5 text-slate-600">{line.yards}</td>
-                      <td className="px-3 py-2.5">
-                        <StatusBadge
-                          label={line.taxable ? "Yes" : "No"}
-                          variant={line.taxable ? "success" : "neutral"}
-                        />
-                      </td>
-                      <td className="px-3 py-2.5 font-medium text-slate-900">
-                        {line.total}
-                      </td>
-                      <td className="px-3 py-2.5 text-slate-600">
-                        {line.statusNotes}
-                      </td>
-                    </tr>
-                    ))
+                    quote.lineItems.map((line) =>
+                      isCategoryLineItem(line.type) ? (
+                        <tr key={line.id} className="bg-slate-50/60">
+                          <td className="px-3 py-2.5 text-slate-700">
+                            {line.lineNumber}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <StatusBadge
+                              label={line.typeLabel}
+                              variant="neutral"
+                            />
+                          </td>
+                          <td className="px-3 py-2.5 text-slate-400">—</td>
+                          <td className="px-3 py-2.5 font-semibold text-slate-900 underline">
+                            {line.description}
+                          </td>
+                          <td className="px-3 py-2.5 text-slate-400">—</td>
+                          <td className="px-3 py-2.5 text-slate-400">—</td>
+                          <td className="px-3 py-2.5 text-slate-400">—</td>
+                          <td className="px-3 py-2.5 text-slate-400">—</td>
+                          <td className="px-3 py-2.5 text-slate-400">—</td>
+                          <td className="px-3 py-2.5 text-slate-400">—</td>
+                          <td className="px-3 py-2.5 text-slate-400">—</td>
+                          <td className="px-3 py-2.5 text-slate-400">—</td>
+                        </tr>
+                      ) : (
+                        <tr key={line.id} className="hover:bg-slate-50/60">
+                          <td className="px-3 py-2.5 text-slate-700">
+                            {line.lineNumber}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <StatusBadge
+                              label={line.typeLabel}
+                              variant="neutral"
+                            />
+                          </td>
+                          <td className="px-3 py-2.5 font-medium text-slate-900">
+                            {line.item}
+                          </td>
+                          <td className="px-3 py-2.5 text-slate-600">
+                            <RichTextContent value={line.description} />
+                          </td>
+                          <td className="px-3 py-2.5 text-slate-600">
+                            {line.qty}
+                          </td>
+                          <td className="px-3 py-2.5 text-slate-600">
+                            {line.unit}
+                          </td>
+                          <td className="px-3 py-2.5 text-slate-700">
+                            {line.unitPrice}
+                          </td>
+                          <td className="px-3 py-2.5 text-slate-600">
+                            {line.weight}
+                          </td>
+                          <td className="px-3 py-2.5 text-slate-600">
+                            {line.yards}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <StatusBadge
+                              label={line.taxable ? "Yes" : "No"}
+                              variant={line.taxable ? "success" : "neutral"}
+                            />
+                          </td>
+                          <td className="px-3 py-2.5 font-medium text-slate-900">
+                            {line.total}
+                          </td>
+                          <td className="px-3 py-2.5 text-slate-600">
+                            {line.statusNotes}
+                          </td>
+                        </tr>
+                      ),
+                    )
                   )}
                 </tbody>
               </table>

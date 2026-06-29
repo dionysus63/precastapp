@@ -15,7 +15,8 @@ import { prisma } from "@/lib/prisma";
 
 export { SESSION_COOKIE_NAME };
 
-const SESSION_MAX_AGE_SECONDS = 60 * 60 * 8;
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
+const SESSION_SLIDE_THRESHOLD_SECONDS = 60 * 60 * 24;
 
 /** Secure cookies are ignored by browsers on plain HTTP (LAN deploys). Set SESSION_COOKIE_SECURE=true only behind HTTPS. */
 function useSecureSessionCookie(): boolean {
@@ -27,6 +28,40 @@ function useSecureSessionCookie(): boolean {
 
 function getSessionExpiryDate(): Date {
   return new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000);
+}
+
+async function refreshSessionCookie(token: string, expiresAt: Date): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.set(SESSION_COOKIE_NAME, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: useSecureSessionCookie(),
+    path: "/",
+    expires: expiresAt,
+  });
+}
+
+async function slideSessionIfNeeded(session: {
+  id: string;
+  token: string;
+  expiresAt: Date;
+}): Promise<Date> {
+  const remainingSeconds = Math.floor(
+    (session.expiresAt.getTime() - Date.now()) / 1000,
+  );
+
+  if (remainingSeconds > SESSION_SLIDE_THRESHOLD_SECONDS) {
+    return session.expiresAt;
+  }
+
+  const expiresAt = getSessionExpiryDate();
+  await prisma.session.update({
+    where: { id: session.id },
+    data: { expiresAt },
+  });
+  await refreshSessionCookie(session.token, expiresAt);
+
+  return expiresAt;
 }
 
 export async function createSession(userId: string): Promise<string> {
@@ -41,14 +76,7 @@ export async function createSession(userId: string): Promise<string> {
     },
   });
 
-  const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE_NAME, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: useSecureSessionCookie(),
-    path: "/",
-    expires: expiresAt,
-  });
+  await refreshSessionCookie(token, expiresAt);
 
   return token;
 }
@@ -90,6 +118,8 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     await prisma.session.delete({ where: { id: session.id } });
     return null;
   }
+
+  await slideSessionIfNeeded(session);
 
   return session.user;
 }

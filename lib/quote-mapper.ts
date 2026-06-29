@@ -7,6 +7,7 @@ import {
 } from "@/lib/drain-ring-utils";
 import { canEditQuote } from "@/lib/quotes/edit-rules";
 import { canSendQuote } from "@/lib/quotes/send-rules";
+import { parseStructureConfigJson } from "@/lib/quotes/structure-workbook";
 import {
   type QuoteFormInitialValues,
   type QuoteLineItemType,
@@ -28,6 +29,7 @@ import {
   formatYards,
 } from "@/lib/format";
 import { quoteStatusVariant } from "@/lib/status-variants";
+import { stripRevisionSuffix } from "@/lib/quote-number";
 
 export type QuoteRecord = {
   id: string;
@@ -39,6 +41,7 @@ export type QuoteRecord = {
   jobNumber: string | null;
   customerName: string;
   projectName: string;
+  scopeLabel?: string | null;
   projectAddress: string | null;
   contactName: string | null;
   contactEmail: string | null;
@@ -69,6 +72,7 @@ export type QuoteRecord = {
   priceListId: string | null;
   sentAt: Date | null;
   jobBidderId: string | null;
+  masterQuoteId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -93,6 +97,7 @@ export type QuoteLineItemRecord = {
   ringDiameterFeet?: { toString(): string } | null;
   poolHeightFeet?: { toString(): string } | null;
   drainRingStyle?: DrainRingStyle;
+  structureConfigJson?: unknown;
   product?: {
     id?: string;
     productCode: string;
@@ -114,8 +119,17 @@ export type QuoteRevisionSummary = {
   createdAt: Date;
 };
 
+export type QuoteDetailSiblingSummary = {
+  id: string;
+  customerName: string;
+  quoteNumber: string;
+  status: string;
+  total: { toString(): string };
+};
+
 export type QuoteDetailRecord = QuoteRecord & {
   lineItems: QuoteLineItemRecord[];
+  createdBy?: { displayName: string } | null;
   jobBidder?: { customer: { name: string } } | null;
   jobStructures?: Array<{
     id: string;
@@ -212,7 +226,7 @@ function deriveOriginalQuoteNumber(quote: QuoteDetailRecord) {
     return quote.quoteNumber;
   }
 
-  return quote.quoteNumber.replace(/-R\d+(-\d+)?$/, "-R0");
+  return stripRevisionSuffix(quote.quoteNumber);
 }
 
 function mapRevisionHistory(
@@ -302,6 +316,7 @@ export type QuoteListRecord = Pick<
   | "revisionNumber"
   | "jobNumber"
   | "projectName"
+  | "scopeLabel"
   | "customerName"
   | "quoteType"
   | "status"
@@ -323,6 +338,7 @@ export function mapQuoteToRow(quote: QuoteListRecord): QuoteRow {
     revision: `R${quote.revisionNumber}`,
     jobNumber: quote.jobNumber ?? "—",
     projectName: quote.projectName,
+    scopeLabel: quote.scopeLabel?.trim() || null,
     customer: quote.customerName,
     quoteType,
     quoteTypeLabel: quoteTypeLabels[quoteType] ?? quote.quoteType,
@@ -337,7 +353,10 @@ export function mapQuoteToRow(quote: QuoteListRecord): QuoteRow {
   };
 }
 
-export function mapQuoteToDetailView(quote: QuoteDetailRecord): QuoteDetailView {
+export function mapQuoteToDetailView(
+  quote: QuoteDetailRecord,
+  siblingQuotes?: QuoteDetailSiblingSummary[],
+): QuoteDetailView {
   const status = quote.status as QuoteStatus;
   const taxRateNumber = Number.parseFloat(quote.taxRate.toString());
   const revisionFamily = quote.revisionFamily ?? [
@@ -350,13 +369,34 @@ export function mapQuoteToDetailView(quote: QuoteDetailRecord): QuoteDetailView 
     },
   ];
   const supersededBy = deriveSupersededBy(quote, revisionFamily);
+  const scopeLabel = quote.scopeLabel?.trim() || null;
+  const customerTabs =
+    siblingQuotes && siblingQuotes.length > 1
+      ? siblingQuotes.map((sibling) => {
+          const siblingStatus = sibling.status as QuoteStatus;
+          return {
+            id: sibling.id,
+            customerName: sibling.customerName,
+            quoteNumber: sibling.quoteNumber,
+            statusLabel:
+              quoteStatusLabels[siblingStatus] ?? sibling.status,
+            statusVariant: quoteStatusVariant(sibling.status),
+            total: formatUsd(sibling.total),
+            isCurrent: sibling.id === quote.id,
+          };
+        })
+      : [];
 
   return {
     id: quote.id,
     quoteNumber: quote.quoteNumber,
     originalQuote: deriveOriginalQuoteNumber(quote),
-    title: `Quote ${quote.quoteNumber}`,
-    subtitle: `${quote.projectName} — ${quote.customerName}`,
+    title: scopeLabel
+      ? `Quote ${quote.quoteNumber} — ${scopeLabel}`
+      : `Quote ${quote.quoteNumber}`,
+    subtitle: scopeLabel
+      ? `${quote.projectName} — ${quote.customerName} (${scopeLabel})`
+      : `${quote.projectName} — ${quote.customerName}`,
     status,
     statusLabel: quoteStatusLabels[status] ?? quote.status,
     statusVariant: quoteStatusVariant(quote.status),
@@ -364,9 +404,11 @@ export function mapQuoteToDetailView(quote: QuoteDetailRecord): QuoteDetailView 
     bidDueDate: formatQuoteDate(quote.bidDueDate),
     revision: `R${quote.revisionNumber}`,
     estimator: quote.estimator ?? "—",
+    createdBy: quote.createdBy?.displayName ?? "—",
     jobId: quote.jobId,
     jobNumber: quote.jobNumber ?? "—",
     projectName: quote.projectName,
+    scopeLabel,
     projectAddress: quote.projectAddress?.trim() || "—",
     customer: quote.customerName,
     contactName: quote.contactName?.trim() || "—",
@@ -432,6 +474,7 @@ export function mapQuoteToDetailView(quote: QuoteDetailRecord): QuoteDetailView 
       invoice: "Not created",
       deliveryTickets: "None",
     },
+    customerTabs,
   };
 }
 
@@ -448,6 +491,7 @@ export function mapQuoteToFormInitialValues(
     jobBidderId: quote.jobBidderId ?? "",
     jobNumber: quote.jobNumber ?? "",
     projectName: quote.projectName,
+    scopeLabel: quote.scopeLabel?.trim() ?? "",
     projectAddress: quote.projectAddress?.trim() ?? "",
     contactId: quote.contactId ?? "",
     contactTitle: quote.contactTitle?.trim() ?? "",
@@ -491,6 +535,7 @@ export function mapQuoteToFormInitialValues(
         ? Number.parseFloat(line.poolHeightFeet.toString())
         : null,
       drainRingStyle: (line.drainRingStyle ?? "DRAIN") as DrainRingStyle,
+      structureConfig: parseStructureConfigJson(line.structureConfigJson),
     })),
   };
 }

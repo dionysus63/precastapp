@@ -23,6 +23,7 @@ import {
   type JobRelatedQuote,
   type JobRelatedStructure,
   type JobStatusVariant,
+  groupJobRelatedQuotes,
 } from "@/components/jobs/job-utils";
 import { quoteStatusLabels, type QuoteStatus } from "@/components/quotes/quote-utils";
 import { formatDateShort, formatUsd, formatWeightLb } from "@/lib/format";
@@ -109,13 +110,18 @@ function formatProjectAddress(job: Job): string {
   return parts.join(", ") || "—";
 }
 
-function mapQuote(quote: Quote): JobRelatedQuote {
+function mapQuote(quote: Quote & { masterQuoteId?: string | null }): JobRelatedQuote {
   const status = quote.status as QuoteStatus;
+  const groupKey = quote.masterQuoteId ?? quote.id;
   return {
     id: quote.id,
     quoteNumber: quote.quoteNumber,
     projectName: quote.projectName,
+    scopeLabel: quote.scopeLabel?.trim() || null,
     customerName: quote.customerName,
+    masterQuoteId: quote.masterQuoteId ?? null,
+    groupKey,
+    isMaster: !quote.masterQuoteId,
     statusLabel: quoteStatusLabels[status] ?? quote.status,
     statusVariant: quoteStatusVariant(quote.status),
     total: formatUsd(quote.total ?? 0),
@@ -237,6 +243,7 @@ function mapMasterQuoteOptions(
     .map((quote) => ({
       id: quote.id,
       quoteNumber: quote.quoteNumber,
+      scopeLabel: quote.scopeLabel?.trim() || null,
       lineItemCount: quote._count?.lineItems ?? 0,
     }));
 }
@@ -315,6 +322,7 @@ function mapInvoice(
 
 export function mapJobToDetailView(job: JobWithRelations): JobDetailView {
   const relatedQuotes = job.quotes.map(mapQuote);
+  const relatedQuoteGroups = groupJobRelatedQuotes(relatedQuotes);
   const bidders = job.bidders.map(mapBidder);
   const biddingSummary = buildBiddingSummary(job, bidders);
   const masterQuoteOptions = mapMasterQuoteOptions(job.quotes);
@@ -414,6 +422,7 @@ export function mapJobToDetailView(job: JobWithRelations): JobDetailView {
     bidders,
     masterQuoteOptions,
     relatedQuotes,
+    relatedQuoteGroups,
     relatedDeliveries,
     relatedStructures,
     relatedInvoices,

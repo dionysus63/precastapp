@@ -13,6 +13,12 @@ export const quoteInputClassName =
 export const quoteReadOnlyClassName =
   "mt-1 block w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 shadow-sm";
 
+export const quoteCompactInputClassName =
+  "block w-full rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 shadow-sm";
+
+export const quoteDescriptionTextareaClassName =
+  "min-w-[18rem] w-full resize-y rounded border border-slate-200 bg-white px-2 py-1.5 text-sm leading-snug text-slate-900 shadow-sm whitespace-pre-wrap";
+
 export function parseQuoteNumber(value: string): number {
   const cleaned = value.replace(/[^0-9.-]/g, "");
   const parsed = Number.parseFloat(cleaned);
@@ -40,6 +46,9 @@ export function pickDefaultCustomerContact(
 export function getLineItemTotal(
   line: import("@/lib/quotes/types").EditableQuoteLineItem,
 ): number {
+  if (line.type === "CATEGORY") {
+    return 0;
+  }
   return computeLineItemTotal(
     parseQuoteNumber(line.qty),
     parseQuoteNumber(line.unitPrice),

@@ -7,6 +7,7 @@ import {
   UserRole,
 } from "@/app/generated/prisma/client";
 import { writeAuditLog } from "@/lib/auth/audit";
+import { hashPassword, validatePasswordStrength, verifyPassword } from "@/lib/auth/password";
 import { requireAuth, requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 
@@ -216,6 +217,87 @@ export async function updateMyProfile(formData: FormData) {
   await prisma.user.update({
     where: { id: user.id },
     data: { displayName, initials },
+  });
+
+  revalidatePath("/profile");
+  redirect("/profile");
+}
+
+export async function resetUserPassword(formData: FormData) {
+  const actor = await requirePermission(AppPermission.USERS_MANAGE);
+  const id = String(formData.get("id") ?? "").trim();
+
+  if (!id) {
+    throw new Error("User id is required.");
+  }
+
+  const user = await prisma.user.update({
+    where: { id },
+    data: {
+      passwordHash: null,
+      mustChangePassword: true,
+    },
+  });
+
+  await prisma.session.deleteMany({ where: { userId: id } });
+
+  await writeAuditLog({
+    userId: actor.id,
+    action: "user.reset_password",
+    entityType: "User",
+    entityId: user.id,
+    summary: `Reset password for ${user.displayName}`,
+  });
+
+  revalidatePath("/settings/users");
+  revalidatePath(`/settings/users/${user.id}`);
+}
+
+export async function changeMyPassword(formData: FormData) {
+  const user = await requireAuth();
+
+  const currentPassword = String(formData.get("currentPassword") ?? "");
+  const newPassword = String(formData.get("newPassword") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    throw new Error("All password fields are required.");
+  }
+
+  if (newPassword !== confirmPassword) {
+    throw new Error("New passwords do not match.");
+  }
+
+  const strengthError = validatePasswordStrength(newPassword);
+  if (strengthError) {
+    throw new Error(strengthError);
+  }
+
+  if (!user.passwordHash) {
+    throw new Error("Set your password from the sign-in screen first.");
+  }
+
+  const isValid = await verifyPassword(currentPassword, user.passwordHash);
+  if (!isValid) {
+    throw new Error("Current password is incorrect.");
+  }
+
+  const passwordHash = await hashPassword(newPassword);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      passwordHash,
+      mustChangePassword: false,
+    },
+  });
+
+  await writeAuditLog({
+    userId: user.id,
+    action: "auth.change_password",
+    entityType: "User",
+    entityId: user.id,
+    summary: `${user.displayName} changed their password`,
   });
 
   revalidatePath("/profile");

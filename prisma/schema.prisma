@@ -55,6 +55,7 @@ enum QuoteLineType {
   CUSTOM_STRUCTURE
   SERVICE
   MISC
+  CATEGORY
 }
 
 enum ProductStatus {
@@ -404,11 +405,30 @@ model StructureTemplate {
 
   castingProduct Product? @relation("TemplateCasting", fields: [castingProductId], references: [id], onDelete: SetNull)
   diameters      StructureTemplateDiameter[]
+  templatePdfs   StructureTemplatePdf[]
   jobStructures  JobStructure[]
 
   @@index([shape])
   @@index([status])
   @@index([castingProductId])
+}
+
+/// Fillable drill sheet PDF for a template variant (hasRiser x hasKey matrix).
+model StructureTemplatePdf {
+  id           String   @id @default(cuid())
+  templateId   String
+  hasRiser     Boolean
+  hasKey       Boolean
+  filePath     String
+  originalName String
+  fileSize     Int?
+  uploadedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  template StructureTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, hasRiser, hasKey])
+  @@index([templateId])
 }
 
 /// One offered inside diameter for a structure template.
@@ -623,6 +643,11 @@ model JobStructureCalc {
   projectName           String?
   sheetDate             DateTime?
   hasSteps              Boolean   @default(false)
+  inspection            String?
+  approvedBy            String?
+  useBase               String?
+  useRiser              String?
+  brickAdjustment       String?
   rimElevation          Decimal?  @db.Decimal(12, 4)
   lowestInvertFeet      Decimal?  @db.Decimal(12, 4)
   sumpFeet              Decimal?  @db.Decimal(12, 4)
@@ -663,18 +688,20 @@ model JobStructureDocument {
 }
 
 /// Customer quote for precast products, configurable structures, custom structures, and services.
-/// Quote numbers follow Q-YY-###-R# format (e.g. Q-26-001-R0); generation logic to be added later.
+/// Quote numbers follow Q-{job}-{scope?}-{contractor?}-R{n} (e.g. Q-26-001-SITE-BAY-R1); R0 is implicit.
 model Quote {
   id                 String      @id @default(cuid())
   quoteNumber        String      @unique
   revisionNumber     Int         @default(0)
   originalQuoteId    String?
+  masterQuoteId      String?
   jobId              String?
   jobBidderId        String?
   customerId         String?
   jobNumber          String?
   customerName       String
   projectName        String
+  scopeLabel         String?
   projectAddress     String?
   contactName        String?
   contactEmail       String?
@@ -684,6 +711,7 @@ model Quote {
   status             QuoteStatus @default(DRAFT)
   quoteType          QuoteType   @default(MIXED)
   estimator          String?
+  createdById        String?
   quoteDate          DateTime?
   bidDueDate         DateTime?
   expirationDate     DateTime?
@@ -712,8 +740,11 @@ model Quote {
   customer        Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
   contact         Contact?         @relation(fields: [contactId], references: [id], onDelete: SetNull)
   priceList       PriceList?       @relation(fields: [priceListId], references: [id], onDelete: SetNull)
+  createdBy       User?            @relation("QuoteCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   originalQuote   Quote?           @relation("QuoteRevisions", fields: [originalQuoteId], references: [id], onDelete: SetNull)
   revisions       Quote[]          @relation("QuoteRevisions")
+  masterQuote     Quote?           @relation("QuoteBidderGroup", fields: [masterQuoteId], references: [id], onDelete: SetNull)
+  bidderQuotes    Quote[]          @relation("QuoteBidderGroup")
   lineItems       QuoteLineItem[]
   jobStructures   JobStructure[]
   deliveryTickets DeliveryTicket[]
@@ -725,8 +756,10 @@ model Quote {
   @@index([contactId])
   @@index([priceListId])
   @@index([originalQuoteId])
+  @@index([masterQuoteId])
   @@index([status])
   @@index([quoteDate])
+  @@index([createdById])
 }
 
 /// Individual line on a quote: stock product, configurable/custom structure, service, or misc item.
@@ -753,9 +786,10 @@ model QuoteLineItem {
   isDrainRing      Boolean        @default(false)
   ringDiameterFeet Decimal?       @db.Decimal(6, 2)
   poolHeightFeet   Decimal?       @db.Decimal(6, 2)
-  drainRingStyle   DrainRingStyle @default(DRAIN)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  drainRingStyle        DrainRingStyle @default(DRAIN)
+  structureConfigJson   Json?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
 
   quote                   Quote                    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
   previousLineItem        QuoteLineItem?           @relation("QuoteLineLineage", fields: [previousLineItemId], references: [id], onDelete: SetNull)
@@ -1256,6 +1290,7 @@ model User {
   sessions      Session[]
   auditLogs     AuditLog[]
   jobFavorites  JobFavorite[]
+  quotesCreated Quote[]         @relation("QuoteCreatedBy")
 }
 
 model JobFavorite {

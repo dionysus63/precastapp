@@ -48,6 +48,7 @@ export type CreateQuoteLineItemInput = {
   ringDiameterFeet?: number | null;
   poolHeightFeet?: number | null;
   drainRingStyle?: DrainRingStyle;
+  structureConfigJson?: Record<string, unknown> | null;
 };
 
 export type CreateQuoteInput = {
@@ -57,6 +58,7 @@ export type CreateQuoteInput = {
   jobBidderId?: string | null;
   jobNumber: string | null;
   projectName: string;
+  scopeLabel?: string | null;
   projectAddress: string | null;
   contactName: string | null;
   contactEmail: string | null;
@@ -116,11 +118,27 @@ function validateCreateQuoteInput(input: CreateQuoteInput) {
     throw new Error("Add at least one line item.");
   }
 
+  const billableLines = input.lineItems.filter(
+    (line) => line.lineType !== "CATEGORY",
+  );
+  if (billableLines.length === 0) {
+    throw new Error("Add at least one billable line item (not only categories).");
+  }
+
   if (input.taxRate < 0) {
     throw new Error("Tax rate cannot be negative.");
   }
 
   for (const line of input.lineItems) {
+    if (line.lineType === "CATEGORY") {
+      if (!line.description.trim()) {
+        throw new Error(
+          `Line ${line.lineNumber}: category name is required.`,
+        );
+      }
+      continue;
+    }
+
     if (line.quantity <= 0) {
       throw new Error(`Line ${line.lineNumber}: quantity must be greater than 0.`);
     }
@@ -164,26 +182,48 @@ function isQuoteNumberConflict(error: unknown): boolean {
 }
 
 function computeQuoteFinancials(input: CreateQuoteInput) {
+  const billableLines = input.lineItems.filter(
+    (line) => line.lineType !== "CATEGORY",
+  );
   const computed = computeMoneyTotals(
-    input.lineItems.map((line) => ({
+    billableLines.map((line) => ({
       quantity: line.quantity,
       unitPrice: line.unitPrice,
       taxable: line.taxable,
     })),
     input.taxRate,
   );
+
+  let billableIndex = 0;
+  const lineTotals = input.lineItems.map((line) => {
+    if (line.lineType === "CATEGORY") {
+      return new Prisma.Decimal(0);
+    }
+    const total = computed.lineTotals[billableIndex]!;
+    billableIndex += 1;
+    return total;
+  });
+
   const totalWeight = input.lineItems.reduce(
-    (sum, line) =>
-      line.weight != null
+    (sum, line) => {
+      if (line.lineType === "CATEGORY") {
+        return sum;
+      }
+      return line.weight != null
         ? sum.add(new Prisma.Decimal(line.weight).mul(line.quantity))
-        : sum,
+        : sum;
+    },
     new Prisma.Decimal(0),
   );
   const totalYards = input.lineItems.reduce(
-    (sum, line) =>
-      line.yards != null
+    (sum, line) => {
+      if (line.lineType === "CATEGORY") {
+        return sum;
+      }
+      return line.yards != null
         ? sum.add(new Prisma.Decimal(line.yards).mul(line.quantity))
-        : sum,
+        : sum;
+    },
     new Prisma.Decimal(0),
   );
   const deliveryAmount = computeDeliveryAmount(
@@ -192,9 +232,9 @@ function computeQuoteFinancials(input: CreateQuoteInput) {
       itemCode: line.itemCode,
       description: line.description,
     })),
-    computed.lineTotals,
+    lineTotals,
   );
-  return { computed, totalWeight, totalYards, deliveryAmount };
+  return { computed, lineTotals, totalWeight, totalYards, deliveryAmount };
 }
 
 function toOptionalDecimal(value: number | null) {
@@ -209,11 +249,15 @@ export async function createQuote(
   input: CreateQuoteInput,
   previewAfterSave = false,
 ): Promise<{ error: string } | never> {
-  await requirePermission(AppPermission.QUOTES_MANAGE);
+  const actor = await requirePermission(AppPermission.QUOTES_MANAGE);
   try {
     validateCreateQuoteInput(input);
 
-    let quoteNumber = await generateQuoteNumber(prisma, input.jobNumber);
+    let quoteNumber = await generateQuoteNumber(prisma, {
+      jobNumber: input.jobNumber,
+      scopeLabel: input.scopeLabel ?? null,
+      contractorName: input.jobBidderId ? input.customerName : null,
+    });
 
     if (input.contactId) {
       if (!input.customerId) {
@@ -260,7 +304,8 @@ export async function createQuote(
     // Recompute every money figure on the server with Decimal math. Client
     // totals (input.totals / line.total) are deliberately ignored for
     // persistence so a tampered or stale payload cannot store bogus amounts.
-    const { computed, totalWeight, totalYards, deliveryAmount } = computeQuoteFinancials(input);
+    const { computed, lineTotals, totalWeight, totalYards, deliveryAmount } =
+      computeQuoteFinancials(input);
 
     const createQuoteRecord = (quoteNum: string) =>
       prisma.quote.create({
@@ -277,10 +322,12 @@ export async function createQuote(
         ...(input.contactId
           ? { contact: { connect: { id: input.contactId } } }
           : {}),
+        createdBy: { connect: { id: actor.id } },
         sentAt: input.status === "SENT" ? new Date() : null,
         jobNumber: input.jobNumber,
         customerName: input.customerName.trim(),
         projectName: input.projectName.trim(),
+        scopeLabel: input.scopeLabel?.trim() || null,
         projectAddress: input.projectAddress,
         contactName: input.contactName,
         contactEmail: input.contactEmail,
@@ -323,9 +370,9 @@ export async function createQuote(
             weight: toOptionalDecimal(line.weight),
             yards: toOptionalDecimal(line.yards),
             taxable: line.taxable,
-            total: computed.lineTotals[index],
+            total: lineTotals[index],
             statusNote: line.statusNote,
-            sortOrder: line.lineNumber,
+            sortOrder: index + 1,
             notes: line.notes,
             isDrainRing: line.isDrainRing ?? false,
             ringDiameterFeet: toOptionalDecimal(line.ringDiameterFeet ?? null),
@@ -333,6 +380,7 @@ export async function createQuote(
             drainRingStyle: line.isDrainRing
               ? parseDrainRingStyle(line.drainRingStyle ?? "DRAIN")
               : "DRAIN",
+            structureConfigJson: line.structureConfigJson ?? undefined,
           })),
         },
       },
@@ -353,7 +401,11 @@ export async function createQuote(
           if (attempt >= 4) {
             throw new Error("Could not generate a unique quote number. Please try again.");
           }
-          quoteNumber = await generateQuoteNumber(prisma, input.jobNumber);
+          quoteNumber = await generateQuoteNumber(prisma, {
+            jobNumber: input.jobNumber,
+            scopeLabel: input.scopeLabel ?? null,
+            contractorName: input.jobBidderId ? input.customerName : null,
+          });
           continue;
         }
         throw error;
@@ -457,7 +509,8 @@ export async function updateQuote(
       }
     }
 
-    const { computed, totalWeight, totalYards, deliveryAmount } = computeQuoteFinancials(input);
+    const { computed, lineTotals, totalWeight, totalYards, deliveryAmount } =
+      computeQuoteFinancials(input);
 
     await withDatabaseRetry((client) =>
       client.$transaction(async (tx) => {
@@ -484,6 +537,7 @@ export async function updateQuote(
             jobNumber: input.jobNumber,
             customerName: input.customerName,
             projectName: input.projectName,
+            scopeLabel: input.scopeLabel?.trim() || null,
             projectAddress: input.projectAddress,
             contactName: input.contactName,
             contactEmail: input.contactEmail,
@@ -523,9 +577,9 @@ export async function updateQuote(
                 weight: toOptionalDecimal(line.weight),
                 yards: toOptionalDecimal(line.yards),
                 taxable: line.taxable,
-                total: computed.lineTotals[index],
+                total: lineTotals[index],
                 statusNote: line.statusNote,
-                sortOrder: line.lineNumber,
+                sortOrder: index + 1,
                 notes: line.notes,
                 isDrainRing: line.isDrainRing ?? false,
                 ringDiameterFeet: toOptionalDecimal(line.ringDiameterFeet ?? null),
@@ -533,6 +587,7 @@ export async function updateQuote(
                 drainRingStyle: line.isDrainRing
                   ? parseDrainRingStyle(line.drainRingStyle ?? "DRAIN")
                   : "DRAIN",
+                structureConfigJson: line.structureConfigJson ?? undefined,
               })),
             },
           },

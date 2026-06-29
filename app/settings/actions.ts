@@ -632,7 +632,7 @@ export async function getDocumentNumberingPreview() {
       lastNumber: invSeq?.lastNumber ?? 0,
     },
     quoteNote:
-      "Quote numbers derive from job numbers (Q-{jobNumber}-R0) or Q-{YY}-NEW-R0 for non-job quotes.",
+      "Quote numbers: Q-{jobNumber} with optional scope and contractor segments (e.g. Q-26-001-SITE-BAY); revisions add -R1, -R2. Non-job quotes use Q-{YY}-NEW.",
   };
 }
 

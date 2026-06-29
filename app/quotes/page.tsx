@@ -28,6 +28,7 @@ const QUOTE_LIST_SELECT = {
   revisionNumber: true,
   jobNumber: true,
   projectName: true,
+  scopeLabel: true,
   customerName: true,
   quoteType: true,
   status: true,
@@ -68,6 +69,7 @@ export default async function QuotesPage({
         { jobNumber: { contains: search, mode: "insensitive" } },
         { customerName: { contains: search, mode: "insensitive" } },
         { projectName: { contains: search, mode: "insensitive" } },
+        { scopeLabel: { contains: search, mode: "insensitive" } },
       ],
     });
   }

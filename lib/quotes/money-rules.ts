@@ -69,8 +69,9 @@ export function computeQuotePreviewTotals(
   lines: QuotePreviewLineInput[],
   taxRatePercent: DecimalLike,
 ): QuotePreviewTotals {
+  const billableLines = lines.filter((line) => line.lineType !== "CATEGORY");
   const computed = computeMoneyTotals(
-    lines.map((line) => ({
+    billableLines.map((line) => ({
       quantity: line.quantity,
       unitPrice: line.unitPrice,
       taxable: line.taxable,
@@ -78,16 +79,7 @@ export function computeQuotePreviewTotals(
     taxRatePercent,
   );
 
-  const delivery = lines.reduce((sum, line, index) => {
-    if (
-      isDeliveryServiceLine(line.lineType, line.itemCode, line.description)
-    ) {
-      return sum + toNumber(computed.lineTotals[index]);
-    }
-    return sum;
-  }, 0);
-
-  const totalWeight = lines.reduce((sum, line) => {
+  const totalWeight = billableLines.reduce((sum, line) => {
     const qty = toDecimal(line.quantity);
     const weight =
       line.weight != null && line.weight !== ""
@@ -96,13 +88,35 @@ export function computeQuotePreviewTotals(
     return weight != null ? sum + qty.mul(weight).toNumber() : sum;
   }, 0);
 
-  const totalYards = lines.reduce((sum, line) => {
+  const totalYards = billableLines.reduce((sum, line) => {
     const qty = toDecimal(line.quantity);
     const yards =
       line.yards != null && line.yards !== ""
         ? toDecimal(line.yards)
         : null;
     return yards != null ? sum + qty.mul(yards).toNumber() : sum;
+  }, 0);
+
+  let billableIndex = 0;
+  const lineTotals = lines.map((line) => {
+    if (line.lineType === "CATEGORY") {
+      return 0;
+    }
+    const total = toNumber(computed.lineTotals[billableIndex]!);
+    billableIndex += 1;
+    return total;
+  });
+
+  const delivery = lines.reduce((sum, line, index) => {
+    if (line.lineType === "CATEGORY") {
+      return sum;
+    }
+    if (
+      isDeliveryServiceLine(line.lineType, line.itemCode, line.description)
+    ) {
+      return sum + lineTotals[index]!;
+    }
+    return sum;
   }, 0);
 
   return {
@@ -114,7 +128,7 @@ export function computeQuotePreviewTotals(
     total: toNumber(computed.total),
     totalWeight,
     totalYards,
-    lineTotals: computed.lineTotals.map(toNumber),
+    lineTotals,
   };
 }
 

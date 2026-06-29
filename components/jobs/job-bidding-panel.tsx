@@ -282,7 +282,9 @@ export function JobBiddingPanel({
               >
                 {masterQuoteOptions.map((quote) => (
                   <option key={quote.id} value={quote.id}>
-                    {quote.quoteNumber} ({quote.lineItemCount} lines)
+                    {quote.quoteNumber}
+                    {quote.scopeLabel ? ` — ${quote.scopeLabel}` : ""}
+                    ({quote.lineItemCount} lines)
                   </option>
                 ))}
               </select>

@@ -16,14 +16,8 @@ export function sanitizeFolderName(value: string) {
     .replace(/[. ]+$/, "");
 }
 
-export function buildJobFolderBaseName(
-  jobNumber: string,
-  customerName: string,
-  projectName: string,
-) {
-  const folderName = sanitizeFolderName(
-    `${jobNumber} - ${customerName} - ${projectName}`,
-  );
+export function buildJobFolderBaseName(jobNumber: string, projectName: string) {
+  const folderName = sanitizeFolderName(`${jobNumber} - ${projectName}`);
 
   if (!folderName) {
     throw new Error("Job folder name is empty after sanitization.");
@@ -104,16 +98,14 @@ export async function createJobFoldersForJob({
   jobId,
   year,
   jobNumber,
-  customerName,
   projectName,
 }: {
   jobId: string;
   year: number;
   jobNumber: string;
-  customerName: string;
   projectName: string;
 }) {
-  const baseName = buildJobFolderBaseName(jobNumber, customerName, projectName);
+  const baseName = buildJobFolderBaseName(jobNumber, projectName);
   const folderPath = await resolveJobFolderPath(year, baseName, jobId);
 
   try {

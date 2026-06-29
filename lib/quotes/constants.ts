@@ -99,9 +99,16 @@ export const quoteLineItemTypeLabels: Record<QuoteLineItemType, string> = {
   CUSTOM_STRUCTURE: "Custom Structure",
   SERVICE: "Service",
   MISC: "Misc",
+  CATEGORY: "Category",
 };
 
+export function isCategoryLineItem(type: QuoteLineItemType | string): boolean {
+  return type === "CATEGORY";
+}
+
 export const DEFAULT_QUOTE_TAX_RATE = 8.625;
+
+export const DEFAULT_QUOTE_CUSTOMER_NAME = "Unassigned";
 
 export const quotePriceListFormOptions = [
   "Standard 2026",

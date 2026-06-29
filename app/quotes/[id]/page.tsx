@@ -16,6 +16,9 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
     prisma.quote.findUnique({
       where: { id },
       include: {
+        createdBy: {
+          select: { displayName: true },
+        },
         jobBidder: {
           select: { customer: { select: { name: true } } },
         },
@@ -65,7 +68,27 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
     }),
   );
 
-  const detail = mapQuoteToDetailView({ ...quote, revisionFamily });
+  const groupRoot = quote.masterQuoteId ?? quote.id;
+  const siblingQuotes = await withDatabaseRetry((prisma) =>
+    prisma.quote.findMany({
+      where: {
+        OR: [{ id: groupRoot }, { masterQuoteId: groupRoot }],
+      },
+      orderBy: [{ customerName: "asc" }],
+      select: {
+        id: true,
+        customerName: true,
+        quoteNumber: true,
+        status: true,
+        total: true,
+      },
+    }),
+  );
+
+  const detail = mapQuoteToDetailView(
+    { ...quote, revisionFamily },
+    siblingQuotes,
+  );
 
   return (
     <DashboardShell title={detail.title} subtitle={detail.subtitle}>

@@ -227,12 +227,32 @@ function resolveOpenings(
   });
 }
 
+export function getTopOfBottomSlabElevation(
+  lowInvertElevation: number | null,
+  sumpFeet: number,
+): number | null {
+  if (lowInvertElevation == null) {
+    return null;
+  }
+  // Matches "Top of Bottom Slab (Floor)" in getStructureElevations.
+  return round4(lowInvertElevation - sumpFeet);
+}
+
+export function computeBaseTopToOpeningBottomInches(
+  bottomOfOpeningFeet: number | null,
+  topOfBottomSlabFeet: number | null,
+): number | null {
+  if (bottomOfOpeningFeet == null || topOfBottomSlabFeet == null) {
+    return null;
+  }
+  return Math.round((bottomOfOpeningFeet - topOfBottomSlabFeet) * 12);
+}
+
 function computeOpeningGeometry(
   opening: ComputedOpening,
   wallThicknessInches: number,
   sumpFeet: number,
-  floorElevation: number | null,
-  baseSlabThicknessInches: number,
+  topOfBottomSlabFeet: number | null,
 ): ComputedOpening {
   if (opening.invertElevation == null) {
     return opening;
@@ -240,7 +260,6 @@ function computeOpeningGeometry(
   const pipeSize = opening.pipeSizeInches ?? 0;
   const holeSize = opening.holeDiameterInches ?? pipeSize;
   const wallFt = inchesToFeet(wallThicknessInches);
-  const baseSlabFt = inchesToFeet(baseSlabThicknessInches);
 
   const topOfPipeFeet = round4(
     opening.invertElevation + inchesToFeet(pipeSize / 2) + wallFt,
@@ -251,10 +270,11 @@ function computeOpeningGeometry(
   );
 
   let baseTopToOpeningBottomInches: number | null = null;
-  if (floorElevation != null) {
-    const baseTopElevation = floorElevation + baseSlabFt;
-    const distFeet = bottomOfOpeningFeet - baseTopElevation;
-    baseTopToOpeningBottomInches = Math.round(distFeet * 12);
+  if (topOfBottomSlabFeet != null) {
+    baseTopToOpeningBottomInches = computeBaseTopToOpeningBottomInches(
+      bottomOfOpeningFeet,
+      topOfBottomSlabFeet,
+    );
   }
 
   return {
@@ -496,14 +516,17 @@ export function computeDrillSheet(input: DrillSheetInput): DrillSheetResult {
 
   const floorElevation =
     lowInvertElevation != null ? round4(lowInvertElevation - sumpFeet) : null;
+  const topOfBottomSlabFeet = getTopOfBottomSlabElevation(
+    lowInvertElevation,
+    sumpFeet,
+  );
 
   openings = openings.map((opening) =>
     computeOpeningGeometry(
       opening,
       template.wallThicknessInches,
       sumpFeet,
-      floorElevation,
-      template.baseSlabThicknessInches,
+      topOfBottomSlabFeet,
     ),
   );
 
@@ -588,6 +611,7 @@ export function computeDrillSheet(input: DrillSheetInput): DrillSheetResult {
 }
 
 export type StructureElevation = {
+  key: string;
   label: string;
   elevation: number;
 };
@@ -606,19 +630,25 @@ export function getStructureElevations(
   const entries: StructureElevation[] = [];
   let current = round4(result.rimElevation);
 
-  entries.push({ label: "Rim Elevation", elevation: current });
+  entries.push({ key: "rim", label: "Rim Elevation", elevation: current });
 
   current = round4(current - result.castingHeightFeet);
   entries.push({
+    key: "casting",
     label: "Bottom of Casting / Top of Brick",
     elevation: current,
   });
 
   current = round4(current - result.brickFeet);
-  entries.push({ label: "Top of Top Slab", elevation: current });
+  entries.push({
+    key: "top-slab-top",
+    label: "Top of Top Slab",
+    elevation: current,
+  });
 
   current = round4(current - result.topSlabThicknessFeet);
   entries.push({
+    key: "top-slab-bottom",
     label: "Bottom of Top Slab (Joint / Top of Wall)",
     elevation: current,
   });
@@ -633,7 +663,8 @@ export function getStructureElevations(
     const aboveLabel = above.role === "BASE" ? "Base" : "Riser";
     const belowLabel = below.role === "BASE" ? "Base" : "Riser";
     entries.push({
-      label: `Joint (${aboveLabel} / ${belowLabel})`,
+      key: `joint-${i}`,
+      label: `Joint ${i + 1} (${aboveLabel} ${formatFeetInches(above.heightFeet)} / ${belowLabel} ${formatFeetInches(below.heightFeet)})`,
       elevation: current,
     });
   }
@@ -642,20 +673,27 @@ export function getStructureElevations(
     result.lowInvertElevation != null &&
     result.sumpFeet != null
   ) {
-    const floor = round4(result.lowInvertElevation - result.sumpFeet);
-    entries.push({
-      label: "Top of Bottom Slab (Floor)",
-      elevation: floor,
-    });
-
-    if (
-      result.baseSlabThicknessFeet != null &&
-      result.baseSlabThicknessFeet > EPSILON
-    ) {
+    const floor = getTopOfBottomSlabElevation(
+      result.lowInvertElevation,
+      result.sumpFeet,
+    );
+    if (floor != null) {
       entries.push({
-        label: "Bottom of Bottom Slab",
-        elevation: round4(floor - result.baseSlabThicknessFeet),
+        key: "floor",
+        label: "Top of Bottom Slab (Floor)",
+        elevation: floor,
       });
+
+      if (
+        result.baseSlabThicknessFeet != null &&
+        result.baseSlabThicknessFeet > EPSILON
+      ) {
+        entries.push({
+          key: "bottom-slab",
+          label: "Bottom of Bottom Slab",
+          elevation: round4(floor - result.baseSlabThicknessFeet),
+        });
+      }
     }
   } else if (reversedSections.length > 0) {
     const floorFromWall = round4(
@@ -663,6 +701,7 @@ export function getStructureElevations(
         reversedSections.reduce((sum, section) => sum + section.heightFeet, 0),
     );
     entries.push({
+      key: "floor",
       label: "Top of Bottom Slab (Floor)",
       elevation: floorFromWall,
     });
@@ -671,6 +710,7 @@ export function getStructureElevations(
       result.baseSlabThicknessFeet > EPSILON
     ) {
       entries.push({
+        key: "bottom-slab",
         label: "Bottom of Bottom Slab",
         elevation: round4(floorFromWall - result.baseSlabThicknessFeet),
       });
@@ -678,6 +718,35 @@ export function getStructureElevations(
   }
 
   return entries;
+}
+
+export type StructureDimension = {
+  key: string;
+  label: string;
+  feet: number;
+};
+
+/** Top-to-bottom component heights/thicknesses for the drill sheet dimensions list. */
+export function getStructureDimensions(
+  result: DrillSheetResult,
+): StructureDimension[] {
+  const dims: StructureDimension[] = [];
+  const push = (key: string, label: string, feet: number | null | undefined) => {
+    dims.push({ key, label, feet: feet ?? 0 });
+  };
+
+  push("casting", "Casting", result.castingHeightFeet);
+  push("brick", "Brick", result.brickFeet);
+  push("top-slab", "Top Slab", result.topSlabThicknessFeet);
+
+  const reversed = [...result.sections].reverse();
+  reversed.forEach((section, i) => {
+    const role = section.role === "BASE" ? "Base" : "Riser";
+    push(`section-${i}`, role, section.heightFeet);
+  });
+
+  push("base-slab", "Base Slab", result.baseSlabThicknessFeet);
+  return dims;
 }
 
 /** Formats decimal feet as a foot-inch string, e.g. 10.5 -> 10'-6". */
@@ -694,6 +763,15 @@ export function formatFeetInches(feet: number | null | undefined): string {
     inches = 0;
   }
   return `${sign}${wholeFeet}'-${inches}"`;
+}
+
+/** Like formatFeetInches but drops the feet part when under 1 ft: 0.667 -> 8", 4.5 -> 4'-6". */
+export function formatFeetInchesShort(feet: number | null | undefined): string {
+  const full = formatFeetInches(feet);
+  if (full === "—") {
+    return full;
+  }
+  return full.startsWith("0'-") ? full.slice(3) : full;
 }
 
 export function formatCurrency(value: number | null | undefined): string {

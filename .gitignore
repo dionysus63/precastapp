@@ -58,3 +58,6 @@ next-env.d.ts
 
 # Claude Code local job/worktree state
 /.claude/
+
+# Uploaded structure template drill sheet PDFs (per-template fillable forms)
+/assets/templates/structure-template-pdfs/

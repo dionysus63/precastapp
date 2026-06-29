@@ -52,7 +52,11 @@ export async function cloneQuoteForBidder(
 
   const customer = bidder.customer;
   const job = bidder.job;
-  const quoteNumber = await generateQuoteNumber(tx, job?.jobNumber ?? template.jobNumber);
+  const quoteNumber = await generateQuoteNumber(tx, {
+    jobNumber: job?.jobNumber ?? template.jobNumber,
+    scopeLabel: template.scopeLabel,
+    contractorName: customer.name,
+  });
 
   let contactSnapshot = null;
   if (contactId) {
@@ -69,7 +73,7 @@ export async function cloneQuoteForBidder(
 
   const primaryContact = contactSnapshot;
 
-  const { computed, totalWeight, totalYards, deliveryAmount } =
+  const { computed, lineTotals, totalWeight, totalYards, deliveryAmount } =
     computeQuoteTotalsFromLines(template.lineItems, template.taxRate);
 
   const quote = await tx.quote.create({
@@ -82,9 +86,11 @@ export async function cloneQuoteForBidder(
       ...(primaryContact?.contactId
         ? { contact: { connect: { id: primaryContact.contactId } } }
         : {}),
+      masterQuote: { connect: { id: templateQuoteId } },
       jobNumber: job?.jobNumber ?? template.jobNumber,
       customerName: customer.name,
       projectName: job?.projectName ?? template.projectName,
+      scopeLabel: template.scopeLabel,
       projectAddress: job?.projectAddress ?? template.projectAddress,
       contactName:
         primaryContact?.contactName ??
@@ -129,7 +135,7 @@ export async function cloneQuoteForBidder(
       deliveryNotes: template.deliveryNotes,
       lineItems: {
         create: template.lineItems.map((line, index) =>
-          mapLineItemForCreate(line, computed.lineTotals[index]),
+          mapLineItemForCreate(line, lineTotals[index]),
         ),
       },
     },

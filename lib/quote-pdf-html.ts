@@ -1,4 +1,5 @@
 import type { QuoteDetailView } from "@/components/quotes/quote-utils";
+import { isCategoryLineItem } from "@/lib/quotes/constants";
 import {
   DEFAULT_QUOTE_FOOTER_TEXT,
   getAppSettings,
@@ -59,8 +60,14 @@ export async function buildQuotePdfHtml(quote: QuoteDetailView) {
     quote.lineItems.length === 0
       ? `<tr><td colspan="6" class="empty">No line items on this quote.</td></tr>`
       : quote.lineItems
-          .map(
-            (line) => `
+          .map((line) =>
+            isCategoryLineItem(line.type)
+              ? `
+        <tr class="category-line">
+          <td colspan="6"><strong><u>${escapeHtml(line.description)}</u></strong></td>
+        </tr>
+      `
+              : `
         <tr>
           <td class="item">${escapeHtml(line.item)}</td>
           <td class="rich-text">${sanitizeRichText(line.description)}</td>
@@ -227,6 +234,11 @@ export async function buildQuotePdfHtml(quote: QuoteDetailView) {
       tbody td.rich-text u { text-decoration: underline; }
       tbody td.num { text-align: right; font-variant-numeric: tabular-nums; }
       tbody td.total { font-weight: 600; }
+      tbody tr.category-line td {
+        font-weight: 700;
+        padding-top: 10px;
+        padding-bottom: 6px;
+      }
       tbody td.empty {
         text-align: center;
         color: #737373;

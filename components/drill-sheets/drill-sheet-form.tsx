@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import {
   structureInputClassName,
@@ -76,6 +76,23 @@ type OpeningField = {
   connectionType: PipeConnectionType | "";
 };
 
+type PreviewNumericField =
+  | "rim"
+  | `${string}-invert`
+  | `${string}-pipeSize`
+  | `${string}-angle`;
+
+type CommittedOpeningNumbers = {
+  invertElevation: number | null;
+  pipeSizeInches: number | null;
+  angleDegrees: number | null;
+};
+
+type CommittedPreviewNumbers = {
+  rimElevation: number | null;
+  openings: Record<string, CommittedOpeningNumbers>;
+};
+
 type DrillSheetFormProps = {
   action: (formData: FormData) => Promise<void>;
   templates: DrillSheetTemplateOption[];
@@ -100,6 +117,45 @@ function parseNum(value: string): number | null {
   return Number.isFinite(num) ? num : null;
 }
 
+function emptyCommittedOpening(): CommittedOpeningNumbers {
+  return {
+    invertElevation: null,
+    pipeSizeInches: null,
+    angleDegrees: null,
+  };
+}
+
+function buildCommittedPreview(
+  rim: string,
+  openingRows: OpeningField[],
+): CommittedPreviewNumbers {
+  return {
+    rimElevation: parseNum(rim),
+    openings: Object.fromEntries(
+      openingRows.map((opening) => [
+        opening.id,
+        {
+          invertElevation: parseNum(opening.invertElevation),
+          pipeSizeInches: parseNum(opening.pipeSizeInches),
+          angleDegrees: parseNum(opening.angle),
+        },
+      ]),
+    ),
+  };
+}
+
+function previewNum(
+  fieldKey: PreviewNumericField,
+  raw: string,
+  committed: number | null,
+  focusedField: PreviewNumericField | null,
+): number | null {
+  if (focusedField === fieldKey) {
+    return committed;
+  }
+  return parseNum(raw);
+}
+
 function createOpening(label: string): OpeningField {
   return {
     id: uid(),
@@ -122,6 +178,17 @@ function initialOpenings(
   return [createOpening("A"), createOpening("B")];
 }
 
+function initFormState(initialValues: DrillSheetFormValues | undefined) {
+  const openingRows = initialOpenings(initialValues);
+  return {
+    openings: openingRows,
+    committedPreview: buildCommittedPreview(
+      initialValues?.rimElevation ?? "",
+      openingRows,
+    ),
+  };
+}
+
 const connectionOptions: { value: PipeConnectionType | ""; label: string }[] = [
   { value: "", label: "Template default" },
   { value: "KOR_N_SEAL", label: "Kor-N-Seal Boot" },
@@ -141,6 +208,7 @@ export function DrillSheetForm({
   cancelHref = "/drill-sheets",
   submitLabel = "Save Drill Sheet",
 }: DrillSheetFormProps) {
+  const initialForm = useRef(initFormState(initialValues)).current;
   const [templateId, setTemplateId] = useState(
     initialValues?.templateId ?? templates[0]?.id ?? "",
   );
@@ -161,12 +229,21 @@ export function DrillSheetForm({
   const [project, setProject] = useState(initialValues?.project ?? "");
   const [date, setDate] = useState(initialValues?.date ?? "");
   const [hasSteps, setHasSteps] = useState(initialValues?.hasSteps ?? false);
+  const [inspection, setInspection] = useState(initialValues?.inspection ?? "");
+  const [approvedBy, setApprovedBy] = useState(initialValues?.approvedBy ?? "");
+  const [useBase, setUseBase] = useState(initialValues?.useBase ?? "");
+  const [useRiser, setUseRiser] = useState(initialValues?.useRiser ?? "");
+  const [brickAdjustment, setBrickAdjustment] = useState(
+    initialValues?.brickAdjustment ?? "",
+  );
   const [rimElevation, setRimElevation] = useState(
     initialValues?.rimElevation ?? "",
   );
-  const [openings, setOpenings] = useState<OpeningField[]>(() =>
-    initialOpenings(initialValues),
-  );
+  const [openings, setOpenings] = useState<OpeningField[]>(initialForm.openings);
+  const [committedPreview, setCommittedPreview] =
+    useState<CommittedPreviewNumbers>(initialForm.committedPreview);
+  const [focusedNumericField, setFocusedNumericField] =
+    useState<PreviewNumericField | null>(null);
 
   const selectedDiameter = selectedTemplate?.diameters.find(
     (d) => d.id === diameterId,
@@ -205,6 +282,11 @@ export function DrillSheetForm({
         project,
         date,
         hasSteps,
+        inspection,
+        approvedBy,
+        useBase,
+        useRiser,
+        brickAdjustment,
         rimElevation,
         openings: openings.map((o) => ({
           label: o.label,
@@ -226,6 +308,11 @@ export function DrillSheetForm({
       project,
       date,
       hasSteps,
+      inspection,
+      approvedBy,
+      useBase,
+      useRiser,
+      brickAdjustment,
       rimElevation,
       openings,
     ],
@@ -236,7 +323,12 @@ export function DrillSheetForm({
       return null;
     }
     const input: DrillSheetInput = {
-      rimElevation: parseNum(rimElevation),
+      rimElevation: previewNum(
+        "rim",
+        rimElevation,
+        committedPreview.rimElevation,
+        focusedNumericField,
+      ),
       castingHeightFeet,
       diameter: diameterConfig,
       template: {
@@ -252,15 +344,34 @@ export function DrillSheetForm({
           selectedTemplate.openingToJointMinBottomInches,
       },
       pipeOpeningSizes,
-      openings: openings.map((o) => ({
-        label: o.label,
-        pipeMaterial: o.pipeMaterial,
-        pipeSizeInches: parseNum(o.pipeSizeInches),
-        pipeType: o.pipeType,
-        invertElevation: parseNum(o.invertElevation),
-        angleDegrees: parseNum(o.angle),
-        connectionType: o.connectionType || null,
-      })),
+      openings: openings.map((o) => {
+        const committed =
+          committedPreview.openings[o.id] ?? emptyCommittedOpening();
+        return {
+          label: o.label,
+          pipeMaterial: o.pipeMaterial,
+          pipeSizeInches: previewNum(
+            `${o.id}-pipeSize`,
+            o.pipeSizeInches,
+            committed.pipeSizeInches,
+            focusedNumericField,
+          ),
+          pipeType: o.pipeType,
+          invertElevation: previewNum(
+            `${o.id}-invert`,
+            o.invertElevation,
+            committed.invertElevation,
+            focusedNumericField,
+          ),
+          angleDegrees: previewNum(
+            `${o.id}-angle`,
+            o.angle,
+            committed.angleDegrees,
+            focusedNumericField,
+          ),
+          connectionType: o.connectionType || null,
+        };
+      }),
     };
     return computeDrillSheet(input);
   }, [
@@ -271,6 +382,8 @@ export function DrillSheetForm({
     castingHeightFeet,
     pipeOpeningSizes,
     openings,
+    committedPreview,
+    focusedNumericField,
   ]);
 
   const previewMeta: DrillSheetPreviewMeta = {
@@ -282,6 +395,11 @@ export function DrillSheetForm({
     castingName: selectedCasting?.name ?? "",
     insideDiameterFeet: selectedDiameter?.insideDiameterFeet ?? null,
     hasSteps,
+    inspection,
+    approvedBy,
+    useBase,
+    useRiser,
+    brickAdjustment,
   };
 
   function updateOpening(
@@ -294,13 +412,88 @@ export function DrillSheetForm({
     );
   }
 
+  function commitNumericField(field: PreviewNumericField, raw: string) {
+    if (field === "rim") {
+      setCommittedPreview((prev) => ({
+        ...prev,
+        rimElevation: parseNum(raw),
+      }));
+      return;
+    }
+
+    const match = field.match(/^(.+)-(invert|pipeSize|angle)$/);
+    if (!match) {
+      return;
+    }
+    const [, openingId, kind] = match;
+    const parsed = parseNum(raw);
+    setCommittedPreview((prev) => ({
+      ...prev,
+      openings: {
+        ...prev.openings,
+        [openingId]: {
+          ...(prev.openings[openingId] ?? emptyCommittedOpening()),
+          ...(kind === "invert"
+            ? { invertElevation: parsed }
+            : kind === "pipeSize"
+              ? { pipeSizeInches: parsed }
+              : { angleDegrees: parsed }),
+        },
+      },
+    }));
+  }
+
+  function handleNumericFocus(field: PreviewNumericField) {
+    setFocusedNumericField(field);
+  }
+
+  function handleNumericBlur(field: PreviewNumericField, raw: string) {
+    commitNumericField(field, raw);
+    setFocusedNumericField(null);
+  }
+
+  function handleNumericKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.currentTarget.blur();
+    }
+  }
+
+  function addOpening() {
+    const next = createOpening(String.fromCharCode(65 + openings.length));
+    setOpenings((rows) => [...rows, next]);
+    setCommittedPreview((prev) => ({
+      ...prev,
+      openings: {
+        ...prev.openings,
+        [next.id]: emptyCommittedOpening(),
+      },
+    }));
+  }
+
+  function removeOpening(openingId: string) {
+    setOpenings((rows) => rows.filter((row) => row.id !== openingId));
+    setCommittedPreview((prev) => {
+      const nextOpenings = { ...prev.openings };
+      delete nextOpenings[openingId];
+      return { ...prev, openings: nextOpenings };
+    });
+    setFocusedNumericField((current) =>
+      current?.startsWith(`${openingId}-`) ? null : current,
+    );
+  }
+
+  function flushPreviewNumbers() {
+    setCommittedPreview(buildCommittedPreview(rimElevation, openings));
+    setFocusedNumericField(null);
+  }
+
   const materialOptions = [
     ...new Set(pipeOpeningSizes.map((e) => e.pipeMaterial)),
   ];
   const typeOptions = [...new Set(pipeOpeningSizes.map((e) => e.pipeType))];
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} className="space-y-4" onSubmit={flushPreviewNumbers}>
       <input type="hidden" name="payload" value={payloadJson} />
 
       <SectionCard title="Structure Setup">
@@ -399,6 +592,9 @@ export function DrillSheetForm({
               step="0.01"
               value={rimElevation}
               onChange={(e) => setRimElevation(e.target.value)}
+              onFocus={() => handleNumericFocus("rim")}
+              onBlur={(e) => handleNumericBlur("rim", e.target.value)}
+              onKeyDown={handleNumericKeyDown}
               className={structureInputClassName}
             />
           </div>
@@ -440,6 +636,62 @@ export function DrillSheetForm({
               className={structureInputClassName}
             />
           </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-700">
+              Inspection
+            </label>
+            <input
+              type="text"
+              value={inspection}
+              onChange={(e) => setInspection(e.target.value)}
+              className={structureInputClassName}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-700">
+              Approved By
+            </label>
+            <input
+              type="text"
+              value={approvedBy}
+              onChange={(e) => setApprovedBy(e.target.value)}
+              className={structureInputClassName}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-700">
+              Use (Base Section)
+            </label>
+            <input
+              type="text"
+              value={useBase}
+              onChange={(e) => setUseBase(e.target.value)}
+              className={structureInputClassName}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-700">
+              Use / Riser
+            </label>
+            <input
+              type="text"
+              value={useRiser}
+              onChange={(e) => setUseRiser(e.target.value)}
+              className={structureInputClassName}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-700">
+              Brick Adjustment
+            </label>
+            <input
+              type="text"
+              value={brickAdjustment}
+              onChange={(e) => setBrickAdjustment(e.target.value)}
+              placeholder={'e.g. 8"'}
+              className={structureInputClassName}
+            />
+          </div>
           <div className="flex items-end pb-2">
             <label className="flex items-center gap-2 text-xs text-slate-700">
               <input
@@ -459,12 +711,7 @@ export function DrillSheetForm({
         action={
           <button
             type="button"
-            onClick={() =>
-              setOpenings((rows) => [
-                ...rows,
-                createOpening(String.fromCharCode(65 + rows.length)),
-              ])
-            }
+            onClick={addOpening}
             className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
           >
             Add Opening
@@ -507,6 +754,16 @@ export function DrillSheetForm({
                       onChange={(e) =>
                         updateOpening(opening.id, "invertElevation", e.target.value)
                       }
+                      onFocus={() =>
+                        handleNumericFocus(`${opening.id}-invert`)
+                      }
+                      onBlur={(e) =>
+                        handleNumericBlur(
+                          `${opening.id}-invert`,
+                          e.target.value,
+                        )
+                      }
+                      onKeyDown={handleNumericKeyDown}
                       className={structureTableInputClassName}
                     />
                   </td>
@@ -518,6 +775,16 @@ export function DrillSheetForm({
                       onChange={(e) =>
                         updateOpening(opening.id, "pipeSizeInches", e.target.value)
                       }
+                      onFocus={() =>
+                        handleNumericFocus(`${opening.id}-pipeSize`)
+                      }
+                      onBlur={(e) =>
+                        handleNumericBlur(
+                          `${opening.id}-pipeSize`,
+                          e.target.value,
+                        )
+                      }
+                      onKeyDown={handleNumericKeyDown}
                       className={structureTableInputClassName}
                     />
                   </td>
@@ -551,6 +818,11 @@ export function DrillSheetForm({
                       onChange={(e) =>
                         updateOpening(opening.id, "angle", e.target.value)
                       }
+                      onFocus={() => handleNumericFocus(`${opening.id}-angle`)}
+                      onBlur={(e) =>
+                        handleNumericBlur(`${opening.id}-angle`, e.target.value)
+                      }
+                      onKeyDown={handleNumericKeyDown}
                       placeholder="90"
                       className={structureTableInputClassName}
                     />
@@ -578,11 +850,7 @@ export function DrillSheetForm({
                     {openings.length > 1 ? (
                       <button
                         type="button"
-                        onClick={() =>
-                          setOpenings((rows) =>
-                            rows.filter((row) => row.id !== opening.id),
-                          )
-                        }
+                        onClick={() => removeOpening(opening.id)}
                         className="text-[11px] font-medium text-rose-600 hover:text-rose-800"
                       >
                         Remove
@@ -607,7 +875,7 @@ export function DrillSheetForm({
       </SectionCard>
 
       {previewResult ? (
-        <SectionCard title="Live Preview">
+        <SectionCard title="Live Preview" noPadding>
           <DrillSheetPreview meta={previewMeta} result={previewResult} />
         </SectionCard>
       ) : null}

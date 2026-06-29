@@ -85,7 +85,8 @@ async function buildQuotePageBytes(
 
   const page = doc.getPage(0);
   const font = await doc.embedFont(StandardFonts.Helvetica);
-  drawQuoteLineItemsOnPage(page, font, slice);
+  const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
+  drawQuoteLineItemsOnPage(page, font, boldFont, slice);
 
   return doc.save();
 }

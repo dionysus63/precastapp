@@ -6,14 +6,15 @@ import {
   buildDrillSheetDetail,
   drillSheetDetailInclude,
 } from "@/lib/drill-sheet-detail";
-import { buildDrillSheetPdfHtml } from "@/lib/drill-sheet-pdf-html";
+import { buildDrillSheetPdfBytes } from "@/lib/drill-sheet-pdf-generate";
+import { writeFile, mkdir } from "fs/promises";
+import path from "path";
 import {
   DRILL_SHEET_PDF_JOB_SUBFOLDER,
   buildDrillSheetPdfBaseName,
   resolveDrillSheetPdfDirectory,
   resolveDrillSheetPdfOutputPath,
 } from "@/lib/drill-sheet-pdf-path";
-import { writeQuotePdfFromHtml } from "@/lib/quote-pdf";
 import { registerJobFile } from "@/lib/job-files-service";
 import { launchWindowsFile } from "@/lib/windows-explorer";
 import { getJobsRoot } from "@/lib/app-settings";
@@ -63,7 +64,14 @@ export async function generateDrillSheetPdf(
       jobFolderPath = job?.folderPath ?? null;
     }
 
-    const html = await buildDrillSheetPdfHtml(detail.meta, detail.result);
+    const built = await buildDrillSheetPdfBytes(sheet);
+    if (!built) {
+      return {
+        success: false,
+        error: "This structure is not a circular drill sheet.",
+      };
+    }
+
     const baseName = buildDrillSheetPdfBaseName(
       detail.meta.manholeNumber,
       detail.meta.project,
@@ -74,12 +82,12 @@ export async function generateDrillSheetPdf(
       baseName,
     );
 
-    // The job folder comes from the DB; keep the write inside the jobs root.
     if (jobFolderPath) {
       assertPathUnderJobsRoot(await getJobsRoot(), outputPath);
     }
 
-    await writeQuotePdfFromHtml(html, outputPath);
+    await mkdir(path.dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, built.bytes);
 
     if (sheet.jobId && jobFolderPath) {
       await withDatabaseRetry((client) =>
@@ -92,8 +100,6 @@ export async function generateDrillSheetPdf(
       );
     }
 
-    // Reveal the saved PDF in Explorer. The file is already written, so a
-    // launch failure (e.g. non-Windows host) should not fail generation.
     try {
       await launchWindowsFile(outputPath);
     } catch {

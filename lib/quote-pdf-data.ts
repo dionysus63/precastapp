@@ -94,13 +94,26 @@ function resolveLineDescription(line: QuoteLineItemRecord): string {
 export function mapQuoteLineItemsForPdf(
   lineItems: DbQuoteForPdf["lineItems"],
 ): QuoteDrawLineItem[] {
-  return lineItems.map((line) => ({
-    item: line.itemCode.trim(),
-    qty: formatQuantity(line.quantity),
-    description: resolveLineDescription(line),
-    unitPrice: formatMoneyForPdf(line.unitPrice),
-    total: formatMoneyForPdf(line.total),
-  }));
+  return lineItems.map((line) => {
+    if (line.lineType === "CATEGORY") {
+      return {
+        item: "",
+        qty: "",
+        description: line.description?.trim() ?? "",
+        unitPrice: "",
+        total: "",
+        isCategoryLine: true,
+      };
+    }
+
+    return {
+      item: line.itemCode.trim(),
+      qty: formatQuantity(line.quantity),
+      description: resolveLineDescription(line),
+      unitPrice: formatMoneyForPdf(line.unitPrice),
+      total: formatMoneyForPdf(line.total),
+    };
+  });
 }
 
 export function buildQuoteFormData(

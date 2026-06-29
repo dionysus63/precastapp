@@ -31,9 +31,10 @@ export default async function DrillSheetPreviewPage({
 
   return (
     <DrillSheetPreviewContent
-      meta={detail.meta}
-      result={detail.result}
       drillSheetId={sheet.id}
+      manholeNumber={detail.meta.manholeNumber}
+      templateName={detail.meta.templateName}
+      projectName={detail.meta.project}
     />
   );
 }

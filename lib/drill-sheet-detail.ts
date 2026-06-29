@@ -3,12 +3,20 @@ import type { DrillSheetPreviewMeta } from "@/components/drill-sheets/drill-shee
 import {
   type ComputedOpening,
   type ComputedSection,
+  computeBaseTopToOpeningBottomInches,
   type DrillSheetResult,
+  getTopOfBottomSlabElevation,
   type PipeConnectionType,
 } from "@/lib/drill-sheet";
 
 export const drillSheetDetailInclude = {
-  structureTemplate: { select: { name: true, agencyStandard: true } },
+  structureTemplate: {
+    select: {
+      name: true,
+      agencyStandard: true,
+      templatePdfs: true,
+    },
+  },
   calc: true,
   openings: { orderBy: { openingNumber: "asc" } },
   sections: { orderBy: { sortOrder: "asc" } },
@@ -44,6 +52,11 @@ export type DrillSheetFormValues = {
   project: string;
   date: string;
   hasSteps: boolean;
+  inspection: string;
+  approvedBy: string;
+  useBase: string;
+  useRiser: string;
+  brickAdjustment: string;
   rimElevation: string;
   openings: DrillSheetFormOpening[];
 };
@@ -92,6 +105,11 @@ export function buildDrillSheetFormValues(
     project: calc?.projectName ?? "",
     date: toDateInputValue(calc?.sheetDate ?? null),
     hasSteps: calc?.hasSteps ?? false,
+    inspection: calc?.inspection ?? "",
+    approvedBy: calc?.approvedBy ?? "",
+    useBase: calc?.useBase ?? "",
+    useRiser: calc?.useRiser ?? "",
+    brickAdjustment: calc?.brickAdjustment ?? "",
     rimElevation: decimalToInput(calc?.rimElevation ?? null),
     openings: sheet.openings.map((opening) => ({
       label: opening.label ?? "",
@@ -114,9 +132,12 @@ export function buildDrillSheetDetail(
   }
 
   const lowInvert = num(calc.lowestInvertFeet);
+  const sumpFeet = num(calc.sumpFeet) ?? 0;
+  const topOfBottomSlabFeet = getTopOfBottomSlabElevation(lowInvert, sumpFeet);
 
   const openings: ComputedOpening[] = sheet.openings.map((opening) => {
     const invert = num(opening.invertElevation);
+    const bottomOfOpeningFeet = num(opening.bottomOfOpeningFeet);
     return {
       label: opening.label ?? "",
       pipeMaterial: opening.pipeMaterial,
@@ -133,9 +154,12 @@ export function buildDrillSheetDetail(
         lowInvert != null &&
         Math.abs(invert - lowInvert) < 1e-6,
       topOfPipeFeet: num(opening.topOfPipeFeet),
-      bottomOfOpeningFeet: num(opening.bottomOfOpeningFeet),
+      bottomOfOpeningFeet,
       topOfOpeningFeet: num(opening.topOfOpeningFeet),
-      baseTopToOpeningBottomInches: opening.baseTopToOpeningBottomInches,
+      baseTopToOpeningBottomInches: computeBaseTopToOpeningBottomInches(
+        bottomOfOpeningFeet,
+        topOfBottomSlabFeet,
+      ),
     };
   });
 
@@ -183,6 +207,11 @@ export function buildDrillSheetDetail(
     castingName: sheet.castings[0]?.castingDescription ?? "",
     insideDiameterFeet: num(calc.insideDiameterFeet),
     hasSteps: calc.hasSteps,
+    inspection: calc.inspection ?? "",
+    approvedBy: calc.approvedBy ?? "",
+    useBase: calc.useBase ?? "",
+    useRiser: calc.useRiser ?? "",
+    brickAdjustment: calc.brickAdjustment ?? "",
   };
 
   return { meta, result };

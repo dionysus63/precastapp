@@ -313,56 +313,96 @@ export function JobDetailContent({
           }
           noPadding
         >
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                  <th className="px-3 py-2.5 font-semibold">Quote Number</th>
-                  <th className="px-3 py-2.5 font-semibold">Customer</th>
-                  <th className="px-3 py-2.5 font-semibold">Project Name</th>
-                  <th className="px-3 py-2.5 font-semibold">Status</th>
-                  <th className="px-3 py-2.5 font-semibold">Total</th>
-                  <th className="px-3 py-2.5 font-semibold">Last Updated</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {detail.relatedQuotes.length === 0 ? (
-                  <EmptyRow colSpan={6} message="No quotes linked to this job yet." />
-                ) : (
-                  detail.relatedQuotes.map((quote) => (
-                    <tr key={quote.id} className="hover:bg-slate-50/60">
-                      <td className="px-3 py-2.5">
-                        <Link
-                          href={`/quotes/${quote.id}`}
-                          className="font-medium text-slate-900 hover:text-slate-700"
-                        >
-                          {quote.quoteNumber}
-                        </Link>
-                      </td>
-                      <td className="px-3 py-2.5 text-slate-700">
-                        {quote.customerName}
-                      </td>
-                      <td className="px-3 py-2.5 text-slate-700">
-                        {quote.projectName}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <StatusBadge
-                          label={quote.statusLabel}
-                          variant={quote.statusVariant}
-                        />
-                      </td>
-                      <td className="px-3 py-2.5 font-medium text-slate-900">
-                        {quote.total}
-                      </td>
-                      <td className="px-3 py-2.5 text-slate-600">
-                        {quote.lastUpdated}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+          {detail.relatedQuotes.length === 0 ? (
+            <p className="px-4 py-6 text-center text-sm text-slate-500">
+              No quotes linked to this job yet.
+            </p>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {detail.relatedQuoteGroups.map((group) => (
+                <div key={group.groupKey} className="p-4">
+                  <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {group.scopeLabel ? (
+                          <span className="inline-flex rounded-full bg-sky-100 px-2.5 py-0.5 text-[11px] font-semibold text-sky-900">
+                            {group.scopeLabel}
+                          </span>
+                        ) : null}
+                        <span className="font-mono text-sm font-semibold text-slate-900">
+                          {group.masterQuoteNumber}
+                        </span>
+                        {group.quoteCount > 1 ? (
+                          <span className="text-[11px] text-slate-500">
+                            {group.quoteCount} customer
+                            {group.quoteCount === 1 ? "" : "s"}
+                          </span>
+                        ) : null}
+                      </div>
+                      {group.scopeLabel ? (
+                        <p className="text-[11px] text-slate-500">
+                          Master quote {group.masterQuoteNumber}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="overflow-x-auto rounded-lg border border-slate-100">
+                    <table className="min-w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
+                          <th className="px-3 py-2.5 font-semibold">
+                            Quote Number
+                          </th>
+                          <th className="px-3 py-2.5 font-semibold">
+                            Customer
+                          </th>
+                          <th className="px-3 py-2.5 font-semibold">Status</th>
+                          <th className="px-3 py-2.5 font-semibold">Total</th>
+                          <th className="px-3 py-2.5 font-semibold">
+                            Last Updated
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {group.quotes.map((quote) => (
+                          <tr key={quote.id} className="hover:bg-slate-50/60">
+                            <td className="px-3 py-2.5">
+                              <Link
+                                href={`/quotes/${quote.id}`}
+                                className="font-medium text-slate-900 hover:text-slate-700"
+                              >
+                                {quote.quoteNumber}
+                              </Link>
+                              {quote.isMaster && group.quoteCount > 1 ? (
+                                <span className="ml-2 text-[10px] font-medium uppercase text-slate-400">
+                                  Master
+                                </span>
+                              ) : null}
+                            </td>
+                            <td className="px-3 py-2.5 text-slate-700">
+                              {quote.customerName}
+                            </td>
+                            <td className="px-3 py-2.5">
+                              <StatusBadge
+                                label={quote.statusLabel}
+                                variant={quote.statusVariant}
+                              />
+                            </td>
+                            <td className="px-3 py-2.5 font-medium text-slate-900">
+                              {quote.total}
+                            </td>
+                            <td className="px-3 py-2.5 text-slate-600">
+                              {quote.lastUpdated}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </SectionCard>
       ) : null}
 

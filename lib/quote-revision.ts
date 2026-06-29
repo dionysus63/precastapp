@@ -63,7 +63,7 @@ export async function reviseQuoteInTransaction(
     nextRevision,
   );
 
-  const { computed, totalWeight, totalYards, deliveryAmount } =
+  const { computed, lineTotals, totalWeight, totalYards, deliveryAmount } =
     computeQuoteTotalsFromLines(source.lineItems, source.taxRate);
 
   const newQuote = await tx.quote.create({
@@ -84,9 +84,13 @@ export async function reviseQuoteInTransaction(
       ...(source.priceListId
         ? { priceList: { connect: { id: source.priceListId } } }
         : {}),
+      ...(source.masterQuoteId
+        ? { masterQuote: { connect: { id: source.masterQuoteId } } }
+        : {}),
       jobNumber: source.jobNumber,
       customerName: source.customerName,
       projectName: source.projectName,
+      scopeLabel: source.scopeLabel,
       projectAddress: source.projectAddress,
       contactName: source.contactName,
       contactEmail: source.contactEmail,
@@ -115,7 +119,7 @@ export async function reviseQuoteInTransaction(
       deliveryNotes: source.deliveryNotes,
       lineItems: {
         create: source.lineItems.map((line, index) =>
-          mapLineItemForCreate(line, computed.lineTotals[index], {
+          mapLineItemForCreate(line, lineTotals[index], {
             previousLineItemId: line.id,
           }),
         ),

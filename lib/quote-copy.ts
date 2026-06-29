@@ -47,8 +47,9 @@ export function computeQuoteTotalsFromLines(
   lineItems: LineItemSource[],
   taxRate: Prisma.Decimal,
 ) {
+  const billableLines = lineItems.filter((line) => line.lineType !== "CATEGORY");
   const computed = computeMoneyTotals(
-    lineItems.map((line) => ({
+    billableLines.map((line) => ({
       quantity: line.quantity,
       unitPrice: line.unitPrice,
       taxable: line.taxable,
@@ -56,19 +57,37 @@ export function computeQuoteTotalsFromLines(
     taxRate,
   );
 
+  let billableIndex = 0;
+  const lineTotals = lineItems.map((line) => {
+    if (line.lineType === "CATEGORY") {
+      return new Prisma.Decimal(0);
+    }
+    const total = computed.lineTotals[billableIndex]!;
+    billableIndex += 1;
+    return total;
+  });
+
   const totalWeight = lineItems.reduce(
-    (sum, line) =>
-      line.weight != null
+    (sum, line) => {
+      if (line.lineType === "CATEGORY") {
+        return sum;
+      }
+      return line.weight != null
         ? sum.add(toQuoteDecimal(line.weight).mul(toQuoteDecimal(line.quantity)))
-        : sum,
+        : sum;
+    },
     new Prisma.Decimal(0),
   );
 
   const totalYards = lineItems.reduce(
-    (sum, line) =>
-      line.yards != null
+    (sum, line) => {
+      if (line.lineType === "CATEGORY") {
+        return sum;
+      }
+      return line.yards != null
         ? sum.add(toQuoteDecimal(line.yards).mul(toQuoteDecimal(line.quantity)))
-        : sum,
+        : sum;
+    },
     new Prisma.Decimal(0),
   );
 
@@ -78,10 +97,10 @@ export function computeQuoteTotalsFromLines(
       itemCode: line.itemCode,
       description: line.description,
     })),
-    computed.lineTotals,
+    lineTotals,
   );
 
-  return { computed, totalWeight, totalYards, deliveryAmount };
+  return { computed, lineTotals, totalWeight, totalYards, deliveryAmount };
 }
 
 export function mapLineItemForCreate(

@@ -32,6 +32,11 @@ type DrillSheetPayload = {
   project: string;
   date: string;
   hasSteps: boolean;
+  inspection: string;
+  approvedBy: string;
+  useBase: string;
+  useRiser: string;
+  brickAdjustment: string;
   rimElevation: string;
   openings: OpeningPayload[];
 };
@@ -96,6 +101,11 @@ function parsePayload(formData: FormData): DrillSheetPayload {
     project: String(data.project ?? "").trim(),
     date: String(data.date ?? "").trim(),
     hasSteps: data.hasSteps === true,
+    inspection: String(data.inspection ?? "").trim(),
+    approvedBy: String(data.approvedBy ?? "").trim(),
+    useBase: String(data.useBase ?? "").trim(),
+    useRiser: String(data.useRiser ?? "").trim(),
+    brickAdjustment: String(data.brickAdjustment ?? "").trim(),
     rimElevation: String(data.rimElevation ?? "").trim(),
     openings,
   };
@@ -225,6 +235,11 @@ function buildCalcData(
     projectName: payload.project || null,
     sheetDate,
     hasSteps: payload.hasSteps,
+    inspection: payload.inspection || null,
+    approvedBy: payload.approvedBy || null,
+    useBase: payload.useBase || null,
+    useRiser: payload.useRiser || null,
+    brickAdjustment: payload.brickAdjustment || null,
     rimElevation: decimal(result.rimElevation),
     lowestInvertFeet: decimal(result.lowInvertElevation),
     sumpFeet: decimal(result.sumpFeet),

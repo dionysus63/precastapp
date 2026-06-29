@@ -213,7 +213,6 @@ export async function createJob(formData: FormData) {
       jobId: job.id,
       year: numbering.year,
       jobNumber: numbering.jobNumber,
-      customerName: customer.customerName,
       projectName: data.projectName,
     });
   } catch (error) {
@@ -384,7 +383,6 @@ export async function createJobFolder(jobId: string) {
       id: true,
       year: true,
       jobNumber: true,
-      customerName: true,
       projectName: true,
       folderPath: true,
     },
@@ -404,7 +402,6 @@ export async function createJobFolder(jobId: string) {
       jobId: job.id,
       year: job.year,
       jobNumber: job.jobNumber,
-      customerName: job.customerName,
       projectName: job.projectName,
     });
   } catch (error) {

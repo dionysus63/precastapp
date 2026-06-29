@@ -38,11 +38,24 @@ export type JobRelatedQuote = {
   id: string;
   quoteNumber: string;
   projectName: string;
+  scopeLabel: string | null;
   customerName: string;
+  masterQuoteId: string | null;
+  groupKey: string;
+  isMaster: boolean;
   statusLabel: string;
   statusVariant: JobStatusVariant;
   total: string;
   lastUpdated: string;
+};
+
+export type JobQuoteGroup = {
+  groupKey: string;
+  scopeLabel: string | null;
+  masterQuoteNumber: string;
+  masterQuoteId: string;
+  quoteCount: number;
+  quotes: JobRelatedQuote[];
 };
 
 export type JobBidderContactOption = {
@@ -75,6 +88,7 @@ export type JobBidderRow = {
 export type JobMasterQuoteOption = {
   id: string;
   quoteNumber: string;
+  scopeLabel: string | null;
   lineItemCount: number;
 };
 
@@ -213,6 +227,7 @@ export type JobDetailView = {
   bidders: JobBidderRow[];
   masterQuoteOptions: JobMasterQuoteOption[];
   relatedQuotes: JobRelatedQuote[];
+  relatedQuoteGroups: JobQuoteGroup[];
   relatedDeliveries: JobRelatedDelivery[];
   relatedStructures: JobRelatedStructure[];
   relatedInvoices: JobRelatedInvoice[];
@@ -282,4 +297,42 @@ export function formatJobDateInput(value: Date | string | null | undefined) {
   }
 
   return date.toISOString().slice(0, 10);
+}
+
+export function groupJobRelatedQuotes(quotes: JobRelatedQuote[]): JobQuoteGroup[] {
+  const byKey = new Map<string, JobRelatedQuote[]>();
+
+  for (const quote of quotes) {
+    const existing = byKey.get(quote.groupKey) ?? [];
+    existing.push(quote);
+    byKey.set(quote.groupKey, existing);
+  }
+
+  return [...byKey.entries()]
+    .map(([groupKey, groupQuotes]) => {
+      const master =
+        groupQuotes.find((quote) => quote.id === groupKey) ??
+        groupQuotes.find((quote) => quote.isMaster) ??
+        groupQuotes[0];
+      const scopeLabel =
+        master.scopeLabel ??
+        groupQuotes.find((quote) => quote.scopeLabel)?.scopeLabel ??
+        null;
+
+      return {
+        groupKey,
+        scopeLabel,
+        masterQuoteNumber: master.quoteNumber,
+        masterQuoteId: groupKey,
+        quoteCount: groupQuotes.length,
+        quotes: [...groupQuotes].sort((a, b) =>
+          a.customerName.localeCompare(b.customerName),
+        ),
+      };
+    })
+    .sort((a, b) => {
+      const aScope = a.scopeLabel ?? a.masterQuoteNumber;
+      const bScope = b.scopeLabel ?? b.masterQuoteNumber;
+      return aScope.localeCompare(bScope);
+    });
 }

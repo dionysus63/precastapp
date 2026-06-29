@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createQuote, updateQuote, type CreateQuoteInput } from "@/app/quotes/actions";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
@@ -12,33 +13,44 @@ import {
   type QuoteStatus,
   type QuoteType,
   DEFAULT_QUOTE_TAX_RATE,
+  DEFAULT_QUOTE_CUSTOMER_NAME,
   calculateQuoteTotals,
   formatQuoteCurrency,
   formatQuoteWeight,
   formatQuoteYards,
   getLineItemTotal,
+  isCategoryLineItem,
   parseQuoteNumber,
   pickDefaultCustomerContact,
   type QuoteFormCustomerContactOption,
+  quoteCompactInputClassName,
+  quoteDescriptionTextareaClassName,
   quoteEstimatorFormOptions,
   quoteInputClassName,
   quoteLineItemTypeLabels,
   quoteLineItemTypeOptions,
-  quoteReadOnlyClassName,
   quoteStatusFormOptions,
   quoteTermsFormOptions,
   quoteTypeFormOptions,
-  quoteWorkflowSteps,
 } from "@/components/quotes/quote-utils";
 import { RingBuilderModal } from "@/components/quotes/ring-builder-modal";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { richTextHasContent, sanitizeRichText } from "@/lib/rich-text";
+import {
+  clearWorkbookApplyPayload,
+  mergeWorkbookLineItems,
+  readWorkbookApplyPayload,
+  writeWorkbookSession,
+} from "@/lib/quotes/structure-workbook";
 
 const quoteTableInputClassName =
   "w-full min-w-[4rem] rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 shadow-sm";
 
-type AddLineModalType = Exclude<QuoteLineItemType, "MISC">;
+const quoteCategoryInputClassName =
+  "w-full min-w-[12rem] rounded border border-slate-200 bg-white px-2 py-1.5 text-sm font-semibold text-slate-900 underline shadow-sm";
+
+type AddLineModalType = Exclude<QuoteLineItemType, "MISC" | "CATEGORY">;
 
 type CustomStructureRow = {
   id: string;
@@ -80,6 +92,41 @@ function renumberLineItems(items: EditableQuoteLineItem[]) {
   }));
 }
 
+function autoResizeTextarea(element: HTMLTextAreaElement | null) {
+  if (!element) {
+    return;
+  }
+  element.style.height = "auto";
+  element.style.height = `${element.scrollHeight}px`;
+}
+
+function QuoteLineDescriptionTextarea({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    autoResizeTextarea(ref.current);
+  }, [value]);
+
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      rows={1}
+      onChange={(event) => {
+        onChange(event.target.value);
+        autoResizeTextarea(event.target);
+      }}
+      className={quoteDescriptionTextareaClassName}
+    />
+  );
+}
+
 export function QuoteForm({
   customers,
   jobs,
@@ -96,6 +143,7 @@ export function QuoteForm({
   initialValues,
   quoteDefaults,
 }: QuoteFormProps) {
+  const router = useRouter();
   const isEditing = Boolean(quoteId && initialValues);
   const initialJob = initialJobId
     ? jobs.find((job) => job.id === initialJobId)
@@ -137,6 +185,17 @@ export function QuoteForm({
   const [lineItems, setLineItems] = useState<EditableQuoteLineItem[]>(
     initialValues?.lineItems ?? [],
   );
+
+  useEffect(() => {
+    const payload = readWorkbookApplyPayload(quoteId);
+    if (!payload?.lineItems?.length) {
+      return;
+    }
+    setLineItems((current) =>
+      mergeWorkbookLineItems(current, payload.lineItems),
+    );
+    clearWorkbookApplyPayload(quoteId);
+  }, [quoteId]);
   const [customerLocked, setCustomerLocked] = useState(
     Boolean(initialValues?.customerId || initialCustomerId || initialJobBidderId),
   );
@@ -153,7 +212,7 @@ export function QuoteForm({
     initialValues?.customerName ??
       initialCustomer?.name ??
       initialJob?.customerName ??
-      "",
+      DEFAULT_QUOTE_CUSTOMER_NAME,
   );
   const [jobId, setJobId] = useState(initialValues?.jobId ?? initialJob?.id ?? "");
   const [jobNumber, setJobNumber] = useState(
@@ -161,6 +220,9 @@ export function QuoteForm({
   );
   const [projectName, setProjectName] = useState(
     initialValues?.projectName ?? initialJob?.projectName ?? "",
+  );
+  const [scopeLabel, setScopeLabel] = useState(
+    initialValues?.scopeLabel ?? "",
   );
   const [projectAddress, setProjectAddress] = useState(
     initialValues?.projectAddress ?? initialJob?.projectAddress ?? "",
@@ -365,11 +427,25 @@ export function QuoteForm({
       return "Add at least one line item.";
     }
 
+    const billableLines = lineItems.filter(
+      (line) => !isCategoryLineItem(line.type),
+    );
+    if (billableLines.length === 0) {
+      return "Add at least one billable line item (not only categories).";
+    }
+
     if (taxRatePercent < 0) {
       return "Tax rate cannot be negative.";
     }
 
     for (const line of lineItems) {
+      if (isCategoryLineItem(line.type)) {
+        if (!line.description.trim()) {
+          return `Line ${line.lineNumber}: category name is required.`;
+        }
+        continue;
+      }
+
       const qty = parseQuoteNumber(line.qty);
       const unitPrice = parseQuoteNumber(line.unitPrice);
 
@@ -393,6 +469,7 @@ export function QuoteForm({
       jobBidderId: jobBidderId || null,
       jobNumber: jobNumber || null,
       projectName: projectName.trim(),
+      scopeLabel: scopeLabel.trim() || null,
       projectAddress: projectAddress.trim() || null,
       contactName: contactName.trim() || null,
       contactEmail: contactEmail.trim() || null,
@@ -427,13 +504,14 @@ export function QuoteForm({
           : null,
         yards: line.yards.trim() ? parseQuoteNumber(line.yards) : null,
         taxable: line.taxable,
-        total: getLineItemTotal(line),
+        total: isCategoryLineItem(line.type) ? 0 : getLineItemTotal(line),
         statusNote: line.statusNote ?? null,
         notes: null,
         isDrainRing: line.isDrainRing ?? false,
         ringDiameterFeet: line.ringDiameterFeet ?? null,
         poolHeightFeet: line.poolHeightFeet ?? null,
         drainRingStyle: line.drainRingStyle ?? "DRAIN",
+        structureConfigJson: line.structureConfig ?? null,
       })),
       totals,
     };
@@ -598,11 +676,48 @@ export function QuoteForm({
     setRingBuilderModalOpen(false);
   }
 
+  function openStructureWorkbook() {
+    const returnPath = quoteId ? `/quotes/${quoteId}/edit` : "/quotes/new";
+    const workbookPath = quoteId
+      ? `/quotes/${quoteId}/edit/structures`
+      : "/quotes/new/structures";
+
+    writeWorkbookSession(quoteId, {
+      rows: [],
+      returnPath,
+      pendingLineItems: lineItems,
+    });
+
+    router.push(workbookPath);
+  }
+
   function addLineItem(line: EditableQuoteLineItem) {
     setLineItems((current) =>
       renumberLineItems([...current, { ...line, lineNumber: current.length + 1 }]),
     );
     closeAddModal();
+  }
+
+  function addCategoryLine() {
+    setLineItems((current) =>
+      renumberLineItems([
+        ...current,
+        {
+          id: createLineId(),
+          lineNumber: current.length + 1,
+          type: "CATEGORY",
+          typeLabel: quoteLineItemTypeLabels.CATEGORY,
+          item: "",
+          description: "",
+          qty: "0",
+          unit: "",
+          unitPrice: "0",
+          weight: "",
+          yards: "",
+          taxable: false,
+        },
+      ]),
+    );
   }
 
   function handleAddStockProduct() {
@@ -802,6 +917,24 @@ export function QuoteForm({
     setLineItems((current) => renumberLineItems(current.filter((line) => line.id !== id)));
   }
 
+  function moveLineItem(id: string, direction: "up" | "down") {
+    setLineItems((current) => {
+      const index = current.findIndex((line) => line.id === id);
+      if (index < 0) {
+        return current;
+      }
+
+      const target = direction === "up" ? index - 1 : index + 1;
+      if (target < 0 || target >= current.length) {
+        return current;
+      }
+
+      const next = [...current];
+      [next[index], next[target]] = [next[target], next[index]];
+      return renumberLineItems(next);
+    });
+  }
+
   function handleServiceOptionChange(item: string) {
     setSelectedServiceItem(item);
     const service = serviceOptions.find((entry) => entry.item === item);
@@ -844,480 +977,579 @@ export function QuoteForm({
         </div>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="space-y-4">
-          <SectionCard title="Quote Information">
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-700">
-                  Quote Number
-                </label>
-                <input
-                  readOnly
-                  value="Auto assigned after saving"
-                  className={quoteReadOnlyClassName}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-700">
-                  Revision
-                </label>
-                <input readOnly value="R0" className={quoteReadOnlyClassName} />
-              </div>
-              <div>
-                <label
-                  htmlFor="status"
-                  className="block text-xs font-medium text-slate-700"
-                >
-                  Quote Status
-                </label>
+      <div className="sticky top-[4.5rem] z-[9] -mx-5 mb-4 border-b border-slate-200/80 bg-white/95 px-5 py-2 shadow-sm backdrop-blur">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_7rem]">
+          <div>
+            <label
+              htmlFor="sticky-customer"
+              className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+            >
+              Customer
+            </label>
+            {customers.length === 0 ? (
+              <input
+                id="sticky-customer"
+                type="text"
+                value={customerName}
+                onChange={(event) => setCustomerName(event.target.value)}
+                placeholder="Customer name"
+                className={quoteCompactInputClassName}
+              />
+            ) : (
+              <div className="space-y-1">
                 <select
-                  id="status"
-                  name="status"
-                  value={status}
-                  onChange={(event) =>
-                    setStatus(event.target.value as QuoteStatus)
-                  }
-                  className={quoteInputClassName}
+                  id="sticky-customer"
+                  name="customer"
+                  value={customerId}
+                  onChange={(event) => handleCustomerChange(event.target.value)}
+                  className={quoteCompactInputClassName}
                 >
-                  {quoteStatusFormOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
+                  <option value="">Select customer</option>
+                  {customers.map((customer) => (
+                    <option key={customer.id} value={customer.id}>
+                      {customer.name}
                     </option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label
-                  htmlFor="quoteType"
-                  className="block text-xs font-medium text-slate-700"
-                >
-                  Quote Type
-                </label>
-                <select
-                  id="quoteType"
-                  name="quoteType"
-                  value={quoteType}
-                  onChange={(event) =>
-                    setQuoteType(event.target.value as QuoteType)
-                  }
-                  className={quoteInputClassName}
-                >
-                  {quoteTypeFormOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label
-                  htmlFor="estimator"
-                  className="block text-xs font-medium text-slate-700"
-                >
-                  Estimator
-                </label>
-                <select
-                  id="estimator"
-                  name="estimator"
-                  value={estimator}
-                  onChange={(event) => setEstimator(event.target.value)}
-                  className={quoteInputClassName}
-                >
-                  {estimatorOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label
-                  htmlFor="bidDueDate"
-                  className="block text-xs font-medium text-slate-700"
-                >
-                  Bid Due Date
-                </label>
-                <input
-                  id="bidDueDate"
-                  name="bidDueDate"
-                  type="date"
-                  value={bidDueDate}
-                  onChange={(event) => setBidDueDate(event.target.value)}
-                  className={quoteInputClassName}
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="quoteDate"
-                  className="block text-xs font-medium text-slate-700"
-                >
-                  Quote Date
-                </label>
-                <input
-                  id="quoteDate"
-                  name="quoteDate"
-                  type="date"
-                  value={quoteDate}
-                  onChange={(event) => setQuoteDate(event.target.value)}
-                  className={quoteInputClassName}
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="expirationDate"
-                  className="block text-xs font-medium text-slate-700"
-                >
-                  Expiration Date
-                </label>
-                <input
-                  id="expirationDate"
-                  name="expirationDate"
-                  type="date"
-                  value={expirationDate}
-                  onChange={(event) => setExpirationDate(event.target.value)}
-                  className={quoteInputClassName}
-                />
-              </div>
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Customer and Job">
-            <div className="space-y-5">
-              <div className="grid gap-5 sm:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="customer"
-                    className="block text-xs font-medium text-slate-700"
-                  >
-                    Customer
-                  </label>
-                  {customers.length === 0 ? (
-                    <p className="mt-1 text-xs text-slate-500">
-                      No customers in the database yet. Enter customer details
-                      below.
-                    </p>
-                  ) : (
-                    <select
-                      id="customer"
-                      name="customer"
-                      value={customerId}
-                      onChange={(event) =>
-                        handleCustomerChange(event.target.value)
-                      }
-                      className={quoteInputClassName}
-                    >
-                      <option value="">Select customer</option>
-                      {customers.map((customer) => (
-                        <option key={customer.id} value={customer.id}>
-                          {customer.name}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-                <div>
-                  <label
-                    htmlFor="job"
-                    className="block text-xs font-medium text-slate-700"
-                  >
-                    Job
-                  </label>
-                  {jobs.length === 0 ? (
-                    <p className="mt-1 text-xs text-slate-500">
-                      No jobs in the database yet. Enter project details below.
-                    </p>
-                  ) : (
-                    <select
-                      id="job"
-                      name="job"
-                      value={jobId}
-                      onChange={(event) => handleJobChange(event.target.value)}
-                      className={quoteInputClassName}
-                    >
-                      <option value="">Select job</option>
-                      {jobs.map((job) => (
-                        <option key={job.id} value={job.id}>
-                          {job.label}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid gap-5 sm:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="customerName"
-                    className="block text-xs font-medium text-slate-700"
-                  >
-                    Customer Name
-                  </label>
+                {!customerId ? (
                   <input
-                    id="customerName"
-                    name="customerName"
                     type="text"
                     value={customerName}
                     onChange={(event) => setCustomerName(event.target.value)}
-                    placeholder="ABC Construction"
-                    className={quoteInputClassName}
+                    placeholder="Or type customer name"
+                    className={quoteCompactInputClassName}
                   />
-                </div>
-                <div>
-                  <label
-                    htmlFor="jobNumber"
-                    className="block text-xs font-medium text-slate-700"
-                  >
-                    Job Number
-                  </label>
-                  <input
-                    id="jobNumber"
-                    name="jobNumber"
-                    type="text"
-                    value={jobNumber}
-                    onChange={(event) => setJobNumber(event.target.value)}
-                    placeholder="26-001"
-                    className={quoteInputClassName}
-                  />
-                </div>
+                ) : null}
               </div>
+            )}
+          </div>
+          <div>
+            <label
+              htmlFor="sticky-projectName"
+              className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+            >
+              Project Name
+            </label>
+            <input
+              id="sticky-projectName"
+              name="projectName"
+              type="text"
+              value={projectName}
+              onChange={(event) => setProjectName(event.target.value)}
+              placeholder="Main Street Drainage"
+              className={quoteCompactInputClassName}
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="sticky-scopeLabel"
+              className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+            >
+              Scope / Area
+            </label>
+            <input
+              id="sticky-scopeLabel"
+              name="scopeLabel"
+              type="text"
+              value={scopeLabel}
+              onChange={(event) => setScopeLabel(event.target.value)}
+              placeholder="Area A — Structural"
+              className={quoteCompactInputClassName}
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="sticky-jobNumber"
+              className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+            >
+              Job Number
+            </label>
+            <input
+              id="sticky-jobNumber"
+              name="jobNumber"
+              type="text"
+              value={jobNumber}
+              onChange={(event) => setJobNumber(event.target.value)}
+              placeholder="26-001"
+              className={quoteCompactInputClassName}
+            />
+          </div>
+        </div>
 
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-slate-100 pt-2">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+            <span className="text-slate-500">
+              Subtotal{" "}
+              <span className="font-medium text-slate-700">
+                {formatQuoteCurrency(totals.subtotal)}
+              </span>
+            </span>
+            <span className="text-slate-500">
+              Tax{" "}
+              <span className="font-medium text-slate-700">
+                {formatQuoteCurrency(totals.salesTax)}
+              </span>
+            </span>
+            <span className="text-slate-700">
+              Total{" "}
+              <span className="text-sm font-semibold text-slate-900">
+                {formatQuoteCurrency(totals.total)}
+              </span>
+            </span>
+            <span className="text-slate-500">
+              Weight{" "}
+              <span className="font-medium text-slate-700">
+                {formatQuoteWeight(totals.totalWeight)}
+              </span>
+            </span>
+            <span className="text-slate-500">
+              Yards{" "}
+              <span className="font-medium text-slate-700">
+                {formatQuoteYards(totals.totalYards)}
+              </span>
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => handleSaveDraft()}
+              disabled={isPending}
+              className="rounded-md bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isPending
+                ? "Saving..."
+                : isEditing
+                  ? "Save Changes"
+                  : "Save Draft"}
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveAndPreview}
+              disabled={isPending}
+              className="rounded-md border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isPending ? "Saving..." : "Preview PDF"}
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                showFlash("info", "Sending quotes will be added later.")
+              }
+              className="rounded-md border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Send Quote
+            </button>
+            <Link
+              href={isEditing ? `/quotes/${quoteId}` : "/quotes"}
+              className="rounded-md border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Cancel
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+          <SectionCard title="Quote Details">
+            <div className="space-y-3">
               <div>
-                <Link
-                  href="/jobs/new"
-                  className="inline-flex rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  Create New Job
-                </Link>
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  Quote
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  <div>
+                    <label className="block text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                      Quote Number
+                    </label>
+                    <input
+                      readOnly
+                      value="Auto assigned after saving"
+                      className="block w-full rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600 shadow-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                      Revision
+                    </label>
+                    <input
+                      readOnly
+                      value="R0"
+                      className="block w-full rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600 shadow-sm"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="status"
+                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+                    >
+                      Quote Status
+                    </label>
+                    <select
+                      id="status"
+                      name="status"
+                      value={status}
+                      onChange={(event) =>
+                        setStatus(event.target.value as QuoteStatus)
+                      }
+                      className={quoteCompactInputClassName}
+                    >
+                      {quoteStatusFormOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="quoteType"
+                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+                    >
+                      Quote Type
+                    </label>
+                    <select
+                      id="quoteType"
+                      name="quoteType"
+                      value={quoteType}
+                      onChange={(event) =>
+                        setQuoteType(event.target.value as QuoteType)
+                      }
+                      className={quoteCompactInputClassName}
+                    >
+                      {quoteTypeFormOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="estimator"
+                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+                    >
+                      Estimator
+                    </label>
+                    <select
+                      id="estimator"
+                      name="estimator"
+                      value={estimator}
+                      onChange={(event) => setEstimator(event.target.value)}
+                      className={quoteCompactInputClassName}
+                    >
+                      {estimatorOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="bidDueDate"
+                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+                    >
+                      Bid Due Date
+                    </label>
+                    <input
+                      id="bidDueDate"
+                      name="bidDueDate"
+                      type="date"
+                      value={bidDueDate}
+                      onChange={(event) => setBidDueDate(event.target.value)}
+                      className={quoteCompactInputClassName}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="quoteDate"
+                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+                    >
+                      Quote Date
+                    </label>
+                    <input
+                      id="quoteDate"
+                      name="quoteDate"
+                      type="date"
+                      value={quoteDate}
+                      onChange={(event) => setQuoteDate(event.target.value)}
+                      className={quoteCompactInputClassName}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="expirationDate"
+                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+                    >
+                      Expiration Date
+                    </label>
+                    <input
+                      id="expirationDate"
+                      name="expirationDate"
+                      type="date"
+                      value={expirationDate}
+                      onChange={(event) =>
+                        setExpirationDate(event.target.value)
+                      }
+                      className={quoteCompactInputClassName}
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="grid gap-5 sm:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="projectName"
-                    className="block text-xs font-medium text-slate-700"
-                  >
-                    Project Name
-                  </label>
-                  <input
-                    id="projectName"
-                    name="projectName"
-                    type="text"
-                    value={projectName}
-                    onChange={(event) => setProjectName(event.target.value)}
-                    placeholder="Main Street Drainage"
-                    className={quoteInputClassName}
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="projectAddress"
-                    className="block text-xs font-medium text-slate-700"
-                  >
-                    Project Address
-                  </label>
-                  <input
-                    id="projectAddress"
-                    name="projectAddress"
-                    type="text"
-                    value={projectAddress}
-                    onChange={(event) => setProjectAddress(event.target.value)}
-                    placeholder="120 Main Street, Riverhead, NY"
-                    className={quoteInputClassName}
-                  />
-                </div>
-              </div>
+              <div className="border-t border-slate-100 pt-3">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  Job &amp; Contact
+                </p>
+                <div className="space-y-2">
+                  <div className="grid gap-2 lg:grid-cols-2">
+                    <div>
+                      <div className="mb-0.5 flex items-center justify-between gap-2">
+                        <label
+                          htmlFor="job"
+                          className="text-[10px] font-medium uppercase tracking-wide text-slate-500"
+                        >
+                          Job
+                        </label>
+                        <Link
+                          href="/jobs/new"
+                          className="text-[10px] font-semibold text-slate-600 hover:text-slate-900 hover:underline"
+                        >
+                          Create New Job
+                        </Link>
+                      </div>
+                      {jobs.length === 0 ? (
+                        <p className="text-xs text-slate-500">
+                          No jobs in the database yet. Enter project details in
+                          the bar above.
+                        </p>
+                      ) : (
+                        <select
+                          id="job"
+                          name="job"
+                          value={jobId}
+                          onChange={(event) =>
+                            handleJobChange(event.target.value)
+                          }
+                          className={quoteCompactInputClassName}
+                        >
+                          <option value="">Select job</option>
+                          {jobs.map((job) => (
+                            <option key={job.id} value={job.id}>
+                              {job.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="projectAddress"
+                        className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+                      >
+                        Project Address
+                      </label>
+                      <input
+                        id="projectAddress"
+                        name="projectAddress"
+                        type="text"
+                        value={projectAddress}
+                        onChange={(event) =>
+                          setProjectAddress(event.target.value)
+                        }
+                        placeholder="120 Main Street, Riverhead, NY"
+                        className={quoteCompactInputClassName}
+                      />
+                    </div>
+                  </div>
 
-              <div className="grid gap-5 sm:grid-cols-3">
-                <div className="sm:col-span-3">
-                  <label
-                    htmlFor="quoteContactPicker"
-                    className="block text-xs font-medium text-slate-700"
-                  >
-                    Contact
-                  </label>
-                  <select
-                    id="quoteContactPicker"
-                    value={contactId}
-                    onChange={(event) =>
-                      handleContactPickerChange(event.target.value)
-                    }
-                    disabled={!customerId}
-                    className={quoteInputClassName}
-                  >
-                    <option value="">
-                      {customerId
-                        ? "Custom / enter manually"
-                        : "Select a customer first"}
-                    </option>
-                    {selectedCustomer?.contacts.map((contact) => (
-                      <option key={contact.id} value={contact.id}>
-                        {contact.name}
-                        {contact.title ? ` — ${contact.title}` : ""}
+                  <div>
+                    <label
+                      htmlFor="quoteContactPicker"
+                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+                    >
+                      Contact
+                    </label>
+                    <select
+                      id="quoteContactPicker"
+                      value={contactId}
+                      onChange={(event) =>
+                        handleContactPickerChange(event.target.value)
+                      }
+                      disabled={!customerId}
+                      className={quoteCompactInputClassName}
+                    >
+                      <option value="">
+                        {customerId
+                          ? "Custom / enter manually"
+                          : "Select a customer first"}
                       </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label
-                    htmlFor="contactName"
-                    className="block text-xs font-medium text-slate-700"
-                  >
-                    Contact Name
-                  </label>
-                  <input
-                    id="contactName"
-                    name="contactName"
-                    type="text"
-                    value={contactName}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      clearContactLinkIfCustomized({ name: value }, contactId);
-                      setContactName(value);
-                    }}
-                    className={quoteInputClassName}
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="contactEmail"
-                    className="block text-xs font-medium text-slate-700"
-                  >
-                    Contact Email
-                  </label>
-                  <input
-                    id="contactEmail"
-                    name="contactEmail"
-                    type="email"
-                    value={contactEmail}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      clearContactLinkIfCustomized({ email: value }, contactId);
-                      setContactEmail(value);
-                    }}
-                    className={quoteInputClassName}
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="contactPhone"
-                    className="block text-xs font-medium text-slate-700"
-                  >
-                    Contact Phone
-                  </label>
-                  <input
-                    id="contactPhone"
-                    name="contactPhone"
-                    type="tel"
-                    value={contactPhone}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      clearContactLinkIfCustomized({ phone: value }, contactId);
-                      setContactPhone(value);
-                    }}
-                    className={quoteInputClassName}
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="contactTitle"
-                    className="block text-xs font-medium text-slate-700"
-                  >
-                    Contact Role
-                  </label>
-                  <input
-                    id="contactTitle"
-                    name="contactTitle"
-                    type="text"
-                    value={contactTitle}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      clearContactLinkIfCustomized({ title: value }, contactId);
-                      setContactTitle(value);
-                    }}
-                    placeholder="Estimator, PM, etc."
-                    className={quoteInputClassName}
-                  />
-                </div>
-              </div>
-            </div>
-          </SectionCard>
+                      {selectedCustomer?.contacts.map((contact) => (
+                        <option key={contact.id} value={contact.id}>
+                          {contact.name}
+                          {contact.title ? ` — ${contact.title}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-          <SectionCard title="Price List">
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="sm:col-span-2">
-                <label
-                  htmlFor="priceList"
-                  className="block text-xs font-medium text-slate-700"
-                >
-                  Price List
-                </label>
-                <select
-                  id="priceList"
-                  name="priceList"
-                  value={priceListId}
-                  onChange={(event) => setPriceListId(event.target.value)}
-                  className={quoteInputClassName}
-                >
-                  <option value="">No price list</option>
-                  {priceLists.map((priceList) => (
-                    <option key={priceList.id} value={priceList.id}>
-                      {priceList.name}
-                      {priceList.isDefault ? " (default)" : ""}
-                    </option>
-                  ))}
-                </select>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    <div>
+                      <label
+                        htmlFor="contactName"
+                        className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+                      >
+                        Contact Name
+                      </label>
+                      <input
+                        id="contactName"
+                        name="contactName"
+                        type="text"
+                        value={contactName}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          clearContactLinkIfCustomized({ name: value }, contactId);
+                          setContactName(value);
+                        }}
+                        className={quoteCompactInputClassName}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="contactEmail"
+                        className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+                      >
+                        Contact Email
+                      </label>
+                      <input
+                        id="contactEmail"
+                        name="contactEmail"
+                        type="email"
+                        value={contactEmail}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          clearContactLinkIfCustomized(
+                            { email: value },
+                            contactId,
+                          );
+                          setContactEmail(value);
+                        }}
+                        className={quoteCompactInputClassName}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="contactPhone"
+                        className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+                      >
+                        Contact Phone
+                      </label>
+                      <input
+                        id="contactPhone"
+                        name="contactPhone"
+                        type="tel"
+                        value={contactPhone}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          clearContactLinkIfCustomized(
+                            { phone: value },
+                            contactId,
+                          );
+                          setContactPhone(value);
+                        }}
+                        className={quoteCompactInputClassName}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="contactTitle"
+                        className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+                      >
+                        Contact Role
+                      </label>
+                      <input
+                        id="contactTitle"
+                        name="contactTitle"
+                        type="text"
+                        value={contactTitle}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          clearContactLinkIfCustomized(
+                            { title: value },
+                            contactId,
+                          );
+                          setContactTitle(value);
+                        }}
+                        placeholder="Estimator, PM, etc."
+                        className={quoteCompactInputClassName}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div>
-                <label
-                  htmlFor="taxable"
-                  className="block text-xs font-medium text-slate-700"
-                >
-                  Taxable
-                </label>
-                <select
-                  id="taxable"
-                  name="taxable"
-                  defaultValue="yes"
-                  className={quoteInputClassName}
-                >
-                  <option value="yes">Yes</option>
-                  <option value="no">No</option>
-                </select>
-              </div>
-              <div>
-                <label
-                  htmlFor="taxRate"
-                  className="block text-xs font-medium text-slate-700"
-                >
-                  Tax Rate
-                </label>
-                <input
-                  id="taxRate"
-                  name="taxRate"
-                  type="text"
-                  value={taxRate}
-                  onChange={(event) => setTaxRate(event.target.value)}
-                  className={quoteInputClassName}
-                />
-              </div>
-              <div className="sm:col-span-2 lg:col-span-4">
-                <label
-                  htmlFor="customerPo"
-                  className="block text-xs font-medium text-slate-700"
-                >
-                  Customer PO
-                </label>
-                <input
-                  id="customerPo"
-                  name="customerPo"
-                  type="text"
-                  value={customerPo}
-                  onChange={(event) => setCustomerPo(event.target.value)}
-                  placeholder="Optional"
-                  className={quoteInputClassName}
-                />
+
+              <div className="border-t border-slate-100 pt-3">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  Pricing
+                </p>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <div>
+                    <label
+                      htmlFor="priceList"
+                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+                    >
+                      Price List
+                    </label>
+                    <select
+                      id="priceList"
+                      name="priceList"
+                      value={priceListId}
+                      onChange={(event) => setPriceListId(event.target.value)}
+                      className={quoteCompactInputClassName}
+                    >
+                      <option value="">No price list</option>
+                      {priceLists.map((priceList) => (
+                        <option key={priceList.id} value={priceList.id}>
+                          {priceList.name}
+                          {priceList.isDefault ? " (default)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="taxRate"
+                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+                    >
+                      Tax Rate
+                    </label>
+                    <input
+                      id="taxRate"
+                      name="taxRate"
+                      type="text"
+                      value={taxRate}
+                      onChange={(event) => setTaxRate(event.target.value)}
+                      className={quoteCompactInputClassName}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="customerPo"
+                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+                    >
+                      Customer PO
+                    </label>
+                    <input
+                      id="customerPo"
+                      name="customerPo"
+                      type="text"
+                      value={customerPo}
+                      onChange={(event) => setCustomerPo(event.target.value)}
+                      placeholder="Optional"
+                      className={quoteCompactInputClassName}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </SectionCard>
@@ -1349,6 +1581,20 @@ export function QuoteForm({
                 >
                   Add Rings
                 </button>
+                <button
+                  type="button"
+                  onClick={openStructureWorkbook}
+                  className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-800 transition-colors hover:bg-sky-100"
+                >
+                  Circular Structure Workbook
+                </button>
+                <button
+                  type="button"
+                  onClick={addCategoryLine}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  Add Category
+                </button>
               </div>
 
               <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
@@ -1356,27 +1602,45 @@ export function QuoteForm({
               </p>
 
               <div className="overflow-x-auto rounded-lg border border-slate-100">
-                <table className="min-w-full text-left text-xs">
+                <table className="min-w-full table-auto text-left text-xs">
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                      <th className="px-3 py-2.5 font-semibold">Line #</th>
-                      <th className="px-3 py-2.5 font-semibold">Type</th>
-                      <th className="px-3 py-2.5 font-semibold">
-                        Item / Product
+                      <th className="w-10 whitespace-nowrap px-3 py-2 font-semibold">
+                        #
                       </th>
-                      <th className="px-3 py-2.5 font-semibold">
+                      <th className="whitespace-nowrap px-3 py-2 font-semibold">
+                        Type
+                      </th>
+                      <th className="whitespace-nowrap px-3 py-2 font-semibold">
+                        Item
+                      </th>
+                      <th className="min-w-[18rem] px-3 py-2 font-semibold">
                         Description
                       </th>
-                      <th className="px-3 py-2.5 font-semibold">Qty</th>
-                      <th className="px-3 py-2.5 font-semibold">Unit</th>
-                      <th className="px-3 py-2.5 font-semibold">
+                      <th className="w-16 whitespace-nowrap px-3 py-2 font-semibold">
+                        Qty
+                      </th>
+                      <th className="w-16 whitespace-nowrap px-3 py-2 font-semibold">
+                        Unit
+                      </th>
+                      <th className="w-24 whitespace-nowrap px-3 py-2 font-semibold">
                         Unit Price
                       </th>
-                      <th className="px-3 py-2.5 font-semibold">Weight</th>
-                      <th className="px-3 py-2.5 font-semibold">Yards</th>
-                      <th className="px-3 py-2.5 font-semibold">Taxable</th>
-                      <th className="px-3 py-2.5 font-semibold">Total</th>
-                      <th className="px-3 py-2.5 font-semibold">Actions</th>
+                      <th className="w-20 whitespace-nowrap px-3 py-2 font-semibold">
+                        Weight
+                      </th>
+                      <th className="w-16 whitespace-nowrap px-3 py-2 font-semibold">
+                        Yards
+                      </th>
+                      <th className="w-16 whitespace-nowrap px-3 py-2 font-semibold">
+                        Tax
+                      </th>
+                      <th className="w-24 whitespace-nowrap px-3 py-2 font-semibold">
+                        Total
+                      </th>
+                      <th className="whitespace-nowrap px-3 py-2 font-semibold">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1390,27 +1654,23 @@ export function QuoteForm({
                         </td>
                       </tr>
                     ) : (
-                      lineItems.map((line) => (
-                        <tr key={line.id} className="hover:bg-slate-50/60">
-                          <td className="px-3 py-2.5 text-slate-700">
-                            {line.lineNumber}
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <StatusBadge
-                              label={line.typeLabel}
-                              variant="neutral"
-                            />
-                          </td>
-                          <td className="px-3 py-2.5 font-medium text-slate-900">
-                            {line.item}
-                          </td>
-                          <td className="px-3 py-2.5">
-                            {line.type === "CUSTOM_STRUCTURE" ? (
-                              <RichTextContent
-                                value={line.description}
-                                className="text-slate-600"
+                      lineItems.map((line, lineIndex) =>
+                        isCategoryLineItem(line.type) ? (
+                          <tr
+                            key={line.id}
+                            className="align-top bg-slate-50/40 hover:bg-slate-50/80"
+                          >
+                            <td className="whitespace-nowrap px-3 py-2 text-slate-700">
+                              {line.lineNumber}
+                            </td>
+                            <td className="px-3 py-2">
+                              <StatusBadge
+                                label={line.typeLabel}
+                                variant="neutral"
                               />
-                            ) : (
+                            </td>
+                            <td className="px-3 py-2 text-slate-400">—</td>
+                            <td className="min-w-[18rem] px-3 py-2" colSpan={1}>
                               <input
                                 type="text"
                                 value={line.description}
@@ -1421,111 +1681,203 @@ export function QuoteForm({
                                     event.target.value,
                                   )
                                 }
-                                className={quoteTableInputClassName}
+                                placeholder="Category name"
+                                className={quoteCategoryInputClassName}
                               />
-                            )}
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <input
-                              type="text"
-                              value={line.qty}
-                              onChange={(event) =>
-                                updateLineItem(line.id, "qty", event.target.value)
-                              }
-                              className={`${quoteTableInputClassName} min-w-[3rem]`}
-                            />
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <input
-                              type="text"
-                              value={line.unit}
-                              onChange={(event) =>
-                                updateLineItem(line.id, "unit", event.target.value)
-                              }
-                              className={`${quoteTableInputClassName} min-w-[3rem]`}
-                            />
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <input
-                              type="text"
-                              value={line.unitPrice}
-                              onChange={(event) =>
-                                updateLineItem(
-                                  line.id,
-                                  "unitPrice",
-                                  event.target.value,
-                                )
-                              }
-                              className={quoteTableInputClassName}
-                            />
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <input
-                              type="text"
-                              value={line.weight}
-                              onChange={(event) =>
-                                updateLineItem(
-                                  line.id,
-                                  "weight",
-                                  event.target.value,
-                                )
-                              }
-                              placeholder="—"
-                              className={quoteTableInputClassName}
-                            />
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <input
-                              type="text"
-                              value={line.yards}
-                              onChange={(event) =>
-                                updateLineItem(line.id, "yards", event.target.value)
-                              }
-                              placeholder="—"
-                              className={quoteTableInputClassName}
-                            />
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <select
-                              value={line.taxable ? "yes" : "no"}
-                              onChange={(event) =>
-                                updateLineItem(
-                                  line.id,
-                                  "taxable",
-                                  event.target.value === "yes",
-                                )
-                              }
-                              className={quoteTableInputClassName}
-                            >
-                              <option value="yes">Yes</option>
-                              <option value="no">No</option>
-                            </select>
-                          </td>
-                          <td className="px-3 py-2.5 font-medium text-slate-900">
-                            {formatQuoteCurrency(getLineItemTotal(line))}
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <div className="flex flex-wrap gap-2">
-                              {line.type === "CUSTOM_STRUCTURE" ? (
+                            </td>
+                            <td className="px-3 py-2 text-slate-400">—</td>
+                            <td className="px-3 py-2 text-slate-400">—</td>
+                            <td className="px-3 py-2 text-slate-400">—</td>
+                            <td className="px-3 py-2 text-slate-400">—</td>
+                            <td className="px-3 py-2 text-slate-400">—</td>
+                            <td className="px-3 py-2 text-slate-400">—</td>
+                            <td className="px-3 py-2 text-slate-400">—</td>
+                            <td className="px-3 py-2">
+                              <div className="flex flex-wrap gap-1">
                                 <button
                                   type="button"
-                                  onClick={() => openEditCustomStructureLine(line)}
-                                  className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+                                  onClick={() => moveLineItem(line.id, "up")}
+                                  disabled={lineIndex <= 0}
+                                  className="inline-flex rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                  aria-label={`Move line ${line.lineNumber} up`}
                                 >
-                                  Edit
+                                  ↑
                                 </button>
-                              ) : null}
-                              <button
-                                type="button"
-                                onClick={() => removeLineItem(line.id)}
-                                className="inline-flex rounded-md border border-red-200 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-50"
+                                <button
+                                  type="button"
+                                  onClick={() => moveLineItem(line.id, "down")}
+                                  disabled={lineIndex >= lineItems.length - 1}
+                                  className="inline-flex rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                  aria-label={`Move line ${line.lineNumber} down`}
+                                >
+                                  ↓
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeLineItem(line.id)}
+                                  className="inline-flex rounded-md border border-red-200 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-50"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          <tr
+                            key={line.id}
+                            className="align-top hover:bg-slate-50/60"
+                          >
+                            <td className="whitespace-nowrap px-3 py-2 text-slate-700">
+                              {line.lineNumber}
+                            </td>
+                            <td className="px-3 py-2">
+                              <StatusBadge
+                                label={line.typeLabel}
+                                variant="neutral"
+                              />
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-900">
+                              {line.item}
+                            </td>
+                            <td className="min-w-[18rem] px-3 py-2">
+                              {line.type === "CUSTOM_STRUCTURE" ? (
+                                <RichTextContent
+                                  value={line.description}
+                                  className="text-sm leading-snug text-slate-600"
+                                />
+                              ) : (
+                                <QuoteLineDescriptionTextarea
+                                  value={line.description}
+                                  onChange={(value) =>
+                                    updateLineItem(line.id, "description", value)
+                                  }
+                                />
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              <input
+                                type="text"
+                                value={line.qty}
+                                onChange={(event) =>
+                                  updateLineItem(line.id, "qty", event.target.value)
+                                }
+                                className={`${quoteTableInputClassName} w-16 min-w-0`}
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <input
+                                type="text"
+                                value={line.unit}
+                                onChange={(event) =>
+                                  updateLineItem(line.id, "unit", event.target.value)
+                                }
+                                className={`${quoteTableInputClassName} w-16 min-w-0`}
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <input
+                                type="text"
+                                value={line.unitPrice}
+                                onChange={(event) =>
+                                  updateLineItem(
+                                    line.id,
+                                    "unitPrice",
+                                    event.target.value,
+                                  )
+                                }
+                                className={`${quoteTableInputClassName} w-24 min-w-0`}
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <input
+                                type="text"
+                                value={line.weight}
+                                onChange={(event) =>
+                                  updateLineItem(
+                                    line.id,
+                                    "weight",
+                                    event.target.value,
+                                  )
+                                }
+                                placeholder="—"
+                                className={`${quoteTableInputClassName} w-20 min-w-0`}
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <input
+                                type="text"
+                                value={line.yards}
+                                onChange={(event) =>
+                                  updateLineItem(
+                                    line.id,
+                                    "yards",
+                                    event.target.value,
+                                  )
+                                }
+                                placeholder="—"
+                                className={`${quoteTableInputClassName} w-16 min-w-0`}
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <select
+                                value={line.taxable ? "yes" : "no"}
+                                onChange={(event) =>
+                                  updateLineItem(
+                                    line.id,
+                                    "taxable",
+                                    event.target.value === "yes",
+                                  )
+                                }
+                                className={`${quoteTableInputClassName} w-16 min-w-0`}
                               >
-                                Remove
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+                                <option value="yes">Yes</option>
+                                <option value="no">No</option>
+                              </select>
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-900">
+                              {formatQuoteCurrency(getLineItemTotal(line))}
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="flex flex-wrap gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => moveLineItem(line.id, "up")}
+                                  disabled={lineIndex <= 0}
+                                  className="inline-flex rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                  aria-label={`Move line ${line.lineNumber} up`}
+                                >
+                                  ↑
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => moveLineItem(line.id, "down")}
+                                  disabled={lineIndex >= lineItems.length - 1}
+                                  className="inline-flex rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                  aria-label={`Move line ${line.lineNumber} down`}
+                                >
+                                  ↓
+                                </button>
+                                {line.type === "CUSTOM_STRUCTURE" ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => openEditCustomStructureLine(line)}
+                                    className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+                                  >
+                                    Edit
+                                  </button>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  onClick={() => removeLineItem(line.id)}
+                                  className="inline-flex rounded-md border border-red-200 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-50"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ),
+                      )
                     )}
                   </tbody>
                 </table>
@@ -1629,135 +1981,6 @@ export function QuoteForm({
               </div>
             </div>
           </SectionCard>
-
-          <div className="flex flex-wrap justify-end gap-2 rounded-xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm">
-            <button
-              type="button"
-              onClick={() => handleSaveDraft()}
-              disabled={isPending}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isPending
-                ? "Saving..."
-                : isEditing
-                  ? "Save Changes"
-                  : "Save Draft"}
-            </button>
-            <button
-              type="button"
-              onClick={handleSaveAndPreview}
-              disabled={isPending}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isPending ? "Saving..." : "Save and Preview PDF"}
-            </button>
-            <Link
-              href={isEditing ? `/quotes/${quoteId}` : "/quotes"}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Cancel
-            </Link>
-          </div>
-        </div>
-
-        <aside className="space-y-4">
-          <SectionCard title="Quote Summary">
-            <dl className="space-y-3 text-xs">
-              {[
-                ["Subtotal", formatQuoteCurrency(totals.subtotal)],
-                ["Discount", formatQuoteCurrency(totals.discount)],
-                ["Delivery", formatQuoteCurrency(totals.delivery)],
-                ["Taxable Amount", formatQuoteCurrency(totals.taxableAmount)],
-                ["Sales Tax", formatQuoteCurrency(totals.salesTax)],
-                ["Total", formatQuoteCurrency(totals.total)],
-                ["Total Weight", formatQuoteWeight(totals.totalWeight)],
-                ["Total Yards", formatQuoteYards(totals.totalYards)],
-              ].map(([label, value]) => (
-                <div
-                  key={label}
-                  className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2 last:border-b-0 last:pb-0"
-                >
-                  <dt className="text-slate-500">{label}</dt>
-                  <dd
-                    className={`font-medium ${
-                      label === "Total" ? "text-slate-900" : "text-slate-700"
-                    }`}
-                  >
-                    {value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </SectionCard>
-
-          <SectionCard title="Workflow">
-            <ul className="space-y-2">
-              {quoteWorkflowSteps.map((step) => (
-                <li
-                  key={step.id}
-                  className="flex items-center gap-2 text-xs text-slate-700"
-                >
-                  <span
-                    className={`inline-flex h-4 w-4 shrink-0 rounded-full border ${
-                      step.complete
-                        ? "border-emerald-300 bg-emerald-500"
-                        : "border-slate-200 bg-white"
-                    }`}
-                    aria-hidden="true"
-                  />
-                  {step.label}
-                </li>
-              ))}
-            </ul>
-          </SectionCard>
-
-          <SectionCard title="Quick Actions">
-            <div className="flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => handleSaveDraft()}
-                disabled={isPending}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isPending
-                  ? "Saving..."
-                  : isEditing
-                    ? "Save Changes"
-                    : "Save Draft"}
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveAndPreview}
-                disabled={isPending}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Preview PDF
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  showFlash("info", "Sending quotes will be added later.")
-                }
-                className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Send Quote
-              </button>
-              <button
-                type="button"
-                disabled
-                className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-400"
-              >
-                Duplicate
-              </button>
-              <Link
-                href={isEditing ? `/quotes/${quoteId}` : "/quotes"}
-                className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Cancel
-              </Link>
-            </div>
-          </SectionCard>
-        </aside>
       </div>
 
       {addModalType ? (

@@ -6,10 +6,13 @@ import {
   type StructureTemplateFormValue,
 } from "@/components/structures/structure-template-form";
 import { DeleteStructureTemplateButton } from "@/components/structures/delete-structure-template-button";
+import { StructureTemplatePdfsSection } from "@/components/structures/structure-template-pdfs-section";
 import {
   updateStructureTemplate,
   loadCastingProductOptions,
 } from "@/app/structures/actions";
+import { listTemplatePdfFields } from "@/lib/drill-sheet-template-pdf";
+import { readTemplatePdfBytes } from "@/lib/structure-template-pdf-service";
 import { prisma } from "@/lib/prisma";
 
 type EditStructureTemplatePageProps = {
@@ -30,6 +33,7 @@ export default async function EditStructureTemplatePage({
       where: { id },
       include: {
         diameters: { orderBy: { sortOrder: "asc" } },
+        templatePdfs: { orderBy: [{ hasRiser: "asc" }, { hasKey: "asc" }] },
       },
     }),
     loadCastingProductOptions(),
@@ -67,6 +71,57 @@ export default async function EditStructureTemplatePage({
 
   const updateAction = updateStructureTemplate.bind(null, template.id);
 
+  const slotDefinitions = [
+    { hasRiser: false, hasKey: true, label: "No Riser + Key" },
+    { hasRiser: true, hasKey: true, label: "Riser + Key" },
+    { hasRiser: false, hasKey: false, label: "No Riser + No Key" },
+    { hasRiser: true, hasKey: false, label: "Riser + No Key" },
+  ] as const;
+
+  const pdfSlots = await Promise.all(
+    slotDefinitions.map(async (slot) => {
+      const pdf = template.templatePdfs.find(
+        (row) => row.hasRiser === slot.hasRiser && row.hasKey === slot.hasKey,
+      );
+
+      if (!pdf) {
+        return { ...slot, pdf: null };
+      }
+
+      try {
+        const bytes = await readTemplatePdfBytes(pdf);
+        const coverage = await listTemplatePdfFields(bytes);
+
+        return {
+          ...slot,
+          pdf: {
+            id: pdf.id,
+            originalName: pdf.originalName,
+            fileSize: pdf.fileSize,
+            uploadedAt: new Intl.DateTimeFormat("en-US").format(pdf.uploadedAt),
+            coverage,
+            loadError: null,
+          },
+        };
+      } catch (error) {
+        return {
+          ...slot,
+          pdf: {
+            id: pdf.id,
+            originalName: pdf.originalName,
+            fileSize: pdf.fileSize,
+            uploadedAt: new Intl.DateTimeFormat("en-US").format(pdf.uploadedAt),
+            coverage: null,
+            loadError:
+              error instanceof Error
+                ? error.message
+                : "Could not read the uploaded template PDF.",
+          },
+        };
+      }
+    }),
+  );
+
   return (
     <DashboardShell
       title={`Edit ${template.name}`}
@@ -90,6 +145,10 @@ export default async function EditStructureTemplatePage({
           defaultValue={defaultValue}
           castingOptions={castingOptions}
         />
+      </div>
+
+      <div className="mt-6">
+        <StructureTemplatePdfsSection templateId={template.id} slots={pdfSlots} />
       </div>
     </DashboardShell>
   );

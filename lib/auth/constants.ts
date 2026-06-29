@@ -75,6 +75,7 @@ export function getRolePermissions(role: UserRoleKey): PermissionKey[] {
         "STRUCTURES_VIEW",
         "STRUCTURES_MANAGE",
         "JOBS_VIEW",
+        "JOBS_MANAGE",
         "QUOTES_VIEW",
         "QUOTES_MANAGE",
         "FILES_VIEW",

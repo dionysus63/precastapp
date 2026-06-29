@@ -66,6 +66,16 @@ export default async function DrillSheetDetailPage({
       </div>
 
       <div className="mt-4">
+        <p className="mb-3 text-xs text-slate-500">
+          Live calculation preview below. Open{" "}
+          <Link
+            href={`/drill-sheets/${sheet.id}/preview`}
+            className="font-medium text-slate-700 hover:text-slate-900"
+          >
+            Preview/Print
+          </Link>{" "}
+          to see your uploaded fillable PDF template.
+        </p>
         <DrillSheetPreview meta={meta} result={result} />
       </div>
     </DashboardShell>

@@ -30,6 +30,7 @@ export type QuoteDrawLineItem = {
   description: string;
   unitPrice: string;
   total: string;
+  isCategoryLine?: boolean;
 };
 
 export type QuoteLineItemPageSlice = {
@@ -127,6 +128,10 @@ export function measureRowHeight(
   font: PDFFont,
   layout: QuoteTableLayout,
 ): number {
+  if (item.isCategoryLine) {
+    return layout.lineHeight + layout.rowPadding + measureSeparatorHeight();
+  }
+
   const descLines = measureDescriptionLines(
     item.description,
     font,
@@ -293,13 +298,53 @@ function drawRowSeparator(page: PDFPage, y: number): void {
   });
 }
 
+function drawTextUnderline(
+  page: PDFPage,
+  x: number,
+  y: number,
+  width: number,
+): void {
+  page.drawLine({
+    start: { x, y: y - 1.5 },
+    end: { x: x + width, y: y - 1.5 },
+    thickness: 0.75,
+    color: rgb(TEXT_COLOR.r, TEXT_COLOR.g, TEXT_COLOR.b),
+  });
+}
+
 export function drawLineItemRow(
   page: PDFPage,
   font: PDFFont,
+  boldFont: PDFFont,
   item: QuoteDrawLineItem,
   topY: number,
   layout: QuoteTableLayout,
 ): number {
+  if (item.isCategoryLine) {
+    const rowHeight =
+      layout.lineHeight + layout.rowPadding + measureSeparatorHeight();
+    const firstLineY = topY - layout.lineHeight;
+    const categoryText = item.description.trim();
+    drawTextAt(
+      page,
+      boldFont,
+      categoryText,
+      COL_DESC_X,
+      firstLineY,
+      layout.fontSize,
+    );
+    if (categoryText) {
+      const textWidth = boldFont.widthOfTextAtSize(
+        categoryText,
+        layout.fontSize,
+      );
+      drawTextUnderline(page, COL_DESC_X, firstLineY, textWidth);
+    }
+    const separatorY = topY - layout.lineHeight - layout.rowPadding;
+    drawRowSeparator(page, separatorY);
+    return topY - rowHeight;
+  }
+
   const descLines = measureDescriptionLines(
     item.description,
     font,
@@ -372,12 +417,13 @@ export function drawLineItemRow(
 export function drawQuoteLineItemsOnPage(
   page: PDFPage,
   font: PDFFont,
+  boldFont: PDFFont,
   slice: QuoteLineItemPageSlice,
 ): void {
   const layout = slice.isLastPage ? MAIN_TABLE_LAYOUT : CONT_TABLE_LAYOUT;
   let cursorY = layout.tableTopY;
 
   for (const item of slice.items) {
-    cursorY = drawLineItemRow(page, font, item, cursorY, layout);
+    cursorY = drawLineItemRow(page, font, boldFont, item, cursorY, layout);
   }
 }

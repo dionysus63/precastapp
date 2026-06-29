@@ -89,6 +89,6 @@ Write-Host ""
 Write-Host "If this folder is on the app server, clients will pick up the update automatically." -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Typical workflow:" -ForegroundColor Gray
-Write-Host "  Dev PC  — build here (this script)" -ForegroundColor Gray
-Write-Host "  Server  — hosts public\updates\ (use -CopyTo \\SERVER\C$\Apps\precastapp\public\updates)" -ForegroundColor Gray
-Write-Host "  Staff   — auto-update; no action needed" -ForegroundColor Gray
+Write-Host "  Dev PC  - build here (this script)" -ForegroundColor Gray
+Write-Host "  Server  - hosts public\updates\ (use -CopyTo \\SERVER\C$\Apps\precastapp\public\updates)" -ForegroundColor Gray
+Write-Host "  Staff   - auto-update; no action needed" -ForegroundColor Gray

@@ -3,8 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Prisma, AppPermission } from "@/app/generated/prisma/client";
+import {
+  listTemplatePdfFields,
+  type TemplatePdfFieldCoverage,
+} from "@/lib/drill-sheet-template-pdf";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import {
+  deleteTemplatePdf,
+  readTemplatePdfBytes,
+  saveTemplatePdf,
+} from "@/lib/structure-template-pdf-service";
 
 type StructureShape = "CIRCULAR" | "RECTANGULAR";
 type StructureTemplateStatus = "ACTIVE" | "INACTIVE";
@@ -295,4 +304,72 @@ export async function loadCastingProductOptions() {
     name: p.name,
     heightFeet: p.heightFeet ? Number(p.heightFeet) : null,
   }));
+}
+
+function parseBooleanField(value: FormDataEntryValue | null): boolean {
+  return value === "true" || value === "1" || value === "on";
+}
+
+export async function uploadStructureTemplatePdfAction(
+  formData: FormData,
+): Promise<{ coverage: TemplatePdfFieldCoverage }> {
+  await requirePermission(AppPermission.STRUCTURES_MANAGE);
+
+  const templateId = String(formData.get("templateId") ?? "").trim();
+  const hasRiser = parseBooleanField(formData.get("hasRiser"));
+  const hasKey = parseBooleanField(formData.get("hasKey"));
+  const file = formData.get("file");
+
+  if (!templateId) {
+    throw new Error("Template id is required.");
+  }
+  if (!(file instanceof File)) {
+    throw new Error("A PDF file is required.");
+  }
+
+  const row = await saveTemplatePdf(
+    prisma,
+    templateId,
+    hasRiser,
+    hasKey,
+    file,
+  );
+  const bytes = await readTemplatePdfBytes(row);
+  const coverage = await listTemplatePdfFields(bytes);
+
+  revalidatePath("/structures");
+  revalidatePath(`/structures/${templateId}`);
+
+  return { coverage };
+}
+
+export async function deleteStructureTemplatePdfAction(id: string): Promise<void> {
+  await requirePermission(AppPermission.STRUCTURES_MANAGE);
+
+  const row = await prisma.structureTemplatePdf.findUnique({
+    where: { id },
+    select: { templateId: true },
+  });
+  if (!row) {
+    throw new Error("Template PDF not found.");
+  }
+
+  await deleteTemplatePdf(prisma, id);
+
+  revalidatePath("/structures");
+  revalidatePath(`/structures/${row.templateId}`);
+}
+
+export async function loadStructureTemplatePdfFieldCoverage(
+  id: string,
+): Promise<TemplatePdfFieldCoverage | null> {
+  await requirePermission(AppPermission.STRUCTURES_VIEW);
+
+  const row = await prisma.structureTemplatePdf.findUnique({ where: { id } });
+  if (!row) {
+    return null;
+  }
+
+  const bytes = await readTemplatePdfBytes(row);
+  return listTemplatePdfFields(bytes);
 }
