@@ -38,7 +38,7 @@ export async function DashboardShell({
     redirect("/login");
   }
 
-  const permissions = getUserPermissions(user);
+  const permissions = await getUserPermissions(user);
   const headerList = await headers();
   const pathname =
     headerList.get("x-pathname") ??
@@ -50,7 +50,7 @@ export async function DashboardShell({
     ? new URL(pathname).pathname
     : pathname;
 
-  if (!canAccessPath(user, normalizedPath)) {
+  if (!(await canAccessPath(user, normalizedPath))) {
     redirect(getDefaultHome(user));
   }
 

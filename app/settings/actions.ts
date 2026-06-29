@@ -33,6 +33,7 @@ import {
   validateRingBuilderConfig,
 } from "@/lib/ring-builder-settings";
 import { writeAuditLog } from "@/lib/auth/audit";
+import { parseRolePermissionsFromFormData } from "@/lib/role-permissions-settings";
 import {
   isSettingsResetConfigured,
   verifySettingsResetPassword,
@@ -55,6 +56,8 @@ function revalidateSettingsPaths() {
   revalidatePath("/settings/casting-suppliers");
   revalidatePath("/settings/system");
   revalidatePath("/settings/data-reset");
+  revalidatePath("/settings/roles");
+  revalidatePath("/settings/users");
   revalidatePath("/products");
   revalidatePath("/quotes/new");
   revalidatePath("/products/new");
@@ -365,6 +368,31 @@ export async function updateOperationsSettingsFormAction(
     drivers,
     trailers,
   });
+}
+
+export async function updateRolePermissionsFormAction(
+  formData: FormData,
+): Promise<SettingsActionResult> {
+  const actor = await requirePermission(AppPermission.USERS_MANAGE);
+  const rolePermissions = parseRolePermissionsFromFormData(formData);
+
+  const result = await updateAppSettings({
+    rolePermissions,
+  });
+
+  if (result.error) {
+    return result;
+  }
+
+  await writeAuditLog({
+    userId: actor.id,
+    action: "settings.update_role_permissions",
+    entityType: "AppSettings",
+    entityId: "default",
+    summary: "Updated role default permissions",
+  });
+
+  return result;
 }
 
 export async function updateProductCatalogSettingsFormAction(

@@ -1231,6 +1231,7 @@ model AppSettings {
   truckCapacityLabel String
   productCatalog     Json
   ringBuilderConfig  Json     @default("[]")
+  rolePermissions    Json     @default("{}")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

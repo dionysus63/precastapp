@@ -59,60 +59,53 @@ const VIEW_PERMISSIONS = ALL_PERMISSION_KEYS.filter((permission) =>
   permission.endsWith("_VIEW"),
 );
 
+export const DEFAULT_ROLE_PERMISSIONS: Record<UserRoleKey, PermissionKey[]> = {
+  ADMIN: [...ALL_PERMISSION_KEYS],
+  MANAGER: ALL_PERMISSION_KEYS.filter(
+    (permission) => permission !== "USERS_MANAGE",
+  ),
+  ESTIMATOR: [
+    "CUSTOMERS_VIEW",
+    "CUSTOMERS_MANAGE",
+    "PRODUCTS_VIEW",
+    "STRUCTURES_VIEW",
+    "STRUCTURES_MANAGE",
+    "JOBS_VIEW",
+    "JOBS_MANAGE",
+    "QUOTES_VIEW",
+    "QUOTES_MANAGE",
+    "FILES_VIEW",
+    "SETTINGS_VIEW",
+  ],
+  DISPATCHER: [
+    "CUSTOMERS_VIEW",
+    "JOBS_VIEW",
+    "DELIVERY_VIEW",
+    "DELIVERY_MANAGE",
+    "FILES_VIEW",
+  ],
+  PRODUCTION: [
+    "JOBS_VIEW",
+    "PRODUCTION_VIEW",
+    "PRODUCTION_MANAGE",
+    "INVENTORY_VIEW",
+    "FILES_VIEW",
+  ],
+  OFFICE: [
+    "CUSTOMERS_VIEW",
+    "CUSTOMERS_MANAGE",
+    "JOBS_VIEW",
+    "QUOTES_VIEW",
+    "INVOICES_VIEW",
+    "INVOICES_MANAGE",
+    "DELIVERY_VIEW",
+    "FILES_VIEW",
+  ],
+  READ_ONLY: [...VIEW_PERMISSIONS],
+};
+
 export function getRolePermissions(role: UserRoleKey): PermissionKey[] {
-  switch (role) {
-    case "ADMIN":
-      return [...ALL_PERMISSION_KEYS];
-    case "MANAGER":
-      return ALL_PERMISSION_KEYS.filter(
-        (permission) => permission !== "USERS_MANAGE",
-      );
-    case "ESTIMATOR":
-      return [
-        "CUSTOMERS_VIEW",
-        "CUSTOMERS_MANAGE",
-        "PRODUCTS_VIEW",
-        "STRUCTURES_VIEW",
-        "STRUCTURES_MANAGE",
-        "JOBS_VIEW",
-        "JOBS_MANAGE",
-        "QUOTES_VIEW",
-        "QUOTES_MANAGE",
-        "FILES_VIEW",
-        "SETTINGS_VIEW",
-      ];
-    case "DISPATCHER":
-      return [
-        "CUSTOMERS_VIEW",
-        "JOBS_VIEW",
-        "DELIVERY_VIEW",
-        "DELIVERY_MANAGE",
-        "FILES_VIEW",
-      ];
-    case "PRODUCTION":
-      return [
-        "JOBS_VIEW",
-        "PRODUCTION_VIEW",
-        "PRODUCTION_MANAGE",
-        "INVENTORY_VIEW",
-        "FILES_VIEW",
-      ];
-    case "OFFICE":
-      return [
-        "CUSTOMERS_VIEW",
-        "CUSTOMERS_MANAGE",
-        "JOBS_VIEW",
-        "QUOTES_VIEW",
-        "INVOICES_VIEW",
-        "INVOICES_MANAGE",
-        "DELIVERY_VIEW",
-        "FILES_VIEW",
-      ];
-    case "READ_ONLY":
-      return [...VIEW_PERMISSIONS];
-    default:
-      return [...VIEW_PERMISSIONS];
-  }
+  return DEFAULT_ROLE_PERMISSIONS[role] ?? [...VIEW_PERMISSIONS];
 }
 
 export function getDefaultHomeForRole(role: UserRoleKey): string {
@@ -206,6 +199,7 @@ const ROUTE_PERMISSION_RULES: Array<{
   { prefix: "/inventory", permission: "INVENTORY_VIEW" },
   { prefix: "/files", permission: "FILES_VIEW" },
   { prefix: "/settings/users", permission: "USERS_MANAGE" },
+  { prefix: "/settings/roles", permission: "USERS_MANAGE" },
   { prefix: "/settings", permission: "SETTINGS_VIEW" },
 ];
 
@@ -244,12 +238,15 @@ export function getEffectivePermissionsForUser(input: {
   role: UserRoleKey;
   grantedPermissions: PermissionKey[];
   deniedPermissions: PermissionKey[];
+  roleDefaults?: Record<UserRoleKey, PermissionKey[]>;
 }): PermissionKey[] {
+  const roleDefaults = input.roleDefaults ?? DEFAULT_ROLE_PERMISSIONS;
+
   if (input.role === "ADMIN") {
     return [...ALL_PERMISSION_KEYS];
   }
 
-  const rolePermissions = new Set(getRolePermissions(input.role));
+  const rolePermissions = new Set(roleDefaults[input.role] ?? VIEW_PERMISSIONS);
   for (const permission of input.grantedPermissions) {
     rolePermissions.add(permission);
   }

@@ -4,15 +4,16 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { customerInputClassName } from "@/components/customers/customer-form";
 import {
+  ALL_PERMISSION_KEYS,
   formatPermissionLabel,
   getEffectivePermissionsForUser,
-  getRolePermissions,
   PERMISSION_GROUPS,
   ROLE_LABELS,
   USER_ROLE_OPTIONS,
   type PermissionKey,
   type UserRoleKey,
 } from "@/lib/auth/constants";
+import type { RolePermissionsMap } from "@/lib/role-permissions-settings";
 
 export type UserPermissionsFormValues = {
   id?: string;
@@ -31,46 +32,92 @@ type UserPermissionsFormProps = {
   cancelHref: string;
   submitLabel: string;
   defaultValues: UserPermissionsFormValues;
+  roleDefaults: RolePermissionsMap;
   showUsernameField?: boolean;
 };
+
+function toAllowedSet(
+  role: UserRoleKey,
+  grantedPermissions: PermissionKey[],
+  deniedPermissions: PermissionKey[],
+  roleDefaults: RolePermissionsMap,
+): Set<PermissionKey> {
+  return new Set(
+    getEffectivePermissionsForUser({
+      role,
+      grantedPermissions,
+      deniedPermissions,
+      roleDefaults,
+    }),
+  );
+}
+
+function deriveOverrides(
+  role: UserRoleKey,
+  allowed: Set<PermissionKey>,
+  roleDefaults: RolePermissionsMap,
+) {
+  const rolePreset = new Set(roleDefaults[role] ?? []);
+
+  const grantedPermissions = [...allowed].filter(
+    (permission) => !rolePreset.has(permission),
+  );
+  const deniedPermissions = [...rolePreset].filter(
+    (permission) => !allowed.has(permission),
+  );
+
+  return { grantedPermissions, deniedPermissions };
+}
 
 export function UserPermissionsForm({
   action,
   cancelHref,
   submitLabel,
   defaultValues,
+  roleDefaults,
   showUsernameField = false,
 }: UserPermissionsFormProps) {
   const [role, setRole] = useState(defaultValues.role);
-  const [grantedPermissions, setGrantedPermissions] = useState<PermissionKey[]>(
-    defaultValues.grantedPermissions,
-  );
-  const [deniedPermissions, setDeniedPermissions] = useState<PermissionKey[]>(
-    defaultValues.deniedPermissions,
+  const [allowed, setAllowed] = useState<Set<PermissionKey>>(() =>
+    toAllowedSet(
+      defaultValues.role,
+      defaultValues.grantedPermissions,
+      defaultValues.deniedPermissions,
+      roleDefaults,
+    ),
   );
 
-  const effectivePermissions = useMemo(() => {
-    return getEffectivePermissionsForUser({
-      role,
-      grantedPermissions,
-      deniedPermissions,
-    });
-  }, [deniedPermissions, grantedPermissions, role]);
+  const effectivePermissions = useMemo(
+    () => [...allowed].sort(),
+    [allowed],
+  );
 
-  function toggleGranted(permission: PermissionKey) {
-    setGrantedPermissions((current) =>
-      current.includes(permission)
-        ? current.filter((value) => value !== permission)
-        : [...current, permission],
-    );
+  const { grantedPermissions, deniedPermissions } = useMemo(
+    () => deriveOverrides(role, allowed, roleDefaults),
+    [allowed, role, roleDefaults],
+  );
+
+  const isAdmin = role === "ADMIN";
+
+  function handleRoleChange(nextRole: UserRoleKey) {
+    setRole(nextRole);
+    setAllowed(new Set(roleDefaults[nextRole] ?? []));
   }
 
-  function toggleDenied(permission: PermissionKey) {
-    setDeniedPermissions((current) =>
-      current.includes(permission)
-        ? current.filter((value) => value !== permission)
-        : [...current, permission],
-    );
+  function toggleAllowed(permission: PermissionKey) {
+    if (isAdmin) {
+      return;
+    }
+
+    setAllowed((current) => {
+      const next = new Set(current);
+      if (next.has(permission)) {
+        next.delete(permission);
+      } else {
+        next.add(permission);
+      }
+      return next;
+    });
   }
 
   return (
@@ -165,7 +212,9 @@ export function UserPermissionsForm({
             name="role"
             required
             value={role}
-            onChange={(event) => setRole(event.target.value as UserRoleKey)}
+            onChange={(event) =>
+              handleRoleChange(event.target.value as UserRoleKey)
+            }
             className={customerInputClassName}
           >
             {USER_ROLE_OPTIONS.map((option) => (
@@ -189,22 +238,19 @@ export function UserPermissionsForm({
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-4 py-3 text-xs text-slate-600">
-        <p className="font-medium text-slate-900">Password login coming soon</p>
-        <p className="mt-1">
-          Users sign in by choosing their account for now. Password fields will
-          be added here later.
-        </p>
-      </div>
-
       <div>
-        <h3 className="text-sm font-semibold text-slate-900">
-          Permission overrides
-        </h3>
+        <h3 className="text-sm font-semibold text-slate-900">Permissions</h3>
         <p className="mt-1 text-xs text-slate-500">
-          Role preset: {ROLE_LABELS[role]} ({getRolePermissions(role).length}{" "}
-          permissions). Grant or deny individual permissions below.
+          Role preset: {ROLE_LABELS[role]} ({roleDefaults[role]?.length ?? 0}{" "}
+          default permissions). Check or uncheck permissions below. Changing the
+          role resets the list to that role&apos;s defaults.
         </p>
+
+        {isAdmin ? (
+          <p className="mt-2 text-xs text-slate-600">
+            Admin accounts always have every permission.
+          </p>
+        ) : null}
 
         <div className="mt-4 space-y-4">
           {PERMISSION_GROUPS.map((group) => (
@@ -217,32 +263,27 @@ export function UserPermissionsForm({
               </p>
               <div className="mt-3 space-y-2">
                 {group.permissions.map((permission) => (
-                  <div
+                  <label
                     key={permission}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-slate-50 px-3 py-2"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-slate-50 px-3 py-2 text-xs"
                   >
-                    <span className="text-xs font-medium text-slate-800">
+                    <span className="font-medium text-slate-800">
                       {formatPermissionLabel(permission)}
                     </span>
-                    <div className="flex items-center gap-4 text-[11px]">
-                      <label className="flex items-center gap-1.5 text-emerald-700">
-                        <input
-                          type="checkbox"
-                          checked={grantedPermissions.includes(permission)}
-                          onChange={() => toggleGranted(permission)}
-                        />
-                        Grant
-                      </label>
-                      <label className="flex items-center gap-1.5 text-red-700">
-                        <input
-                          type="checkbox"
-                          checked={deniedPermissions.includes(permission)}
-                          onChange={() => toggleDenied(permission)}
-                        />
-                        Deny
-                      </label>
-                    </div>
-                  </div>
+                    <span className="flex items-center gap-1.5 text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={
+                          isAdmin
+                            ? ALL_PERMISSION_KEYS.includes(permission)
+                            : allowed.has(permission)
+                        }
+                        disabled={isAdmin}
+                        onChange={() => toggleAllowed(permission)}
+                      />
+                      Allowed
+                    </span>
+                  </label>
                 ))}
               </div>
             </div>
@@ -273,8 +314,7 @@ export function UserPermissionsForm({
         </p>
         <p className="mt-2 text-xs text-slate-600">
           {effectivePermissions.length} permission
-          {effectivePermissions.length === 1 ? "" : "s"} after role preset and
-          overrides.
+          {effectivePermissions.length === 1 ? "" : "s"} for this user.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           {effectivePermissions.map((permission) => (

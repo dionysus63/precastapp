@@ -10,7 +10,7 @@ export async function GET() {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  if (!hasPermission(user, AppPermission.PRODUCTS_VIEW)) {
+  if (!(await hasPermission(user, AppPermission.PRODUCTS_VIEW))) {
     return new Response("Forbidden", { status: 403 });
   }
 

@@ -138,7 +138,7 @@ export async function requirePermission(
 ): Promise<AuthUser> {
   const user = await requireAuth();
 
-  if (!hasPermission(user, permission)) {
+  if (!(await hasPermission(user, permission))) {
     throw new Error("You don't have permission to do that.");
   }
 
@@ -148,7 +148,7 @@ export async function requirePermission(
 export async function requireAuthForPath(pathname: string): Promise<AuthUser> {
   const user = await requireAuth();
 
-  if (!canAccessPath(user, pathname)) {
+  if (!(await canAccessPath(user, pathname))) {
     redirect(getDefaultHome(user));
   }
 
@@ -180,6 +180,8 @@ export async function signInUser(userId: string): Promise<AuthUser> {
   return user;
 }
 
-export function getUserPermissions(user: AuthUser): AppPermission[] {
+export async function getUserPermissions(
+  user: AuthUser,
+): Promise<AppPermission[]> {
   return getEffectivePermissions(user);
 }

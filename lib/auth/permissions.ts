@@ -3,6 +3,7 @@ import {
   type User,
   UserRole,
 } from "@/app/generated/prisma/client";
+import { getRoleDefaults } from "@/lib/app-settings";
 import {
   canAccessPathWithPermissions,
   getDefaultHomeForRole,
@@ -14,19 +15,25 @@ import {
 
 export type AuthUser = User;
 
-export function getEffectivePermissions(user: AuthUser): AppPermission[] {
+export async function getEffectivePermissions(
+  user: AuthUser,
+): Promise<AppPermission[]> {
+  const roleDefaults = await getRoleDefaults();
+
   return getEffectivePermissionsForUser({
     role: user.role as UserRoleKey,
     grantedPermissions: user.grantedPermissions as PermissionKey[],
     deniedPermissions: user.deniedPermissions as PermissionKey[],
+    roleDefaults,
   }) as AppPermission[];
 }
 
-export function hasPermission(
+export async function hasPermission(
   user: AuthUser,
   permission: AppPermission,
-): boolean {
-  return getEffectivePermissions(user).includes(permission);
+): Promise<boolean> {
+  const permissions = await getEffectivePermissions(user);
+  return permissions.includes(permission);
 }
 
 export function getDefaultHome(user: AuthUser): string {
@@ -38,14 +45,18 @@ export {
   canAccessPathWithPermissions,
 };
 
-export function canAccessPath(user: AuthUser, pathname: string): boolean {
-  return canAccessPathWithPermissions(getEffectivePermissions(user), pathname);
+export async function canAccessPath(
+  user: AuthUser,
+  pathname: string,
+): Promise<boolean> {
+  const permissions = await getEffectivePermissions(user);
+  return canAccessPathWithPermissions(permissions, pathname);
 }
 
-export function filterNavItems<
+export async function filterNavItems<
   T extends { href: string; requiredPermission?: AppPermission },
->(items: T[], user: AuthUser): T[] {
-  const permissions = getEffectivePermissions(user);
+>(items: T[], user: AuthUser): Promise<T[]> {
+  const permissions = await getEffectivePermissions(user);
   return items.filter((item) => {
     if (!item.requiredPermission) {
       return true;

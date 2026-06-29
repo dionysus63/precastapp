@@ -4,7 +4,6 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import { SettingsShell } from "@/components/settings/settings-shell";
 import { getSettingsHubStatus } from "@/app/settings/actions";
 import { getCurrentUser, getUserPermissions } from "@/lib/auth/session";
-import { hasPermission } from "@/lib/auth/permissions";
 
 const settingSections = [
   {
@@ -63,6 +62,12 @@ const settingSections = [
     description: "Domestic and imported vendors for cast iron casting products.",
   },
   {
+    href: "/settings/roles",
+    title: "Roles & Permissions",
+    description: "Default permissions for each role across the app.",
+    adminOnly: true,
+  },
+  {
     href: "/settings/users",
     title: "Users & Access",
     description: "Manage user accounts, roles, and permission overrides.",
@@ -97,10 +102,11 @@ function StatusChip({
 export default async function SettingsPage() {
   const status = await getSettingsHubStatus();
   const user = await getCurrentUser();
-  const permissions = user ? getUserPermissions(user) : [];
+  const permissions = user ? await getUserPermissions(user) : [];
+  const canManageUsers = permissions.includes(AppPermission.USERS_MANAGE);
   const visibleSections = settingSections.filter((section) => {
     if ("adminOnly" in section && section.adminOnly) {
-      return user ? hasPermission(user, AppPermission.USERS_MANAGE) : false;
+      return canManageUsers;
     }
 
     return true;

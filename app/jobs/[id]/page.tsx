@@ -104,7 +104,7 @@ export default async function JobDetailPage({
       }),
     ),
     user ? getFavoriteJobIdsForUser(user.id) : Promise.resolve([]),
-    user && hasPermission(user, AppPermission.JOBS_MANAGE)
+    user && (await hasPermission(user, AppPermission.JOBS_MANAGE))
       ? listCustomersForBidList()
       : Promise.resolve([]),
   ]);

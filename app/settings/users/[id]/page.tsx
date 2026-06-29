@@ -4,6 +4,7 @@ import { SettingsShell } from "@/components/settings/settings-shell";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { UserPermissionsForm } from "@/components/settings/user-permissions-form";
 import { updateUser, resetUserPassword } from "@/app/settings/users/actions";
+import { getRoleDefaults } from "@/lib/app-settings";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 
@@ -16,6 +17,7 @@ export default async function EditSettingsUserPage({
 }: EditSettingsUserPageProps) {
   await requirePermission(AppPermission.USERS_MANAGE);
   const { id } = await params;
+  const roleDefaults = await getRoleDefaults();
 
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) {
@@ -32,6 +34,7 @@ export default async function EditSettingsUserPage({
           action={updateUser}
           cancelHref="/settings/users"
           submitLabel="Save Changes"
+          roleDefaults={roleDefaults}
           defaultValues={{
             id: user.id,
             username: user.username,

@@ -3,10 +3,12 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import { UserPermissionsForm } from "@/components/settings/user-permissions-form";
 import { createUser } from "@/app/settings/users/actions";
 import { AppPermission, UserRole } from "@/app/generated/prisma/client";
+import { getRoleDefaults } from "@/lib/app-settings";
 import { requirePermission } from "@/lib/auth/session";
 
 export default async function NewSettingsUserPage() {
   await requirePermission(AppPermission.USERS_MANAGE);
+  const roleDefaults = await getRoleDefaults();
 
   return (
     <SettingsShell
@@ -19,6 +21,7 @@ export default async function NewSettingsUserPage() {
           cancelHref="/settings/users"
           submitLabel="Create User"
           showUsernameField
+          roleDefaults={roleDefaults}
           defaultValues={{
             displayName: "",
             initials: "",

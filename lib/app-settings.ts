@@ -18,6 +18,10 @@ import {
   type RingBuilderConfig,
 } from "@/lib/ring-builder-settings";
 import {
+  parseRolePermissionsFromStorage,
+  type RolePermissionsMap,
+} from "@/lib/role-permissions-settings";
+import {
   DEFAULT_DELIVERY_TICKET_COPY1_TITLE,
   DEFAULT_DELIVERY_TICKET_COPY2_TITLE,
   DEFAULT_DELIVERY_TICKET_COPY3_TITLE,
@@ -80,6 +84,7 @@ export type AppSettingsView = {
   truckCapacityLabel: string;
   productCatalog: ProductCatalogCategory[];
   ringBuilderConfig: RingBuilderConfig;
+  rolePermissions: RolePermissionsMap;
   companyLogoPath: string | null;
 };
 
@@ -112,6 +117,7 @@ export const DEFAULT_APP_SETTINGS_DATA = {
   truckCapacityLabel: "80,000 lb",
   productCatalog: DEFAULT_PRODUCT_CATALOG,
   ringBuilderConfig: DEFAULT_RING_BUILDER_CONFIG,
+  rolePermissions: {} as RolePermissionsMap,
 };
 
 function parseStringList(value: unknown, fallback: string[]): string[] {
@@ -161,6 +167,7 @@ export function mapAppSettingsRow(row: AppSettings): AppSettingsView {
     truckCapacityLabel: row.truckCapacityLabel,
     productCatalog: parseProductCatalog(row.productCatalog),
     ringBuilderConfig: parseRingBuilderConfig(row.ringBuilderConfig),
+    rolePermissions: parseRolePermissionsFromStorage(row.rolePermissions),
     companyLogoPath: row.companyLogoPath,
   };
 }
@@ -183,6 +190,13 @@ export const getAppSettings = cache(async (): Promise<AppSettingsView> => {
   const row = await withDatabaseRetry((client) => ensureAppSettingsRow(client));
   return mapAppSettingsRow(row);
 });
+
+export const getRoleDefaults = cache(
+  async (): Promise<RolePermissionsMap> => {
+    const settings = await getAppSettings();
+    return settings.rolePermissions;
+  },
+);
 
 export async function getCompanyProfile(): Promise<CompanyProfile> {
   const settings = await getAppSettings();
