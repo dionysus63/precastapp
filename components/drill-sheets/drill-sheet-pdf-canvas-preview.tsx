@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { PDFDocumentProxy } from "pdfjs-dist";
 
 const PAGE_ASPECT_RATIO = 8.5 / 11;
 
@@ -19,18 +20,7 @@ type DrillSheetPdfCanvasPreviewProps = {
 };
 
 type LoadedPdf = {
-  document: {
-    numPages: number;
-    getPage: (pageNumber: number) => Promise<{
-      getViewport: (params: { scale: number }) => { width: number; height: number };
-      render: (params: {
-        canvasContext: CanvasRenderingContext2D;
-        viewport: { width: number; height: number };
-        canvas: HTMLCanvasElement;
-        background: string;
-      }) => { promise: Promise<void> };
-    }>;
-  };
+  document: PDFDocumentProxy;
 };
 
 export function DrillSheetPdfCanvasPreview({
@@ -122,10 +112,14 @@ export function DrillSheetPdfCanvasPreview({
       setIsRendering(true);
       setError(null);
 
+      const pdfDoc = loadedPdf?.document;
+      if (!pdfDoc) {
+        return;
+      }
+
       try {
-        const pdf = loadedPdf.document;
-        const sheetIndex = Math.min(Math.max(activeSheet, 1), pdf.numPages);
-        const page = await pdf.getPage(sheetIndex);
+        const sheetIndex = Math.min(Math.max(activeSheet, 1), pdfDoc.numPages);
+        const page = await pdfDoc.getPage(sheetIndex);
 
         if (cancelled) {
           return;

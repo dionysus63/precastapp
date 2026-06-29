@@ -380,7 +380,10 @@ export async function createQuote(
             drainRingStyle: line.isDrainRing
               ? parseDrainRingStyle(line.drainRingStyle ?? "DRAIN")
               : "DRAIN",
-            structureConfigJson: line.structureConfigJson ?? undefined,
+            structureConfigJson:
+              line.structureConfigJson != null
+                ? (line.structureConfigJson as Prisma.InputJsonValue)
+                : undefined,
           })),
         },
       },
@@ -587,7 +590,10 @@ export async function updateQuote(
                 drainRingStyle: line.isDrainRing
                   ? parseDrainRingStyle(line.drainRingStyle ?? "DRAIN")
                   : "DRAIN",
-                structureConfigJson: line.structureConfigJson ?? undefined,
+                structureConfigJson:
+                  line.structureConfigJson != null
+                    ? (line.structureConfigJson as Prisma.InputJsonValue)
+                    : undefined,
               })),
             },
           },
