@@ -9,7 +9,7 @@ export default async function DataResetSettingsPage() {
   return (
     <SettingsShell
       title="Data Reset"
-      subtitle="Clear all products or customers. These actions cannot be undone."
+      subtitle="Clear all products, customers, or jobs. These actions cannot be undone."
     >
       <SectionCard
         title="Danger zone"

@@ -743,20 +743,23 @@ export async function removeCompanyLogoFormAction(): Promise<SettingsActionResul
 export type DataResetStats = {
   productCount: number;
   customerCount: number;
+  jobCount: number;
   resetConfigured: boolean;
 };
 
 export async function getDataResetStats(): Promise<DataResetStats> {
   await requirePermission(AppPermission.SETTINGS_MANAGE);
 
-  const [productCount, customerCount] = await Promise.all([
+  const [productCount, customerCount, jobCount] = await Promise.all([
     prisma.product.count(),
     prisma.customer.count(),
+    prisma.job.count(),
   ]);
 
   return {
     productCount,
     customerCount,
+    jobCount,
     resetConfigured: isSettingsResetConfigured(),
   };
 }
@@ -794,6 +797,18 @@ function revalidateAfterCustomerReset() {
   revalidatePath("/quotes");
   revalidatePath("/delivery-tickets");
   revalidatePath("/settings/data-reset");
+}
+
+function revalidateAfterJobReset() {
+  revalidatePath("/jobs");
+  revalidatePath("/jobs/new");
+  revalidatePath("/quotes");
+  revalidatePath("/delivery-tickets");
+  revalidatePath("/invoices");
+  revalidatePath("/drill-sheets");
+  revalidatePath("/files");
+  revalidatePath("/settings/data-reset");
+  revalidatePath("/settings/system");
 }
 
 export async function clearAllProductsFormAction(
@@ -872,6 +887,67 @@ export async function clearAllCustomersFormAction(
   revalidateAfterCustomerReset();
   return {
     success: `Deleted ${result.customersDeleted} customer${result.customersDeleted === 1 ? "" : "s"}.`,
+  };
+}
+
+export async function clearAllJobsFormAction(
+  formData: FormData,
+): Promise<SettingsActionResult> {
+  const user = await requirePermission(AppPermission.SETTINGS_MANAGE);
+  const resetPassword = parseResetPassword(formData);
+
+  if (!verifySettingsResetPassword(resetPassword)) {
+    return resetPasswordError();
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const jobCount = await tx.job.count();
+    if (jobCount === 0) {
+      return { jobsDeleted: 0, sequencesDeleted: 0, biddersDeleted: 0, filesDeleted: 0, favoritesDeleted: 0 };
+    }
+    await tx.quote.updateMany({ data: { jobNumber: null } });
+    await tx.deliveryTicket.updateMany({ data: { jobNumber: null } });
+    await tx.invoice.updateMany({ data: { jobNumber: null } });
+    const [biddersDeleted, filesDeleted, favoritesDeleted] = await Promise.all([
+      tx.jobBidder.count(),
+      tx.jobFile.count(),
+      tx.jobFavorite.count(),
+    ]);
+    // Structures with no quote would become permanently inaccessible (both FKs null) after job deletion.
+    // Structures that have a quoteId survive linked to their quote with jobId nulled by the FK cascade.
+    await tx.jobStructure.deleteMany({ where: { quoteId: null } });
+    const jobsDeleted = await tx.job.deleteMany();
+    const sequencesDeleted = await tx.jobSequence.deleteMany();
+    return {
+      jobsDeleted: jobsDeleted.count,
+      sequencesDeleted: sequencesDeleted.count,
+      biddersDeleted,
+      filesDeleted,
+      favoritesDeleted,
+    };
+  });
+
+  if (result.jobsDeleted === 0) {
+    return { success: "No jobs to delete." };
+  }
+
+  await writeAuditLog({
+    userId: user.id,
+    action: "settings.clear_all_jobs",
+    entityType: "Job",
+    summary: `${user.displayName} cleared all jobs (${result.jobsDeleted} deleted, ${result.biddersDeleted} bid entries and ${result.filesDeleted} file records removed, ${result.sequencesDeleted} sequence year${result.sequencesDeleted === 1 ? "" : "s"} reset)`,
+    metadata: {
+      deletedCount: result.jobsDeleted,
+      sequencesDeleted: result.sequencesDeleted,
+      biddersDeleted: result.biddersDeleted,
+      filesDeleted: result.filesDeleted,
+      favoritesDeleted: result.favoritesDeleted,
+    },
+  });
+
+  revalidateAfterJobReset();
+  return {
+    success: `Deleted ${result.jobsDeleted} job${result.jobsDeleted === 1 ? "" : "s"}.${result.sequencesDeleted > 0 ? " Job numbering will start over for each year." : ""}`,
   };
 }
 
