@@ -55,11 +55,22 @@ async function slideSessionIfNeeded(session: {
   }
 
   const expiresAt = getSessionExpiryDate();
+
+  // Cookies can only be modified in a Server Action or Route Handler; during
+  // server-component rendering the set() call throws. Refresh the cookie
+  // first and only extend the database expiry when it succeeds, so the two
+  // never drift apart. Render-path calls skip the slide and it happens on
+  // the next Server Action instead.
+  try {
+    await refreshSessionCookie(session.token, expiresAt);
+  } catch {
+    return session.expiresAt;
+  }
+
   await prisma.session.update({
     where: { id: session.id },
     data: { expiresAt },
   });
-  await refreshSessionCookie(session.token, expiresAt);
 
   return expiresAt;
 }
