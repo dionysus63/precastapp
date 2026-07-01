@@ -17,7 +17,7 @@ import {
   type CastingComponentOption,
   type CastingPieceRole,
 } from "@/lib/casting-utils";
-import { loadCastingComponentOptionsForAssembly } from "@/lib/casting-service";
+import { loadCastingComponentOptionsByAssembly } from "@/lib/casting-service";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -27,6 +27,13 @@ export const SCHEDULED_TICKET_STATUSES: DeliveryTicketStatus[] = [
   "SCHEDULED",
   "LOADING",
   "IN_TRANSIT",
+];
+
+/** Every non-terminal status. Used when validating new tickets so DRAFT
+ * quantities count as committed (status promotion never re-validates lines). */
+export const OPEN_TICKET_STATUSES: DeliveryTicketStatus[] = [
+  "DRAFT",
+  ...SCHEDULED_TICKET_STATUSES,
 ];
 
 export type DrainRingOption = {
@@ -227,7 +234,8 @@ async function loadShippedQuantitiesByQuoteLineId(
     return new Map();
   }
 
-  const lines = await client.deliveryTicketLineItem.findMany({
+  const grouped = await client.deliveryTicketLineItem.groupBy({
+    by: ["quoteLineItemId"],
     where: {
       quoteLineItemId: { in: quoteLineItemIds },
       deliveryTicket: {
@@ -235,16 +243,18 @@ async function loadShippedQuantitiesByQuoteLineId(
         ...(excludeTicketId ? { id: { not: excludeTicketId } } : {}),
       },
     },
-    select: { quoteLineItemId: true, quantity: true },
+    _sum: { quantity: true },
   });
 
   const rawTotals = new Map<string, Prisma.Decimal>();
-  for (const line of lines) {
-    if (!line.quoteLineItemId) {
+  for (const row of grouped) {
+    if (!row.quoteLineItemId) {
       continue;
     }
-    const current = rawTotals.get(line.quoteLineItemId) ?? new Prisma.Decimal(0);
-    rawTotals.set(line.quoteLineItemId, current.add(line.quantity));
+    rawTotals.set(
+      row.quoteLineItemId,
+      row._sum.quantity ?? new Prisma.Decimal(0),
+    );
   }
 
   return rollUpDecimalTotals(lineageMap, rawTotals);
@@ -261,7 +271,10 @@ async function loadShippedFeetByQuoteLineId(
     return new Map();
   }
 
-  const lines = await client.deliveryTicketLineItem.findMany({
+  // groupBy cannot join product, so group per (line, product) and fetch
+  // the distinct product heights in a second query.
+  const grouped = await client.deliveryTicketLineItem.groupBy({
+    by: ["quoteLineItemId", "productId"],
     where: {
       quoteLineItemId: { in: quoteLineItemIds },
       deliveryTicket: {
@@ -269,25 +282,41 @@ async function loadShippedFeetByQuoteLineId(
         ...(excludeTicketId ? { id: { not: excludeTicketId } } : {}),
       },
     },
-    select: {
-      quoteLineItemId: true,
-      quantity: true,
-      product: { select: { heightFeet: true } },
-    },
+    _sum: { quantity: true },
   });
 
+  const productIds = [
+    ...new Set(
+      grouped
+        .map((row) => row.productId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const products =
+    productIds.length > 0
+      ? await client.product.findMany({
+          where: { id: { in: productIds } },
+          select: { id: true, heightFeet: true },
+        })
+      : [];
+  const heightByProductId = new Map(
+    products.map((product) => [product.id, product.heightFeet]),
+  );
+
   const rawTotals = new Map<string, number>();
-  for (const line of lines) {
-    if (!line.quoteLineItemId) {
+  for (const row of grouped) {
+    if (!row.quoteLineItemId) {
       continue;
     }
-    const heightFeet = line.product?.heightFeet
-      ? Number(line.product.heightFeet)
-      : 0;
-    const current = rawTotals.get(line.quoteLineItemId) ?? 0;
+    const rawHeight = row.productId
+      ? heightByProductId.get(row.productId)
+      : null;
+    const heightFeet = rawHeight != null ? Number(rawHeight) : 0;
+    const quantity = row._sum.quantity ?? new Prisma.Decimal(0);
+    const current = rawTotals.get(row.quoteLineItemId) ?? 0;
     rawTotals.set(
-      line.quoteLineItemId,
-      current + heightFeet * Number(line.quantity),
+      row.quoteLineItemId,
+      current + heightFeet * Number(quantity),
     );
   }
 
@@ -350,7 +379,8 @@ async function loadShippedCastingSetsByQuoteLineId(
   ];
 
   const [deliveryLines, bomRows] = await Promise.all([
-    client.deliveryTicketLineItem.findMany({
+    client.deliveryTicketLineItem.groupBy({
+      by: ["quoteLineItemId", "productId"],
       where: {
         quoteLineItemId: { in: lineIds },
         deliveryTicket: {
@@ -358,11 +388,7 @@ async function loadShippedCastingSetsByQuoteLineId(
           ...(excludeTicketId ? { id: { not: excludeTicketId } } : {}),
         },
       },
-      select: {
-        quoteLineItemId: true,
-        quantity: true,
-        productId: true,
-      },
+      _sum: { quantity: true },
     }),
     client.productCastingComponent.findMany({
       where: { assemblyId: { in: assemblyIds } },
@@ -415,7 +441,7 @@ async function loadShippedCastingSetsByQuoteLineId(
       shippedByComponent.set(
         entry.productId,
         (shippedByComponent.get(entry.productId) ?? 0) +
-          Number(entry.quantity),
+          Number(entry._sum.quantity ?? new Prisma.Decimal(0)),
       );
     }
 
@@ -508,11 +534,12 @@ async function loadDrainRingCatalogByLine(
   return catalog;
 }
 
-export async function getQuoteLineFulfillment(
-  client: DbClient,
-  quoteId: string,
-  excludeTicketId?: string,
-): Promise<QuoteLineFulfillment[]> {
+/**
+ * Shared preamble for fulfillment/scheduled aggregation: fetches the quote
+ * with full line-item includes, builds the lineage map, and categorizes lines
+ * (drain ring / casting assembly / standard) exactly once.
+ */
+async function loadQuoteFulfillmentContext(client: DbClient, quoteId: string) {
   const quote = await client.quote.findUnique({
     where: { id: quoteId },
     include: {
@@ -544,7 +571,7 @@ export async function getQuoteLineFulfillment(
   });
 
   if (!quote) {
-    return [];
+    return null;
   }
 
   const lineIds = quote.lineItems.map((line) => line.id);
@@ -567,6 +594,44 @@ export async function getQuoteLineFulfillment(
       standardLineage.set(id, chain);
     }
   }
+
+  return {
+    quote,
+    lineageMap,
+    drainRingLines,
+    castingAssemblyLines,
+    standardLineage,
+  };
+}
+
+type QuoteFulfillmentContext = NonNullable<
+  Awaited<ReturnType<typeof loadQuoteFulfillmentContext>>
+>;
+
+export async function getQuoteLineFulfillment(
+  client: DbClient,
+  quoteId: string,
+  excludeTicketId?: string,
+): Promise<QuoteLineFulfillment[]> {
+  const context = await loadQuoteFulfillmentContext(client, quoteId);
+  if (!context) {
+    return [];
+  }
+  return buildFulfillmentFromContext(client, context, excludeTicketId);
+}
+
+async function buildFulfillmentFromContext(
+  client: DbClient,
+  context: QuoteFulfillmentContext,
+  excludeTicketId?: string,
+): Promise<QuoteLineFulfillment[]> {
+  const {
+    quote,
+    lineageMap,
+    drainRingLines,
+    castingAssemblyLines,
+    standardLineage,
+  } = context;
 
   const [shippedQuantities, shippedFeet, drainRingCatalog, shippedCastingSets] =
     await Promise.all([
@@ -591,12 +656,10 @@ export async function getQuoteLineFulfillment(
         .filter((id): id is string => Boolean(id)),
     ),
   ];
-  const optionsByProductId = new Map<string, CastingComponentOption[]>();
-  await Promise.all(
-    uniqueAssemblyProductIds.map(async (productId) => {
-      const options = await loadCastingComponentOptionsForAssembly(client, productId);
-      optionsByProductId.set(productId, options);
-    }),
+  // Single batched query instead of one query per assembly.
+  const optionsByProductId = await loadCastingComponentOptionsByAssembly(
+    client,
+    uniqueAssemblyProductIds,
   );
   const castingOptionsByLineId = new Map<string, CastingComponentOption[]>();
   for (const line of castingAssemblyLines) {
@@ -803,43 +866,22 @@ export async function getQuoteLineScheduledQuantities(
   client: DbClient,
   quoteId: string,
   excludeTicketId?: string,
+  ticketStatuses: readonly DeliveryTicketStatus[] = SCHEDULED_TICKET_STATUSES,
 ): Promise<Map<string, number>> {
-  const quote = await client.quote.findUnique({
-    where: { id: quoteId },
-    include: {
-      lineItems: {
-        orderBy: { lineNumber: "asc" },
-        include: {
-          product: { select: { castingRole: true } },
-        },
-      },
-    },
-  });
-
-  if (!quote) {
+  const context = await loadQuoteFulfillmentContext(client, quoteId);
+  if (!context) {
     return new Map();
   }
+  return buildScheduledFromContext(client, context, excludeTicketId, ticketStatuses);
+}
 
-  const lineIds = quote.lineItems.map((line) => line.id);
-  const lineageMap = await buildQuoteLineLineageMap(client, lineIds);
-  const drainRingLines = quote.lineItems.filter((line) => isQuoteLineDrainRing(line));
-  const castingAssemblyLines = quote.lineItems.filter((line) =>
-    isQuoteLineCastingAssembly(line),
-  );
-  const standardLineIds = quote.lineItems
-    .filter(
-      (line) =>
-        !isQuoteLineDrainRing(line) && !isQuoteLineCastingAssembly(line),
-    )
-    .map((line) => line.id);
-
-  const standardLineage = new Map<string, string[]>();
-  for (const id of standardLineIds) {
-    const chain = lineageMap.get(id);
-    if (chain) {
-      standardLineage.set(id, chain);
-    }
-  }
+async function buildScheduledFromContext(
+  client: DbClient,
+  context: QuoteFulfillmentContext,
+  excludeTicketId: string | undefined,
+  ticketStatuses: readonly DeliveryTicketStatus[],
+): Promise<Map<string, number>> {
+  const { quote, lineageMap, castingAssemblyLines, standardLineage } = context;
 
   const [scheduledQuantities, scheduledFeet, scheduledCastingSets] =
     await Promise.all([
@@ -847,13 +889,13 @@ export async function getQuoteLineScheduledQuantities(
         client,
         standardLineage,
         excludeTicketId,
-        SCHEDULED_TICKET_STATUSES,
+        ticketStatuses,
       ),
       loadShippedFeetByQuoteLineId(
         client,
         lineageMap,
         excludeTicketId,
-        SCHEDULED_TICKET_STATUSES,
+        ticketStatuses,
       ),
       loadShippedCastingSetsByQuoteLineId(
         client,
@@ -863,7 +905,7 @@ export async function getQuoteLineScheduledQuantities(
         })),
         lineageMap,
         excludeTicketId,
-        SCHEDULED_TICKET_STATUSES,
+        ticketStatuses,
       ),
     ]);
 
@@ -880,6 +922,33 @@ export async function getQuoteLineScheduledQuantities(
   }
 
   return result;
+}
+
+/**
+ * Fulfillment (delivered) and scheduled quantities in one pass: runs the
+ * shared quote/lineage/categorization preamble once, then both aggregation
+ * sets concurrently. Prefer this when a caller needs both.
+ */
+export async function getQuoteLineFulfillmentAndScheduled(
+  client: DbClient,
+  quoteId: string,
+  excludeTicketId?: string,
+  scheduledStatuses: readonly DeliveryTicketStatus[] = SCHEDULED_TICKET_STATUSES,
+): Promise<{
+  fulfillment: QuoteLineFulfillment[];
+  scheduled: Map<string, number>;
+}> {
+  const context = await loadQuoteFulfillmentContext(client, quoteId);
+  if (!context) {
+    return { fulfillment: [], scheduled: new Map() };
+  }
+
+  const [fulfillment, scheduled] = await Promise.all([
+    buildFulfillmentFromContext(client, context, excludeTicketId),
+    buildScheduledFromContext(client, context, excludeTicketId, scheduledStatuses),
+  ]);
+
+  return { fulfillment, scheduled };
 }
 
 /**

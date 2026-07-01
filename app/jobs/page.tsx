@@ -71,12 +71,12 @@ export default async function JobsPage({
       : {}),
   };
 
-  const total = await withDatabaseRetry((prisma) =>
-    prisma.job.count({ where }),
-  );
+  // Independent — run in parallel.
+  const [total, favoriteJobIds] = await Promise.all([
+    withDatabaseRetry((prisma) => prisma.job.count({ where })),
+    getFavoriteJobIdsForUser(user.id),
+  ]);
   const pageInfo = buildPageInfo(total, requestedPage);
-
-  const favoriteJobIds = await getFavoriteJobIdsForUser(user.id);
 
   const [jobRecords, favoriteRecords, yearRows, customerRows] =
     await withDatabaseRetry((prisma) =>

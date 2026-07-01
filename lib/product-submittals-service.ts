@@ -93,33 +93,40 @@ export async function uploadProductDocument(
   const buffer = Buffer.from(await file.arrayBuffer());
   await writeFile(outputPath, buffer);
 
-  const existing = await client.productDocument.findFirst({
-    where: { productId, filePath: outputPath },
-  });
+  try {
+    const existing = await client.productDocument.findFirst({
+      where: { productId, filePath: outputPath },
+    });
 
-  if (existing) {
-    return client.productDocument.update({
-      where: { id: existing.id },
+    if (existing) {
+      return await client.productDocument.update({
+        where: { id: existing.id },
+        data: {
+          documentName: path.basename(outputPath),
+          documentType: parsedType,
+          fileSize: buffer.length,
+          mimeType: file.type || null,
+          updatedAt: new Date(),
+        },
+      });
+    }
+
+    return await client.productDocument.create({
       data: {
-        documentName: path.basename(outputPath),
+        productId,
         documentType: parsedType,
+        documentName: path.basename(outputPath),
+        filePath: outputPath,
         fileSize: buffer.length,
         mimeType: file.type || null,
-        updatedAt: new Date(),
       },
     });
+  } catch (error) {
+    // DB registration failed; remove the just-written file (the path is
+    // unique to this upload) so no orphan is left on disk.
+    await unlink(outputPath).catch(() => {});
+    throw error;
   }
-
-  return client.productDocument.create({
-    data: {
-      productId,
-      documentType: parsedType,
-      documentName: path.basename(outputPath),
-      filePath: outputPath,
-      fileSize: buffer.length,
-      mimeType: file.type || null,
-    },
-  });
 }
 
 export async function scanProductDocuments(

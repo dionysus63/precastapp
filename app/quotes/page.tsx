@@ -1,5 +1,10 @@
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { QuotesPageContent } from "@/components/quotes/quotes-page-content";
+import {
+  QuotesActionsRow,
+  QuotesActivitySection,
+  QuotesSummarySection,
+} from "@/components/quotes/quotes-page-sections";
 import { getAppSettings } from "@/lib/app-settings";
 import { mapQuoteToRow } from "@/lib/quote-mapper";
 import { withDatabaseRetry } from "@/lib/prisma";
@@ -122,9 +127,11 @@ export default async function QuotesPage({
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
   const nextMonthStart = new Date(today.getFullYear(), today.getMonth() + 1, 1);
 
-  const total = await withDatabaseRetry((prisma) =>
-    prisma.quote.count({ where }),
-  );
+  // Settings don't depend on the count — run in parallel.
+  const [total, appSettings] = await Promise.all([
+    withDatabaseRetry((prisma) => prisma.quote.count({ where })),
+    getAppSettings(),
+  ]);
   const pageInfo = buildPageInfo(total, requestedPage);
 
   const [
@@ -185,8 +192,6 @@ export default async function QuotesPage({
     ]),
   );
 
-  const appSettings = await getAppSettings();
-
   const rows = quotes.map(mapQuoteToRow);
   const summaryCards = buildQuoteSummaryCards({
     openQuotesCount,
@@ -201,21 +206,24 @@ export default async function QuotesPage({
 
   return (
     <DashboardShell title="Quotes" subtitle="Manage bids, revisions, and quote status.">
-      <QuotesPageContent
-        quotes={rows}
-        pageInfo={pageInfo}
-        summaryCards={summaryCards}
-        recentActivity={recentActivity}
-        estimatorFilterOptions={estimatorFilterOptions}
-        filters={{
-          search,
-          status: statusParam,
-          estimator: estimatorParam,
-          year: yearParam,
-          type: typeParam,
-          due: dueDateParam,
-        }}
-      />
+      <div className="space-y-4">
+        <QuotesActionsRow />
+        <QuotesSummarySection summaryCards={summaryCards} />
+        <QuotesPageContent
+          quotes={rows}
+          pageInfo={pageInfo}
+          estimatorFilterOptions={estimatorFilterOptions}
+          filters={{
+            search,
+            status: statusParam,
+            estimator: estimatorParam,
+            year: yearParam,
+            type: typeParam,
+            due: dueDateParam,
+          }}
+        />
+        <QuotesActivitySection recentActivity={recentActivity} />
+      </div>
     </DashboardShell>
   );
 }

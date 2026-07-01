@@ -249,8 +249,15 @@ export async function awardJob(
           throw new Error("This quote cannot be used to award the job.");
         }
 
-        await tx.job.update({
-          where: { id: jobId },
+        // Atomic compare-and-set: only one concurrent award can flip the job
+        // out of its non-awarded state; the loser sees count === 0. The
+        // findUnique check above is only for the friendly early error.
+        const claimed = await tx.job.updateMany({
+          where: {
+            id: jobId,
+            status: { not: "AWARDED" },
+            awardedDate: null,
+          },
           data: {
             customerId: bidder.customerId,
             customerName: bidder.customer.name,
@@ -266,6 +273,9 @@ export async function awardJob(
             status: "AWARDED",
           },
         });
+        if (claimed.count === 0) {
+          throw new Error("This job has already been awarded.");
+        }
 
         await tx.jobBidder.updateMany({
           where: { jobId },

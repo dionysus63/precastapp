@@ -77,6 +77,7 @@ export default async function EditDeliveryTicketPage({
         <DeliveryTicketEditor
           mode="edit"
           ticketId={ticket.id}
+          expectedUpdatedAt={ticket.updatedAt.toISOString()}
           jobs={jobs}
           products={products}
           fleetOptions={{

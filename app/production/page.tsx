@@ -53,6 +53,8 @@ export default async function ProductionPage() {
         prisma.jobStructure.findMany({
           where: { status: { in: ["APPROVED", "IN_PRODUCTION"] } },
           orderBy: [{ productionDate: "asc" }, { createdAt: "asc" }],
+          // Working queues, not archives: cap so stale rows can't grow the page forever.
+          take: 200,
           include: structureInclude,
         }),
       ),
@@ -60,6 +62,7 @@ export default async function ProductionPage() {
         prisma.jobStructure.findMany({
           where: { status: "MADE" },
           orderBy: [{ madeDate: "asc" }, { createdAt: "asc" }],
+          take: 200,
           include: structureInclude,
         }),
       ),

@@ -12,6 +12,19 @@ import {
 import { requirePermission } from "@/lib/auth/session";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
 import {
+  QUOTE_FORM_CUSTOMER_SELECT,
+  QUOTE_FORM_JOB_SELECT,
+  QUOTE_PRODUCT_OPTION_SELECT,
+  mapCustomerToQuoteFormOption,
+  mapJobToQuoteFormOption,
+} from "@/app/quotes/quote-form-data";
+import { mapProductToQuoteFormOption } from "@/lib/quote-mapper";
+import type {
+  QuoteFormCustomerOption,
+  QuoteFormJobOption,
+  QuoteFormProductOption,
+} from "@/lib/quotes/types";
+import {
   assertSanitaryDrainRingAllowed,
   parseDrainRingStyle,
   type DrainRingStyle,
@@ -639,31 +652,36 @@ export async function updateQuoteStatus(quoteId: string, status: QuoteStatusValu
 
   try {
     await withDatabaseRetry(async (client) => {
-      const existing = await client.quote.findUnique({
-        where: { id: quoteId },
-        select: { sentAt: true },
+      // Status flip and structure linking commit together: a failure while
+      // creating structures must not leave the quote marked WON with a
+      // partially linked line set.
+      await client.$transaction(async (tx) => {
+        const existing = await tx.quote.findUnique({
+          where: { id: quoteId },
+          select: { sentAt: true },
+        });
+
+        if (!existing) {
+          throw new Error("Quote was not found.");
+        }
+
+        await tx.quote.update({
+          where: { id: quoteId },
+          data: {
+            status,
+            ...(status === "SENT" && !existing.sentAt
+              ? { sentAt: new Date() }
+              : {}),
+          },
+        });
+
+        if (status === "WON") {
+          const { linkJobStructuresFromQuoteInTransaction } = await import(
+            "@/lib/job-structure-workflow"
+          );
+          await linkJobStructuresFromQuoteInTransaction(tx, quoteId);
+        }
       });
-
-      if (!existing) {
-        throw new Error("Quote was not found.");
-      }
-
-      await client.quote.update({
-        where: { id: quoteId },
-        data: {
-          status,
-          ...(status === "SENT" && !existing.sentAt
-            ? { sentAt: new Date() }
-            : {}),
-        },
-      });
-
-      if (status === "WON") {
-        const { linkJobStructuresFromQuote } = await import(
-          "@/lib/job-structure-workflow"
-        );
-        await linkJobStructuresFromQuote(client, quoteId);
-      }
     });
 
     revalidatePath("/quotes");
@@ -676,6 +694,116 @@ export async function updateQuoteStatus(quoteId: string, status: QuoteStatusValu
         error instanceof Error ? error.message : "Could not update quote status.",
     };
   }
+}
+
+export async function searchCustomersForQuoteForm(
+  query: string,
+): Promise<QuoteFormCustomerOption[]> {
+  await requirePermission(AppPermission.QUOTES_MANAGE);
+
+  const trimmed = query.trim();
+  const customers = await withDatabaseRetry((client) =>
+    client.customer.findMany({
+      where: trimmed
+        ? { name: { contains: trimmed, mode: "insensitive" } }
+        : {},
+      orderBy: { name: "asc" },
+      take: 20,
+      select: QUOTE_FORM_CUSTOMER_SELECT,
+    }),
+  );
+
+  return customers.map(mapCustomerToQuoteFormOption);
+}
+
+export async function getCustomerForQuoteForm(
+  customerId: string,
+): Promise<QuoteFormCustomerOption | null> {
+  await requirePermission(AppPermission.QUOTES_MANAGE);
+
+  if (!customerId.trim()) {
+    return null;
+  }
+
+  const customer = await withDatabaseRetry((client) =>
+    client.customer.findUnique({
+      where: { id: customerId },
+      select: QUOTE_FORM_CUSTOMER_SELECT,
+    }),
+  );
+
+  return customer ? mapCustomerToQuoteFormOption(customer) : null;
+}
+
+export async function searchJobsForQuoteForm(
+  query: string,
+): Promise<QuoteFormJobOption[]> {
+  await requirePermission(AppPermission.QUOTES_MANAGE);
+
+  const trimmed = query.trim();
+  const jobs = await withDatabaseRetry((client) =>
+    client.job.findMany({
+      where: trimmed
+        ? {
+            OR: [
+              { jobNumber: { contains: trimmed, mode: "insensitive" } },
+              { projectName: { contains: trimmed, mode: "insensitive" } },
+              { customerName: { contains: trimmed, mode: "insensitive" } },
+            ],
+          }
+        : {},
+      orderBy: [{ year: "desc" }, { sequenceNumber: "desc" }],
+      take: 20,
+      select: QUOTE_FORM_JOB_SELECT,
+    }),
+  );
+
+  return jobs.map(mapJobToQuoteFormOption);
+}
+
+export async function searchProductsForQuoteForm(
+  query: string,
+  kindFilter: "STOCK" | "CONFIGURABLE",
+): Promise<QuoteFormProductOption[]> {
+  await requirePermission(AppPermission.QUOTES_MANAGE);
+
+  const trimmed = query.trim();
+  const products = await withDatabaseRetry((client) =>
+    client.product.findMany({
+      where: {
+        productType: kindFilter,
+        status: "ACTIVE",
+        ...(trimmed
+          ? {
+              OR: [
+                { productCode: { contains: trimmed, mode: "insensitive" } },
+                { name: { contains: trimmed, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { productCode: "asc" },
+      take: 50,
+      select: QUOTE_PRODUCT_OPTION_SELECT,
+    }),
+  );
+
+  const options = products.map(mapProductToQuoteFormOption);
+
+  if (kindFilter === "STOCK") {
+    // Match the previous page-level ordering: casting assemblies first.
+    return options.sort((a, b) => {
+      if (a.isCastingAssembly && !b.isCastingAssembly) {
+        return -1;
+      }
+      if (!a.isCastingAssembly && b.isCastingAssembly) {
+        return 1;
+      }
+      return a.code.localeCompare(b.code);
+    });
+  }
+
+  return options;
 }
 
 export async function listPriceListsForForm() {

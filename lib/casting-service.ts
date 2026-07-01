@@ -7,8 +7,24 @@ export async function loadCastingComponentOptionsForAssembly(
   client: DbClient,
   assemblyId: string,
 ): Promise<CastingComponentOption[]> {
+  const byAssembly = await loadCastingComponentOptionsByAssembly(client, [
+    assemblyId,
+  ]);
+  return byAssembly.get(assemblyId) ?? [];
+}
+
+/** Batched BOM lookup: one query for any number of assemblies. */
+export async function loadCastingComponentOptionsByAssembly(
+  client: DbClient,
+  assemblyIds: string[],
+): Promise<Map<string, CastingComponentOption[]>> {
+  const result = new Map<string, CastingComponentOption[]>();
+  if (assemblyIds.length === 0) {
+    return result;
+  }
+
   const rows = await client.productCastingComponent.findMany({
-    where: { assemblyId },
+    where: { assemblyId: { in: assemblyIds } },
     orderBy: [{ sortOrder: "asc" }, { pieceRole: "asc" }],
     include: {
       component: {
@@ -24,18 +40,25 @@ export async function loadCastingComponentOptionsForAssembly(
     },
   });
 
-  return rows.map((row) => ({
-    productId: row.component.id,
-    productCode: row.component.productCode,
-    name: row.component.name,
-    pieceRole: row.pieceRole,
-    quantity: row.quantity,
-    weightEach: row.component.weight ? Number(row.component.weight) : null,
-    currentStock: row.component.trackInventory
-      ? row.component.currentStockQuantity
-      : null,
-    trackInventory: row.component.trackInventory,
-  }));
+  for (const row of rows) {
+    const option: CastingComponentOption = {
+      productId: row.component.id,
+      productCode: row.component.productCode,
+      name: row.component.name,
+      pieceRole: row.pieceRole,
+      quantity: row.quantity,
+      weightEach: row.component.weight ? Number(row.component.weight) : null,
+      currentStock: row.component.trackInventory
+        ? row.component.currentStockQuantity
+        : null,
+      trackInventory: row.component.trackInventory,
+    };
+    const options = result.get(row.assemblyId) ?? [];
+    options.push(option);
+    result.set(row.assemblyId, options);
+  }
+
+  return result;
 }
 
 export async function loadCastingAssembliesWithBom(client: DbClient) {

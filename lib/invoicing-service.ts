@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import type { PrismaClient } from "@/app/generated/prisma/client";
 import { Prisma } from "@/app/generated/prisma/client";
 import { defaultInvoiceDueDate, getAppSettings } from "@/lib/app-settings";
@@ -18,6 +19,15 @@ function mapDeliveryLineTypeToInvoiceLineType(
   return "MISC";
 }
 
+/** Thrown when a concurrent conversion already invoiced the ticket; carries
+ * the existing invoice id so callers can treat the outcome as success. */
+export class InvoiceAlreadyExistsError extends Error {
+  constructor(public readonly invoiceId: string | null) {
+    super("An invoice already exists for this ticket.");
+    this.name = "InvoiceAlreadyExistsError";
+  }
+}
+
 async function nextInvoiceNumber(
   client: PrismaClient | Prisma.TransactionClient,
 ): Promise<{
@@ -30,13 +40,18 @@ async function nextInvoiceNumber(
   const year = now.getFullYear();
   const yearTwoDigit = year % 100;
 
-  const sequence = await client.invoiceSequence.upsert({
-    where: { year },
-    create: { year, lastNumber: 1 },
-    update: { lastNumber: { increment: 1 } },
-  });
+  // Atomic INSERT ... ON CONFLICT (same pattern as job/delivery-ticket
+  // sequences): concurrent first-of-year allocations serialize on the row
+  // lock instead of racing a Prisma upsert's separate create path.
+  const rows = await client.$queryRaw<{ lastNumber: number }[]>`
+    INSERT INTO "InvoiceSequence" ("id", "year", "lastNumber", "createdAt", "updatedAt")
+    VALUES (${randomUUID()}, ${year}, 1, NOW(), NOW())
+    ON CONFLICT ("year")
+    DO UPDATE SET "lastNumber" = "InvoiceSequence"."lastNumber" + 1, "updatedAt" = NOW()
+    RETURNING "lastNumber"
+  `;
 
-  const sequenceNumber = sequence.lastNumber;
+  const sequenceNumber = Number(rows[0].lastNumber);
   const invoiceNumber = `INV-${String(yearTwoDigit).padStart(2, "0")}-${String(sequenceNumber).padStart(3, "0")}`;
 
   return { invoiceNumber, year, yearTwoDigit, sequenceNumber };
@@ -244,6 +259,10 @@ export async function maybeCreatePayNowInvoiceForTicket(
     );
     return { invoiceId, error: null };
   } catch (error) {
+    // A concurrent caller already created it — that is a success for us.
+    if (error instanceof InvoiceAlreadyExistsError) {
+      return { invoiceId: error.invoiceId, error: null };
+    }
     return {
       invoiceId: null,
       error:
@@ -279,7 +298,7 @@ export async function convertDeliveryTicketToInvoice(
   }
 
   if (ticket.invoice) {
-    throw new Error("An invoice already exists for this ticket.");
+    throw new InvoiceAlreadyExistsError(ticket.invoice.id);
   }
 
   const settings = await getAppSettings();
@@ -350,6 +369,20 @@ export async function convertDeliveryTicketToInvoice(
   // Allocate the invoice number and create the row in one transaction so a
   // failure can't consume a sequence number and leave a permanent gap.
   const invoice = await client.$transaction(async (tx) => {
+    // Re-check inside the transaction: the reads above happened outside it,
+    // so a concurrent conversion may have created the invoice in between.
+    // The @unique on deliveryTicketId is the last line of defense (P2002).
+    const current = await tx.deliveryTicket.findUnique({
+      where: { id: deliveryTicketId },
+      select: { status: true, invoice: { select: { id: true } } },
+    });
+    if (!current || current.status !== "DELIVERED") {
+      throw new Error("Ticket must be delivered before invoicing.");
+    }
+    if (current.invoice) {
+      throw new InvoiceAlreadyExistsError(current.invoice.id);
+    }
+
     const numbering = await nextInvoiceNumber(tx);
     return tx.invoice.create({
       data: {
@@ -376,6 +409,20 @@ export async function convertDeliveryTicketToInvoice(
       },
       select: { id: true },
     });
+  }).catch(async (error: unknown) => {
+    // A concurrent conversion won the race between our in-transaction check
+    // and the insert; surface it as the same typed "already exists" outcome.
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      const existing = await client.invoice.findUnique({
+        where: { deliveryTicketId },
+        select: { id: true },
+      });
+      throw new InvoiceAlreadyExistsError(existing?.id ?? null);
+    }
+    throw error;
   });
 
   return invoice.id;

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { PaginationControls } from "@/components/common/pagination-controls";
@@ -35,6 +35,187 @@ type JobsListProps = {
   customerOptions: string[];
 };
 
+// Memoized so per-keystroke search-input state updates in JobsList don't
+// re-render every favorite chip; props only change on navigation.
+const JobsFavorites = memo(function JobsFavorites({
+  favoriteJobs,
+  favoriteIdSet,
+}: {
+  favoriteJobs: JobRow[];
+  favoriteIdSet: Set<string>;
+}) {
+  return (
+    <SectionCard
+      title="Your Favorites"
+      description={
+        favoriteJobs.length > 0
+          ? `${favoriteJobs.length} job${favoriteJobs.length === 1 ? "" : "s"} pinned for quick access`
+          : "Star jobs below for quick access"
+      }
+    >
+      {favoriteJobs.length === 0 ? (
+        <p className="text-xs text-slate-500">
+          No favorites yet. Click the star on any job in the list below.
+        </p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {favoriteJobs.map((job) => (
+            <div
+              key={job.id}
+              className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs"
+            >
+              <JobFavoriteStar
+                jobId={job.id}
+                initialFavorited={favoriteIdSet.has(job.id)}
+              />
+              <Link
+                href={`/jobs/${job.id}`}
+                className="shrink-0 font-mono text-[11px] font-semibold text-slate-900 hover:text-slate-700"
+              >
+                {job.jobNumber}
+              </Link>
+              <span className="text-slate-300">·</span>
+              <Link
+                href={`/jobs/${job.id}`}
+                className="max-w-[140px] truncate font-medium text-slate-800 hover:text-slate-600 sm:max-w-[200px]"
+              >
+                {job.projectName}
+              </Link>
+              <span className="hidden text-slate-400 sm:inline">·</span>
+              <span className="hidden max-w-[120px] truncate text-slate-500 sm:inline">
+                {job.customer}
+              </span>
+              <StatusBadge label={job.status} variant={job.statusVariant} />
+            </div>
+          ))}
+        </div>
+      )}
+    </SectionCard>
+  );
+});
+
+// Memoized so typing in the search box doesn't re-render the full row set;
+// rows only change when the server sends a new page.
+const JobsTable = memo(function JobsTable({
+  jobs,
+  favoriteIdSet,
+  total,
+}: {
+  jobs: JobRow[];
+  favoriteIdSet: Set<string>;
+  total: number;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full text-left text-xs">
+        <thead>
+          <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
+            <th className="px-2 py-2.5 font-semibold">
+              <span className="sr-only">Favorite</span>
+            </th>
+            <th className="px-4 py-2.5 font-semibold">Job Number</th>
+            <th className="px-4 py-2.5 font-semibold">Project Name</th>
+            <th className="px-4 py-2.5 font-semibold">Customer</th>
+            <th className="px-4 py-2.5 font-semibold">Project Address</th>
+            <th className="px-4 py-2.5 font-semibold">Status</th>
+            <th className="px-4 py-2.5 font-semibold">Bid Date</th>
+            <th className="px-4 py-2.5 font-semibold">Awarded Date</th>
+            <th className="px-4 py-2.5 font-semibold">Folder</th>
+            <th className="px-4 py-2.5 font-semibold">Last Activity</th>
+            <th className="px-4 py-2.5 font-semibold">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {jobs.length === 0 ? (
+            <tr>
+              <td
+                colSpan={11}
+                className="px-4 py-8 text-center text-sm text-slate-500"
+              >
+                {total === 0
+                  ? "No jobs match your search or filters."
+                  : "No jobs on this page."}
+              </td>
+            </tr>
+          ) : (
+            jobs.map((job) => (
+              <tr key={job.id} className="hover:bg-slate-50/60">
+                <td className="px-2 py-2.5">
+                  <JobFavoriteStar
+                    jobId={job.id}
+                    initialFavorited={favoriteIdSet.has(job.id)}
+                  />
+                </td>
+                <td className="px-4 py-2.5 font-mono text-[11px] font-medium text-slate-900">
+                  <Link
+                    href={`/jobs/${job.id}`}
+                    className="hover:text-slate-600 hover:underline"
+                  >
+                    {job.jobNumber}
+                  </Link>
+                </td>
+                <td className="px-4 py-2.5 font-medium text-slate-900">
+                  <Link
+                    href={`/jobs/${job.id}`}
+                    className="hover:text-slate-600 hover:underline"
+                  >
+                    {job.projectName}
+                  </Link>
+                </td>
+                <td className="px-4 py-2.5 text-slate-700">{job.customer}</td>
+                <td className="px-4 py-2.5 text-slate-600">
+                  {job.projectAddress}
+                </td>
+                <td className="px-4 py-2.5">
+                  <StatusBadge
+                    label={job.status}
+                    variant={job.statusVariant}
+                  />
+                </td>
+                <td className="px-4 py-2.5 text-slate-600">{job.bidDate}</td>
+                <td className="px-4 py-2.5 text-slate-600">
+                  {job.awardedDate}
+                </td>
+                <td className="max-w-[220px] px-4 py-2.5">
+                  {job.folderPath ? (
+                    <OpenJobFolderButton
+                      jobId={job.id}
+                      folderPath={job.folderPath}
+                    />
+                  ) : (
+                    <CreateJobFolderButton jobId={job.id} />
+                  )}
+                </td>
+                <td className="px-4 py-2.5 whitespace-nowrap text-slate-600">
+                  {job.lastActivity}
+                </td>
+                <td className="px-4 py-2.5">
+                  <div className="flex items-center gap-2">
+                    {job.folderPath ? (
+                      <Link
+                        href={`/files/jobs/${job.id}`}
+                        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                      >
+                        Files
+                      </Link>
+                    ) : null}
+                    <Link
+                      href={`/jobs/${job.id}/edit`}
+                      className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                    >
+                      Edit
+                    </Link>
+                  </div>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+});
+
 export function JobsList({
   jobs,
   favoriteJobs,
@@ -54,52 +235,10 @@ export function JobsList({
 
   return (
     <div className="space-y-4">
-      <SectionCard
-        title="Your Favorites"
-        description={
-          favoriteJobs.length > 0
-            ? `${favoriteJobs.length} job${favoriteJobs.length === 1 ? "" : "s"} pinned for quick access`
-            : "Star jobs below for quick access"
-        }
-      >
-        {favoriteJobs.length === 0 ? (
-          <p className="text-xs text-slate-500">
-            No favorites yet. Click the star on any job in the list below.
-          </p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {favoriteJobs.map((job) => (
-              <div
-                key={job.id}
-                className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs"
-              >
-                <JobFavoriteStar
-                  jobId={job.id}
-                  initialFavorited={favoriteIdSet.has(job.id)}
-                />
-                <Link
-                  href={`/jobs/${job.id}`}
-                  className="shrink-0 font-mono text-[11px] font-semibold text-slate-900 hover:text-slate-700"
-                >
-                  {job.jobNumber}
-                </Link>
-                <span className="text-slate-300">·</span>
-                <Link
-                  href={`/jobs/${job.id}`}
-                  className="max-w-[140px] truncate font-medium text-slate-800 hover:text-slate-600 sm:max-w-[200px]"
-                >
-                  {job.projectName}
-                </Link>
-                <span className="hidden text-slate-400 sm:inline">·</span>
-                <span className="hidden max-w-[120px] truncate text-slate-500 sm:inline">
-                  {job.customer}
-                </span>
-                <StatusBadge label={job.status} variant={job.statusVariant} />
-              </div>
-            ))}
-          </div>
-        )}
-      </SectionCard>
+      <JobsFavorites
+        favoriteJobs={favoriteJobs}
+        favoriteIdSet={favoriteIdSet}
+      />
 
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex flex-1 flex-col gap-3 lg:flex-row lg:flex-wrap">
@@ -159,113 +298,11 @@ export function JobsList({
         description={`${pageInfo.total.toLocaleString()} job${pageInfo.total === 1 ? "" : "s"} match`}
         noPadding
       >
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                <th className="px-2 py-2.5 font-semibold">
-                  <span className="sr-only">Favorite</span>
-                </th>
-                <th className="px-4 py-2.5 font-semibold">Job Number</th>
-                <th className="px-4 py-2.5 font-semibold">Project Name</th>
-                <th className="px-4 py-2.5 font-semibold">Customer</th>
-                <th className="px-4 py-2.5 font-semibold">Project Address</th>
-                <th className="px-4 py-2.5 font-semibold">Status</th>
-                <th className="px-4 py-2.5 font-semibold">Bid Date</th>
-                <th className="px-4 py-2.5 font-semibold">Awarded Date</th>
-                <th className="px-4 py-2.5 font-semibold">Folder</th>
-                <th className="px-4 py-2.5 font-semibold">Last Activity</th>
-                <th className="px-4 py-2.5 font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {jobs.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={11}
-                    className="px-4 py-8 text-center text-sm text-slate-500"
-                  >
-                    {pageInfo.total === 0
-                      ? "No jobs match your search or filters."
-                      : "No jobs on this page."}
-                  </td>
-                </tr>
-              ) : (
-                jobs.map((job) => (
-                  <tr key={job.id} className="hover:bg-slate-50/60">
-                    <td className="px-2 py-2.5">
-                      <JobFavoriteStar
-                        jobId={job.id}
-                        initialFavorited={favoriteIdSet.has(job.id)}
-                      />
-                    </td>
-                    <td className="px-4 py-2.5 font-mono text-[11px] font-medium text-slate-900">
-                      <Link
-                        href={`/jobs/${job.id}`}
-                        className="hover:text-slate-600 hover:underline"
-                      >
-                        {job.jobNumber}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-2.5 font-medium text-slate-900">
-                      <Link
-                        href={`/jobs/${job.id}`}
-                        className="hover:text-slate-600 hover:underline"
-                      >
-                        {job.projectName}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-2.5 text-slate-700">{job.customer}</td>
-                    <td className="px-4 py-2.5 text-slate-600">
-                      {job.projectAddress}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <StatusBadge
-                        label={job.status}
-                        variant={job.statusVariant}
-                      />
-                    </td>
-                    <td className="px-4 py-2.5 text-slate-600">{job.bidDate}</td>
-                    <td className="px-4 py-2.5 text-slate-600">
-                      {job.awardedDate}
-                    </td>
-                    <td className="max-w-[220px] px-4 py-2.5">
-                      {job.folderPath ? (
-                        <OpenJobFolderButton
-                          jobId={job.id}
-                          folderPath={job.folderPath}
-                        />
-                      ) : (
-                        <CreateJobFolderButton jobId={job.id} />
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5 whitespace-nowrap text-slate-600">
-                      {job.lastActivity}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <div className="flex items-center gap-2">
-                        {job.folderPath ? (
-                          <Link
-                            href={`/files/jobs/${job.id}`}
-                            className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
-                          >
-                            Files
-                          </Link>
-                        ) : null}
-                        <Link
-                          href={`/jobs/${job.id}/edit`}
-                          className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
-                        >
-                          Edit
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <JobsTable
+          jobs={jobs}
+          favoriteIdSet={favoriteIdSet}
+          total={pageInfo.total}
+        />
         <PaginationControls
           page={pageInfo.page}
           totalPages={pageInfo.totalPages}

@@ -7,10 +7,7 @@ import type {
   JobStatusVariant,
 } from "@/components/jobs/job-utils";
 import { structureStatusOptions } from "@/components/structures/structure-utils";
-import {
-  getQuoteLineFulfillment,
-  getQuoteLineScheduledQuantities,
-} from "@/lib/delivery-fulfillment";
+import { getQuoteLineFulfillmentAndScheduled } from "@/lib/delivery-fulfillment";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -184,10 +181,8 @@ export async function getJobProgress(
     return EMPTY_PROGRESS;
   }
 
-  const [fulfillment, scheduledMap] = await Promise.all([
-    getQuoteLineFulfillment(client, wonQuote.id),
-    getQuoteLineScheduledQuantities(client, wonQuote.id),
-  ]);
+  const { fulfillment, scheduled: scheduledMap } =
+    await getQuoteLineFulfillmentAndScheduled(client, wonQuote.id);
 
   const structureIds = [
     ...new Set(

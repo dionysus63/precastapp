@@ -59,6 +59,7 @@ type DeliveryTicketDetailContentProps = {
   hasInvoice?: boolean;
   invoiceId?: string | null;
   pickupInfo?: PickupInfo | null;
+  canManageInvoices?: boolean;
 };
 
 function paymentMethodLabel(method: PickupInfo["paymentMethod"]): string {
@@ -74,6 +75,7 @@ export function DeliveryTicketDetailContent({
   hasInvoice = false,
   invoiceId = null,
   pickupInfo = null,
+  canManageInvoices = false,
 }: DeliveryTicketDetailContentProps) {
   const isPickup = pickupInfo?.fulfillmentMethod === "PICKUP";
   const topSummaryCards = [
@@ -153,11 +155,13 @@ export function DeliveryTicketDetailContent({
                 status={ticketStatus}
                 hasInvoice={hasInvoice}
               />
-              <TicketOperationsPanel
-                ticketId={ticketId}
-                status={ticketStatus}
-                hasInvoice={hasInvoice}
-              />
+              {canManageInvoices ? (
+                <TicketOperationsPanel
+                  ticketId={ticketId}
+                  status={ticketStatus}
+                  hasInvoice={hasInvoice}
+                />
+              ) : null}
             </>
           ) : (
             <button

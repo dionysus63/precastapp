@@ -8,6 +8,7 @@ import {
   syncCustomerHeaderFromPrimaryContact,
 } from "@/lib/customer-contact-sync";
 import { withDatabaseRetry } from "@/lib/prisma";
+import { translatePrismaError } from "@/lib/server/action-errors";
 
 import { isValidEmail } from "@/lib/validation/email";
 
@@ -88,7 +89,9 @@ export async function addCustomerContact(
   } catch (error) {
     return {
       error:
-        error instanceof Error ? error.message : "Could not add contact.",
+        error instanceof Error
+          ? translatePrismaError(error).message
+          : "Could not add contact.",
     };
   }
 }
@@ -125,7 +128,9 @@ export async function updateCustomerContact(
   } catch (error) {
     return {
       error:
-        error instanceof Error ? error.message : "Could not update contact.",
+        error instanceof Error
+          ? translatePrismaError(error).message
+          : "Could not update contact.",
     };
   }
 }
@@ -177,7 +182,9 @@ export async function deleteCustomerContact(contactId: string) {
   } catch (error) {
     return {
       error:
-        error instanceof Error ? error.message : "Could not delete contact.",
+        error instanceof Error
+          ? translatePrismaError(error).message
+          : "Could not delete contact.",
     };
   }
 }
@@ -214,7 +221,7 @@ export async function setPrimaryCustomerContact(contactId: string) {
     return {
       error:
         error instanceof Error
-          ? error.message
+          ? translatePrismaError(error).message
           : "Could not set primary contact.",
     };
   }

@@ -21,6 +21,10 @@ import {
 } from "@/lib/product-submittals-service";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
 import {
+  isNextRedirectError,
+  translatePrismaError,
+} from "@/lib/server/action-errors";
+import {
   parseAndValidateProductProfile,
   parseProductKind,
   productKindToLegacyFlags,
@@ -321,64 +325,83 @@ function parseProductFormData(formData: FormData) {
   };
 }
 
-export async function createProduct(formData: FormData) {
+export async function createProduct(
+  formData: FormData,
+): Promise<{ error: string } | void> {
   await requirePermission(AppPermission.PRODUCTS_MANAGE);
-  const { castingBom, ...data } = parseProductFormData(formData);
 
-  await prisma.$transaction(async (tx) => {
-    const product = await tx.product.create({ data });
-    if (data.productKind === "CASTING_ASSEMBLY") {
-      await saveCastingBom(tx, product.id, castingBom);
+  try {
+    const { castingBom, ...data } = parseProductFormData(formData);
+
+    await prisma.$transaction(async (tx) => {
+      const product = await tx.product.create({ data });
+      if (data.productKind === "CASTING_ASSEMBLY") {
+        await saveCastingBom(tx, product.id, castingBom);
+      }
+
+      // Seed the ledger for a non-zero opening balance so
+      // `currentStockQuantity` always reconciles to the sum of
+      // InventoryTransaction rows. The balance was already set by `create`, so
+      // we only insert the matching ledger entry here (no second balance bump).
+      if (data.trackInventory && data.currentStockQuantity !== 0) {
+        await tx.inventoryTransaction.create({
+          data: {
+            productId: product.id,
+            quantityChange: new Prisma.Decimal(data.currentStockQuantity),
+            transactionType: "ADJUSTMENT",
+            transactionDate: new Date(),
+            notes: "Opening balance",
+          },
+        });
+      }
+    });
+
+    revalidatePath("/products");
+    redirect("/products");
+  } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
     }
-
-    // Seed the ledger for a non-zero opening balance so
-    // `currentStockQuantity` always reconciles to the sum of
-    // InventoryTransaction rows. The balance was already set by `create`, so
-    // we only insert the matching ledger entry here (no second balance bump).
-    if (data.trackInventory && data.currentStockQuantity !== 0) {
-      await tx.inventoryTransaction.create({
-        data: {
-          productId: product.id,
-          quantityChange: new Prisma.Decimal(data.currentStockQuantity),
-          transactionType: "ADJUSTMENT",
-          transactionDate: new Date(),
-          notes: "Opening balance",
-        },
-      });
-    }
-  });
-
-  revalidatePath("/products");
-  redirect("/products");
+    return { error: translatePrismaError(error).message };
+  }
 }
 
-export async function updateProduct(formData: FormData) {
+export async function updateProduct(
+  formData: FormData,
+): Promise<{ error: string } | void> {
   await requirePermission(AppPermission.PRODUCTS_MANAGE);
   const id = String(formData.get("id") ?? "").trim();
   if (!id) {
-    throw new Error("Product id is required.");
+    return { error: "Product id is required." };
   }
 
-  const { castingBom, currentStockQuantity, ...data } =
-    parseProductFormData(formData);
-  // currentStockQuantity is intentionally NOT updated here. Stock only changes
-  // through the inventory ledger (adjustInventory / receive / production /
-  // delivery); a direct product edit would silently diverge the balance from
-  // the InventoryTransaction history.
-  void currentStockQuantity;
+  try {
+    const { castingBom, currentStockQuantity, ...data } =
+      parseProductFormData(formData);
+    // currentStockQuantity is intentionally NOT updated here. Stock only changes
+    // through the inventory ledger (adjustInventory / receive / production /
+    // delivery); a direct product edit would silently diverge the balance from
+    // the InventoryTransaction history.
+    void currentStockQuantity;
 
-  await prisma.$transaction(async (tx) => {
-    await tx.product.update({ where: { id }, data });
-    if (data.productKind === "CASTING_ASSEMBLY") {
-      await saveCastingBom(tx, id, castingBom);
-    } else {
-      await tx.productCastingComponent.deleteMany({ where: { assemblyId: id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.product.update({ where: { id }, data });
+      if (data.productKind === "CASTING_ASSEMBLY") {
+        await saveCastingBom(tx, id, castingBom);
+      } else {
+        await tx.productCastingComponent.deleteMany({ where: { assemblyId: id } });
+      }
+    });
+
+    revalidatePath("/products");
+    revalidatePath(`/products/${id}`);
+    redirect(`/products/${id}`);
+  } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
     }
-  });
-
-  revalidatePath("/products");
-  revalidatePath(`/products/${id}`);
-  redirect(`/products/${id}`);
+    return { error: translatePrismaError(error).message };
+  }
 }
 
 type BulkImportRow = {

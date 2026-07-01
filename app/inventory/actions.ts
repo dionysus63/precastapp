@@ -5,6 +5,7 @@ import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { adjustInventory, savePurchaseReceiptEntry } from "@/lib/inventory-service";
 import { withDatabaseRetry } from "@/lib/prisma";
+import { translatePrismaError } from "@/lib/server/action-errors";
 
 export async function saveInventoryAdjustment(formData: FormData) {
   await requirePermission(AppPermission.INVENTORY_MANAGE);
@@ -44,7 +45,9 @@ export async function saveInventoryAdjustment(formData: FormData) {
   } catch (error) {
     return {
       error:
-        error instanceof Error ? error.message : "Could not save adjustment.",
+        error instanceof Error
+          ? translatePrismaError(error).message
+          : "Could not save adjustment.",
     };
   }
 }
@@ -66,10 +69,19 @@ export async function savePurchaseReceipt(formData: FormData) {
   const lines: { productId: string; quantityReceived: number }[] = [];
   for (let index = 0; index < productIds.length; index += 1) {
     const productId = productIds[index]?.trim();
-    const qty = Number(quantities[index]);
-    if (productId && Number.isFinite(qty) && qty > 0) {
-      lines.push({ productId, quantityReceived: qty });
+    const qtyRaw = String(quantities[index] ?? "").trim();
+    if (!productId || !qtyRaw) {
+      // Blank rows are allowed; skip them.
+      continue;
     }
+    const qty = Number(qtyRaw);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      // Reject instead of silently dropping the line.
+      return {
+        error: `Line ${index + 1}: quantity received must be a positive number.`,
+      };
+    }
+    lines.push({ productId, quantityReceived: qty });
   }
 
   const receiptDate = dateRaw ? new Date(`${dateRaw}T00:00:00`) : new Date();
@@ -121,7 +133,9 @@ export async function savePurchaseReceipt(formData: FormData) {
   } catch (error) {
     return {
       error:
-        error instanceof Error ? error.message : "Could not save receipt.",
+        error instanceof Error
+          ? translatePrismaError(error).message
+          : "Could not save receipt.",
     };
   }
 }

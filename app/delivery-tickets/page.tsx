@@ -1,5 +1,8 @@
+import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { DeliveryTicketsList } from "@/components/delivery-tickets/delivery-tickets-list";
+import { DispatcherWeekCalendar } from "@/components/delivery-tickets/dispatcher-week-calendar";
+import { TodaysLoadsPanel } from "@/components/delivery-tickets/todays-loads-panel";
 import { mapDbDeliveryTicketToListRow } from "@/lib/delivery-ticket-mapper";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { deliveryTicketStatusFormOptions } from "@/components/delivery-tickets/delivery-ticket-utils";
@@ -136,19 +139,38 @@ export default async function DeliveryTicketsPage({
       title="Delivery Hub"
       subtitle="Dispatcher hub for scheduling, printing, and tracking deliveries."
     >
-      <DeliveryTicketsList
-        tickets={rows}
-        scheduleTickets={scheduleRows}
-        pageInfo={pageInfo}
-        filters={{
-          search,
-          status: statusParam,
-          driver: driverParam,
-          truck: truckParam,
-          job: jobParam,
-          date: dateParam,
-        }}
-      />
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Link
+            href="/delivery-tickets/reconcile"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Reconcile Day
+          </Link>
+          <Link
+            href="/delivery-tickets/new"
+            className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
+          >
+            New Delivery Ticket
+          </Link>
+        </div>
+
+        <DispatcherWeekCalendar tickets={scheduleRows} />
+        <TodaysLoadsPanel tickets={scheduleRows} />
+
+        <DeliveryTicketsList
+          tickets={rows}
+          pageInfo={pageInfo}
+          filters={{
+            search,
+            status: statusParam,
+            driver: driverParam,
+            truck: truckParam,
+            job: jobParam,
+            date: dateParam,
+          }}
+        />
+      </div>
     </DashboardShell>
   );
 }

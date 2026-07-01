@@ -1,15 +1,39 @@
 import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { InventorySubmittalsCell } from "@/components/inventory/inventory-submittals-cell";
+import { PaginationControls } from "@/components/common/pagination-controls";
 import { SectionCard } from "@/components/dashboard/section-card";
+import {
+  buildPageInfo,
+  parsePageParam,
+  type RawSearchParams,
+} from "@/lib/list-params";
 import { PRODUCT_SUBMITTAL_DOCUMENT_TYPES } from "@/lib/product-submittals-service";
 import { withDatabaseRetry } from "@/lib/prisma";
 
-export default async function InventoryPage() {
+type InventoryPageProps = {
+  searchParams: Promise<RawSearchParams>;
+};
+
+const INVENTORY_WHERE = { trackInventory: true, status: "ACTIVE" } as const;
+
+export default async function InventoryPage({
+  searchParams,
+}: InventoryPageProps) {
+  const params = await searchParams;
+  const requestedPage = parsePageParam(params.page);
+
+  const total = await withDatabaseRetry((prisma) =>
+    prisma.product.count({ where: INVENTORY_WHERE }),
+  );
+  const pageInfo = buildPageInfo(total, requestedPage);
+
   const products = await withDatabaseRetry((prisma) =>
     prisma.product.findMany({
-      where: { trackInventory: true, status: "ACTIVE" },
+      where: INVENTORY_WHERE,
       orderBy: { productCode: "asc" },
+      skip: pageInfo.skip,
+      take: pageInfo.take,
       select: {
         id: true,
         productCode: true,
@@ -118,6 +142,14 @@ export default async function InventoryPage() {
                 })}
               </tbody>
             </table>
+            <PaginationControls
+              page={pageInfo.page}
+              totalPages={pageInfo.totalPages}
+              fromIndex={pageInfo.fromIndex}
+              toIndex={pageInfo.toIndex}
+              total={pageInfo.total}
+              noun="product"
+            />
           </div>
         )}
       </SectionCard>

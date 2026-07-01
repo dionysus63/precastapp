@@ -13,8 +13,9 @@ import { requirePermission } from "@/lib/auth/session";
 import { allocateDeliveryTicketNumber } from "@/lib/delivery-ticket-number";
 import {
   cancelDeliveredTicket,
-  getQuoteLineFulfillment,
+  getQuoteLineFulfillmentAndScheduled,
   markDeliveryTicketDelivered,
+  OPEN_TICKET_STATUSES,
 } from "@/lib/delivery-fulfillment";
 import { formatDrainRingStyleLabel } from "@/lib/drain-ring-utils";
 import { generateSubmittalPackageForDeliveryTicket } from "@/lib/submittal-package";
@@ -81,6 +82,10 @@ export type SaveDeliveryTicketInput = {
   internalNotes?: string | null;
   customerNotes?: string | null;
   loadingNotes?: string | null;
+  // ISO timestamp of the ticket's updatedAt when the editor loaded it. When
+  // provided, updateDeliveryTicket rejects the save if someone else changed
+  // the ticket in the meantime (optimistic concurrency).
+  expectedUpdatedAt?: string;
   lines: DeliveryTicketLineInput[];
 };
 
@@ -112,12 +117,18 @@ async function validateLines(
   }
 
   if (input.ticketType === "JOB" && input.quoteId) {
-    const fulfillment = await getQuoteLineFulfillment(
-      client,
-      input.quoteId,
-      excludeTicketId,
-    );
+    // Remaining = quoted − delivered − scheduled-on-other-open-tickets, so two
+    // open loads can't jointly commit more than the quote allows.
+    const { fulfillment, scheduled: scheduledByLine } =
+      await getQuoteLineFulfillmentAndScheduled(
+        client,
+        input.quoteId,
+        excludeTicketId,
+        OPEN_TICKET_STATUSES,
+      );
     const byId = new Map(fulfillment.map((line) => [line.quoteLineItemId, line]));
+    const remainingFor = (line: (typeof fulfillment)[number]) =>
+      Math.max(0, line.remainingQty - (scheduledByLine.get(line.quoteLineItemId) ?? 0));
     const drainRingFeetByLine = new Map<string, number>();
     const castingPiecesByAssembly = new Map<string, Map<string, number>>();
 
@@ -161,9 +172,10 @@ async function validateLines(
         continue;
       }
 
-      if (line.quantity > meta.remainingQty) {
+      const remainingQty = remainingFor(meta);
+      if (line.quantity > remainingQty) {
         throw new Error(
-          `Quantity for ${line.itemCode} exceeds remaining (${meta.remainingQty}).`,
+          `Quantity for ${line.itemCode} exceeds remaining (${remainingQty}${remainingQty < meta.remainingQty ? ", including other open tickets" : ""}).`,
         );
       }
       if (
@@ -177,10 +189,12 @@ async function validateLines(
 
     for (const [quoteLineItemId, feet] of drainRingFeetByLine) {
       const meta = byId.get(quoteLineItemId);
-      if (meta && feet > meta.remainingQty + 0.001) {
-        const over = Math.round((feet - meta.remainingQty) * 100) / 100;
+      if (!meta) continue;
+      const remainingQty = remainingFor(meta);
+      if (feet > remainingQty + 0.001) {
+        const over = Math.round((feet - remainingQty) * 100) / 100;
         throw new Error(
-          `${meta.displayName} exceeds remaining (${meta.remainingQty} LF) by ${over} LF.`,
+          `${meta.displayName} exceeds remaining (${remainingQty} LF${remainingQty < meta.remainingQty ? ", including other open tickets" : ""}) by ${over} LF.`,
         );
       }
     }
@@ -194,9 +208,10 @@ async function validateLines(
         sets = Math.min(sets, Math.floor(pieces / option.quantity));
       }
       const setsUsed = Number.isFinite(sets) ? sets : 0;
-      if (setsUsed > meta.remainingQty) {
+      const remainingQty = remainingFor(meta);
+      if (setsUsed > remainingQty) {
         throw new Error(
-          `${meta.displayName}: sets on this load (${setsUsed}) exceed remaining (${meta.remainingQty}).`,
+          `${meta.displayName}: sets on this load (${setsUsed}) exceed remaining (${remainingQty}${remainingQty < meta.remainingQty ? ", including other open tickets" : ""}).`,
         );
       }
     }
@@ -340,11 +355,25 @@ export async function updateDeliveryTicket(
       client.$transaction(async (tx) => {
         const existing = await tx.deliveryTicket.findUnique({
           where: { id: ticketId },
-          select: { status: true },
+          select: { status: true, updatedAt: true },
         });
         if (!existing) throw new Error("Delivery ticket not found.");
         if (existing.status === "DELIVERED") {
           throw new Error("Delivered tickets cannot be edited.");
+        }
+        if (input.expectedUpdatedAt) {
+          // Lines are replaced wholesale below, so a stale save would silently
+          // discard another dispatcher's edits. Compare millisecond timestamps
+          // to detect a concurrent change since the editor loaded.
+          const expected = new Date(input.expectedUpdatedAt);
+          if (
+            Number.isNaN(expected.getTime()) ||
+            existing.updatedAt.getTime() !== expected.getTime()
+          ) {
+            throw new Error(
+              "This ticket was changed by someone else while you were editing. Refresh the page to load the latest version, then re-apply your changes.",
+            );
+          }
         }
 
         await validateLines(tx, input, ticketId);

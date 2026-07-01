@@ -16,6 +16,7 @@ import { launchWindowsFile, launchWindowsFolder as launchFolder } from "@/lib/wi
 import { assertPathUnderJobFolder } from "@/lib/job-path-security";
 import { AppPermission, JobStatus, Prisma } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import { translatePrismaError } from "@/lib/server/action-errors";
 import {
   getEnum,
   getOptionalDate,
@@ -205,6 +206,8 @@ export async function createJob(formData: FormData) {
     }
 
     return { job, numbering };
+  }).catch((error) => {
+    throw translatePrismaError(error);
   });
 
   let folderPath: string;
@@ -215,12 +218,11 @@ export async function createJob(formData: FormData) {
       jobNumber: numbering.jobNumber,
       projectName: data.projectName,
     });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unknown folder creation error.";
-    throw new Error(
-      `Job ${job.jobNumber} was saved, but job folder creation failed. ${message}`,
-    );
+  } catch {
+    // The job itself is saved; land the user on its detail page where the
+    // "Create Folder" retry button is shown, instead of an error screen.
+    revalidatePath("/jobs");
+    redirect(`/jobs/${job.id}?folderError=1`);
   }
 
   await prisma.job.update({
@@ -254,25 +256,30 @@ export async function updateJob(formData: FormData) {
     data.manualCustomerName,
   );
 
-  await prisma.job.update({
-    where: { id },
-    data: {
-      customerId: customer.customerId,
-      customerName: customer.customerName,
-      projectName: data.projectName,
-      projectAddress: data.projectAddress,
-      city: data.city,
-      state: data.state,
-      zip: data.zip,
-      status: data.status,
-      bidDate: data.bidDate,
-      awardedDate: data.awardedDate,
-      contactName: data.contactName,
-      contactEmail: data.contactEmail,
-      contactPhone: data.contactPhone,
-      notes: data.notes,
-    },
-  });
+  await prisma.job
+    .update({
+      where: { id },
+      data: {
+        customerId: customer.customerId,
+        customerName: customer.customerName,
+        projectName: data.projectName,
+        projectAddress: data.projectAddress,
+        city: data.city,
+        state: data.state,
+        zip: data.zip,
+        status: data.status,
+        bidDate: data.bidDate,
+        awardedDate: data.awardedDate,
+        contactName: data.contactName,
+        contactEmail: data.contactEmail,
+        contactPhone: data.contactPhone,
+        notes: data.notes,
+      },
+    })
+    .catch((error) => {
+      // Friendly message when the job was deleted concurrently (P2025).
+      throw translatePrismaError(error);
+    });
 
   revalidatePath("/jobs");
   revalidatePath(`/jobs/${id}/edit`);
@@ -324,25 +331,30 @@ export async function createJobStructure(formData: FormData) {
 
   const status = "NOT_SUBMITTED";
 
-  const structure = await prisma.jobStructure.create({
-    data: {
-      jobId,
-      structureType: structureType as StructureType,
-      status,
-      structureNumber:
-        String(formData.get("structureNumber") ?? "").trim() || null,
-      description: String(formData.get("description") ?? "").trim() || null,
-      unit: String(formData.get("unit") ?? "").trim() || null,
-      quantity: parseOptionalDecimal(formData, "quantity"),
-      weight: parseOptionalDecimal(formData, "weight"),
-      yards: parseOptionalDecimal(formData, "yards"),
-      needsCutSheet: formData.get("needsCutSheet") === "on",
-      needsSubmittal:
-        structureType === "CUSTOM_STRUCTURE" ||
-        formData.get("needsSubmittal") === "on",
-      notes: String(formData.get("notes") ?? "").trim() || null,
-    },
-  });
+  const structure = await prisma.jobStructure
+    .create({
+      data: {
+        jobId,
+        structureType: structureType as StructureType,
+        status,
+        structureNumber:
+          String(formData.get("structureNumber") ?? "").trim() || null,
+        description: String(formData.get("description") ?? "").trim() || null,
+        unit: String(formData.get("unit") ?? "").trim() || null,
+        quantity: parseOptionalDecimal(formData, "quantity"),
+        weight: parseOptionalDecimal(formData, "weight"),
+        yards: parseOptionalDecimal(formData, "yards"),
+        needsCutSheet: formData.get("needsCutSheet") === "on",
+        needsSubmittal:
+          structureType === "CUSTOM_STRUCTURE" ||
+          formData.get("needsSubmittal") === "on",
+        notes: String(formData.get("notes") ?? "").trim() || null,
+      },
+    })
+    .catch((error) => {
+      // Friendly message when the job was deleted concurrently (P2003/P2025).
+      throw translatePrismaError(error);
+    });
 
   revalidatePath(`/jobs/${jobId}`);
   redirect(`/jobs/${jobId}/structures/${structure.id}`);

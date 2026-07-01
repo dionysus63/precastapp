@@ -191,7 +191,10 @@ export async function deliverTicket(deliveryTicketId: string) {
 }
 
 export async function convertTicketToInvoice(deliveryTicketId: string) {
-  await requirePermission(AppPermission.DELIVERY_MANAGE);
+  // Creating an invoice is a billing operation, not a dispatch one. (The
+  // automatic pay-now invoice on deliverTicket stays under DELIVERY_MANAGE
+  // because it is a system side effect of completing the delivery.)
+  await requirePermission(AppPermission.INVOICES_MANAGE);
   try {
     const invoiceId = await withDatabaseRetry((client) =>
       convertDeliveryTicketToInvoice(client, deliveryTicketId),
@@ -284,6 +287,8 @@ export async function listProductionQueue() {
     client.jobStructure.findMany({
       where: { status: { in: ["APPROVED", "IN_PRODUCTION"] } },
       orderBy: [{ productionDate: "asc" }, { createdAt: "asc" }],
+      // Working queue, not an archive: cap so stale rows can't grow it forever.
+      take: 200,
       include: {
         job: { select: { jobNumber: true, projectName: true } },
         quote: { select: { quoteNumber: true } },

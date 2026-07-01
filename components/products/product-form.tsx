@@ -89,7 +89,7 @@ export type CastingSupplierOption = {
 const drainRingDiameterOptions = ["4", "6", "8", "10", "12"];
 
 type ProductFormProps = {
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<{ error: string } | void>;
   cancelHref: string;
   submitLabel: string;
   catalog: ProductCatalogCategory[];
@@ -150,6 +150,7 @@ export function ProductForm({
     return "STANDARD";
   };
 
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [productKind, setProductKind] = useState<ProductKind>(
     resolveInitialProductKind(),
   );
@@ -271,7 +272,8 @@ export function ProductForm({
     .map((role) => bomRows.find((row) => row.pieceRole === role))
     .filter((row): row is (typeof bomRows)[number] => row != null);
 
-  function handleSubmit(formData: FormData) {
+  async function handleSubmit(formData: FormData) {
+    setSubmitError(null);
     if (castingRole === "ASSEMBLY") {
       formData.set(
         "castingBomPayload",
@@ -286,7 +288,10 @@ export function ProductForm({
         ),
       );
     }
-    return action(formData);
+    const result = await action(formData);
+    if (result?.error) {
+      setSubmitError(result.error);
+    }
   }
 
   return (
@@ -1012,6 +1017,12 @@ export function ProductForm({
           className={productInputClassName}
         />
       </div>
+
+      {submitError ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-900">
+          {submitError}
+        </div>
+      ) : null}
 
       <div className="flex justify-end gap-2 border-t border-slate-100 pt-5">
         <Link

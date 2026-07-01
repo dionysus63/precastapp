@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
+import { AppPermission } from "@/app/generated/prisma/client";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { DeliveryTicketDetailContent } from "@/components/delivery-tickets/delivery-ticket-detail-content";
+import { getCurrentUser } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/permissions";
 import { mapDbDeliveryTicketToDetailView } from "@/lib/delivery-ticket-mapper";
 import { withDatabaseRetry } from "@/lib/prisma";
 
@@ -13,15 +16,21 @@ export default async function DeliveryTicketDetailPage({
 }: DeliveryTicketDetailPageProps) {
   const { id } = await params;
 
-  const dbTicket = await withDatabaseRetry((prisma) =>
-    prisma.deliveryTicket.findUnique({
-      where: { id },
-      include: {
-        lineItems: { orderBy: { lineNumber: "asc" } },
-        invoice: { select: { id: true, invoiceNumber: true } },
-      },
-    }),
-  );
+  const [dbTicket, user] = await Promise.all([
+    withDatabaseRetry((prisma) =>
+      prisma.deliveryTicket.findUnique({
+        where: { id },
+        include: {
+          lineItems: { orderBy: { lineNumber: "asc" } },
+          invoice: { select: { id: true, invoiceNumber: true } },
+        },
+      }),
+    ),
+    getCurrentUser(),
+  ]);
+  const canManageInvoices = user
+    ? await hasPermission(user, AppPermission.INVOICES_MANAGE)
+    : false;
 
   if (!dbTicket) {
     notFound();
@@ -46,6 +55,7 @@ export default async function DeliveryTicketDetailPage({
           paymentReceived: dbTicket.paymentReceived,
           pickedUpBy: dbTicket.pickedUpBy,
         }}
+        canManageInvoices={canManageInvoices}
       />
     </DashboardShell>
   );

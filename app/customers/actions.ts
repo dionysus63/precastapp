@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { CustomerStatus, AppPermission } from "@/app/generated/prisma/client";
+import {
+  CustomerStatus,
+  AppPermission,
+  Prisma,
+} from "@/app/generated/prisma/client";
 import { parseBulkCustomerStatus } from "@/components/customers/customer-utils";
 import { findSimilarCustomers as rankSimilarCustomers } from "@/lib/customer-name-similarity";
 import {
@@ -11,6 +15,10 @@ import {
 } from "@/lib/customer-contact-sync";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import {
+  isNextRedirectError,
+  translatePrismaError,
+} from "@/lib/server/action-errors";
 import {
   getEnum,
   getOptionalString,
@@ -118,93 +126,136 @@ export async function checkBulkCustomerDbDuplicates(
   return result;
 }
 
-export async function createCustomer(formData: FormData) {
+export async function createCustomer(
+  formData: FormData,
+): Promise<{ error: string } | void> {
   await requirePermission(AppPermission.CUSTOMERS_MANAGE);
-  const data = parseCustomerFormData(formData);
-  const confirmSimilar = formData.get("confirmSimilar") === "true";
 
-  if (!confirmSimilar) {
-    const matches = await loadSimilarCustomerMatches(data.name);
-    if (matches.length > 0) {
-      throw new Error(
-        "A customer with a similar name already exists. Review the matches or confirm to create anyway.",
-      );
+  try {
+    const data = parseCustomerFormData(formData);
+    const confirmSimilar = formData.get("confirmSimilar") === "true";
+
+    if (!confirmSimilar) {
+      const matches = await loadSimilarCustomerMatches(data.name);
+      if (matches.length > 0) {
+        return {
+          error:
+            "A customer with a similar name already exists. Review the matches or confirm to create anyway.",
+        };
+      }
     }
-  }
 
-  await prisma.$transaction(async (tx) => {
-    const customer = await tx.customer.create({ data });
+    await prisma.$transaction(async (tx) => {
+      const customer = await tx.customer.create({ data });
 
-    await upsertPrimaryContactFromHeader(tx, customer.id, {
-      name: data.primaryContactName,
-      phone: data.phone,
-      email: data.email,
+      await upsertPrimaryContactFromHeader(tx, customer.id, {
+        name: data.primaryContactName,
+        phone: data.phone,
+        email: data.email,
+      });
+
+      await syncCustomerHeaderFromPrimaryContact(tx, customer.id);
     });
 
-    await syncCustomerHeaderFromPrimaryContact(tx, customer.id);
-  });
-
-  revalidatePath("/customers");
-  redirect("/customers");
+    revalidatePath("/customers");
+    redirect("/customers");
+  } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+    return { error: translatePrismaError(error).message };
+  }
 }
 
-export async function updateCustomer(formData: FormData) {
+export async function updateCustomer(
+  formData: FormData,
+): Promise<{ error: string } | void> {
   await requirePermission(AppPermission.CUSTOMERS_MANAGE);
   const id = String(formData.get("id") ?? "").trim();
   if (!id) {
-    throw new Error("Customer id is required.");
+    return { error: "Customer id is required." };
   }
 
-  const data = parseCustomerFormData(formData);
+  try {
+    const data = parseCustomerFormData(formData);
 
-  await prisma.$transaction(async (tx) => {
-    await tx.customer.update({
-      where: { id },
-      data,
+    await prisma.$transaction(async (tx) => {
+      await tx.customer.update({
+        where: { id },
+        data,
+      });
+
+      await upsertPrimaryContactFromHeader(tx, id, {
+        name: data.primaryContactName,
+        phone: data.phone,
+        email: data.email,
+      });
+
+      await syncCustomerHeaderFromPrimaryContact(tx, id);
     });
 
-    await upsertPrimaryContactFromHeader(tx, id, {
-      name: data.primaryContactName,
-      phone: data.phone,
-      email: data.email,
-    });
-
-    await syncCustomerHeaderFromPrimaryContact(tx, id);
-  });
-
-  revalidatePath("/customers");
-  revalidatePath(`/customers/${id}`);
-  redirect(`/customers/${id}`);
+    revalidatePath("/customers");
+    revalidatePath(`/customers/${id}`);
+    redirect(`/customers/${id}`);
+  } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+    return { error: translatePrismaError(error).message };
+  }
 }
 
-export async function deleteCustomer(formData: FormData) {
+export async function deleteCustomer(
+  formData: FormData,
+): Promise<{ error: string } | void> {
   await requirePermission(AppPermission.CUSTOMERS_MANAGE);
   const id = String(formData.get("id") ?? "").trim();
   if (!id) {
-    throw new Error("Customer id is required.");
+    return { error: "Customer id is required." };
   }
 
-  const customer = await prisma.customer.findUnique({
-    where: { id },
-    include: {
-      _count: {
-        select: { jobs: true },
-      },
-    },
-  });
+  try {
+    // The count check and the delete run in one transaction so a job created
+    // between them can't slip through; the FK constraint (P2003) is the
+    // backstop either way.
+    await prisma.$transaction(async (tx) => {
+      const customer = await tx.customer.findUnique({
+        where: { id },
+        include: {
+          _count: {
+            select: { jobs: true },
+          },
+        },
+      });
 
-  if (!customer) {
-    throw new Error("Customer not found.");
+      if (!customer) {
+        throw new Error("Customer not found.");
+      }
+
+      if (customer._count.jobs > 0) {
+        throw new Error("Cannot delete a customer that has jobs assigned.");
+      }
+
+      await tx.customer.delete({ where: { id } });
+    });
+
+    revalidatePath("/customers");
+    redirect("/customers");
+  } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2003"
+    ) {
+      return {
+        error:
+          "This customer has jobs or quotes attached and can't be deleted.",
+      };
+    }
+    return { error: translatePrismaError(error).message };
   }
-
-  if (customer._count.jobs > 0) {
-    throw new Error("Cannot delete a customer that has jobs assigned.");
-  }
-
-  await prisma.customer.delete({ where: { id } });
-
-  revalidatePath("/customers");
-  redirect("/customers");
 }
 
 type BulkImportRow = {
@@ -278,6 +329,8 @@ export async function importCustomers(
     mapBulkImportRow(row as BulkImportRow, index + 1),
   );
 
+  // The bulk-paste form catches thrown errors and shows them in its banner,
+  // so this action keeps throwing (with translated Prisma messages).
   await prisma.$transaction(async (tx) => {
     await tx.customer.createMany({ data: customers });
 
@@ -298,6 +351,8 @@ export async function importCustomers(
       });
       await syncCustomerHeaderFromPrimaryContact(tx, created.id);
     }
+  }).catch((error) => {
+    throw translatePrismaError(error);
   });
 
   revalidatePath("/customers");

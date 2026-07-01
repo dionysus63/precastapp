@@ -14,33 +14,35 @@ export default async function ProductInventoryPage({
 }: ProductInventoryPageProps) {
   const { productId } = await params;
 
-  const product = await withDatabaseRetry((prisma) =>
-    prisma.product.findUnique({
-      where: { id: productId },
-      select: {
-        id: true,
-        productCode: true,
-        name: true,
-        unit: true,
-        currentStockQuantity: true,
-        reorderLevel: true,
-        yardLocation: true,
-        trackInventory: true,
-      },
-    }),
-  );
+  // Independent queries (transactions only need productId) — run in parallel.
+  const [product, transactions] = await Promise.all([
+    withDatabaseRetry((prisma) =>
+      prisma.product.findUnique({
+        where: { id: productId },
+        select: {
+          id: true,
+          productCode: true,
+          name: true,
+          unit: true,
+          currentStockQuantity: true,
+          reorderLevel: true,
+          yardLocation: true,
+          trackInventory: true,
+        },
+      }),
+    ),
+    withDatabaseRetry((prisma) =>
+      prisma.inventoryTransaction.findMany({
+        where: { productId },
+        orderBy: [{ transactionDate: "desc" }, { createdAt: "desc" }],
+        take: 100,
+      }),
+    ),
+  ]);
 
   if (!product || !product.trackInventory) {
     notFound();
   }
-
-  const transactions = await withDatabaseRetry((prisma) =>
-    prisma.inventoryTransaction.findMany({
-      where: { productId },
-      orderBy: [{ transactionDate: "desc" }, { createdAt: "desc" }],
-      take: 100,
-    }),
-  );
 
   const low =
     product.reorderLevel > 0 &&

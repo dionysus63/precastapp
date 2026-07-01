@@ -23,7 +23,6 @@ import {
   type JobRelatedQuote,
   type JobRelatedStructure,
   type JobStatusVariant,
-  groupJobRelatedQuotes,
 } from "@/components/jobs/job-utils";
 import { quoteStatusLabels, type QuoteStatus } from "@/components/quotes/quote-utils";
 import { formatDateShort, formatUsd, formatWeightLb } from "@/lib/format";
@@ -50,18 +49,32 @@ type DeliveryTicketLineItemSummary = Pick<
   | "yardLocation"
 >;
 
-export type JobWithRelations = Job & {
-  quotes: (Quote & { _count?: { lineItems: number } })[];
-  bidders: (JobBidder & {
-    customer: Customer & { contacts: Contact[] };
-    quotes: Quote[];
-  })[];
-  deliveryTickets: (DeliveryTicket & {
-    invoice?: { id: string } | null;
-    lineItems?: DeliveryTicketLineItemSummary[];
-  })[];
-  jobStructures: (JobStructure & { _count?: { documents: number } })[];
-  invoices: (Invoice & { deliveryTicket?: { ticketNumber: string } | null })[];
+export type JobWithSummaryRelations = Job & {
+  _count: {
+    quotes: number;
+    bidders: number;
+    deliveryTickets: number;
+    jobStructures: number;
+    invoices: number;
+  };
+  quotes: Pick<Quote, "status" | "total">[];
+  bidders: {
+    isWinner: boolean;
+    customer: { name: string };
+    quotes: Pick<Quote, "sentAt">[];
+  }[];
+  deliveryTickets: Pick<DeliveryTicket, "status">[];
+  jobStructures: Pick<JobStructure, "status">[];
+  invoices: Pick<Invoice, "total">[];
+};
+
+export type JobBidderWithRelations = JobBidder & {
+  customer: Customer & { contacts: Contact[] };
+  quotes: Quote[];
+};
+
+export type JobDeliveryTicketWithLineItems = DeliveryTicket & {
+  lineItems?: DeliveryTicketLineItemSummary[];
 };
 
 function formatDate(date: Date | null | undefined): string {
@@ -148,12 +161,7 @@ function defaultContactIdForBidder(contacts: JobBidderContactOption[]) {
   );
 }
 
-function mapBidder(
-  bidder: JobBidder & {
-    customer: Customer & { contacts: Contact[] };
-    quotes: Quote[];
-  },
-): JobBidderRow {
+function mapBidder(bidder: JobBidderWithRelations): JobBidderRow {
   const quote = bidder.quotes[0] ?? null;
   const quoteStatus = quote ? (quote.status as QuoteStatus) : null;
   const contacts = bidder.customer.contacts.map(mapBidderContact);
@@ -194,12 +202,18 @@ function mapBidder(
   };
 }
 
+type JobBidderSummaryInput = {
+  isWinner: boolean;
+  customerName: string;
+  hasSentQuote: boolean;
+};
+
 function buildBiddingSummary(
   job: Job,
-  bidders: JobBidderRow[],
+  bidders: JobBidderSummaryInput[],
 ): JobBiddingSummary {
   const quotesSentCount = bidders.filter(
-    (bidder) => bidder.sentAt && bidder.sentAt !== "—",
+    (bidder) => bidder.hasSentQuote,
   ).length;
   const isAwarded = Boolean(job.awardedDate) || job.status === "AWARDED";
   const winner = bidders.find((bidder) => bidder.isWinner);
@@ -230,7 +244,7 @@ const MASTER_QUOTE_STATUSES = new Set([
   "REVISED",
 ]);
 
-function mapMasterQuoteOptions(
+export function mapJobMasterQuoteOptions(
   quotes: (Quote & { _count?: { lineItems: number } })[],
 ): JobMasterQuoteOption[] {
   return quotes
@@ -284,9 +298,7 @@ function mapDeliveryLineItem(
   };
 }
 
-function mapDelivery(
-  ticket: DeliveryTicket & { lineItems?: DeliveryTicketLineItemSummary[] },
-): JobRelatedDelivery {
+function mapDelivery(ticket: JobDeliveryTicketWithLineItems): JobRelatedDelivery {
   const status = ticket.status as DeliveryTicketStatus;
   return {
     id: ticket.id,
@@ -320,24 +332,57 @@ function mapInvoice(
   };
 }
 
-export function mapJobToDetailView(job: JobWithRelations): JobDetailView {
-  const relatedQuotes = job.quotes.map(mapQuote);
-  const relatedQuoteGroups = groupJobRelatedQuotes(relatedQuotes);
-  const bidders = job.bidders.map(mapBidder);
-  const biddingSummary = buildBiddingSummary(job, bidders);
-  const masterQuoteOptions = mapMasterQuoteOptions(job.quotes);
-  const relatedDeliveries = job.deliveryTickets.map(mapDelivery);
-  const relatedStructures = job.jobStructures.map(mapStructure);
-  const relatedInvoices = job.invoices.map(mapInvoice);
+export function mapJobQuotes(quotes: Quote[]): JobRelatedQuote[] {
+  return quotes.map(mapQuote);
+}
 
-  const invoiceableDeliveries: JobInvoiceableDelivery[] = job.deliveryTickets
-    .filter((ticket) => ticket.status === "DELIVERED" && !ticket.invoice)
-    .map((ticket) => ({
-      id: ticket.id,
-      ticketNumber: ticket.ticketNumber,
-      projectName: ticket.projectName,
-      deliveryDate: formatDate(ticket.deliveryDate),
-    }));
+export function mapJobBidders(
+  bidders: JobBidderWithRelations[],
+): JobBidderRow[] {
+  return bidders.map(mapBidder);
+}
+
+export function mapJobDeliveries(
+  tickets: JobDeliveryTicketWithLineItems[],
+): JobRelatedDelivery[] {
+  return tickets.map(mapDelivery);
+}
+
+export function mapJobInvoiceableDeliveries(
+  tickets: Pick<
+    DeliveryTicket,
+    "id" | "ticketNumber" | "projectName" | "deliveryDate"
+  >[],
+): JobInvoiceableDelivery[] {
+  return tickets.map((ticket) => ({
+    id: ticket.id,
+    ticketNumber: ticket.ticketNumber,
+    projectName: ticket.projectName,
+    deliveryDate: formatDate(ticket.deliveryDate),
+  }));
+}
+
+export function mapJobStructures(
+  structures: (JobStructure & { _count?: { documents: number } })[],
+): JobRelatedStructure[] {
+  return structures.map(mapStructure);
+}
+
+export function mapJobInvoices(
+  invoices: (Invoice & { deliveryTicket?: { ticketNumber: string } | null })[],
+): JobRelatedInvoice[] {
+  return invoices.map(mapInvoice);
+}
+
+export function mapJobToDetailView(job: JobWithSummaryRelations): JobDetailView {
+  const biddingSummary = buildBiddingSummary(
+    job,
+    job.bidders.map((bidder) => ({
+      isWinner: bidder.isWinner,
+      customerName: bidder.customer.name,
+      hasSentQuote: Boolean(bidder.quotes[0]?.sentAt),
+    })),
+  );
 
   const totalQuoted = job.quotes.reduce(
     (sum, quote) => sum + Number.parseFloat(quote.total.toString() || "0"),
@@ -370,7 +415,7 @@ export function mapJobToDetailView(job: JobWithRelations): JobDetailView {
   const stats: JobDetailView["stats"] = [
     {
       label: "Quotes",
-      value: String(job.quotes.length),
+      value: String(job._count.quotes),
       detail: `${formatUsd(totalQuoted)} quoted`,
     },
     {
@@ -380,19 +425,19 @@ export function mapJobToDetailView(job: JobWithRelations): JobDetailView {
     },
     {
       label: "Structures",
-      value: String(job.jobStructures.length),
+      value: String(job._count.jobStructures),
       detail: `${shippedStructures} shipped`,
     },
     {
       label: "Deliveries",
-      value: String(job.deliveryTickets.length),
+      value: String(job._count.deliveryTickets),
       detail: `${
         job.deliveryTickets.filter((t) => t.status === "DELIVERED").length
       } delivered`,
     },
     {
       label: "Invoices",
-      value: String(job.invoices.length),
+      value: String(job._count.invoices),
       detail: `${formatUsd(invoicedTotal)} invoiced`,
     },
   ];
@@ -419,13 +464,12 @@ export function mapJobToDetailView(job: JobWithRelations): JobDetailView {
     stats,
     structureStatusBreakdown,
     biddingSummary,
-    bidders,
-    masterQuoteOptions,
-    relatedQuotes,
-    relatedQuoteGroups,
-    relatedDeliveries,
-    relatedStructures,
-    relatedInvoices,
-    invoiceableDeliveries,
+    counts: {
+      quotes: job._count.quotes,
+      bidders: job._count.bidders,
+      deliveries: job._count.deliveryTickets,
+      structures: job._count.jobStructures,
+      invoices: job._count.invoices,
+    },
   };
 }

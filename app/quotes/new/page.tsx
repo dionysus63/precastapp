@@ -2,47 +2,18 @@ import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { QuoteForm } from "@/components/quotes/quote-form";
 import {
-  type QuoteFormServiceOption,
-  mockServiceOptions,
-} from "@/components/quotes/quote-utils";
-import { listPriceListsForForm } from "@/app/quotes/actions";
+  QUOTE_FORM_CUSTOMER_SELECT,
+  QUOTE_FORM_JOB_SELECT,
+  loadQuoteFormSharedData,
+  mapCustomerToQuoteFormOption,
+  mapJobToQuoteFormOption,
+} from "@/app/quotes/quote-form-data";
 import {
   defaultQuoteExpirationDate,
   getAppSettings,
 } from "@/lib/app-settings";
 import { requireAuth } from "@/lib/auth/session";
-import { mapProductToQuoteFormOption } from "@/lib/quote-mapper";
 import { withDatabaseRetry } from "@/lib/prisma";
-import type { Prisma } from "@/app/generated/prisma/client";
-
-const QUOTE_PRODUCT_OPTION_SELECT = {
-  id: true,
-  productCode: true,
-  name: true,
-  category: true,
-  description: true,
-  unit: true,
-  defaultPrice: true,
-  weight: true,
-  yards: true,
-  taxable: true,
-  castingRole: true,
-} satisfies Prisma.ProductSelect;
-
-function formatJobAddress(job: {
-  projectAddress: string | null;
-  city: string | null;
-  state: string | null;
-  zip: string | null;
-}) {
-  const parts = [
-    job.projectAddress,
-    [job.city, job.state].filter(Boolean).join(", "),
-    job.zip,
-  ].filter((part) => part && part.trim() !== "");
-
-  return parts.join(", ");
-}
 
 type NewQuotePageProps = {
   searchParams: Promise<{
@@ -62,124 +33,37 @@ export default async function NewQuotePage({
     appSettings.quoteValidityDays,
   );
 
-  const [customers, jobs, stockProducts, configurableProducts, serviceProducts, ringSlabProducts, priceLists] =
-    await withDatabaseRetry((prisma) =>
-      Promise.all([
-        prisma.customer.findMany({
-          orderBy: { name: "asc" },
-          select: {
-            id: true,
-            name: true,
-            primaryContactName: true,
-            email: true,
-            phone: true,
-            contacts: {
-              orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
-              select: {
-                id: true,
-                name: true,
-                title: true,
-                email: true,
-                phone: true,
-                isPrimary: true,
-              },
-            },
-          },
-        }),
-        prisma.job.findMany({
-          orderBy: [{ year: "desc" }, { sequenceNumber: "desc" }],
-          select: {
-            id: true,
-            jobNumber: true,
-            projectName: true,
-            projectAddress: true,
-            city: true,
-            state: true,
-            zip: true,
-            customerId: true,
-            customerName: true,
-            contactName: true,
-            contactEmail: true,
-            contactPhone: true,
-          },
-        }),
-        prisma.product.findMany({
-          where: { productType: "STOCK", status: "ACTIVE" },
-          orderBy: { productCode: "asc" },
-          select: QUOTE_PRODUCT_OPTION_SELECT,
-        }),
-        prisma.product.findMany({
-          where: { productType: "CONFIGURABLE", status: "ACTIVE" },
-          orderBy: { productCode: "asc" },
-          select: QUOTE_PRODUCT_OPTION_SELECT,
-        }),
-        prisma.product.findMany({
-          where: { productType: "SERVICE", status: "ACTIVE" },
-          orderBy: { productCode: "asc" },
-          select: QUOTE_PRODUCT_OPTION_SELECT,
-        }),
-        prisma.product.findMany({
-          where: { status: "ACTIVE" },
-          orderBy: { productCode: "asc" },
-          select: QUOTE_PRODUCT_OPTION_SELECT,
-        }),
-        listPriceListsForForm(),
-      ]),
-    );
+  // Catalogs are no longer preloaded; the form fetches customers, jobs, and
+  // products on demand. Only the small shared reference data plus any
+  // entities named in the query string are resolved here.
+  const [{ serviceOptions, ringSlabProducts, priceLists }, initialJobRow] =
+    await Promise.all([
+      loadQuoteFormSharedData(appSettings.ringBuilderConfig),
+      jobId
+        ? withDatabaseRetry((prisma) =>
+            prisma.job.findUnique({
+              where: { id: jobId },
+              select: QUOTE_FORM_JOB_SELECT,
+            }),
+          )
+        : null,
+    ]);
 
-  const customerOptions = customers.map((customer) => ({
-    id: customer.id,
-    name: customer.name,
-    contactName: customer.primaryContactName ?? "",
-    contactEmail: customer.email ?? "",
-    contactPhone: customer.phone ?? "",
-    contacts: customer.contacts.map((contact) => ({
-      id: contact.id,
-      name: contact.name,
-      title: contact.title ?? "",
-      email: contact.email ?? "",
-      phone: contact.phone ?? "",
-      isPrimary: contact.isPrimary,
-    })),
-  }));
-
-  const jobOptions = jobs.map((job) => ({
-    id: job.id,
-    jobNumber: job.jobNumber,
-    label: `${job.jobNumber} - ${job.projectName} - ${job.customerName}`,
-    projectName: job.projectName,
-    projectAddress: formatJobAddress(job),
-    customerId: job.customerId,
-    customerName: job.customerName,
-    contactName: job.contactName ?? "",
-    contactEmail: job.contactEmail ?? "",
-    contactPhone: job.contactPhone ?? "",
-  }));
-
-  const serviceOptions: QuoteFormServiceOption[] =
-    serviceProducts.length > 0
-      ? serviceProducts.map((product) => ({
-          id: product.id,
-          item: product.productCode,
-          description: product.description?.trim() || product.name,
-          lineType: product.productCode.toLowerCase().includes("misc")
-            ? "MISC"
-            : "SERVICE",
-          defaultUnitPrice: product.defaultPrice
-            ? Number.parseFloat(product.defaultPrice.toString())
-            : 0,
-          taxable: product.taxable,
-          unit: product.unit,
-        }))
-      : mockServiceOptions.map((service) => ({
-          id: null,
-          item: service.item,
-          description: service.description,
-          lineType: service.lineType,
-          defaultUnitPrice: service.defaultUnitPrice,
-          taxable: service.taxable,
-          unit: "EA",
-        }));
+  const initialJob = initialJobRow
+    ? mapJobToQuoteFormOption(initialJobRow)
+    : null;
+  const resolvedCustomerId = customerId || initialJob?.customerId || null;
+  const initialCustomerRow = resolvedCustomerId
+    ? await withDatabaseRetry((prisma) =>
+        prisma.customer.findUnique({
+          where: { id: resolvedCustomerId },
+          select: QUOTE_FORM_CUSTOMER_SELECT,
+        }),
+      )
+    : null;
+  const initialCustomer = initialCustomerRow
+    ? mapCustomerToQuoteFormOption(initialCustomerRow)
+    : null;
 
   return (
     <DashboardShell
@@ -195,29 +79,14 @@ export default async function NewQuotePage({
 
       <div className="mt-4">
         <QuoteForm
-          customers={customerOptions}
-          jobs={jobOptions}
-          stockProducts={stockProducts
-            .map(mapProductToQuoteFormOption)
-            .sort((a, b) => {
-              if (a.isCastingAssembly && !b.isCastingAssembly) {
-                return -1;
-              }
-              if (!a.isCastingAssembly && b.isCastingAssembly) {
-                return 1;
-              }
-              return a.code.localeCompare(b.code);
-            })}
-          configurableProducts={configurableProducts.map(
-            mapProductToQuoteFormOption,
-          )}
+          initialCustomer={initialCustomer}
+          initialJob={initialJob}
+          initialCustomerId={customerId}
+          initialJobBidderId={bidderId}
           serviceOptions={serviceOptions}
           priceLists={priceLists}
           ringBuilderConfig={appSettings.ringBuilderConfig}
-          ringSlabProducts={ringSlabProducts.map(mapProductToQuoteFormOption)}
-          initialJobId={jobId}
-          initialCustomerId={customerId}
-          initialJobBidderId={bidderId}
+          ringSlabProducts={ringSlabProducts}
           quoteDefaults={{
             defaultTaxRate: appSettings.defaultTaxRate,
             defaultLeadTime: appSettings.defaultLeadTime,

@@ -17,22 +17,24 @@ type EditJobPageProps = {
 export default async function EditJobPage({ params }: EditJobPageProps) {
   const { id } = await params;
 
-  const job = await withDatabaseRetry((prisma) =>
-    prisma.job.findUnique({
-      where: { id },
-    }),
-  );
+  // Independent queries — run in parallel.
+  const [job, customers] = await Promise.all([
+    withDatabaseRetry((prisma) =>
+      prisma.job.findUnique({
+        where: { id },
+      }),
+    ),
+    withDatabaseRetry((prisma) =>
+      prisma.customer.findMany({
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      }),
+    ),
+  ]);
 
   if (!job) {
     notFound();
   }
-
-  const customers = await withDatabaseRetry((prisma) =>
-    prisma.customer.findMany({
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-  );
 
   let recentFiles: ReturnType<typeof mapJobFileRecordToRow>[] = [];
 

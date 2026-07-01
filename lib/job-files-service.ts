@@ -1,4 +1,4 @@
-import { access, readdir, stat, writeFile } from "fs/promises";
+import { access, readdir, stat, unlink, writeFile } from "fs/promises";
 import path from "path";
 import type { PrismaClient } from "@/app/generated/prisma/client";
 import { JOB_SUBFOLDERS } from "@/lib/job-folder-constants";
@@ -403,13 +403,20 @@ export async function uploadJobFile(
   const buffer = Buffer.from(await file.arrayBuffer());
   await writeFile(outputPath, buffer);
 
-  return registerJobFile(
-    client,
-    jobId,
-    outputPath,
-    folderCategory,
-    path.basename(outputPath),
-  );
+  try {
+    return await registerJobFile(
+      client,
+      jobId,
+      outputPath,
+      folderCategory,
+      path.basename(outputPath),
+    );
+  } catch (error) {
+    // DB registration failed; remove the just-written file (the path is
+    // unique to this upload) so no orphan is left on disk.
+    await unlink(outputPath).catch(() => {});
+    throw error;
+  }
 }
 
 export async function getJobFileForOpen(

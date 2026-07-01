@@ -68,6 +68,8 @@ export default async function WalkInsPage() {
           status: { in: [...ACTIVE_PICKUP_STATUSES] },
         },
         orderBy: [{ deliveryDate: "asc" }, { createdAt: "asc" }],
+        // Active board, not an archive: abandoned drafts shouldn't grow it forever.
+        take: 100,
         select: WALK_IN_SELECT,
       }),
       prisma.deliveryTicket.findMany({

@@ -30,7 +30,7 @@ export type CustomerFormValues = {
 };
 
 type CustomerFormProps = {
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<{ error: string } | void>;
   cancelHref: string;
   submitLabel: string;
   defaultValues?: CustomerFormValues;
@@ -99,7 +99,10 @@ export function CustomerForm({
     }
 
     const formData = new FormData(form);
-    formData.set("name", name.trim());
+    if (enableSimilarNameCheck) {
+      // The name input is controlled only in similar-check mode.
+      formData.set("name", name.trim());
+    }
 
     if (confirmedSimilar) {
       formData.set("confirmSimilar", "true");
@@ -108,7 +111,10 @@ export function CustomerForm({
     startSubmit(async () => {
       setSubmitError(null);
       try {
-        await action(formData);
+        const result = await action(formData);
+        if (result?.error) {
+          setSubmitError(result.error);
+        }
       } catch (error) {
         setSubmitError(
           error instanceof Error
@@ -120,18 +126,18 @@ export function CustomerForm({
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    if (!enableSimilarNameCheck) {
-      return;
-    }
-
     event.preventDefault();
 
-    if (similarMatches.length > 0 && !showConfirmPanel) {
+    if (
+      enableSimilarNameCheck &&
+      similarMatches.length > 0 &&
+      !showConfirmPanel
+    ) {
       setShowConfirmPanel(true);
       return;
     }
 
-    submitForm(showConfirmPanel);
+    submitForm(enableSimilarNameCheck && showConfirmPanel);
   }
 
   const nameInputProps = enableSimilarNameCheck
@@ -145,12 +151,7 @@ export function CustomerForm({
       };
 
   return (
-    <form
-      ref={formRef}
-      action={enableSimilarNameCheck ? undefined : action}
-      onSubmit={enableSimilarNameCheck ? handleSubmit : undefined}
-      className="space-y-5"
-    >
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
       {defaultValues?.id ? (
         <input type="hidden" name="id" value={defaultValues.id} />
       ) : null}

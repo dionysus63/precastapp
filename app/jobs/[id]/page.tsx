@@ -1,26 +1,21 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import {
   JobDetailContent,
+  JobDetailTabSkeleton,
 } from "@/components/jobs/job-detail-content";
-import { mapFilesForBrowser } from "@/lib/job-file-mapper";
 import type { JobDetailTab } from "@/components/jobs/job-utils";
-import { getJobFilesForBrowser } from "@/app/files/actions";
 import { mapJobToDetailView } from "@/lib/job-detail-mapper";
-import { getJobProgress } from "@/lib/job-progress";
 import { getFavoriteJobIdsForUser } from "@/lib/job-favorites";
 import { getCurrentUser } from "@/lib/auth/session";
-import { hasPermission } from "@/lib/auth/permissions";
-import { AppPermission } from "@/app/generated/prisma/client";
 import { withDatabaseRetry } from "@/lib/prisma";
-import { listCustomersForBidList } from "@/app/jobs/bid-actions";
+import { JobTabContent } from "./job-tab-content";
 
 type JobDetailPageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string; category?: string }>;
+  searchParams: Promise<{ tab?: string; category?: string; folderError?: string }>;
 };
-
-const CONSTRUCTION_PLANS_CATEGORY = "01 Construction Plans";
 
 const VALID_TABS: JobDetailTab[] = [
   "overview",
@@ -45,68 +40,47 @@ export default async function JobDetailPage({
   searchParams,
 }: JobDetailPageProps) {
   const { id } = await params;
-  const { tab, category } = await searchParams;
+  const { tab, category, folderError } = await searchParams;
 
   const activeTab = resolveTab(tab);
   const user = await getCurrentUser();
 
-  const [job, favoriteJobIds, bidListCustomers] = await Promise.all([
+  // Lightweight always-on load: base job row, relation counts for the tab
+  // badges, and the skinny relation slices needed by the stats cards and
+  // overview summary. Full relations load per tab inside JobTabContent.
+  const [job, favoriteJobIds] = await Promise.all([
     withDatabaseRetry((prisma) =>
       prisma.job.findUnique({
         where: { id },
         include: {
-          quotes: {
-            orderBy: { updatedAt: "desc" },
-            include: { _count: { select: { lineItems: true } } },
+          _count: {
+            select: {
+              quotes: true,
+              bidders: true,
+              deliveryTickets: true,
+              jobStructures: true,
+              invoices: true,
+            },
           },
+          quotes: { select: { status: true, total: true } },
           bidders: {
-            orderBy: { sortOrder: "asc" },
-            include: {
-              customer: {
-                include: {
-                  contacts: {
-                    orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
-                  },
-                },
-              },
-              quotes: { orderBy: { updatedAt: "desc" }, take: 1 },
-            },
-          },
-          deliveryTickets: {
-            orderBy: { updatedAt: "desc" },
-            include: {
-              invoice: { select: { id: true } },
-              lineItems: {
-                orderBy: [{ sortOrder: "asc" }, { lineNumber: "asc" }],
-                select: {
-                  id: true,
-                  lineNumber: true,
-                  itemCode: true,
-                  description: true,
-                  quantity: true,
-                  unit: true,
-                  totalWeight: true,
-                  status: true,
-                  yardLocation: true,
-                },
+            select: {
+              isWinner: true,
+              customer: { select: { name: true } },
+              quotes: {
+                orderBy: { updatedAt: "desc" },
+                take: 1,
+                select: { sentAt: true },
               },
             },
           },
-          jobStructures: {
-            orderBy: { updatedAt: "desc" },
-            include: { _count: { select: { documents: true } } },
-          },
-          invoices: {
-            orderBy: { updatedAt: "desc" },
-            include: { deliveryTicket: { select: { ticketNumber: true } } },
-          },
+          deliveryTickets: { select: { status: true } },
+          jobStructures: { select: { status: true } },
+          invoices: { select: { total: true } },
         },
       }),
     ),
     user ? getFavoriteJobIdsForUser(user.id) : Promise.resolve([]),
-    user && (await hasPermission(user, AppPermission.JOBS_MANAGE))
-      ? listCustomersForBidList()
-      : Promise.resolve([]),
   ]);
 
   if (!job) {
@@ -115,46 +89,35 @@ export default async function JobDetailPage({
 
   const detail = mapJobToDetailView(job);
 
-  const progress =
-    activeTab === "progress"
-      ? await withDatabaseRetry((prisma) => getJobProgress(prisma, id))
-      : null;
-
-  const fileCategory = category ?? "All";
-  let files: ReturnType<typeof mapFilesForBrowser> = [];
-
-  if (
-    (activeTab === "files" || activeTab === "construction-plans") &&
-    job.folderPath
-  ) {
-    const requestedCategory =
-      activeTab === "construction-plans"
-        ? CONSTRUCTION_PLANS_CATEGORY
-        : fileCategory !== "All"
-          ? fileCategory
-          : undefined;
-
-    const result = await getJobFilesForBrowser(id, requestedCategory);
-    files = mapFilesForBrowser(result.files);
-  }
-
   return (
     <DashboardShell
       title={`${detail.jobNumber} — ${detail.projectName}`}
       subtitle="Everything you need to know about this job."
     >
+      {folderError && !detail.folderPath ? (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          The job was saved, but its folder could not be created. Use the
+          &ldquo;Create Folder&rdquo; button below to retry.
+        </div>
+      ) : null}
       <JobDetailContent
         detail={detail}
         activeTab={activeTab}
-        files={files}
-        fileCategory={fileCategory}
         isFavorited={favoriteJobIds.includes(id)}
-        progress={progress}
-        bidListCustomers={bidListCustomers.map((customer) => ({
-          id: customer.id,
-          name: customer.name,
-        }))}
-      />
+      >
+        <Suspense
+          key={`${activeTab}:${category ?? ""}`}
+          fallback={<JobDetailTabSkeleton />}
+        >
+          <JobTabContent
+            jobId={id}
+            activeTab={activeTab}
+            category={category}
+            detail={detail}
+            user={user}
+          />
+        </Suspense>
+      </JobDetailContent>
     </DashboardShell>
   );
 }

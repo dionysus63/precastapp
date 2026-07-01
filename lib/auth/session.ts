@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { AppPermission } from "@/app/generated/prisma/client";
@@ -15,8 +16,11 @@ import { prisma } from "@/lib/prisma";
 
 export { SESSION_COOKIE_NAME };
 
-const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
-const SESSION_SLIDE_THRESHOLD_SECONDS = 60 * 60 * 24;
+/** 8-hour idle timeout (documented in AGENTS.md): any activity slides the
+ * expiry forward, so only 8+ hours of inactivity signs the user out. */
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 8;
+/** Slide on activity, but at most one cookie+DB refresh per 15 minutes. */
+const SESSION_SLIDE_THRESHOLD_SECONDS = SESSION_MAX_AGE_SECONDS - 60 * 15;
 
 /** Secure cookies are ignored by browsers on plain HTTP (LAN deploys). Set SESSION_COOKIE_SECURE=true only behind HTTPS. */
 function useSecureSessionCookie(): boolean {
@@ -103,7 +107,11 @@ export async function deleteCurrentSession(): Promise<void> {
   cookieStore.delete(SESSION_COOKIE_NAME);
 }
 
-export async function getCurrentUser(): Promise<AuthUser | null> {
+/**
+ * Request-memoized: the session row is looked up once per request even though
+ * DashboardShell, pages, and permission checks all call getCurrentUser().
+ */
+const loadCurrentUser = cache(async (): Promise<AuthUser | null> => {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
@@ -133,6 +141,10 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
   await slideSessionIfNeeded(session);
 
   return session.user;
+});
+
+export async function getCurrentUser(): Promise<AuthUser | null> {
+  return loadCurrentUser();
 }
 
 export async function requireAuth(): Promise<AuthUser> {

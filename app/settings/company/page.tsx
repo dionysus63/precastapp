@@ -55,9 +55,12 @@ export default async function CompanySettingsPage({
   searchParams,
 }: CompanySettingsPageProps) {
   const params = await searchParams;
-  const settings = await getAppSettings();
-  const logoAvailable = await hasCompanyLogo();
-  const logoUpdatedAt = await getCompanyLogoUpdatedAt();
+  // Independent lookups — run in parallel.
+  const [settings, logoAvailable, logoUpdatedAt] = await Promise.all([
+    getAppSettings(),
+    hasCompanyLogo(),
+    getCompanyLogoUpdatedAt(),
+  ]);
   const logoUrl = logoAvailable ? companyLogoApiUrl(logoUpdatedAt) : null;
 
   const successMessage =

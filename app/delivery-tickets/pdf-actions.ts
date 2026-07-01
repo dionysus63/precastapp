@@ -1,6 +1,6 @@
 "use server";
 
-import { writeFile } from "fs/promises";
+import { unlink, writeFile } from "fs/promises";
 import path from "path";
 import { revalidatePath } from "next/cache";
 import { AppPermission } from "@/app/generated/prisma/client";
@@ -12,7 +12,10 @@ import {
   getJobSubfolders,
   getQuotePdfFallbackDir,
 } from "@/lib/app-settings";
-import { assertPathUnderJobsRoot } from "@/lib/job-path-security";
+import {
+  assertPathUnderJobsRoot,
+  assertPathUnderRoot,
+} from "@/lib/job-path-security";
 import {
   buildQuotePdfBaseName,
   resolveQuotePdfOutputPath,
@@ -108,31 +111,41 @@ export async function generateDeliveryTicketPdf(
     // The job folder comes from the DB; keep the write inside the jobs root.
     if (jobFolderPath?.trim()) {
       assertPathUnderJobsRoot(await getJobsRoot(), outputPath);
+    } else {
+      // Fallback output lives in a sibling of the configured fallback dir;
+      // keep the write under that shared parent.
+      assertPathUnderRoot(path.join(fallbackDir, ".."), outputPath);
     }
 
     await writeFile(outputPath, pdfBytes);
 
-    await withDatabaseRetry((client) =>
-      client.deliveryTicket.update({
-        where: { id: ticketId },
-        data: { paperTicketPrinted: true },
-      }),
-    );
+    try {
+      await withDatabaseRetry((client) =>
+        client.deliveryTicket.update({
+          where: { id: ticketId },
+          data: { paperTicketPrinted: true },
+        }),
+      );
+
+      if (ticket.jobId && jobFolderPath) {
+        await withDatabaseRetry((client) =>
+          registerJobFile(
+            client,
+            ticket.jobId!,
+            outputPath,
+            deliverySubfolder,
+          ),
+        );
+      }
+    } catch (error) {
+      // DB steps failed; remove the just-written PDF so no orphan is left.
+      await unlink(outputPath).catch(() => {});
+      throw error;
+    }
 
     revalidatePath("/delivery-tickets");
     revalidatePath(`/delivery-tickets/${ticketId}`);
     revalidatePath(`/delivery-tickets/${ticketId}/preview`);
-
-    if (ticket.jobId && jobFolderPath) {
-      await withDatabaseRetry((client) =>
-        registerJobFile(
-          client,
-          ticket.jobId!,
-          outputPath,
-          deliverySubfolder,
-        ),
-      );
-    }
 
     return { success: true, filePath: outputPath };
   } catch (error) {

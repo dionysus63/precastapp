@@ -1,14 +1,33 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
-import { createQuote, updateQuote, type CreateQuoteInput } from "@/app/quotes/actions";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from "react";
+import {
+  createQuote,
+  getCustomerForQuoteForm,
+  searchCustomersForQuoteForm,
+  searchJobsForQuoteForm,
+  searchProductsForQuoteForm,
+  updateQuote,
+  type CreateQuoteInput,
+} from "@/app/quotes/actions";
 import { SectionCard } from "@/components/dashboard/section-card";
-import { StatusBadge } from "@/components/dashboard/status-badge";
 import {
   type EditableQuoteLineItem,
-  type QuoteFormProps,
+  type QuoteFormCustomerOption,
+  type QuoteFormInitialValues,
+  type QuoteFormJobOption,
+  type QuoteFormPriceListOption,
+  type QuoteFormProductOption,
+  type QuoteFormServiceOption,
   type QuoteLineItemType,
   type QuoteStatus,
   type QuoteType,
@@ -24,7 +43,6 @@ import {
   pickDefaultCustomerContact,
   type QuoteFormCustomerContactOption,
   quoteCompactInputClassName,
-  quoteDescriptionTextareaClassName,
   quoteEstimatorFormOptions,
   quoteInputClassName,
   quoteLineItemTypeLabels,
@@ -33,9 +51,10 @@ import {
   quoteTermsFormOptions,
   quoteTypeFormOptions,
 } from "@/components/quotes/quote-utils";
-import { RingBuilderModal } from "@/components/quotes/ring-builder-modal";
-import { RichTextContent } from "@/components/ui/rich-text-content";
+import { QuoteFormTypeahead } from "@/components/quotes/quote-form-typeahead";
+import { QuoteLineItemsTable } from "@/components/quotes/quote-line-items-table";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import type { RingBuilderConfig } from "@/lib/ring-builder-settings";
 import { richTextHasContent, sanitizeRichText } from "@/lib/rich-text";
 import {
   clearWorkbookApplyPayload,
@@ -47,10 +66,49 @@ import {
 const quoteTableInputClassName =
   "w-full min-w-[4rem] rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 shadow-sm";
 
-const quoteCategoryInputClassName =
-  "w-full min-w-[12rem] rounded border border-slate-200 bg-white px-2 py-1.5 text-sm font-semibold text-slate-900 underline shadow-sm";
+// Client-only and rarely opened, so keep the ring builder out of the main
+// quote-form chunk and load it on first use.
+const RingBuilderModal = dynamic(
+  () =>
+    import("@/components/quotes/ring-builder-modal").then(
+      (mod) => mod.RingBuilderModal,
+    ),
+  { ssr: false },
+);
 
 type AddLineModalType = Exclude<QuoteLineItemType, "MISC" | "CATEGORY">;
+
+type QuoteFormProps = {
+  /**
+   * Pre-resolved selections so the form renders without catalog queries:
+   * the quote's customer/job in edit mode, or the entities referenced by
+   * ?jobId / ?customerId on the new-quote page. Everything else is fetched
+   * on demand through the typeahead server actions.
+   */
+  initialCustomer?: QuoteFormCustomerOption | null;
+  initialJob?: QuoteFormJobOption | null;
+  /**
+   * Raw ?customerId query param. Distinguishes an explicitly requested
+   * customer (locked against job-driven changes) from one derived from the
+   * selected job.
+   */
+  initialCustomerId?: string;
+  initialJobBidderId?: string;
+  serviceOptions: QuoteFormServiceOption[];
+  priceLists?: QuoteFormPriceListOption[];
+  ringBuilderConfig?: RingBuilderConfig;
+  ringSlabProducts?: QuoteFormProductOption[];
+  quoteId?: string;
+  initialValues?: QuoteFormInitialValues;
+  quoteDefaults?: {
+    defaultTaxRate: number;
+    defaultLeadTime: string | null;
+    defaultExpirationDate: string;
+    estimators: string[];
+    paymentTerms: string[];
+    defaultEstimator?: string | null;
+  };
+};
 
 type CustomStructureRow = {
   id: string;
@@ -92,67 +150,21 @@ function renumberLineItems(items: EditableQuoteLineItem[]) {
   }));
 }
 
-function autoResizeTextarea(element: HTMLTextAreaElement | null) {
-  if (!element) {
-    return;
-  }
-  element.style.height = "auto";
-  element.style.height = `${element.scrollHeight}px`;
-}
-
-function QuoteLineDescriptionTextarea({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-
-  useLayoutEffect(() => {
-    autoResizeTextarea(ref.current);
-  }, [value]);
-
-  return (
-    <textarea
-      ref={ref}
-      value={value}
-      rows={1}
-      onChange={(event) => {
-        onChange(event.target.value);
-        autoResizeTextarea(event.target);
-      }}
-      className={quoteDescriptionTextareaClassName}
-    />
-  );
-}
-
 export function QuoteForm({
-  customers,
-  jobs,
-  stockProducts,
-  configurableProducts,
+  initialCustomer = null,
+  initialJob = null,
+  initialCustomerId,
+  initialJobBidderId,
   serviceOptions,
   priceLists = [],
   ringBuilderConfig = [],
   ringSlabProducts = [],
-  initialJobId,
-  initialCustomerId,
-  initialJobBidderId,
   quoteId,
   initialValues,
   quoteDefaults,
 }: QuoteFormProps) {
   const router = useRouter();
   const isEditing = Boolean(quoteId && initialValues);
-  const initialJob = initialJobId
-    ? jobs.find((job) => job.id === initialJobId)
-    : undefined;
-  const initialCustomer = initialCustomerId
-    ? customers.find((customer) => customer.id === initialCustomerId)
-    : initialJob?.customerId
-      ? customers.find((customer) => customer.id === initialJob.customerId)
-      : undefined;
   const initialSelectedContact =
     initialCustomer ? pickDefaultCustomerContact(initialCustomer.contacts) : null;
   const baseEstimatorOptions =
@@ -204,10 +216,14 @@ export function QuoteForm({
   );
   const [customerId, setCustomerId] = useState(
     initialValues?.customerId ??
-      initialCustomerId ??
+      initialCustomer?.id ??
       initialJob?.customerId ??
       "",
   );
+  // Contact options for the picker. Seeded from the server-resolved initial
+  // customer and refreshed whenever the user selects a different customer.
+  const [selectedCustomer, setSelectedCustomer] =
+    useState<QuoteFormCustomerOption | null>(initialCustomer);
   const [customerName, setCustomerName] = useState(
     initialValues?.customerName ??
       initialCustomer?.name ??
@@ -215,6 +231,9 @@ export function QuoteForm({
       DEFAULT_QUOTE_CUSTOMER_NAME,
   );
   const [jobId, setJobId] = useState(initialValues?.jobId ?? initialJob?.id ?? "");
+  const [selectedJobLabel, setSelectedJobLabel] = useState(
+    initialJob?.label ?? "",
+  );
   const [jobNumber, setJobNumber] = useState(
     initialValues?.jobNumber ?? initialJob?.jobNumber ?? "",
   );
@@ -300,12 +319,10 @@ export function QuoteForm({
     null,
   );
 
-  const [selectedStockId, setSelectedStockId] = useState(
-    stockProducts[0]?.id ?? "",
-  );
-  const [selectedConfigurableId, setSelectedConfigurableId] = useState(
-    configurableProducts[0]?.id ?? "",
-  );
+  const [selectedStockProduct, setSelectedStockProduct] =
+    useState<QuoteFormProductOption | null>(null);
+  const [selectedConfigurableProduct, setSelectedConfigurableProduct] =
+    useState<QuoteFormProductOption | null>(null);
   const [structureNumber, setStructureNumber] = useState("MH-1");
   const [structureDescription, setStructureDescription] = useState("");
   const [structureQty, setStructureQty] = useState("1");
@@ -355,9 +372,14 @@ export function QuoteForm({
     [lineItems, taxRatePercent],
   );
 
-  const selectedCustomer = useMemo(
-    () => customers.find((customer) => customer.id === customerId),
-    [customers, customerId],
+  // Stable wrappers so the typeahead effects don't refire on every render.
+  const searchStockProducts = useCallback(
+    (query: string) => searchProductsForQuoteForm(query, "STOCK"),
+    [],
+  );
+  const searchConfigurableProducts = useCallback(
+    (query: string) => searchProductsForQuoteForm(query, "CONFIGURABLE"),
+    [],
   );
 
   function applyContactSelection(contact: QuoteFormCustomerContactOption | null) {
@@ -544,16 +566,12 @@ export function QuoteForm({
     handleSaveDraft();
   }
 
-  function handleCustomerChange(value: string) {
-    setCustomerId(value);
+  function handleCustomerSelect(customer: QuoteFormCustomerOption | null) {
+    setCustomerId(customer?.id ?? "");
+    setSelectedCustomer(customer);
     setCustomerLocked(true);
     setJobBidderId("");
 
-    if (!value) {
-      return;
-    }
-
-    const customer = customers.find((entry) => entry.id === value);
     if (!customer) {
       return;
     }
@@ -586,16 +604,11 @@ export function QuoteForm({
     }
   }
 
-  function handleJobChange(value: string) {
-    setJobId(value);
+  function handleJobSelect(job: QuoteFormJobOption | null) {
+    setJobId(job?.id ?? "");
 
-    if (!value) {
-      setJobNumber("");
-      return;
-    }
-
-    const job = jobs.find((entry) => entry.id === value);
     if (!job) {
+      setJobNumber("");
       return;
     }
 
@@ -610,6 +623,13 @@ export function QuoteForm({
 
       if (job.customerId) {
         setCustomerId(job.customerId);
+        // Load the job's customer (with contacts) so the contact picker
+        // offers that customer's contacts, matching the old preloaded lookup.
+        // Not routed through the save transition: it must not flip the Save
+        // button into its pending state.
+        void getCustomerForQuoteForm(job.customerId).then((customer) => {
+          setSelectedCustomer(customer);
+        });
       }
 
       if (job.contactName) {
@@ -631,10 +651,7 @@ export function QuoteForm({
     setAddModalType(type);
 
     if (type === "CONFIGURABLE_STRUCTURE") {
-      const product =
-        configurableProducts.find(
-          (entry) => entry.id === selectedConfigurableId,
-        ) ?? configurableProducts[0];
+      const product = selectedConfigurableProduct;
       setStructureDescription(
         product ? `${product.description} ${structureNumber}`.trim() : "",
       );
@@ -721,7 +738,7 @@ export function QuoteForm({
   }
 
   function handleAddStockProduct() {
-    const product = stockProducts.find((entry) => entry.id === selectedStockId);
+    const product = selectedStockProduct;
     if (!product) {
       return;
     }
@@ -744,9 +761,7 @@ export function QuoteForm({
   }
 
   function handleAddConfigurableStructure() {
-    const product = configurableProducts.find(
-      (entry) => entry.id === selectedConfigurableId,
-    );
+    const product = selectedConfigurableProduct;
     if (!product) {
       return;
     }
@@ -792,18 +807,21 @@ export function QuoteForm({
     );
   }
 
-  function openEditCustomStructureLine(line: EditableQuoteLineItem) {
-    setEditingCustomStructureLineId(line.id);
-    setEditingCustomStructureDraft({
-      id: line.id,
-      structureNumber: line.item,
-      description: line.description,
-      qty: line.qty,
-      unitPrice: line.unitPrice,
-      weight: line.weight,
-      yards: line.yards,
-    });
-  }
+  const openEditCustomStructureLine = useCallback(
+    (line: EditableQuoteLineItem) => {
+      setEditingCustomStructureLineId(line.id);
+      setEditingCustomStructureDraft({
+        id: line.id,
+        structureNumber: line.item,
+        description: line.description,
+        qty: line.qty,
+        unitPrice: line.unitPrice,
+        weight: line.weight,
+        yards: line.yards,
+      });
+    },
+    [],
+  );
 
   function closeEditCustomStructureLine() {
     setEditingCustomStructureLineId(null);
@@ -901,23 +919,24 @@ export function QuoteForm({
     });
   }
 
-  function updateLineItem(
-    id: string,
-    field: keyof EditableQuoteLineItem,
-    value: string | boolean,
-  ) {
-    setLineItems((current) =>
-      current.map((line) =>
-        line.id === id ? { ...line, [field]: value } : line,
-      ),
-    );
-  }
+  // Stable callbacks so the memoized line-items table and its rows skip
+  // re-renders while header fields change.
+  const updateLineItem = useCallback(
+    (id: string, field: keyof EditableQuoteLineItem, value: string | boolean) => {
+      setLineItems((current) =>
+        current.map((line) =>
+          line.id === id ? { ...line, [field]: value } : line,
+        ),
+      );
+    },
+    [],
+  );
 
-  function removeLineItem(id: string) {
+  const removeLineItem = useCallback((id: string) => {
     setLineItems((current) => renumberLineItems(current.filter((line) => line.id !== id)));
-  }
+  }, []);
 
-  function moveLineItem(id: string, direction: "up" | "down") {
+  const moveLineItem = useCallback((id: string, direction: "up" | "down") => {
     setLineItems((current) => {
       const index = current.findIndex((line) => line.id === id);
       if (index < 0) {
@@ -933,7 +952,7 @@ export function QuoteForm({
       [next[index], next[target]] = [next[target], next[index]];
       return renumberLineItems(next);
     });
-  }
+  }, []);
 
   function handleServiceOptionChange(item: string) {
     setSelectedServiceItem(item);
@@ -948,9 +967,10 @@ export function QuoteForm({
     setServiceUnit(service.unit);
   }
 
-  function handleConfigurableProductChange(productId: string) {
-    setSelectedConfigurableId(productId);
-    const product = configurableProducts.find((entry) => entry.id === productId);
+  function handleConfigurableProductChange(
+    product: QuoteFormProductOption | null,
+  ) {
+    setSelectedConfigurableProduct(product);
     if (product) {
       setStructureDescription(
         `${product.description} ${structureNumber}`.trim(),
@@ -986,42 +1006,30 @@ export function QuoteForm({
             >
               Customer
             </label>
-            {customers.length === 0 ? (
-              <input
-                id="sticky-customer"
-                type="text"
-                value={customerName}
-                onChange={(event) => setCustomerName(event.target.value)}
-                placeholder="Customer name"
-                className={quoteCompactInputClassName}
+            <div className="space-y-1">
+              <QuoteFormTypeahead
+                inputId="sticky-customer"
+                selectedLabel={customerId ? customerName : ""}
+                placeholder="Search customers"
+                initialItems={selectedCustomer ? [selectedCustomer] : []}
+                searchItems={searchCustomersForQuoteForm}
+                itemKey={(customer) => customer.id}
+                itemLabel={(customer) => customer.name}
+                onSelect={handleCustomerSelect}
+                clearLabel="No linked customer"
+                emptyLabel="No customers match."
+                inputClassName={quoteCompactInputClassName}
               />
-            ) : (
-              <div className="space-y-1">
-                <select
-                  id="sticky-customer"
-                  name="customer"
-                  value={customerId}
-                  onChange={(event) => handleCustomerChange(event.target.value)}
+              {!customerId ? (
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(event) => setCustomerName(event.target.value)}
+                  placeholder="Or type customer name"
                   className={quoteCompactInputClassName}
-                >
-                  <option value="">Select customer</option>
-                  {customers.map((customer) => (
-                    <option key={customer.id} value={customer.id}>
-                      {customer.name}
-                    </option>
-                  ))}
-                </select>
-                {!customerId ? (
-                  <input
-                    type="text"
-                    value={customerName}
-                    onChange={(event) => setCustomerName(event.target.value)}
-                    placeholder="Or type customer name"
-                    className={quoteCompactInputClassName}
-                  />
-                ) : null}
-              </div>
-            )}
+                />
+              ) : null}
+            </div>
           </div>
           <div>
             <label
@@ -1318,29 +1326,29 @@ export function QuoteForm({
                           Create New Job
                         </Link>
                       </div>
-                      {jobs.length === 0 ? (
-                        <p className="text-xs text-slate-500">
-                          No jobs in the database yet. Enter project details in
-                          the bar above.
-                        </p>
-                      ) : (
-                        <select
-                          id="job"
-                          name="job"
-                          value={jobId}
-                          onChange={(event) =>
-                            handleJobChange(event.target.value)
-                          }
-                          className={quoteCompactInputClassName}
-                        >
-                          <option value="">Select job</option>
-                          {jobs.map((job) => (
-                            <option key={job.id} value={job.id}>
-                              {job.label}
-                            </option>
-                          ))}
-                        </select>
-                      )}
+                      <QuoteFormTypeahead
+                        inputId="job"
+                        selectedLabel={
+                          jobId
+                            ? selectedJobLabel ||
+                              [jobNumber, projectName]
+                                .filter(Boolean)
+                                .join(" - ")
+                            : ""
+                        }
+                        placeholder="Search by job number, project, or customer"
+                        initialItems={initialJob ? [initialJob] : []}
+                        searchItems={searchJobsForQuoteForm}
+                        itemKey={(job) => job.id}
+                        itemLabel={(job) => job.label}
+                        onSelect={(job) => {
+                          setSelectedJobLabel(job?.label ?? "");
+                          handleJobSelect(job);
+                        }}
+                        clearLabel="No linked job"
+                        emptyLabel="No jobs match."
+                        inputClassName={quoteCompactInputClassName}
+                      />
                     </div>
                     <div>
                       <label
@@ -1601,287 +1609,13 @@ export function QuoteForm({
                 {activeHint}
               </p>
 
-              <div className="overflow-x-auto rounded-lg border border-slate-100">
-                <table className="min-w-full table-auto text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                      <th className="w-10 whitespace-nowrap px-3 py-2 font-semibold">
-                        #
-                      </th>
-                      <th className="whitespace-nowrap px-3 py-2 font-semibold">
-                        Type
-                      </th>
-                      <th className="whitespace-nowrap px-3 py-2 font-semibold">
-                        Item
-                      </th>
-                      <th className="min-w-[18rem] px-3 py-2 font-semibold">
-                        Description
-                      </th>
-                      <th className="w-16 whitespace-nowrap px-3 py-2 font-semibold">
-                        Qty
-                      </th>
-                      <th className="w-16 whitespace-nowrap px-3 py-2 font-semibold">
-                        Unit
-                      </th>
-                      <th className="w-24 whitespace-nowrap px-3 py-2 font-semibold">
-                        Unit Price
-                      </th>
-                      <th className="w-20 whitespace-nowrap px-3 py-2 font-semibold">
-                        Weight
-                      </th>
-                      <th className="w-16 whitespace-nowrap px-3 py-2 font-semibold">
-                        Yards
-                      </th>
-                      <th className="w-16 whitespace-nowrap px-3 py-2 font-semibold">
-                        Tax
-                      </th>
-                      <th className="w-24 whitespace-nowrap px-3 py-2 font-semibold">
-                        Total
-                      </th>
-                      <th className="whitespace-nowrap px-3 py-2 font-semibold">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {lineItems.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={12}
-                          className="px-3 py-6 text-center text-slate-500"
-                        >
-                          No line items yet. Use the buttons above to add items.
-                        </td>
-                      </tr>
-                    ) : (
-                      lineItems.map((line, lineIndex) =>
-                        isCategoryLineItem(line.type) ? (
-                          <tr
-                            key={line.id}
-                            className="align-top bg-slate-50/40 hover:bg-slate-50/80"
-                          >
-                            <td className="whitespace-nowrap px-3 py-2 text-slate-700">
-                              {line.lineNumber}
-                            </td>
-                            <td className="px-3 py-2">
-                              <StatusBadge
-                                label={line.typeLabel}
-                                variant="neutral"
-                              />
-                            </td>
-                            <td className="px-3 py-2 text-slate-400">—</td>
-                            <td className="min-w-[18rem] px-3 py-2" colSpan={1}>
-                              <input
-                                type="text"
-                                value={line.description}
-                                onChange={(event) =>
-                                  updateLineItem(
-                                    line.id,
-                                    "description",
-                                    event.target.value,
-                                  )
-                                }
-                                placeholder="Category name"
-                                className={quoteCategoryInputClassName}
-                              />
-                            </td>
-                            <td className="px-3 py-2 text-slate-400">—</td>
-                            <td className="px-3 py-2 text-slate-400">—</td>
-                            <td className="px-3 py-2 text-slate-400">—</td>
-                            <td className="px-3 py-2 text-slate-400">—</td>
-                            <td className="px-3 py-2 text-slate-400">—</td>
-                            <td className="px-3 py-2 text-slate-400">—</td>
-                            <td className="px-3 py-2 text-slate-400">—</td>
-                            <td className="px-3 py-2">
-                              <div className="flex flex-wrap gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => moveLineItem(line.id, "up")}
-                                  disabled={lineIndex <= 0}
-                                  className="inline-flex rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                                  aria-label={`Move line ${line.lineNumber} up`}
-                                >
-                                  ↑
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => moveLineItem(line.id, "down")}
-                                  disabled={lineIndex >= lineItems.length - 1}
-                                  className="inline-flex rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                                  aria-label={`Move line ${line.lineNumber} down`}
-                                >
-                                  ↓
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => removeLineItem(line.id)}
-                                  className="inline-flex rounded-md border border-red-200 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-50"
-                                >
-                                  Remove
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ) : (
-                          <tr
-                            key={line.id}
-                            className="align-top hover:bg-slate-50/60"
-                          >
-                            <td className="whitespace-nowrap px-3 py-2 text-slate-700">
-                              {line.lineNumber}
-                            </td>
-                            <td className="px-3 py-2">
-                              <StatusBadge
-                                label={line.typeLabel}
-                                variant="neutral"
-                              />
-                            </td>
-                            <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-900">
-                              {line.item}
-                            </td>
-                            <td className="min-w-[18rem] px-3 py-2">
-                              {line.type === "CUSTOM_STRUCTURE" ? (
-                                <RichTextContent
-                                  value={line.description}
-                                  className="text-sm leading-snug text-slate-600"
-                                />
-                              ) : (
-                                <QuoteLineDescriptionTextarea
-                                  value={line.description}
-                                  onChange={(value) =>
-                                    updateLineItem(line.id, "description", value)
-                                  }
-                                />
-                              )}
-                            </td>
-                            <td className="px-3 py-2">
-                              <input
-                                type="text"
-                                value={line.qty}
-                                onChange={(event) =>
-                                  updateLineItem(line.id, "qty", event.target.value)
-                                }
-                                className={`${quoteTableInputClassName} w-16 min-w-0`}
-                              />
-                            </td>
-                            <td className="px-3 py-2">
-                              <input
-                                type="text"
-                                value={line.unit}
-                                onChange={(event) =>
-                                  updateLineItem(line.id, "unit", event.target.value)
-                                }
-                                className={`${quoteTableInputClassName} w-16 min-w-0`}
-                              />
-                            </td>
-                            <td className="px-3 py-2">
-                              <input
-                                type="text"
-                                value={line.unitPrice}
-                                onChange={(event) =>
-                                  updateLineItem(
-                                    line.id,
-                                    "unitPrice",
-                                    event.target.value,
-                                  )
-                                }
-                                className={`${quoteTableInputClassName} w-24 min-w-0`}
-                              />
-                            </td>
-                            <td className="px-3 py-2">
-                              <input
-                                type="text"
-                                value={line.weight}
-                                onChange={(event) =>
-                                  updateLineItem(
-                                    line.id,
-                                    "weight",
-                                    event.target.value,
-                                  )
-                                }
-                                placeholder="—"
-                                className={`${quoteTableInputClassName} w-20 min-w-0`}
-                              />
-                            </td>
-                            <td className="px-3 py-2">
-                              <input
-                                type="text"
-                                value={line.yards}
-                                onChange={(event) =>
-                                  updateLineItem(
-                                    line.id,
-                                    "yards",
-                                    event.target.value,
-                                  )
-                                }
-                                placeholder="—"
-                                className={`${quoteTableInputClassName} w-16 min-w-0`}
-                              />
-                            </td>
-                            <td className="px-3 py-2">
-                              <select
-                                value={line.taxable ? "yes" : "no"}
-                                onChange={(event) =>
-                                  updateLineItem(
-                                    line.id,
-                                    "taxable",
-                                    event.target.value === "yes",
-                                  )
-                                }
-                                className={`${quoteTableInputClassName} w-16 min-w-0`}
-                              >
-                                <option value="yes">Yes</option>
-                                <option value="no">No</option>
-                              </select>
-                            </td>
-                            <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-900">
-                              {formatQuoteCurrency(getLineItemTotal(line))}
-                            </td>
-                            <td className="px-3 py-2">
-                              <div className="flex flex-wrap gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => moveLineItem(line.id, "up")}
-                                  disabled={lineIndex <= 0}
-                                  className="inline-flex rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                                  aria-label={`Move line ${line.lineNumber} up`}
-                                >
-                                  ↑
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => moveLineItem(line.id, "down")}
-                                  disabled={lineIndex >= lineItems.length - 1}
-                                  className="inline-flex rounded-md border border-slate-200 px-1.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                                  aria-label={`Move line ${line.lineNumber} down`}
-                                >
-                                  ↓
-                                </button>
-                                {line.type === "CUSTOM_STRUCTURE" ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => openEditCustomStructureLine(line)}
-                                    className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
-                                  >
-                                    Edit
-                                  </button>
-                                ) : null}
-                                <button
-                                  type="button"
-                                  onClick={() => removeLineItem(line.id)}
-                                  className="inline-flex rounded-md border border-red-200 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-50"
-                                >
-                                  Remove
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ),
-                      )
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <QuoteLineItemsTable
+                lineItems={lineItems}
+                onUpdateLine={updateLineItem}
+                onRemoveLine={removeLineItem}
+                onMoveLine={moveLineItem}
+                onEditCustomStructure={openEditCustomStructureLine}
+              />
             </div>
           </SectionCard>
 
@@ -2000,32 +1734,27 @@ export function QuoteForm({
                   are labeled and listed first.
                 </p>
                 <div className="mt-4 space-y-3">
-                  {stockProducts.length === 0 ? (
-                    <p className="text-xs text-slate-500">
-                      No active stock products found. Add products in the
-                      Products module first.
-                    </p>
-                  ) : (
-                    <div>
-                      <label className="block text-xs font-medium text-slate-700">
-                        Product
-                      </label>
-                      <select
-                        value={selectedStockId}
-                        onChange={(event) =>
-                          setSelectedStockId(event.target.value)
-                        }
-                        className={quoteInputClassName}
-                      >
-                        {stockProducts.map((product) => (
-                          <option key={product.id} value={product.id}>
-                            {product.code} — {product.description} —{" "}
-                            {formatQuoteCurrency(product.unitPrice)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700">
+                      Product
+                    </label>
+                    <QuoteFormTypeahead
+                      selectedLabel={
+                        selectedStockProduct
+                          ? `${selectedStockProduct.code} — ${selectedStockProduct.description} — ${formatQuoteCurrency(selectedStockProduct.unitPrice)}`
+                          : ""
+                      }
+                      placeholder="Search by product code or name"
+                      searchItems={searchStockProducts}
+                      itemKey={(product) => product.id}
+                      itemLabel={(product) =>
+                        `${product.code} — ${product.description} — ${formatQuoteCurrency(product.unitPrice)}`
+                      }
+                      onSelect={setSelectedStockProduct}
+                      emptyLabel="No active stock products match. Add products in the Products module first."
+                      inputClassName={quoteInputClassName}
+                    />
+                  </div>
                 </div>
                 <div className="mt-4 flex justify-end gap-2">
                   <button
@@ -2038,7 +1767,7 @@ export function QuoteForm({
                   <button
                     type="button"
                     onClick={handleAddStockProduct}
-                    disabled={stockProducts.length === 0}
+                    disabled={!selectedStockProduct}
                     className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Add to Quote
@@ -2056,31 +1785,27 @@ export function QuoteForm({
                   Based on a product template with job-specific details.
                 </p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {configurableProducts.length === 0 ? (
-                    <p className="sm:col-span-2 text-xs text-slate-500">
-                      No active configurable products found. Add products in
-                      the Products module first.
-                    </p>
-                  ) : (
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-medium text-slate-700">
-                        Product Template
-                      </label>
-                      <select
-                        value={selectedConfigurableId}
-                        onChange={(event) =>
-                          handleConfigurableProductChange(event.target.value)
-                        }
-                        className={quoteInputClassName}
-                      >
-                        {configurableProducts.map((product) => (
-                          <option key={product.id} value={product.id}>
-                            {product.code} — {product.description}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-medium text-slate-700">
+                      Product Template
+                    </label>
+                    <QuoteFormTypeahead
+                      selectedLabel={
+                        selectedConfigurableProduct
+                          ? `${selectedConfigurableProduct.code} — ${selectedConfigurableProduct.description}`
+                          : ""
+                      }
+                      placeholder="Search by product code or name"
+                      searchItems={searchConfigurableProducts}
+                      itemKey={(product) => product.id}
+                      itemLabel={(product) =>
+                        `${product.code} — ${product.description}`
+                      }
+                      onSelect={handleConfigurableProductChange}
+                      emptyLabel="No active configurable products match. Add products in the Products module first."
+                      inputClassName={quoteInputClassName}
+                    />
+                  </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-700">
                       Structure Number
@@ -2090,12 +1815,9 @@ export function QuoteForm({
                       value={structureNumber}
                       onChange={(event) => {
                         setStructureNumber(event.target.value);
-                        const product = configurableProducts.find(
-                          (entry) => entry.id === selectedConfigurableId,
-                        );
-                        if (product) {
+                        if (selectedConfigurableProduct) {
                           setStructureDescription(
-                            `${product.description} ${event.target.value}`.trim(),
+                            `${selectedConfigurableProduct.description} ${event.target.value}`.trim(),
                           );
                         }
                       }}
@@ -2176,7 +1898,7 @@ export function QuoteForm({
                   <button
                     type="button"
                     onClick={handleAddConfigurableStructure}
-                    disabled={configurableProducts.length === 0}
+                    disabled={!selectedConfigurableProduct}
                     className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Add to Quote
@@ -2592,15 +2314,17 @@ export function QuoteForm({
         </div>
       ) : null}
 
-      <RingBuilderModal
-        open={ringBuilderModalOpen}
-        onClose={() => setRingBuilderModalOpen(false)}
-        ringBuilderConfig={ringBuilderConfig}
-        ringSlabProducts={ringSlabProducts}
-        lineCount={lineItems.length}
-        onAddItems={handleAddRingBuilderItems}
-        onError={(message) => showFlash("error", message)}
-      />
+      {ringBuilderModalOpen ? (
+        <RingBuilderModal
+          open={ringBuilderModalOpen}
+          onClose={() => setRingBuilderModalOpen(false)}
+          ringBuilderConfig={ringBuilderConfig}
+          ringSlabProducts={ringSlabProducts}
+          lineCount={lineItems.length}
+          onAddItems={handleAddRingBuilderItems}
+          onError={(message) => showFlash("error", message)}
+        />
+      ) : null}
     </form>
   );
 }

@@ -52,38 +52,41 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
   }
 
   const rootId = quote.originalQuoteId ?? quote.id;
-  const revisionFamily = await withDatabaseRetry((prisma) =>
-    prisma.quote.findMany({
-      where: {
-        OR: [{ id: rootId }, { originalQuoteId: rootId }],
-      },
-      orderBy: { revisionNumber: "asc" },
-      select: {
-        id: true,
-        quoteNumber: true,
-        revisionNumber: true,
-        status: true,
-        createdAt: true,
-      },
-    }),
-  );
-
   const groupRoot = quote.masterQuoteId ?? quote.id;
-  const siblingQuotes = await withDatabaseRetry((prisma) =>
-    prisma.quote.findMany({
-      where: {
-        OR: [{ id: groupRoot }, { masterQuoteId: groupRoot }],
-      },
-      orderBy: [{ customerName: "asc" }],
-      select: {
-        id: true,
-        customerName: true,
-        quoteNumber: true,
-        status: true,
-        total: true,
-      },
-    }),
-  );
+
+  // Independent of each other — run in parallel.
+  const [revisionFamily, siblingQuotes] = await Promise.all([
+    withDatabaseRetry((prisma) =>
+      prisma.quote.findMany({
+        where: {
+          OR: [{ id: rootId }, { originalQuoteId: rootId }],
+        },
+        orderBy: { revisionNumber: "asc" },
+        select: {
+          id: true,
+          quoteNumber: true,
+          revisionNumber: true,
+          status: true,
+          createdAt: true,
+        },
+      }),
+    ),
+    withDatabaseRetry((prisma) =>
+      prisma.quote.findMany({
+        where: {
+          OR: [{ id: groupRoot }, { masterQuoteId: groupRoot }],
+        },
+        orderBy: [{ customerName: "asc" }],
+        select: {
+          id: true,
+          customerName: true,
+          quoteNumber: true,
+          status: true,
+          total: true,
+        },
+      }),
+    ),
+  ]);
 
   const detail = mapQuoteToDetailView(
     { ...quote, revisionFamily },

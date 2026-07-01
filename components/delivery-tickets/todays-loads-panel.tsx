@@ -1,7 +1,4 @@
-"use client";
-
 import Link from "next/link";
-import { memo, useMemo } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import {
@@ -28,10 +25,10 @@ function formatTime(value: string | null): string {
   return `${displayHour}:${minutes ?? "00"} ${suffix}`;
 }
 
-export const TodaysLoadsPanel = memo(function TodaysLoadsPanel({
-  tickets,
-}: TodaysLoadsPanelProps) {
-  const todaysLoads = useMemo(() => getTodaysScheduledLoads(tickets), [tickets]);
+// Server component: purely presentational (links only, no event handlers),
+// so it renders once on the server and ships no hydration JS.
+export function TodaysLoadsPanel({ tickets }: TodaysLoadsPanelProps) {
+  const todaysLoads = getTodaysScheduledLoads(tickets);
 
   return (
     <SectionCard
@@ -109,4 +106,4 @@ export const TodaysLoadsPanel = memo(function TodaysLoadsPanel({
       )}
     </SectionCard>
   );
-});
+}

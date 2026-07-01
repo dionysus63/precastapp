@@ -202,6 +202,14 @@ export type JobSummaryStat = {
   detail: string;
 };
 
+export type JobRelationCounts = {
+  quotes: number;
+  bidders: number;
+  deliveries: number;
+  structures: number;
+  invoices: number;
+};
+
 export type JobDetailView = {
   id: string;
   jobNumber: string;
@@ -224,14 +232,7 @@ export type JobDetailView = {
   stats: JobSummaryStat[];
   structureStatusBreakdown: { label: string; count: number }[];
   biddingSummary: JobBiddingSummary;
-  bidders: JobBidderRow[];
-  masterQuoteOptions: JobMasterQuoteOption[];
-  relatedQuotes: JobRelatedQuote[];
-  relatedQuoteGroups: JobQuoteGroup[];
-  relatedDeliveries: JobRelatedDelivery[];
-  relatedStructures: JobRelatedStructure[];
-  relatedInvoices: JobRelatedInvoice[];
-  invoiceableDeliveries: JobInvoiceableDelivery[];
+  counts: JobRelationCounts;
 };
 
 export const jobStatusLabels: Record<string, string> = {

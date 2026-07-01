@@ -9,7 +9,7 @@ import {
   getCompanyLogoUpdatedAt,
 } from "@/lib/company-logo";
 import {
-  canAccessPath,
+  canAccessPathWithPermissions,
   getDefaultHome,
 } from "@/lib/auth/permissions";
 import type { PermissionKey, UserRoleKey } from "@/lib/auth/constants";
@@ -50,7 +50,8 @@ export async function DashboardShell({
     ? new URL(pathname).pathname
     : pathname;
 
-  if (!(await canAccessPath(user, normalizedPath))) {
+  // Reuse the permissions computed above instead of re-deriving them.
+  if (!canAccessPathWithPermissions(permissions as PermissionKey[], normalizedPath)) {
     redirect(getDefaultHome(user));
   }
 

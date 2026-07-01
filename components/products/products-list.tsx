@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { PaginationControls } from "@/components/common/pagination-controls";
@@ -46,6 +46,121 @@ type ProductsListProps = {
   pageInfo: PageInfo;
   filters: ProductsListFilters;
 };
+
+// Memoized so typing in the search box doesn't re-render the full row set;
+// rows only change when the server sends a new page.
+const ProductsTable = memo(function ProductsTable({
+  products,
+  total,
+}: {
+  products: ProductRow[];
+  total: number;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full text-left text-xs">
+        <thead>
+          <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
+            <th className="px-4 py-2.5 font-semibold">Product Code</th>
+            <th className="px-4 py-2.5 font-semibold">Product Name</th>
+            <th className="px-4 py-2.5 font-semibold">Product Type</th>
+            <th className="px-4 py-2.5 font-semibold">Category</th>
+            <th className="px-4 py-2.5 font-semibold">Subcategory</th>
+            <th className="px-4 py-2.5 font-semibold">Unit</th>
+            <th className="px-4 py-2.5 font-semibold">Default Price</th>
+            <th className="px-4 py-2.5 font-semibold">Weight</th>
+            <th className="px-4 py-2.5 font-semibold">Yards</th>
+            <th className="px-4 py-2.5 font-semibold">Track Inventory</th>
+            <th className="px-4 py-2.5 font-semibold">Submittals</th>
+            <th className="px-4 py-2.5 font-semibold">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {products.length === 0 ? (
+            <tr>
+              <td
+                colSpan={12}
+                className="px-4 py-8 text-center text-sm text-slate-500"
+              >
+                {total === 0
+                  ? "No products match your search or filters."
+                  : "No products on this page."}
+              </td>
+            </tr>
+          ) : (
+            products.map((product) => (
+              <tr key={product.id} className="hover:bg-slate-50/60">
+                <td className="px-4 py-2.5 font-mono text-[11px] font-medium text-slate-900">
+                  {product.productCode}
+                </td>
+                <td className="px-4 py-2.5 font-medium text-slate-900">
+                  <span className="inline-flex items-center gap-1.5">
+                    {product.productName}
+                    {product.productKindLabel ? (
+                      <StatusBadge
+                        label={product.productKindLabel}
+                        variant={productKindBadgeVariant(
+                          product.productKind ?? "STANDARD",
+                        )}
+                      />
+                    ) : product.isCasting ? (
+                      <StatusBadge label="Casting" variant="info" />
+                    ) : null}
+                  </span>
+                </td>
+                <td className="px-4 py-2.5">
+                  <StatusBadge
+                    label={product.productTypeLabel}
+                    variant={product.productTypeVariant}
+                  />
+                </td>
+                <td className="px-4 py-2.5">
+                  <StatusBadge
+                    label={product.category}
+                    variant={product.categoryVariant}
+                  />
+                </td>
+                <td className="px-4 py-2.5 text-slate-600">
+                  {product.subcategory}
+                </td>
+                <td className="px-4 py-2.5 text-slate-600">{product.unit}</td>
+                <td className="px-4 py-2.5 font-medium text-slate-900">
+                  {product.defaultPrice}
+                </td>
+                <td className="px-4 py-2.5 text-slate-600">{product.weight}</td>
+                <td className="px-4 py-2.5 text-slate-600">{product.yards}</td>
+                <td className="px-4 py-2.5">
+                  <StatusBadge
+                    label={product.trackInventory ? "Yes" : "No"}
+                    variant={product.trackInventory ? "success" : "neutral"}
+                  />
+                </td>
+                <td className="px-4 py-2.5">
+                  {product.submittalCount > 0 ? (
+                    <StatusBadge
+                      label={String(product.submittalCount)}
+                      variant="success"
+                    />
+                  ) : (
+                    <span className="text-slate-400">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-2.5">
+                  <Link
+                    href={`/products/${product.id}`}
+                    className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                  >
+                    View
+                  </Link>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+});
 
 export function ProductsList({
   products,
@@ -180,108 +295,7 @@ export function ProductsList({
         description={`${pageInfo.total.toLocaleString()} product${pageInfo.total === 1 ? "" : "s"} match`}
         noPadding
       >
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                <th className="px-4 py-2.5 font-semibold">Product Code</th>
-                <th className="px-4 py-2.5 font-semibold">Product Name</th>
-                <th className="px-4 py-2.5 font-semibold">Product Type</th>
-                <th className="px-4 py-2.5 font-semibold">Category</th>
-                <th className="px-4 py-2.5 font-semibold">Subcategory</th>
-                <th className="px-4 py-2.5 font-semibold">Unit</th>
-                <th className="px-4 py-2.5 font-semibold">Default Price</th>
-                <th className="px-4 py-2.5 font-semibold">Weight</th>
-                <th className="px-4 py-2.5 font-semibold">Yards</th>
-                <th className="px-4 py-2.5 font-semibold">Track Inventory</th>
-                <th className="px-4 py-2.5 font-semibold">Submittals</th>
-                <th className="px-4 py-2.5 font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {products.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={12}
-                    className="px-4 py-8 text-center text-sm text-slate-500"
-                  >
-                    {pageInfo.total === 0
-                      ? "No products match your search or filters."
-                      : "No products on this page."}
-                  </td>
-                </tr>
-              ) : (
-                products.map((product) => (
-                  <tr key={product.id} className="hover:bg-slate-50/60">
-                    <td className="px-4 py-2.5 font-mono text-[11px] font-medium text-slate-900">
-                      {product.productCode}
-                    </td>
-                    <td className="px-4 py-2.5 font-medium text-slate-900">
-                      <span className="inline-flex items-center gap-1.5">
-                        {product.productName}
-                        {product.productKindLabel ? (
-                          <StatusBadge
-                            label={product.productKindLabel}
-                            variant={productKindBadgeVariant(
-                              product.productKind ?? "STANDARD",
-                            )}
-                          />
-                        ) : product.isCasting ? (
-                          <StatusBadge label="Casting" variant="info" />
-                        ) : null}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <StatusBadge
-                        label={product.productTypeLabel}
-                        variant={product.productTypeVariant}
-                      />
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <StatusBadge
-                        label={product.category}
-                        variant={product.categoryVariant}
-                      />
-                    </td>
-                    <td className="px-4 py-2.5 text-slate-600">
-                      {product.subcategory}
-                    </td>
-                    <td className="px-4 py-2.5 text-slate-600">{product.unit}</td>
-                    <td className="px-4 py-2.5 font-medium text-slate-900">
-                      {product.defaultPrice}
-                    </td>
-                    <td className="px-4 py-2.5 text-slate-600">{product.weight}</td>
-                    <td className="px-4 py-2.5 text-slate-600">{product.yards}</td>
-                    <td className="px-4 py-2.5">
-                      <StatusBadge
-                        label={product.trackInventory ? "Yes" : "No"}
-                        variant={product.trackInventory ? "success" : "neutral"}
-                      />
-                    </td>
-                    <td className="px-4 py-2.5">
-                      {product.submittalCount > 0 ? (
-                        <StatusBadge
-                          label={String(product.submittalCount)}
-                          variant="success"
-                        />
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <Link
-                        href={`/products/${product.id}`}
-                        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
-                      >
-                        View
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <ProductsTable products={products} total={pageInfo.total} />
         <PaginationControls
           page={pageInfo.page}
           totalPages={pageInfo.totalPages}

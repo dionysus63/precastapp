@@ -59,6 +59,9 @@ type EditorLine = {
 export type DeliveryTicketEditorProps = {
   mode: "create" | "edit";
   ticketId?: string;
+  // ISO updatedAt of the ticket as loaded for editing; sent back with the
+  // save so the server can reject stale writes (optimistic concurrency).
+  expectedUpdatedAt?: string;
   jobs: JobOption[];
   products?: ProductOption[];
   fleetOptions?: {
@@ -204,6 +207,7 @@ function initialQuoteId(
 export function DeliveryTicketEditor({
   mode,
   ticketId,
+  expectedUpdatedAt,
   jobs,
   products = [],
   fleetOptions,
@@ -643,6 +647,8 @@ export function DeliveryTicketEditor({
       truck: resolveFleetValue(truck, truckOther, trucks),
       driver: resolveFleetValue(driver, driverOther, drivers),
       trailer: resolveFleetValue(trailer, trailerOther, trailers),
+      // Only meaningful in edit mode; lets the server reject stale saves.
+      expectedUpdatedAt,
       lines: linePayload,
     };
   }

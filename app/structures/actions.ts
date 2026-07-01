@@ -9,6 +9,7 @@ import {
 } from "@/lib/drill-sheet-template-pdf";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { translatePrismaError } from "@/lib/server/action-errors";
 import {
   deleteTemplatePdf,
   readTemplatePdfBytes,
@@ -219,7 +220,7 @@ function handlePrismaError(error: unknown): never {
   ) {
     throw new Error("A structure template with that name already exists.");
   }
-  throw error;
+  throw translatePrismaError(error);
 }
 
 export async function createStructureTemplate(formData: FormData) {
@@ -286,7 +287,11 @@ export async function updateStructureTemplate(
 export async function deleteStructureTemplate(templateId: string) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
 
-  await prisma.structureTemplate.delete({ where: { id: templateId } });
+  await prisma.structureTemplate
+    .delete({ where: { id: templateId } })
+    .catch((error) => {
+      throw translatePrismaError(error);
+    });
 
   revalidatePath("/structures");
   redirect("/structures");
