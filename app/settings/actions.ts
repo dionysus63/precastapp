@@ -900,19 +900,27 @@ export async function clearAllJobsFormAction(
     return resetPasswordError();
   }
 
+  const jobCount = await prisma.job.count();
+  if (jobCount === 0) {
+    return { success: "No jobs to delete." };
+  }
+
   const result = await prisma.$transaction(async (tx) => {
-    const jobCount = await tx.job.count();
-    if (jobCount === 0) {
-      return { jobsDeleted: 0, sequencesDeleted: 0, biddersDeleted: 0, filesDeleted: 0, favoritesDeleted: 0 };
-    }
-    await tx.quote.updateMany({ data: { jobNumber: null } });
-    await tx.deliveryTicket.updateMany({ data: { jobNumber: null } });
-    await tx.invoice.updateMany({ data: { jobNumber: null } });
-    const [biddersDeleted, filesDeleted, favoritesDeleted] = await Promise.all([
-      tx.jobBidder.count(),
-      tx.jobFile.count(),
-      tx.jobFavorite.count(),
-    ]);
+    await tx.quote.updateMany({
+      where: { jobNumber: { not: null } },
+      data: { jobNumber: null },
+    });
+    await tx.deliveryTicket.updateMany({
+      where: { jobNumber: { not: null } },
+      data: { jobNumber: null },
+    });
+    await tx.invoice.updateMany({
+      where: { jobNumber: { not: null } },
+      data: { jobNumber: null },
+    });
+    const biddersDeleted = await tx.jobBidder.deleteMany();
+    const filesDeleted = await tx.jobFile.deleteMany();
+    const favoritesDeleted = await tx.jobFavorite.deleteMany();
     // Structures with no quote would become permanently inaccessible (both FKs null) after job deletion.
     // Structures that have a quoteId survive linked to their quote with jobId nulled by the FK cascade.
     await tx.jobStructure.deleteMany({ where: { quoteId: null } });
@@ -921,9 +929,9 @@ export async function clearAllJobsFormAction(
     return {
       jobsDeleted: jobsDeleted.count,
       sequencesDeleted: sequencesDeleted.count,
-      biddersDeleted,
-      filesDeleted,
-      favoritesDeleted,
+      biddersDeleted: biddersDeleted.count,
+      filesDeleted: filesDeleted.count,
+      favoritesDeleted: favoritesDeleted.count,
     };
   });
 
@@ -935,7 +943,7 @@ export async function clearAllJobsFormAction(
     userId: user.id,
     action: "settings.clear_all_jobs",
     entityType: "Job",
-    summary: `${user.displayName} cleared all jobs (${result.jobsDeleted} deleted, ${result.biddersDeleted} bid entries and ${result.filesDeleted} file records removed, ${result.sequencesDeleted} sequence year${result.sequencesDeleted === 1 ? "" : "s"} reset)`,
+    summary: `${user.displayName} cleared all jobs (${result.jobsDeleted} deleted, ${result.biddersDeleted} bid entries, ${result.filesDeleted} file records, and ${result.favoritesDeleted} favorites removed, ${result.sequencesDeleted} sequence year${result.sequencesDeleted === 1 ? "" : "s"} reset)`,
     metadata: {
       deletedCount: result.jobsDeleted,
       sequencesDeleted: result.sequencesDeleted,
