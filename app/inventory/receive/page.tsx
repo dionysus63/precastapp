@@ -9,9 +9,12 @@ export default async function ReceiveCastingsPage() {
     Promise.all([
       client.product.findMany({
         where: {
-          castingRole: "COMPONENT",
-          trackInventory: true,
           status: "ACTIVE",
+          trackInventory: true,
+          OR: [
+            { castingRole: "COMPONENT" },
+            { castingRole: "ASSEMBLY", castingSoldAsUnit: true },
+          ],
         },
         orderBy: { productCode: "asc" },
         select: {
@@ -20,13 +23,17 @@ export default async function ReceiveCastingsPage() {
           name: true,
           unit: true,
           castingPieceRole: true,
+          castingRole: true,
+          castingSoldAsUnit: true,
+          manufacturerCode: true,
+          castingSupplierId: true,
         },
       }),
       loadCastingAssembliesWithBom(client),
       client.castingSupplier.findMany({
         where: { status: "ACTIVE" },
         orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-        select: { id: true, name: true },
+        select: { id: true, name: true, origin: true },
       }),
     ]),
   );
@@ -34,14 +41,22 @@ export default async function ReceiveCastingsPage() {
   return (
     <DashboardShell
       title="Receive Castings"
-      subtitle="Record purchased cast iron components received from suppliers."
+      subtitle="Record purchased cast iron inventory received from suppliers."
     >
-      <Link
-        href="/inventory"
-        className="mb-4 inline-block text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        ← Back to Inventory
-      </Link>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <Link
+          href="/inventory"
+          className="text-xs font-medium text-slate-500 hover:text-slate-900"
+        >
+          ← Back to Inventory
+        </Link>
+        <Link
+          href="/inventory/receipts"
+          className="text-xs font-medium text-slate-700 underline hover:text-slate-900"
+        >
+          View receipt history
+        </Link>
+      </div>
 
       <PurchaseReceiptForm
         products={products.map((product) => ({
@@ -52,6 +67,8 @@ export default async function ReceiveCastingsPage() {
           id: assembly.id,
           productCode: assembly.productCode,
           name: assembly.name,
+          manufacturerCode: assembly.manufacturerCode,
+          castingSupplierId: assembly.castingSupplierId,
           components: assembly.castingAssemblyComponents.map((row) => ({
             pieceRole: row.pieceRole,
             quantity: row.quantity,

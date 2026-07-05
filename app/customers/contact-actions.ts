@@ -193,27 +193,32 @@ export async function setPrimaryCustomerContact(contactId: string) {
   await requirePermission(AppPermission.CUSTOMERS_MANAGE);
 
   try {
-    const customerId = await withDatabaseRetry(async (client) => {
-      const contact = await client.contact.findUnique({
-        where: { id: contactId },
-        select: { id: true, customerId: true },
-      });
-      if (!contact) {
-        throw new Error("Contact was not found.");
-      }
+    const customerId = await withDatabaseRetry((client) =>
+      // One transaction: without it, two admins setting different primaries
+      // concurrently can interleave the clear/set steps and leave the
+      // customer with two primary contacts.
+      client.$transaction(async (tx) => {
+        const contact = await tx.contact.findUnique({
+          where: { id: contactId },
+          select: { id: true, customerId: true },
+        });
+        if (!contact) {
+          throw new Error("Contact was not found.");
+        }
 
-      await client.contact.updateMany({
-        where: { customerId: contact.customerId },
-        data: { isPrimary: false },
-      });
-      await client.contact.update({
-        where: { id: contactId },
-        data: { isPrimary: true },
-      });
+        await tx.contact.updateMany({
+          where: { customerId: contact.customerId },
+          data: { isPrimary: false },
+        });
+        await tx.contact.update({
+          where: { id: contactId },
+          data: { isPrimary: true },
+        });
 
-      await syncCustomerHeaderFromPrimaryContact(client, contact.customerId);
-      return contact.customerId;
-    });
+        await syncCustomerHeaderFromPrimaryContact(tx, contact.customerId);
+        return contact.customerId;
+      }),
+    );
 
     revalidateCustomerPaths(customerId);
     return { success: true };

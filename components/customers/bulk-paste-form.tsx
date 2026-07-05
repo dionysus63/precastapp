@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
+import { toast } from "sonner";
 import {
   checkBulkCustomerDbDuplicates,
   importCustomers,
@@ -174,6 +175,9 @@ export function BulkPasteForm() {
         setErrorMessage(null);
         const result = await importCustomers(formData);
         setImportComplete(true);
+        toast.success(
+          `Imported ${result.imported} customer${result.imported === 1 ? "" : "s"}.`,
+        );
         router.push(`/customers?imported=${result.imported}`);
         router.refresh();
       } catch (error) {

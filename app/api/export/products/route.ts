@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { buildExportFilename, excelResponse } from "@/lib/excel-export";
 import { buildProductsExportBuffer } from "@/lib/product-export";
 
-export async function GET() {
+export async function GET(request: Request) {
   const user = await getCurrentUser();
   if (!user) {
     return new Response("Unauthorized", { status: 401 });
@@ -14,6 +14,7 @@ export async function GET() {
     return new Response("Forbidden", { status: 403 });
   }
 
-  const buffer = await buildProductsExportBuffer();
+  const priceListId = new URL(request.url).searchParams.get("priceListId");
+  const buffer = await buildProductsExportBuffer(priceListId);
   return excelResponse(buffer, buildExportFilename("products"));
 }

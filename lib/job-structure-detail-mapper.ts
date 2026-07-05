@@ -112,6 +112,8 @@ export type JobStructureDetailView = {
   statusVariant: JobStatusVariant;
   needsSubmittal: boolean;
   needsCutSheet: boolean;
+  /** Set when this structure is a drill sheet (has a structure template). */
+  drillSheetId: string | null;
   notes: string;
   folderPath: string | null;
   submittedDate: string;
@@ -209,6 +211,7 @@ export function mapJobStructureToDetailView(
     statusVariant: structureStatusVariant(structure.status),
     needsSubmittal: structure.needsSubmittal,
     needsCutSheet: structure.needsCutSheet,
+    drillSheetId: structure.structureTemplateId ? structure.id : null,
     notes: structure.notes ?? "",
     folderPath: structure.job.folderPath,
     submittedDate: formatDate(structure.submittedDate),
@@ -246,6 +249,7 @@ export function mapStructureForJobList(
   madeDate: string;
   shippedDate: string;
   status: string;
+  drillSheetId: string | null;
 } {
   const type = structure.structureType as StructureType;
   const status = structure.status as StructureStatus;
@@ -264,5 +268,6 @@ export function mapStructureForJobList(
     submittedDate: formatDate(structure.submittedDate),
     madeDate: formatDate(structure.madeDate),
     shippedDate: formatDate(structure.shippedDate),
+    drillSheetId: structure.structureTemplateId ? structure.id : null,
   };
 }

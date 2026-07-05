@@ -1,8 +1,13 @@
 import type { Product } from "@/app/generated/prisma/client";
 import {
+  isPipeProductType,
   productTypeLabels,
   type ProductType,
-} from "@/components/products/product-utils";
+} from "@/lib/product-types";
+import {
+  formatAdsPipeJointTypeLabel,
+  normalizeAdsPipeJointType,
+} from "@/lib/ads-pipe-utils";
 import {
   buildWorkbookBuffer,
   formatExportDate,
@@ -11,6 +16,12 @@ import {
   formatYesNo,
 } from "@/lib/excel-export";
 import { productKindLabels } from "@/lib/product-kinds";
+import {
+  enrichProductWithDerivedAssemblyValues,
+  isDerivableCastingAssembly,
+  loadDerivedAssemblyValues,
+} from "@/lib/casting-service";
+import { getDefaultPriceList, getProductPricesForList } from "@/lib/price-list-service";
 import { prisma } from "@/lib/prisma";
 import {
   formatCastingPieceRoleLabel,
@@ -40,8 +51,9 @@ export const productExportHeaders = [
   "Product Kind",
   "Category",
   "Subcategory",
+  "Description",
   "Unit",
-  "Default Price",
+  "Unit Price",
   "Cost",
   "Weight",
   "Yards",
@@ -57,6 +69,7 @@ export const productExportHeaders = [
   "Style (DRAIN/SAN/SOL)",
   "Casting Role",
   "Casting Piece Role",
+  "Manufacturer Code",
   "Casting Clear Opening (in)",
   "Casting Supplier ID",
   "Pipe Diameter (in)",
@@ -68,7 +81,15 @@ export const productExportHeaders = [
   "Updated",
 ] as const;
 
-function mapProductToExportRow(product: Product): unknown[] {
+function mapProductToExportRow(
+  product: Product & {
+    productCategory: { name: string };
+    subcategory: { name: string } | null;
+    weightDerivedFromParts?: boolean;
+    priceDerivedFromParts?: boolean;
+  },
+  unitPrice: { toString(): string } | null | undefined,
+): unknown[] {
   const productType =
     productTypeLabels[product.productType as ProductType] ??
     product.productType.replaceAll("_", " ");
@@ -77,16 +98,20 @@ function mapProductToExportRow(product: Product): unknown[] {
   const isCasting =
     product.productKind === "CASTING_ASSEMBLY" ||
     product.productKind === "CASTING_COMPONENT";
+  const isPipe = isPipeProductType(product.productType);
+  const isAdsPipe = product.productType === "ADS_PIPE";
+  const isPrecastPipe = product.productType === "PRECAST_PIPE";
 
   return [
     product.productCode,
     product.name,
     productType,
     productKindLabels[product.productKind],
-    product.category,
+    product.productCategory.name,
+    formatOptionalString(product.subcategory?.name),
     formatOptionalString(product.description),
     product.unit,
-    formatOptionalDecimal(product.defaultPrice),
+    formatOptionalDecimal(unitPrice ?? null),
     formatOptionalDecimal(product.cost),
     formatOptionalDecimal(product.weight),
     formatOptionalDecimal(product.yards),
@@ -104,19 +129,20 @@ function mapProductToExportRow(product: Product): unknown[] {
     isCasting
       ? formatCastingPieceRoleLabel(product.castingPieceRole)
       : "",
+    formatOptionalString(product.manufacturerCode),
     product.productKind === "CASTING_ASSEMBLY"
       ? formatOptionalDecimal(product.castingClearOpeningInches)
       : "",
     formatOptionalString(product.castingSupplierId),
-    product.productKind === "PIPE"
-      ? formatOptionalDecimal(product.pipeDiameterInches)
-      : "",
-    product.productKind === "PIPE"
-      ? formatOptionalDecimal(product.pipeLengthFeet)
-      : "",
-    product.productKind === "PIPE" ? formatOptionalString(product.pipeClass) : "",
-    product.productKind === "PIPE"
-      ? formatOptionalString(product.pipeJointType)
+    isPipe ? formatOptionalDecimal(product.pipeDiameterInches) : "",
+    isPipe ? formatOptionalDecimal(product.pipeLengthFeet) : "",
+    isPrecastPipe ? formatOptionalString(product.pipeClass) : "",
+    isPipe
+      ? isAdsPipe
+        ? formatAdsPipeJointTypeLabel(
+            normalizeAdsPipeJointType(product.pipeJointType),
+          )
+        : formatOptionalString(product.pipeJointType)
       : "",
     product.id,
     formatExportDate(product.createdAt),
@@ -124,13 +150,48 @@ function mapProductToExportRow(product: Product): unknown[] {
   ];
 }
 
-export async function buildProductsExportBuffer(): Promise<Buffer> {
+export async function buildProductsExportBuffer(
+  priceListId?: string | null,
+): Promise<Buffer> {
   const products = await prisma.product.findMany({
     orderBy: { productCode: "asc" },
+    include: {
+      productCategory: { select: { name: true } },
+      subcategory: { select: { name: true } },
+    },
   });
+
+  const resolvedPriceListId =
+    priceListId ??
+    (await getDefaultPriceList(prisma))?.id ??
+    null;
+
+  const priceMap = resolvedPriceListId
+    ? await getProductPricesForList(
+        products.map((product) => product.id),
+        resolvedPriceListId,
+      )
+    : new Map();
+
+  const derivableAssemblyIds = products
+    .filter((product) => isDerivableCastingAssembly(product))
+    .map((product) => product.id);
+  const derivedMap = derivableAssemblyIds.length
+    ? await loadDerivedAssemblyValues(prisma, derivableAssemblyIds, resolvedPriceListId)
+    : new Map();
 
   return buildWorkbookBuffer(
     [...productExportHeaders],
-    products.map(mapProductToExportRow),
+    products.map((product) => {
+      const enriched = enrichProductWithDerivedAssemblyValues(
+        product,
+        priceMap.get(product.id),
+        derivedMap.get(product.id),
+      );
+      return mapProductToExportRow(
+        enriched,
+        enriched.unitPrice ?? undefined,
+      );
+    }),
   );
 }

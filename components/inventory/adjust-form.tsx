@@ -1,9 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
-import { saveInventoryAdjustment } from "@/app/inventory/actions";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { saveInventoryAdjustment, searchInventoryProducts } from "@/app/inventory/actions";
+import { FormTypeahead } from "@/components/common/form-typeahead";
 import { SectionCard } from "@/components/dashboard/section-card";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 type ProductOption = {
   id: string;
@@ -21,18 +24,29 @@ type AdjustFormProps = {
 export function AdjustForm({ products, defaultProductId }: AdjustFormProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [submissionKey] = useState(() => crypto.randomUUID());
+  const initialProduct =
+    products.find((product) => product.id === defaultProductId) ?? null;
+  const [productId, setProductId] = useState(defaultProductId ?? "");
+  const [productLabel, setProductLabel] = useState(
+    initialProduct
+      ? `${initialProduct.productCode} — ${initialProduct.name} (${initialProduct.currentStockQuantity} ${initialProduct.unit})`
+      : "",
+  );
 
   return (
     <SectionCard title="Adjust stock">
       <form
         action={(formData) => {
           startTransition(async () => {
+            formData.set("submissionKey", submissionKey);
+            formData.set("productId", productId);
             const result = await saveInventoryAdjustment(formData);
             if (result.error) {
-              alert(result.error);
+              toast.error(result.error);
               return;
             }
-            const productId = String(formData.get("productId") ?? "");
+            toast.success("Stock adjustment saved.");
             router.push(productId ? `/inventory/${productId}` : "/inventory");
             router.refresh();
           });
@@ -43,21 +57,27 @@ export function AdjustForm({ products, defaultProductId }: AdjustFormProps) {
           <label htmlFor="productId" className="text-xs font-medium text-slate-700">
             Product
           </label>
-          <select
-            id="productId"
-            name="productId"
-            required
-            defaultValue={defaultProductId ?? ""}
-            className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
-          >
-            <option value="">Select product…</option>
-            {products.map((product) => (
-              <option key={product.id} value={product.id}>
-                {product.productCode} — {product.name} ({product.currentStockQuantity}{" "}
-                {product.unit})
-              </option>
-            ))}
-          </select>
+          <FormTypeahead
+            inputId="productId"
+            selectedLabel={productLabel}
+            placeholder="Search products…"
+            initialItems={initialProduct ? [initialProduct] : products.slice(0, 20)}
+            searchItems={searchInventoryProducts}
+            itemKey={(product) => product.id}
+            itemLabel={(product) =>
+              `${product.productCode} — ${product.name} (${product.currentStockQuantity} ${product.unit})`
+            }
+            onSelect={(product) => {
+              setProductId(product?.id ?? "");
+              setProductLabel(
+                product
+                  ? `${product.productCode} — ${product.name} (${product.currentStockQuantity} ${product.unit})`
+                  : "",
+              );
+            }}
+            inputClassName="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
+            preventEnterSubmit={false}
+          />
         </div>
         <div>
           <label
@@ -116,13 +136,9 @@ export function AdjustForm({ products, defaultProductId }: AdjustFormProps) {
             className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
           />
         </div>
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
-        >
+        <SubmitButton disabled={pending || !productId} pendingLabel="Saving…">
           Save adjustment
-        </button>
+        </SubmitButton>
       </form>
     </SectionCard>
   );

@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import type { CastingSupplierOrigin, ProductKind } from "@/app/generated/prisma/client";
+import { useMemo, useState, useTransition } from "react";
+import type { CastingSupplierOrigin, ProductKind, ProductType } from "@/app/generated/prisma/client";
 import {
-  type ProductType,
   productInputClassName,
   productStatusFormOptions,
   productTypeFormOptions,
@@ -13,8 +12,17 @@ import {
 } from "@/components/products/product-utils";
 import {
   productKindFormOptions,
-  suggestedKindForCategory,
 } from "@/lib/product-kinds";
+import {
+  defaultKindForType,
+  isCastingProductType,
+  isPipeProductType,
+  productKindsForType,
+} from "@/lib/product-types";
+import {
+  adsPipeJointTypeFormOptions,
+  normalizeAdsPipeJointType,
+} from "@/lib/ads-pipe-utils";
 import {
   type DrainRingStyle,
   formatSanitaryDrainRingDiametersLabel,
@@ -29,26 +37,28 @@ import {
   type CastingPieceRole,
   type CastingRole,
 } from "@/lib/casting-utils";
+import type { PriceListOption } from "@/lib/price-list-service";
 import {
-  getCategoryNames,
-  getSubcategoriesForCategory,
-  mergeCatalogWithInUseValues,
-  type ProductCatalogCategory,
-} from "@/lib/product-catalog-settings";
+  getCategoriesForProductType,
+  getSubcategoriesForCategoryId,
+  suggestedKindForCategoryId,
+  type ProductTaxonomyCategory,
+} from "@/lib/product-taxonomy";
 
 export type ProductFormValues = {
   productCode?: string;
   productName?: string;
   productType?: ProductType;
   productKind?: ProductKind;
-  category?: string;
-  subcategory?: string;
+  categoryId?: string;
+  subcategoryId?: string;
+  description?: string;
   unit?: string;
   status?: string;
-  defaultPrice?: string;
+  unitPrice?: string;
+  priceListId?: string;
   weight?: string;
   yards?: string;
-  trackInventory?: "yes" | "no";
   currentStockQuantity?: string;
   reorderLevel?: string;
   isDrainRing?: "yes" | "no";
@@ -59,6 +69,8 @@ export type ProductFormValues = {
   castingRole?: CastingRole | "";
   castingPieceRole?: CastingPieceRole | "";
   castingSupplierId?: string;
+  manufacturerCode?: string;
+  castingSoldAsUnit?: boolean;
   castingHeightFeet?: string;
   castingClearOpeningInches?: string;
   pipeDiameterInches?: string;
@@ -78,6 +90,8 @@ export type CastingComponentPickerOption = {
   productCode: string;
   name: string;
   castingPieceRole: CastingPieceRole | null;
+  weight?: number | null;
+  unitPrice?: number | null;
 };
 
 export type CastingSupplierOption = {
@@ -92,47 +106,53 @@ type ProductFormProps = {
   action: (formData: FormData) => Promise<{ error: string } | void>;
   cancelHref: string;
   submitLabel: string;
-  catalog: ProductCatalogCategory[];
+  taxonomy: ProductTaxonomyCategory[];
   castingSuppliers?: CastingSupplierOption[];
   castingComponents?: CastingComponentPickerOption[];
+  priceLists?: PriceListOption[];
   defaultValues?: ProductFormValues;
   productId?: string;
+  /** ISO updatedAt of the product when the edit page loaded it — rejects
+   * stale saves (optimistic concurrency). */
+  expectedUpdatedAt?: string;
 };
 
 export function ProductForm({
   action,
   cancelHref,
   submitLabel,
-  catalog,
+  taxonomy,
   castingSuppliers = [],
   castingComponents = [],
+  priceLists = [],
   defaultValues,
   productId,
+  expectedUpdatedAt,
 }: ProductFormProps) {
-  const mergedCatalog = useMemo(
-    () =>
-      mergeCatalogWithInUseValues(catalog, [
-        {
-          category: defaultValues?.category ?? "",
-          subcategory: defaultValues?.subcategory ?? "",
-        },
-      ]),
-    [catalog, defaultValues?.category, defaultValues?.subcategory],
+  const [isPending, startTransition] = useTransition();
+  const [productType, setProductType] = useState<ProductType>(
+    defaultValues?.productType ?? "STOCK_PRECAST",
   );
-  const categoryNames = getCategoryNames(mergedCatalog);
-  const initialCategory =
-    defaultValues?.category && categoryNames.includes(defaultValues.category)
-      ? defaultValues.category
-      : (categoryNames[0] ?? "Vaults");
-  const initialSubcategories = getSubcategoriesForCategory(
-    mergedCatalog,
-    initialCategory,
+  const categoryOptions = useMemo(
+    () => getCategoriesForProductType(taxonomy, productType),
+    [taxonomy, productType],
   );
-  const initialSubcategory =
-    defaultValues?.subcategory &&
-    initialSubcategories.includes(defaultValues.subcategory)
-      ? defaultValues.subcategory
-      : (initialSubcategories[0] ?? "");
+  const initialCategoryId =
+    defaultValues?.categoryId &&
+    categoryOptions.some((category) => category.id === defaultValues.categoryId)
+      ? defaultValues.categoryId
+      : (categoryOptions[0]?.id ?? "");
+  const initialSubcategories = getSubcategoriesForCategoryId(
+    taxonomy,
+    initialCategoryId,
+  );
+  const initialSubcategoryId =
+    defaultValues?.subcategoryId &&
+    initialSubcategories.some(
+      (subcategory) => subcategory.id === defaultValues.subcategoryId,
+    )
+      ? defaultValues.subcategoryId
+      : (initialSubcategories[0]?.id ?? "");
 
   const resolveInitialProductKind = (): ProductKind => {
     if (defaultValues?.productKind) {
@@ -154,11 +174,15 @@ export function ProductForm({
   const [productKind, setProductKind] = useState<ProductKind>(
     resolveInitialProductKind(),
   );
-  const [productType, setProductType] = useState<ProductType>(
-    defaultValues?.productType ?? "STOCK",
+  const kindOptions = useMemo(
+    () =>
+      productKindFormOptions.filter((option) =>
+        productKindsForType(productType).includes(option.value),
+      ),
+    [productType],
   );
-  const [category, setCategory] = useState(initialCategory);
-  const [subcategory, setSubcategory] = useState(initialSubcategory);
+  const [categoryId, setCategoryId] = useState(initialCategoryId);
+  const [subcategoryId, setSubcategoryId] = useState(initialSubcategoryId);
   const [castingRole, setCastingRole] = useState<CastingRole | "">(
     defaultValues?.castingRole ??
       (resolveInitialProductKind() === "CASTING_ASSEMBLY"
@@ -171,6 +195,15 @@ export function ProductForm({
   );
   const [castingPieceRole, setCastingPieceRole] = useState<CastingPieceRole | "">(
     defaultValues?.castingPieceRole ?? "",
+  );
+  const [castingSupplierId, setCastingSupplierId] = useState(
+    defaultValues?.castingSupplierId ?? "",
+  );
+  const [manufacturerCode, setManufacturerCode] = useState(
+    defaultValues?.manufacturerCode ?? "",
+  );
+  const [castingStockingMode, setCastingStockingMode] = useState<"parts" | "unit">(
+    defaultValues?.castingSoldAsUnit ? "unit" : "parts",
   );
   const [bomRows, setBomRows] = useState<
     Array<{ pieceRole: CastingPieceRole; componentId: string; quantity: string }>
@@ -196,7 +229,61 @@ export function ProductForm({
   const drainRingStyleOptions = getDrainRingStyleOptionsForDiameter(
     Number(ringDiameterFeet),
   );
-  const subcategoryOptions = getSubcategoriesForCategory(mergedCatalog, category);
+  const subcategoryOptions = getSubcategoriesForCategoryId(taxonomy, categoryId);
+  const hideInventoryFields =
+    productKind === "CASTING_ASSEMBLY" && castingStockingMode === "parts";
+  const isDerivedAssembly =
+    productKind === "CASTING_ASSEMBLY" &&
+    castingStockingMode === "parts" &&
+    !manufacturerCode.trim();
+  const derivedFromBom = useMemo(() => {
+    if (!isDerivedAssembly) {
+      return null;
+    }
+
+    let totalWeight = 0;
+    let totalPrice = 0;
+    let hasPrice = false;
+    let hasSelectedComponent = false;
+
+    for (const row of bomRows) {
+      if (!row.componentId) {
+        continue;
+      }
+      hasSelectedComponent = true;
+      const component = castingComponents.find(
+        (entry) => entry.id === row.componentId,
+      );
+      if (!component) {
+        continue;
+      }
+      const quantity = Number(row.quantity) || 0;
+      totalWeight += quantity * (component.weight ?? 0);
+      if (component.unitPrice != null) {
+        hasPrice = true;
+        totalPrice += quantity * component.unitPrice;
+      }
+    }
+
+    return {
+      weight: hasSelectedComponent ? totalWeight : null,
+      unitPrice: hasSelectedComponent && hasPrice ? totalPrice : null,
+    };
+  }, [isDerivedAssembly, bomRows, castingComponents]);
+
+  function handleProductTypeChange(nextType: ProductType) {
+    setProductType(nextType);
+    const nextCategories = getCategoriesForProductType(taxonomy, nextType);
+    const nextCategoryId = nextCategories[0]?.id ?? "";
+    setCategoryId(nextCategoryId);
+    const nextSubcategories = getSubcategoriesForCategoryId(
+      taxonomy,
+      nextCategoryId,
+    );
+    setSubcategoryId(nextSubcategories[0]?.id ?? "");
+    const nextKind = defaultKindForType(nextType);
+    handleProductKindChange(nextKind);
+  }
 
   function handleRingDiameterChange(nextDiameter: string) {
     setRingDiameterFeet(nextDiameter);
@@ -218,18 +305,18 @@ export function ProductForm({
     }
   }
 
-  function handleCategoryChange(nextCategory: string) {
-    setCategory(nextCategory);
-    const nextSubcategories = getSubcategoriesForCategory(
-      mergedCatalog,
-      nextCategory,
+  function handleCategoryChange(nextCategoryId: string) {
+    setCategoryId(nextCategoryId);
+    const nextSubcategories = getSubcategoriesForCategoryId(
+      taxonomy,
+      nextCategoryId,
     );
-    setSubcategory((current) =>
-      nextSubcategories.includes(current)
+    setSubcategoryId((current) =>
+      nextSubcategories.some((subcategory) => subcategory.id === current)
         ? current
-        : (nextSubcategories[0] ?? ""),
+        : (nextSubcategories[0]?.id ?? ""),
     );
-    const suggested = suggestedKindForCategory(nextCategory);
+    const suggested = suggestedKindForCategoryId(taxonomy, nextCategoryId);
     if (suggested && productKind === "STANDARD") {
       handleProductKindChange(suggested);
     }
@@ -266,15 +353,18 @@ export function ProductForm({
     });
   }
 
-  const showCastingSection =
-    productKind === "CASTING_ASSEMBLY" || productKind === "CASTING_COMPONENT";
+  const showCastingSection = isCastingProductType(productType);
+  const showPipeSection = isPipeProductType(productType);
+  const selectedSupplier = castingSuppliers.find(
+    (supplier) => supplier.id === castingSupplierId,
+  );
   const orderedBomRows = castingAssemblyBomRoleOrder
     .map((role) => bomRows.find((row) => row.pieceRole === role))
     .filter((row): row is (typeof bomRows)[number] => row != null);
 
   async function handleSubmit(formData: FormData) {
     setSubmitError(null);
-    if (castingRole === "ASSEMBLY") {
+    if (castingRole === "ASSEMBLY" && castingStockingMode === "parts") {
       formData.set(
         "castingBomPayload",
         JSON.stringify(
@@ -287,16 +377,28 @@ export function ProductForm({
             })),
         ),
       );
+      formData.set("castingSoldAsUnit", "no");
+    } else if (castingRole === "ASSEMBLY") {
+      formData.set("castingSoldAsUnit", "yes");
+      formData.delete("castingBomPayload");
     }
-    const result = await action(formData);
-    if (result?.error) {
-      setSubmitError(result.error);
+    if (hideInventoryFields) {
+      formData.set("currentStockQuantity", "0");
     }
+    startTransition(async () => {
+      const result = await action(formData);
+      if (result?.error) {
+        setSubmitError(result.error);
+      }
+    });
   }
 
   return (
     <form action={handleSubmit} className="space-y-5">
       {productId ? <input type="hidden" name="id" value={productId} /> : null}
+      {expectedUpdatedAt ? (
+        <input type="hidden" name="expectedUpdatedAt" value={expectedUpdatedAt} />
+      ) : null}
       <div>
         <label
           htmlFor="productType"
@@ -310,7 +412,7 @@ export function ProductForm({
           required
           value={productType}
           onChange={(event) =>
-            setProductType(event.target.value as ProductType)
+            handleProductTypeChange(event.target.value as ProductType)
           }
           className={productInputClassName}
         >
@@ -325,6 +427,7 @@ export function ProductForm({
         </p>
       </div>
 
+      {kindOptions.length > 1 ? (
       <div>
         <label
           htmlFor="productKind"
@@ -342,7 +445,7 @@ export function ProductForm({
           }
           className={productInputClassName}
         >
-          {productKindFormOptions.map((option) => (
+          {kindOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -353,6 +456,9 @@ export function ProductForm({
           castings, pipe, or standard stock).
         </p>
       </div>
+      ) : (
+        <input type="hidden" name="productKind" value={productKind} />
+      )}
 
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
@@ -395,47 +501,68 @@ export function ProductForm({
       <div className="grid gap-5 sm:grid-cols-2">
         <div>
           <label
-            htmlFor="category"
+            htmlFor="categoryId"
             className="block text-xs font-medium text-slate-700"
           >
-            Category
+            Category *
           </label>
           <select
-            id="category"
-            name="category"
-            value={category}
+            id="categoryId"
+            name="categoryId"
+            required
+            value={categoryId}
             onChange={(event) => handleCategoryChange(event.target.value)}
             className={productInputClassName}
           >
-            {categoryNames.map((option) => (
-              <option key={option} value={option}>
-                {option}
+            {categoryOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.name}
               </option>
             ))}
           </select>
         </div>
 
+        {subcategoryOptions.length > 0 ? (
         <div>
           <label
-            htmlFor="subcategory"
+            htmlFor="subcategoryId"
             className="block text-xs font-medium text-slate-700"
           >
             Subcategory
           </label>
           <select
-            id="subcategory"
-            name="subcategory"
-            value={subcategory}
-            onChange={(event) => setSubcategory(event.target.value)}
+            id="subcategoryId"
+            name="subcategoryId"
+            value={subcategoryId}
+            onChange={(event) => setSubcategoryId(event.target.value)}
             className={productInputClassName}
           >
+            <option value="">None</option>
             {subcategoryOptions.map((option) => (
-              <option key={option} value={option}>
-                {option}
+              <option key={option.id} value={option.id}>
+                {option.name}
               </option>
             ))}
           </select>
         </div>
+        ) : null}
+      </div>
+
+      <div>
+        <label
+          htmlFor="description"
+          className="block text-xs font-medium text-slate-700"
+        >
+          Description
+        </label>
+        <textarea
+          id="description"
+          name="description"
+          rows={2}
+          defaultValue={defaultValues?.description ?? ""}
+          placeholder="Optional product notes or marketing description"
+          className={productInputClassName}
+        />
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2">
@@ -449,7 +576,9 @@ export function ProductForm({
           <select
             id="unit"
             name="unit"
-            defaultValue={defaultValues?.unit ?? "EA"}
+            defaultValue={
+              defaultValues?.unit ?? (showPipeSection ? "LF" : "EA")
+            }
             className={productInputClassName}
           >
             {productUnitFormOptions.map((unit) => (
@@ -482,23 +611,70 @@ export function ProductForm({
         </div>
       </div>
 
-      <div>
-        <label
-          htmlFor="defaultPrice"
-          className="block text-xs font-medium text-slate-700"
-        >
-          Default Price
-        </label>
-        <input
-          id="defaultPrice"
-          name="defaultPrice"
-          type="number"
-          min="0"
-          step="0.01"
-          defaultValue={defaultValues?.defaultPrice ?? ""}
-          placeholder="4850.00"
-          className={productInputClassName}
-        />
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div>
+          <label
+            htmlFor="priceListId"
+            className="block text-xs font-medium text-slate-700"
+          >
+            Price List
+          </label>
+          <select
+            id="priceListId"
+            name="priceListId"
+            defaultValue={
+              defaultValues?.priceListId ??
+              priceLists.find((list) => list.isDefault)?.id ??
+              priceLists[0]?.id ??
+              ""
+            }
+            className={productInputClassName}
+          >
+            {priceLists.length === 0 ? (
+              <option value="">No price lists available</option>
+            ) : (
+              priceLists.map((list) => (
+                <option key={list.id} value={list.id}>
+                  {list.name}
+                  {list.isDefault ? " (default)" : ""}
+                </option>
+              ))
+            )}
+          </select>
+        </div>
+        <div>
+          <label
+            htmlFor="unitPrice"
+            className="block text-xs font-medium text-slate-700"
+          >
+            {showPipeSection ? "Price per foot" : "Unit Price"}
+          </label>
+          <input
+            id="unitPrice"
+            name="unitPrice"
+            type="number"
+            min="0"
+            step="0.01"
+            defaultValue={defaultValues?.unitPrice ?? ""}
+            value={
+              isDerivedAssembly
+                ? derivedFromBom?.unitPrice != null
+                  ? String(derivedFromBom.unitPrice)
+                  : ""
+                : undefined
+            }
+            readOnly={isDerivedAssembly}
+            disabled={isDerivedAssembly}
+            placeholder="4850.00"
+            className={`${productInputClassName}${isDerivedAssembly ? " bg-slate-50 text-slate-600" : ""}`}
+          />
+          {isDerivedAssembly ? (
+            <p className="mt-1 text-xs text-slate-500">
+              Derived from parts — leave manufacturer code blank to sum component
+              prices.
+            </p>
+          ) : null}
+        </div>
       </div>
 
       <div className={`grid gap-5 ${showCastingSection ? "sm:grid-cols-1" : "sm:grid-cols-2"}`}>
@@ -516,9 +692,23 @@ export function ProductForm({
             min="0"
             step="0.01"
             defaultValue={defaultValues?.weight ?? ""}
+            value={
+              isDerivedAssembly
+                ? derivedFromBom?.weight != null
+                  ? String(derivedFromBom.weight)
+                  : ""
+                : undefined
+            }
+            readOnly={isDerivedAssembly}
+            disabled={isDerivedAssembly}
             placeholder="8400"
-            className={productInputClassName}
+            className={`${productInputClassName}${isDerivedAssembly ? " bg-slate-50 text-slate-600" : ""}`}
           />
+          {isDerivedAssembly ? (
+            <p className="mt-1 text-xs text-slate-500">
+              Derived from parts — totals update as you change the BOM.
+            </p>
+          ) : null}
         </div>
 
         {!showCastingSection ? (
@@ -544,24 +734,8 @@ export function ProductForm({
       </div>
 
       <div className="grid gap-5 sm:grid-cols-3">
-        <div>
-          <label
-            htmlFor="trackInventory"
-            className="block text-xs font-medium text-slate-700"
-          >
-            Track Inventory
-          </label>
-          <select
-            id="trackInventory"
-            name="trackInventory"
-            defaultValue={defaultValues?.trackInventory ?? "yes"}
-            className={productInputClassName}
-          >
-            <option value="yes">Yes</option>
-            <option value="no">No</option>
-          </select>
-        </div>
-
+        {!hideInventoryFields ? (
+          <>
         <div>
           <label
             htmlFor="currentStockQuantity"
@@ -613,6 +787,13 @@ export function ProductForm({
             className={productInputClassName}
           />
         </div>
+          </>
+        ) : (
+          <p className="sm:col-span-3 text-xs text-slate-600">
+            Part-based casting assemblies are not stocked as a unit — inventory
+            is tracked on each frame, cover/grate, and other component SKUs.
+          </p>
+        )}
       </div>
 
       {productKind === "DRAIN_RING" ? (
@@ -703,11 +884,13 @@ export function ProductForm({
         <input type="hidden" name="isDrainRing" value="no" />
       )}
 
-      {productKind === "PIPE" ? (
+      {showPipeSection ? (
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
           <p className="text-xs font-medium text-slate-700">Pipe Profile</p>
           <p className="mt-1 text-xs text-slate-500">
-            Stock pipe SKUs sold and tracked by diameter, length, and class.
+            {productType === "ADS_PIPE"
+              ? "ADS plastic pipe — diameter, 20' stick length, joint type (WT or ST), and price per foot."
+              : "Precast RCP — diameter, 8' stick length, class, joint, and price per foot."}
           </p>
           <div className="mt-4 grid gap-5 sm:grid-cols-2">
             <div>
@@ -743,11 +926,47 @@ export function ProductForm({
                 min="0"
                 step="0.5"
                 required
-                defaultValue={defaultValues?.pipeLengthFeet ?? ""}
-                placeholder="8"
+                defaultValue={
+                  defaultValues?.pipeLengthFeet ??
+                  (productType === "ADS_PIPE" ? "20" : "8")
+                }
+                placeholder={productType === "ADS_PIPE" ? "20" : "8"}
                 className={productInputClassName}
               />
             </div>
+            {productType === "ADS_PIPE" ? (
+              <div>
+                <label
+                  htmlFor="pipeJointType"
+                  className="block text-xs font-medium text-slate-700"
+                >
+                  Joint Type *
+                </label>
+                <select
+                  id="pipeJointType"
+                  name="pipeJointType"
+                  required
+                  defaultValue={
+                    normalizeAdsPipeJointType(defaultValues?.pipeJointType) ??
+                    "ST"
+                  }
+                  className={productInputClassName}
+                >
+                  {adsPipeJointTypeFormOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-xs text-slate-500">
+                  Watertight (WT) and Soiltight (ST) are separate SKUs. On
+                  delivery, WT may ship at the quoted ST price when ST is out of
+                  stock.
+                </p>
+              </div>
+            ) : null}
+            {productType === "PRECAST_PIPE" ? (
+            <>
             <div>
               <label
                 htmlFor="pipeClass"
@@ -780,6 +999,8 @@ export function ProductForm({
                 className={productInputClassName}
               />
             </div>
+            </>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -787,17 +1008,16 @@ export function ProductForm({
       {showCastingSection ? (
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-4">
           <div>
-            <label
-              htmlFor="castingRole"
-              className="block text-xs font-medium text-slate-700"
-            >
-              Casting Role *
-            </label>
             <input type="hidden" name="castingRole" value={castingRole} />
+            <p className="text-xs font-medium text-slate-700">
+              {productKind === "CASTING_ASSEMBLY"
+                ? "Casting Assembly"
+                : "Casting Component"}
+            </p>
             <p className="mt-1 text-xs text-slate-600">
               {productKind === "CASTING_ASSEMBLY"
-                ? "Assembly — full casting (quoted & drill sheet)"
-                : "Component — frame, cover/grate, hood, or throat piece"}
+                ? "Full casting quoted on jobs and shown on submittals."
+                : "Individual frame, cover/grate, hood, or throat piece."}
             </p>
           </div>
 
@@ -809,20 +1029,31 @@ export function ProductForm({
               Supplier *
             </label>
             {castingSuppliers.length > 0 ? (
-              <select
-                id="castingSupplierId"
-                name="castingSupplierId"
-                required
-                defaultValue={defaultValues?.castingSupplierId ?? ""}
-                className={productInputClassName}
-              >
-                <option value="">Select supplier…</option>
-                {castingSuppliers.map((supplier) => (
-                  <option key={supplier.id} value={supplier.id}>
-                    {supplier.name} ({formatCastingSupplierOriginLabel(supplier.origin)})
-                  </option>
-                ))}
-              </select>
+              <>
+                <select
+                  id="castingSupplierId"
+                  name="castingSupplierId"
+                  required
+                  value={castingSupplierId}
+                  onChange={(event) => setCastingSupplierId(event.target.value)}
+                  className={productInputClassName}
+                >
+                  <option value="">Select supplier…</option>
+                  {castingSuppliers.map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.name} ({formatCastingSupplierOriginLabel(supplier.origin)})
+                    </option>
+                  ))}
+                </select>
+                {selectedSupplier ? (
+                  <p className="mt-2 text-xs text-slate-600">
+                    Origin:{" "}
+                    <span className="font-medium text-slate-800">
+                      {formatCastingSupplierOriginLabel(selectedSupplier.origin)}
+                    </span>
+                  </p>
+                ) : null}
+              </>
             ) : (
               <div className="mt-1 space-y-2">
                 <p className="text-xs text-amber-700">
@@ -839,6 +1070,39 @@ export function ProductForm({
               </div>
             )}
           </div>
+
+          {castingRole === "ASSEMBLY" ? (
+            <div>
+              <p className="text-xs font-medium text-slate-700">
+                How is this casting stocked?
+              </p>
+              <div className="mt-2 flex flex-wrap gap-4 text-xs">
+                <label className="flex items-center gap-2 text-slate-700">
+                  <input
+                    type="radio"
+                    name="castingStockingMode"
+                    checked={castingStockingMode === "parts"}
+                    onChange={() => setCastingStockingMode("parts")}
+                  />
+                  Set with interchangeable parts
+                </label>
+                <label className="flex items-center gap-2 text-slate-700">
+                  <input
+                    type="radio"
+                    name="castingStockingMode"
+                    checked={castingStockingMode === "unit"}
+                    onChange={() => setCastingStockingMode("unit")}
+                  />
+                  One-piece unit (never sold separately)
+                </label>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                {castingStockingMode === "parts"
+                  ? "Quote and ship as a set; inventory is tracked on each frame, cover/grate, and optional hood/throat."
+                  : "Stored, received, and shipped as a single SKU with no part breakdown."}
+              </p>
+            </div>
+          ) : null}
 
           {castingRole === "COMPONENT" ? (
             <div>
@@ -871,6 +1135,28 @@ export function ProductForm({
           {castingRole === "ASSEMBLY" ? (
             <>
               <input type="hidden" name="isCasting" value="yes" />
+              <div>
+                <label
+                  htmlFor="manufacturerCode"
+                  className="block text-xs font-medium text-slate-700"
+                >
+                  Manufacturer Code
+                </label>
+                <input
+                  id="manufacturerCode"
+                  name="manufacturerCode"
+                  type="text"
+                  value={manufacturerCode}
+                  onChange={(event) => setManufacturerCode(event.target.value)}
+                  placeholder="Supplier assembly number from packing slip"
+                  className={productInputClassName}
+                />
+                <p className="mt-2 text-xs text-slate-500">
+                  Optional. When set, weight and price come from manufacturer
+                  assembly data. When blank, they are derived live from the BOM
+                  parts below.
+                </p>
+              </div>
               <div className="grid gap-5 sm:grid-cols-2">
                 <div>
                   <label
@@ -915,6 +1201,7 @@ export function ProductForm({
                 </div>
               </div>
 
+              {castingStockingMode === "parts" ? (
               <div>
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs font-medium text-slate-700">
@@ -992,6 +1279,7 @@ export function ProductForm({
                   </p>
                 ) : null}
               </div>
+              ) : null}
             </>
           ) : (
             <input type="hidden" name="isCasting" value="no" />
@@ -1033,9 +1321,10 @@ export function ProductForm({
         </Link>
         <button
           type="submit"
-          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+          disabled={isPending}
+          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {submitLabel}
+          {isPending ? "Saving…" : submitLabel}
         </button>
       </div>
     </form>

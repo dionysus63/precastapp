@@ -78,11 +78,14 @@ export function productStatusVariant(status: string): StatusVariant {
 
 export function productTypeVariant(productType: string): StatusVariant {
   switch (productType) {
-    case "STOCK":
+    case "STOCK_PRECAST":
+    case "ACCESSORY":
+    case "PRECAST_PIPE":
+    case "ADS_PIPE":
       return "success";
-    case "CONFIGURABLE":
+    case "CASTING":
       return "info";
-    case "CUSTOM_STRUCTURE":
+    case "CONFIGURABLE":
       return "warning";
     default:
       return "neutral";

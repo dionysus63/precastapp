@@ -329,32 +329,66 @@ export async function importCustomers(
     mapBulkImportRow(row as BulkImportRow, index + 1),
   );
 
+  // Reject duplicate names within the batch: with per-row create-by-name
+  // logic they would be ambiguous, and they're almost always a paste mistake.
+  const seenNames = new Map<string, number>();
+  customers.forEach((row, index) => {
+    const key = row.name.toLowerCase();
+    const firstLine = seenNames.get(key);
+    if (firstLine !== undefined) {
+      throw new Error(
+        `Line ${index + 1}: "${row.name}" appears more than once in this batch (first on line ${firstLine}). Remove the duplicate and try again.`,
+      );
+    }
+    seenNames.set(key, index + 1);
+  });
+
   // The bulk-paste form catches thrown errors and shows them in its banner,
   // so this action keeps throwing (with translated Prisma messages).
-  await prisma.$transaction(async (tx) => {
-    await tx.customer.createMany({ data: customers });
+  const imported = await prisma.$transaction(async (tx) => {
+    // Skip rows whose name already exists (a resubmitted paste should not
+    // duplicate customers), and create the rest one-by-one so each new
+    // customer's id is known for the contact sync — no fragile re-lookup
+    // by name.
+    const existing = await tx.customer.findMany({
+      where: { name: { in: customers.map((row) => row.name) } },
+      select: { name: true },
+    });
+    const existingNames = new Set(
+      existing.map((row) => row.name.toLowerCase()),
+    );
 
+    let created = 0;
     for (const row of customers) {
-      const created = await tx.customer.findFirst({
-        where: { name: row.name },
-        orderBy: { createdAt: "desc" },
-        select: { id: true },
-      });
-      if (!created) {
+      if (existingNames.has(row.name.toLowerCase())) {
         continue;
       }
 
-      await upsertPrimaryContactFromHeader(tx, created.id, {
+      const customer = await tx.customer.create({
+        data: row,
+        select: { id: true },
+      });
+      created += 1;
+
+      await upsertPrimaryContactFromHeader(tx, customer.id, {
         name: row.primaryContactName,
         phone: row.phone,
         email: row.email,
       });
-      await syncCustomerHeaderFromPrimaryContact(tx, created.id);
+      await syncCustomerHeaderFromPrimaryContact(tx, customer.id);
     }
+
+    return created;
   }).catch((error) => {
     throw translatePrismaError(error);
   });
 
+  if (imported === 0) {
+    throw new Error(
+      "All customers in this batch already exist — nothing was imported.",
+    );
+  }
+
   revalidatePath("/customers");
-  return { imported: customers.length };
+  return { imported };
 }

@@ -51,7 +51,9 @@ type PipeOpeningSizeOption = {
   pipeMaterial: string;
   pipeSizeInches: number;
   pipeType: string;
+  hasBoot: boolean;
   holeDiameterInches: number;
+  pipeWallThicknessInches: number;
   bootModel: string | null;
   pricePerBoot: number | null;
 };
@@ -68,9 +70,9 @@ type DiameterConfigOption = {
 type OpeningField = {
   id: string;
   label: string;
+  /** Combined material/type description, e.g. "PVC SDR35". */
   pipeMaterial: string;
   pipeSizeInches: string;
-  pipeType: string;
   invertElevation: string;
   angle: string;
   connectionType: PipeConnectionType | "";
@@ -101,6 +103,9 @@ type DrillSheetFormProps = {
   pipeOpeningSizes: PipeOpeningSizeOption[];
   diameterConfigs: DiameterConfigOption[];
   initialValues?: DrillSheetFormValues;
+  /** ISO updatedAt of the sheet when the edit page loaded it — rejects
+   * stale saves (optimistic concurrency). */
+  expectedUpdatedAt?: string;
   cancelHref?: string;
   submitLabel?: string;
 };
@@ -162,7 +167,6 @@ function createOpening(label: string): OpeningField {
     label,
     pipeMaterial: "",
     pipeSizeInches: "",
-    pipeType: "",
     invertElevation: "",
     angle: "",
     connectionType: "",
@@ -205,6 +209,7 @@ export function DrillSheetForm({
   pipeOpeningSizes,
   diameterConfigs,
   initialValues,
+  expectedUpdatedAt,
   cancelHref = "/drill-sheets",
   submitLabel = "Save Drill Sheet",
 }: DrillSheetFormProps) {
@@ -292,7 +297,6 @@ export function DrillSheetForm({
           label: o.label,
           pipeMaterial: o.pipeMaterial,
           pipeSizeInches: o.pipeSizeInches,
-          pipeType: o.pipeType,
           invertElevation: o.invertElevation,
           angle: o.angle,
           connectionType: o.connectionType,
@@ -356,7 +360,6 @@ export function DrillSheetForm({
             committed.pipeSizeInches,
             focusedNumericField,
           ),
-          pipeType: o.pipeType,
           invertElevation: previewNum(
             `${o.id}-invert`,
             o.invertElevation,
@@ -488,13 +491,22 @@ export function DrillSheetForm({
   }
 
   const materialOptions = [
-    ...new Set(pipeOpeningSizes.map((e) => e.pipeMaterial)),
+    ...new Set(
+      pipeOpeningSizes.map((e) =>
+        [e.pipeMaterial, e.pipeType]
+          .map((part) => part.trim())
+          .filter(Boolean)
+          .join(" "),
+      ),
+    ),
   ];
-  const typeOptions = [...new Set(pipeOpeningSizes.map((e) => e.pipeType))];
 
   return (
     <form action={action} className="space-y-4" onSubmit={flushPreviewNumbers}>
       <input type="hidden" name="payload" value={payloadJson} />
+      {expectedUpdatedAt ? (
+        <input type="hidden" name="expectedUpdatedAt" value={expectedUpdatedAt} />
+      ) : null}
 
       <SectionCard title="Structure Setup">
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -726,8 +738,7 @@ export function DrillSheetForm({
                 <th className="px-3 py-2 font-semibold">Label</th>
                 <th className="px-3 py-2 font-semibold">Invert</th>
                 <th className="px-3 py-2 font-semibold">Size (in)</th>
-                <th className="px-3 py-2 font-semibold">Material</th>
-                <th className="px-3 py-2 font-semibold">Type</th>
+                <th className="px-3 py-2 font-semibold">Material / Type</th>
                 <th className="px-3 py-2 font-semibold">Angle</th>
                 <th className="px-3 py-2 font-semibold">Connection</th>
                 <th className="px-3 py-2 font-semibold"></th>
@@ -801,17 +812,6 @@ export function DrillSheetForm({
                   </td>
                   <td className="px-3 py-1.5">
                     <input
-                      type="text"
-                      list="pipe-types"
-                      value={opening.pipeType}
-                      onChange={(e) =>
-                        updateOpening(opening.id, "pipeType", e.target.value)
-                      }
-                      className={structureTableInputClassName}
-                    />
-                  </td>
-                  <td className="px-3 py-1.5">
-                    <input
                       type="number"
                       step="1"
                       value={opening.angle}
@@ -865,11 +865,6 @@ export function DrillSheetForm({
         <datalist id="pipe-materials">
           {materialOptions.map((m) => (
             <option key={m} value={m} />
-          ))}
-        </datalist>
-        <datalist id="pipe-types">
-          {typeOptions.map((t) => (
-            <option key={t} value={t} />
           ))}
         </datalist>
       </SectionCard>

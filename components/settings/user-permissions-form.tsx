@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { customerInputClassName } from "@/components/customers/customer-form";
 import {
   ALL_PERMISSION_KEYS,
@@ -32,6 +33,9 @@ type UserPermissionsFormProps = {
   cancelHref: string;
   submitLabel: string;
   defaultValues: UserPermissionsFormValues;
+  /** ISO updatedAt of the user when the edit page loaded it — rejects stale
+   * saves (optimistic concurrency). */
+  expectedUpdatedAt?: string;
   roleDefaults: RolePermissionsMap;
   showUsernameField?: boolean;
 };
@@ -74,6 +78,7 @@ export function UserPermissionsForm({
   cancelHref,
   submitLabel,
   defaultValues,
+  expectedUpdatedAt,
   roleDefaults,
   showUsernameField = false,
 }: UserPermissionsFormProps) {
@@ -124,6 +129,9 @@ export function UserPermissionsForm({
     <form action={action} className="space-y-6">
       {defaultValues.id ? (
         <input type="hidden" name="id" value={defaultValues.id} />
+      ) : null}
+      {expectedUpdatedAt ? (
+        <input type="hidden" name="expectedUpdatedAt" value={expectedUpdatedAt} />
       ) : null}
 
       <div className="grid gap-5 sm:grid-cols-2">
@@ -335,12 +343,7 @@ export function UserPermissionsForm({
         >
           Cancel
         </Link>
-        <button
-          type="submit"
-          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
-        >
-          {submitLabel}
-        </button>
+        <SubmitButton pendingLabel="Saving…">{submitLabel}</SubmitButton>
       </div>
     </form>
   );

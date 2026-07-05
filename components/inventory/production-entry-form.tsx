@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { saveProductionEntry } from "@/app/operations/actions";
+import { searchInventoryProducts } from "@/app/inventory/actions";
+import { FormTypeahead } from "@/components/common/form-typeahead";
 import { SectionCard } from "@/components/dashboard/section-card";
 
 type ProductOption = {
@@ -16,6 +18,7 @@ type ProductOption = {
 type ProductionLineRow = {
   id: string;
   productId: string;
+  productLabel: string;
   quantityProduced: string;
 };
 
@@ -27,6 +30,7 @@ function createRow(): ProductionLineRow {
   return {
     id: crypto.randomUUID(),
     productId: "",
+    productLabel: "",
     quantityProduced: "",
   };
 }
@@ -36,6 +40,9 @@ export function ProductionEntryForm({ products }: ProductionEntryFormProps) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [lines, setLines] = useState<ProductionLineRow[]>([createRow()]);
+  // One key per form instance: a double-click or retry resubmits the same
+  // key, and the server posts the entry only once.
+  const [submissionKey] = useState(() => crypto.randomUUID());
 
   function addLine() {
     setLines((current) => [...current, createRow()]);
@@ -61,6 +68,7 @@ export function ProductionEntryForm({ products }: ProductionEntryFormProps) {
     }
 
     startTransition(async () => {
+      formData.set("submissionKey", submissionKey);
       const result = await saveProductionEntry(formData);
       if (result.error) {
         setError(result.error);
@@ -123,20 +131,28 @@ export function ProductionEntryForm({ products }: ProductionEntryFormProps) {
             <div key={line.id} className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="text-xs font-medium text-slate-700">Product</label>
-                <select
-                  value={line.productId}
-                  onChange={(event) =>
-                    updateLine(line.id, { productId: event.target.value })
+                <FormTypeahead
+                  selectedLabel={line.productLabel}
+                  placeholder="Search products…"
+                  initialItems={
+                    line.productId
+                      ? products.filter((product) => product.id === line.productId)
+                      : products.slice(0, 20)
                   }
-                  className={inputClass}
-                >
-                  <option value="">Select product…</option>
-                  {products.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.productCode} — {product.name}
-                    </option>
-                  ))}
-                </select>
+                  searchItems={searchInventoryProducts}
+                  itemKey={(product) => product.id}
+                  itemLabel={(product) => `${product.productCode} — ${product.name}`}
+                  onSelect={(product) =>
+                    updateLine(line.id, {
+                      productId: product?.id ?? "",
+                      productLabel: product
+                        ? `${product.productCode} — ${product.name}`
+                        : "",
+                    })
+                  }
+                  inputClassName={inputClass}
+                  preventEnterSubmit={false}
+                />
               </div>
               <div>
                 <label className="text-xs font-medium text-slate-700">Qty made</label>

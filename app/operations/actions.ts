@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { AppPermission, type PrismaClient } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
-import { saveDailyProductionEntry } from "@/lib/inventory-service";
+import { PHYSICAL_PRODUCT_TYPES } from "@/lib/product-types";
+import {
+  isDuplicateSubmission,
+  saveDailyProductionEntry,
+} from "@/lib/inventory-service";
 import {
   approveJobStructureForProduction,
   linkJobStructuresFromQuote,
@@ -16,9 +20,13 @@ import {
   markDeliveryTicketDelivered,
 } from "@/lib/delivery-fulfillment";
 import {
+  batchConvertDeliveredTicketsToInvoices,
   convertDeliveryTicketToInvoice,
+  InvoiceAlreadyExistsError,
   maybeCreatePayNowInvoiceForTicket,
+  type BatchInvoiceConversionResult,
 } from "@/lib/invoicing-service";
+import { hasPermission } from "@/lib/auth/permissions";
 
 function parseReconciliationDate(value: string): Date | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
@@ -68,11 +76,26 @@ export async function submitStructureForApproval(jobStructureId: string) {
   }
 }
 
-export async function approveStructureForProduction(jobStructureId: string) {
+export async function approveStructureForProduction(formData: FormData) {
   await requirePermission(AppPermission.PRODUCTION_MANAGE);
+  const jobStructureId = String(formData.get("jobStructureId") ?? "").trim();
+  const useGeneratedSubmittal =
+    formData.get("useGeneratedSubmittal") === "true";
+  const approvalFile = formData.get("approvalFile");
+
+  if (!jobStructureId) {
+    return { error: "Structure is required." };
+  }
+
   try {
     await withDatabaseRetry(async (client) => {
-      await approveJobStructureForProduction(client, jobStructureId);
+      await approveJobStructureForProduction(client, jobStructureId, {
+        useGeneratedSubmittal,
+        approvalFile:
+          approvalFile instanceof File && approvalFile.size > 0
+            ? approvalFile
+            : undefined,
+      });
       await revalidateStructurePaths(client, jobStructureId);
     });
     return { success: true };
@@ -127,16 +150,34 @@ export async function saveProductionEntry(formData: FormData) {
 
   const enteredBy = String(formData.get("enteredBy") ?? "").trim() || null;
   const notes = String(formData.get("notes") ?? "").trim() || null;
+  const submissionKey =
+    String(formData.get("submissionKey") ?? "").trim() || null;
 
   const productIds = formData.getAll("productId").map(String);
   const quantities = formData.getAll("quantityProduced").map(String);
 
-  const lines = productIds
-    .map((productId, index) => ({
-      productId: productId.trim(),
-      quantityProduced: Number(quantities[index] ?? 0),
-    }))
-    .filter((line) => line.productId && line.quantityProduced > 0);
+  const lines: { productId: string; quantityProduced: number }[] = [];
+  for (let index = 0; index < productIds.length; index += 1) {
+    const productId = productIds[index]?.trim();
+    const qtyRaw = String(quantities[index] ?? "").trim();
+    if (!productId || !qtyRaw) {
+      // Blank rows are allowed; skip them.
+      continue;
+    }
+    const qty = Number(qtyRaw);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      // Reject instead of silently dropping the line.
+      return {
+        error: `Line ${index + 1}: quantity produced must be a positive number.`,
+      };
+    }
+    if (!Number.isInteger(qty)) {
+      return {
+        error: `Line ${index + 1}: quantity produced must be a whole number.`,
+      };
+    }
+    lines.push({ productId, quantityProduced: qty });
+  }
 
   try {
     await withDatabaseRetry((client) =>
@@ -144,6 +185,7 @@ export async function saveProductionEntry(formData: FormData) {
         productionDate,
         enteredBy,
         notes,
+        submissionKey,
         lines,
       }),
     );
@@ -151,6 +193,12 @@ export async function saveProductionEntry(formData: FormData) {
     revalidatePath("/inventory/production");
     return { success: true };
   } catch (error) {
+    // The same submission already landed (double-click / retry) — success.
+    if (isDuplicateSubmission(error)) {
+      revalidatePath("/inventory");
+      revalidatePath("/inventory/production");
+      return { success: true };
+    }
     return {
       error:
         error instanceof Error
@@ -203,6 +251,13 @@ export async function convertTicketToInvoice(deliveryTicketId: string) {
     revalidatePath("/invoices");
     return { invoiceId };
   } catch (error) {
+    // A concurrent conversion already invoiced the ticket — treat as success
+    // and hand back the existing invoice instead of a confusing error.
+    if (error instanceof InvoiceAlreadyExistsError && error.invoiceId) {
+      revalidatePath(`/delivery-tickets/${deliveryTicketId}`);
+      revalidatePath("/invoices");
+      return { invoiceId: error.invoiceId };
+    }
     return {
       error:
         error instanceof Error ? error.message : "Could not create invoice.",
@@ -235,10 +290,11 @@ export async function updateTicketPaperVerification(
 }
 
 export async function confirmDeliveryDayReconciliation(formData: FormData) {
-  await requirePermission(AppPermission.DELIVERY_MANAGE);
+  const user = await requirePermission(AppPermission.DELIVERY_MANAGE);
   const dateRaw = String(formData.get("reconciliationDate") ?? "").trim();
   const confirmedBy = String(formData.get("confirmedBy") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim() || null;
+  const createInvoices = formData.get("createInvoices") === "on";
 
   if (!dateRaw || !confirmedBy) {
     return { error: "Date and confirmed-by are required." };
@@ -249,11 +305,15 @@ export async function confirmDeliveryDayReconciliation(formData: FormData) {
     return { error: "Invalid date." };
   }
 
-  await withDatabaseRetry((client) =>
-    client.deliveryDayReconciliation.upsert({
-      where: { reconciliationDate },
+  const start = reconciliationDate;
+  const end = new Date(start);
+  end.setHours(23, 59, 59, 999);
+
+  const conversionResult = await withDatabaseRetry(async (client) => {
+    await client.deliveryDayReconciliation.upsert({
+      where: { reconciliationDate: start },
       create: {
-        reconciliationDate,
+        reconciliationDate: start,
         confirmedBy,
         confirmedAt: new Date(),
         notes,
@@ -263,11 +323,62 @@ export async function confirmDeliveryDayReconciliation(formData: FormData) {
         confirmedAt: new Date(),
         notes,
       },
-    }),
-  );
+    });
+
+    if (createInvoices && (await hasPermission(user, AppPermission.INVOICES_MANAGE))) {
+      const [scheduledTickets, deliveredOtherDayTickets] = await Promise.all([
+        client.deliveryTicket.findMany({
+          where: { deliveryDate: { gte: start, lte: end } },
+          select: {
+            id: true,
+            status: true,
+            invoice: { select: { id: true } },
+          },
+        }),
+        client.deliveryTicket.findMany({
+          where: {
+            status: "DELIVERED",
+            deliveredAt: { gte: start, lte: end },
+            OR: [
+              { deliveryDate: { lt: start } },
+              { deliveryDate: { gt: end } },
+              { deliveryDate: null },
+            ],
+          },
+          select: {
+            id: true,
+            status: true,
+            invoice: { select: { id: true } },
+          },
+        }),
+      ]);
+
+      const ticketIds = collectDeliveredUninvoicedTicketIds(
+        scheduledTickets.map((ticket) => ({
+          id: ticket.id,
+          status: ticket.status,
+          hasInvoice: Boolean(ticket.invoice),
+        })),
+        deliveredOtherDayTickets.map((ticket) => ({
+          id: ticket.id,
+          status: ticket.status,
+          hasInvoice: Boolean(ticket.invoice),
+        })),
+      );
+
+      return batchConvertDeliveredTicketsToInvoices(client, ticketIds);
+    }
+
+    return null;
+  });
 
   revalidatePath("/delivery-tickets/reconcile");
-  return { success: true };
+  revalidatePath("/invoices");
+  return {
+    success: true as const,
+    conversionResult,
+    invoicesCreated: conversionResult?.created ?? 0,
+  };
 }
 
 export async function getQuoteFulfillmentForTicket(
@@ -321,46 +432,159 @@ export async function listStockProductsForProduction() {
   await requirePermission(AppPermission.PRODUCTION_VIEW);
   return withDatabaseRetry((client) =>
     client.product.findMany({
-      where: { trackInventory: true, status: "ACTIVE", productType: "STOCK" },
+      where: {
+        trackInventory: true,
+        status: "ACTIVE",
+        productType: { in: [...PHYSICAL_PRODUCT_TYPES] },
+      },
       orderBy: { productCode: "asc" },
       select: { id: true, productCode: true, name: true, unit: true },
     }),
   );
 }
 
+const RECONCILE_TICKET_SELECT = {
+  id: true,
+  ticketNumber: true,
+  customerName: true,
+  projectName: true,
+  status: true,
+  deliveryDate: true,
+  deliveredAt: true,
+  ticketType: true,
+  paymentMethod: true,
+  paymentReceived: true,
+  paperTicketPrinted: true,
+  paperTicketVerified: true,
+  verifiedBy: true,
+  invoice: { select: { id: true } },
+} as const;
+
+function mapReconcileTicket(
+  ticket: {
+    id: string;
+    ticketNumber: string;
+    customerName: string;
+    projectName: string;
+    status: string;
+    deliveryDate: Date | null;
+    deliveredAt: Date | null;
+    ticketType: string;
+    paymentMethod: string | null;
+    paymentReceived: boolean;
+    paperTicketPrinted: boolean;
+    paperTicketVerified: boolean;
+    verifiedBy: string | null;
+    invoice: { id: string } | null;
+  },
+) {
+  return {
+    ...ticket,
+    hasInvoice: Boolean(ticket.invoice),
+  };
+}
+
+function collectDeliveredUninvoicedTicketIds(
+  scheduledTickets: Array<{ id: string; status: string; hasInvoice: boolean }>,
+  deliveredOtherDayTickets: Array<{ id: string; status: string; hasInvoice: boolean }>,
+): string[] {
+  const ids = new Set<string>();
+  for (const ticket of [...scheduledTickets, ...deliveredOtherDayTickets]) {
+    if (ticket.status === "DELIVERED" && !ticket.hasInvoice) {
+      ids.add(ticket.id);
+    }
+  }
+  return [...ids];
+}
+
+export async function moveTicketDeliveryDate(
+  deliveryTicketId: string,
+  newDateRaw: string,
+) {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+  const newDate = parseReconciliationDate(newDateRaw);
+  if (!newDate) {
+    return { error: "Invalid date." };
+  }
+
+  try {
+    await withDatabaseRetry((client) =>
+      client.deliveryTicket.update({
+        where: { id: deliveryTicketId },
+        data: { deliveryDate: newDate },
+      }),
+    );
+    revalidatePath("/delivery-tickets/reconcile");
+    revalidatePath("/delivery-tickets");
+    revalidatePath(`/delivery-tickets/${deliveryTicketId}`);
+    return { success: true };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "Could not move ticket date.",
+    };
+  }
+}
+
+export async function cancelTicketFromReconcile(deliveryTicketId: string) {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+  const { updateDeliveryTicketStatus } = await import(
+    "@/app/delivery-tickets/actions"
+  );
+  const result = await updateDeliveryTicketStatus(
+    deliveryTicketId,
+    "CANCELLED",
+  );
+  revalidatePath("/delivery-tickets/reconcile");
+  return result;
+}
+
 export async function listTicketsForReconciliation(date: string) {
   await requirePermission(AppPermission.DELIVERY_MANAGE);
   const start = parseReconciliationDate(date);
   if (!start) {
-    return { tickets: [], reconciliation: null };
+    return {
+      scheduledTickets: [],
+      deliveredOtherDayTickets: [],
+      reconciliation: null,
+    };
   }
   const end = new Date(start);
   end.setHours(23, 59, 59, 999);
 
   return withDatabaseRetry(async (client) => {
-    const [tickets, reconciliation] = await Promise.all([
-      client.deliveryTicket.findMany({
-        where: {
-          deliveryDate: { gte: start, lte: end },
-        },
-        orderBy: { ticketNumber: "asc" },
-        select: {
-          id: true,
-          ticketNumber: true,
-          customerName: true,
-          projectName: true,
-          status: true,
-          paperTicketPrinted: true,
-          paperTicketVerified: true,
-          verifiedBy: true,
-        },
-      }),
-      client.deliveryDayReconciliation.findUnique({
-        where: { reconciliationDate: start },
-      }),
-    ]);
+    const [scheduledTickets, deliveredOtherDayTickets, reconciliation] =
+      await Promise.all([
+        client.deliveryTicket.findMany({
+          where: {
+            deliveryDate: { gte: start, lte: end },
+          },
+          orderBy: { ticketNumber: "asc" },
+          select: RECONCILE_TICKET_SELECT,
+        }),
+        client.deliveryTicket.findMany({
+          where: {
+            status: "DELIVERED",
+            deliveredAt: { gte: start, lte: end },
+            OR: [
+              { deliveryDate: { lt: start } },
+              { deliveryDate: { gt: end } },
+              { deliveryDate: null },
+            ],
+          },
+          orderBy: { ticketNumber: "asc" },
+          select: RECONCILE_TICKET_SELECT,
+        }),
+        client.deliveryDayReconciliation.findUnique({
+          where: { reconciliationDate: start },
+        }),
+      ]);
 
-    return { tickets, reconciliation };
+    return {
+      scheduledTickets: scheduledTickets.map(mapReconcileTicket),
+      deliveredOtherDayTickets: deliveredOtherDayTickets.map(mapReconcileTicket),
+      reconciliation,
+    };
   });
 }
 

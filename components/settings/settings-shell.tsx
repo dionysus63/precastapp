@@ -7,6 +7,8 @@ type SettingsShellProps = {
   subtitle?: string;
   children: React.ReactNode;
   showBackLink?: boolean;
+  backHref?: string;
+  backLabel?: string;
 };
 
 export async function SettingsShell({
@@ -14,6 +16,8 @@ export async function SettingsShell({
   subtitle,
   children,
   showBackLink = true,
+  backHref = "/settings",
+  backLabel = "← Back to Settings",
 }: SettingsShellProps) {
   const settings = await getAppSettings();
 
@@ -26,10 +30,10 @@ export async function SettingsShell({
     >
       {showBackLink ? (
         <Link
-          href="/settings"
+          href={backHref}
           className="text-xs font-medium text-slate-500 hover:text-slate-900"
         >
-          ← Back to Settings
+          {backLabel}
         </Link>
       ) : null}
       <div className={showBackLink ? "mt-4 space-y-4" : "space-y-4"}>

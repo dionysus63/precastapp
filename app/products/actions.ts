@@ -26,10 +26,15 @@ import {
 } from "@/lib/server/action-errors";
 import {
   parseAndValidateProductProfile,
+  parseBulkImportPreset,
   parseProductKind,
+  presetCastingSoldAsUnit,
+  presetRequiresSupplier,
+  presetToProductKind,
+  presetToProductType,
   productKindToLegacyFlags,
   resolveInventorySettings,
-  suggestedKindForCategory,
+  type BulkImportPreset,
   type ProfileFieldReader,
 } from "@/lib/product-kinds";
 import {
@@ -47,9 +52,11 @@ import {
 } from "@/lib/casting-utils";
 import { launchWindowsFile, launchWindowsFolder } from "@/lib/windows-explorer";
 import {
-  mergeCatalogWithInUseValues,
-} from "@/lib/product-catalog-settings";
-import { getProductCatalog } from "@/lib/product-catalog-settings.server";
+  getDefaultPriceListId,
+  getPriceListsMissingProducts,
+  upsertProductPriceListItem,
+} from "@/lib/price-list-service";
+import { validateTaxonomySelection, resolveTaxonomyByNamesForImport, ensureTaxonomyForBulkImport } from "@/lib/product-taxonomy.server";
 import {
   getEnum,
   getNonNegativeInt,
@@ -99,7 +106,7 @@ function parseProductStatus(formData: FormData): ProductStatus {
 function parseProductType(formData: FormData): ProductType {
   return getEnum(formData, "productType", PRODUCT_TYPES, {
     label: "product type",
-    defaultValue: "STOCK",
+    defaultValue: "STOCK_PRECAST",
   });
 }
 
@@ -141,19 +148,42 @@ async function saveCastingBom(
 ) {
   validateCastingBom(rows);
 
+  const assembly = await client.product.findUnique({
+    where: { id: assemblyId },
+    select: {
+      castingSupplierId: true,
+      castingSupplier: { select: { origin: true, name: true } },
+    },
+  });
+
   await client.productCastingComponent.deleteMany({ where: { assemblyId } });
 
   for (let index = 0; index < rows.length; index += 1) {
     const row = rows[index];
     const component = await client.product.findUnique({
       where: { id: row.componentId },
-      select: { id: true, castingRole: true },
+      select: {
+        id: true,
+        productCode: true,
+        castingRole: true,
+        castingSupplier: { select: { origin: true, name: true } },
+      },
     });
     if (!component) {
       throw new Error("BOM component product was not found.");
     }
     if (component.castingRole !== "COMPONENT") {
       throw new Error("BOM rows must reference component products.");
+    }
+
+    if (
+      assembly?.castingSupplier?.origin &&
+      component.castingSupplier?.origin &&
+      assembly.castingSupplier.origin !== component.castingSupplier.origin
+    ) {
+      throw new Error(
+        `BOM component "${component.productCode}" is from a ${component.castingSupplier.origin.toLowerCase()} supplier, but the assembly supplier is ${assembly.castingSupplier.origin.toLowerCase()}. Domestic and imported parts cannot be mixed.`,
+      );
     }
 
     await client.productCastingComponent.create({
@@ -203,12 +233,6 @@ function resolveProductKindFromForm(formData: FormData): ProductKind {
     return explicit;
   }
 
-  const category = String(formData.get("category") ?? "").trim();
-  const suggested = suggestedKindForCategory(category);
-  if (suggested) {
-    return suggested;
-  }
-
   const isDrainRing = String(formData.get("isDrainRing") ?? "no") === "yes";
   const castingRoleRaw = String(formData.get("castingRole") ?? "").trim();
   const castingRole = parseCastingRole(castingRoleRaw);
@@ -226,7 +250,7 @@ function resolveProductKindFromForm(formData: FormData): ProductKind {
   return "STANDARD";
 }
 
-function parseProductFormData(formData: FormData) {
+async function parseProductFormData(formData: FormData) {
   const productCode = getRequiredString(formData, "productCode", "Product code");
   const name = getRequiredString(formData, "productName", "Product name");
   const productType = parseProductType(formData);
@@ -234,18 +258,20 @@ function parseProductFormData(formData: FormData) {
   const unit = String(formData.get("unit") ?? "EA").trim() || "EA";
   const status = parseProductStatus(formData);
 
-  const category = String(formData.get("category") ?? "").trim() || "Vaults";
-  const description =
-    String(formData.get("subcategory") ?? formData.get("description") ?? "").trim() ||
-    null;
-  const trackInventory = String(formData.get("trackInventory") ?? "yes") === "yes";
+  const categoryId = String(formData.get("categoryId") ?? "").trim();
+  if (!categoryId) {
+    throw new Error("Category is required.");
+  }
+  const subcategoryIdRaw = String(formData.get("subcategoryId") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim() || null;
   const notes = String(formData.get("notes") ?? "").trim() || null;
 
-  const defaultPrice = parseOptionalNonNegativeDecimal(
+  const unitPrice = parseOptionalNonNegativeDecimal(
     formData,
-    "defaultPrice",
-    "Default price",
+    "unitPrice",
+    "Unit price",
   );
+  const priceListId = String(formData.get("priceListId") ?? "").trim() || null;
   const cost = parseOptionalNonNegativeDecimal(formData, "cost", "Cost");
   const weight = parseOptionalNonNegativeDecimal(formData, "weight", "Weight");
   const yards = parseOptionalNonNegativeDecimal(formData, "yards", "Yards");
@@ -264,20 +290,30 @@ function parseProductFormData(formData: FormData) {
   );
 
   const productKind = resolveProductKindFromForm(formData);
+  const castingSoldAsUnit =
+    productKind === "CASTING_ASSEMBLY" &&
+    String(formData.get("castingSoldAsUnit") ?? "no") === "yes";
+  const manufacturerCode =
+    productKind === "CASTING_ASSEMBLY"
+      ? String(formData.get("manufacturerCode") ?? "").trim() || null
+      : null;
+  const isDerivedAssembly =
+    productKind === "CASTING_ASSEMBLY" &&
+    !castingSoldAsUnit &&
+    !manufacturerCode;
   const profile = parseAndValidateProductProfile(
     productKind,
     createFormProfileReader(formData),
+    "Product",
+    productType,
   );
   const legacy = productKindToLegacyFlags(productKind);
   const inventory = resolveInventorySettings(
+    productType,
     productKind,
-    trackInventory,
     currentStockQuantity,
+    castingSoldAsUnit,
   );
-
-  if (productKind === "CASTING_ASSEMBLY" && category === "Castings" && !profile.castingRole) {
-    throw new Error("Castings products require an assembly or component role.");
-  }
 
   if (
     (productKind === "CASTING_COMPONENT" || productKind === "CASTING_ASSEMBLY") &&
@@ -288,16 +324,33 @@ function parseProductFormData(formData: FormData) {
     );
   }
 
+  const castingBom =
+    productKind === "CASTING_ASSEMBLY" && !castingSoldAsUnit
+      ? parseCastingBomPayload(formData)
+      : [];
+
+  if (castingSoldAsUnit && castingBom.length > 0) {
+    throw new Error("One-piece castings cannot have interchangeable parts.");
+  }
+
+  const taxonomy = await validateTaxonomySelection(
+    categoryId,
+    subcategoryIdRaw || null,
+    productType,
+  );
+
   return {
     productCode,
     name,
     productType,
-    category,
+    categoryId: taxonomy.categoryId,
+    subcategoryId: taxonomy.subcategoryId,
     description,
     unit,
-    defaultPrice,
+    unitPrice: isDerivedAssembly ? null : unitPrice,
+    priceListId,
     cost,
-    weight,
+    weight: isDerivedAssembly ? null : weight,
     yards,
     trackInventory: inventory.trackInventory,
     currentStockQuantity: inventory.currentStockQuantity,
@@ -314,14 +367,13 @@ function parseProductFormData(formData: FormData) {
     castingRole: profile.castingRole,
     castingPieceRole: profile.castingPieceRole,
     castingSupplierId: profile.castingSupplierId,
+    manufacturerCode,
+    castingSoldAsUnit,
     pipeDiameterInches: toDecimal(profile.pipeDiameterInches),
     pipeLengthFeet: toDecimal(profile.pipeLengthFeet),
     pipeClass: profile.pipeClass,
     pipeJointType: profile.pipeJointType,
-    castingBom:
-      productKind === "CASTING_ASSEMBLY"
-        ? parseCastingBomPayload(formData)
-        : [],
+    castingBom,
   };
 }
 
@@ -331,12 +383,22 @@ export async function createProduct(
   await requirePermission(AppPermission.PRODUCTS_MANAGE);
 
   try {
-    const { castingBom, ...data } = parseProductFormData(formData);
+    const { castingBom, unitPrice, priceListId, ...data } =
+      await parseProductFormData(formData);
 
     await prisma.$transaction(async (tx) => {
       const product = await tx.product.create({ data });
-      if (data.productKind === "CASTING_ASSEMBLY") {
+      if (data.productKind === "CASTING_ASSEMBLY" && !data.castingSoldAsUnit) {
         await saveCastingBom(tx, product.id, castingBom);
+      }
+
+      if (priceListId && unitPrice != null) {
+        await upsertProductPriceListItem(
+          priceListId,
+          product.id,
+          unitPrice,
+          tx,
+        );
       }
 
       // Seed the ledger for a non-zero opening balance so
@@ -376,20 +438,47 @@ export async function updateProduct(
   }
 
   try {
-    const { castingBom, currentStockQuantity, ...data } =
-      parseProductFormData(formData);
+    const { castingBom, currentStockQuantity, unitPrice, priceListId, ...data } =
+      await parseProductFormData(formData);
     // currentStockQuantity is intentionally NOT updated here. Stock only changes
     // through the inventory ledger (adjustInventory / receive / production /
     // delivery); a direct product edit would silently diverge the balance from
     // the InventoryTransaction history.
     void currentStockQuantity;
 
+    const expectedUpdatedAtRaw = String(
+      formData.get("expectedUpdatedAt") ?? "",
+    ).trim();
+
     await prisma.$transaction(async (tx) => {
+      if (expectedUpdatedAtRaw) {
+        // The casting BOM is replaced wholesale below, so a stale save would
+        // silently discard another admin's edits (optimistic concurrency).
+        const current = await tx.product.findUnique({
+          where: { id },
+          select: { updatedAt: true },
+        });
+        const expected = new Date(expectedUpdatedAtRaw);
+        if (
+          !current ||
+          Number.isNaN(expected.getTime()) ||
+          current.updatedAt.getTime() !== expected.getTime()
+        ) {
+          throw new Error(
+            "This product was changed by someone else while you were editing. Refresh the page to load the latest version, then re-apply your changes.",
+          );
+        }
+      }
+
       await tx.product.update({ where: { id }, data });
-      if (data.productKind === "CASTING_ASSEMBLY") {
+      if (data.productKind === "CASTING_ASSEMBLY" && !data.castingSoldAsUnit) {
         await saveCastingBom(tx, id, castingBom);
       } else {
         await tx.productCastingComponent.deleteMany({ where: { assemblyId: id } });
+      }
+
+      if (priceListId && unitPrice != null) {
+        await upsertProductPriceListItem(priceListId, id, unitPrice, tx);
       }
     });
 
@@ -408,21 +497,23 @@ type BulkImportRow = {
   productCode: string;
   productName: string;
   category: string;
-  subcategory: string;
+  subcategory?: string;
   unit: string;
-  defaultPrice: string;
+  unitPrice: string;
   weight: string;
   yards: string;
-  supplier?: string;
   trackInventory: string;
   kindFields?: Record<string, string>;
 };
 
 function mapBulkImportRow(
-  kind: ProductKind,
+  preset: BulkImportPreset,
   row: BulkImportRow,
   lineNumber: number,
+  taxonomy: { categoryId: string; subcategoryId: string | null },
+  supplierId: string | null,
 ) {
+  const kind = presetToProductKind(preset);
   const productCode = row.productCode.trim();
   const name = row.productName.trim();
 
@@ -434,21 +525,27 @@ function mapBulkImportRow(
   }
 
   const unit = row.unit.trim() || "EA";
-  const category = row.category.trim() || "Vaults";
   const kindFields = row.kindFields ?? {};
+  const productType = presetToProductType(preset);
 
-  const inventoryValue = row.trackInventory.trim().toLowerCase();
-  if (inventoryValue && inventoryValue !== "yes" && inventoryValue !== "no") {
-    throw new Error(
-      `Line ${lineNumber}: Track inventory must be "Yes" or "No".`,
-    );
-  }
-  const trackInventory = inventoryValue !== "no";
-  const inventory = resolveInventorySettings(kind, trackInventory, 0);
+  const castingSoldAsUnit =
+    kind === "CASTING_ASSEMBLY" && presetCastingSoldAsUnit(preset);
+  const inventory = resolveInventorySettings(
+    productType,
+    kind,
+    0,
+    castingSoldAsUnit,
+  );
   const legacy = productKindToLegacyFlags(kind);
 
   const profileReader: ProfileFieldReader = {
     getString(field: string) {
+      if (field === "castingSupplierId") {
+        return supplierId ?? "";
+      }
+      if (field === "castingSoldAsUnit") {
+        return castingSoldAsUnit ? "yes" : "no";
+      }
       return String(kindFields[field] ?? "").trim();
     },
     getDecimal(field: string, label: string) {
@@ -483,6 +580,9 @@ function mapBulkImportRow(
       if (field === "castingPieceRole") {
         return String(kindFields.castingPieceRole ?? "").trim();
       }
+      if (field === "castingSupplierId") {
+        return supplierId ?? "";
+      }
       return String(kindFields[field] ?? "").trim();
     };
   }
@@ -496,24 +596,46 @@ function mapBulkImportRow(
       }
       return parsed.toString();
     };
+    profileReader.getString = (field: string) => {
+      if (field === "castingSoldAsUnit") {
+        return castingSoldAsUnit ? "yes" : "no";
+      }
+      if (field === "castingSupplierId") {
+        return supplierId ?? "";
+      }
+      return String(kindFields[field] ?? "").trim();
+    };
   }
 
   const profile = parseAndValidateProductProfile(
     kind,
     profileReader,
     `Line ${lineNumber}`,
+    productType,
   );
+  const manufacturerCode =
+    kind === "CASTING_ASSEMBLY" && !castingSoldAsUnit
+      ? String(kindFields.manufacturerCode ?? "").trim() || null
+      : null;
+  const isDerivedAssembly =
+    kind === "CASTING_ASSEMBLY" && !castingSoldAsUnit && !manufacturerCode;
 
   return {
     productCode,
     name,
-    productType: "STOCK" as ProductType,
-    category,
-    description: row.subcategory.trim() || null,
+    productType,
+    categoryId: taxonomy.categoryId,
+    subcategoryId: taxonomy.subcategoryId,
+    description: null,
     unit: unit === "Each" ? "EA" : unit,
-    defaultPrice: parseBulkNumeric(row.defaultPrice, "Default price", lineNumber),
+    unitPrice: isDerivedAssembly
+      ? null
+      : parseBulkNumeric(row.unitPrice, "Unit price", lineNumber),
     cost: null,
-    weight: parseBulkNumeric(row.weight, "Weight", lineNumber),
+    weight: isDerivedAssembly
+      ? null
+      : (parseBulkNumeric(row.weight, "Weight", lineNumber) ??
+        new Prisma.Decimal(0)),
     yards:
       kind === "CASTING_COMPONENT" || kind === "CASTING_ASSEMBLY"
         ? null
@@ -532,10 +654,12 @@ function mapBulkImportRow(
     castingClearOpeningInches: toDecimal(profile.castingClearOpeningInches),
     castingRole: profile.castingRole,
     castingPieceRole: profile.castingPieceRole,
-    castingSupplierId: profile.castingSupplierId,
+    castingSupplierId: supplierId,
+    manufacturerCode,
+    castingSoldAsUnit: profile.castingSoldAsUnit,
     pipeDiameterInches: toDecimal(profile.pipeDiameterInches),
     pipeLengthFeet: toDecimal(profile.pipeLengthFeet),
-    pipeClass: profile.pipeClass,
+    pipeClass: productType === "ADS_PIPE" ? null : profile.pipeClass,
     pipeJointType: profile.pipeJointType,
   };
 }
@@ -657,75 +781,7 @@ function assertAllAssemblyComponentCodesExist(
   }
 }
 
-type CastingBulkImportSupplierRow = {
-  lineNumber: number;
-  supplier: string;
-};
-
-async function loadCastingSuppliersByName(names: string[]) {
-  if (names.length === 0) {
-    return new Map<string, { id: string; name: string }>();
-  }
-
-  const suppliers = await prisma.castingSupplier.findMany({
-    where: { name: { in: names }, status: "ACTIVE" },
-    select: { id: true, name: true },
-  });
-
-  return new Map(suppliers.map((supplier) => [supplier.name, supplier]));
-}
-
-function assertAllCastingSuppliersExist(
-  rows: BulkImportRow[],
-  suppliersByName: Map<string, { id: string; name: string }>,
-) {
-  const missing: string[] = [];
-
-  rows.forEach((row, index) => {
-    const supplierName = String(row.supplier ?? "").trim();
-    if (!supplierName) {
-      return;
-    }
-    if (!suppliersByName.has(supplierName)) {
-      missing.push(`Supplier "${supplierName}" on line ${index + 1}`);
-    }
-  });
-
-  if (missing.length > 0) {
-    throw new Error(
-      `Import failed: the following suppliers were not found: ${missing.join("; ")}.`,
-    );
-  }
-}
-
 export type ValidateCastingAssemblyImportCodesResult = Record<number, string[]>;
-
-export async function validateCastingBulkImportSuppliersAction(
-  rows: CastingBulkImportSupplierRow[],
-): Promise<ValidateCastingAssemblyImportCodesResult> {
-  await requirePermission(AppPermission.PRODUCTS_MANAGE);
-
-  if (rows.length === 0) {
-    return {};
-  }
-
-  const supplierNames = [
-    ...new Set(rows.map((row) => row.supplier.trim()).filter(Boolean)),
-  ];
-  const suppliersByName = await loadCastingSuppliersByName(supplierNames);
-
-  const result: ValidateCastingAssemblyImportCodesResult = {};
-  for (const row of rows) {
-    const supplierName = row.supplier.trim();
-    if (!supplierName) {
-      continue;
-    }
-    if (!suppliersByName.has(supplierName)) {
-      result[row.lineNumber] = [`Supplier "${supplierName}" was not found.`];
-    }
-  }
-  return result;
-}
 
 export async function validateCastingAssemblyImportCodesAction(
   rows: CastingAssemblyBomImportRow[],
@@ -750,14 +806,51 @@ export async function validateCastingAssemblyImportCodesAction(
   return result;
 }
 
-export type ImportProductsResult = { imported: number };
+export type ImportProductsResult = {
+  imported: number;
+  updated: number;
+  listsMissingProducts: Array<{ id: string; name: string; missingCount: number }>;
+};
 
 export async function importProducts(
   formData: FormData,
 ): Promise<ImportProductsResult> {
   await requirePermission(AppPermission.PRODUCTS_MANAGE);
-  const productKind =
-    parseProductKind(String(formData.get("productKind") ?? "")) ?? "STANDARD";
+  const importPreset =
+    parseBulkImportPreset(String(formData.get("importPreset") ?? "")) ??
+    "STOCK_PRECAST";
+  const productKind = presetToProductKind(importPreset);
+  const productType = presetToProductType(importPreset);
+  const supplierIdRaw = String(formData.get("supplierId") ?? "").trim();
+  const priceListId = String(formData.get("priceListId") ?? "").trim();
+
+  if (!priceListId) {
+    throw new Error("Price list is required.");
+  }
+
+  let supplierId: string | null = null;
+  if (presetRequiresSupplier(importPreset)) {
+    if (!supplierIdRaw) {
+      throw new Error("Supplier is required for casting imports.");
+    }
+    const supplier = await prisma.castingSupplier.findFirst({
+      where: { id: supplierIdRaw, status: "ACTIVE" },
+      select: { id: true },
+    });
+    if (!supplier) {
+      throw new Error("Selected supplier was not found or is inactive.");
+    }
+    supplierId = supplier.id;
+  }
+
+  const priceList = await prisma.priceList.findUnique({
+    where: { id: priceListId },
+    select: { id: true },
+  });
+  if (!priceList) {
+    throw new Error("Selected price list was not found.");
+  }
+
   const raw = String(formData.get("products") ?? "").trim();
   if (!raw) {
     throw new Error("No products to import.");
@@ -774,14 +867,59 @@ export async function importProducts(
     throw new Error("No products to import.");
   }
 
+  const rawRows = parsed as BulkImportRow[];
+  const createMissingTaxonomy =
+    String(formData.get("createMissingTaxonomy") ?? "").trim() === "true";
+
+  if (createMissingTaxonomy) {
+    await ensureTaxonomyForBulkImport(
+      rawRows.map((row) => ({
+        category: String(row.category ?? "").trim(),
+        subcategory: String(row.subcategory ?? "").trim() || null,
+      })),
+      productType,
+      productKind,
+    );
+  }
+
   const rowsByProductCode = new Map<string, number[]>();
-  const products = parsed.map((row, index) => {
-    const mapped = mapBulkImportRow(productKind, row as BulkImportRow, index + 1);
-    const lineNumbers = rowsByProductCode.get(mapped.productCode) ?? [];
-    lineNumbers.push(index + 1);
-    rowsByProductCode.set(mapped.productCode, lineNumbers);
-    return mapped;
-  });
+  const products = await Promise.all(
+    parsed.map(async (row, index) => {
+      const bulkRow = row as BulkImportRow;
+      const taxonomy = await resolveTaxonomyByNamesForImport(
+        String(bulkRow.category ?? "").trim(),
+        String(bulkRow.subcategory ?? "").trim() || null,
+        productType,
+      );
+      const mapped = mapBulkImportRow(
+        importPreset,
+        bulkRow,
+        index + 1,
+        taxonomy,
+        supplierId,
+      );
+      const lineNumbers = rowsByProductCode.get(mapped.productCode) ?? [];
+      lineNumbers.push(index + 1);
+      rowsByProductCode.set(mapped.productCode, lineNumbers);
+      return mapped;
+    }),
+  );
+
+  for (const product of products) {
+    if (product.unitPrice != null) {
+      continue;
+    }
+    const isDerivedCastingAssembly =
+      product.productKind === "CASTING_ASSEMBLY" &&
+      !product.castingSoldAsUnit &&
+      !product.manufacturerCode;
+    if (isDerivedCastingAssembly) {
+      continue;
+    }
+    throw new Error(
+      `Line ${rowsByProductCode.get(product.productCode)?.join(", ") ?? "?"}: Unit price is required.`,
+    );
+  }
 
   const duplicates = [...rowsByProductCode.entries()].filter(
     ([, lineNumbers]) => lineNumbers.length > 1,
@@ -796,85 +934,101 @@ export async function importProducts(
     throw new Error(`Duplicate product code(s) in pasted data: ${details}.`);
   }
 
-  const rawRows = parsed as BulkImportRow[];
+  const rawRowsAfterMap = parsed as BulkImportRow[];
   let assemblyBoms: CastingBomRowInput[][] = [];
 
-  if (
-    productKind === "CASTING_COMPONENT" ||
-    productKind === "CASTING_ASSEMBLY"
-  ) {
-    const supplierNames = [
-      ...new Set(
-        rawRows.map((row) => String(row.supplier ?? "").trim()).filter(Boolean),
-      ),
-    ];
-    const suppliersByName = await loadCastingSuppliersByName(supplierNames);
-    assertAllCastingSuppliersExist(rawRows, suppliersByName);
-
-    products.forEach((product, index) => {
-      const supplierName = String(rawRows[index]?.supplier ?? "").trim();
-      product.castingSupplierId =
-        suppliersByName.get(supplierName)?.id ?? null;
-    });
-  }
-
   if (productKind === "CASTING_ASSEMBLY") {
-    const bomImportRows = collectAssemblyBomImportRows(rawRows);
-    const componentCodes = collectReferencedComponentCodes(bomImportRows);
+    const bomImportRows = collectAssemblyBomImportRows(rawRowsAfterMap);
+    const unitFlags = rawRowsAfterMap.map(() => presetCastingSoldAsUnit(importPreset));
+    const bomRowsToValidate = bomImportRows.filter(
+      (_, index) => !unitFlags[index],
+    );
+    const componentCodes = collectReferencedComponentCodes(bomRowsToValidate);
     const componentsByCode = await loadCastingComponentsByCode(componentCodes);
-    assertAllAssemblyComponentCodesExist(bomImportRows, componentsByCode);
+    assertAllAssemblyComponentCodesExist(bomRowsToValidate, componentsByCode);
 
-    assemblyBoms = bomImportRows.map((row) =>
-      buildCastingBomFromProductCodes(
+    assemblyBoms = bomImportRows.map((row, index) => {
+      if (unitFlags[index]) {
+        return [];
+      }
+      return buildCastingBomFromProductCodes(
         row,
         componentsByCode,
         `Line ${row.lineNumber}`,
-      ),
-    );
+      );
+    });
   }
 
-  try {
-    const currentCatalog = await getProductCatalog();
-    const catalogPairs = products.map((product) => ({
-      category: product.category,
-      subcategory: product.description ?? "",
-    }));
-    const updatedCatalog = mergeCatalogWithInUseValues(
-      currentCatalog,
-      catalogPairs,
-    );
+  const existingProducts = await prisma.product.findMany({
+    where: { productCode: { in: products.map((product) => product.productCode) } },
+    select: { productCode: true },
+  });
+  const existingCodes = new Set(existingProducts.map((product) => product.productCode));
 
-    await prisma.$transaction(async (tx) => {
-      for (let index = 0; index < products.length; index += 1) {
-        const product = products[index];
-        const created = await tx.product.create({ data: product });
-        if (productKind === "CASTING_ASSEMBLY") {
+  const importedProductIds = await prisma.$transaction(async (tx) => {
+    const productIds: string[] = [];
+
+    for (let index = 0; index < products.length; index += 1) {
+      const { unitPrice, ...productData } = products[index];
+      const existing = await tx.product.findUnique({
+        where: { productCode: productData.productCode },
+        select: { id: true },
+      });
+
+      let productId: string;
+      if (existing) {
+        await tx.product.update({
+          where: { id: existing.id },
+          data: productData,
+        });
+        productId = existing.id;
+        if (productKind === "CASTING_ASSEMBLY" && !productData.castingSoldAsUnit) {
+          await saveCastingBom(tx, productId, assemblyBoms[index] ?? []);
+        } else if (productKind === "CASTING_ASSEMBLY") {
+          await tx.productCastingComponent.deleteMany({
+            where: { assemblyId: productId },
+          });
+        }
+      } else {
+        const created = await tx.product.create({ data: productData });
+        productId = created.id;
+        if (productKind === "CASTING_ASSEMBLY" && !productData.castingSoldAsUnit) {
           await saveCastingBom(tx, created.id, assemblyBoms[index] ?? []);
         }
       }
-      await tx.appSettings.update({
-        where: { id: "default" },
-        data: {
-          productCatalog: updatedCatalog as Prisma.InputJsonValue,
-        },
-      });
-    });
-  } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      throw new Error(
-        "Import failed: one or more product codes already exist in the database.",
-      );
+
+      if (unitPrice != null) {
+        await upsertProductPriceListItem(
+          priceListId,
+          productId,
+          unitPrice,
+          tx,
+        );
+      }
+      productIds.push(productId);
     }
-    throw error;
-  }
+
+    return productIds;
+  });
+
+  const listsMissingProducts = await getPriceListsMissingProducts(
+    importedProductIds,
+    priceListId,
+  );
 
   revalidatePath("/products");
   revalidatePath("/products/new");
+  revalidatePath("/products/bulk");
   revalidatePath("/settings/products");
-  return { imported: products.length };
+  revalidatePath("/settings/price-lists");
+  revalidatePath(`/settings/price-lists/${priceListId}`);
+
+  const updated = products.filter((product) =>
+    existingCodes.has(product.productCode),
+  ).length;
+  const imported = products.length - updated;
+
+  return { imported, updated, listsMissingProducts };
 }
 
 export type ProductExplorerOpenResult = {

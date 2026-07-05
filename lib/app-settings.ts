@@ -8,11 +8,6 @@ import {
 } from "@/lib/job-folder-constants";
 import { QUOTE_PDF_FALLBACK_DIR } from "@/lib/quote-pdf-path";
 import {
-  DEFAULT_PRODUCT_CATALOG,
-  parseProductCatalog,
-  type ProductCatalogCategory,
-} from "@/lib/product-catalog-settings";
-import {
   DEFAULT_RING_BUILDER_CONFIG,
   parseRingBuilderConfig,
   type RingBuilderConfig,
@@ -82,7 +77,6 @@ export type AppSettingsView = {
   drivers: string[];
   trailers: string[];
   truckCapacityLabel: string;
-  productCatalog: ProductCatalogCategory[];
   ringBuilderConfig: RingBuilderConfig;
   rolePermissions: RolePermissionsMap;
   companyLogoPath: string | null;
@@ -115,7 +109,6 @@ export const DEFAULT_APP_SETTINGS_DATA = {
   drivers: DEFAULT_DRIVERS,
   trailers: DEFAULT_TRAILERS,
   truckCapacityLabel: "80,000 lb",
-  productCatalog: DEFAULT_PRODUCT_CATALOG,
   ringBuilderConfig: DEFAULT_RING_BUILDER_CONFIG,
   rolePermissions: {} as RolePermissionsMap,
 };
@@ -165,7 +158,6 @@ export function mapAppSettingsRow(row: AppSettings): AppSettingsView {
     drivers: parseStringList(row.drivers, DEFAULT_DRIVERS),
     trailers: parseStringList(row.trailers, DEFAULT_TRAILERS),
     truckCapacityLabel: row.truckCapacityLabel,
-    productCatalog: parseProductCatalog(row.productCatalog),
     ringBuilderConfig: parseRingBuilderConfig(row.ringBuilderConfig),
     rolePermissions: parseRolePermissionsFromStorage(row.rolePermissions),
     companyLogoPath: row.companyLogoPath,

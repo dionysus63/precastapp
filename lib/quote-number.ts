@@ -1,4 +1,15 @@
-import type { Prisma } from "@/app/generated/prisma/client";
+import { Prisma } from "@/app/generated/prisma/client";
+
+/** True when an error is a unique-constraint violation (P2002) — e.g. a
+ * concurrent transaction committed the same quote number or revision slot.
+ * Callers should re-run the whole transaction (Postgres aborts the current
+ * one), which regenerates numbers against the now-committed state. */
+export function isQuoteNumberConflict(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  );
+}
 
 type DbClient = Prisma.TransactionClient | {
   quote: {

@@ -5,12 +5,15 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   createDeliveryTicket,
+  searchJobsForDeliveryTicket,
   updateDeliveryTicket,
   type DeliveryTicketLineInput,
   type SaveDeliveryTicketInput,
 } from "@/app/delivery-tickets/actions";
 import { getQuoteFulfillmentForTicket } from "@/app/operations/actions";
+import { FormTypeahead } from "@/components/common/form-typeahead";
 import { SectionCard } from "@/components/dashboard/section-card";
+import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import type { QuoteLineFulfillment } from "@/lib/delivery-fulfillment";
@@ -37,7 +40,7 @@ type ProductOption = {
   name: string;
   unit: string;
   weight: number | null;
-  defaultPrice?: number | null;
+  unitPrice?: number | null;
   currentStock?: number | null;
   trackInventory?: boolean;
 };
@@ -216,6 +219,12 @@ export function DeliveryTicketEditor({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  useUnsavedChangesWarning(isDirty);
+
+  function markDirty() {
+    setIsDirty(true);
+  }
   const [ticketType, setTicketType] = useState<"JOB" | "WALK_IN">(
     defaultValues?.ticketType ?? "JOB",
   );
@@ -375,7 +384,7 @@ export function DeliveryTicketEditor({
   }, [lines, selectedLineIds, fulfillmentById]);
 
   function toggleLine(meta: QuoteLineFulfillment, checked: boolean) {
-    if (meta.isDrainRing || meta.isCastingAssembly) {
+    if (meta.isDrainRing || meta.isCastingAssembly || meta.isAdsPipe) {
       return;
     }
     if (checked) {
@@ -451,6 +460,69 @@ export function DeliveryTicketEditor({
           description: `${option.name} (${option.heightFeet}' ring)`,
           quantity: value,
           unit: "EA",
+          weightEach: option.weightEach != null ? String(option.weightEach) : "",
+          yardLocation: "",
+        },
+      ];
+    });
+
+    setSelectedLineIds((current) => {
+      const next = new Set(current);
+      if (active) {
+        next.add(key);
+      } else {
+        next.delete(key);
+      }
+      return next;
+    });
+  }
+
+  function getAdsPipeCount(quoteLineItemId: string, productId: string): string {
+    const key = drainRingLineKey(quoteLineItemId, productId);
+    return linesByKey.get(key)?.quantity ?? "";
+  }
+
+  function getAdsPipeQtyUsed(meta: QuoteLineFulfillment): number {
+    return meta.adsPipeOptions.reduce((sum, option) => {
+      const count =
+        Number(getAdsPipeCount(meta.quoteLineItemId, option.productId)) || 0;
+      return sum + count;
+    }, 0);
+  }
+
+  function setAdsPipeCount(
+    meta: QuoteLineFulfillment,
+    option: QuoteLineFulfillment["adsPipeOptions"][number],
+    value: string,
+  ) {
+    const key = drainRingLineKey(meta.quoteLineItemId, option.productId);
+    const numeric = Number(value);
+    const active = value.trim() !== "" && Number.isFinite(numeric) && numeric > 0;
+
+    setLines((current) => {
+      const existing = current.find((line) => line.key === key);
+      if (!active) {
+        return current.filter((line) => line.key !== key);
+      }
+      if (existing) {
+        return current.map((line) =>
+          line.key === key ? { ...line, quantity: value } : line,
+        );
+      }
+      return [
+        ...current,
+        {
+          key,
+          quoteLineItemId: meta.quoteLineItemId,
+          productId: option.productId,
+          jobStructureId: null,
+          lineType: "STOCK_PRODUCT",
+          itemCode: option.productCode,
+          description: option.isSubstitute
+            ? `${option.name} (${option.jointTypeLabel}) — substitute`
+            : `${option.name} (${option.jointTypeLabel})`,
+          quantity: value,
+          unit: meta.unit,
           weightEach: option.weightEach != null ? String(option.weightEach) : "",
           yardLocation: "",
         },
@@ -671,7 +743,7 @@ export function DeliveryTicketEditor({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" onChange={markDirty}>
       <SectionCard title="Ticket type">
         <div className="flex gap-4 text-xs">
           <label
@@ -764,18 +836,34 @@ export function DeliveryTicketEditor({
 
       {ticketType === "JOB" ? (
         <SectionCard title="Job and quote">
-          <select
-            value={jobId}
-            onChange={(event) => handleJobChange(event.target.value)}
-            className={inputClass}
-          >
-            <option value="">Select job…</option>
-            {jobs.map((job) => (
-              <option key={job.id} value={job.id}>
-                {job.jobNumber} — {job.projectName}
-              </option>
-            ))}
-          </select>
+          <FormTypeahead
+            inputId="deliveryJobId"
+            selectedLabel={
+              selectedJob
+                ? `${selectedJob.jobNumber} — ${selectedJob.projectName}`
+                : ""
+            }
+            placeholder="Search jobs by number, project, or customer…"
+            initialItems={
+              selectedJob
+                ? [
+                    {
+                      id: selectedJob.id,
+                      jobNumber: selectedJob.jobNumber,
+                      projectName: selectedJob.projectName,
+                      customerName: selectedJob.customerName,
+                    },
+                  ]
+                : []
+            }
+            searchItems={searchJobsForDeliveryTicket}
+            itemKey={(job) => job.id}
+            itemLabel={(job) => `${job.jobNumber} — ${job.projectName}`}
+            clearLabel="Clear job selection"
+            onSelect={(job) => handleJobChange(job?.id ?? "")}
+            inputClassName={inputClass}
+            preventEnterSubmit={false}
+          />
           {selectedJob ? (
             selectedJob.quotes.length > 0 ? (
               <div className="mt-3">
@@ -1046,6 +1134,117 @@ export function DeliveryTicketEditor({
                             {overLimit ? (
                               <span className="font-semibold text-red-600">
                                 Exceeds remaining feet
+                              </span>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  if (line.isAdsPipe) {
+                    const qtyUsed = getAdsPipeQtyUsed(line);
+                    const qtyRemainingAfter =
+                      Math.round((line.remainingQty - qtyUsed) * 100) / 100;
+                    const overLimit = qtyUsed > line.remainingQty + 0.001;
+                    return (
+                      <tr key={line.quoteLineItemId} className="bg-slate-50/40">
+                        <td className="px-3 py-3 align-top" colSpan={7}>
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <div>
+                              <span className="font-medium text-slate-900">
+                                {line.displayName}
+                              </span>
+                              <span className="ml-2 text-slate-500">
+                                {line.itemCode}
+                              </span>
+                              <span className="ml-2 text-slate-500">
+                                ADS pipe · Soiltight quoted
+                              </span>
+                            </div>
+                            <div className="text-slate-600">
+                              {line.remainingQty} of {line.quotedQty}{" "}
+                              {line.unit} remaining · {line.shippedQty} shipped
+                            </div>
+                          </div>
+                          {line.description ? (
+                            <div className="mt-0.5 text-slate-500">
+                              <RichTextContent value={line.description} />
+                            </div>
+                          ) : null}
+
+                          {line.adsPipeOptions.length === 0 ? (
+                            <p className="mt-2 text-slate-500">
+                              {line.eligibilityReason ??
+                                "No matching ADS pipe SKUs in catalog."}
+                            </p>
+                          ) : (
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                              {line.adsPipeOptions.map((option) => (
+                                <div
+                                  key={option.productId}
+                                  className="rounded-lg border border-slate-200 bg-white px-3 py-2"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-medium text-slate-800">
+                                      {option.jointTypeLabel}
+                                    </span>
+                                    <span className="text-slate-400">
+                                      {option.productCode}
+                                    </span>
+                                  </div>
+                                  {option.isSubstitute ? (
+                                    <p className="mt-1 text-sm text-amber-700">
+                                      Substitute — billed at quoted ST price
+                                    </p>
+                                  ) : null}
+                                  <div className="mt-1 text-slate-500">
+                                    {option.currentStock != null
+                                      ? `${option.currentStock} in stock`
+                                      : "Not tracked"}
+                                  </div>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={getAdsPipeCount(
+                                      line.quoteLineItemId,
+                                      option.productId,
+                                    )}
+                                    placeholder="0"
+                                    className={`mt-2 w-full ${inlineTableInputClass}`}
+                                    onChange={(event) =>
+                                      setAdsPipeCount(
+                                        line,
+                                        option,
+                                        event.target.value,
+                                      )
+                                    }
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-slate-600">
+                            <span>
+                              On load:{" "}
+                              <span className="font-semibold text-slate-900">
+                                {qtyUsed} {line.unit}
+                              </span>
+                            </span>
+                            <span
+                              className={
+                                overLimit
+                                  ? "font-semibold text-red-600"
+                                  : "text-slate-600"
+                              }
+                            >
+                              Remaining after load: {qtyRemainingAfter} {line.unit}
+                            </span>
+                            {overLimit ? (
+                              <span className="font-semibold text-red-600">
+                                Exceeds remaining quantity
                               </span>
                             ) : null}
                           </div>
@@ -1515,7 +1714,7 @@ export function DeliveryTicketEditor({
           onClick={() => submit("DRAFT")}
           className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-50"
         >
-          Save Draft
+          {pending ? "Saving…" : "Save Draft"}
         </button>
         <button
           type="button"
@@ -1523,7 +1722,11 @@ export function DeliveryTicketEditor({
           onClick={() => submit("SCHEDULED")}
           className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
         >
-          {isPickup ? "Schedule Pickup" : "Schedule Delivery"}
+          {pending
+            ? "Saving…"
+            : isPickup
+              ? "Schedule Pickup"
+              : "Schedule Delivery"}
         </button>
       </div>
     </div>

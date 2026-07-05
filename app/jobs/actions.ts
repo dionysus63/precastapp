@@ -28,17 +28,7 @@ const JOB_STATUSES = Object.values(JobStatus);
 
 function parseJobFormData(formData: FormData) {
   const projectName = getRequiredString(formData, "projectName", "Project name");
-  const jobYearRaw = getRequiredString(formData, "jobYear", "Job year");
-
-  const year = Number(jobYearRaw);
-  if (!Number.isInteger(year) || year < 2000 || year > 2099) {
-    throw new Error("Job year must be a valid year.");
-  }
-
-  const status = getEnum(formData, "status", JOB_STATUSES, {
-    label: "job status",
-    defaultValue: "QUOTING",
-  });
+  const year = new Date().getFullYear();
 
   const customerId = getOptionalString(formData, "customerId");
   const manualCustomerName = String(formData.get("customerName") ?? "").trim();
@@ -46,7 +36,7 @@ function parseJobFormData(formData: FormData) {
   return {
     projectName,
     year,
-    status,
+    status: "QUOTING" as JobStatus,
     customerId,
     manualCustomerName,
     projectAddress: getOptionalString(formData, "projectAddress"),
@@ -54,10 +44,10 @@ function parseJobFormData(formData: FormData) {
     state: getOptionalString(formData, "state"),
     zip: getOptionalString(formData, "zip"),
     bidDate: getOptionalDate(formData, "bidDate"),
-    awardedDate: getOptionalDate(formData, "awardedDate"),
-    contactName: getOptionalString(formData, "contactName"),
-    contactEmail: getOptionalString(formData, "contactEmail"),
-    contactPhone: getOptionalString(formData, "contactPhone"),
+    awardedDate: null,
+    contactName: null,
+    contactEmail: null,
+    contactPhone: null,
     notes: getOptionalString(formData, "notes"),
   };
 }
@@ -231,7 +221,10 @@ export async function createJob(formData: FormData) {
   });
 
   revalidatePath("/jobs");
-  redirect("/jobs");
+  revalidatePath(`/jobs/${job.id}`);
+  revalidatePath("/files");
+  revalidatePath(`/files/jobs/${job.id}`);
+  redirect(`/jobs/${job.id}`);
 }
 
 export async function updateJob(formData: FormData) {
@@ -613,4 +606,27 @@ export async function toggleJobFavorite(
   revalidatePath("/jobs");
   revalidatePath(`/jobs/${trimmedJobId}`);
   return { favorited: true };
+}
+
+export type JobFormCustomerOption = {
+  id: string;
+  name: string;
+};
+
+export async function searchCustomersForJobForm(
+  query: string,
+): Promise<JobFormCustomerOption[]> {
+  await requirePermission(AppPermission.JOBS_MANAGE);
+
+  const trimmed = query.trim();
+  return withDatabaseRetry((client) =>
+    client.customer.findMany({
+      where: trimmed
+        ? { name: { contains: trimmed, mode: "insensitive" } }
+        : {},
+      orderBy: { name: "asc" },
+      take: 20,
+      select: { id: true, name: true },
+    }),
+  );
 }

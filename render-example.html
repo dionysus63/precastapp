@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<body style="margin:0">
+<canvas id="c"></canvas>
+<script type="module">
+  import * as pdfjs from "./node_modules/pdfjs-dist/build/pdf.min.mjs";
+  pdfjs.GlobalWorkerOptions.workerSrc = "./public/pdf.worker.min.mjs";
+  const bytes = await fetch("./test-t3-filled.pdf").then(r => r.arrayBuffer());
+  const pdf = await pdfjs.getDocument({ data: bytes }).promise;
+  const pdfPage = await pdf.getPage(1);
+  const viewport = pdfPage.getViewport({ scale: 2.5 });
+  const canvas = document.getElementById("c");
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  await pdfPage.render({ canvasContext: ctx, viewport, canvas }).promise;
+  document.title = "render-done";
+</script>
+</body>
+</html>

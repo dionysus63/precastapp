@@ -32,24 +32,6 @@ function pipeSizesForMaterial(
   ].sort((a, b) => a - b);
 }
 
-function pipeTypesForMaterialSize(
-  pipeOpeningSizes: StructureWorkbookOptions["pipeOpeningSizes"],
-  material: string,
-  size: number,
-): string[] {
-  return [
-    ...new Set(
-      pipeOpeningSizes
-        .filter(
-          (entry) =>
-            entry.pipeMaterial === material &&
-            Math.abs(entry.pipeSizeInches - size) < 1e-6,
-        )
-        .map((entry) => entry.pipeType),
-    ),
-  ].sort();
-}
-
 export function StructureWorkbookDefaultsPanel({
   defaults,
   options,
@@ -69,11 +51,6 @@ export function StructureWorkbookDefaultsPanel({
   const sizes = pipeSizesForMaterial(
     options.pipeOpeningSizes,
     defaults.pipeMaterial,
-  );
-  const types = pipeTypesForMaterialSize(
-    options.pipeOpeningSizes,
-    defaults.pipeMaterial,
-    Number(defaults.pipeSizeInches),
   );
 
   function patch(partial: Partial<StructureWorkbookDefaults>) {
@@ -196,7 +173,6 @@ export function StructureWorkbookDefaultsPanel({
               patch({
                 pipeMaterial: event.target.value,
                 pipeSizeInches: "",
-                pipeType: "",
               })
             }
             className={structureInputClassName}
@@ -216,7 +192,7 @@ export function StructureWorkbookDefaultsPanel({
           <select
             value={defaults.pipeSizeInches}
             onChange={(event) =>
-              patch({ pipeSizeInches: event.target.value, pipeType: "" })
+              patch({ pipeSizeInches: event.target.value })
             }
             className={structureInputClassName}
           >
@@ -230,24 +206,7 @@ export function StructureWorkbookDefaultsPanel({
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-700">
-            Default pipe type
-          </label>
-          <select
-            value={defaults.pipeType}
-            onChange={(event) => patch({ pipeType: event.target.value })}
-            className={structureInputClassName}
-          >
-            <option value="">—</option>
-            {types.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-700">
-            Default boots
+            Default pipe count
           </label>
           <input
             type="text"

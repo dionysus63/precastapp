@@ -142,6 +142,27 @@ export async function sendQuote(
       return { success: false, error: "Add at least one line item before sending." };
     }
 
+    // First-send claim (double-click / two-tab guard): atomically flip
+    // DRAFT/IN_REVIEW → SENT before emailing, so only one concurrent sender
+    // proceeds. Reverted below if the email fails. Explicit resends
+    // (status already SENT) are intentionally allowed through.
+    const isFirstSend = status !== "SENT";
+    if (isFirstSend) {
+      const claimed = await withDatabaseRetry((client) =>
+        client.quote.updateMany({
+          where: { id: quoteId, status: { in: ["DRAFT", "IN_REVIEW"] } },
+          data: { status: "SENT", sentAt: new Date() },
+        }),
+      );
+      if (claimed.count === 0) {
+        return {
+          success: false,
+          error:
+            "This quote was just sent by someone else. Refresh the page to see its current status.",
+        };
+      }
+    }
+
     let jobFolderPath: string | null = null;
     if (quote.jobId) {
       const job = await withDatabaseRetry((client) =>
@@ -163,31 +184,46 @@ export async function sendQuote(
         : buildDefaultQuoteEmailMessage(quote),
     ]);
 
-    const persisted = await withDatabaseRetry((client) =>
-      buildAndPersistQuotePdf(quote, jobFolderPath, client),
-    );
-
     const to = parseEmailList(input.to).join(", ");
     const cc = input.cc?.trim()
       ? parseEmailList(input.cc).join(", ")
       : undefined;
 
-    await sendMail({
-      to,
-      cc,
-      subject,
-      text: messageBody,
-      html: buildQuoteEmailHtml(messageBody),
-      replyTo: company.email,
-      fromName: company.name,
-      attachments: [
-        {
-          filename: persisted.attachmentFilename,
-          content: Buffer.from(persisted.bytes),
-          contentType: "application/pdf",
-        },
-      ],
-    });
+    let persisted: Awaited<ReturnType<typeof buildAndPersistQuotePdf>>;
+    try {
+      persisted = await withDatabaseRetry((client) =>
+        buildAndPersistQuotePdf(quote, jobFolderPath, client),
+      );
+
+      await sendMail({
+        to,
+        cc,
+        subject,
+        text: messageBody,
+        html: buildQuoteEmailHtml(messageBody),
+        replyTo: company.email,
+        fromName: company.name,
+        attachments: [
+          {
+            filename: persisted.attachmentFilename,
+            content: Buffer.from(persisted.bytes),
+            contentType: "application/pdf",
+          },
+        ],
+      });
+    } catch (error) {
+      // The email did not go out — release the first-send claim so the
+      // quote doesn't sit in SENT without a sent email (best effort).
+      if (isFirstSend) {
+        await withDatabaseRetry((client) =>
+          client.quote.updateMany({
+            where: { id: quoteId, status: "SENT" },
+            data: { status, sentAt: quote.sentAt },
+          }),
+        ).catch(() => undefined);
+      }
+      throw error;
+    }
 
     await withDatabaseRetry(async (client) => {
       const existing = await client.quote.findUnique({

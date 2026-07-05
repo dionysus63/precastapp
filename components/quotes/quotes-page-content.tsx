@@ -132,35 +132,12 @@ const QuotesTable = memo(function QuotesTable({
                   {quote.lastUpdated}
                 </td>
                 <td className="px-4 py-2.5">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <Link
-                      href={`/quotes/${quote.id}`}
-                      className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
-                    >
-                      View
-                    </Link>
-                    <button
-                      type="button"
-                      disabled
-                      className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-400"
-                    >
-                      Revise
-                    </button>
-                    <button
-                      type="button"
-                      disabled
-                      className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-400"
-                    >
-                      PDF
-                    </button>
-                    <button
-                      type="button"
-                      disabled
-                      className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-400"
-                    >
-                      More
-                    </button>
-                  </div>
+                  <Link
+                    href={`/quotes/${quote.id}`}
+                    className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                  >
+                    View
+                  </Link>
                 </td>
               </tr>
             ))

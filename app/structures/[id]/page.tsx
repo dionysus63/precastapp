@@ -71,18 +71,24 @@ export default async function EditStructureTemplatePage({
 
   const updateAction = updateStructureTemplate.bind(null, template.id);
 
+  // One PDF per template: the app now draws riser/key differences (joints,
+  // section heights, elevations) onto the sheet itself.
+  const existingPdf = template.templatePdfs[0] ?? null;
+
   const slotDefinitions = [
-    { hasRiser: false, hasKey: true, label: "No Riser + Key" },
-    { hasRiser: true, hasKey: true, label: "Riser + Key" },
-    { hasRiser: false, hasKey: false, label: "No Riser + No Key" },
-    { hasRiser: true, hasKey: false, label: "Riser + No Key" },
-  ] as const;
+    {
+      hasRiser: existingPdf?.hasRiser ?? false,
+      hasKey: existingPdf?.hasKey ?? true,
+      label: "Drill Sheet Template PDF",
+    },
+  ];
 
   const pdfSlots = await Promise.all(
     slotDefinitions.map(async (slot) => {
-      const pdf = template.templatePdfs.find(
-        (row) => row.hasRiser === slot.hasRiser && row.hasKey === slot.hasKey,
-      );
+      const pdf =
+        template.templatePdfs.find(
+          (row) => row.hasRiser === slot.hasRiser && row.hasKey === slot.hasKey,
+        ) ?? existingPdf;
 
       if (!pdf) {
         return { ...slot, pdf: null };
@@ -143,6 +149,7 @@ export default async function EditStructureTemplatePage({
           cancelHref="/structures"
           submitLabel="Save Changes"
           defaultValue={defaultValue}
+          expectedUpdatedAt={template.updatedAt.toISOString()}
           castingOptions={castingOptions}
         />
       </div>

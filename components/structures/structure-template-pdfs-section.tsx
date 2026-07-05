@@ -214,8 +214,8 @@ export function StructureTemplatePdfsSection({
 
   return (
     <SectionCard
-      title="Drill Sheet PDFs"
-      description="Upload fillable PDF templates for each riser/key variant. AcroForm field names must match the naming convention below."
+      title="Drill Sheet PDF"
+      description="Upload one fillable PDF template. The app fills the form fields and draws the section joints, heights, and elevations itself, so a single PDF covers every riser/key combination."
     >
       <div className="space-y-4">
         {message.error ? (
@@ -225,7 +225,7 @@ export function StructureTemplatePdfsSection({
           <p className="text-xs text-green-700">{message.success}</p>
         ) : null}
 
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4">
           {slots.map((slot) => (
             <TemplatePdfSlotCard
               key={`${slot.hasRiser}-${slot.hasKey}`}

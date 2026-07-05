@@ -3,6 +3,7 @@ import { AppPermission } from "@/app/generated/prisma/client";
 import { SettingsShell } from "@/components/settings/settings-shell";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { UserPermissionsForm } from "@/components/settings/user-permissions-form";
+import { ResetPasswordButton } from "@/components/settings/reset-password-button";
 import { updateUser, resetUserPassword } from "@/app/settings/users/actions";
 import { getRoleDefaults } from "@/lib/app-settings";
 import { requirePermission } from "@/lib/auth/session";
@@ -34,6 +35,7 @@ export default async function EditSettingsUserPage({
           action={updateUser}
           cancelHref="/settings/users"
           submitLabel="Save Changes"
+          expectedUpdatedAt={user.updatedAt.toISOString()}
           roleDefaults={roleDefaults}
           defaultValues={{
             id: user.id,
@@ -54,15 +56,7 @@ export default async function EditSettingsUserPage({
           Reset this user&apos;s password. They will be signed out and must create
           a new password the next time they sign in.
         </p>
-        <form action={resetUserPassword} className="mt-4">
-          <input type="hidden" name="id" value={user.id} />
-          <button
-            type="submit"
-            className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-semibold text-rose-800 hover:bg-rose-100"
-          >
-            Reset Password
-          </button>
-        </form>
+        <ResetPasswordButton userId={user.id} action={resetUserPassword} />
       </SectionCard>
     </SettingsShell>
   );

@@ -76,6 +76,7 @@ export default async function EditDrillSheetPage({
             pipeOpeningSizes={pipeOpeningSizes}
             diameterConfigs={diameterConfigs}
             initialValues={initialValues}
+            expectedUpdatedAt={sheet.updatedAt.toISOString()}
             cancelHref={`/drill-sheets/${id}`}
             submitLabel="Save Changes"
           />

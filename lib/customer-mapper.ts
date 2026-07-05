@@ -51,7 +51,15 @@ function jobStatusVariant(status: string): CustomerRelatedJob["statusVariant"] {
   }
 }
 
-export function mapCustomerToRow(customer: Customer): CustomerRow {
+export type CustomerRowAggregates = {
+  openQuotes: number;
+  balance: number;
+};
+
+export function mapCustomerToRow(
+  customer: Customer,
+  aggregates?: CustomerRowAggregates,
+): CustomerRow {
   return {
     id: customer.id,
     name: customer.name,
@@ -60,8 +68,8 @@ export function mapCustomerToRow(customer: Customer): CustomerRow {
     email: customer.email ?? "—",
     status: customerStatusLabels[customer.status] ?? customer.status,
     statusVariant: customerStatusVariant(customer.status),
-    openQuotes: 0,
-    balance: "$0",
+    openQuotes: aggregates?.openQuotes ?? 0,
+    balance: formatUsd(aggregates?.balance ?? 0),
     lastActivity: formatDate(customer.updatedAt),
   };
 }

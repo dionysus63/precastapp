@@ -3,6 +3,11 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { SummaryCard } from "@/components/dashboard/summary-card";
 import { GenerateSubmittalPackageButton } from "@/components/quotes/generate-submittal-package-button";
+import {
+  CreateDrillSheetsButton,
+  StructureDrillSheetBadge,
+} from "@/components/quotes/create-drill-sheets-button";
+import { DrillSheetPdfLink } from "@/components/drill-sheets/drill-sheet-pdf-link";
 import { LinkStructuresButton } from "@/components/quotes/link-structures-button";
 import { MarkWonButton } from "@/components/quotes/mark-won-button";
 import { ReviseQuoteButton } from "@/components/quotes/revise-quote-button";
@@ -10,6 +15,7 @@ import { SendQuoteButton } from "@/components/quotes/send-quote-button";
 import { JobStructureSubmittalActions } from "@/components/jobs/job-structure-submittal-actions";
 import { StructureManageLink } from "@/components/jobs/structure-manage-link";
 import { RichTextContent } from "@/components/ui/rich-text-content";
+import { CustomStructureDetailBreakdown } from "@/components/quotes/custom-structure-cost-breakdown";
 import type { QuoteDetailView } from "@/components/quotes/quote-utils";
 import { isCategoryLineItem } from "@/lib/quotes/constants";
 
@@ -33,6 +39,12 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
     ? `/jobs/${quote.jobId}?tab=quotes`
     : "/quotes";
   const backLabel = quote.jobId ? "← Back to Job" : "← Back to Quotes";
+
+  const drillSheetCreatedCount = quote.relatedStructures.filter(
+    (structure) => structure.drillSheetId,
+  ).length;
+  const showDrillSheetBar =
+    quote.drillSheetReadyCount > 0 || drillSheetCreatedCount > 0;
 
   const topSummaryCards = [
     {
@@ -267,6 +279,16 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
           </SectionCard>
 
           <SectionCard title="Line Items" noPadding>
+            {showDrillSheetBar ? (
+              <div className="border-b border-slate-100 px-4 py-3">
+                <CreateDrillSheetsButton
+                  quoteId={quote.id}
+                  readyCount={quote.drillSheetReadyCount}
+                  createdCount={drillSheetCreatedCount}
+                  canEdit={quote.canEdit}
+                />
+              </div>
+            ) : null}
             <div className="overflow-x-auto">
               <table className="min-w-full text-left text-xs">
                 <thead>
@@ -338,9 +360,19 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
                           </td>
                           <td className="px-3 py-2.5 font-medium text-slate-900">
                             {line.item}
+                            <StructureDrillSheetBadge
+                              status={line.structureDrillSheetStatus}
+                              jobStructureId={line.jobStructureId}
+                            />
                           </td>
                           <td className="px-3 py-2.5 text-slate-600">
                             <RichTextContent value={line.description} />
+                            {line.type === "CUSTOM_STRUCTURE" &&
+                            line.costBreakdown?.length ? (
+                              <CustomStructureDetailBreakdown
+                                items={line.costBreakdown}
+                              />
+                            ) : null}
                           </td>
                           <td className="px-3 py-2.5 text-slate-600">
                             {line.qty}
@@ -380,6 +412,7 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
 
           {quote.status === "WON" || quote.relatedStructures.length > 0 ? (
             <SectionCard
+              id="structures-submittals"
               title="Structures & Submittals"
               description={
                 quote.relatedStructures.length > 0
@@ -446,17 +479,33 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
                             {structure.documentCount}
                           </td>
                           <td className="px-3 py-2.5">
-                            {structure.jobId ? (
-                              <JobStructureSubmittalActions
-                                jobId={structure.jobId}
-                                jobStructureId={structure.id}
-                                status={structure.status}
-                                needsSubmittal={structure.needsSubmittal}
-                                folderPath={structure.folderPath}
-                              />
-                            ) : (
-                              "—"
-                            )}
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {structure.drillSheetId ? (
+                                <>
+                                  <DrillSheetPdfLink
+                                    drillSheetId={structure.drillSheetId}
+                                    label="PDF"
+                                  />
+                                  <Link
+                                    href={`/drill-sheets/${structure.drillSheetId}`}
+                                    className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                                  >
+                                    Drill Sheet
+                                  </Link>
+                                </>
+                              ) : null}
+                              {structure.jobId ? (
+                                <JobStructureSubmittalActions
+                                  jobId={structure.jobId}
+                                  jobStructureId={structure.id}
+                                  status={structure.status}
+                                  needsSubmittal={structure.needsSubmittal}
+                                  folderPath={structure.folderPath}
+                                />
+                              ) : structure.drillSheetId ? null : (
+                                "—"
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}

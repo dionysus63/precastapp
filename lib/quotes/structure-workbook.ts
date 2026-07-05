@@ -3,11 +3,51 @@ import type { EditableQuoteLineItem } from "@/lib/quotes/types";
 import { quoteLineItemTypeLabels } from "@/lib/quotes/constants";
 import {
   computeDrillSheet,
+  lookupPipeOpeningSize,
   type DiameterConfig,
   type DrillSheetInput,
+  type PipeConnectionType,
   type PipeOpeningSizeEntry,
   type TemplateConfig,
 } from "@/lib/drill-sheet";
+
+export type WorkbookMode = "QUOTE" | "DRILL_SHEET";
+export type QuoteStructureDetailLevel = "QUOTE" | "DRILL_SHEET";
+
+export type QuoteStructureOpening = {
+  label: string;
+  pipeMaterial?: string;
+  pipeSizeInches?: number;
+  pipeType?: string;
+  invertElevation: number;
+  angleDegrees?: number;
+  connectionType?: PipeConnectionType | null;
+};
+
+export type StructureWorkbookOpeningRow = {
+  id: string;
+  label: string;
+  pipeMaterial: string;
+  pipeSizeInches: string;
+  pipeType: string;
+  invertElevation: string;
+  angleDegrees: string;
+  connectionType: string;
+};
+
+/** One pipe size entering a structure in quote-only mode (no invert/angle). */
+export type StructureWorkbookPenetration = {
+  id: string;
+  pipeMaterial: string;
+  pipeSizeInches: string;
+  qty: string;
+};
+
+export type QuoteStructurePenetration = {
+  pipeMaterial: string;
+  pipeSizeInches: number;
+  qty: number;
+};
 
 export type QuoteStructureConfig = {
   templateId: string;
@@ -20,6 +60,9 @@ export type QuoteStructureConfig = {
   pipeSizeInches?: number;
   pipeType?: string;
   bootCount: number;
+  detailLevel?: QuoteStructureDetailLevel;
+  penetrations?: QuoteStructurePenetration[];
+  openings?: QuoteStructureOpening[];
   wallHeightFeet?: number;
   wallPrice?: number;
   bootsPrice?: number;
@@ -27,6 +70,8 @@ export type QuoteStructureConfig = {
   warnings?: string[];
   errorMessage?: string | null;
 };
+
+export type StructureDrillSheetStatus = "created" | "ready" | "quote_only";
 
 export type StructureWorkbookRow = {
   id: string;
@@ -42,6 +87,8 @@ export type StructureWorkbookRow = {
   pipeType: string;
   bootCount: string;
   qty: string;
+  penetrations: StructureWorkbookPenetration[];
+  openings: StructureWorkbookOpeningRow[];
   wallHeightFeet: number | null;
   unitPrice: number | null;
   status: string;
@@ -56,21 +103,45 @@ export type StructureWorkbookDefaults = {
   castingProductId: string;
   pipeMaterial: string;
   pipeSizeInches: string;
-  pipeType: string;
   bootCount: string;
   qty: string;
+};
+
+/** Quote header fields preserved while the structure workbook is open. */
+export type QuoteFormWorkbookSnapshot = {
+  customerId: string;
+  customerName: string;
+  customerLocked: boolean;
+  jobId: string;
+  jobBidderId: string;
+  selectedJobLabel: string;
+  jobNumber: string;
+  projectName: string;
+  scopeLabel: string;
+  projectAddress: string;
+  contactId: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  contactTitle: string;
 };
 
 export type StructureWorkbookSession = {
   rows: StructureWorkbookRow[];
   returnPath: string;
   pendingLineItems: EditableQuoteLineItem[] | null;
+  pendingFormState?: QuoteFormWorkbookSnapshot | null;
   defaults?: StructureWorkbookDefaults;
+  workbookMode?: WorkbookMode;
+  planSheetId?: string | null;
+  planMarkup?: import("@/lib/quotes/plan-sheet-markup").PlanSheetMarkup | null;
+  viewMode?: "grid" | "takeoff";
 };
 
 export type StructureWorkbookApplyPayload = {
   lineItems: EditableQuoteLineItem[];
   returnPath: string;
+  planSheetId?: string | null;
 };
 
 export type StructureWorkbookOptions = {
@@ -161,6 +232,253 @@ export function createRowId(): string {
   return `wb-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+export function createDefaultOpening(label: string): StructureWorkbookOpeningRow {
+  return {
+    id: createRowId(),
+    label,
+    pipeMaterial: "",
+    pipeSizeInches: "",
+    pipeType: "",
+    invertElevation: "",
+    angleDegrees: "0",
+    connectionType: "",
+  };
+}
+
+export function nextOpeningLabel(existingCount: number): string {
+  return String.fromCharCode(65 + existingCount);
+}
+
+export function createDefaultPenetration(): StructureWorkbookPenetration {
+  return {
+    id: createRowId(),
+    pipeMaterial: "",
+    pipeSizeInches: "",
+    qty: "1",
+  };
+}
+
+/** Fills in `penetrations` for rows created before the field existed. */
+export function ensureRowPenetrations(
+  row: StructureWorkbookRow,
+): StructureWorkbookRow {
+  if (row.penetrations?.length) {
+    return row;
+  }
+
+  if (row.pipeMaterial.trim()) {
+    return {
+      ...row,
+      penetrations: [
+        {
+          id: createRowId(),
+          pipeMaterial: row.pipeMaterial,
+          pipeSizeInches: row.pipeSizeInches,
+          qty: row.bootCount.trim() || "1",
+        },
+      ],
+    };
+  }
+
+  return { ...row, penetrations: [createDefaultPenetration()] };
+}
+
+/** Derives legacy single-pipe fields and boot count from the penetrations list. */
+export function syncRowFromPenetrations(
+  row: StructureWorkbookRow,
+): StructureWorkbookRow {
+  const penetrations = row.penetrations ?? [];
+  let bootCount = 0;
+  for (const penetration of penetrations) {
+    if (
+      penetration.pipeMaterial.trim() &&
+      parseNum(penetration.pipeSizeInches) != null
+    ) {
+      bootCount += Math.max(1, Math.floor(parseNum(penetration.qty) ?? 1));
+    }
+  }
+
+  const first = penetrations[0];
+
+  return {
+    ...row,
+    bootCount: String(bootCount),
+    pipeMaterial: first?.pipeMaterial ?? "",
+    pipeSizeInches: first?.pipeSizeInches ?? "",
+    pipeType: "",
+  };
+}
+
+export function seedOpeningsFromRow(
+  row: StructureWorkbookRow,
+): StructureWorkbookOpeningRow[] {
+  if (row.openings?.length) {
+    return row.openings;
+  }
+
+  // Expand quote-only penetrations into openings: each pipe becomes its own
+  // opening; the first one carries the row's low invert so it prices.
+  const seeded: StructureWorkbookOpeningRow[] = [];
+  for (const penetration of ensureRowPenetrations(row).penetrations) {
+    if (
+      !penetration.pipeMaterial.trim() ||
+      parseNum(penetration.pipeSizeInches) == null
+    ) {
+      continue;
+    }
+    const count = Math.max(1, Math.floor(parseNum(penetration.qty) ?? 1));
+    for (let index = 0; index < count; index += 1) {
+      seeded.push({
+        id: createRowId(),
+        label: nextOpeningLabel(seeded.length),
+        pipeMaterial: penetration.pipeMaterial,
+        pipeSizeInches: penetration.pipeSizeInches,
+        pipeType: "",
+        invertElevation: seeded.length === 0 ? row.lowInvertElevation : "",
+        angleDegrees: "0",
+        connectionType: "",
+      });
+    }
+  }
+
+  if (seeded.length > 0) {
+    return seeded;
+  }
+
+  return [
+    {
+      id: createRowId(),
+      label: "A",
+      pipeMaterial: row.pipeMaterial,
+      pipeSizeInches: row.pipeSizeInches,
+      pipeType: "",
+      invertElevation: row.lowInvertElevation,
+      angleDegrees: "0",
+      connectionType: "",
+    },
+  ];
+}
+
+export function ensureRowOpenings(row: StructureWorkbookRow): StructureWorkbookRow {
+  return {
+    ...row,
+    openings: seedOpeningsFromRow(row),
+  };
+}
+
+/** Backfills fields added after a session/row was first stored. */
+export function normalizeWorkbookRow(
+  row: StructureWorkbookRow,
+): StructureWorkbookRow {
+  return ensureRowOpenings(
+    ensureRowPenetrations({
+      ...row,
+      penetrations: row.penetrations ?? [],
+      openings: row.openings ?? [],
+    }),
+  );
+}
+
+/**
+ * Prepares a row for full drill-sheet mode. Blank placeholder openings are
+ * replaced by openings seeded from the quote-only penetrations list.
+ */
+export function upgradeRowToFullDetail(
+  row: StructureWorkbookRow,
+): StructureWorkbookRow {
+  const withPenetrations = ensureRowPenetrations(row);
+  const hasRealOpenings = (row.openings ?? []).some(
+    (opening) =>
+      opening.pipeMaterial.trim() !== "" ||
+      parseNum(opening.invertElevation) != null,
+  );
+  const base = hasRealOpenings
+    ? withPenetrations
+    : { ...withPenetrations, openings: [] };
+  return syncRowFromOpenings(ensureRowOpenings(base));
+}
+
+export function syncRowFromOpenings(row: StructureWorkbookRow): StructureWorkbookRow {
+  const openings = row.openings ?? [];
+  let lowestInvert: number | null = null;
+  let bootCount = 0;
+  const penetrationGroups = new Map<string, StructureWorkbookPenetration>();
+
+  for (const opening of openings) {
+    const invert = parseNum(opening.invertElevation);
+    if (invert != null) {
+      if (lowestInvert == null || invert < lowestInvert) {
+        lowestInvert = invert;
+      }
+    }
+    if (opening.pipeMaterial.trim() && parseNum(opening.pipeSizeInches) != null) {
+      bootCount += 1;
+      const key = `${opening.pipeMaterial}|${opening.pipeSizeInches}`;
+      const existing = penetrationGroups.get(key);
+      if (existing) {
+        existing.qty = String((parseNum(existing.qty) ?? 0) + 1);
+      } else {
+        penetrationGroups.set(key, {
+          id: createRowId(),
+          pipeMaterial: opening.pipeMaterial,
+          pipeSizeInches: opening.pipeSizeInches,
+          qty: "1",
+        });
+      }
+    }
+  }
+
+  const openingA = openings[0];
+  const penetrations = [...penetrationGroups.values()];
+
+  return {
+    ...row,
+    lowInvertElevation:
+      lowestInvert != null ? String(lowestInvert) : row.lowInvertElevation,
+    bootCount: String(bootCount),
+    pipeMaterial: openingA?.pipeMaterial ?? row.pipeMaterial,
+    pipeSizeInches: openingA?.pipeSizeInches ?? row.pipeSizeInches,
+    pipeType: "",
+    penetrations:
+      penetrations.length > 0 ? penetrations : row.penetrations ?? [],
+  };
+}
+
+export function isFullDetailReady(row: StructureWorkbookRow): boolean {
+  const openings = row.openings ?? [];
+  const openingA = openings[0];
+  return openingA != null && parseNum(openingA.invertElevation) != null;
+}
+
+export function getStructureDrillSheetStatus(
+  config: QuoteStructureConfig | null | undefined,
+  /** True when the line's linked JobStructure is an actual drill sheet
+   * (has a structure template) — plain won-quote structures don't count. */
+  hasLinkedDrillSheet: boolean,
+): StructureDrillSheetStatus | null {
+  if (!config) {
+    return null;
+  }
+  if (hasLinkedDrillSheet) {
+    return "created";
+  }
+  if (config.detailLevel === "DRILL_SHEET") {
+    return "ready";
+  }
+  return "quote_only";
+}
+
+export function countDrillSheetReadyLines(
+  lineItems: EditableQuoteLineItem[],
+): number {
+  return lineItems.filter((line) => {
+    if (line.type !== "CONFIGURABLE_STRUCTURE" || !line.structureConfig) {
+      return false;
+    }
+    return line.structureConfig.detailLevel === "DRILL_SHEET";
+  }).length;
+}
+
 export function formatStructureNumber(
   prefix: string,
   number: number,
@@ -204,7 +522,6 @@ export function createDefaultWorkbookDefaults(
     castingProductId: template?.defaultCastingProductId ?? "",
     pipeMaterial: "",
     pipeSizeInches: "",
-    pipeType: "",
     bootCount: "1",
     qty: "1",
   };
@@ -214,8 +531,25 @@ export function applyDefaultsToBlankRow(
   row: StructureWorkbookRow,
   defaults: StructureWorkbookDefaults,
 ): StructureWorkbookRow {
-  return {
-    ...row,
+  const withPenetrations = ensureRowPenetrations(row);
+  const penetrations = withPenetrations.penetrations.map(
+    (penetration, index) => {
+      if (index > 0 || penetration.pipeMaterial.trim()) {
+        return penetration;
+      }
+      return {
+        ...penetration,
+        pipeMaterial: defaults.pipeMaterial,
+        pipeSizeInches: penetration.pipeSizeInches.trim()
+          ? penetration.pipeSizeInches
+          : defaults.pipeSizeInches,
+        qty: penetration.qty.trim() ? penetration.qty : defaults.bootCount,
+      };
+    },
+  );
+
+  return syncRowFromPenetrations({
+    ...withPenetrations,
     templateId: row.templateId.trim() ? row.templateId : defaults.templateId,
     diameterFeet: row.diameterFeet.trim()
       ? row.diameterFeet
@@ -223,23 +557,17 @@ export function applyDefaultsToBlankRow(
     castingProductId: row.castingProductId.trim()
       ? row.castingProductId
       : defaults.castingProductId,
-    pipeMaterial: row.pipeMaterial.trim()
-      ? row.pipeMaterial
-      : defaults.pipeMaterial,
-    pipeSizeInches: row.pipeSizeInches.trim()
-      ? row.pipeSizeInches
-      : defaults.pipeSizeInches,
-    pipeType: row.pipeType.trim() ? row.pipeType : defaults.pipeType,
-    bootCount: row.bootCount.trim() ? row.bootCount : defaults.bootCount,
+    penetrations,
     qty: row.qty.trim() ? row.qty : defaults.qty,
-  };
+  });
 }
 
 export function commitWorkbookRowPrice(
   row: StructureWorkbookRow,
   options: StructureWorkbookOptions,
+  workbookMode: WorkbookMode = "QUOTE",
 ): StructureWorkbookRow {
-  const computed = computeWorkbookRowPrice(row, options);
+  const computed = computeWorkbookRowPrice(row, options, workbookMode);
   return {
     ...row,
     wallHeightFeet: computed.wallHeightFeet,
@@ -252,8 +580,9 @@ export function commitWorkbookRowPrice(
 export function commitAllWorkbookRowPrices(
   rows: StructureWorkbookRow[],
   options: StructureWorkbookOptions,
+  workbookMode: WorkbookMode = "QUOTE",
 ): StructureWorkbookRow[] {
-  return rows.map((row) => commitWorkbookRowPrice(row, options));
+  return rows.map((row) => commitWorkbookRowPrice(row, options, workbookMode));
 }
 
 export function createDefaultWorkbookRow(
@@ -288,9 +617,18 @@ export function createDefaultWorkbookRow(
     lowInvertElevation: "",
     pipeMaterial: workbookDefaults.pipeMaterial,
     pipeSizeInches: workbookDefaults.pipeSizeInches,
-    pipeType: workbookDefaults.pipeType,
+    pipeType: "",
     bootCount: workbookDefaults.bootCount || "1",
     qty: workbookDefaults.qty || "1",
+    penetrations: [
+      {
+        id: createRowId(),
+        pipeMaterial: workbookDefaults.pipeMaterial,
+        pipeSizeInches: workbookDefaults.pipeSizeInches,
+        qty: workbookDefaults.bootCount || "1",
+      },
+    ],
+    openings: [createDefaultOpening("A")],
     wallHeightFeet: null,
     unitPrice: null,
     status: "",
@@ -320,9 +658,152 @@ function templateToConfig(template: DrillSheetTemplateOption): TemplateConfig {
   };
 }
 
+function openingsToQuoteConfig(
+  openings: StructureWorkbookOpeningRow[],
+  templateConnectionType: PipeConnectionType,
+): QuoteStructureOpening[] {
+  const result: QuoteStructureOpening[] = [];
+
+  for (const opening of openings) {
+    const invert = parseNum(opening.invertElevation);
+    if (invert == null) {
+      continue;
+    }
+    const pipeSize = parseNum(opening.pipeSizeInches);
+    const hasPipe = opening.pipeMaterial.trim() !== "" && pipeSize != null;
+    result.push({
+      label: opening.label.trim() || "A",
+      pipeMaterial: hasPipe ? opening.pipeMaterial : undefined,
+      pipeSizeInches: hasPipe ? pipeSize : undefined,
+      pipeType: hasPipe ? opening.pipeType : undefined,
+      invertElevation: invert,
+      angleDegrees: parseNum(opening.angleDegrees) ?? 0,
+      connectionType: hasPipe
+        ? ((opening.connectionType ||
+            templateConnectionType) as PipeConnectionType)
+        : null,
+    });
+  }
+
+  return result;
+}
+
+function penetrationsToQuoteConfig(
+  penetrations: StructureWorkbookPenetration[],
+): QuoteStructurePenetration[] {
+  const result: QuoteStructurePenetration[] = [];
+  for (const penetration of penetrations) {
+    const size = parseNum(penetration.pipeSizeInches);
+    if (!penetration.pipeMaterial.trim() || size == null) {
+      continue;
+    }
+    result.push({
+      pipeMaterial: penetration.pipeMaterial,
+      pipeSizeInches: size,
+      qty: Math.max(1, Math.floor(parseNum(penetration.qty) ?? 1)),
+    });
+  }
+  return result;
+}
+
+function computePenetrationsBootsPrice(
+  penetrations: StructureWorkbookPenetration[],
+  pipeOpeningSizes: PipeOpeningSizeEntry[],
+  connectionType: PipeConnectionType,
+): { bootsPrice: number; bootCount: number; missingPrices: string[] } {
+  let bootsPrice = 0;
+  let bootCount = 0;
+  const missingPrices: string[] = [];
+
+  for (const penetration of penetrations) {
+    const size = parseNum(penetration.pipeSizeInches);
+    if (!penetration.pipeMaterial.trim() || size == null) {
+      continue;
+    }
+    const qty = Math.max(1, Math.floor(parseNum(penetration.qty) ?? 1));
+    bootCount += qty;
+
+    if (connectionType !== "KOR_N_SEAL") {
+      continue;
+    }
+    const match = lookupPipeOpeningSize(
+      pipeOpeningSizes,
+      penetration.pipeMaterial,
+      size,
+      true,
+    );
+    if (match?.pricePerBoot != null) {
+      bootsPrice += match.pricePerBoot * qty;
+    } else {
+      missingPrices.push(`${size}" ${penetration.pipeMaterial}`);
+    }
+  }
+
+  return {
+    bootsPrice: Math.round(bootsPrice * 100) / 100,
+    bootCount,
+    missingPrices,
+  };
+}
+
+function buildDrillSheetOpeningsInput(
+  row: StructureWorkbookRow,
+  template: DrillSheetTemplateOption,
+  workbookMode: WorkbookMode,
+): DrillSheetInput["openings"] {
+  if (workbookMode === "DRILL_SHEET") {
+    const synced = syncRowFromOpenings(ensureRowOpenings(row));
+    const result: DrillSheetInput["openings"] = [];
+
+    for (const opening of synced.openings) {
+      const invert = parseNum(opening.invertElevation);
+      if (invert == null) {
+        continue;
+      }
+      const pipeSize = parseNum(opening.pipeSizeInches);
+      const hasPipe = opening.pipeMaterial.trim() !== "" && pipeSize != null;
+      result.push({
+        label: opening.label.trim() || "A",
+        pipeMaterial: hasPipe ? opening.pipeMaterial : null,
+        pipeSizeInches: hasPipe ? pipeSize : null,
+        pipeType: hasPipe ? opening.pipeType : null,
+        invertElevation: invert,
+        angleDegrees: parseNum(opening.angleDegrees) ?? 0,
+        connectionType: hasPipe
+          ? ((opening.connectionType ||
+              template.connectionType) as PipeConnectionType)
+          : null,
+      });
+    }
+
+    return result;
+  }
+
+  const lowInvert = parseNum(row.lowInvertElevation);
+  if (lowInvert == null) {
+    return [];
+  }
+
+  const pipeSize = parseNum(row.pipeSizeInches);
+  const hasPipe = row.pipeMaterial.trim() !== "" && pipeSize != null;
+
+  return [
+    {
+      label: "A",
+      pipeMaterial: hasPipe ? row.pipeMaterial : null,
+      pipeSizeInches: hasPipe ? pipeSize : null,
+      pipeType: hasPipe ? row.pipeType : null,
+      invertElevation: lowInvert,
+      angleDegrees: 0,
+      connectionType: hasPipe ? template.connectionType : null,
+    },
+  ];
+}
+
 export function computeWorkbookRowPrice(
   row: StructureWorkbookRow,
   options: StructureWorkbookOptions,
+  workbookMode: WorkbookMode = "QUOTE",
 ): {
   wallHeightFeet: number | null;
   unitPrice: number | null;
@@ -331,9 +812,13 @@ export function computeWorkbookRowPrice(
 } {
   const template = options.templates.find((entry) => entry.id === row.templateId);
   const rim = parseNum(row.rimElevation);
-  const lowInvert = parseNum(row.lowInvertElevation);
   const diameterFeet = parseNum(row.diameterFeet);
-  const bootCount = Math.max(1, Math.floor(parseNum(row.bootCount) ?? 1));
+
+  const workingRow =
+    workbookMode === "DRILL_SHEET"
+      ? syncRowFromOpenings(ensureRowOpenings(row))
+      : syncRowFromPenetrations(ensureRowPenetrations(row));
+  const lowInvert = parseNum(workingRow.lowInvertElevation);
 
   if (!template) {
     return {
@@ -370,7 +855,10 @@ export function computeWorkbookRowPrice(
     return {
       wallHeightFeet: null,
       unitPrice: null,
-      status: "Enter rim and low invert",
+      status:
+        workbookMode === "DRILL_SHEET"
+          ? "Enter rim and opening inverts"
+          : "Enter rim and low invert",
       structureConfig: null,
     };
   }
@@ -381,11 +869,23 @@ export function computeWorkbookRowPrice(
   const castingHeightFeet =
     casting?.heightFeet ?? template.defaultCastingHeightFeet ?? 0;
 
-  const pipeSize = parseNum(row.pipeSizeInches);
-  const hasPipe =
-    row.pipeMaterial.trim() !== "" &&
-    pipeSize != null &&
-    row.pipeType.trim() !== "";
+  const drillOpenings = buildDrillSheetOpeningsInput(
+    workingRow,
+    template,
+    workbookMode,
+  );
+
+  if (drillOpenings.length === 0) {
+    return {
+      wallHeightFeet: null,
+      unitPrice: null,
+      status:
+        workbookMode === "DRILL_SHEET"
+          ? "Add at least opening A with invert"
+          : "Enter rim and low invert",
+      structureConfig: null,
+    };
+  }
 
   const input: DrillSheetInput = {
     rimElevation: rim,
@@ -393,38 +893,61 @@ export function computeWorkbookRowPrice(
     diameter: diameterConfig,
     template: templateToConfig(template),
     pipeOpeningSizes: options.pipeOpeningSizes,
-    openings: [
-      {
-        label: "A",
-        pipeMaterial: hasPipe ? row.pipeMaterial : null,
-        pipeSizeInches: hasPipe ? pipeSize : null,
-        pipeType: hasPipe ? row.pipeType : null,
-        invertElevation: lowInvert,
-        angleDegrees: 0,
-        connectionType: hasPipe ? template.connectionType : null,
-      },
-    ],
+    openings: drillOpenings,
   };
 
   const result = computeDrillSheet(input);
-
-  let bootsPrice = result.bootsPrice;
-  if (bootCount > 1 && bootsPrice > 0) {
-    const perBoot = bootsPrice / 1;
-    bootsPrice = Math.round(perBoot * bootCount * 100) / 100;
-  } else if (bootCount === 0) {
-    bootsPrice = 0;
-  }
-
-  const totalPrice = Math.round((result.wallPrice + bootsPrice) * 100) / 100;
 
   const warnings = [...result.warnings];
   if (result.errorMessage) {
     warnings.unshift(result.errorMessage);
   }
-  if (hasPipe && result.bootsPrice === 0 && template.connectionType === "KOR_N_SEAL") {
+
+  const pipeSize = parseNum(workingRow.pipeSizeInches);
+  const hasPipe =
+    workingRow.pipeMaterial.trim() !== "" && pipeSize != null;
+
+  let bootsPrice = result.bootsPrice;
+  let bootCount = Math.max(
+    0,
+    Math.floor(parseNum(workingRow.bootCount) ?? 0),
+  );
+
+  if (workbookMode === "QUOTE") {
+    // Boot pricing comes from the penetrations list so each pipe size is
+    // priced with its own boot, not the first pipe's boot × count.
+    const penetrationPricing = computePenetrationsBootsPrice(
+      workingRow.penetrations,
+      options.pipeOpeningSizes,
+      template.connectionType,
+    );
+    bootsPrice = penetrationPricing.bootsPrice;
+    bootCount = penetrationPricing.bootCount;
+    for (const missing of penetrationPricing.missingPrices) {
+      warnings.push(`No boot price found for ${missing}.`);
+    }
+  } else if (
+    hasPipe &&
+    result.bootsPrice === 0 &&
+    template.connectionType === "KOR_N_SEAL"
+  ) {
     warnings.push("No boot price found for selected pipe size.");
   }
+
+  const totalPrice = Math.round((result.wallPrice + bootsPrice) * 100) / 100;
+
+  const fullDetailReady =
+    workbookMode === "DRILL_SHEET" && isFullDetailReady(workingRow);
+  const detailLevel: QuoteStructureDetailLevel = fullDetailReady
+    ? "DRILL_SHEET"
+    : "QUOTE";
+  const quoteOpenings =
+    fullDetailReady && workingRow.openings?.length
+      ? openingsToQuoteConfig(workingRow.openings, template.connectionType)
+      : undefined;
+  const quotePenetrations = penetrationsToQuoteConfig(
+    workingRow.penetrations ?? [],
+  );
 
   const structureConfig: QuoteStructureConfig = {
     templateId: template.id,
@@ -433,10 +956,14 @@ export function computeWorkbookRowPrice(
     castingProductId: row.castingProductId || null,
     rimElevation: rim,
     lowInvertElevation: lowInvert,
-    pipeMaterial: hasPipe ? row.pipeMaterial : undefined,
+    pipeMaterial: hasPipe ? workingRow.pipeMaterial : undefined,
     pipeSizeInches: hasPipe ? pipeSize! : undefined,
-    pipeType: hasPipe ? row.pipeType : undefined,
+    pipeType: hasPipe ? workingRow.pipeType : undefined,
     bootCount,
+    detailLevel,
+    penetrations:
+      quotePenetrations.length > 0 ? quotePenetrations : undefined,
+    openings: quoteOpenings,
     wallHeightFeet: result.wallHeightFeet,
     wallPrice: result.wallPrice,
     bootsPrice,
@@ -445,9 +972,17 @@ export function computeWorkbookRowPrice(
     errorMessage: result.errorMessage,
   };
 
-  const status =
+  let status =
     result.errorMessage ??
     (warnings.length > 0 ? warnings[0] : "OK");
+
+  if (workbookMode === "DRILL_SHEET") {
+    if (fullDetailReady && !result.errorMessage) {
+      status = "Drill sheet ready";
+    } else if (!fullDetailReady && !result.errorMessage) {
+      status = "Quote only — add opening A invert for drill sheet";
+    }
+  }
 
   return {
     wallHeightFeet: result.wallHeightFeet,
@@ -455,6 +990,20 @@ export function computeWorkbookRowPrice(
     status,
     structureConfig,
   };
+}
+
+export function formatPenetrationsSummary(
+  penetrations: QuoteStructurePenetration[] | undefined,
+): string {
+  if (!penetrations?.length) {
+    return "";
+  }
+  return penetrations
+    .map(
+      (penetration) =>
+        `${penetration.qty}×${penetration.pipeSizeInches}" ${penetration.pipeMaterial}`,
+    )
+    .join(", ");
 }
 
 export function formatStructureDescription(
@@ -471,7 +1020,9 @@ export function formatStructureDescription(
       : "";
   const rim = config.rimElevation.toFixed(2);
   const inv = config.lowInvertElevation.toFixed(2);
-  return `${diameterLabel} ${templateName} — Rim ${rim}' / Inv ${inv}'${wall ? ` — ${wall}` : ""}`.trim();
+  const pipes = formatPenetrationsSummary(config.penetrations);
+  const base = `${diameterLabel} ${templateName} — Rim ${rim}' / Inv ${inv}'${wall ? ` — ${wall}` : ""}`.trim();
+  return pipes ? `${base} — Pipes: ${pipes}` : base;
 }
 
 export function workbookRowToLineItem(
@@ -498,7 +1049,10 @@ export function workbookRowToLineItem(
     weight: "",
     yards: "",
     taxable: true,
-    statusNote: "Cut sheet required after award.",
+    statusNote:
+      row.structureConfig.detailLevel === "DRILL_SHEET"
+        ? "Drill sheet ready — create after award."
+        : "Cut sheet required after award.",
     structureConfig: row.structureConfig,
   };
 }
@@ -512,6 +1066,49 @@ export function lineItemToWorkbookRow(
     ? templates.find((entry) => entry.id === config.templateId)
     : templates[0];
 
+  const openings: StructureWorkbookOpeningRow[] = config?.openings?.length
+    ? config.openings.map((opening) => ({
+        id: createRowId(),
+        label: opening.label,
+        pipeMaterial: opening.pipeMaterial ?? "",
+        pipeSizeInches: opening.pipeSizeInches?.toString() ?? "",
+        pipeType: opening.pipeType ?? "",
+        invertElevation: opening.invertElevation.toString(),
+        angleDegrees: String(opening.angleDegrees ?? 0),
+        connectionType: opening.connectionType ?? "",
+      }))
+    : [
+        {
+          id: createRowId(),
+          label: "A",
+          pipeMaterial: config?.pipeMaterial ?? "",
+          pipeSizeInches: config?.pipeSizeInches?.toString() ?? "",
+          pipeType: config?.pipeType ?? "",
+          invertElevation: config?.lowInvertElevation?.toString() ?? "",
+          angleDegrees: "0",
+          connectionType: "",
+        },
+      ];
+
+  const penetrations: StructureWorkbookPenetration[] = config?.penetrations
+    ?.length
+    ? config.penetrations.map((penetration) => ({
+        id: createRowId(),
+        pipeMaterial: penetration.pipeMaterial,
+        pipeSizeInches: String(penetration.pipeSizeInches),
+        qty: String(penetration.qty),
+      }))
+    : config?.pipeMaterial
+      ? [
+          {
+            id: createRowId(),
+            pipeMaterial: config.pipeMaterial,
+            pipeSizeInches: config.pipeSizeInches?.toString() ?? "",
+            qty: String(config.bootCount || 1),
+          },
+        ]
+      : [createDefaultPenetration()];
+
   return {
     id: createRowId(),
     lineItemId: line.id,
@@ -523,9 +1120,11 @@ export function lineItemToWorkbookRow(
     lowInvertElevation: config?.lowInvertElevation?.toString() ?? "",
     pipeMaterial: config?.pipeMaterial ?? "",
     pipeSizeInches: config?.pipeSizeInches?.toString() ?? "",
-    pipeType: config?.pipeType ?? "",
+    pipeType: "",
     bootCount: String(config?.bootCount ?? 1),
     qty: line.qty,
+    penetrations,
+    openings,
     wallHeightFeet: config?.wallHeightFeet ?? null,
     unitPrice: config?.totalPrice ?? parseNum(line.unitPrice),
     status: config?.errorMessage ?? (config?.warnings?.[0] ?? ""),
@@ -593,14 +1192,100 @@ export function applyTsvToRows(
     if (cells[5]?.trim()) row.lowInvertElevation = cells[5].trim();
     if (cells[6]?.trim()) row.pipeMaterial = cells[6].trim();
     if (cells[7]?.trim()) row.pipeSizeInches = cells[7].trim();
-    if (cells[8]?.trim()) row.pipeType = cells[8].trim();
-    if (cells[9]?.trim()) row.bootCount = cells[9].trim();
-    if (cells[10]?.trim()) row.qty = cells[10].trim();
+    if (cells[8]?.trim()) row.bootCount = cells[8].trim();
+    if (cells[9]?.trim()) row.qty = cells[9].trim();
+
+    row.penetrations = row.pipeMaterial.trim()
+      ? [
+          {
+            id: createRowId(),
+            pipeMaterial: row.pipeMaterial,
+            pipeSizeInches: row.pipeSizeInches,
+            qty: row.bootCount.trim() || "1",
+          },
+        ]
+      : [createDefaultPenetration()];
 
     next.push(row);
   }
 
   return next;
+}
+
+function parsePenetrationsFromJson(
+  value: unknown,
+): QuoteStructurePenetration[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const penetrations: QuoteStructurePenetration[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+    const penetration = entry as Record<string, unknown>;
+    if (
+      typeof penetration.pipeMaterial !== "string" ||
+      typeof penetration.pipeSizeInches !== "number"
+    ) {
+      continue;
+    }
+    penetrations.push({
+      pipeMaterial: penetration.pipeMaterial,
+      pipeSizeInches: penetration.pipeSizeInches,
+      qty:
+        typeof penetration.qty === "number" && penetration.qty > 0
+          ? Math.floor(penetration.qty)
+          : 1,
+    });
+  }
+
+  return penetrations.length > 0 ? penetrations : undefined;
+}
+
+function parseOpeningsFromJson(value: unknown): QuoteStructureOpening[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const openings: QuoteStructureOpening[] = [];
+
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+    const opening = entry as Record<string, unknown>;
+    if (typeof opening.invertElevation !== "number") {
+      continue;
+    }
+
+    openings.push({
+      label: typeof opening.label === "string" ? opening.label : "A",
+      pipeMaterial:
+        typeof opening.pipeMaterial === "string"
+          ? opening.pipeMaterial
+          : undefined,
+      pipeSizeInches:
+        typeof opening.pipeSizeInches === "number"
+          ? opening.pipeSizeInches
+          : undefined,
+      pipeType:
+        typeof opening.pipeType === "string" ? opening.pipeType : undefined,
+      invertElevation: opening.invertElevation,
+      angleDegrees:
+        typeof opening.angleDegrees === "number" ? opening.angleDegrees : 0,
+      connectionType:
+        opening.connectionType === "KOR_N_SEAL" ||
+        opening.connectionType === "CAST_IN" ||
+        opening.connectionType === "GROUTED" ||
+        opening.connectionType === "OTHER"
+          ? opening.connectionType
+          : null,
+    });
+  }
+
+  return openings.length > 0 ? openings : undefined;
 }
 
 export function parseStructureConfigJson(
@@ -634,6 +1319,10 @@ export function parseStructureConfigJson(
       typeof data.pipeSizeInches === "number" ? data.pipeSizeInches : undefined,
     pipeType: typeof data.pipeType === "string" ? data.pipeType : undefined,
     bootCount: typeof data.bootCount === "number" ? data.bootCount : 1,
+    detailLevel:
+      data.detailLevel === "DRILL_SHEET" ? "DRILL_SHEET" : "QUOTE",
+    penetrations: parsePenetrationsFromJson(data.penetrations),
+    openings: parseOpeningsFromJson(data.openings),
     wallHeightFeet:
       typeof data.wallHeightFeet === "number" ? data.wallHeightFeet : undefined,
     wallPrice: typeof data.wallPrice === "number" ? data.wallPrice : undefined,

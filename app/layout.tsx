@@ -5,6 +5,7 @@ import {
   companyLogoApiUrl,
   getCompanyLogoUpdatedAt,
 } from "@/lib/company-logo";
+import { AppProviders } from "@/components/ui/app-providers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -53,7 +54,9 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased [color-scheme:light] text-slate-900`}
     >
-      <body className="min-h-full flex flex-col text-slate-900">{children}</body>
+      <body className="min-h-full flex flex-col font-sans text-slate-900">
+        <AppProviders>{children}</AppProviders>
+      </body>
     </html>
   );
 }

@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StructureWorkbookPageClient } from "@/components/quotes/structure-workbook/structure-workbook-page-client";
+import { getPlanSheetForQuote } from "@/app/quotes/plan-sheet-actions";
 import { requirePermission } from "@/lib/auth/session";
 import { canEditQuote } from "@/lib/quotes/edit-rules";
 import { mapQuoteToFormInitialValues } from "@/lib/quote-mapper";
@@ -53,6 +54,7 @@ export default async function EditQuoteStructuresPage({
   }
 
   const formValues = mapQuoteToFormInitialValues(quote);
+  const initialPlanSheet = await getPlanSheetForQuote(id);
   const {
     templateOptions,
     castingOptions,
@@ -67,8 +69,10 @@ export default async function EditQuoteStructuresPage({
     >
       <StructureWorkbookPageClient
         quoteId={id}
+        jobId={quote.jobId}
         returnPath={`/quotes/${id}/edit`}
         serverLineItems={formValues.lineItems}
+        initialPlanSheet={initialPlanSheet}
         templates={templateOptions}
         castings={castingOptions}
         pipeOpeningSizes={pipeOpeningSizes}

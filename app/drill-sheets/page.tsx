@@ -3,6 +3,7 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { PaginationControls } from "@/components/common/pagination-controls";
 import { formatFeetInches } from "@/lib/drill-sheet";
+import { formatUsd } from "@/lib/format";
 import { withDatabaseRetry } from "@/lib/prisma";
 import {
   buildPageInfo,
@@ -114,7 +115,7 @@ export default async function DrillSheetsPage({
                     </td>
                     <td className="px-4 py-2.5 text-slate-600 tabular-nums">
                       {sheet.calc?.totalPrice != null
-                        ? `$${Number(sheet.calc.totalPrice).toFixed(2)}`
+                        ? formatUsd(Number(sheet.calc.totalPrice))
                         : "—"}
                     </td>
                     <td className="px-4 py-2.5 text-slate-600">

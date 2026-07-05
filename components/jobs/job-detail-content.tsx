@@ -8,6 +8,7 @@ import { JobInvoiceActions } from "@/components/jobs/job-invoice-actions";
 import { JobStructureSubmittalActions } from "@/components/jobs/job-structure-submittal-actions";
 import { JobFavoriteStar } from "@/components/jobs/job-favorite-star";
 import { StructureManageLink } from "@/components/jobs/structure-manage-link";
+import { DrillSheetPdfLink } from "@/components/drill-sheets/drill-sheet-pdf-link";
 import { JobDeliveriesTable } from "@/components/jobs/job-deliveries-table";
 import {
   groupJobRelatedQuotes,
@@ -49,6 +50,15 @@ const TAB_LABELS: Record<JobDetailTab, string> = {
   invoices: "Invoices",
   "construction-plans": "Construction Plans",
   files: "Files",
+};
+
+/** Which tab each summary stat card links to. */
+const STAT_TABS: Record<string, JobDetailTab> = {
+  Quotes: "quotes",
+  "Won Value": "quotes",
+  Structures: "production",
+  Deliveries: "deliveries",
+  Invoices: "invoices",
 };
 
 function NewRecordLink({ href, label }: { href: string; label: string }) {
@@ -174,7 +184,7 @@ export function JobDetailContent({
             </Link>
           ) : null}
           <Link
-            href="/quotes/new"
+            href={`/quotes/new?jobId=${detail.id}`}
             className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
           >
             New Quote
@@ -218,20 +228,38 @@ export function JobDetailContent({
       </section>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {detail.stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm"
-          >
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
-              {stat.label}
-            </p>
-            <p className="mt-1 text-xl font-semibold text-slate-900">
-              {stat.value}
-            </p>
-            <p className="mt-1 text-[11px] text-slate-500">{stat.detail}</p>
-          </div>
-        ))}
+        {detail.stats.map((stat) => {
+          const statTab = STAT_TABS[stat.label];
+          const card = (
+            <>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                {stat.label}
+              </p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">
+                {stat.value}
+              </p>
+              <p className="mt-1 text-[11px] text-slate-500">{stat.detail}</p>
+            </>
+          );
+
+          return statTab ? (
+            <Link
+              key={stat.label}
+              href={tabHref(detail.id, statTab)}
+              title={`Open ${TAB_LABELS[statTab]}`}
+              className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50/60"
+            >
+              {card}
+            </Link>
+          ) : (
+            <div
+              key={stat.label}
+              className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm"
+            >
+              {card}
+            </div>
+          );
+        })}
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -514,7 +542,7 @@ export function JobProductionSection({
             {structures.length === 0 ? (
               <EmptyRow
                 colSpan={10}
-                message="No structures recorded for this job yet."
+                message="No structures yet. They are created from a won quote (Link structures / Create Drill Sheets on the quote page) or manually with New Structure."
               />
             ) : (
               structures.map((structure) => (
@@ -555,13 +583,29 @@ export function JobProductionSection({
                     {structure.shippedDate}
                   </td>
                   <td className="px-3 py-2.5">
-                    <JobStructureSubmittalActions
-                      jobId={jobId}
-                      jobStructureId={structure.id}
-                      status={structure.status}
-                      needsSubmittal={structure.needsSubmittal}
-                      folderPath={folderPath}
-                    />
+                    <div className="flex flex-col gap-1.5">
+                      {structure.drillSheetId ? (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <DrillSheetPdfLink
+                            drillSheetId={structure.drillSheetId}
+                            label="PDF"
+                          />
+                          <Link
+                            href={`/drill-sheets/${structure.drillSheetId}`}
+                            className="inline-flex w-fit rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                          >
+                            Drill Sheet
+                          </Link>
+                        </div>
+                      ) : null}
+                      <JobStructureSubmittalActions
+                        jobId={jobId}
+                        jobStructureId={structure.id}
+                        status={structure.status}
+                        needsSubmittal={structure.needsSubmittal}
+                        folderPath={folderPath}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))

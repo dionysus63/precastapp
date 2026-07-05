@@ -1,6 +1,8 @@
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { ImportFeedbackBanner } from "@/components/common/import-feedback-banner";
 import { CustomersList } from "@/components/customers/customers-list";
 import { mapCustomerToRow } from "@/lib/customer-mapper";
+import { OPEN_STATUSES } from "@/lib/quotes/list-summary";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { customerStatusFormOptions } from "@/components/customers/customer-utils";
 import {
@@ -37,6 +39,9 @@ export default async function CustomersPage({
   const sortParam = parseStringParam(params.sort);
   const dirParam = parseStringParam(params.dir);
   const requestedPage = parsePageParam(params.page);
+  const importedCount = Number.parseInt(parseStringParam(params.imported) ?? "", 10);
+  const imported =
+    Number.isFinite(importedCount) && importedCount > 0 ? importedCount : 0;
 
   const sortColumn: CustomerSortColumn =
     sortParam in CUSTOMER_SORT_FIELDS
@@ -79,13 +84,55 @@ export default async function CustomersPage({
     }),
   );
 
-  const rows = customers.map(mapCustomerToRow);
+  const customerIds = customers.map((customer) => customer.id);
+
+  const [openQuoteCounts, invoiceBalances] =
+    customerIds.length === 0
+      ? [[], []]
+      : await withDatabaseRetry((prisma) =>
+          Promise.all([
+            prisma.quote.groupBy({
+              by: ["customerId"],
+              where: {
+                customerId: { in: customerIds },
+                status: { in: OPEN_STATUSES },
+              },
+              _count: { _all: true },
+            }),
+            prisma.invoice.groupBy({
+              by: ["customerId"],
+              where: {
+                customerId: { in: customerIds },
+                status: "SENT",
+              },
+              _sum: { total: true },
+            }),
+          ]),
+        );
+
+  const openQuotesByCustomerId = new Map(
+    openQuoteCounts.map((row) => [row.customerId, row._count._all]),
+  );
+  const balanceByCustomerId = new Map(
+    invoiceBalances.map((row) => [
+      row.customerId,
+      Number(row._sum.total ?? 0),
+    ]),
+  );
+
+  const rows = customers.map((customer) =>
+    mapCustomerToRow(customer, {
+      openQuotes: openQuotesByCustomerId.get(customer.id) ?? 0,
+      balance: balanceByCustomerId.get(customer.id) ?? 0,
+    }),
+  );
 
   return (
     <DashboardShell
       title="Customers"
       subtitle="Manage customer accounts, contacts, and billing relationships."
     >
+      <ImportFeedbackBanner imported={imported} noun="customer" />
       <CustomersList
         customers={rows}
         pageInfo={pageInfo}

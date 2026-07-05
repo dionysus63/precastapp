@@ -4,6 +4,8 @@ type SectionCardProps = {
   action?: React.ReactNode;
   children: React.ReactNode;
   noPadding?: boolean;
+  /** Anchor id so in-page links can scroll to this card. */
+  id?: string;
 };
 
 export function SectionCard({
@@ -12,9 +14,13 @@ export function SectionCard({
   action,
   children,
   noPadding = false,
+  id,
 }: SectionCardProps) {
   return (
-    <section className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
+    <section
+      id={id}
+      className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm scroll-mt-4"
+    >
       <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
         <div>
           <h3 className="text-sm font-semibold text-slate-900">{title}</h3>

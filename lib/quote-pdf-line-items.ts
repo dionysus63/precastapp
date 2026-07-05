@@ -129,7 +129,18 @@ export function measureRowHeight(
   layout: QuoteTableLayout,
 ): number {
   if (item.isCategoryLine) {
-    return layout.lineHeight + layout.rowPadding + measureSeparatorHeight();
+    const descLines = measureDescriptionLines(
+      item.description,
+      font,
+      layout.fontSize,
+      COL_DESC_WIDTH,
+    );
+    const lineCount = Math.max(1, descLines.length);
+    return (
+      lineCount * layout.lineHeight +
+      layout.rowPadding +
+      measureSeparatorHeight()
+    );
   }
 
   const descLines = measureDescriptionLines(
@@ -321,26 +332,44 @@ export function drawLineItemRow(
   layout: QuoteTableLayout,
 ): number {
   if (item.isCategoryLine) {
-    const rowHeight =
-      layout.lineHeight + layout.rowPadding + measureSeparatorHeight();
-    const firstLineY = topY - layout.lineHeight;
-    const categoryText = item.description.trim();
-    drawTextAt(
-      page,
-      boldFont,
-      categoryText,
-      COL_DESC_X,
-      firstLineY,
+    const descLines = measureDescriptionLines(
+      item.description,
+      font,
       layout.fontSize,
+      COL_DESC_WIDTH,
     );
-    if (categoryText) {
-      const textWidth = boldFont.widthOfTextAtSize(
-        categoryText,
+    const lineCount = Math.max(1, descLines.length);
+    const textHeight = lineCount * layout.lineHeight;
+    const rowHeight = textHeight + layout.rowPadding + measureSeparatorHeight();
+    const firstLineY = topY - layout.lineHeight;
+
+    if (descLines.length === 0) {
+      const separatorY = topY - textHeight - layout.rowPadding;
+      drawRowSeparator(page, separatorY);
+      return topY - rowHeight;
+    }
+
+    for (let index = 0; index < descLines.length; index += 1) {
+      const lineText = descLines[index]!;
+      const lineY = firstLineY - index * layout.lineHeight;
+      const isTitleLine = index === 0;
+
+      drawTextAt(
+        page,
+        isTitleLine ? boldFont : font,
+        lineText,
+        COL_DESC_X,
+        lineY,
         layout.fontSize,
       );
-      drawTextUnderline(page, COL_DESC_X, firstLineY, textWidth);
+
+      if (isTitleLine && lineText.trim()) {
+        const textWidth = boldFont.widthOfTextAtSize(lineText, layout.fontSize);
+        drawTextUnderline(page, COL_DESC_X, lineY, textWidth);
+      }
     }
-    const separatorY = topY - layout.lineHeight - layout.rowPadding;
+
+    const separatorY = topY - textHeight - layout.rowPadding;
     drawRowSeparator(page, separatorY);
     return topY - rowHeight;
   }

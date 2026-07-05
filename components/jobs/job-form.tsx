@@ -1,4 +1,10 @@
+"use client";
+
 import Link from "next/link";
+import { useMemo, useState } from "react";
+import { searchCustomersForJobForm } from "@/app/jobs/actions";
+import { FormTypeahead } from "@/components/common/form-typeahead";
+import { SubmitButton } from "@/components/ui/submit-button";
 import {
   jobInputClassName,
   jobStatusFormOptions,
@@ -47,6 +53,14 @@ export function JobForm({
   defaultValues,
 }: JobFormProps) {
   const isEdit = Boolean(defaultValues?.id);
+  const initialCustomer = useMemo(
+    () =>
+      customers.find((customer) => customer.id === defaultValues?.customerId) ??
+      null,
+    [customers, defaultValues?.customerId],
+  );
+  const [customerId, setCustomerId] = useState(defaultValues?.customerId ?? "");
+  const [customerLabel, setCustomerLabel] = useState(initialCustomer?.name ?? "");
 
   return (
     <form action={action} className="space-y-5">
@@ -81,19 +95,23 @@ export function JobForm({
           >
             Awarded Contractor
           </label>
-          <select
-            id="customerId"
-            name="customerId"
-            defaultValue={defaultValues?.customerId ?? ""}
-            className={jobInputClassName}
-          >
-            <option value="">No contractor yet (multi-bid)</option>
-            {customers.map((customer) => (
-              <option key={customer.id} value={customer.id}>
-                {customer.name}
-              </option>
-            ))}
-          </select>
+          <input type="hidden" name="customerId" value={customerId} />
+          <FormTypeahead
+            inputId="customerId"
+            selectedLabel={customerLabel}
+            placeholder="Search contractors…"
+            initialItems={initialCustomer ? [initialCustomer] : customers.slice(0, 20)}
+            searchItems={searchCustomersForJobForm}
+            itemKey={(customer) => customer.id}
+            itemLabel={(customer) => customer.name}
+            clearLabel="No contractor yet (multi-bid)"
+            onSelect={(customer) => {
+              setCustomerId(customer?.id ?? "");
+              setCustomerLabel(customer?.name ?? "");
+            }}
+            inputClassName={jobInputClassName}
+            preventEnterSubmit={false}
+          />
         </div>
 
         <div>
@@ -207,32 +225,8 @@ export function JobForm({
         </div>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        {!isEdit ? (
-          <div>
-            <label
-              htmlFor="jobYear"
-              className="block text-xs font-medium text-slate-700"
-            >
-              Job Year *
-            </label>
-            <input
-              id="jobYear"
-              name="jobYear"
-              type="number"
-              required
-              min="2000"
-              max="2099"
-              defaultValue={defaultValues?.jobYear ?? defaultJobYear}
-              className={jobInputClassName}
-            />
-            <p className="mt-2 text-xs text-slate-500">
-              The job number will be assigned automatically, such as 26-001.
-            </p>
-          </div>
-        ) : null}
-
-        <div className={isEdit ? "sm:col-span-2" : undefined}>
+      {isEdit ? (
+        <div>
           <label
             htmlFor="status"
             className="block text-xs font-medium text-slate-700"
@@ -252,9 +246,14 @@ export function JobForm({
             ))}
           </select>
         </div>
-      </div>
+      ) : (
+        <p className="text-xs text-slate-500">
+          Job number will be assigned automatically for {defaultJobYear} (e.g.{" "}
+          {String(defaultJobYear % 100).padStart(2, "0")}-001).
+        </p>
+      )}
 
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className={isEdit ? "grid gap-5 sm:grid-cols-2" : undefined}>
         <div>
           <label
             htmlFor="bidDate"
@@ -271,75 +270,79 @@ export function JobForm({
           />
         </div>
 
-        <div>
-          <label
-            htmlFor="awardedDate"
-            className="block text-xs font-medium text-slate-700"
-          >
-            Awarded Date
-          </label>
-          <input
-            id="awardedDate"
-            name="awardedDate"
-            type="date"
-            defaultValue={defaultValues?.awardedDate ?? ""}
-            className={jobInputClassName}
-          />
-        </div>
+        {isEdit ? (
+          <div>
+            <label
+              htmlFor="awardedDate"
+              className="block text-xs font-medium text-slate-700"
+            >
+              Awarded Date
+            </label>
+            <input
+              id="awardedDate"
+              name="awardedDate"
+              type="date"
+              defaultValue={defaultValues?.awardedDate ?? ""}
+              className={jobInputClassName}
+            />
+          </div>
+        ) : null}
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-3">
-        <div>
-          <label
-            htmlFor="contactName"
-            className="block text-xs font-medium text-slate-700"
-          >
-            Contact Name
-          </label>
-          <input
-            id="contactName"
-            name="contactName"
-            type="text"
-            defaultValue={defaultValues?.contactName ?? ""}
-            placeholder="Jane Smith"
-            className={jobInputClassName}
-          />
-        </div>
+      {isEdit ? (
+        <div className="grid gap-5 sm:grid-cols-3">
+          <div>
+            <label
+              htmlFor="contactName"
+              className="block text-xs font-medium text-slate-700"
+            >
+              Contact Name
+            </label>
+            <input
+              id="contactName"
+              name="contactName"
+              type="text"
+              defaultValue={defaultValues?.contactName ?? ""}
+              placeholder="Jane Smith"
+              className={jobInputClassName}
+            />
+          </div>
 
-        <div>
-          <label
-            htmlFor="contactEmail"
-            className="block text-xs font-medium text-slate-700"
-          >
-            Contact Email
-          </label>
-          <input
-            id="contactEmail"
-            name="contactEmail"
-            type="email"
-            defaultValue={defaultValues?.contactEmail ?? ""}
-            placeholder="jane@example.com"
-            className={jobInputClassName}
-          />
-        </div>
+          <div>
+            <label
+              htmlFor="contactEmail"
+              className="block text-xs font-medium text-slate-700"
+            >
+              Contact Email
+            </label>
+            <input
+              id="contactEmail"
+              name="contactEmail"
+              type="email"
+              defaultValue={defaultValues?.contactEmail ?? ""}
+              placeholder="jane@example.com"
+              className={jobInputClassName}
+            />
+          </div>
 
-        <div>
-          <label
-            htmlFor="contactPhone"
-            className="block text-xs font-medium text-slate-700"
-          >
-            Contact Phone
-          </label>
-          <input
-            id="contactPhone"
-            name="contactPhone"
-            type="tel"
-            defaultValue={defaultValues?.contactPhone ?? ""}
-            placeholder="(631) 555-0100"
-            className={jobInputClassName}
-          />
+          <div>
+            <label
+              htmlFor="contactPhone"
+              className="block text-xs font-medium text-slate-700"
+            >
+              Contact Phone
+            </label>
+            <input
+              id="contactPhone"
+              name="contactPhone"
+              type="tel"
+              defaultValue={defaultValues?.contactPhone ?? ""}
+              placeholder="(631) 555-0100"
+              className={jobInputClassName}
+            />
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div>
         <label
@@ -365,12 +368,7 @@ export function JobForm({
         >
           Cancel
         </Link>
-        <button
-          type="submit"
-          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
-        >
-          {submitLabel}
-        </button>
+        <SubmitButton pendingLabel="Saving…">{submitLabel}</SubmitButton>
       </div>
     </form>
   );

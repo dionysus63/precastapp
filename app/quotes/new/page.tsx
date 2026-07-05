@@ -12,6 +12,7 @@ import {
   defaultQuoteExpirationDate,
   getAppSettings,
 } from "@/lib/app-settings";
+import { listProductTaxonomy } from "@/lib/product-taxonomy.server";
 import { requireAuth } from "@/lib/auth/session";
 import { withDatabaseRetry } from "@/lib/prisma";
 
@@ -36,7 +37,7 @@ export default async function NewQuotePage({
   // Catalogs are no longer preloaded; the form fetches customers, jobs, and
   // products on demand. Only the small shared reference data plus any
   // entities named in the query string are resolved here.
-  const [{ serviceOptions, ringSlabProducts, priceLists }, initialJobRow] =
+  const [{ serviceOptions, ringSlabProducts, pipeProducts, priceLists }, initialJobRow, taxonomy] =
     await Promise.all([
       loadQuoteFormSharedData(appSettings.ringBuilderConfig),
       jobId
@@ -47,6 +48,7 @@ export default async function NewQuotePage({
             }),
           )
         : null,
+      listProductTaxonomy(),
     ]);
 
   const initialJob = initialJobRow
@@ -87,6 +89,8 @@ export default async function NewQuotePage({
           priceLists={priceLists}
           ringBuilderConfig={appSettings.ringBuilderConfig}
           ringSlabProducts={ringSlabProducts}
+          pipeProducts={pipeProducts}
+          taxonomy={taxonomy}
           quoteDefaults={{
             defaultTaxRate: appSettings.defaultTaxRate,
             defaultLeadTime: appSettings.defaultLeadTime,

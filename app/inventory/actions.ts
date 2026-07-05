@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
-import { adjustInventory, savePurchaseReceiptEntry } from "@/lib/inventory-service";
+import {
+  adjustInventory,
+  isDuplicateSubmission,
+  savePurchaseReceiptEntry,
+} from "@/lib/inventory-service";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { translatePrismaError } from "@/lib/server/action-errors";
 
@@ -14,6 +18,8 @@ export async function saveInventoryAdjustment(formData: FormData) {
   const notes = String(formData.get("notes") ?? "").trim() || null;
   const enteredBy = String(formData.get("enteredBy") ?? "").trim() || null;
   const dateRaw = String(formData.get("transactionDate") ?? "").trim();
+  const submissionKey =
+    String(formData.get("submissionKey") ?? "").trim() || null;
 
   if (!productId) {
     return { error: "Product is required." };
@@ -21,6 +27,10 @@ export async function saveInventoryAdjustment(formData: FormData) {
 
   if (!Number.isFinite(quantityChange) || quantityChange === 0) {
     return { error: "Enter a non-zero adjustment quantity." };
+  }
+
+  if (!Number.isInteger(quantityChange)) {
+    return { error: "Adjustment quantity must be a whole number." };
   }
 
   const transactionDate = dateRaw ? new Date(`${dateRaw}T00:00:00`) : new Date();
@@ -36,6 +46,7 @@ export async function saveInventoryAdjustment(formData: FormData) {
         transactionDate,
         notes,
         createdBy: enteredBy,
+        submissionKey,
       }),
     );
 
@@ -43,6 +54,12 @@ export async function saveInventoryAdjustment(formData: FormData) {
     revalidatePath(`/inventory/${productId}`);
     return { success: true };
   } catch (error) {
+    // The same submission already landed (double-click / retry) — success.
+    if (isDuplicateSubmission(error)) {
+      revalidatePath("/inventory");
+      revalidatePath(`/inventory/${productId}`);
+      return { success: true };
+    }
     return {
       error:
         error instanceof Error
@@ -62,6 +79,8 @@ export async function savePurchaseReceipt(formData: FormData) {
   const dateRaw = String(formData.get("receiptDate") ?? "").trim();
   const assemblyId = String(formData.get("assemblyId") ?? "").trim();
   const assemblyQtyRaw = String(formData.get("assemblyQty") ?? "").trim();
+  const submissionKey =
+    String(formData.get("submissionKey") ?? "").trim() || null;
 
   const productIds = formData.getAll("productId").map(String);
   const quantities = formData.getAll("quantityReceived").map(String);
@@ -81,6 +100,11 @@ export async function savePurchaseReceipt(formData: FormData) {
         error: `Line ${index + 1}: quantity received must be a positive number.`,
       };
     }
+    if (!Number.isInteger(qty)) {
+      return {
+        error: `Line ${index + 1}: quantity received must be a whole number.`,
+      };
+    }
     lines.push({ productId, quantityReceived: qty });
   }
 
@@ -98,6 +122,9 @@ export async function savePurchaseReceipt(formData: FormData) {
           const assemblyQty = Number(assemblyQtyRaw);
           if (!Number.isFinite(assemblyQty) || assemblyQty <= 0) {
             throw new Error("Enter a quantity for the full casting set.");
+          }
+          if (!Number.isInteger(assemblyQty)) {
+            throw new Error("Casting set quantity must be a whole number.");
           }
 
           const bom = await tx.productCastingComponent.findMany({
@@ -123,14 +150,21 @@ export async function savePurchaseReceipt(formData: FormData) {
           enteredBy,
           notes,
           batchLabel,
+          submissionKey,
           lines: txLines,
         });
       });
     });
 
     revalidatePath("/inventory");
+    revalidatePath("/inventory/receipts");
     return { success: true };
   } catch (error) {
+    // The same submission already landed (double-click / retry) — success.
+    if (isDuplicateSubmission(error)) {
+      revalidatePath("/inventory");
+      return { success: true };
+    }
     return {
       error:
         error instanceof Error
@@ -138,4 +172,45 @@ export async function savePurchaseReceipt(formData: FormData) {
           : "Could not save receipt.",
     };
   }
+}
+
+export type InventoryProductSearchOption = {
+  id: string;
+  productCode: string;
+  name: string;
+  unit: string;
+  currentStockQuantity: number;
+};
+
+export async function searchInventoryProducts(
+  query: string,
+): Promise<InventoryProductSearchOption[]> {
+  await requirePermission(AppPermission.INVENTORY_VIEW);
+
+  const trimmed = query.trim();
+  return withDatabaseRetry((client) =>
+    client.product.findMany({
+      where: {
+        trackInventory: true,
+        status: "ACTIVE",
+        ...(trimmed
+          ? {
+              OR: [
+                { productCode: { contains: trimmed, mode: "insensitive" } },
+                { name: { contains: trimmed, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: { productCode: "asc" },
+      take: 20,
+      select: {
+        id: true,
+        productCode: true,
+        name: true,
+        unit: true,
+        currentStockQuantity: true,
+      },
+    }),
+  );
 }

@@ -1,0 +1,617 @@
+"use client";
+
+import Link from "next/link";
+import { useMemo, useState, useTransition } from "react";
+import { SectionCard } from "@/components/dashboard/section-card";
+import { StatusBadge } from "@/components/dashboard/status-badge";
+import { PaginationControls } from "@/components/common/pagination-controls";
+import { useListQuery } from "@/components/common/use-list-query";
+import {
+  finalizeInvoices,
+  type InvoiceListRow,
+} from "@/app/invoices/actions";
+import { printPdfUrl } from "@/lib/print-pdf-url";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import type { PageInfo } from "@/lib/list-params";
+
+type InvoicesTabsProps = {
+  invoices: InvoiceListRow[];
+  paidWalkIns: InvoiceListRow[];
+  pageInfo: PageInfo;
+  tabCounts: { drafts: number; finals: number; paidWalkIns: number };
+  initialTab: "drafts" | "final";
+  initialStatus: string;
+  canManage: boolean;
+};
+
+function formatMoney(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(value);
+}
+
+function formatDate(value: Date | null): string {
+  if (!value) return "—";
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  });
+}
+
+function groupByDeliveryDate(rows: InvoiceListRow[]): Map<string, InvoiceListRow[]> {
+  const groups = new Map<string, InvoiceListRow[]>();
+  for (const row of rows) {
+    const key = row.deliveryDate
+      ? new Date(row.deliveryDate).toISOString().slice(0, 10)
+      : "No delivery date";
+    const existing = groups.get(key) ?? [];
+    existing.push(row);
+    groups.set(key, existing);
+  }
+  return new Map(
+    [...groups.entries()].sort(([a], [b]) => b.localeCompare(a)),
+  );
+}
+
+function InvoiceBadges({ row }: { row: InvoiceListRow }) {
+  const badges: string[] = [];
+  if (row.ticketType === "WALK_IN") badges.push("Walk-in");
+  if (
+    row.ticketType === "WALK_IN" &&
+    row.paymentMethod === "PAY_NOW" &&
+    !row.paymentReceived
+  ) {
+    badges.push("Payment due at pickup");
+  }
+  if (row.hasZeroPriceLine) badges.push("$0 line warning");
+  if (badges.length === 0) return null;
+  return (
+    <div className="mt-1 flex flex-wrap gap-1">
+      {badges.map((badge) => (
+        <span
+          key={badge}
+          className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-800"
+        >
+          {badge}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function DraftReviewTab({
+  drafts,
+  paidWalkIns,
+  pageInfo,
+  canManage,
+}: {
+  drafts: InvoiceListRow[];
+  paidWalkIns: InvoiceListRow[];
+  pageInfo: PageInfo;
+  canManage: boolean;
+}) {
+  const confirm = useConfirm();
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [pending, startTransition] = useTransition();
+  const [message, setMessage] = useState<string | null>(null);
+  const [showPaid, setShowPaid] = useState(false);
+  const [invoiceDate, setInvoiceDate] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
+
+  const grouped = useMemo(() => groupByDeliveryDate(drafts), [drafts]);
+  const selectedTotal = drafts
+    .filter((row) => selected.has(row.id))
+    .reduce((sum, row) => sum + row.total, 0);
+
+  const toggleAll = () => {
+    if (selected.size === drafts.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(drafts.map((row) => row.id)));
+    }
+  };
+
+  const toggleOne = (id: string) => {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const finalizeSelected = async () => {
+    const ids = selected.size > 0 ? [...selected] : drafts.map((row) => row.id);
+    if (ids.length === 0) return;
+    const count = ids.length;
+    const total = ids.reduce((sum, id) => {
+      const row = drafts.find((item) => item.id === id);
+      return sum + (row?.total ?? 0);
+    }, 0);
+    if (
+      !(await confirm({
+        title: "Finalize invoices?",
+        message: `Finalize ${count} draft invoice${count === 1 ? "" : "s"} totaling ${formatMoney(total)}?`,
+        confirmLabel: "Finalize",
+      }))
+    ) {
+      return;
+    }
+    startTransition(async () => {
+      const result = await finalizeInvoices(ids, invoiceDate);
+      setMessage(result.error ?? `Finalized ${result.finalized ?? 0} invoice(s).`);
+      if (!result.error) setSelected(new Set());
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-slate-600">
+          {pageInfo.total.toLocaleString()} draft invoice
+          {pageInfo.total === 1 ? "" : "s"} ready for review.
+        </p>
+        {canManage ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-1.5 text-xs text-slate-600">
+              Invoice date
+              <input
+                type="date"
+                value={invoiceDate}
+                onChange={(event) => setInvoiceDate(event.target.value)}
+                className="rounded border border-slate-200 px-2 py-1"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={pending || drafts.length === 0}
+              onClick={() =>
+                printPdfUrl("/api/invoices/draft-batch/pdf")
+              }
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-50"
+            >
+              Print all drafts
+            </button>
+            <button
+              type="button"
+              disabled={pending || drafts.length === 0}
+              onClick={finalizeSelected}
+              className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+            >
+              {selected.size > 0
+                ? `Finalize selected (${selected.size})`
+                : "Finalize all on page"}
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      {message ? (
+        <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700">
+          {message}
+        </p>
+      ) : null}
+
+      {drafts.length === 0 ? (
+        <p className="text-sm text-slate-500">
+          No draft invoices. Reconcile a delivery day to create them.
+        </p>
+      ) : (
+        [...grouped.entries()].map(([dateKey, rows]) => (
+          <SectionCard
+            key={dateKey}
+            title={`Delivery date: ${dateKey === "No delivery date" ? "—" : dateKey}`}
+            noPadding
+          >
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left text-xs">
+                <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+                  <tr>
+                    {canManage ? (
+                      <th className="px-4 py-2">
+                        <input
+                          type="checkbox"
+                          checked={
+                            drafts.length > 0 && selected.size === drafts.length
+                          }
+                          onChange={toggleAll}
+                          aria-label="Select all drafts"
+                        />
+                      </th>
+                    ) : null}
+                    <th className="px-4 py-2 font-semibold">Invoice</th>
+                    <th className="px-4 py-2 font-semibold">Ticket</th>
+                    <th className="px-4 py-2 font-semibold">Customer</th>
+                    <th className="px-4 py-2 font-semibold">Subtotal</th>
+                    <th className="px-4 py-2 font-semibold">Delivery</th>
+                    <th className="px-4 py-2 font-semibold">Tax</th>
+                    <th className="px-4 py-2 font-semibold">Total</th>
+                    <th className="px-4 py-2 font-semibold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {rows.map((row) => (
+                    <tr key={row.id} className="hover:bg-slate-50/60">
+                      {canManage ? (
+                        <td className="px-4 py-2">
+                          <input
+                            type="checkbox"
+                            checked={selected.has(row.id)}
+                            onChange={() => toggleOne(row.id)}
+                            aria-label={`Select ${row.invoiceNumber}`}
+                          />
+                        </td>
+                      ) : null}
+                      <td className="px-4 py-2 font-medium">
+                        <Link
+                          href={`/invoices/${row.id}`}
+                          className="text-slate-900 hover:text-slate-700"
+                        >
+                          {row.invoiceNumber}
+                        </Link>
+                        <InvoiceBadges row={row} />
+                      </td>
+                      <td className="px-4 py-2">{row.ticketNumber}</td>
+                      <td className="px-4 py-2">
+                        {row.customerName}
+                        <span className="block text-slate-500">
+                          {row.projectName}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2">{formatMoney(row.subtotal)}</td>
+                      <td className="px-4 py-2">
+                        {formatMoney(row.deliveryAmount)}
+                      </td>
+                      <td className="px-4 py-2">{formatMoney(row.salesTax)}</td>
+                      <td className="px-4 py-2 font-medium">
+                        {formatMoney(row.total)}
+                      </td>
+                      <td className="px-4 py-2">
+                        <div className="flex flex-wrap gap-2">
+                          {canManage ? (
+                            <Link
+                              href={`/invoices/${row.id}/edit`}
+                              className="text-sky-700 underline hover:text-sky-900"
+                            >
+                              Edit
+                            </Link>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              printPdfUrl(`/api/invoices/${row.id}/pdf`)
+                            }
+                            className="text-slate-700 underline hover:text-slate-900"
+                          >
+                            Print
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </SectionCard>
+        ))
+      )}
+
+      {pageInfo.totalPages > 1 ? (
+        <PaginationControls
+          page={pageInfo.page}
+          totalPages={pageInfo.totalPages}
+          fromIndex={pageInfo.fromIndex}
+          toIndex={pageInfo.toIndex}
+          total={pageInfo.total}
+          noun="draft invoice"
+        />
+      ) : null}
+
+      {selected.size > 0 ? (
+        <p className="text-xs text-slate-500">
+          Selected total: {formatMoney(selectedTotal)}
+        </p>
+      ) : null}
+
+      {paidWalkIns.length > 0 ? (
+        <SectionCard title="Already paid walk-ins (reference only)">
+          <button
+            type="button"
+            onClick={() => setShowPaid((value) => !value)}
+            className="mb-3 text-xs font-medium text-slate-700 underline"
+          >
+            {showPaid ? "Hide" : "Show"} {paidWalkIns.length} paid walk-in
+            {paidWalkIns.length === 1 ? "" : "s"}
+          </button>
+          {showPaid ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left text-xs">
+                <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+                  <tr>
+                    <th className="px-4 py-2 font-semibold">Invoice</th>
+                    <th className="px-4 py-2 font-semibold">Ticket</th>
+                    <th className="px-4 py-2 font-semibold">Customer</th>
+                    <th className="px-4 py-2 font-semibold">Total</th>
+                    <th className="px-4 py-2 font-semibold">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {paidWalkIns.map((row) => (
+                    <tr key={row.id}>
+                      <td className="px-4 py-2">
+                        <Link
+                          href={`/invoices/${row.id}`}
+                          className="font-medium text-slate-900"
+                        >
+                          {row.invoiceNumber}
+                        </Link>
+                        <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-800">
+                          Already paid
+                        </span>
+                      </td>
+                      <td className="px-4 py-2">{row.ticketNumber}</td>
+                      <td className="px-4 py-2">{row.customerName}</td>
+                      <td className="px-4 py-2">{formatMoney(row.total)}</td>
+                      <td className="px-4 py-2">
+                        <StatusBadge label="PAID" variant="success" />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </SectionCard>
+      ) : null}
+    </div>
+  );
+}
+
+function FinalInvoicesTab({
+  invoices,
+  pageInfo,
+  initialStatus,
+  canManage,
+}: {
+  invoices: InvoiceListRow[];
+  pageInfo: PageInfo;
+  initialStatus: string;
+  canManage: boolean;
+}) {
+  const confirm = useConfirm();
+  const { setParams } = useListQuery();
+  const statusFilter =
+    initialStatus === "SENT" ||
+    initialStatus === "PAID" ||
+    initialStatus === "VOID"
+      ? initialStatus
+      : "ALL";
+  const [pending, startTransition] = useTransition();
+  const [message, setMessage] = useState<string | null>(null);
+
+  const filtered = invoices;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        {(["ALL", "SENT", "PAID", "VOID"] as const).map((status) => (
+          <button
+            key={status}
+            type="button"
+            onClick={() => setParams({ status: status === "ALL" ? null : status })}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
+              statusFilter === status
+                ? "bg-slate-900 text-white"
+                : "border border-slate-200 text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            {status === "ALL" ? "All" : status === "SENT" ? "Final" : status}
+          </button>
+        ))}
+      </div>
+
+      {message ? (
+        <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700">
+          {message}
+        </p>
+      ) : null}
+
+      <SectionCard title="Invoices" noPadding>
+        {filtered.length === 0 ? (
+          <p className="px-4 py-6 text-sm text-slate-500">
+            No finalized invoices yet.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-xs">
+              <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+                <tr>
+                  <th className="px-4 py-2 font-semibold">Invoice</th>
+                  <th className="px-4 py-2 font-semibold">Ticket</th>
+                  <th className="px-4 py-2 font-semibold">Customer</th>
+                  <th className="px-4 py-2 font-semibold">Invoice date</th>
+                  <th className="px-4 py-2 font-semibold">Total</th>
+                  <th className="px-4 py-2 font-semibold">Status</th>
+                  <th className="px-4 py-2 font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filtered.map((row) => (
+                  <tr key={row.id} className="hover:bg-slate-50/60">
+                    <td className="px-4 py-2 font-medium">
+                      <Link
+                        href={`/invoices/${row.id}`}
+                        className="text-slate-900 hover:text-slate-700"
+                      >
+                        {row.invoiceNumber}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2">{row.ticketNumber}</td>
+                    <td className="px-4 py-2">
+                      {row.customerName}
+                      <span className="block text-slate-500">
+                        {row.projectName}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2">{formatDate(row.invoiceDate)}</td>
+                    <td className="px-4 py-2 font-medium">
+                      {formatMoney(row.total)}
+                    </td>
+                    <td className="px-4 py-2">
+                      <StatusBadge
+                        label={row.status === "SENT" ? "Final" : row.status}
+                        variant={
+                          row.status === "PAID"
+                            ? "success"
+                            : row.status === "VOID"
+                              ? "neutral"
+                              : "info"
+                        }
+                      />
+                    </td>
+                    <td className="px-4 py-2">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            printPdfUrl(`/api/invoices/${row.id}/pdf`)
+                          }
+                          className="text-slate-700 underline hover:text-slate-900"
+                        >
+                          Print
+                        </button>
+                        {canManage && row.status === "SENT" ? (
+                          <>
+                            <button
+                              type="button"
+                              disabled={pending}
+                              onClick={() => {
+                                startTransition(async () => {
+                                  const { markInvoicePaid } = await import(
+                                    "@/app/invoices/actions"
+                                  );
+                                  const result = await markInvoicePaid(row.id);
+                                  setMessage(
+                                    result.error ?? "Marked paid.",
+                                  );
+                                });
+                              }}
+                              className="text-emerald-700 underline hover:text-emerald-900 disabled:opacity-50"
+                            >
+                              Mark paid
+                            </button>
+                            <button
+                              type="button"
+                              disabled={pending}
+                              onClick={async () => {
+                                if (
+                                  !(await confirm({
+                                    title: "Void invoice?",
+                                    message: `Void invoice ${row.invoiceNumber}?`,
+                                    confirmLabel: "Void invoice",
+                                    variant: "danger",
+                                  }))
+                                ) {
+                                  return;
+                                }
+                                startTransition(async () => {
+                                  const { voidInvoice } = await import(
+                                    "@/app/invoices/actions"
+                                  );
+                                  const result = await voidInvoice(row.id);
+                                  setMessage(result.error ?? "Invoice voided.");
+                                });
+                              }}
+                              className="text-red-700 underline hover:text-red-900 disabled:opacity-50"
+                            >
+                              Void
+                            </button>
+                          </>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <PaginationControls
+          page={pageInfo.page}
+          totalPages={pageInfo.totalPages}
+          fromIndex={pageInfo.fromIndex}
+          toIndex={pageInfo.toIndex}
+          total={pageInfo.total}
+          noun="invoice"
+        />
+      </SectionCard>
+    </div>
+  );
+}
+
+export function InvoicesTabs({
+  invoices,
+  paidWalkIns,
+  pageInfo,
+  tabCounts,
+  initialTab,
+  initialStatus,
+  canManage,
+}: InvoicesTabsProps) {
+  const { setParams } = useListQuery();
+  const tab = initialTab;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-2">
+        <button
+          type="button"
+          onClick={() => setParams({ tab: "drafts" })}
+          className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
+            tab === "drafts"
+              ? "bg-slate-900 text-white"
+              : "text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          Draft Review ({tabCounts.drafts})
+        </button>
+        <button
+          type="button"
+          onClick={() => setParams({ tab: "final", status: null })}
+          className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
+            tab === "final"
+              ? "bg-slate-900 text-white"
+              : "text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          Invoices ({tabCounts.finals})
+        </button>
+        <Link
+          href="/delivery-tickets/reconcile"
+          className="ml-auto text-xs text-sky-700 underline hover:text-sky-900"
+        >
+          Reconcile day →
+        </Link>
+      </div>
+
+      {tab === "drafts" ? (
+        <DraftReviewTab
+          drafts={invoices}
+          paidWalkIns={paidWalkIns}
+          pageInfo={pageInfo}
+          canManage={canManage}
+        />
+      ) : (
+        <FinalInvoicesTab
+          invoices={invoices}
+          pageInfo={pageInfo}
+          initialStatus={initialStatus}
+          canManage={canManage}
+        />
+      )}
+    </div>
+  );
+}

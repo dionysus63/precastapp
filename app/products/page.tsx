@@ -1,8 +1,16 @@
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { ImportFeedbackBanner } from "@/components/common/import-feedback-banner";
 import { ProductsList } from "@/components/products/products-list";
 import { mapProductToRow } from "@/lib/product-mapper";
-import { getProductCatalog } from "@/lib/product-catalog-settings.server";
+import {
+  enrichProductWithDerivedAssemblyValues,
+  isDerivableCastingAssembly,
+  loadDerivedAssemblyValues,
+} from "@/lib/casting-service";
+import { getDefaultPriceList, getProductPricesForList } from "@/lib/price-list-service";
+import { listProductTaxonomy } from "@/lib/product-taxonomy.server";
 import { PRODUCT_SUBMITTAL_DOCUMENT_TYPES } from "@/lib/product-submittals-service";
+import { loadEffectiveSubmittalCountsByProductId } from "@/lib/submittal-package";
 import { withDatabaseRetry } from "@/lib/prisma";
 import {
   productStatusFormOptions,
@@ -14,7 +22,6 @@ import {
   parseStringParam,
   type RawSearchParams,
 } from "@/lib/list-params";
-import type { ProductCatalogInUsePair } from "@/lib/product-catalog-settings";
 import type { Prisma } from "@/app/generated/prisma/client";
 
 const VALID_PRODUCT_TYPES = new Set<string>(
@@ -35,9 +42,15 @@ export default async function ProductsPage({
   const categoryParam = parseStringParam(params.category);
   const subcategoryParam = parseStringParam(params.subcategory);
   const statusParam = parseStringParam(params.status);
-  const inventoryParam = parseStringParam(params.inventory);
   const submittalsParam = parseStringParam(params.submittals);
+  const castingOriginParam = parseStringParam(params.castingOrigin);
   const requestedPage = parsePageParam(params.page);
+  const importedCount = Number.parseInt(parseStringParam(params.imported) ?? "", 10);
+  const updatedCount = Number.parseInt(parseStringParam(params.updated) ?? "", 10);
+  const imported =
+    Number.isFinite(importedCount) && importedCount > 0 ? importedCount : 0;
+  const updated =
+    Number.isFinite(updatedCount) && updatedCount > 0 ? updatedCount : 0;
 
   const submittalDocFilter = {
     documentType: { in: PRODUCT_SUBMITTAL_DOCUMENT_TYPES },
@@ -50,25 +63,30 @@ export default async function ProductsPage({
     ...(statusParam && VALID_PRODUCT_STATUSES.has(statusParam)
       ? { status: statusParam as Prisma.ProductWhereInput["status"] }
       : {}),
-    ...(categoryParam ? { category: categoryParam } : {}),
-    ...(subcategoryParam ? { description: subcategoryParam } : {}),
-    ...(inventoryParam === "Yes"
-      ? { trackInventory: true }
-      : inventoryParam === "No"
-        ? { trackInventory: false }
-        : {}),
+    ...(categoryParam && categoryParam !== "All"
+      ? { categoryId: categoryParam }
+      : {}),
+    ...(subcategoryParam && subcategoryParam !== "All"
+      ? { subcategoryId: subcategoryParam }
+      : {}),
     ...(submittalsParam === "Has submittals"
       ? { documents: { some: submittalDocFilter } }
       : submittalsParam === "Missing submittals"
         ? { documents: { none: submittalDocFilter } }
+        : {}),
+    ...(typeParam === "CASTING" && castingOriginParam === "Domestic"
+      ? { castingSupplier: { origin: "DOMESTIC" } }
+      : typeParam === "CASTING" && castingOriginParam === "Imported"
+        ? { castingSupplier: { origin: "IMPORTED" } }
         : {}),
     ...(search
       ? {
           OR: [
             { productCode: { contains: search, mode: "insensitive" } },
             { name: { contains: search, mode: "insensitive" } },
-            { category: { contains: search, mode: "insensitive" } },
             { description: { contains: search, mode: "insensitive" } },
+            { productCategory: { name: { contains: search, mode: "insensitive" } } },
+            { subcategory: { name: { contains: search, mode: "insensitive" } } },
           ],
         }
       : {}),
@@ -79,7 +97,7 @@ export default async function ProductsPage({
   );
   const pageInfo = buildPageInfo(total, requestedPage);
 
-  const [products, catalog, inUseRows] = await withDatabaseRetry((prisma) =>
+  const [products, taxonomy, defaultPriceList] = await withDatabaseRetry((prisma) =>
     Promise.all([
       prisma.product.findMany({
         where,
@@ -87,6 +105,9 @@ export default async function ProductsPage({
         skip: pageInfo.skip,
         take: pageInfo.take,
         include: {
+          productCategory: { select: { name: true } },
+          subcategory: { select: { name: true } },
+          castingSupplier: { select: { origin: true } },
           _count: {
             select: {
               documents: { where: submittalDocFilter },
@@ -94,29 +115,64 @@ export default async function ProductsPage({
           },
         },
       }),
-      getProductCatalog(),
-      prisma.product.findMany({
-        distinct: ["category", "description"],
-        select: { category: true, description: true },
-      }),
+      listProductTaxonomy(),
+      getDefaultPriceList(prisma),
     ]),
   );
 
-  const rows = products.map(mapProductToRow);
-  const inUsePairs: ProductCatalogInUsePair[] = inUseRows.map((row) => ({
-    category: row.category,
-    subcategory: row.description?.trim() || "—",
-  }));
+  const priceMap = defaultPriceList
+    ? await getProductPricesForList(
+        products.map((product) => product.id),
+        defaultPriceList.id,
+      )
+    : new Map();
+
+  const derivableAssemblyIds = products
+    .filter((product) => isDerivableCastingAssembly(product))
+    .map((product) => product.id);
+  const derivedMap = derivableAssemblyIds.length
+    ? await withDatabaseRetry((client) =>
+        loadDerivedAssemblyValues(
+          client,
+          derivableAssemblyIds,
+          defaultPriceList?.id,
+        ),
+      )
+    : new Map();
+
+  const effectiveSubmittalCounts = await withDatabaseRetry((client) =>
+    loadEffectiveSubmittalCountsByProductId(
+      client,
+      products.map((product) => product.id),
+    ),
+  );
+
+  const rows = products.map((product) =>
+    mapProductToRow({
+      ...enrichProductWithDerivedAssemblyValues(
+        product,
+        priceMap.get(product.id),
+        derivedMap.get(product.id),
+      ),
+      _count: {
+        documents: effectiveSubmittalCounts.get(product.id) ?? product._count.documents,
+      },
+    }),
+  );
 
   return (
     <DashboardShell
       title="Products"
       subtitle="Manage precast product catalog, pricing, and inventory tracking."
     >
+      <ImportFeedbackBanner
+        imported={imported}
+        updated={updated}
+        noun="product"
+      />
       <ProductsList
         products={rows}
-        catalog={catalog}
-        inUsePairs={inUsePairs}
+        taxonomy={taxonomy}
         pageInfo={pageInfo}
         filters={{
           search,
@@ -124,8 +180,8 @@ export default async function ProductsPage({
           category: categoryParam,
           subcategory: subcategoryParam,
           status: statusParam,
-          inventory: inventoryParam,
           submittals: submittalsParam,
+          castingOrigin: castingOriginParam,
         }}
       />
     </DashboardShell>

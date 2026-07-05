@@ -1,8 +1,11 @@
+import Link from "next/link";
+
 type SummaryCardProps = {
   label: string;
   value: string;
   detail: string;
   accent: "sky" | "emerald" | "amber" | "rose";
+  href?: string;
 };
 
 const accentStyles = {
@@ -12,9 +15,19 @@ const accentStyles = {
   rose: "border-rose-200 bg-rose-50/40 text-rose-700",
 };
 
-export function SummaryCard({ label, value, detail, accent }: SummaryCardProps) {
-  return (
-    <div className="rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm">
+export function SummaryCard({
+  label,
+  value,
+  detail,
+  accent,
+  href,
+}: SummaryCardProps) {
+  const card = (
+    <div
+      className={`rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm transition-colors ${
+        href ? "hover:border-slate-300 hover:shadow-md" : ""
+      }`}
+    >
       <div className="flex items-start justify-between gap-3">
         <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
           {label}
@@ -31,4 +44,17 @@ export function SummaryCard({ label, value, detail, accent }: SummaryCardProps) 
       <p className="mt-1 text-xs text-slate-500">{detail}</p>
     </div>
   );
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+      >
+        {card}
+      </Link>
+    );
+  }
+
+  return card;
 }

@@ -1,20 +1,26 @@
-import type { ProductKind } from "@/app/generated/prisma/client";
+import type { ProductKind, ProductType } from "@/app/generated/prisma/client";
 import type { StatusVariant } from "@/lib/status-variants";
 import {
   bulkPasteExamples,
   getBulkPasteHeaders,
   productKindLabels,
+  type BulkImportPreset,
 } from "@/lib/product-kinds";
+import {
+  CATALOG_PRODUCT_TYPES,
+  catalogProductTypeFormOptions,
+  productTypeHelperText,
+  productTypeLabels,
+} from "@/lib/product-types";
 
-export type { ProductKind };
-export { productKindLabels };
-
-export type ProductType =
-  | "STOCK"
-  | "CONFIGURABLE"
-  | "CUSTOM_STRUCTURE"
-  | "SERVICE"
-  | "MATERIAL";
+export type { ProductKind, ProductType };
+export {
+  CATALOG_PRODUCT_TYPES,
+  catalogProductTypeFormOptions as productTypeFormOptions,
+  productTypeHelperText,
+  productTypeLabels,
+  productKindLabels,
+};
 
 export type ProductRow = {
   id: string;
@@ -27,7 +33,7 @@ export type ProductRow = {
   subcategory: string;
   categoryVariant: StatusVariant;
   unit: string;
-  defaultPrice: string;
+  unitPrice: string;
   weight: string;
   yards: string;
   trackInventory: boolean;
@@ -38,68 +44,13 @@ export type ProductRow = {
   castingRole?: string;
   productKind?: ProductKind;
   productKindLabel?: string;
-};
-
-export const productTypeLabels: Record<ProductType, string> = {
-  STOCK: "Stock",
-  CONFIGURABLE: "Configurable",
-  CUSTOM_STRUCTURE: "Custom Structure",
-  SERVICE: "Service",
-  MATERIAL: "Material",
+  castingOrigin?: string | null;
+  castingSoldAsUnit?: boolean;
 };
 
 export const productTypeFilterOptions = [
   "All",
-  "Stock",
-  "Configurable",
-  "Custom Structure",
-  "Service",
-  "Material",
-];
-
-export const productTypeFormOptions: { value: ProductType; label: string }[] = [
-  { value: "STOCK", label: "STOCK — Stock" },
-  { value: "CONFIGURABLE", label: "CONFIGURABLE — Configurable" },
-  { value: "CUSTOM_STRUCTURE", label: "CUSTOM_STRUCTURE — Custom Structure" },
-  { value: "SERVICE", label: "SERVICE — Service" },
-  { value: "MATERIAL", label: "MATERIAL — Material" },
-];
-
-export const productTypeHelperText: Record<ProductType, string> = {
-  STOCK:
-    "Standard products made the same way each time and kept in inventory.",
-  CONFIGURABLE:
-    "Reusable product templates that need job-specific cut sheets and openings.",
-  CUSTOM_STRUCTURE:
-    "Custom job-specific structure templates with their own submittals and cut sheets.",
-  SERVICE: "Labor or service items billed without standard inventory tracking.",
-  MATERIAL: "Raw materials or supply items used in production or quoting.",
-};
-
-export const productCategoryFilterOptions = [
-  "All",
-  "Vaults",
-  "Manholes",
-  "Walls",
-  "Slabs",
-  "Drainage",
-  "Accessories",
-  "Castings",
-  "Pipes",
-  "Rings",
-];
-
-export const productSubcategoryFilterOptions = [
-  "All",
-  "Traffic Rated",
-  "Standard Duty",
-  "Light Duty",
-  "Riser",
-  "H8 Panel",
-  "Catch Basin",
-  "Sanitary Sewer",
-  "Equipment Pad",
-  "Lifting Hardware",
+  ...CATALOG_PRODUCT_TYPES.map((type) => productTypeLabels[type]),
 ];
 
 export const productStatusFilterOptions = [
@@ -109,43 +60,17 @@ export const productStatusFilterOptions = [
   "Discontinued",
 ];
 
-export const productInventoryFilterOptions = ["All", "Yes", "No"];
-
 export const productSubmittalsFilterOptions = [
   "All",
   "Has submittals",
   "Missing submittals",
 ];
 
-export const productCategoryFormOptions = [
-  "Vaults",
-  "Manholes",
-  "Walls",
-  "Slabs",
-  "Drainage",
-  "Accessories",
-  "Castings",
-  "Pipes",
-  "Rings",
-];
-
-export const productSubcategoryFormOptions = [
-  "Traffic Rated",
-  "Standard Duty",
-  "Light Duty",
-  "Riser",
-  "Cone",
-  "Base Section",
-  "H6 Panel",
-  "H8 Panel",
-  "Corner Panel",
-  "Catch Basin",
-  "Sanitary Sewer",
-  "Equipment Pad",
-  "Sidewalk Slab",
-  "Lifting Hardware",
-  "Connection Hardware",
-];
+export const productCastingOriginFilterOptions = [
+  "All",
+  "Domestic",
+  "Imported",
+] as const;
 
 export const productUnitFormOptions = ["EA", "LF", "SF", "CY", "Ton"];
 
@@ -154,21 +79,6 @@ export const productStatusFormOptions = [
   { value: "INACTIVE", label: "Inactive" },
   { value: "DISCONTINUED", label: "Discontinued" },
 ];
-
-function productTypeVariant(
-  productType: ProductType,
-): ProductRow["productTypeVariant"] {
-  switch (productType) {
-    case "STOCK":
-      return "success";
-    case "CONFIGURABLE":
-      return "info";
-    case "CUSTOM_STRUCTURE":
-      return "warning";
-    default:
-      return "neutral";
-  }
-}
 
 export const productInputClassName =
   "mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm";
@@ -180,18 +90,18 @@ export type BulkProductPasteRow = {
   category: string;
   subcategory: string;
   unit: string;
-  defaultPrice: string;
+  unitPrice: string;
   weight: string;
   yards: string;
-  supplier: string;
   trackInventory: string;
   kindFields: Record<string, string>;
   isValid: boolean;
+  needsTaxonomyCreate: boolean;
   issues: string[];
 };
 
-/** @deprecated Use getBulkPasteHeaders(kind) instead */
+/** @deprecated Use getBulkPasteHeaders(preset) instead */
 export const bulkPasteColumnHeaders = getBulkPasteHeaders("DRAIN_RING");
 
-/** @deprecated Use bulkPasteExamples[kind] instead */
+/** @deprecated Use bulkPasteExamples[preset] instead */
 export const bulkPasteExample = bulkPasteExamples.DRAIN_RING;

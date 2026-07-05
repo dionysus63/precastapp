@@ -65,11 +65,13 @@ enum ProductStatus {
 }
 
 enum ProductType {
-  STOCK
+  STOCK_PRECAST
+  CASTING
+  ACCESSORY
+  PRECAST_PIPE
+  ADS_PIPE
   CONFIGURABLE
-  CUSTOM_STRUCTURE
   SERVICE
-  MATERIAL
 }
 
 enum ProductDocumentType {
@@ -114,7 +116,44 @@ enum ProductKind {
   DRAIN_RING
   CASTING_ASSEMBLY
   CASTING_COMPONENT
-  PIPE
+}
+
+enum ProductCategoryStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model ProductCategory {
+  id                 String                @id @default(cuid())
+  name               String                @unique
+  productType        ProductType
+  sortOrder          Int                   @default(0)
+  status             ProductCategoryStatus @default(ACTIVE)
+  defaultProductKind ProductKind?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  subcategories ProductSubcategory[]
+  products      Product[]
+
+  @@index([status])
+  @@index([sortOrder])
+  @@index([productType])
+}
+
+model ProductSubcategory {
+  id         String   @id @default(cuid())
+  categoryId String
+  name       String
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  category ProductCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  products Product[]
+
+  @@unique([categoryId, name])
+  @@index([categoryId])
 }
 
 model CastingSupplier {
@@ -138,11 +177,11 @@ model Product {
   id                   String        @id @default(cuid())
   productCode          String        @unique
   name                 String
-  productType          ProductType   @default(STOCK)
-  category             String
+  productType          ProductType   @default(STOCK_PRECAST)
+  categoryId           String
+  subcategoryId        String?
   description          String?
   unit                 String        @default("EA")
-  defaultPrice         Decimal?      @db.Decimal(12, 2)
   cost                 Decimal?      @db.Decimal(12, 2)
   weight               Decimal?      @db.Decimal(12, 2)
   yards                Decimal?      @db.Decimal(12, 4)
@@ -163,6 +202,8 @@ model Product {
   castingRole               CastingRole?
   castingPieceRole          CastingPieceRole?
   castingSupplierId         String?
+  manufacturerCode          String?
+  castingSoldAsUnit         Boolean          @default(false)
   pipeDiameterInches        Decimal?         @db.Decimal(6, 2)
   pipeLengthFeet            Decimal?         @db.Decimal(6, 2)
   pipeClass                 String?
@@ -184,12 +225,18 @@ model Product {
   castingAssemblyComponents ProductCastingComponent[]   @relation("CastingAssembly")
   castingComponentOf        ProductCastingComponent[]   @relation("CastingComponent")
   structureTemplates        StructureTemplate[]         @relation("TemplateCasting")
+  productCategory           ProductCategory             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  subcategory               ProductSubcategory?         @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
 
+  @@index([categoryId])
+  @@index([subcategoryId])
   @@index([productKind])
+  @@index([castingSoldAsUnit])
   @@index([isDrainRing, ringDiameterFeet, drainRingStyle])
   @@index([isCasting])
   @@index([castingRole])
   @@index([castingSupplierId])
+  @@index([manufacturerCode])
   @@index([productKind, pipeDiameterInches])
 }
 
@@ -303,6 +350,7 @@ model Job {
   deliveryTickets DeliveryTicket[]
   invoices        Invoice[]
   favorites       JobFavorite[]
+  planSheets      PlanSheet[]
 
   @@unique([year, sequenceNumber])
   @@index([customerId])
@@ -446,20 +494,24 @@ model StructureTemplateDiameter {
   @@index([templateId])
 }
 
-/// Global pipe opening size catalog: material + size + type → hole diameter, boot, price.
+/// Global pipe opening size catalog: material + size + type + boot/no-boot →
+/// hole diameter, pipe wall thickness, boot model, price.
 model PipeOpeningSize {
-  id                 String   @id @default(cuid())
-  pipeMaterial       String
-  pipeSizeInches     Decimal  @db.Decimal(6, 2)
-  pipeType           String
-  holeDiameterInches Decimal  @db.Decimal(6, 2)
-  bootModel          String?
-  pricePerBoot       Decimal? @db.Decimal(12, 2)
-  sortOrder          Int      @default(0)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                      String   @id @default(cuid())
+  pipeMaterial            String
+  pipeSizeInches          Decimal  @db.Decimal(6, 2)
+  pipeType                String
+  hasBoot                 Boolean  @default(true)
+  holeDiameterInches      Decimal  @db.Decimal(6, 2)
+  /// Pipe wall thickness (inches); pipe OD = size + 2 × wall thickness.
+  pipeWallThicknessInches Decimal  @default(0) @db.Decimal(6, 2)
+  bootModel               String?
+  pricePerBoot            Decimal? @db.Decimal(12, 2)
+  sortOrder               Int      @default(0)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
-  @@unique([pipeMaterial, pipeSizeInches, pipeType])
+  @@unique([pipeMaterial, pipeSizeInches, pipeType, hasBoot])
   @@index([pipeMaterial])
   @@index([pipeSizeInches])
 }
@@ -524,6 +576,8 @@ model JobStructure {
   shippedDate     DateTime?
   needsCutSheet   Boolean         @default(false)
   needsSubmittal  Boolean         @default(false)
+  /// True when approval used the generated submittal or verbal OK instead of a signed return.
+  usedGeneratedSubmittalForApproval Boolean @default(false)
   notes           String?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
@@ -556,6 +610,10 @@ model JobStructureSection {
   heightFeet     Decimal     @db.Decimal(6, 4)
   label          String?
   sortOrder      Int         @default(0)
+  /// Keyed joint at the bottom of this section (both mating faces must match).
+  hasBottomKey   Boolean     @default(true)
+  /// Keyed joint at the top of this section (both mating faces must match).
+  hasTopKey      Boolean     @default(true)
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
@@ -749,7 +807,9 @@ model Quote {
   jobStructures   JobStructure[]
   deliveryTickets DeliveryTicket[]
   invoices        Invoice[]
+  planSheets      PlanSheet[]
 
+  @@unique([originalQuoteId, revisionNumber])
   @@index([jobId])
   @@index([jobBidderId])
   @@index([customerId])
@@ -760,6 +820,31 @@ model Quote {
   @@index([status])
   @@index([quoteDate])
   @@index([createdById])
+}
+
+enum PlanSheetSourceType {
+  UPLOAD
+  JOB_FILE
+}
+
+/// Construction plan PDF used for circular structure workbook takeoff markup.
+model PlanSheet {
+  id           String              @id @default(cuid())
+  quoteId      String?
+  jobId        String?
+  sourceType   PlanSheetSourceType
+  filePath     String
+  originalName String
+  pageNumber   Int                 @default(1)
+  markupJson   Json?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  quote Quote? @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  job   Job?   @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@index([quoteId])
+  @@index([jobId])
 }
 
 /// Individual line on a quote: stock product, configurable/custom structure, service, or misc item.
@@ -988,6 +1073,9 @@ model InventoryTransaction {
   referenceId     String?
   notes           String?
   createdBy       String?
+  /// Client-generated idempotency key: a resubmitted form reuses the same key,
+  /// so the unique constraint turns a double-post into a no-op.
+  submissionKey   String?                  @unique
   createdAt       DateTime                 @default(now())
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -1005,6 +1093,8 @@ model DailyProductionEntry {
   batchLabel     String?
   enteredBy      String?
   notes          String?
+  /// Client-generated idempotency key (see InventoryTransaction.submissionKey).
+  submissionKey  String?  @unique
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -1035,6 +1125,8 @@ model PurchaseReceiptEntry {
   batchLabel   String?
   enteredBy    String?
   notes        String?
+  /// Client-generated idempotency key (see InventoryTransaction.submissionKey).
+  submissionKey String? @unique
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -1109,6 +1201,8 @@ model Invoice {
   total           Decimal       @default(0) @db.Decimal(12, 2)
   invoiceDate     DateTime?
   dueDate         DateTime?
+  finalizedAt     DateTime?
+  finalizedBy     String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -1229,7 +1323,6 @@ model AppSettings {
   drivers            Json
   trailers           Json
   truckCapacityLabel String
-  productCatalog     Json
   ringBuilderConfig  Json     @default("[]")
   rolePermissions    Json     @default("{}")
   createdAt DateTime @default(now())

@@ -3,268 +3,302 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
+import { toast } from "sonner";
 import {
   importProducts,
   validateCastingAssemblyImportCodesAction,
-  validateCastingBulkImportSuppliersAction,
 } from "@/app/products/actions";
-import type { ProductKind } from "@/app/generated/prisma/client";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   type BulkProductPasteRow,
   productInputClassName,
-  productKindLabels,
 } from "@/components/products/product-utils";
+import type { PriceListOption } from "@/lib/price-list-service";
 import {
-  bulkImportKinds,
+  bulkImportPresetLabels,
+  bulkImportPresets,
   bulkPasteExamples,
-  getBulkPasteBaseHeaders,
+  getBulkPasteFieldKeys,
   getBulkPasteHeaders,
-  usesCastingBulkPasteBaseHeaders,
+  normalizeBulkPasteCells,
+  bulkPasteColumnCountIssue,
+  presetRequiresSupplier,
+  presetCastingSoldAsUnit,
+  presetToProductKind,
+  presetToProductType,
   validateBulkPasteRow,
+  type BulkImportPreset,
 } from "@/lib/product-kinds";
+import {
+  analyzeTaxonomyByNames,
+  collectMissingTaxonomyForImport,
+} from "@/lib/product-taxonomy";
+import { productTypeLabels } from "@/lib/product-types";
+import { formatCastingSupplierOriginLabel } from "@/lib/casting-utils";
+import type { ProductTaxonomyCategory } from "@/lib/product-taxonomy.shared";
 
-const kindFieldKeys: Record<ProductKind, string[]> = {
-  STANDARD: [],
-  DRAIN_RING: ["ringDiameterFeet", "heightFeet", "ringStyle"],
-  PIPE: ["pipeDiameterInches", "pipeLengthFeet", "pipeClass", "pipeJointType"],
-  CASTING_ASSEMBLY: [
-    "castingHeightFeet",
-    "castingClearOpeningInches",
-    "frameProductCode",
-    "coverGrateProductCode",
-    "hoodProductCode",
-    "throatProductCode",
-  ],
-  CASTING_COMPONENT: ["castingPieceRole"],
-};
+const PROFILE_FIELD_KEYS = new Set([
+  "ringDiameterFeet",
+  "heightFeet",
+  "ringStyle",
+  "pipeDiameterInches",
+  "pipeLengthFeet",
+  "pipeClass",
+  "pipeJointType",
+  "castingHeightFeet",
+  "castingClearOpeningInches",
+  "manufacturerCode",
+  "frameProductCode",
+  "coverGrateProductCode",
+  "hoodProductCode",
+  "throatProductCode",
+  "castingPieceRole",
+]);
 
-function parseBulkPaste(text: string, kind: ProductKind): BulkProductPasteRow[] {
+function parseBulkPaste(
+  text: string,
+  preset: BulkImportPreset,
+  taxonomy: ProductTaxonomyCategory[],
+): BulkProductPasteRow[] {
   const lines = text
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
 
-  const expectedColumns = getBulkPasteHeaders(kind).length;
-  const baseHeaderCount = getBulkPasteBaseHeaders(kind).length;
-  const kindKeys = kindFieldKeys[kind];
-  const castingBase = usesCastingBulkPasteBaseHeaders(kind);
+  const fieldKeys = getBulkPasteFieldKeys(preset);
+  const expectedColumns = fieldKeys.length;
 
   return lines.map((line, index) => {
     const delimiter = line.includes("\t") ? "\t" : ",";
-    const cells = line.split(delimiter).map((cell) => cell.trim());
-
-    let productCode = "";
-    let productName = "";
-    let category = "";
-    let subcategory = "";
-    let unit = "";
-    let defaultPrice = "";
-    let weight = "";
-    let yards = "";
-    let supplier = "";
-    let trackInventory = "";
-    let kindCells: string[] = [];
-
-    if (castingBase) {
-      [
-        productCode = "",
-        productName = "",
-        category = "",
-        subcategory = "",
-        unit = "",
-        defaultPrice = "",
-        weight = "",
-        supplier = "",
-        trackInventory = "",
-        ...kindCells
-      ] = cells;
-    } else {
-      [
-        productCode = "",
-        productName = "",
-        category = "",
-        subcategory = "",
-        unit = "",
-        defaultPrice = "",
-        weight = "",
-        yards = "",
-        trackInventory = "",
-        ...kindCells
-      ] = cells;
-    }
-
-    const kindFields: Record<string, string> = {};
-    kindKeys.forEach((key, fieldIndex) => {
-      kindFields[key] = kindCells[fieldIndex] ?? "";
+    const rawCells = line.split(delimiter).map((cell) => cell.trim());
+    const cells = normalizeBulkPasteCells(preset, rawCells);
+    const values: Record<string, string> = {};
+    fieldKeys.forEach((key, fieldIndex) => {
+      values[key] = cells[fieldIndex] ?? "";
     });
 
-    const issues: string[] = [];
-    if (cells.length < baseHeaderCount) {
-      issues.push(`Expected at least ${baseHeaderCount} base columns.`);
+    const kindFields: Record<string, string> = {};
+    for (const key of fieldKeys) {
+      if (PROFILE_FIELD_KEYS.has(key)) {
+        kindFields[key] = values[key] ?? "";
+      }
     }
-    if (cells.length < expectedColumns) {
-      issues.push(`Expected ${expectedColumns} columns for ${productKindLabels[kind]}.`);
+
+    const category = values.category ?? "";
+    const subcategory = values.subcategory ?? "";
+    const expectedProductType = presetToProductType(preset);
+
+    const issues: string[] = [];
+    const columnIssue = bulkPasteColumnCountIssue(preset, rawCells);
+    if (columnIssue) {
+      issues.push(columnIssue);
     }
 
     issues.push(
       ...validateBulkPasteRow(
-        kind,
+        preset,
         {
-          productCode,
-          productName,
-          trackInventory,
-          supplier,
+          productCode: values.productCode ?? "",
+          productName: values.productName ?? "",
+          category,
+          subcategory,
+          unitPrice: values.unitPrice ?? "",
+          weight: values.weight ?? "",
+          trackInventory: "",
           kindFields,
         },
         index + 1,
       ),
     );
 
-    return {
-      lineNumber: index + 1,
-      productCode,
-      productName,
+    const taxonomyResult = analyzeTaxonomyByNames(
+      taxonomy,
       category,
       subcategory,
-      unit,
-      defaultPrice,
-      weight,
-      yards,
-      supplier,
-      trackInventory,
+      expectedProductType,
+    );
+    issues.push(...taxonomyResult.errors);
+
+    const needsTaxonomyCreate =
+      taxonomyResult.missingCategory || taxonomyResult.missingSubcategory;
+
+    return {
+      lineNumber: index + 1,
+      productCode: values.productCode ?? "",
+      productName: values.productName ?? "",
+      category,
+      subcategory,
+      unit: values.unit ?? "",
+      unitPrice: values.unitPrice ?? "",
+      weight: values.weight ?? "",
+      yards: values.yards ?? "",
+      trackInventory: "",
       kindFields,
       isValid: issues.length === 0,
+      needsTaxonomyCreate,
       issues,
     };
   });
 }
 
-function kindPreviewColumns(kind: ProductKind): Array<{
+function presetPreviewColumns(preset: BulkImportPreset): Array<{
   key: string;
   label: string;
   getValue: (row: BulkProductPasteRow) => string;
 }> {
-  const base = [
-    { key: "line", label: "Line", getValue: (row: BulkProductPasteRow) => String(row.lineNumber) },
+  return [
+    { key: "line", label: "Line", getValue: (row) => String(row.lineNumber) },
     { key: "status", label: "Status", getValue: () => "" },
-    { key: "productCode", label: "Product Code", getValue: (row: BulkProductPasteRow) => row.productCode },
-    { key: "productName", label: "Product Name", getValue: (row: BulkProductPasteRow) => row.productName },
-    { key: "category", label: "Category", getValue: (row: BulkProductPasteRow) => row.category },
-    { key: "subcategory", label: "Subcategory", getValue: (row: BulkProductPasteRow) => row.subcategory },
-    { key: "unit", label: "Unit", getValue: (row: BulkProductPasteRow) => row.unit },
-    { key: "defaultPrice", label: "Default Price", getValue: (row: BulkProductPasteRow) => row.defaultPrice },
-    { key: "weight", label: "Weight", getValue: (row: BulkProductPasteRow) => row.weight },
-  ];
-
-  if (!usesCastingBulkPasteBaseHeaders(kind)) {
-    base.push({
-      key: "yards",
-      label: "Yards",
-      getValue: (row: BulkProductPasteRow) => row.yards,
-    });
-  } else {
-    base.push({
-      key: "supplier",
-      label: "Supplier",
-      getValue: (row: BulkProductPasteRow) => row.supplier,
-    });
-  }
-
-  base.push({
-    key: "trackInventory",
-    label: "Track Inventory",
-    getValue: (row: BulkProductPasteRow) => row.trackInventory,
-  });
-
-  const kindCols = getBulkPasteHeaders(kind)
-    .slice(getBulkPasteBaseHeaders(kind).length)
-    .map((label, index) => {
-      const fieldKey = kindFieldKeys[kind][index] ?? `field${index}`;
+    ...getBulkPasteHeaders(preset).map((label, index) => {
+      const fieldKey = getBulkPasteFieldKeys(preset)[index] ?? `field${index}`;
       return {
         key: fieldKey,
         label,
-        getValue: (row: BulkProductPasteRow) => row.kindFields[fieldKey] ?? "",
+        getValue: (row: BulkProductPasteRow) => {
+          if (
+            fieldKey === "productCode" ||
+            fieldKey === "productName" ||
+            fieldKey === "category" ||
+            fieldKey === "subcategory" ||
+            fieldKey === "unit" ||
+            fieldKey === "unitPrice" ||
+            fieldKey === "weight" ||
+            fieldKey === "yards"
+          ) {
+            return row[fieldKey as keyof BulkProductPasteRow]?.toString() ?? "";
+          }
+          return row.kindFields[fieldKey] ?? "";
+        },
       };
-    });
-
-  return [
-    ...base,
-    ...kindCols,
+    }),
     {
       key: "issues",
       label: "Issues",
-      getValue: (row: BulkProductPasteRow) =>
-        row.issues.length > 0 ? row.issues.join(" ") : "—",
+      getValue: (row) => (row.issues.length > 0 ? row.issues.join(" ") : "—"),
     },
   ];
 }
 
-function mergePreviewIssues(
-  rows: BulkProductPasteRow[],
-  issueMaps: Array<Record<number, string[]>>,
-): BulkProductPasteRow[] {
-  return rows.map((row) => {
-    const extraIssues = issueMaps.flatMap((map) => map[row.lineNumber] ?? []);
-    if (extraIssues.length === 0) {
-      return row;
-    }
-    const issues = [...row.issues, ...extraIssues];
-    return {
-      ...row,
-      issues,
-      isValid: issues.length === 0,
-    };
-  });
+function rowStatusBadge(row: BulkProductPasteRow) {
+  if (!row.isValid) {
+    return <StatusBadge label="Invalid" variant="danger" />;
+  }
+  if (row.needsTaxonomyCreate) {
+    return <StatusBadge label="New taxonomy" variant="warning" />;
+  }
+  return <StatusBadge label="Valid" variant="success" />;
 }
 
-export function BulkPasteForm() {
+function formatMissingTaxonomySummary(
+  missing: ReturnType<typeof collectMissingTaxonomyForImport>,
+  productTypeLabel: string,
+): string {
+  const parts: string[] = [];
+  if (missing.categories.length > 0) {
+    parts.push(
+      `${missing.categories.length} categor${missing.categories.length === 1 ? "y" : "ies"} (${missing.categories.map((item) => item.name).join(", ")})`,
+    );
+  }
+  if (missing.subcategories.length > 0) {
+    parts.push(
+      `${missing.subcategories.length} subcategor${missing.subcategories.length === 1 ? "y" : "ies"} (${missing.subcategories.map((item) => `${item.name} under ${item.categoryName}`).join(", ")})`,
+    );
+  }
+  return `The following will be created as ${productTypeLabel} taxonomy: ${parts.join("; ")}.`;
+}
+
+type BulkPasteFormProps = {
+  priceLists: PriceListOption[];
+  taxonomy: ProductTaxonomyCategory[];
+  castingSuppliers: Array<{ id: string; name: string; origin: "DOMESTIC" | "IMPORTED" }>;
+};
+
+export function BulkPasteForm({
+  priceLists,
+  taxonomy,
+  castingSuppliers,
+}: BulkPasteFormProps) {
   const router = useRouter();
-  const [productKind, setProductKind] = useState<ProductKind>("STANDARD");
+  const confirm = useConfirm();
+  const defaultPriceListId =
+    priceLists.find((list) => list.isDefault)?.id ?? priceLists[0]?.id ?? "";
+
+  const [priceListId, setPriceListId] = useState(defaultPriceListId);
+  const [importPreset, setImportPreset] = useState<BulkImportPreset>("STOCK_PRECAST");
+  const [supplierId, setSupplierId] = useState("");
   const [pasteText, setPasteText] = useState("");
   const [previewRows, setPreviewRows] = useState<BulkProductPasteRow[]>([]);
   const [hasParsed, setHasParsed] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [importComplete, setImportComplete] = useState(false);
+  const [importSummary, setImportSummary] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isValidatingCodes, startCodeValidation] = useTransition();
 
   const columnHeaders = useMemo(
-    () => getBulkPasteHeaders(productKind),
-    [productKind],
+    () => getBulkPasteHeaders(importPreset),
+    [importPreset],
   );
   const previewColumns = useMemo(
-    () => kindPreviewColumns(productKind),
-    [productKind],
+    () => presetPreviewColumns(importPreset),
+    [importPreset],
   );
 
   const validCount = useMemo(
     () => previewRows.filter((row) => row.isValid).length,
     [previewRows],
   );
-
   const invalidCount = previewRows.length - validCount;
+  const needsSupplier = presetRequiresSupplier(importPreset);
+  const expectedProductType = presetToProductType(importPreset);
 
-  function handleKindChange(nextKind: ProductKind) {
-    setProductKind(nextKind);
+  const missingTaxonomy = useMemo(() => {
+    if (!hasParsed || previewRows.length === 0) {
+      return { categories: [], subcategories: [] };
+    }
+    return collectMissingTaxonomyForImport(
+      taxonomy,
+      previewRows.filter((row) => row.isValid).map((row) => ({
+        category: row.category,
+        subcategory: row.subcategory,
+      })),
+      expectedProductType,
+    );
+  }, [expectedProductType, hasParsed, previewRows, taxonomy]);
+
+  const hasMissingTaxonomy =
+    missingTaxonomy.categories.length > 0 ||
+    missingTaxonomy.subcategories.length > 0;
+  const taxonomyCreateCount =
+    missingTaxonomy.categories.length + missingTaxonomy.subcategories.length;
+
+  function handlePresetChange(nextPreset: BulkImportPreset) {
+    setImportPreset(nextPreset);
     setPreviewRows([]);
     setHasParsed(false);
-    setImportComplete(false);
+    setImportSummary(null);
     setPasteText("");
   }
 
   function handleParsePreview() {
-    const rows = parseBulkPaste(pasteText, productKind);
+    if (needsSupplier && !supplierId) {
+      setErrorMessage("Select a supplier for casting imports.");
+      return;
+    }
+
+    const rows = parseBulkPaste(pasteText, importPreset, taxonomy);
     setHasParsed(true);
-    setImportComplete(false);
+    setImportSummary(null);
     setErrorMessage(null);
 
-    const needsSupplierValidation =
-      productKind === "CASTING_COMPONENT" || productKind === "CASTING_ASSEMBLY";
-    const needsAssemblyCodeValidation = productKind === "CASTING_ASSEMBLY";
+    const productKind = presetToProductKind(importPreset);
+    if (productKind !== "CASTING_ASSEMBLY") {
+      setPreviewRows(rows);
+      return;
+    }
 
-    if (!needsSupplierValidation && !needsAssemblyCodeValidation) {
+    if (presetCastingSoldAsUnit(importPreset)) {
       setPreviewRows(rows);
       return;
     }
@@ -277,32 +311,26 @@ export function BulkPasteForm() {
 
     startCodeValidation(async () => {
       try {
-        const issueMaps: Array<Record<number, string[]>> = [];
-
-        if (needsSupplierValidation) {
-          const supplierIssues = await validateCastingBulkImportSuppliersAction(
-            structurallyValidRows.map((row) => ({
-              lineNumber: row.lineNumber,
-              supplier: row.supplier,
-            })),
-          );
-          issueMaps.push(supplierIssues);
-        }
-
-        if (needsAssemblyCodeValidation) {
-          const codeIssues = await validateCastingAssemblyImportCodesAction(
-            structurallyValidRows.map((row) => ({
-              lineNumber: row.lineNumber,
+        const codeIssues = await validateCastingAssemblyImportCodesAction(
+          structurallyValidRows.map((row) => ({
+            lineNumber: row.lineNumber,
             frameProductCode: row.kindFields.frameProductCode ?? "",
             coverGrateProductCode: row.kindFields.coverGrateProductCode ?? "",
             hoodProductCode: row.kindFields.hoodProductCode ?? "",
             throatProductCode: row.kindFields.throatProductCode ?? "",
-            })),
-          );
-          issueMaps.push(codeIssues);
-        }
+          })),
+        );
 
-        setPreviewRows(mergePreviewIssues(rows, issueMaps));
+        setPreviewRows(
+          rows.map((row) => {
+            const extraIssues = codeIssues[row.lineNumber] ?? [];
+            if (extraIssues.length === 0) {
+              return row;
+            }
+            const issues = [...row.issues, ...extraIssues];
+            return { ...row, issues, isValid: issues.length === 0 };
+          }),
+        );
       } catch (error) {
         setPreviewRows(rows);
         setErrorMessage(
@@ -315,22 +343,27 @@ export function BulkPasteForm() {
   }
 
   function handleLoadExample() {
-    setPasteText(bulkPasteExamples[productKind]);
+    setPasteText(bulkPasteExamples[importPreset]);
     setPreviewRows([]);
     setHasParsed(false);
-    setImportComplete(false);
+    setImportSummary(null);
   }
 
   function handleClear() {
     setPasteText("");
     setPreviewRows([]);
     setHasParsed(false);
-    setImportComplete(false);
+    setImportSummary(null);
     setErrorMessage(null);
   }
 
-  function handleImport() {
-    if (importComplete) {
+  async function handleImport() {
+    if (!priceListId) {
+      setErrorMessage("Select a price list before importing.");
+      return;
+    }
+    if (needsSupplier && !supplierId) {
+      setErrorMessage("Select a supplier for casting imports.");
       return;
     }
 
@@ -339,8 +372,30 @@ export function BulkPasteForm() {
       return;
     }
 
+    let createMissingTaxonomy = false;
+    if (hasMissingTaxonomy) {
+      const productTypeLabel = productTypeLabels[expectedProductType];
+      const confirmed = await confirm({
+        title: "Create missing categories?",
+        message: `${formatMissingTaxonomySummary(missingTaxonomy, productTypeLabel)} Continue and import ${validRows.length} product${validRows.length === 1 ? "" : "s"}?`,
+        confirmLabel: "Create & Import",
+        cancelLabel: "Cancel",
+      });
+      if (!confirmed) {
+        return;
+      }
+      createMissingTaxonomy = true;
+    }
+
     const formData = new FormData();
-    formData.set("productKind", productKind);
+    formData.set("priceListId", priceListId);
+    formData.set("importPreset", importPreset);
+    if (createMissingTaxonomy) {
+      formData.set("createMissingTaxonomy", "true");
+    }
+    if (supplierId) {
+      formData.set("supplierId", supplierId);
+    }
     formData.set(
       "products",
       JSON.stringify(
@@ -351,11 +406,9 @@ export function BulkPasteForm() {
             category,
             subcategory,
             unit,
-            defaultPrice,
+            unitPrice,
             weight,
             yards,
-            supplier,
-            trackInventory,
             kindFields,
           }) => ({
             productCode,
@@ -363,11 +416,9 @@ export function BulkPasteForm() {
             category,
             subcategory,
             unit,
-            defaultPrice,
+            unitPrice,
             weight,
             yards,
-            supplier,
-            trackInventory,
             kindFields,
           }),
         ),
@@ -378,8 +429,28 @@ export function BulkPasteForm() {
       try {
         setErrorMessage(null);
         const result = await importProducts(formData);
-        setImportComplete(true);
-        router.push(`/products?imported=${result.imported}`);
+        const summaryParts = [
+          `${result.imported} product${result.imported === 1 ? "" : "s"} imported`,
+        ];
+        if (result.updated > 0) {
+          summaryParts.push(
+            `${result.updated} existing product${result.updated === 1 ? "" : "s"} updated`,
+          );
+        }
+        if (result.listsMissingProducts.length > 0) {
+          summaryParts.push(
+            `Other lists missing prices: ${result.listsMissingProducts
+              .map((list) => `${list.name} (${list.missingCount})`)
+              .join(", ")}`,
+          );
+        }
+        setImportSummary(summaryParts.join(". "));
+        toast.success(
+          `Imported ${result.imported} product${result.imported === 1 ? "" : "s"}${result.updated ? `, updated ${result.updated}` : ""}.`,
+        );
+        router.push(
+          `/products?imported=${result.imported}&updated=${result.updated}`,
+        );
         router.refresh();
       } catch (error) {
         setErrorMessage(
@@ -393,35 +464,89 @@ export function BulkPasteForm() {
     <div className="space-y-4">
       <SectionCard
         title="Paste from Excel"
-        description="Choose a product kind, then paste tab-separated rows matching that kind's columns. Each kind has its own column layout — rings, pipe, casting components, casting assemblies, and standard stock are imported separately."
+        description="Choose an import preset and price list (plus supplier for castings), then paste rows including Category and optional Subcategory per line."
       >
         <div className="space-y-4">
-          <div>
-            <label
-              htmlFor="bulkProductKind"
-              className="block text-xs font-medium text-slate-700"
-            >
-              Product Kind
-            </label>
-            <select
-              id="bulkProductKind"
-              value={productKind}
-              onChange={(event) =>
-                handleKindChange(event.target.value as ProductKind)
-              }
-              className={productInputClassName}
-            >
-              {bulkImportKinds.map((kind) => (
-                <option key={kind} value={kind}>
-                  {productKindLabels[kind]}
-                </option>
-              ))}
-            </select>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="bulkImportPreset"
+                className="block text-xs font-medium text-slate-700"
+              >
+                Import preset
+              </label>
+              <select
+                id="bulkImportPreset"
+                value={importPreset}
+                onChange={(event) =>
+                  handlePresetChange(event.target.value as BulkImportPreset)
+                }
+                className={productInputClassName}
+              >
+                {bulkImportPresets.map((preset) => (
+                  <option key={preset} value={preset}>
+                    {bulkImportPresetLabels[preset]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="bulkPriceList"
+                className="block text-xs font-medium text-slate-700"
+              >
+                Price List *
+              </label>
+              <select
+                id="bulkPriceList"
+                value={priceListId}
+                onChange={(event) => setPriceListId(event.target.value)}
+                required
+                className={productInputClassName}
+              >
+                {priceLists.length === 0 ? (
+                  <option value="">No price lists available</option>
+                ) : (
+                  priceLists.map((list) => (
+                    <option key={list.id} value={list.id}>
+                      {list.name}
+                      {list.isDefault ? " (default)" : ""}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            {needsSupplier ? (
+              <div className="sm:col-span-2">
+                <label
+                  htmlFor="bulkSupplier"
+                  className="block text-xs font-medium text-slate-700"
+                >
+                  Supplier *
+                </label>
+                <select
+                  id="bulkSupplier"
+                  value={supplierId}
+                  onChange={(event) => setSupplierId(event.target.value)}
+                  className={productInputClassName}
+                >
+                  <option value="">Select supplier</option>
+                  {castingSuppliers.map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.name} (
+                      {formatCastingSupplierOriginLabel(supplier.origin)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
             <p className="text-xs font-medium text-slate-700">
-              Expected column order ({productKindLabels[productKind]})
+              Paste columns ({bulkImportPresetLabels[importPreset]})
             </p>
             <p className="mt-1 text-[11px] text-slate-500">
               {columnHeaders.join(" → ")}
@@ -457,8 +582,7 @@ export function BulkPasteForm() {
             <button
               type="button"
               onClick={handleLoadExample}
-              disabled={!bulkPasteExamples[productKind]}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
             >
               Load Example
             </button>
@@ -472,6 +596,50 @@ export function BulkPasteForm() {
           </div>
         </div>
       </SectionCard>
+
+      {hasParsed && hasMissingTaxonomy ? (
+        <SectionCard
+          title="Missing categories or subcategories"
+          description={`${taxonomyCreateCount} taxonomy item${taxonomyCreateCount === 1 ? "" : "s"} in your paste data do not exist yet.`}
+        >
+          <div className="space-y-3 text-xs text-amber-900">
+            {missingTaxonomy.categories.length > 0 ? (
+              <div>
+                <p className="font-semibold">Categories to create</p>
+                <ul className="mt-1 list-inside list-disc text-amber-800">
+                  {missingTaxonomy.categories.map((category) => (
+                    <li key={category.name}>
+                      {category.name}{" "}
+                      <span className="text-amber-700">
+                        ({productTypeLabels[expectedProductType]})
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {missingTaxonomy.subcategories.length > 0 ? (
+              <div>
+                <p className="font-semibold">Subcategories to create</p>
+                <ul className="mt-1 list-inside list-disc text-amber-800">
+                  {missingTaxonomy.subcategories.map((subcategory) => (
+                    <li key={`${subcategory.categoryName}|${subcategory.name}`}>
+                      {subcategory.name}{" "}
+                      <span className="text-amber-700">
+                        (under {subcategory.categoryName})
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            <p className="text-amber-800">
+              These will be created automatically when you import. Rows marked
+              &ldquo;New taxonomy&rdquo; are otherwise ready.
+            </p>
+          </div>
+        </SectionCard>
+      ) : null}
 
       {hasParsed ? (
         <SectionCard
@@ -515,10 +683,7 @@ export function BulkPasteForm() {
                           }`}
                         >
                           {column.key === "status" ? (
-                            <StatusBadge
-                              label={row.isValid ? "Valid" : "Invalid"}
-                              variant={row.isValid ? "success" : "danger"}
-                            />
+                            rowStatusBadge(row)
                           ) : (
                             column.getValue(row) || "—"
                           )}
@@ -532,6 +697,9 @@ export function BulkPasteForm() {
           )}
 
           <div className="border-t border-slate-100 px-4 py-4">
+            {importSummary ? (
+              <p className="mb-3 text-xs text-emerald-700">{importSummary}</p>
+            ) : null}
             {errorMessage ? (
               <p className="mb-3 text-xs text-red-600">{errorMessage}</p>
             ) : null}
@@ -549,13 +717,16 @@ export function BulkPasteForm() {
                   validCount === 0 ||
                   isPending ||
                   isValidatingCodes ||
-                  importComplete
+                  !priceListId ||
+                  (needsSupplier && !supplierId)
                 }
                 className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isPending
                   ? "Importing..."
-                  : `Import ${validCount} Product${validCount === 1 ? "" : "s"}`}
+                  : hasMissingTaxonomy
+                    ? `Create Taxonomy & Import ${validCount} Product${validCount === 1 ? "" : "s"}`
+                    : `Import ${validCount} Product${validCount === 1 ? "" : "s"}`}
               </button>
             </div>
           </div>

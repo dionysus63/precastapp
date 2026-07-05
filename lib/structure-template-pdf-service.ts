@@ -125,6 +125,21 @@ export async function saveTemplatePdf(
     },
   });
 
+  // One PDF per template: the app draws riser/key differences itself, so any
+  // leftover variant PDFs from the old four-slot scheme are removed.
+  const others = await client.structureTemplatePdf.findMany({
+    where: { templateId, id: { not: row.id } },
+  });
+  for (const other of others) {
+    assertPathUnderRoot(root, other.filePath);
+    try {
+      await unlink(other.filePath);
+    } catch {
+      // File may already be gone from disk.
+    }
+    await client.structureTemplatePdf.delete({ where: { id: other.id } });
+  }
+
   return row;
 }
 

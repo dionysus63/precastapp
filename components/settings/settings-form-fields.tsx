@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { toast } from "sonner";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 type SettingsFeedbackProps = {
   error?: string | null;
@@ -13,6 +15,14 @@ export function SettingsFeedback({ error, success }: SettingsFeedbackProps) {
   useEffect(() => {
     if ((error || success) && ref.current) {
       ref.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [error, success]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    } else if (success) {
+      toast.success(success);
     }
   }, [error, success]);
 
@@ -55,10 +65,20 @@ export function SettingsField({
 }
 
 export const settingsInputClassName =
-  "mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm";
+  "mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm focus-visible:border-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/30";
 
 export const settingsTextareaClassName =
   "mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm font-mono";
 
 export const settingsSubmitClassName =
-  "rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50";
+  "rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2";
+
+export function SettingsSubmitButton({
+  children = "Save",
+  pendingLabel = "Saving…",
+}: {
+  children?: React.ReactNode;
+  pendingLabel?: string;
+}) {
+  return <SubmitButton pendingLabel={pendingLabel}>{children}</SubmitButton>;
+}

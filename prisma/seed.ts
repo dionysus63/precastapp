@@ -45,36 +45,17 @@ async function main() {
       name: "Standard 2026",
       isDefault: true,
       effectiveDate: new Date("2026-01-01"),
-      notes: "Default price list seeded from product catalog.",
+      notes: "Default price list for seeded catalog.",
     },
     update: { isDefault: true },
   });
 
-  const products = await prisma.product.findMany({
-    where: { status: "ACTIVE", defaultPrice: { not: null } },
-    select: { id: true, defaultPrice: true },
+  const itemCount = await prisma.priceListItem.count({
+    where: { priceListId: priceList.id },
   });
 
-  for (const product of products) {
-    if (!product.defaultPrice) continue;
-    await prisma.priceListItem.upsert({
-      where: {
-        priceListId_productId: {
-          priceListId: priceList.id,
-          productId: product.id,
-        },
-      },
-      create: {
-        priceListId: priceList.id,
-        productId: product.id,
-        unitPrice: product.defaultPrice,
-      },
-      update: { unitPrice: product.defaultPrice },
-    });
-  }
-
   console.log(
-    `Seed complete: price list "${priceList.name}" with ${products.length} item(s).`,
+    `Seed complete: price list "${priceList.name}" with ${itemCount} item(s).`,
   );
 
   await prisma.user.upsert({

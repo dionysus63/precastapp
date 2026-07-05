@@ -7,10 +7,12 @@ import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 
 type PipeOpeningPayload = {
+  /** Combined material/type description, e.g. "PVC SDR35". */
   pipeMaterial: string;
   pipeSizeInches: number;
-  pipeType: string;
+  hasBoot: boolean;
   holeDiameterInches: number;
+  pipeWallThicknessInches: number;
   bootModel: string | null;
   pricePerBoot: number | null;
 };
@@ -38,13 +40,11 @@ function parsePipeOpeningsPayload(formData: FormData): PipeOpeningPayload[] {
   for (const item of rows) {
     const row = item as Record<string, unknown>;
     const pipeMaterial = String(row.pipeMaterial ?? "").trim();
-    const pipeType = String(row.pipeType ?? "").trim();
     const pipeSizeInches = Number(row.pipeSizeInches);
     const holeDiameterInches = Number(row.holeDiameterInches);
 
     if (
       !pipeMaterial ||
-      !pipeType ||
       !Number.isFinite(pipeSizeInches) ||
       pipeSizeInches <= 0 ||
       !Number.isFinite(holeDiameterInches) ||
@@ -59,11 +59,16 @@ function parsePipeOpeningsPayload(formData: FormData): PipeOpeningPayload[] {
         ? null
         : Number(priceRaw);
 
+    const wallRaw = Number(row.pipeWallThicknessInches);
+    const pipeWallThicknessInches =
+      Number.isFinite(wallRaw) && wallRaw > 0 ? wallRaw : 0;
+
     result.push({
       pipeMaterial,
       pipeSizeInches,
-      pipeType,
+      hasBoot: row.hasBoot !== false,
       holeDiameterInches,
+      pipeWallThicknessInches,
       bootModel: String(row.bootModel ?? "").trim() || null,
       pricePerBoot:
         pricePerBoot != null && Number.isFinite(pricePerBoot)
@@ -81,10 +86,10 @@ export async function savePipeOpeningSizes(formData: FormData) {
 
   const keys = new Set<string>();
   for (const entry of entries) {
-    const key = `${entry.pipeMaterial}|${entry.pipeSizeInches}|${entry.pipeType}`;
+    const key = `${entry.pipeMaterial.toLowerCase()}|${entry.pipeSizeInches}|${entry.hasBoot}`;
     if (keys.has(key)) {
       throw new Error(
-        `Duplicate entry for ${entry.pipeMaterial} ${entry.pipeSizeInches}" ${entry.pipeType}.`,
+        `Duplicate entry for ${entry.pipeSizeInches}" ${entry.pipeMaterial} (${entry.hasBoot ? "boot" : "no boot"}).`,
       );
     }
     keys.add(key);
@@ -97,8 +102,11 @@ export async function savePipeOpeningSizes(formData: FormData) {
         data: entries.map((entry, index) => ({
           pipeMaterial: entry.pipeMaterial,
           pipeSizeInches: decimal(entry.pipeSizeInches),
-          pipeType: entry.pipeType,
+          // Material and type are captured as one combined string now.
+          pipeType: "",
+          hasBoot: entry.hasBoot,
           holeDiameterInches: decimal(entry.holeDiameterInches),
+          pipeWallThicknessInches: decimal(entry.pipeWallThicknessInches),
           bootModel: entry.bootModel,
           pricePerBoot:
             entry.pricePerBoot === null

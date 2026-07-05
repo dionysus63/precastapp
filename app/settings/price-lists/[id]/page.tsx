@@ -1,11 +1,15 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { SettingsShell } from "@/components/settings/settings-shell";
 import { SectionCard } from "@/components/dashboard/section-card";
+import { StatusBadge } from "@/components/dashboard/status-badge";
 import {
   deletePriceListItemFormAction,
   upsertPriceListItemFormAction,
 } from "@/app/settings/actions";
+import {
+  getMissingProductsForPriceList,
+  getPriceListCompleteness,
+} from "@/lib/price-list-service";
 import { withDatabaseRetry } from "@/lib/prisma";
 
 type PriceListDetailPageProps = {
@@ -17,7 +21,7 @@ export default async function PriceListDetailPage({
 }: PriceListDetailPageProps) {
   const { id } = await params;
 
-  const [priceList, products] = await Promise.all([
+  const [priceList, missingProducts, completeness] = await Promise.all([
     withDatabaseRetry((prisma) =>
       prisma.priceList.findUnique({
         where: { id },
@@ -33,34 +37,37 @@ export default async function PriceListDetailPage({
         },
       }),
     ),
-    withDatabaseRetry((prisma) =>
-      prisma.product.findMany({
-        where: { status: "ACTIVE" },
-        orderBy: { productCode: "asc" },
-        select: { id: true, productCode: true, name: true },
-      }),
-    ),
+    getMissingProductsForPriceList(id),
+    getPriceListCompleteness(id),
   ]);
 
   if (!priceList) {
     notFound();
   }
 
-  const listedProductIds = new Set(priceList.items.map((item) => item.productId));
-
   return (
-    <DashboardShell
+    <SettingsShell
       title={priceList.name}
       subtitle="Manage unit prices for products on this list."
+      backHref="/settings/price-lists"
+      backLabel="← Back to Price Lists"
     >
-      <Link
-        href="/settings/price-lists"
-        className="text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        ← Back to Price Lists
-      </Link>
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {completeness.isComplete ? (
+            <StatusBadge label="Complete" variant="success" />
+          ) : (
+            <StatusBadge
+              label={`${completeness.missingCount} product(s) missing`}
+              variant="warning"
+            />
+          )}
+          <span className="text-xs text-slate-500">
+            {completeness.listedCount} of {completeness.totalActiveProducts}{" "}
+            active products priced
+          </span>
+        </div>
 
-      <div className="mt-4 space-y-4">
         <SectionCard title="Add or update item">
           <form action={upsertPriceListItemFormAction} className="grid max-w-lg gap-3 sm:grid-cols-3">
             <input type="hidden" name="priceListId" value={priceList.id} />
@@ -75,9 +82,14 @@ export default async function PriceListDetailPage({
                 className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
               >
                 <option value="">Select product…</option>
-                {products.map((product) => (
+                {missingProducts.map((product) => (
                   <option key={product.id} value={product.id}>
                     {product.productCode} — {product.name}
+                  </option>
+                ))}
+                {priceList.items.map((item) => (
+                  <option key={item.productId} value={item.productId}>
+                    {item.product.productCode} — {item.product.name}
                   </option>
                 ))}
               </select>
@@ -105,12 +117,69 @@ export default async function PriceListDetailPage({
               </button>
             </div>
           </form>
-          {products.some((p) => !listedProductIds.has(p.id)) ? (
-            <p className="mt-2 text-[11px] text-slate-500">
-              {products.length - listedProductIds.size} active product(s) not yet on this list.
-            </p>
-          ) : null}
         </SectionCard>
+
+        {missingProducts.length > 0 ? (
+          <SectionCard
+            title="Missing products"
+            description="Active products without a price on this list."
+            noPadding
+          >
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left text-xs">
+                <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+                  <tr>
+                    <th className="px-4 py-2 font-semibold">Product</th>
+                    <th className="px-4 py-2 font-semibold">Add price</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {missingProducts.map((product) => (
+                    <tr key={product.id}>
+                      <td className="px-4 py-2">
+                        <div className="font-medium">{product.productCode}</div>
+                        <div className="text-slate-500">{product.name}</div>
+                      </td>
+                      <td className="px-4 py-2">
+                        <form
+                          action={upsertPriceListItemFormAction}
+                          className="flex items-end gap-2"
+                        >
+                          <input type="hidden" name="priceListId" value={priceList.id} />
+                          <input type="hidden" name="productId" value={product.id} />
+                          <div>
+                            <label
+                              htmlFor={`unitPrice-${product.id}`}
+                              className="sr-only"
+                            >
+                              Unit price
+                            </label>
+                            <input
+                              id={`unitPrice-${product.id}`}
+                              name="unitPrice"
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              required
+                              placeholder="0.00"
+                              className="w-28 rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
+                            />
+                          </div>
+                          <button
+                            type="submit"
+                            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                          >
+                            Add
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </SectionCard>
+        ) : null}
 
         <SectionCard title="Items on this list" noPadding>
           {priceList.items.length === 0 ? (
@@ -155,6 +224,6 @@ export default async function PriceListDetailPage({
           )}
         </SectionCard>
       </div>
-    </DashboardShell>
+    </SettingsShell>
   );
 }
