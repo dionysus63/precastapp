@@ -28,10 +28,16 @@ export type ComputedMoneyTotals = {
  *
  * Tax is computed on the summed taxable extended amount (not per line) and
  * rounded once, matching the existing invoice behavior.
+ *
+ * `discountAmount` (if any) is subtracted from the grand total only; tax is
+ * charged on the undiscounted taxable amount. The UI writes 0 today, but a
+ * stored nonzero discount (revisions copy it forward) must not make the
+ * persisted total disagree with what the PDF itemizes.
  */
 export function computeMoneyTotals(
   lines: MoneyLineInput[],
   taxRatePercent: DecimalLike,
+  discountAmount: DecimalLike = 0,
 ): ComputedMoneyTotals {
   const taxRate = toDecimal(taxRatePercent);
 
@@ -56,7 +62,11 @@ export function computeMoneyTotals(
     .mul(taxRate)
     .div(100)
     .toDecimalPlaces(MONEY_DP);
-  const total = subtotal.add(salesTax).toDecimalPlaces(MONEY_DP);
+  const discount = toDecimal(discountAmount).toDecimalPlaces(MONEY_DP);
+  const total = subtotal
+    .sub(discount)
+    .add(salesTax)
+    .toDecimalPlaces(MONEY_DP);
 
   return { lineTotals, subtotal, taxableAmount, salesTax, total };
 }

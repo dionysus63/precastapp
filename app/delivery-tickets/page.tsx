@@ -4,8 +4,12 @@ import { DeliveryTicketsList } from "@/components/delivery-tickets/delivery-tick
 import { DispatcherWeekCalendar } from "@/components/delivery-tickets/dispatcher-week-calendar";
 import { TodaysLoadsPanel } from "@/components/delivery-tickets/todays-loads-panel";
 import { mapDbDeliveryTicketToListRow } from "@/lib/delivery-ticket-mapper";
+import { getAppSettings } from "@/lib/app-settings";
 import { withDatabaseRetry } from "@/lib/prisma";
-import { deliveryTicketStatusFormOptions } from "@/components/delivery-tickets/delivery-ticket-utils";
+import {
+  buildDeliveryFilterOptions,
+  deliveryTicketStatusFormOptions,
+} from "@/components/delivery-tickets/delivery-ticket-utils";
 import {
   buildPageInfo,
   parsePageParam,
@@ -114,22 +118,38 @@ export default async function DeliveryTicketsPage({
   );
   const pageInfo = buildPageInfo(total, requestedPage);
 
-  const [ticketRecords, scheduleRecords] = await withDatabaseRetry((prisma) =>
-    Promise.all([
-      prisma.deliveryTicket.findMany({
-        where,
-        orderBy: [{ deliveryDate: "desc" }, { createdAt: "desc" }],
-        select: DELIVERY_LIST_SELECT,
-        skip: pageInfo.skip,
-        take: pageInfo.take,
-      }),
-      prisma.deliveryTicket.findMany({
-        where: { deliveryDate: { gte: scheduleCutoff } },
-        orderBy: [{ deliveryDate: "asc" }, { createdAt: "asc" }],
-        select: DELIVERY_LIST_SELECT,
-      }),
-    ]),
-  );
+  const [ticketRecords, scheduleRecords, settings, jobNumberRows] =
+    await withDatabaseRetry((prisma) =>
+      Promise.all([
+        prisma.deliveryTicket.findMany({
+          where,
+          orderBy: [{ deliveryDate: "desc" }, { createdAt: "desc" }],
+          select: DELIVERY_LIST_SELECT,
+          skip: pageInfo.skip,
+          take: pageInfo.take,
+        }),
+        prisma.deliveryTicket.findMany({
+          where: { deliveryDate: { gte: scheduleCutoff } },
+          orderBy: [{ deliveryDate: "asc" }, { createdAt: "asc" }],
+          select: DELIVERY_LIST_SELECT,
+        }),
+        getAppSettings(),
+        prisma.deliveryTicket.findMany({
+          distinct: ["jobNumber"],
+          where: { jobNumber: { not: "" } },
+          select: { jobNumber: true },
+          orderBy: { jobNumber: "desc" },
+        }),
+      ]),
+    );
+
+  const filterOptions = buildDeliveryFilterOptions({
+    drivers: settings.drivers,
+    trucks: settings.trucks,
+    jobNumbers: jobNumberRows
+      .map((row) => row.jobNumber)
+      .filter((jobNumber): jobNumber is string => Boolean(jobNumber)),
+  });
 
   const rows = ticketRecords.map(mapDbDeliveryTicketToListRow);
   const scheduleRows = scheduleRecords.map(mapDbDeliveryTicketToListRow);
@@ -161,6 +181,7 @@ export default async function DeliveryTicketsPage({
         <DeliveryTicketsList
           tickets={rows}
           pageInfo={pageInfo}
+          filterOptions={filterOptions}
           filters={{
             search,
             status: statusParam,

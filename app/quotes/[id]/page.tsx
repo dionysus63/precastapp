@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { QuoteDetailContent } from "@/components/quotes/quote-detail-content";
 import { mapQuoteToDetailView } from "@/lib/quote-mapper";
+import { submittalProductInclude } from "@/lib/submittal-package";
 import { withDatabaseRetry } from "@/lib/prisma";
 
 type QuoteDetailPageProps = {
@@ -22,17 +23,14 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
         jobBidder: {
           select: { customer: { select: { name: true } } },
         },
+        priceList: {
+          select: { name: true },
+        },
         lineItems: {
           orderBy: [{ sortOrder: "asc" }, { lineNumber: "asc" }],
           include: {
             product: {
-              include: {
-                documents: {
-                  where: {
-                    documentType: { in: ["GENERIC_SUBMITTAL"] },
-                  },
-                },
-              },
+              include: submittalProductInclude,
             },
           },
         },

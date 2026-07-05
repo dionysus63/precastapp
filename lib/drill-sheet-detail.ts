@@ -1,10 +1,12 @@
 import { Prisma } from "@/app/generated/prisma/client";
 import type { DrillSheetPreviewMeta } from "@/components/drill-sheets/drill-sheet-preview";
 import {
+  annotateOpeningSections,
   type ComputedOpening,
   type ComputedSection,
   computeBaseTopToOpeningBottomInches,
   type DrillSheetResult,
+  formatPipeDescription,
   getTopOfBottomSlabElevation,
   type PipeConnectionType,
 } from "@/lib/drill-sheet";
@@ -20,7 +22,13 @@ export const drillSheetDetailInclude = {
   calc: true,
   openings: { orderBy: { openingNumber: "asc" } },
   sections: { orderBy: { sortOrder: "asc" } },
-  castings: true,
+  castings: {
+    include: {
+      castingProduct: {
+        select: { castingClearOpeningInches: true },
+      },
+    },
+  },
 } satisfies Prisma.JobStructureInclude;
 
 export type DrillSheetWithDetail = Prisma.JobStructureGetPayload<{
@@ -34,9 +42,9 @@ export type DrillSheetDetail = {
 
 export type DrillSheetFormOpening = {
   label: string;
+  /** Combined material/type description, e.g. "PVC SDR35". */
   pipeMaterial: string;
   pipeSizeInches: string;
-  pipeType: string;
   invertElevation: string;
   angle: string;
   connectionType: PipeConnectionType | "";
@@ -113,9 +121,12 @@ export function buildDrillSheetFormValues(
     rimElevation: decimalToInput(calc?.rimElevation ?? null),
     openings: sheet.openings.map((opening) => ({
       label: opening.label ?? "",
-      pipeMaterial: opening.pipeMaterial ?? "",
+      // Legacy rows split material/type; show them combined.
+      pipeMaterial: formatPipeDescription(
+        opening.pipeMaterial,
+        opening.pipeType,
+      ),
       pipeSizeInches: decimalToInput(opening.pipeSizeInches),
-      pipeType: opening.pipeType ?? "",
       invertElevation: decimalToInput(opening.invertElevation),
       angle: decimalToInput(opening.angle),
       connectionType: (opening.connectionType ?? "") as PipeConnectionType | "",
@@ -135,7 +146,7 @@ export function buildDrillSheetDetail(
   const sumpFeet = num(calc.sumpFeet) ?? 0;
   const topOfBottomSlabFeet = getTopOfBottomSlabElevation(lowInvert, sumpFeet);
 
-  const openings: ComputedOpening[] = sheet.openings.map((opening) => {
+  let openings: ComputedOpening[] = sheet.openings.map((opening) => {
     const invert = num(opening.invertElevation);
     const bottomOfOpeningFeet = num(opening.bottomOfOpeningFeet);
     return {
@@ -149,6 +160,8 @@ export function buildDrillSheetDetail(
       holeDiameterInches: num(opening.holeDiameterInches),
       bootModel: opening.bootModel,
       pricePerBoot: num(opening.pricePerBoot),
+      hasBoot: opening.connectionType === "KOR_N_SEAL",
+      pipeWallThicknessInches: null,
       isLowInvert:
         invert != null &&
         lowInvert != null &&
@@ -160,6 +173,8 @@ export function buildDrillSheetDetail(
         bottomOfOpeningFeet,
         topOfBottomSlabFeet,
       ),
+      containingSectionRole: null,
+      sectionBottomToOpeningBottomInches: null,
     };
   });
 
@@ -167,7 +182,11 @@ export function buildDrillSheetDetail(
     role: section.role as "BASE" | "RISER",
     heightFeet: Number(section.heightFeet),
     label: section.label,
+    hasBottomKey: section.hasBottomKey,
+    hasTopKey: section.hasTopKey,
   }));
+
+  openings = annotateOpeningSections(openings, sections, topOfBottomSlabFeet);
 
   const invertToTop =
     num(calc.rimElevation) != null && lowInvert != null
@@ -185,6 +204,7 @@ export function buildDrillSheetDetail(
     wallHeightFeet: num(calc.wallHeightFeet) ?? 0,
     brickFeet: num(calc.brickFeet) ?? 0,
     hasKey: calc.hasKey,
+    keyHeightFeet: 4 / 12,
     totalHeightFeet: num(calc.totalHeightFeet),
     baseSlabThicknessFeet: num(calc.baseSlabThicknessFeet),
     sections,
@@ -205,6 +225,9 @@ export function buildDrillSheetDetail(
       ? new Intl.DateTimeFormat("en-US").format(calc.sheetDate)
       : "",
     castingName: sheet.castings[0]?.castingDescription ?? "",
+    castingClearOpeningInches: num(
+      sheet.castings[0]?.castingProduct?.castingClearOpeningInches ?? null,
+    ),
     insideDiameterFeet: num(calc.insideDiameterFeet),
     hasSteps: calc.hasSteps,
     inspection: calc.inspection ?? "",

@@ -111,30 +111,35 @@ export default async function Home() {
       value: String(openQuotesCount),
       detail: "Draft, in review, sent, or revised",
       accent: "sky" as const,
+      href: "/quotes?status=DRAFT",
     },
     {
       label: "Active Jobs",
       value: String(activeJobsCount),
       detail: `${productionQueueCount} structures in production queue`,
       accent: "emerald" as const,
+      href: "/jobs?status=ACTIVE",
     },
     {
       label: "Pending Invoices",
       value: String(pendingInvoicesCount),
       detail: `${outstandingTotal} outstanding`,
       accent: "amber" as const,
+      href: "/invoices?tab=drafts",
     },
     {
       label: "Inventory Alerts",
       value: String(inventoryAlertsCount),
       detail: "Items at or below reorder level",
       accent: "rose" as const,
+      href: "/inventory",
     },
     {
       label: "Deliveries Today",
       value: String(scheduledDeliveriesToday),
       detail: `${inTransitCount} in transit now`,
       accent: "sky" as const,
+      href: "/delivery-tickets?date=Today",
     },
   ];
 
@@ -255,7 +260,12 @@ export default async function Home() {
                   activeJobs.map((job) => (
                     <tr key={job.id} className="hover:bg-slate-50/60">
                       <td className="px-4 py-2.5 font-medium text-slate-900">
-                        {job.jobNumber}
+                        <Link
+                          href={`/jobs/${job.id}`}
+                          className="hover:text-slate-700"
+                        >
+                          {job.jobNumber}
+                        </Link>
                       </td>
                       <td className="px-4 py-2.5">
                         <p className="font-medium text-slate-900">{job.projectName}</p>
@@ -362,7 +372,12 @@ export default async function Home() {
                   inventoryAlerts.map((product) => (
                     <tr key={product.id} className="hover:bg-slate-50/60">
                       <td className="px-4 py-2.5 font-medium text-slate-900">
-                        {product.name}
+                        <Link
+                          href={`/inventory/${product.id}`}
+                          className="hover:text-slate-700"
+                        >
+                          {product.name}
+                        </Link>
                       </td>
                       <td className="px-4 py-2.5 font-mono text-[11px] text-slate-500">
                         {product.productCode}

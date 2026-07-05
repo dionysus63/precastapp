@@ -4,14 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
-  approveStructureForProduction,
   markStructureMade,
   startStructureProduction,
   submitStructureForApproval,
 } from "@/app/operations/actions";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
+import { DrillSheetPdfLink } from "@/components/drill-sheets/drill-sheet-pdf-link";
 import { JobStructureDocumentsSection } from "@/components/jobs/job-structure-documents-section";
+import { ApproveForProductionDialog } from "@/components/production/approve-for-production-dialog";
 import type { JobStructureDetailView } from "@/lib/job-structure-detail-mapper";
 
 type JobStructureDetailContentProps = {
@@ -23,6 +24,7 @@ export function JobStructureDetailContent({
 }: JobStructureDetailContentProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [message, setMessage] = useState<{ error?: string; success?: string }>(
     {},
   );
@@ -53,9 +55,21 @@ export function JobStructureDetailContent({
     detail.status === "NOT_SUBMITTED" &&
     (!detail.needsSubmittal || detail.jobSpecificSubmittalCount > 0);
 
+  const canApproveDirectly =
+    detail.status === "SUBMITTED" ||
+    (detail.status === "NOT_SUBMITTED" && !detail.needsSubmittal);
+
   const nextAction = (() => {
     switch (detail.status) {
       case "NOT_SUBMITTED":
+        if (!detail.needsSubmittal) {
+          return {
+            label: "Approve for production",
+            hint: "Approve this structure and upload the signed approval or use a generated submittal.",
+            disabled: false,
+            onClick: () => setApproveDialogOpen(true),
+          };
+        }
         return {
           label: "Mark as submitted",
           hint: detail.needsSubmittal
@@ -71,13 +85,9 @@ export function JobStructureDetailContent({
       case "SUBMITTED":
         return {
           label: "Approve for production",
-          hint: "Approve this structure to add it to the production queue.",
+          hint: "Upload the signed approval or use the generated submittal to approve for production.",
           disabled: false,
-          onClick: () =>
-            runAction(
-              () => approveStructureForProduction(detail.id),
-              "Structure approved for production.",
-            ),
+          onClick: () => setApproveDialogOpen(true),
         };
       case "APPROVED":
         return {
@@ -141,6 +151,21 @@ export function JobStructureDetailContent({
           >
             Quote {detail.quoteNumber}
           </Link>
+        ) : null}
+        {detail.drillSheetId ? (
+          <>
+            <DrillSheetPdfLink
+              drillSheetId={detail.drillSheetId}
+              label="View Drill Sheet PDF"
+              className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 font-semibold text-sky-800 hover:bg-sky-100"
+            />
+            <Link
+              href={`/drill-sheets/${detail.drillSheetId}`}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Drill sheet details
+            </Link>
+          </>
         ) : null}
       </div>
 
@@ -266,6 +291,22 @@ export function JobStructureDetailContent({
       ) : null}
       {message.success ? (
         <p className="text-sm text-green-700">{message.success}</p>
+      ) : null}
+
+      {approveDialogOpen && canApproveDirectly ? (
+        <ApproveForProductionDialog
+          target={{
+            id: detail.id,
+            structureNumber: detail.structureNumber,
+            description: detail.description,
+            needsSubmittal: detail.needsSubmittal,
+          }}
+          onClose={() => setApproveDialogOpen(false)}
+          onSuccess={() => {
+            setMessage({ success: "Structure approved for production." });
+            router.refresh();
+          }}
+        />
       ) : null}
 
       {detail.notes ? (

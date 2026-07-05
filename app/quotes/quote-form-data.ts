@@ -8,8 +8,12 @@ import {
 } from "@/components/quotes/quote-utils";
 import { requirePermission } from "@/lib/auth/session";
 import { withDatabaseRetry } from "@/lib/prisma";
+import { getProductPricesForList } from "@/lib/price-list-service";
 import { mapProductToQuoteFormOption } from "@/lib/quote-mapper";
-import type { RingBuilderConfig } from "@/lib/ring-builder-settings";
+import {
+  mergeRingBuilderConfigWithDefaults,
+  type RingBuilderConfig,
+} from "@/lib/ring-builder-settings";
 
 /**
  * Shared selects and row mappers for the quote form's reference data. Used by
@@ -21,14 +25,38 @@ export const QUOTE_PRODUCT_OPTION_SELECT = {
   id: true,
   productCode: true,
   name: true,
-  category: true,
   description: true,
   unit: true,
-  defaultPrice: true,
   weight: true,
   yards: true,
   taxable: true,
   castingRole: true,
+  castingSoldAsUnit: true,
+  manufacturerCode: true,
+  productCategory: {
+    select: { name: true },
+  },
+  subcategory: {
+    select: { name: true },
+  },
+  castingSupplier: {
+    select: { origin: true },
+  },
+} satisfies Prisma.ProductSelect;
+
+export const QUOTE_PIPE_PRODUCT_SELECT = {
+  id: true,
+  productCode: true,
+  name: true,
+  description: true,
+  productType: true,
+  unit: true,
+  weight: true,
+  taxable: true,
+  pipeDiameterInches: true,
+  pipeLengthFeet: true,
+  pipeClass: true,
+  pipeJointType: true,
 } satisfies Prisma.ProductSelect;
 
 const QUOTE_SERVICE_OPTION_SELECT = {
@@ -37,7 +65,6 @@ const QUOTE_SERVICE_OPTION_SELECT = {
   name: true,
   description: true,
   unit: true,
-  defaultPrice: true,
   taxable: true,
 } satisfies Prisma.ProductSelect;
 
@@ -86,6 +113,70 @@ export type QuoteFormJobRow = Prisma.JobGetPayload<{
 type QuoteFormServiceProductRow = Prisma.ProductGetPayload<{
   select: typeof QUOTE_SERVICE_OPTION_SELECT;
 }>;
+
+type QuoteFormPipeProductRow = Prisma.ProductGetPayload<{
+  select: typeof QUOTE_PIPE_PRODUCT_SELECT;
+}>;
+
+export function mapPipeProductToQuoteOption(
+  product: QuoteFormPipeProductRow,
+  price: import("@/app/generated/prisma/client").Prisma.Decimal | undefined,
+): import("@/lib/quotes/types").QuotePipeProductOption {
+  const productType =
+    product.productType === "ADS_PIPE" || product.productType === "PRECAST_PIPE"
+      ? product.productType
+      : "PRECAST_PIPE";
+
+  return {
+    id: product.id,
+    code: product.productCode,
+    name: product.name,
+    description: product.description?.trim() || product.name,
+    productType,
+    pipeDiameterInches: product.pipeDiameterInches
+      ? Number.parseFloat(product.pipeDiameterInches.toString())
+      : 0,
+    pipeLengthFeet: product.pipeLengthFeet
+      ? Number.parseFloat(product.pipeLengthFeet.toString())
+      : 0,
+    pipeClass: product.pipeClass,
+    pipeJointType: product.pipeJointType,
+    unit: product.unit,
+    unitPrice: price
+      ? Number.parseFloat(price.toString())
+      : 0,
+    weightLb: product.weight
+      ? Number.parseFloat(product.weight.toString())
+      : 0,
+    taxable: product.taxable,
+  };
+}
+
+export async function loadPipeProductsForQuoteForm(priceListId: string | null) {
+  await requirePermission(AppPermission.QUOTES_MANAGE);
+
+  const pipeProducts = await withDatabaseRetry((client) =>
+    client.product.findMany({
+      where: {
+        status: "ACTIVE",
+        productType: { in: ["ADS_PIPE", "PRECAST_PIPE"] },
+      },
+      orderBy: [{ pipeDiameterInches: "asc" }, { productCode: "asc" }],
+      select: QUOTE_PIPE_PRODUCT_SELECT,
+    }),
+  );
+
+  const priceMap = priceListId
+    ? await getProductPricesForList(
+        pipeProducts.map((product) => product.id),
+        priceListId,
+      )
+    : new Map();
+
+  return pipeProducts.map((product) =>
+    mapPipeProductToQuoteOption(product, priceMap.get(product.id)),
+  );
+}
 
 export function mapCustomerToQuoteFormOption(
   customer: QuoteFormCustomerRow,
@@ -139,6 +230,7 @@ export function mapJobToQuoteFormOption(job: QuoteFormJobRow): QuoteFormJobOptio
 
 function mapServiceProductsToOptions(
   serviceProducts: QuoteFormServiceProductRow[],
+  priceMap: Map<string, import("@/app/generated/prisma/client").Prisma.Decimal>,
 ): QuoteFormServiceOption[] {
   if (serviceProducts.length > 0) {
     return serviceProducts.map(
@@ -149,8 +241,8 @@ function mapServiceProductsToOptions(
         lineType: product.productCode.toLowerCase().includes("misc")
           ? "MISC"
           : "SERVICE",
-        defaultUnitPrice: product.defaultPrice
-          ? Number.parseFloat(product.defaultPrice.toString())
+        defaultUnitPrice: priceMap.has(product.id)
+          ? Number.parseFloat(priceMap.get(product.id)!.toString())
           : 0,
         taxable: product.taxable,
         unit: product.unit,
@@ -174,8 +266,9 @@ function mapServiceProductsToOptions(
 function collectRingOtherSubcategories(config: RingBuilderConfig): string[] {
   const seen = new Set<string>();
   const subcategories: string[] = [];
+  const merged = mergeRingBuilderConfigWithDefaults(config);
 
-  for (const mapping of config) {
+  for (const mapping of merged) {
     for (const subcategory of mapping.otherSubcategories) {
       const trimmed = subcategory.trim();
       const key = trimmed.toLowerCase();
@@ -190,23 +283,15 @@ function collectRingOtherSubcategories(config: RingBuilderConfig): string[] {
   return subcategories;
 }
 
-/**
- * Loads the small reference data the quote form still needs preloaded:
- * price lists, service options, and the ring builder "Other" products.
- *
- * Ring products stay preloaded because the ring builder modal filters them
- * synchronously by subcategory while the user works; instead of the previous
- * full ACTIVE-catalog query, only products matching the subcategories named in
- * the ring builder config are fetched (the modal re-applies the exact match).
- */
-export async function loadQuoteFormSharedData(
+export async function loadQuoteFormPriceOptions(
+  priceListId: string | null,
   ringBuilderConfig: RingBuilderConfig,
 ) {
   await requirePermission(AppPermission.QUOTES_MANAGE);
 
   const ringSubcategories = collectRingOtherSubcategories(ringBuilderConfig);
 
-  const [serviceProducts, ringProducts, priceLists] = await Promise.all([
+  const [serviceProducts, ringProducts, pipeProducts] = await Promise.all([
     withDatabaseRetry((client) =>
       client.product.findMany({
         where: { productType: "SERVICE", status: "ACTIVE" },
@@ -221,7 +306,9 @@ export async function loadQuoteFormSharedData(
               status: "ACTIVE",
               OR: ringSubcategories.map(
                 (subcategory): Prisma.ProductWhereInput => ({
-                  description: { contains: subcategory, mode: "insensitive" },
+                  subcategory: {
+                    name: { equals: subcategory, mode: "insensitive" },
+                  },
                 }),
               ),
             },
@@ -230,17 +317,62 @@ export async function loadQuoteFormSharedData(
           }),
         )
       : Promise.resolve([]),
-    withDatabaseRetry((client) =>
-      client.priceList.findMany({
-        orderBy: [{ isDefault: "desc" }, { name: "asc" }],
-        select: { id: true, name: true, isDefault: true },
-      }),
-    ),
+    loadPipeProductsForQuoteForm(priceListId),
   ]);
 
+  const productIds = [
+    ...serviceProducts.map((product) => product.id),
+    ...ringProducts.map((product) => product.id),
+  ];
+  const priceMap = priceListId
+    ? await getProductPricesForList(productIds, priceListId)
+    : new Map();
+
   return {
-    serviceOptions: mapServiceProductsToOptions(serviceProducts),
-    ringSlabProducts: ringProducts.map(mapProductToQuoteFormOption),
+    serviceOptions: mapServiceProductsToOptions(serviceProducts, priceMap),
+    ringSlabProducts: ringProducts.map((product) =>
+      mapProductToQuoteFormOption(product, priceMap.get(product.id)),
+    ),
+    pipeProducts,
+  };
+}
+
+/**
+ * Loads the small reference data the quote form still needs preloaded:
+ * price lists, service options, and the ring builder "Other" products.
+ *
+ * Ring products stay preloaded because the ring builder modal filters them
+ * synchronously by subcategory while the user works; instead of the previous
+ * full ACTIVE-catalog query, only products matching the subcategories named in
+ * the ring builder config are fetched by subcategory name (the modal re-applies
+ * the per diameter/style filter).
+ */
+export async function loadQuoteFormSharedData(
+  ringBuilderConfig: RingBuilderConfig,
+  priceListId?: string | null,
+) {
+  await requirePermission(AppPermission.QUOTES_MANAGE);
+
+  const priceLists = await withDatabaseRetry((client) =>
+    client.priceList.findMany({
+      orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+      select: { id: true, name: true, isDefault: true },
+    }),
+  );
+
+  const resolvedPriceListId =
+    priceListId ??
+    priceLists.find((list) => list.isDefault)?.id ??
+    priceLists[0]?.id ??
+    null;
+
+  const pricedOptions = await loadQuoteFormPriceOptions(
+    resolvedPriceListId,
+    ringBuilderConfig,
+  );
+
+  return {
+    ...pricedOptions,
     priceLists,
   };
 }

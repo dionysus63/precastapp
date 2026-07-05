@@ -43,6 +43,9 @@ type StructureTemplateFormProps = {
   cancelHref: string;
   submitLabel: string;
   defaultValue?: StructureTemplateFormValue;
+  /** ISO updatedAt of the template when the edit page loaded it — rejects
+   * stale saves (optimistic concurrency). */
+  expectedUpdatedAt?: string;
   castingOptions: CastingOption[];
 };
 
@@ -78,6 +81,7 @@ export function StructureTemplateForm({
   cancelHref,
   submitLabel,
   defaultValue,
+  expectedUpdatedAt,
   castingOptions,
 }: StructureTemplateFormProps) {
   const initial = defaultValue ?? defaultFormValue;
@@ -157,6 +161,9 @@ export function StructureTemplateForm({
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="payload" value={payloadJson} />
+      {expectedUpdatedAt ? (
+        <input type="hidden" name="expectedUpdatedAt" value={expectedUpdatedAt} />
+      ) : null}
 
       <SectionCard title="Template Details">
         <div className="space-y-5">

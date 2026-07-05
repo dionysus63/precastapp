@@ -11,11 +11,9 @@ import {
 } from "@/components/common/use-list-query";
 import {
   deliveryDateFilterOptions,
-  deliveryDriverFilterOptions,
-  deliveryJobFilterOptions,
   deliveryTicketStatusFormOptions,
   deliveryTicketStatusLabels,
-  deliveryTruckFilterOptions,
+  type DeliveryFilterOptions,
   type DeliveryTicketRow,
 } from "@/components/delivery-tickets/delivery-ticket-utils";
 import type { PageInfo } from "@/lib/list-params";
@@ -32,6 +30,7 @@ type DeliveryTicketsListFilters = {
 type DeliveryTicketsListProps = {
   tickets: DeliveryTicketRow[];
   pageInfo: PageInfo;
+  filterOptions: DeliveryFilterOptions;
   filters: DeliveryTicketsListFilters;
 };
 
@@ -131,6 +130,7 @@ const TicketsTable = memo(function TicketsTable({
 export function DeliveryTicketsList({
   tickets,
   pageInfo,
+  filterOptions,
   filters,
 }: DeliveryTicketsListProps) {
   const { setParams } = useListQuery();
@@ -174,7 +174,7 @@ export function DeliveryTicketsList({
           onChange={(event) => setParams({ driver: event.target.value })}
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
         >
-          {deliveryDriverFilterOptions.map((driver) => (
+          {filterOptions.drivers.map((driver) => (
             <option key={driver} value={driver}>
               Driver: {driver}
             </option>
@@ -185,7 +185,7 @@ export function DeliveryTicketsList({
           onChange={(event) => setParams({ truck: event.target.value })}
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
         >
-          {deliveryTruckFilterOptions.map((truck) => (
+          {filterOptions.trucks.map((truck) => (
             <option key={truck} value={truck}>
               Truck: {truck}
             </option>
@@ -196,7 +196,7 @@ export function DeliveryTicketsList({
           onChange={(event) => setParams({ job: event.target.value })}
           className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
         >
-          {deliveryJobFilterOptions.map((job) => (
+          {filterOptions.jobs.map((job) => (
             <option key={job} value={job}>
               Job: {job}
             </option>

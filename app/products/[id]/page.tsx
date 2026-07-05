@@ -10,6 +10,12 @@ import {
   formatCastingSupplierOriginLabel,
 } from "@/lib/casting-utils";
 import { mapProductToDetail } from "@/lib/product-mapper";
+import {
+  enrichProductWithDerivedAssemblyValues,
+  isDerivableCastingAssembly,
+  loadDerivedAssemblyValues,
+} from "@/lib/casting-service";
+import { getDefaultPriceList } from "@/lib/price-list-service";
 import { prisma } from "@/lib/prisma";
 
 type ProductDetailPageProps = {
@@ -41,6 +47,8 @@ export default async function ProductDetailPage({
   const product = await prisma.product.findUnique({
     where: { id },
     include: {
+      productCategory: { select: { name: true } },
+      subcategory: { select: { name: true } },
       documents: {
         orderBy: { uploadedAt: "desc" },
       },
@@ -67,7 +75,34 @@ export default async function ProductDetailPage({
     notFound();
   }
 
-  const detail = mapProductToDetail(product, product.documents);
+  const defaultPriceList = await getDefaultPriceList(prisma);
+  const priceListItem = defaultPriceList
+    ? await prisma.priceListItem.findUnique({
+        where: {
+          priceListId_productId: {
+            priceListId: defaultPriceList.id,
+            productId: product.id,
+          },
+        },
+        select: { unitPrice: true },
+      })
+    : null;
+
+  const derivedMap = isDerivableCastingAssembly(product)
+    ? await loadDerivedAssemblyValues(prisma, [product.id], defaultPriceList?.id)
+    : new Map();
+  const enriched = enrichProductWithDerivedAssemblyValues(
+    product,
+    priceListItem?.unitPrice,
+    derivedMap.get(product.id),
+  );
+
+  const detail = mapProductToDetail(enriched, product.documents, {
+    unitPrice: enriched.unitPrice,
+    priceListName: defaultPriceList?.name,
+    weightDerivedFromParts: enriched.weightDerivedFromParts,
+    priceDerivedFromParts: enriched.priceDerivedFromParts,
+  });
 
   return (
     <DashboardShell
@@ -101,11 +136,22 @@ export default async function ProductDetailPage({
 
           <dl className="mt-5 grid gap-5 sm:grid-cols-2">
             <DetailField label="Product Code" value={detail.productCode} />
+            {product.castingRole === "ASSEMBLY" ? (
+              <DetailField
+                label="Manufacturer Code"
+                value={detail.manufacturerCode}
+              />
+            ) : null}
             <DetailField label="Product Name" value={detail.productName} />
             <DetailField label="Product Type" value={detail.productTypeLabel} />
             <DetailField label="Category" value={detail.category} />
+            <DetailField label="Subcategory" value={detail.subcategory} />
+            <DetailField label="Description" value={detail.description} />
             <DetailField label="Unit" value={detail.unit} />
-            <DetailField label="Default Price" value={detail.defaultPrice} />
+            <DetailField
+              label={`Unit Price${defaultPriceList ? ` (${defaultPriceList.name})` : ""}`}
+              value={detail.unitPrice}
+            />
             <DetailField label="Cost" value={detail.cost} />
             <DetailField label="Weight" value={detail.weight} />
             <DetailField label="Yards" value={detail.yards} />
@@ -137,6 +183,16 @@ export default async function ProductDetailPage({
                   <DetailField
                     label="Supplier"
                     value={`${product.castingSupplier.name} (${formatCastingSupplierOriginLabel(product.castingSupplier.origin)})`}
+                  />
+                ) : null}
+                {product.castingRole === "ASSEMBLY" ? (
+                  <DetailField
+                    label="Stocking"
+                    value={
+                      product.castingSoldAsUnit
+                        ? "One-piece unit"
+                        : "Set with interchangeable parts"
+                    }
                   />
                 ) : null}
                 {product.isCasting && product.heightFeet ? (

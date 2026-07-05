@@ -27,8 +27,20 @@ export async function reviseQuoteInTransaction(
 
   const rootId = source.originalQuoteId ?? source.id;
 
-  if (!REVISABLE_STATUSES.has(source.status)) {
-    if (source.status === "REVISED") {
+  // Atomic compare-and-set: flip the source to REVISED up front so only one
+  // concurrent reviser can proceed (double-click, two tabs, two users). The
+  // loser sees count === 0 and gets the friendly diagnosis below. Rolls back
+  // with the transaction if anything later fails.
+  const claimed = await tx.quote.updateMany({
+    where: {
+      id: sourceQuoteId,
+      status: { in: ["SENT", "WON"] },
+    },
+    data: { status: "REVISED" },
+  });
+
+  if (claimed.count === 0) {
+    if (source.status === "REVISED" || REVISABLE_STATUSES.has(source.status)) {
       const latest = await tx.quote.findFirst({
         where: {
           OR: [{ id: rootId }, { originalQuoteId: rootId }],
@@ -63,8 +75,14 @@ export async function reviseQuoteInTransaction(
     nextRevision,
   );
 
+  // Revisions copy the source discount forward, so it must be reflected in
+  // the recomputed total.
   const { computed, lineTotals, totalWeight, totalYards, deliveryAmount } =
-    computeQuoteTotalsFromLines(source.lineItems, source.taxRate);
+    computeQuoteTotalsFromLines(
+      source.lineItems,
+      source.taxRate,
+      source.discountAmount,
+    );
 
   const newQuote = await tx.quote.create({
     data: {
@@ -159,11 +177,6 @@ export async function reviseQuoteInTransaction(
       data: { jobStructureId: null },
     });
   }
-
-  await tx.quote.update({
-    where: { id: sourceQuoteId },
-    data: { status: "REVISED" },
-  });
 
   return newQuote.id;
 }

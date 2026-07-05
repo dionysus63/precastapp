@@ -16,6 +16,7 @@ import {
 import { requireAuth } from "@/lib/auth/session";
 import { canEditQuote } from "@/lib/quotes/edit-rules";
 import { mapQuoteToFormInitialValues } from "@/lib/quote-mapper";
+import { listProductTaxonomy } from "@/lib/product-taxonomy.server";
 import { withDatabaseRetry } from "@/lib/prisma";
 import type { QuoteStatus } from "@/app/generated/prisma/client";
 
@@ -69,11 +70,12 @@ export default async function EditQuotePage({ params }: EditQuotePageProps) {
   // data and the entities this quote already references are loaded so
   // selected values render without a lookup.
   const [
-    { serviceOptions, ringSlabProducts, priceLists },
+    { serviceOptions, ringSlabProducts, pipeProducts, priceLists },
     initialCustomerRow,
     initialJobRow,
+    taxonomy,
   ] = await Promise.all([
-    loadQuoteFormSharedData(appSettings.ringBuilderConfig),
+    loadQuoteFormSharedData(appSettings.ringBuilderConfig, quote.priceListId),
     quote.customerId
       ? withDatabaseRetry((prisma) =>
           prisma.customer.findUnique({
@@ -90,6 +92,7 @@ export default async function EditQuotePage({ params }: EditQuotePageProps) {
           }),
         )
       : null,
+    listProductTaxonomy(),
   ]);
 
   const initialValues = mapQuoteToFormInitialValues(quote);
@@ -110,6 +113,7 @@ export default async function EditQuotePage({ params }: EditQuotePageProps) {
         <QuoteForm
           quoteId={quote.id}
           initialValues={initialValues}
+          expectedUpdatedAt={quote.updatedAt.toISOString()}
           initialCustomer={
             initialCustomerRow
               ? mapCustomerToQuoteFormOption(initialCustomerRow)
@@ -122,6 +126,8 @@ export default async function EditQuotePage({ params }: EditQuotePageProps) {
           priceLists={priceLists}
           ringBuilderConfig={appSettings.ringBuilderConfig}
           ringSlabProducts={ringSlabProducts}
+          pipeProducts={pipeProducts}
+          taxonomy={taxonomy}
           quoteDefaults={{
             defaultTaxRate: appSettings.defaultTaxRate,
             defaultLeadTime: appSettings.defaultLeadTime,

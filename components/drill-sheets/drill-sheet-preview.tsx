@@ -4,6 +4,7 @@ import {
   formatCurrency,
   formatFeetInches,
   formatFeetInchesShort,
+  formatPipeDescription,
   getStructureDimensions,
   getStructureElevations,
 } from "@/lib/drill-sheet";
@@ -26,6 +27,8 @@ export type DrillSheetPreviewMeta = {
   useBase: string;
   useRiser: string;
   brickAdjustment: string;
+  /** Clear opening of the casting frame; printed as the top slab opening. */
+  castingClearOpeningInches?: number | null;
 };
 
 type DrillSheetPreviewProps = {
@@ -315,6 +318,18 @@ export function DrillSheetPreview({ meta, result }: DrillSheetPreviewProps) {
                     <span>
                       {section.role === "BASE" ? "Base" : "Riser"}
                       {section.label ? ` — ${section.label}` : ""}
+                      {!section.hasTopKey || (section.role === "RISER" && !section.hasBottomKey) ? (
+                        <span className="ml-1 font-medium text-amber-700">
+                          {[
+                            section.role === "RISER" && !section.hasBottomKey
+                              ? "no btm key"
+                              : null,
+                            !section.hasTopKey ? "no top key" : null,
+                          ]
+                            .filter(Boolean)
+                            .join(", ")}
+                        </span>
+                      ) : null}
                     </span>
                     <span className="tabular-nums">
                       {formatFeetInches(section.heightFeet)} (
@@ -359,9 +374,8 @@ export function DrillSheetPreview({ meta, result }: DrillSheetPreviewProps) {
             <thead>
               <tr className={compactTableHead}>
                 <th className={compactTh}>Opening</th>
-                <th className={compactTh}>Material</th>
+                <th className={compactTh}>Material / Type</th>
                 <th className={compactTh}>Size</th>
-                <th className={compactTh}>Type</th>
                 <th className={compactTh}>Invert</th>
                 <th className={compactTh}>Top Pipe</th>
                 <th className={compactTh}>Bot Open</th>
@@ -375,7 +389,7 @@ export function DrillSheetPreview({ meta, result }: DrillSheetPreviewProps) {
               {result.openings.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={11}
+                    colSpan={10}
                     className="px-2 py-2 text-center text-slate-500"
                   >
                     No openings entered.
@@ -402,13 +416,13 @@ export function DrillSheetPreview({ meta, result }: DrillSheetPreviewProps) {
                         ) : null}
                       </td>
                       <td className={`${compactTd} text-slate-600`}>
-                        {opening.pipeMaterial || "—"}
+                        {formatPipeDescription(
+                          opening.pipeMaterial,
+                          opening.pipeType,
+                        ) || "—"}
                       </td>
                       <td className={`${compactTd} text-slate-600`}>
                         {opening.pipeSizeInches ?? "—"}&quot;
-                      </td>
-                      <td className={`${compactTd} text-slate-600`}>
-                        {opening.pipeType || "—"}
                       </td>
                       <td className={`${compactTd} tabular-nums text-slate-600`}>
                         {feet(opening.invertElevation)}

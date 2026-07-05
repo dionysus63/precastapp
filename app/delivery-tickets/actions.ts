@@ -20,7 +20,13 @@ import {
 import { formatDrainRingStyleLabel } from "@/lib/drain-ring-utils";
 import { generateSubmittalPackageForDeliveryTicket } from "@/lib/submittal-package";
 import { maybeCreatePayNowInvoiceForTicket } from "@/lib/invoicing-service";
-import { prisma, withDatabaseRetry } from "@/lib/prisma";
+import { getDefaultPriceListId, getProductPricesForList } from "@/lib/price-list-service";
+import {
+  enrichProductWithDerivedAssemblyValues,
+  isDerivableCastingAssembly,
+  loadDerivedAssemblyValues,
+} from "@/lib/casting-service";
+import { withDatabaseRetry } from "@/lib/prisma";
 
 export type TicketProductOption = {
   id: string;
@@ -28,7 +34,7 @@ export type TicketProductOption = {
   name: string;
   unit: string;
   weight: number | null;
-  defaultPrice: number | null;
+  unitPrice: number | null;
   currentStock: number | null;
   trackInventory: boolean;
 };
@@ -130,6 +136,7 @@ async function validateLines(
     const remainingFor = (line: (typeof fulfillment)[number]) =>
       Math.max(0, line.remainingQty - (scheduledByLine.get(line.quoteLineItemId) ?? 0));
     const drainRingFeetByLine = new Map<string, number>();
+    const adsPipeQtyByLine = new Map<string, number>();
     const castingPiecesByAssembly = new Map<string, Map<string, number>>();
 
     for (const line of input.lines) {
@@ -160,6 +167,27 @@ async function validateLines(
           line.quoteLineItemId,
           (drainRingFeetByLine.get(line.quoteLineItemId) ?? 0) +
             option.heightFeet * line.quantity,
+        );
+        continue;
+      }
+
+      if (meta.isAdsPipe) {
+        if (!line.productId) {
+          throw new Error(
+            `${line.itemCode} requires a product selection for ADS pipe fulfillment.`,
+          );
+        }
+        const option = meta.adsPipeOptions.find(
+          (entry) => entry.productId === line.productId,
+        );
+        if (!option) {
+          throw new Error(
+            `${line.itemCode} is not a valid ADS pipe SKU for ${meta.displayName}.`,
+          );
+        }
+        adsPipeQtyByLine.set(
+          line.quoteLineItemId,
+          (adsPipeQtyByLine.get(line.quoteLineItemId) ?? 0) + line.quantity,
         );
         continue;
       }
@@ -195,6 +223,17 @@ async function validateLines(
         const over = Math.round((feet - remainingQty) * 100) / 100;
         throw new Error(
           `${meta.displayName} exceeds remaining (${remainingQty} LF${remainingQty < meta.remainingQty ? ", including other open tickets" : ""}) by ${over} LF.`,
+        );
+      }
+    }
+
+    for (const [quoteLineItemId, qty] of adsPipeQtyByLine) {
+      const meta = byId.get(quoteLineItemId);
+      if (!meta) continue;
+      const remainingQty = remainingFor(meta);
+      if (qty > remainingQty) {
+        throw new Error(
+          `${meta.displayName} exceeds remaining (${remainingQty}${remainingQty < meta.remainingQty ? ", including other open tickets" : ""}).`,
         );
       }
     }
@@ -310,13 +349,14 @@ export async function createDeliveryTicket(
   }
 
   try {
+    const defaultPriceListId = input.priceListId ?? (await getDefaultPriceListId());
     const ticket = await withDatabaseRetry(async (client) =>
       client.$transaction(async (tx) => {
         await validateLines(tx, input);
         const numbering = await allocateDeliveryTicketNumber(tx);
         return tx.deliveryTicket.create({
           data: {
-            ...ticketData(input),
+            ...ticketData({ ...input, priceListId: defaultPriceListId }),
             ticketNumber: numbering.ticketNumber,
             year: numbering.year,
             yearTwoDigit: numbering.yearTwoDigit,
@@ -379,7 +419,9 @@ export async function updateDeliveryTicket(
         await validateLines(tx, input, ticketId);
         await tx.deliveryTicketLineItem.deleteMany({ where: { deliveryTicketId: ticketId } });
 
-        const data = ticketData(input);
+        const defaultPriceListId =
+          input.priceListId ?? (await getDefaultPriceListId(tx));
+        const data = ticketData({ ...input, priceListId: defaultPriceListId });
         const { lineItems, ...rest } = data;
 
         await tx.deliveryTicket.update({
@@ -403,10 +445,13 @@ export async function updateDeliveryTicket(
   }
 }
 
-export async function listStockProductsForTicket(): Promise<
-  TicketProductOption[]
-> {
+export async function listStockProductsForTicket(
+  priceListId?: string | null,
+): Promise<TicketProductOption[]> {
   await requirePermission(AppPermission.DELIVERY_VIEW);
+  const resolvedPriceListId =
+    priceListId ?? (await getDefaultPriceListId()) ?? null;
+
   const products = await withDatabaseRetry((client) =>
     client.product.findMany({
       where: { status: "ACTIVE" },
@@ -417,23 +462,57 @@ export async function listStockProductsForTicket(): Promise<
         name: true,
         unit: true,
         weight: true,
-        defaultPrice: true,
+        cost: true,
+        castingRole: true,
+        castingSoldAsUnit: true,
+        manufacturerCode: true,
         currentStockQuantity: true,
         trackInventory: true,
       },
     }),
   );
 
-  return products.map((product) => ({
-    id: product.id,
-    productCode: product.productCode,
-    name: product.name,
-    unit: product.unit,
-    weight: product.weight != null ? Number(product.weight) : null,
-    defaultPrice: product.defaultPrice != null ? Number(product.defaultPrice) : null,
-    currentStock: product.trackInventory ? product.currentStockQuantity : null,
-    trackInventory: product.trackInventory,
-  }));
+  const priceMap = resolvedPriceListId
+    ? await getProductPricesForList(
+        products.map((product) => product.id),
+        resolvedPriceListId,
+      )
+    : new Map();
+
+  const derivableAssemblyIds = products
+    .filter((product) => isDerivableCastingAssembly(product))
+    .map((product) => product.id);
+  const derivedMap = derivableAssemblyIds.length
+    ? await withDatabaseRetry((client) =>
+        loadDerivedAssemblyValues(
+          client,
+          derivableAssemblyIds,
+          resolvedPriceListId,
+        ),
+      )
+    : new Map();
+
+  return products.map((product) => {
+    const enriched = enrichProductWithDerivedAssemblyValues(
+      product,
+      priceMap.get(product.id),
+      derivedMap.get(product.id),
+    );
+    return {
+      id: product.id,
+      productCode: product.productCode,
+      name: product.name,
+      unit: product.unit,
+      weight:
+        enriched.weight != null ? Number(enriched.weight.toString()) : null,
+      unitPrice:
+        enriched.unitPrice != null
+          ? Number(enriched.unitPrice.toString())
+          : null,
+      currentStock: product.trackInventory ? product.currentStockQuantity : null,
+      trackInventory: product.trackInventory,
+    };
+  });
 }
 
 export type GenerateTicketSubmittalResult =
@@ -546,3 +625,38 @@ export async function updateDeliveryTicketStatus(
   }
 }
 
+export type DeliveryTicketJobSearchOption = {
+  id: string;
+  jobNumber: string;
+  projectName: string;
+  customerName: string;
+};
+
+export async function searchJobsForDeliveryTicket(
+  query: string,
+): Promise<DeliveryTicketJobSearchOption[]> {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+
+  const trimmed = query.trim();
+  return withDatabaseRetry((client) =>
+    client.job.findMany({
+      where: trimmed
+        ? {
+            OR: [
+              { jobNumber: { contains: trimmed, mode: "insensitive" } },
+              { projectName: { contains: trimmed, mode: "insensitive" } },
+              { customerName: { contains: trimmed, mode: "insensitive" } },
+            ],
+          }
+        : {},
+      orderBy: [{ year: "desc" }, { sequenceNumber: "desc" }],
+      take: 20,
+      select: {
+        id: true,
+        jobNumber: true,
+        projectName: true,
+        customerName: true,
+      },
+    }),
+  );
+}

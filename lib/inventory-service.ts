@@ -17,6 +17,22 @@ export type PurchaseReceiptLineInput = {
   quantityReceived: number;
 };
 
+/** True for a P2002 on a submissionKey column: the same form submission
+ * already landed (double-click / retry). Callers should treat it as success. */
+export function isDuplicateSubmission(error: unknown): boolean {
+  if (
+    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+    error.code !== "P2002"
+  ) {
+    return false;
+  }
+  const target = error.meta?.target;
+  if (Array.isArray(target)) {
+    return target.includes("submissionKey");
+  }
+  return typeof target === "string" && target.includes("submissionKey");
+}
+
 type StockChangeInput = {
   productId: string;
   /** Signed ledger magnitude: positive adds stock, negative removes it. */
@@ -27,6 +43,8 @@ type StockChangeInput = {
   referenceId?: string | null;
   notes?: string | null;
   createdBy?: string | null;
+  /** Idempotency key for user-submitted changes (see schema). */
+  submissionKey?: string | null;
   /**
    * When false (default), the change is rejected if it would drive
    * `currentStockQuantity` below zero. Inbound changes (receipts, production,
@@ -47,6 +65,16 @@ async function applyStockChange(
   tx: DbClient,
   input: StockChangeInput,
 ): Promise<void> {
+  // Stock is tracked in whole units (Int balance). Reject fractional ledger
+  // magnitudes outright instead of rounding: a silent round would make the
+  // Decimal ledger and the Int balance permanently disagree.
+  const balanceDelta = input.quantityChange.toNumber();
+  if (!Number.isInteger(balanceDelta)) {
+    throw new Error(
+      `Stock is tracked in whole units; got a quantity of ${input.quantityChange.toString()}.`,
+    );
+  }
+
   await tx.inventoryTransaction.create({
     data: {
       productId: input.productId,
@@ -57,13 +85,9 @@ async function applyStockChange(
       referenceId: input.referenceId ?? null,
       notes: input.notes ?? null,
       createdBy: input.createdBy ?? null,
+      submissionKey: input.submissionKey ?? null,
     },
   });
-
-  // `currentStockQuantity` is an Int balance; ledger magnitudes are integral in
-  // practice. Round defensively so a stray fractional Decimal can't fail the
-  // Int update.
-  const balanceDelta = Math.round(input.quantityChange.toNumber());
 
   if (!input.allowNegative && balanceDelta < 0) {
     const updated = await tx.product.updateMany({
@@ -101,11 +125,25 @@ export async function savePurchaseReceiptEntry(
     enteredBy?: string | null;
     notes?: string | null;
     batchLabel?: string | null;
+    submissionKey?: string | null;
     lines: PurchaseReceiptLineInput[];
   },
 ): Promise<string> {
   if (input.lines.length === 0) {
     throw new Error("Add at least one receipt line.");
+  }
+
+  // Idempotency: a resubmitted form (double-click, retry after timeout)
+  // reuses its key, so the receipt is only posted once. The @unique on
+  // submissionKey is the backstop for two truly concurrent submissions.
+  if (input.submissionKey) {
+    const existing = await tx.purchaseReceiptEntry.findUnique({
+      where: { submissionKey: input.submissionKey },
+      select: { id: true },
+    });
+    if (existing) {
+      return existing.id;
+    }
   }
 
   const entry = await tx.purchaseReceiptEntry.create({
@@ -115,6 +153,7 @@ export async function savePurchaseReceiptEntry(
       enteredBy: input.enteredBy ?? null,
       notes: input.notes ?? null,
       batchLabel: input.batchLabel ?? null,
+      submissionKey: input.submissionKey ?? null,
     },
   });
 
@@ -125,6 +164,7 @@ export async function savePurchaseReceiptEntry(
         id: true,
         trackInventory: true,
         castingRole: true,
+        castingSoldAsUnit: true,
       },
     });
 
@@ -136,7 +176,7 @@ export async function savePurchaseReceiptEntry(
       throw new Error("Product is not tracked in inventory.");
     }
 
-    if (product.castingRole === "ASSEMBLY") {
+    if (product.castingRole === "ASSEMBLY" && !product.castingSoldAsUnit) {
       throw new Error("Receive component pieces, not casting assemblies.");
     }
 
@@ -178,6 +218,7 @@ export async function saveDailyProductionEntry(
     enteredBy?: string | null;
     notes?: string | null;
     batchLabel?: string | null;
+    submissionKey?: string | null;
     lines: ProductionLineInput[];
   },
 ): Promise<string> {
@@ -186,12 +227,24 @@ export async function saveDailyProductionEntry(
   }
 
   return client.$transaction(async (tx) => {
+    // Idempotency: see savePurchaseReceiptEntry.
+    if (input.submissionKey) {
+      const existing = await tx.dailyProductionEntry.findUnique({
+        where: { submissionKey: input.submissionKey },
+        select: { id: true },
+      });
+      if (existing) {
+        return existing.id;
+      }
+    }
+
     const entry = await tx.dailyProductionEntry.create({
       data: {
         productionDate: input.productionDate,
         enteredBy: input.enteredBy ?? null,
         notes: input.notes ?? null,
         batchLabel: input.batchLabel ?? null,
+        submissionKey: input.submissionKey ?? null,
       },
     });
 
@@ -308,6 +361,7 @@ export async function adjustInventory(
     transactionDate?: Date;
     notes?: string | null;
     createdBy?: string | null;
+    submissionKey?: string | null;
   },
 ): Promise<void> {
   if (!Number.isFinite(input.quantityChange) || input.quantityChange === 0) {
@@ -318,6 +372,17 @@ export async function adjustInventory(
   const transactionDate = input.transactionDate ?? new Date();
 
   await client.$transaction(async (tx) => {
+    // Idempotency: see savePurchaseReceiptEntry.
+    if (input.submissionKey) {
+      const existing = await tx.inventoryTransaction.findUnique({
+        where: { submissionKey: input.submissionKey },
+        select: { id: true },
+      });
+      if (existing) {
+        return;
+      }
+    }
+
     // Read inside the transaction so validation and the atomic balance update
     // see a consistent view.
     const product = await tx.product.findUnique({
@@ -340,6 +405,7 @@ export async function adjustInventory(
       transactionDate,
       notes: input.notes ?? null,
       createdBy: input.createdBy ?? null,
+      submissionKey: input.submissionKey ?? null,
     });
   });
 }

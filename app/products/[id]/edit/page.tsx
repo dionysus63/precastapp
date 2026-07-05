@@ -7,8 +7,10 @@ import { updateProduct } from "@/app/products/actions";
 import {
   listActiveCastingSuppliers,
   listCastingComponentProducts,
+  mapCastingComponentsForForm,
 } from "@/lib/casting-service";
-import { getProductCatalog } from "@/lib/product-catalog-settings.server";
+import { listProductTaxonomy } from "@/lib/product-taxonomy.server";
+import { getDefaultPriceListId, loadPriceListOptionsForForms } from "@/lib/price-list-service";
 import { prisma } from "@/lib/prisma";
 
 type EditProductPageProps = {
@@ -18,24 +20,50 @@ type EditProductPageProps = {
 export default async function EditProductPage({ params }: EditProductPageProps) {
   const { id } = await params;
 
-  const [product, catalog, castingSuppliers, castingComponents] =
+  const [product, taxonomy, castingSuppliers, priceLists, defaultPriceListId] =
     await Promise.all([
       prisma.product.findUnique({
         where: { id },
         include: {
+          productCategory: { select: { id: true, name: true } },
+          subcategory: { select: { id: true, name: true } },
           castingAssemblyComponents: {
             orderBy: [{ sortOrder: "asc" }, { pieceRole: "asc" }],
           },
         },
       }),
-      getProductCatalog(),
+      listProductTaxonomy(),
       listActiveCastingSuppliers(prisma),
-      listCastingComponentProducts(prisma),
+      loadPriceListOptionsForForms(),
+      getDefaultPriceListId(prisma),
     ]);
 
   if (!product) {
     notFound();
   }
+
+  const selectedPriceListId =
+    priceLists.find((list) => list.isDefault)?.id ??
+    defaultPriceListId ??
+    priceLists[0]?.id ??
+    "";
+
+  const [priceListItem, castingComponents] = await Promise.all([
+    selectedPriceListId
+      ? prisma.priceListItem.findUnique({
+          where: {
+            priceListId_productId: {
+              priceListId: selectedPriceListId,
+              productId: product.id,
+            },
+          },
+          select: { unitPrice: true, priceListId: true },
+        })
+      : Promise.resolve(null),
+    listCastingComponentProducts(prisma, selectedPriceListId).then(
+      mapCastingComponentsForForm,
+    ),
+  ]);
 
   return (
     <DashboardShell
@@ -59,29 +87,27 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
               action={updateProduct}
               cancelHref={`/products/${product.id}`}
               submitLabel="Save Changes"
-              catalog={catalog}
+              taxonomy={taxonomy}
+              priceLists={priceLists}
               productId={product.id}
+              expectedUpdatedAt={product.updatedAt.toISOString()}
               castingSuppliers={castingSuppliers}
-              castingComponents={castingComponents.map((component) => ({
-                id: component.id,
-                productCode: component.productCode,
-                name: component.name,
-                castingPieceRole: component.castingPieceRole,
-              }))}
+              castingComponents={castingComponents}
               defaultValues={{
                 productType: product.productType,
                 productKind: product.productKind,
                 productCode: product.productCode,
                 productName: product.name,
-                category: product.category,
-                subcategory: product.description ?? "",
+                categoryId: product.categoryId,
+                subcategoryId: product.subcategoryId ?? "",
+                description: product.description ?? "",
                 unit: product.unit,
-                defaultPrice: product.defaultPrice
-                  ? product.defaultPrice.toString()
+                unitPrice: priceListItem?.unitPrice
+                  ? priceListItem.unitPrice.toString()
                   : "",
+                priceListId: priceListItem?.priceListId ?? selectedPriceListId,
                 weight: product.weight ? product.weight.toString() : "",
                 yards: product.yards ? product.yards.toString() : "",
-                trackInventory: product.trackInventory ? "yes" : "no",
                 currentStockQuantity: String(product.currentStockQuantity),
                 reorderLevel: String(product.reorderLevel),
                 status: product.status,
@@ -97,6 +123,8 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
                 castingRole: product.castingRole ?? "",
                 castingPieceRole: product.castingPieceRole ?? "",
                 castingSupplierId: product.castingSupplierId ?? "",
+                manufacturerCode: product.manufacturerCode ?? "",
+                castingSoldAsUnit: product.castingSoldAsUnit,
                 castingHeightFeet: product.heightFeet
                   ? product.heightFeet.toString()
                   : "",

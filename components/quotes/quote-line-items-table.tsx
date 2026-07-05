@@ -9,6 +9,7 @@ import {
   isCategoryLineItem,
   quoteDescriptionTextareaClassName,
 } from "@/components/quotes/quote-utils";
+import { hasCostBreakdown } from "@/lib/quotes/custom-structure";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 
 const quoteTableInputClassName =
@@ -218,14 +219,24 @@ const QuoteLineItemRow = memo(function QuoteLineItemRow({
         />
       </td>
       <td className="px-3 py-2">
-        <input
-          type="text"
-          value={line.unitPrice}
-          onChange={(event) =>
-            onUpdateLine(line.id, "unitPrice", event.target.value)
-          }
-          className={`${quoteTableInputClassName} w-24 min-w-0`}
-        />
+        {line.type === "CUSTOM_STRUCTURE" && hasCostBreakdown(line.costBreakdown) ? (
+          <div>
+            <p className="font-medium text-slate-900">{line.unitPrice}</p>
+            <p className="text-[10px] text-slate-500">
+              {line.costBreakdown!.length} cost line
+              {line.costBreakdown!.length === 1 ? "" : "s"} · edit to change
+            </p>
+          </div>
+        ) : (
+          <input
+            type="text"
+            value={line.unitPrice}
+            onChange={(event) =>
+              onUpdateLine(line.id, "unitPrice", event.target.value)
+            }
+            className={`${quoteTableInputClassName} w-24 min-w-0`}
+          />
+        )}
       </td>
       <td className="px-3 py-2">
         <input

@@ -14,10 +14,18 @@ export default async function PipeOpeningSizesPage() {
 
   const defaultRows: PipeOpeningRow[] = entries.map((entry) => ({
     id: entry.id,
-    pipeMaterial: entry.pipeMaterial,
+    // Legacy rows kept material and type separate; show them combined.
+    pipeMaterial: [entry.pipeMaterial, entry.pipeType]
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join(" "),
     pipeSizeInches: String(entry.pipeSizeInches),
-    pipeType: entry.pipeType,
+    hasBoot: entry.hasBoot,
     holeDiameterInches: String(entry.holeDiameterInches),
+    pipeWallThicknessInches:
+      Number(entry.pipeWallThicknessInches) > 0
+        ? String(entry.pipeWallThicknessInches)
+        : "",
     bootModel: entry.bootModel ?? "",
     pricePerBoot:
       entry.pricePerBoot != null ? String(entry.pricePerBoot) : "",
@@ -26,7 +34,7 @@ export default async function PipeOpeningSizesPage() {
   return (
     <DashboardShell
       title="Pipe Opening Sizes"
-      subtitle="Global catalog: pipe material, size, and type → hole diameter, boot model, and price."
+      subtitle="Global catalog: pipe material/type, size, and boot → hole diameter, pipe wall, boot model, and price."
     >
       <Link
         href="/structures"

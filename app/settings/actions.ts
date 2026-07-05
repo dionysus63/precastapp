@@ -14,21 +14,6 @@ import {
 import { removeCompanyLogo } from "@/lib/company-logo";
 import { saveCompanyLogo } from "@/lib/company-logo-raster";
 import {
-  conflictsNotCoveredByRenames,
-  findCatalogInUseConflicts,
-  formatProductCatalogInUseError,
-  parseCatalogRenamesFromFormData,
-  parseProductCatalogFromFormData,
-  renamesAffectingProducts,
-  validateCatalogRenames,
-  validateProductCatalog,
-} from "@/lib/product-catalog-settings";
-import {
-  applyProductCatalogRenames,
-  getProductCatalog,
-  getProductCatalogUsage,
-} from "@/lib/product-catalog-settings.server";
-import {
   parseRingBuilderConfigFromFormData,
   validateRingBuilderConfig,
 } from "@/lib/ring-builder-settings";
@@ -39,6 +24,11 @@ import {
   verifySettingsResetPassword,
 } from "@/lib/settings-reset-password";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
+import {
+  assertPriceListCompleteForDefault,
+  copyPriceListItems,
+  getPriceListCompleteness,
+} from "@/lib/price-list-service";
 
 export type SettingsActionResult = {
   error?: string;
@@ -105,6 +95,8 @@ export async function createPriceList(formData: FormData) {
   const effectiveDateRaw = String(formData.get("effectiveDate") ?? "").trim();
   const isDefault = formData.get("isDefault") === "on";
   const notes = String(formData.get("notes") ?? "").trim() || null;
+  const copyFromPriceListId =
+    String(formData.get("copyFromPriceListId") ?? "").trim() || null;
 
   if (!name) {
     return { error: "Name is required." };
@@ -115,18 +107,28 @@ export async function createPriceList(formData: FormData) {
     : null;
 
   try {
-    await withDatabaseRetry(async (client) => {
-      if (isDefault) {
-        await client.priceList.updateMany({
-          data: { isDefault: false },
-          where: { isDefault: true },
-        });
-      }
+    await withDatabaseRetry((client) =>
+      client.$transaction(async (tx) => {
+        if (isDefault) {
+          await tx.priceList.updateMany({
+            data: { isDefault: false },
+            where: { isDefault: true },
+          });
+        }
 
-      await client.priceList.create({
-        data: { name, effectiveDate, isDefault, notes },
-      });
-    });
+        const created = await tx.priceList.create({
+          data: { name, effectiveDate, isDefault, notes },
+        });
+
+        if (copyFromPriceListId) {
+          await copyPriceListItems(created.id, copyFromPriceListId, tx);
+        }
+
+        if (isDefault) {
+          await assertPriceListCompleteForDefault(created.id, tx);
+        }
+      }),
+    );
 
     revalidatePath("/settings/price-lists");
     return { success: true };
@@ -142,15 +144,18 @@ export async function upsertPriceListItem(formData: FormData) {
   await requirePermission(AppPermission.SETTINGS_MANAGE);
   const priceListId = String(formData.get("priceListId") ?? "").trim();
   const productId = String(formData.get("productId") ?? "").trim();
-  const unitPrice = Number(formData.get("unitPrice"));
+  // Money enters as the user's literal string, never through a JS float.
+  const unitPriceRaw = String(formData.get("unitPrice") ?? "").trim();
 
   if (!priceListId || !productId) {
     return { error: "Price list and product are required." };
   }
 
-  if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+  const unitPriceNumber = Number(unitPriceRaw);
+  if (!unitPriceRaw || !Number.isFinite(unitPriceNumber) || unitPriceNumber < 0) {
     return { error: "Unit price must be zero or greater." };
   }
+  const unitPrice = new Prisma.Decimal(unitPriceRaw);
 
   try {
     await withDatabaseRetry((client) =>
@@ -161,10 +166,10 @@ export async function upsertPriceListItem(formData: FormData) {
         create: {
           priceListId,
           productId,
-          unitPrice: new Prisma.Decimal(unitPrice),
+          unitPrice,
         },
         update: {
-          unitPrice: new Prisma.Decimal(unitPrice),
+          unitPrice,
         },
       }),
     );
@@ -393,112 +398,6 @@ export async function updateRolePermissionsFormAction(
   });
 
   return result;
-}
-
-export async function updateProductCatalogSettingsFormAction(
-  formData: FormData,
-): Promise<SettingsActionResult> {
-  await requirePermission(AppPermission.SETTINGS_MANAGE);
-
-  const raw = String(formData.get("productCatalog") ?? "").trim();
-  if (!raw) {
-    return { error: "Product catalog data is required." };
-  }
-
-  let catalog;
-  try {
-    catalog = parseProductCatalogFromFormData(raw);
-  } catch (error) {
-    return {
-      error:
-        error instanceof Error
-          ? error.message
-          : "Invalid product catalog data.",
-    };
-  }
-
-  const validationError = validateProductCatalog(catalog);
-  if (validationError) {
-    return { error: validationError };
-  }
-
-  const rawRenames = String(formData.get("catalogRenames") ?? "").trim();
-  const confirmed = String(formData.get("confirmCatalogRenames") ?? "") === "1";
-
-  let renames;
-  try {
-    renames = parseCatalogRenamesFromFormData(rawRenames);
-  } catch (error) {
-    return {
-      error:
-        error instanceof Error
-          ? error.message
-          : "Invalid catalog rename data.",
-    };
-  }
-
-  const [oldCatalog, usage] = await Promise.all([
-    getProductCatalog(),
-    getProductCatalogUsage(),
-  ]);
-
-  if (renames.length > 0) {
-    const renameValidationError = validateCatalogRenames(
-      renames,
-      oldCatalog,
-      catalog,
-    );
-    if (renameValidationError) {
-      return { error: renameValidationError };
-    }
-  }
-
-  const conflicts = findCatalogInUseConflicts(catalog, usage);
-  const uncoveredConflicts =
-    renames.length > 0
-      ? conflictsNotCoveredByRenames(conflicts, renames)
-      : conflicts;
-
-  if (uncoveredConflicts.length > 0) {
-    return { error: formatProductCatalogInUseError(uncoveredConflicts) };
-  }
-
-  if (
-    renames.length > 0 &&
-    renamesAffectingProducts(renames, usage) &&
-    !confirmed
-  ) {
-    return {
-      error: "Confirm catalog renames before updating products.",
-    };
-  }
-
-  if (renames.length > 0) {
-    try {
-      await withDatabaseRetry((client) =>
-        client.$transaction(async (tx) => {
-          await applyProductCatalogRenames(tx, renames);
-          await tx.appSettings.update({
-            where: { id: "default" },
-            data: {
-              productCatalog: catalog as Prisma.InputJsonValue,
-            },
-          });
-        }),
-      );
-      revalidateSettingsPaths();
-      return { success: "Settings saved." };
-    } catch (error) {
-      return {
-        error:
-          error instanceof Error ? error.message : "Could not save settings.",
-      };
-    }
-  }
-
-  return updateAppSettings({
-    productCatalog: catalog,
-  });
 }
 
 export async function updateRingBuilderSettingsFormAction(

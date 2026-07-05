@@ -5,17 +5,24 @@ import { ProductForm } from "@/components/products/product-form";
 import {
   listActiveCastingSuppliers,
   listCastingComponentProducts,
+  mapCastingComponentsForForm,
 } from "@/lib/casting-service";
-import { getProductCatalog } from "@/lib/product-catalog-settings.server";
+import { listProductTaxonomy } from "@/lib/product-taxonomy.server";
+import { getDefaultPriceListId, loadPriceListOptionsForForms } from "@/lib/price-list-service";
 import { prisma } from "@/lib/prisma";
 import { createProduct } from "../actions";
 
 export default async function NewProductPage() {
-  const [catalog, castingSuppliers, castingComponents] = await Promise.all([
-    getProductCatalog(),
-    listActiveCastingSuppliers(prisma),
-    listCastingComponentProducts(prisma),
-  ]);
+  const [taxonomy, castingSuppliers, priceLists, defaultPriceListId] =
+    await Promise.all([
+      listProductTaxonomy(),
+      listActiveCastingSuppliers(prisma),
+      loadPriceListOptionsForForms(),
+      getDefaultPriceListId(prisma),
+    ]);
+  const castingComponents = mapCastingComponentsForForm(
+    await listCastingComponentProducts(prisma, defaultPriceListId),
+  );
 
   return (
     <DashboardShell
@@ -39,14 +46,10 @@ export default async function NewProductPage() {
               action={createProduct}
               cancelHref="/products"
               submitLabel="Save Product"
-              catalog={catalog}
+              taxonomy={taxonomy}
+              priceLists={priceLists}
               castingSuppliers={castingSuppliers}
-              castingComponents={castingComponents.map((component) => ({
-                id: component.id,
-                productCode: component.productCode,
-                name: component.name,
-                castingPieceRole: component.castingPieceRole,
-              }))}
+              castingComponents={castingComponents}
             />
           </SectionCard>
         </div>

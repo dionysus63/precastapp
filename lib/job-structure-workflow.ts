@@ -156,9 +156,15 @@ export async function submitJobStructureForApproval(
   await setJobStructureStatus(client, jobStructureId, "SUBMITTED");
 }
 
+export type ApproveForProductionOptions = {
+  useGeneratedSubmittal: boolean;
+  approvalFile?: File;
+};
+
 export async function approveJobStructureForProduction(
   client: PrismaClient,
   jobStructureId: string,
+  options: ApproveForProductionOptions,
 ): Promise<void> {
   const structure = await client.jobStructure.findUnique({
     where: { id: jobStructureId },
@@ -183,10 +189,11 @@ export async function approveJobStructureForProduction(
     throw new Error("Structure cannot be approved from its current status.");
   }
 
+  const { countJobSpecificSubmittals, uploadJobStructureDocument } = await import(
+    "@/lib/job-structure-documents-service"
+  );
+
   if (structure.needsSubmittal) {
-    const { countJobSpecificSubmittals } = await import(
-      "@/lib/job-structure-documents-service"
-    );
     const submittalCount = await countJobSpecificSubmittals(
       client,
       jobStructureId,
@@ -198,13 +205,60 @@ export async function approveJobStructureForProduction(
     }
   }
 
-  await setJobStructureStatus(client, jobStructureId, "APPROVED");
+  if (options.useGeneratedSubmittal) {
+    if (structure.needsSubmittal) {
+      const submittalCount = await countJobSpecificSubmittals(
+        client,
+        jobStructureId,
+      );
+      if (submittalCount === 0) {
+        throw new Error(
+          "Upload at least one job-specific submittal before using the generated submittal for approval.",
+        );
+      }
+    }
+  } else {
+    if (!options.approvalFile || options.approvalFile.size === 0) {
+      throw new Error(
+        "Upload the signed approval or check Use generated submittal.",
+      );
+    }
+    await uploadJobStructureDocument(
+      client,
+      jobStructureId,
+      "APPROVED_SUBMITTAL",
+      options.approvalFile,
+    );
+  }
+
+  const now = new Date();
+  await client.jobStructure.update({
+    where: { id: jobStructureId },
+    data: {
+      status: "APPROVED",
+      approvedDate: now,
+      usedGeneratedSubmittalForApproval: options.useGeneratedSubmittal,
+    },
+  });
 }
 
 export async function startJobStructureProduction(
   client: PrismaClient,
   jobStructureId: string,
 ): Promise<void> {
+  const structure = await client.jobStructure.findUnique({
+    where: { id: jobStructureId },
+    select: { status: true },
+  });
+
+  if (!structure) {
+    throw new Error("Structure was not found.");
+  }
+
+  if (structure.status !== "APPROVED") {
+    throw new Error("Only approved structures can be started in production.");
+  }
+
   await setJobStructureStatus(client, jobStructureId, "IN_PRODUCTION");
 }
 

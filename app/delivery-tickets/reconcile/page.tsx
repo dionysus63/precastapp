@@ -2,6 +2,9 @@ import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { ReconcileDay } from "@/components/delivery-tickets/reconcile-day";
 import { listTicketsForReconciliation } from "@/app/operations/actions";
+import { AppPermission } from "@/app/generated/prisma/client";
+import { getCurrentUser } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/permissions";
 
 type PageProps = {
   searchParams: Promise<{ date?: string }>;
@@ -14,12 +17,18 @@ export default async function DeliveryTicketsReconcilePage({
   const date =
     params.date ?? new Date().toISOString().slice(0, 10);
 
-  const { tickets, reconciliation } = await listTicketsForReconciliation(date);
+  const { scheduledTickets, deliveredOtherDayTickets, reconciliation } =
+    await listTicketsForReconciliation(date);
+
+  const user = await getCurrentUser();
+  const canManageInvoices = user
+    ? await hasPermission(user, AppPermission.INVOICES_MANAGE)
+    : false;
 
   return (
     <DashboardShell
       title="Daily Ticket Reconciliation"
-      subtitle="Confirm printed paper tickets match digital delivery tickets."
+      subtitle="Confirm printed paper tickets match digital delivery tickets, then create draft invoices."
     >
       <div className="mb-4 flex items-center justify-between gap-3">
         <Link
@@ -50,8 +59,10 @@ export default async function DeliveryTicketsReconcilePage({
 
       <ReconcileDay
         date={date}
-        tickets={tickets}
+        scheduledTickets={scheduledTickets}
+        deliveredOtherDayTickets={deliveredOtherDayTickets}
         reconciliation={reconciliation}
+        canManageInvoices={canManageInvoices}
       />
     </DashboardShell>
   );

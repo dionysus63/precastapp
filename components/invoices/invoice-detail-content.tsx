@@ -3,6 +3,7 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { SummaryCard } from "@/components/dashboard/summary-card";
 import { RichTextContent } from "@/components/ui/rich-text-content";
+import { InvoiceDetailActions } from "@/components/invoices/invoice-detail-actions";
 import type { InvoiceDetailView } from "@/lib/invoice-mapper";
 
 function DetailField({ label, value }: { label: string; value: string }) {
@@ -19,11 +20,13 @@ function DetailField({ label, value }: { label: string; value: string }) {
 type InvoiceDetailContentProps = {
   invoice: InvoiceDetailView;
   ticketId?: string | null;
+  canManage?: boolean;
 };
 
 export function InvoiceDetailContent({
   invoice,
   ticketId,
+  canManage = false,
 }: InvoiceDetailContentProps) {
   const summaryCards = [
     {
@@ -69,6 +72,12 @@ export function InvoiceDetailContent({
             View Delivery Ticket
           </Link>
         ) : null}
+        <InvoiceDetailActions
+          invoiceId={invoice.id}
+          invoiceNumber={invoice.invoiceNumber}
+          status={invoice.status}
+          canManage={canManage}
+        />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -146,6 +155,8 @@ export function InvoiceDetailContent({
             <dl className="space-y-3 text-xs">
               {[
                 ["Subtotal", invoice.subtotal],
+                ["Discount", invoice.discountAmount],
+                ["Delivery", invoice.deliveryAmount],
                 ["Sales Tax", invoice.salesTax],
                 ["Total", invoice.total],
               ].map(([label, value]) => (

@@ -245,9 +245,31 @@ export async function updateStructureTemplate(
 ) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
   const payload = parseTemplatePayload(formData);
+  const expectedUpdatedAtRaw = String(
+    formData.get("expectedUpdatedAt") ?? "",
+  ).trim();
 
   try {
     await prisma.$transaction(async (tx) => {
+      if (expectedUpdatedAtRaw) {
+        // Diameters are replaced wholesale below, so a stale save would
+        // silently discard another admin's edits (optimistic concurrency).
+        const current = await tx.structureTemplate.findUnique({
+          where: { id: templateId },
+          select: { updatedAt: true },
+        });
+        const expected = new Date(expectedUpdatedAtRaw);
+        if (
+          !current ||
+          Number.isNaN(expected.getTime()) ||
+          current.updatedAt.getTime() !== expected.getTime()
+        ) {
+          throw new Error(
+            "This template was changed by someone else while you were editing. Refresh the page to load the latest version, then re-apply your changes.",
+          );
+        }
+      }
+
       await tx.structureTemplateDiameter.deleteMany({
         where: { templateId },
       });

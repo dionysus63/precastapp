@@ -120,17 +120,42 @@ export async function updateUser(formData: FormData) {
     throw new Error("Initials must be 2 or 3 characters.");
   }
 
-  const user = await prisma.user.update({
-    where: { id },
-    data: {
-      displayName,
-      initials,
-      email,
-      role,
-      isActive,
-      grantedPermissions,
-      deniedPermissions,
-    },
+  const expectedUpdatedAtRaw = String(
+    formData.get("expectedUpdatedAt") ?? "",
+  ).trim();
+
+  const user = await prisma.$transaction(async (tx) => {
+    if (expectedUpdatedAtRaw) {
+      // Permission arrays are replaced wholesale, so a stale save would
+      // silently discard another admin's changes (optimistic concurrency).
+      const current = await tx.user.findUnique({
+        where: { id },
+        select: { updatedAt: true },
+      });
+      const expected = new Date(expectedUpdatedAtRaw);
+      if (
+        !current ||
+        Number.isNaN(expected.getTime()) ||
+        current.updatedAt.getTime() !== expected.getTime()
+      ) {
+        throw new Error(
+          "This user was changed by someone else while you were editing. Refresh the page to load the latest version, then re-apply your changes.",
+        );
+      }
+    }
+
+    return tx.user.update({
+      where: { id },
+      data: {
+        displayName,
+        initials,
+        email,
+        role,
+        isActive,
+        grantedPermissions,
+        deniedPermissions,
+      },
+    });
   });
 
   await writeAuditLog({
@@ -157,12 +182,16 @@ export async function deactivateUser(formData: FormData) {
     throw new Error("You cannot deactivate your own account.");
   }
 
-  const user = await prisma.user.update({
-    where: { id },
-    data: { isActive: false },
+  // Deactivation and session revocation commit together: a partial failure
+  // must not leave a deactivated user with a still-valid session.
+  const user = await prisma.$transaction(async (tx) => {
+    const updated = await tx.user.update({
+      where: { id },
+      data: { isActive: false },
+    });
+    await tx.session.deleteMany({ where: { userId: id } });
+    return updated;
   });
-
-  await prisma.session.deleteMany({ where: { userId: id } });
 
   await writeAuditLog({
     userId: actor.id,
@@ -231,15 +260,19 @@ export async function resetUserPassword(formData: FormData) {
     throw new Error("User id is required.");
   }
 
-  const user = await prisma.user.update({
-    where: { id },
-    data: {
-      passwordHash: null,
-      mustChangePassword: true,
-    },
+  // Reset and session revocation commit together (same reasoning as
+  // deactivateUser): no window where the old sessions outlive the reset.
+  const user = await prisma.$transaction(async (tx) => {
+    const updated = await tx.user.update({
+      where: { id },
+      data: {
+        passwordHash: null,
+        mustChangePassword: true,
+      },
+    });
+    await tx.session.deleteMany({ where: { userId: id } });
+    return updated;
   });
-
-  await prisma.session.deleteMany({ where: { userId: id } });
 
   await writeAuditLog({
     userId: actor.id,

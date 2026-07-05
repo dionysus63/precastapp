@@ -190,8 +190,8 @@ export function RingBuilderSettingsForm({
     <form action={action} className="space-y-4">
       <p className="text-xs text-slate-600">
         For each ring diameter and style, set a default price per foot and choose
-        which product subcategories (stored in the product description field)
-        appear as Other options in the quote builder. Other products are
+        which product subcategories assigned on the product&apos;s Subcategory
+        field appear as Other options in the quote builder. Other products are
         configured per diameter and top-level style (Drain or Sanitary).
       </p>
 

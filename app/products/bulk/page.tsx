@@ -1,8 +1,18 @@
 import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { BulkPasteForm } from "@/components/products/bulk-paste-form";
+import { listActiveCastingSuppliers } from "@/lib/casting-service";
+import { loadPriceListOptionsForForms } from "@/lib/price-list-service";
+import { listProductTaxonomy } from "@/lib/product-taxonomy.server";
+import { prisma } from "@/lib/prisma";
 
-export default function BulkProductsPage() {
+export default async function BulkProductsPage() {
+  const [priceLists, taxonomy, castingSuppliers] = await Promise.all([
+    loadPriceListOptionsForForms(),
+    listProductTaxonomy(),
+    listActiveCastingSuppliers(prisma),
+  ]);
+
   return (
     <DashboardShell
       title="Bulk Add Products"
@@ -17,7 +27,11 @@ export default function BulkProductsPage() {
         </Link>
 
         <div className="mt-4">
-          <BulkPasteForm />
+          <BulkPasteForm
+            priceLists={priceLists}
+            taxonomy={taxonomy}
+            castingSuppliers={castingSuppliers}
+          />
         </div>
       </div>
     </DashboardShell>

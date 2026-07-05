@@ -13,7 +13,9 @@ export type DrillSheetFormOptions = {
     pipeMaterial: string;
     pipeSizeInches: number;
     pipeType: string;
+    hasBoot: boolean;
     holeDiameterInches: number;
+    pipeWallThicknessInches: number;
     bootModel: string | null;
     pricePerBoot: number | null;
   }[];
@@ -99,7 +101,9 @@ export async function loadDrillSheetFormOptions(): Promise<DrillSheetFormOptions
       pipeMaterial: entry.pipeMaterial,
       pipeSizeInches: Number(entry.pipeSizeInches),
       pipeType: entry.pipeType,
+      hasBoot: entry.hasBoot,
       holeDiameterInches: Number(entry.holeDiameterInches),
+      pipeWallThicknessInches: Number(entry.pipeWallThicknessInches),
       bootModel: entry.bootModel,
       pricePerBoot:
         entry.pricePerBoot != null ? Number(entry.pricePerBoot) : null,

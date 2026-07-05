@@ -1,5 +1,8 @@
 import type { StatusVariant } from "@/lib/status-variants";
-import type { QuoteStructureConfig } from "@/lib/quotes/structure-workbook";
+import type {
+  QuoteStructureConfig,
+  StructureDrillSheetStatus,
+} from "@/lib/quotes/structure-workbook";
 
 export type QuoteStatus =
   | "DRAFT"
@@ -52,6 +55,13 @@ export type QuoteLineItemType =
   | "MISC"
   | "CATEGORY";
 
+export type CustomStructureCostItem = {
+  id: string;
+  label: string;
+  qty: string;
+  unitCost: string;
+};
+
 export type QuoteLineItemRow = {
   id: string;
   lineNumber: number;
@@ -88,6 +98,7 @@ export type EditableQuoteLineItem = {
   poolHeightFeet?: number | null;
   drainRingStyle?: "DRAIN" | "SANITARY" | "SOLID";
   structureConfig?: QuoteStructureConfig | null;
+  costBreakdown?: CustomStructureCostItem[] | null;
 };
 
 export type QuoteFormInitialValues = {
@@ -167,6 +178,24 @@ export type QuoteFormProductOption = {
   taxable: boolean;
   isCastingAssembly?: boolean;
   isCastingComponent?: boolean;
+  castingOrigin?: "DOMESTIC" | "IMPORTED" | null;
+  castingSoldAsUnit?: boolean;
+};
+
+export type QuotePipeProductOption = {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  productType: "ADS_PIPE" | "PRECAST_PIPE";
+  pipeDiameterInches: number;
+  pipeLengthFeet: number;
+  pipeClass: string | null;
+  pipeJointType: string | null;
+  unit: string;
+  unitPrice: number;
+  weightLb: number;
+  taxable: boolean;
 };
 
 export type MockServiceOption = {
@@ -204,6 +233,7 @@ export type QuoteFormProps = {
   priceLists?: QuoteFormPriceListOption[];
   ringBuilderConfig?: RingBuilderConfig;
   ringSlabProducts?: QuoteFormProductOption[];
+  pipeProducts?: QuotePipeProductOption[];
   initialJobId?: string;
   initialCustomerId?: string;
   initialJobBidderId?: string;
@@ -234,6 +264,9 @@ export type QuoteDetailLineItem = {
   taxable: boolean;
   total: string;
   statusNotes: string;
+  structureDrillSheetStatus?: StructureDrillSheetStatus | null;
+  jobStructureId?: string | null;
+  costBreakdown?: CustomStructureCostItem[] | null;
 };
 
 export type QuoteRelatedStructure = {
@@ -246,6 +279,8 @@ export type QuoteRelatedStructure = {
   documentCount: number;
   jobId: string;
   folderPath: string | null;
+  /** Set when this structure is a drill sheet (has a structure template). */
+  drillSheetId: string | null;
 };
 
 export type QuoteCustomerTab = {
@@ -296,6 +331,7 @@ export type QuoteDetailView = {
   leadTime: string;
   terms: string;
   lineItems: QuoteDetailLineItem[];
+  drillSheetReadyCount: number;
   summary: {
     subtotal: string;
     discount: string;

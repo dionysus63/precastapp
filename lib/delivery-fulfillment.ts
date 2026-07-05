@@ -17,7 +17,16 @@ import {
   type CastingComponentOption,
   type CastingPieceRole,
 } from "@/lib/casting-utils";
-import { loadCastingComponentOptionsByAssembly } from "@/lib/casting-service";
+import {
+  isDerivableCastingAssembly,
+  loadCastingComponentOptionsByAssembly,
+  loadDerivedAssemblyValues,
+} from "@/lib/casting-service";
+import {
+  formatAdsPipeJointTypeLabel,
+  normalizeAdsPipeJointType,
+  type AdsPipeJointType,
+} from "@/lib/ads-pipe-utils";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -47,6 +56,17 @@ export type DrainRingOption = {
   trackInventory: boolean;
 };
 
+export type AdsPipeOption = {
+  productId: string;
+  productCode: string;
+  name: string;
+  jointType: AdsPipeJointType;
+  jointTypeLabel: string;
+  currentStock: number | null;
+  weightEach: number | null;
+  isSubstitute: boolean;
+};
+
 export type QuoteLineFulfillment = {
   quoteLineItemId: string;
   lineNumber: number;
@@ -72,6 +92,8 @@ export type QuoteLineFulfillment = {
   drainRingOptions: DrainRingOption[];
   isCastingAssembly: boolean;
   castingComponentOptions: CastingComponentOption[];
+  isAdsPipe: boolean;
+  adsPipeOptions: AdsPipeOption[];
 };
 
 function resolveDisplayName(line: {
@@ -346,9 +368,12 @@ function isQuoteLineDrainRing(line: {
 
 function isQuoteLineCastingAssembly(line: {
   productId: string | null;
-  product?: { castingRole?: string | null } | null;
+  product?: { castingRole?: string | null; castingSoldAsUnit?: boolean } | null;
 }): boolean {
-  return line.product?.castingRole === "ASSEMBLY";
+  return (
+    line.product?.castingRole === "ASSEMBLY" &&
+    !line.product?.castingSoldAsUnit
+  );
 }
 
 async function loadShippedCastingSetsByQuoteLineId(
@@ -534,6 +559,153 @@ async function loadDrainRingCatalogByLine(
   return catalog;
 }
 
+function adsPipeCatalogKey(
+  pipeDiameterInches: Prisma.Decimal,
+  pipeLengthFeet: Prisma.Decimal,
+): string {
+  return `${pipeDiameterInches.toString()}::${pipeLengthFeet.toString()}`;
+}
+
+function needsAdsPipeSubstitute(
+  line: {
+    lineType: QuoteLineType;
+    product: {
+      productType: string;
+      pipeJointType: string | null;
+      trackInventory: boolean;
+      currentStockQuantity: number;
+    } | null;
+  },
+  remainingQty: number,
+): boolean {
+  if (line.lineType !== "STOCK_PRODUCT" || !line.product) {
+    return false;
+  }
+  if (line.product.productType !== "ADS_PIPE") {
+    return false;
+  }
+  if (normalizeAdsPipeJointType(line.product.pipeJointType) !== "ST") {
+    return false;
+  }
+  if (!line.product.trackInventory) {
+    return false;
+  }
+  return line.product.currentStockQuantity < remainingQty;
+}
+
+async function loadAdsPipeCatalogByLine(
+  client: DbClient,
+  adsPipeLines: Array<{
+    product: {
+      id: string;
+      pipeDiameterInches: Prisma.Decimal | null;
+      pipeLengthFeet: Prisma.Decimal | null;
+      pipeJointType: string | null;
+    } | null;
+  }>,
+): Promise<Map<string, AdsPipeOption[]>> {
+  const combos = new Map<
+    string,
+    {
+      pipeDiameterInches: Prisma.Decimal;
+      pipeLengthFeet: Prisma.Decimal;
+      quotedProductId: string;
+      quotedJointType: AdsPipeJointType;
+    }
+  >();
+
+  for (const line of adsPipeLines) {
+    const product = line.product;
+    if (
+      !product?.pipeDiameterInches ||
+      !product.pipeLengthFeet ||
+      !product.pipeJointType
+    ) {
+      continue;
+    }
+    const quotedJointType = normalizeAdsPipeJointType(product.pipeJointType);
+    if (!quotedJointType) {
+      continue;
+    }
+    combos.set(product.id, {
+      pipeDiameterInches: product.pipeDiameterInches,
+      pipeLengthFeet: product.pipeLengthFeet,
+      quotedProductId: product.id,
+      quotedJointType,
+    });
+  }
+
+  if (combos.size === 0) {
+    return new Map();
+  }
+
+  const pipeProducts = await client.product.findMany({
+    where: {
+      productType: "ADS_PIPE",
+      status: "ACTIVE",
+      OR: [...combos.values()].map((combo) => ({
+        pipeDiameterInches: combo.pipeDiameterInches,
+        pipeLengthFeet: combo.pipeLengthFeet,
+      })),
+    },
+    orderBy: [{ pipeJointType: "asc" }, { productCode: "asc" }],
+    select: {
+      id: true,
+      productCode: true,
+      name: true,
+      pipeJointType: true,
+      pipeDiameterInches: true,
+      pipeLengthFeet: true,
+      weight: true,
+      currentStockQuantity: true,
+      trackInventory: true,
+    },
+  });
+
+  const catalog = new Map<string, AdsPipeOption[]>();
+
+  for (const [quotedProductId, combo] of combos) {
+    const options: AdsPipeOption[] = [];
+    for (const product of pipeProducts) {
+      if (
+        product.pipeDiameterInches == null ||
+        product.pipeLengthFeet == null
+      ) {
+        continue;
+      }
+      if (
+        product.pipeDiameterInches.toString() !==
+          combo.pipeDiameterInches.toString() ||
+        product.pipeLengthFeet.toString() !== combo.pipeLengthFeet.toString()
+      ) {
+        continue;
+      }
+      const jointType = normalizeAdsPipeJointType(product.pipeJointType);
+      if (!jointType) {
+        continue;
+      }
+      options.push({
+        productId: product.id,
+        productCode: product.productCode,
+        name: product.name,
+        jointType,
+        jointTypeLabel: formatAdsPipeJointTypeLabel(jointType),
+        weightEach: product.weight != null ? Number(product.weight) : null,
+        currentStock: product.trackInventory
+          ? product.currentStockQuantity
+          : null,
+        isSubstitute:
+          combo.quotedJointType === "ST" &&
+          jointType === "WT" &&
+          product.id !== quotedProductId,
+      });
+    }
+    catalog.set(quotedProductId, options);
+  }
+
+  return catalog;
+}
+
 /**
  * Shared preamble for fulfillment/scheduled aggregation: fetches the quote
  * with full line-item includes, builds the lineage map, and categorizes lines
@@ -553,7 +725,13 @@ async function loadQuoteFulfillmentContext(client: DbClient, quoteId: string) {
               weight: true,
               currentStockQuantity: true,
               trackInventory: true,
+              productType: true,
+              pipeDiameterInches: true,
+              pipeLengthFeet: true,
+              pipeJointType: true,
               castingRole: true,
+              castingSoldAsUnit: true,
+              manufacturerCode: true,
             },
           },
           jobStructure: {
@@ -580,10 +758,19 @@ async function loadQuoteFulfillmentContext(client: DbClient, quoteId: string) {
   const castingAssemblyLines = quote.lineItems.filter((line) =>
     isQuoteLineCastingAssembly(line),
   );
+  const adsPipeSubstituteLines = quote.lineItems.filter((line) => {
+    if (isQuoteLineDrainRing(line) || isQuoteLineCastingAssembly(line)) {
+      return false;
+    }
+    const remainingQty = Number(line.quantity);
+    return needsAdsPipeSubstitute(line, remainingQty);
+  });
   const standardLineIds = quote.lineItems
     .filter(
       (line) =>
-        !isQuoteLineDrainRing(line) && !isQuoteLineCastingAssembly(line),
+        !isQuoteLineDrainRing(line) &&
+        !isQuoteLineCastingAssembly(line) &&
+        !adsPipeSubstituteLines.some((candidate) => candidate.id === line.id),
     )
     .map((line) => line.id);
 
@@ -600,6 +787,7 @@ async function loadQuoteFulfillmentContext(client: DbClient, quoteId: string) {
     lineageMap,
     drainRingLines,
     castingAssemblyLines,
+    adsPipeSubstituteLines,
     standardLineage,
   };
 }
@@ -630,10 +818,11 @@ async function buildFulfillmentFromContext(
     lineageMap,
     drainRingLines,
     castingAssemblyLines,
+    adsPipeSubstituteLines,
     standardLineage,
   } = context;
 
-  const [shippedQuantities, shippedFeet, drainRingCatalog, shippedCastingSets] =
+  const [shippedQuantities, shippedFeet, drainRingCatalog, shippedCastingSets, adsPipeCatalog] =
     await Promise.all([
       loadShippedQuantitiesByQuoteLineId(client, standardLineage, excludeTicketId),
       loadShippedFeetByQuoteLineId(client, lineageMap, excludeTicketId),
@@ -647,6 +836,7 @@ async function buildFulfillmentFromContext(
         lineageMap,
         excludeTicketId,
       ),
+      loadAdsPipeCatalogByLine(client, adsPipeSubstituteLines),
     ]);
 
   const uniqueAssemblyProductIds = [
@@ -658,6 +848,10 @@ async function buildFulfillmentFromContext(
   ];
   // Single batched query instead of one query per assembly.
   const optionsByProductId = await loadCastingComponentOptionsByAssembly(
+    client,
+    uniqueAssemblyProductIds,
+  );
+  const derivedAssemblyValues = await loadDerivedAssemblyValues(
     client,
     uniqueAssemblyProductIds,
   );
@@ -735,6 +929,8 @@ async function buildFulfillmentFromContext(
         drainRingOptions,
         isCastingAssembly: false,
         castingComponentOptions: [],
+        isAdsPipe: false,
+        adsPipeOptions: [],
       });
       continue;
     }
@@ -766,6 +962,14 @@ async function buildFulfillmentFromContext(
         }
       }
 
+      const derived = line.productId
+        ? derivedAssemblyValues.get(line.productId)
+        : undefined;
+      const assemblyWeight =
+        line.product && isDerivableCastingAssembly(line.product)
+          ? derived?.derivedWeight ?? resolveWeightEach(line)
+          : resolveWeightEach(line);
+
       result.push({
         quoteLineItemId: line.id,
         lineNumber: line.lineNumber,
@@ -774,7 +978,7 @@ async function buildFulfillmentFromContext(
         description: line.description,
         displayName: resolveDisplayName(line),
         unit: line.unit || "EA",
-        weightEach: resolveWeightEach(line),
+        weightEach: assemblyWeight,
         quotedQty,
         shippedQty,
         remainingQty,
@@ -791,6 +995,8 @@ async function buildFulfillmentFromContext(
         drainRingOptions: [],
         isCastingAssembly: true,
         castingComponentOptions,
+        isAdsPipe: false,
+        adsPipeOptions: [],
       });
       continue;
     }
@@ -799,6 +1005,60 @@ async function buildFulfillmentFromContext(
     const quotedQty = Number(line.quantity);
     const shippedQty = Number(shipped);
     const remainingQty = Math.max(0, quotedQty - shippedQty);
+
+    if (needsAdsPipeSubstitute(line, remainingQty)) {
+      const adsPipeOptions =
+        (line.productId ? adsPipeCatalog.get(line.productId) : null) ?? [];
+
+      let eligible = remainingQty > 0;
+      let eligibilityReason: string | null = null;
+      if (remainingQty <= 0) {
+        eligible = false;
+        eligibilityReason = "Fully shipped";
+      } else if (adsPipeOptions.length === 0) {
+        eligible = false;
+        eligibilityReason = "No matching ADS pipe SKUs in catalog";
+      } else {
+        const hasStock = adsPipeOptions.some(
+          (option) =>
+            option.currentStock == null || option.currentStock > 0,
+        );
+        if (!hasStock) {
+          eligible = true;
+          eligibilityReason = "No ADS pipe in stock";
+        }
+      }
+
+      result.push({
+        quoteLineItemId: line.id,
+        lineNumber: line.lineNumber,
+        lineType: line.lineType,
+        itemCode: line.itemCode,
+        description: line.description,
+        displayName: resolveDisplayName(line),
+        unit: line.unit,
+        weightEach: resolveWeightEach(line),
+        quotedQty,
+        shippedQty,
+        remainingQty,
+        eligible,
+        eligibilityReason,
+        jobStructureId: line.jobStructureId,
+        jobStructureStatus: null,
+        productId: line.productId,
+        currentStock: line.product?.currentStockQuantity ?? null,
+        isDrainRing: false,
+        ringDiameterFeet: null,
+        poolHeightFeet: null,
+        drainRingStyle: "DRAIN",
+        drainRingOptions: [],
+        isCastingAssembly: false,
+        castingComponentOptions: [],
+        isAdsPipe: true,
+        adsPipeOptions,
+      });
+      continue;
+    }
 
     let eligible = remainingQty > 0;
     let eligibilityReason: string | null = null;
@@ -852,6 +1112,8 @@ async function buildFulfillmentFromContext(
       drainRingOptions: [],
       isCastingAssembly: false,
       castingComponentOptions: [],
+      isAdsPipe: false,
+      adsPipeOptions: [],
     });
   }
 

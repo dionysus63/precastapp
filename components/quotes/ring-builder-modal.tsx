@@ -4,23 +4,23 @@ import { useEffect, useMemo, useState } from "react";
 import {
   type EditableQuoteLineItem,
   type QuoteFormProductOption,
-  drainRingDiameterFeetOptions,
   formatQuoteCurrency,
   quoteInputClassName,
   quoteLineItemTypeLabels,
 } from "@/components/quotes/quote-utils";
 import {
-  diameterSupportsSanitaryDrainRing,
-  formatSanitaryDrainRingDiametersLabel,
   formatDrainRingPoolDescription,
   formatRingQuoteItemCode,
   type DrainRingStyle,
 } from "@/lib/drain-ring-utils";
 import {
+  diameterSupportsRingBuilderSanitary,
+  formatRingBuilderSanitaryDiametersLabel,
   getOtherSubcategoriesFor,
   getRingDefaultPricePerFoot,
   getRowRingStyleOptions,
   getTopLevelRingStyleOptions,
+  ringBuilderDiameterFeetOptions,
   subcategoryMatchesList,
   type RingBuilderConfig,
 } from "@/lib/ring-builder-settings";
@@ -178,7 +178,7 @@ export function RingBuilderModal({
 
     if (
       topLevelStyle === "SANITARY" &&
-      !diameterSupportsSanitaryDrainRing(nextDiameter)
+      !diameterSupportsRingBuilderSanitary(nextDiameter)
     ) {
       setTopLevelStyle("DRAIN");
       setHeightPoolRows((current) =>
@@ -203,13 +203,12 @@ export function RingBuilderModal({
     setHeightPoolRows((current) =>
       current.map((row) => ({
         ...row,
-        ringStyle:
-          row.ringStyle === "SOLID" ? "SOLID" : defaultRingStyle,
+        ringStyle: defaultRingStyle,
         pricePerFoot: formatRingBuilderUnitPrice(
           getRingDefaultPricePerFoot(
             ringBuilderConfig,
             diameterNumber,
-            row.ringStyle === "SOLID" ? "SOLID" : defaultRingStyle,
+            defaultRingStyle,
           ),
         ),
       })),
@@ -268,10 +267,10 @@ export function RingBuilderModal({
 
     if (
       topLevelStyle === "SANITARY" &&
-      !diameterSupportsSanitaryDrainRing(diameterNumber)
+      !diameterSupportsRingBuilderSanitary(diameterNumber)
     ) {
       onError(
-        `Sanitary rings are only available for ${formatSanitaryDrainRingDiametersLabel()} diameters.`,
+        `Sanitary rings are only available for ${formatRingBuilderSanitaryDiametersLabel()} diameters.`,
       );
       return;
     }
@@ -295,10 +294,10 @@ export function RingBuilderModal({
 
       if (
         row.ringStyle === "SANITARY" &&
-        !diameterSupportsSanitaryDrainRing(diameterNumber)
+        !diameterSupportsRingBuilderSanitary(diameterNumber)
       ) {
         onError(
-          `Sanitary rings are only available for ${formatSanitaryDrainRingDiametersLabel()} diameters.`,
+          `Sanitary rings are only available for ${formatRingBuilderSanitaryDiametersLabel()} diameters.`,
         );
         return;
       }
@@ -396,7 +395,7 @@ export function RingBuilderModal({
               onChange={(event) => handleDiameterChange(event.target.value)}
               className={quoteInputClassName}
             >
-              {drainRingDiameterFeetOptions.map((option) => (
+              {ringBuilderDiameterFeetOptions.map((option) => (
                 <option key={option} value={String(option)}>
                   {option}&apos;
                 </option>

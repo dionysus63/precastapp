@@ -6,7 +6,11 @@
 //
 // Used by both the on-screen SVG (React) and the PDF HTML so they stay identical.
 
-import type { ComputedOpening, DrillSheetResult } from "@/lib/drill-sheet";
+import {
+  type ComputedOpening,
+  type DrillSheetResult,
+  formatPipeDescription,
+} from "@/lib/drill-sheet";
 
 export type OpeningPlacement = {
   label: string;
@@ -107,7 +111,10 @@ export function getOpeningCallout(
   const diaText =
     opening.pipeSizeInches != null ? `${opening.pipeSizeInches}"` : "";
   const boot = opening.connectionType === "KOR_N_SEAL" ? "Yes" : "No";
-  const typeText = opening.pipeType?.trim() || "";
+  const typeText = formatPipeDescription(
+    opening.pipeMaterial,
+    opening.pipeType,
+  );
   const headLabel = [typeText, boot, diaText].filter(Boolean).join("  ");
 
   const invertLabel =
@@ -249,11 +256,11 @@ export function getKnockoutSpokes(
 export type BootSymbol = {
   /** Center of the boot glyph, on the wall at the opening angle. */
   center: { x: number; y: number };
-  /** Inner point of the radial arrow (toward the circle center). */
+  /** Arrow tail outside the wall; letter badge sits here. */
   arrowTail: { x: number; y: number };
-  /** Outward arrow tip (points away from the structure). */
+  /** Arrow tip on/near the wall, pointing inward toward center. */
   arrowTip: { x: number; y: number };
-  /** Center of the lettered badge circle, just outside the wall. */
+  /** Center of the lettered badge, just outside the wall. */
   badge: { x: number; y: number };
   /** Bowtie glyph corner points (two triangles meeting at center). */
   bowtie: { x: number; y: number }[];
@@ -264,9 +271,9 @@ export type BootSymbol = {
 };
 
 /**
- * Geometry for the bowtie boot glyph + outward arrow + lettered badge drawn at
+ * Geometry for the bowtie boot glyph + inward arrow + lettered badge drawn at
  * an opening on the BASE circle. The glyph straddles the wall at the opening
- * angle; the arrow points radially outward.
+ * angle; the arrow points radially inward with the letter at the outer tail.
  */
 export function getBootSymbol(
   placement: OpeningPlacement,
@@ -281,8 +288,8 @@ export function getBootSymbol(
   const tangent = { x: -radial.y, y: radial.x };
 
   const center = { x: placement.x, y: placement.y };
-  const arrowTail = polarToXY(angle, layout.radius - 6, layout.cx, layout.cy);
-  const arrowTip = polarToXY(angle, layout.radius + 26, layout.cx, layout.cy);
+  const arrowTip = polarToXY(angle, layout.radius - 6, layout.cx, layout.cy);
+  const arrowTail = polarToXY(angle, layout.radius + 26, layout.cx, layout.cy);
   const badge = polarToXY(angle, layout.radius + 20, layout.cx, layout.cy);
 
   // Bowtie: two triangles meeting at center, opening along the tangent and

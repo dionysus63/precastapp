@@ -10,10 +10,12 @@ import {
 
 export type PipeOpeningRow = {
   id: string;
+  /** Combined material/type description, e.g. "PVC SDR35". */
   pipeMaterial: string;
   pipeSizeInches: string;
-  pipeType: string;
+  hasBoot: boolean;
   holeDiameterInches: string;
+  pipeWallThicknessInches: string;
   bootModel: string;
   pricePerBoot: string;
 };
@@ -32,8 +34,9 @@ function createRow(): PipeOpeningRow {
     id: uid(),
     pipeMaterial: "",
     pipeSizeInches: "",
-    pipeType: "",
+    hasBoot: true,
     holeDiameterInches: "",
+    pipeWallThicknessInches: "",
     bootModel: "",
     pricePerBoot: "",
   };
@@ -53,8 +56,9 @@ export function PipeOpeningSizesForm({
         rows.map((row) => ({
           pipeMaterial: row.pipeMaterial,
           pipeSizeInches: row.pipeSizeInches,
-          pipeType: row.pipeType,
+          hasBoot: row.hasBoot,
           holeDiameterInches: row.holeDiameterInches,
+          pipeWallThicknessInches: row.pipeWallThicknessInches,
           bootModel: row.bootModel || null,
           pricePerBoot: row.pricePerBoot || null,
         })),
@@ -65,7 +69,7 @@ export function PipeOpeningSizesForm({
   function updateRow(
     id: string,
     field: keyof Omit<PipeOpeningRow, "id">,
-    value: string,
+    value: string | boolean,
   ) {
     setRows((current) =>
       current.map((row) => (row.id === id ? { ...row, [field]: value } : row)),
@@ -78,7 +82,7 @@ export function PipeOpeningSizesForm({
 
       <SectionCard
         title="Pipe Opening Size Catalog"
-        description="Material + size + type maps to hole diameter, boot model, and price per boot."
+        description="Material/type + size + boot maps to hole diameter, pipe wall, boot model, and price per boot."
         action={
           <button
             type="button"
@@ -94,10 +98,11 @@ export function PipeOpeningSizesForm({
           <table className="min-w-full text-left text-xs">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                <th className="px-3 py-2 font-semibold">Material</th>
+                <th className="px-3 py-2 font-semibold">Material / Type</th>
                 <th className="px-3 py-2 font-semibold">Size (in)</th>
-                <th className="px-3 py-2 font-semibold">Type</th>
+                <th className="px-3 py-2 font-semibold">Boot?</th>
                 <th className="px-3 py-2 font-semibold">Hole (in)</th>
+                <th className="px-3 py-2 font-semibold">Pipe Wall (in)</th>
                 <th className="px-3 py-2 font-semibold">Boot Model</th>
                 <th className="px-3 py-2 font-semibold">Price/Boot</th>
                 <th className="px-3 py-2 font-semibold"></th>
@@ -113,31 +118,53 @@ export function PipeOpeningSizesForm({
                       onChange={(e) =>
                         updateRow(row.id, "pipeMaterial", e.target.value)
                       }
-                      placeholder="PVC"
-                      className={structureTableInputClassName}
-                    />
-                  </td>
-                  <td className="px-3 py-1.5">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={row.pipeSizeInches}
-                      onChange={(e) =>
-                        updateRow(row.id, "pipeSizeInches", e.target.value)
-                      }
-                      placeholder="8"
+                      placeholder="PVC SDR35"
                       className={structureTableInputClassName}
                     />
                   </td>
                   <td className="px-3 py-1.5">
                     <input
                       type="text"
-                      value={row.pipeType}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={row.pipeSizeInches}
                       onChange={(e) =>
-                        updateRow(row.id, "pipeType", e.target.value)
+                        updateRow(
+                          row.id,
+                          "pipeSizeInches",
+                          e.target.value.replace(/[^0-9]/g, ""),
+                        )
                       }
-                      placeholder="SDR35"
+                      placeholder="8"
+                      className={structureTableInputClassName}
+                    />
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <select
+                      value={row.hasBoot ? "yes" : "no"}
+                      onChange={(e) =>
+                        updateRow(row.id, "hasBoot", e.target.value === "yes")
+                      }
+                      className={structureTableInputClassName}
+                    >
+                      <option value="yes">Boot</option>
+                      <option value="no">No Boot</option>
+                    </select>
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={row.holeDiameterInches}
+                      onChange={(e) =>
+                        updateRow(
+                          row.id,
+                          "holeDiameterInches",
+                          e.target.value.replace(/[^0-9]/g, ""),
+                        )
+                      }
+                      placeholder="12"
                       className={structureTableInputClassName}
                     />
                   </td>
@@ -146,11 +173,15 @@ export function PipeOpeningSizesForm({
                       type="number"
                       min="0"
                       step="0.01"
-                      value={row.holeDiameterInches}
+                      value={row.pipeWallThicknessInches}
                       onChange={(e) =>
-                        updateRow(row.id, "holeDiameterInches", e.target.value)
+                        updateRow(
+                          row.id,
+                          "pipeWallThicknessInches",
+                          e.target.value,
+                        )
                       }
-                      placeholder="12"
+                      placeholder="0.5"
                       className={structureTableInputClassName}
                     />
                   </td>

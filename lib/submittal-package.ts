@@ -35,14 +35,86 @@ export type SubmittalStatusQuote = {
       id?: string;
       productCode: string;
       name: string;
+      castingRole?: string | null;
+      castingSoldAsUnit?: boolean;
       documents?: Array<{
         documentName: string;
         documentType: string;
         filePath: string;
       }>;
+      castingAssemblyComponents?: Array<{
+        pieceRole: string;
+        sortOrder: number;
+        component: {
+          productCode: string;
+          name: string;
+          documents?: Array<{
+            documentName: string;
+            documentType: string;
+            filePath: string;
+          }>;
+        };
+      }>;
     } | null;
   }>;
 };
+
+export const submittalProductInclude = {
+  documents: {
+    where: {
+      documentType: { in: PRODUCT_SUBMITTAL_DOCUMENT_TYPES },
+    },
+    orderBy: { uploadedAt: "asc" as const },
+  },
+  castingAssemblyComponents: {
+    orderBy: [{ sortOrder: "asc" as const }, { pieceRole: "asc" as const }],
+    include: {
+      component: {
+        include: {
+          documents: {
+            where: {
+              documentType: { in: PRODUCT_SUBMITTAL_DOCUMENT_TYPES },
+            },
+            orderBy: { uploadedAt: "asc" as const },
+          },
+        },
+      },
+    },
+  },
+};
+
+type SubmittalDocument = {
+  documentName: string;
+  documentType: string;
+  filePath: string;
+};
+
+function resolveSubmittalDocuments(product: NonNullable<SubmittalStatusQuote["lineItems"][number]["product"]>): SubmittalDocument[] {
+  const ownDocs = (product.documents ?? []).filter((doc) =>
+    isSubmittalDocumentType(doc.documentType),
+  );
+  if (ownDocs.length > 0) {
+    return ownDocs;
+  }
+
+  if (
+    product.castingRole === "ASSEMBLY" &&
+    !product.castingSoldAsUnit &&
+    product.castingAssemblyComponents?.length
+  ) {
+    const componentDocs: SubmittalDocument[] = [];
+    for (const row of product.castingAssemblyComponents) {
+      for (const doc of row.component.documents ?? []) {
+        if (isSubmittalDocumentType(doc.documentType)) {
+          componentDocs.push(doc);
+        }
+      }
+    }
+    return componentDocs;
+  }
+
+  return [];
+}
 
 function productDedupeKey(product: { id?: string; productCode: string }) {
   return product.id ?? product.productCode;
@@ -60,14 +132,7 @@ export async function fetchDeliveryTicketForSubmittalPackage(
         orderBy: [{ sortOrder: "asc" }, { lineNumber: "asc" }],
         include: {
           product: {
-            include: {
-              documents: {
-                where: {
-                  documentType: { in: PRODUCT_SUBMITTAL_DOCUMENT_TYPES },
-                },
-                orderBy: { uploadedAt: "asc" },
-              },
-            },
+            include: submittalProductInclude,
           },
         },
       },
@@ -87,14 +152,7 @@ export async function fetchQuoteForSubmittalPackage(
         orderBy: [{ sortOrder: "asc" }, { lineNumber: "asc" }],
         include: {
           product: {
-            include: {
-              documents: {
-                where: {
-                  documentType: { in: PRODUCT_SUBMITTAL_DOCUMENT_TYPES },
-                },
-                orderBy: { uploadedAt: "asc" },
-              },
-            },
+            include: submittalProductInclude,
           },
         },
       },
@@ -121,9 +179,7 @@ export function collectSubmittalSources(quote: SubmittalStatusQuote) {
     }
     seen.add(key);
 
-    const submittalDocs = (product.documents ?? []).filter((doc) =>
-      isSubmittalDocumentType(doc.documentType),
-    );
+    const submittalDocs = resolveSubmittalDocuments(product);
 
     if (submittalDocs.length === 0) {
       missing.push(product.productCode);
@@ -169,6 +225,82 @@ export function formatSubmittalsStatus(quote: SubmittalStatusQuote) {
   }
 
   return `${files.length} on file`;
+}
+
+export async function loadEffectiveSubmittalCountsByProductId(
+  client: PrismaClient,
+  productIds: string[],
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  if (productIds.length === 0) {
+    return result;
+  }
+
+  const submittalDocFilter = {
+    documentType: { in: PRODUCT_SUBMITTAL_DOCUMENT_TYPES },
+  };
+
+  const products = await client.product.findMany({
+    where: { id: { in: productIds } },
+    select: {
+      id: true,
+      castingRole: true,
+      castingSoldAsUnit: true,
+      _count: {
+        select: {
+          documents: { where: submittalDocFilter },
+        },
+      },
+    },
+  });
+
+  const assembliesNeedingFallback: string[] = [];
+  for (const product of products) {
+    const ownCount = product._count.documents;
+    if (ownCount > 0) {
+      result.set(product.id, ownCount);
+      continue;
+    }
+    if (product.castingRole === "ASSEMBLY" && !product.castingSoldAsUnit) {
+      assembliesNeedingFallback.push(product.id);
+      result.set(product.id, 0);
+      continue;
+    }
+    result.set(product.id, 0);
+  }
+
+  if (assembliesNeedingFallback.length === 0) {
+    return result;
+  }
+
+  const bomRows = await client.productCastingComponent.findMany({
+    where: { assemblyId: { in: assembliesNeedingFallback } },
+    select: {
+      assemblyId: true,
+      component: {
+        select: {
+          _count: {
+            select: {
+              documents: { where: submittalDocFilter },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  for (const row of bomRows) {
+    const componentCount = row.component._count.documents;
+    if (componentCount <= 0) {
+      continue;
+    }
+    result.set(
+      row.assemblyId,
+      (result.get(row.assemblyId) ?? 0) + componentCount,
+    );
+  }
+
+  return result;
 }
 
 async function resolveSubmittalPackageDirectory(jobFolderPath: string | null) {

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { cloneQuoteForBidder } from "@/lib/quote-clone";
+import { isQuoteNumberConflict } from "@/lib/quote-number";
 import { isAwardableQuoteStatus, isRemovableBidderQuoteStatus } from "@/lib/job-bid-utils";
 import { withDatabaseRetry } from "@/lib/prisma";
 
@@ -68,40 +69,44 @@ export async function removeJobBidder(jobBidderId: string) {
   await requirePermission(AppPermission.JOBS_MANAGE);
 
   try {
-    const jobId = await withDatabaseRetry(async (client) => {
-      const bidder = await client.jobBidder.findUnique({
-        where: { id: jobBidderId },
-        include: {
-          quotes: { select: { id: true, status: true } },
-        },
-      });
-
-      if (!bidder) {
-        throw new Error("Bidder was not found.");
-      }
-
-      if (bidder.quotes.some((quote) => quote.status === "WON")) {
-        throw new Error("Cannot remove the winning contractor from the bid list.");
-      }
-
-      const blockingQuote = bidder.quotes.find(
-        (quote) => !isRemovableBidderQuoteStatus(quote.status),
-      );
-      if (blockingQuote) {
-        throw new Error(
-          "Remove or reassign active quotes for this contractor before removing them from the bid list.",
-        );
-      }
-
-      if (bidder.quotes.length > 0) {
-        await client.quote.deleteMany({
-          where: { jobBidderId: jobBidderId },
+    const jobId = await withDatabaseRetry((client) =>
+      // One transaction: a failure between the quote deletes and the bidder
+      // delete must not strand a bidder whose quotes are already gone.
+      client.$transaction(async (tx) => {
+        const bidder = await tx.jobBidder.findUnique({
+          where: { id: jobBidderId },
+          include: {
+            quotes: { select: { id: true, status: true } },
+          },
         });
-      }
 
-      await client.jobBidder.delete({ where: { id: jobBidderId } });
-      return bidder.jobId;
-    });
+        if (!bidder) {
+          throw new Error("Bidder was not found.");
+        }
+
+        if (bidder.quotes.some((quote) => quote.status === "WON")) {
+          throw new Error("Cannot remove the winning contractor from the bid list.");
+        }
+
+        const blockingQuote = bidder.quotes.find(
+          (quote) => !isRemovableBidderQuoteStatus(quote.status),
+        );
+        if (blockingQuote) {
+          throw new Error(
+            "Remove or reassign active quotes for this contractor before removing them from the bid list.",
+          );
+        }
+
+        if (bidder.quotes.length > 0) {
+          await tx.quote.deleteMany({
+            where: { jobBidderId: jobBidderId },
+          });
+        }
+
+        await tx.jobBidder.delete({ where: { id: jobBidderId } });
+        return bidder.jobId;
+      }),
+    );
 
     revalidatePath(`/jobs/${jobId}`);
     return { success: true };
@@ -163,34 +168,45 @@ export async function generateQuotesFromMaster(
         throw new Error("All bidders on this job already have quotes.");
       }
 
-      const ids: string[] = [];
-      await client.$transaction(async (tx) => {
-        for (const bidder of targets) {
-          const contactId = options?.contactByBidderId?.[bidder.id];
-          if (contactId) {
-            const contact = await tx.contact.findFirst({
-              where: { id: contactId, customerId: bidder.customerId },
-              select: { id: true },
-            });
-            if (!contact) {
-              throw new Error(
-                `Selected contact for ${bidder.customer.name} is invalid.`,
+      // A concurrent quote create can take the same generated number (P2002)
+      // mid-batch, which aborts the whole transaction. Re-running regenerates
+      // numbers against the committed state instead of failing the batch.
+      for (let attempt = 0; ; attempt += 1) {
+        const ids: string[] = [];
+        try {
+          await client.$transaction(async (tx) => {
+            for (const bidder of targets) {
+              const contactId = options?.contactByBidderId?.[bidder.id];
+              if (contactId) {
+                const contact = await tx.contact.findFirst({
+                  where: { id: contactId, customerId: bidder.customerId },
+                  select: { id: true },
+                });
+                if (!contact) {
+                  throw new Error(
+                    `Selected contact for ${bidder.customer.name} is invalid.`,
+                  );
+                }
+              }
+
+              ids.push(
+                await cloneQuoteForBidder(
+                  tx,
+                  templateQuoteId,
+                  bidder.id,
+                  contactId ?? null,
+                ),
               );
             }
+          });
+          return ids;
+        } catch (error) {
+          if (isQuoteNumberConflict(error) && attempt < 2) {
+            continue;
           }
-
-          ids.push(
-            await cloneQuoteForBidder(
-              tx,
-              templateQuoteId,
-              bidder.id,
-              contactId ?? null,
-            ),
-          );
+          throw error;
         }
-      });
-
-      return ids;
+      }
     });
 
     revalidatePath(`/jobs/${jobId}`);

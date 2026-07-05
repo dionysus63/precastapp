@@ -3,8 +3,8 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import {
   SettingsFeedback,
   SettingsField,
+  SettingsSubmitButton,
   settingsInputClassName,
-  settingsSubmitClassName,
   settingsTextareaClassName,
 } from "@/components/settings/settings-form-fields";
 import { SettingsShell } from "@/components/settings/settings-shell";
@@ -86,9 +86,7 @@ export default async function OperationsSettingsPage({
               className={settingsInputClassName}
             />
           </SettingsField>
-          <button type="submit" className={settingsSubmitClassName}>
-            Save
-          </button>
+          <SettingsSubmitButton>Save</SettingsSubmitButton>
         </form>
       </SectionCard>
     </SettingsShell>

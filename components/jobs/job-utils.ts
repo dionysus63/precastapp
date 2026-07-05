@@ -177,6 +177,8 @@ export type JobRelatedStructure = {
   submittedDate: string;
   madeDate: string;
   shippedDate: string;
+  /** Set when this structure is a drill sheet (has a structure template). */
+  drillSheetId: string | null;
 };
 
 export type JobRelatedInvoice = {

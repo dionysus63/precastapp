@@ -6,7 +6,7 @@ import {
   StandardFonts,
 } from "pdf-lib";
 import type { DrillSheetPreviewMeta } from "@/components/drill-sheets/drill-sheet-preview";
-import type { DrillSheetResult } from "@/lib/drill-sheet";
+import { type DrillSheetResult, formatPipeDescription } from "@/lib/drill-sheet";
 
 const PAGE_WIDTH = 612; // US Letter, points
 const PAGE_HEIGHT = 792;
@@ -79,10 +79,11 @@ function drawField(
 }
 
 /**
- * Appends a single interactive (AcroForm) page to an existing drill-sheet PDF.
- * The page mirrors the Long Island Precast manhole form's hand-fill blanks —
- * header, sign-off, the A/B/C/D opening table, and notes — prefilled with the
- * computed values so it can be edited or completed in the field.
+ * Appends a form-styled page to an existing drill-sheet PDF. The page mirrors
+ * the Long Island Precast manhole form's hand-fill blanks — header, sign-off,
+ * the A/B/C/D opening table, and notes — prefilled with the computed values.
+ * The caller flattens the document before sending, so recipients see the
+ * values but cannot edit them.
  */
 export async function appendDrillSheetFillablePage(
   pdfBytes: Uint8Array,
@@ -97,7 +98,7 @@ export async function appendDrillSheetFillablePage(
 
   let y = PAGE_HEIGHT - MARGIN;
 
-  page.drawText("DRILL SHEET — FILLABLE COPY", {
+  page.drawText("DRILL SHEET — FORM COPY", {
     x: MARGIN,
     y: y - 12,
     size: 13,
@@ -107,7 +108,7 @@ export async function appendDrillSheetFillablePage(
   page.drawText(
     meta.manholeNumber
       ? `Structure ${meta.manholeNumber}`
-      : "Editable / inspection copy",
+      : "Inspection copy",
     {
       x: MARGIN,
       y: y - 26,
@@ -258,7 +259,9 @@ export async function appendDrillSheetFillablePage(
     );
     placeCell(
       `ds_type_${i}`,
-      opening?.pipeType ?? "",
+      opening
+        ? formatPipeDescription(opening.pipeMaterial, opening.pipeType)
+        : "",
       cols[3].x,
       cols[3].w,
     );

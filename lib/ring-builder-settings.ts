@@ -1,13 +1,47 @@
 import type { DrainRingStyle } from "@/lib/drain-ring-utils";
 import {
-  diameterSupportsSanitaryDrainRing,
   drainRingStyleFormOptions,
   formatDrainRingStyleLabel,
-  formatSanitaryDrainRingDiametersLabel,
-  getDrainRingStyleOptionsForDiameter,
   parseDrainRingStyle,
 } from "@/lib/drain-ring-utils";
-import { drainRingDiameterFeetOptions } from "@/lib/quotes/constants";
+
+/** Diameters offered in the quote Ring Builder (not the global product catalog). */
+export const ringBuilderDiameterFeetOptions = [8, 10, 12] as const;
+
+/** Sanitary style is only offered at these diameters in the Ring Builder. */
+export const ringBuilderSanitaryDiameters = [8, 10, 12] as const;
+
+export function diameterSupportsRingBuilderSanitary(diameter: number): boolean {
+  return ringBuilderSanitaryDiameters.includes(
+    diameter as (typeof ringBuilderSanitaryDiameters)[number],
+  );
+}
+
+export function formatRingBuilderSanitaryDiametersLabel(): string {
+  const feet = ringBuilderSanitaryDiameters.map((diameter) => `${diameter}'`);
+  if (feet.length <= 1) {
+    return feet[0] ?? "";
+  }
+  if (feet.length === 2) {
+    return `${feet[0]} and ${feet[1]}`;
+  }
+  return `${feet.slice(0, -1).join(", ")}, and ${feet[feet.length - 1]}`;
+}
+
+export function getRingBuilderStyleOptionsForDiameter(diameter: number): {
+  value: DrainRingStyle;
+  label: string;
+}[] {
+  return drainRingStyleFormOptions.filter((option) => {
+    if (option.value === "SOLID") {
+      return false;
+    }
+    if (option.value === "SANITARY") {
+      return diameterSupportsRingBuilderSanitary(diameter);
+    }
+    return true;
+  });
+}
 
 export type RingSlabMapping = {
   diameterFeet: number;
@@ -147,9 +181,19 @@ export function validateRingBuilderConfig(
 
     if (
       mapping.style === "SANITARY" &&
-      !diameterSupportsSanitaryDrainRing(mapping.diameterFeet)
+      !diameterSupportsRingBuilderSanitary(mapping.diameterFeet)
     ) {
-      return `Sanitary style is only valid for ${formatSanitaryDrainRingDiametersLabel()} diameters.`;
+      return `Sanitary style is only valid for ${formatRingBuilderSanitaryDiametersLabel()} diameters.`;
+    }
+
+    if (mapping.style === "SOLID") {
+      return "Solid style is not supported in the ring builder.";
+    }
+
+    if (!ringBuilderDiameterFeetOptions.includes(
+      mapping.diameterFeet as (typeof ringBuilderDiameterFeetOptions)[number],
+    )) {
+      return `${mapping.diameterFeet}' diameter is not supported in the ring builder.`;
     }
 
     if (
@@ -179,7 +223,8 @@ export function getOtherSubcategoriesFor(
   diameterFeet: number,
   style: DrainRingStyle,
 ): string[] {
-  const match = config.find(
+  const merged = mergeRingBuilderConfigWithDefaults(config);
+  const match = merged.find(
     (entry) =>
       entry.diameterFeet === diameterFeet && entry.style === style,
   );
@@ -209,8 +254,8 @@ export type RingBuilderInstance = {
 export function getAllRingBuilderInstances(): RingBuilderInstance[] {
   const instances: RingBuilderInstance[] = [];
 
-  for (const diameter of drainRingDiameterFeetOptions) {
-    const styleOptions = getDrainRingStyleOptionsForDiameter(diameter);
+  for (const diameter of ringBuilderDiameterFeetOptions) {
+    const styleOptions = getRingBuilderStyleOptionsForDiameter(diameter);
     for (const styleOption of styleOptions) {
       instances.push({
         diameterFeet: diameter,
@@ -268,7 +313,7 @@ export function getTopLevelRingStyleOptions(diameterFeet: number): {
     (option) => option.value !== "SOLID",
   );
 
-  if (diameterSupportsSanitaryDrainRing(diameterFeet)) {
+  if (diameterSupportsRingBuilderSanitary(diameterFeet)) {
     return options;
   }
 
@@ -282,14 +327,10 @@ export function getRowRingStyleOptions(topLevelStyle: DrainRingStyle): {
   if (topLevelStyle === "SANITARY") {
     return [
       { value: "SANITARY", label: formatDrainRingStyleLabel("SANITARY") },
-      { value: "SOLID", label: formatDrainRingStyleLabel("SOLID") },
     ];
   }
 
-  return [
-    { value: "DRAIN", label: formatDrainRingStyleLabel("DRAIN") },
-    { value: "SOLID", label: formatDrainRingStyleLabel("SOLID") },
-  ];
+  return [{ value: "DRAIN", label: formatDrainRingStyleLabel("DRAIN") }];
 }
 
 export function isTopLevelRingStyle(style: DrainRingStyle): boolean {

@@ -13,6 +13,8 @@ export type InvoiceDetailView = {
   invoiceDate: string;
   dueDate: string;
   subtotal: string;
+  discountAmount: string;
+  deliveryAmount: string;
   salesTax: string;
   total: string;
   taxRate: string;
@@ -60,6 +62,8 @@ export function mapDbInvoiceToDetailView(invoice: {
   projectName: string;
   jobNumber: string | null;
   subtotal: { toString(): string };
+  discountAmount: { toString(): string };
+  deliveryAmount: { toString(): string };
   salesTax: { toString(): string };
   total: { toString(): string };
   taxRate: { toString(): string };
@@ -83,7 +87,8 @@ export function mapDbInvoiceToDetailView(invoice: {
     title: `Invoice ${invoice.invoiceNumber}`,
     subtitle: `${invoice.projectName} — ${invoice.customerName}`,
     status: invoice.status,
-    statusLabel: invoice.status.replace(/_/g, " "),
+    statusLabel:
+      invoice.status === "SENT" ? "Final" : invoice.status.replace(/_/g, " "),
     statusVariant: statusVariant(invoice.status),
     customerName: invoice.customerName,
     projectName: invoice.projectName,
@@ -92,6 +97,8 @@ export function mapDbInvoiceToDetailView(invoice: {
     invoiceDate: formatDate(invoice.invoiceDate),
     dueDate: formatDate(invoice.dueDate),
     subtotal: formatMoney(invoice.subtotal),
+    discountAmount: formatMoney(invoice.discountAmount),
+    deliveryAmount: formatMoney(invoice.deliveryAmount),
     salesTax: formatMoney(invoice.salesTax),
     total: formatMoney(invoice.total),
     taxRate: `${Number(invoice.taxRate).toFixed(2)}%`,

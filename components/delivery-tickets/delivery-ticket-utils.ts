@@ -41,26 +41,29 @@ export const deliveryDateFilterOptions = [
   "Past Due",
 ];
 
-export const deliveryDriverFilterOptions = [
-  "All",
-  "Mike",
-  "Anthony",
-  "TBD",
-];
+export type DeliveryFilterOptions = {
+  drivers: string[];
+  trucks: string[];
+  jobs: string[];
+};
 
-export const deliveryTruckFilterOptions = [
-  "All",
-  "Truck 1",
-  "Truck 3",
-  "Lowboy",
-];
+/** Build filter dropdown options from settings fleet lists and ticket job numbers. */
+export function buildDeliveryFilterOptions(input: {
+  drivers: string[];
+  trucks: string[];
+  jobNumbers: string[];
+}): DeliveryFilterOptions {
+  const unique = (values: string[]) =>
+    [...new Set(values.map((value) => value.trim()).filter(Boolean))].sort(
+      (a, b) => a.localeCompare(b),
+    );
 
-export const deliveryJobFilterOptions = [
-  "All",
-  "26-001",
-  "26-002",
-  "26-004",
-];
+  return {
+    drivers: ["All", ...unique(input.drivers)],
+    trucks: ["All", ...unique(input.trucks)],
+    jobs: ["All", ...unique(input.jobNumbers)],
+  };
+}
 
 export const deliveryTicketStatusLabels: Record<DeliveryTicketStatus, string> = {
   DRAFT: "Draft",

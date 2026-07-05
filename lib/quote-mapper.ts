@@ -7,7 +7,8 @@ import {
 } from "@/lib/drain-ring-utils";
 import { canEditQuote } from "@/lib/quotes/edit-rules";
 import { canSendQuote } from "@/lib/quotes/send-rules";
-import { parseStructureConfigJson } from "@/lib/quotes/structure-workbook";
+import { parseStructureConfigJson, getStructureDrillSheetStatus } from "@/lib/quotes/structure-workbook";
+import { parseCustomStructureConfigJson } from "@/lib/quotes/custom-structure";
 import {
   type QuoteFormInitialValues,
   type QuoteLineItemType,
@@ -98,6 +99,7 @@ export type QuoteLineItemRecord = {
   poolHeightFeet?: { toString(): string } | null;
   drainRingStyle?: DrainRingStyle;
   structureConfigJson?: unknown;
+  jobStructureId?: string | null;
   product?: {
     id?: string;
     productCode: string;
@@ -131,9 +133,11 @@ export type QuoteDetailRecord = QuoteRecord & {
   lineItems: QuoteLineItemRecord[];
   createdBy?: { displayName: string } | null;
   jobBidder?: { customer: { name: string } } | null;
+  priceList?: { name: string } | null;
   jobStructures?: Array<{
     id: string;
     jobId: string | null;
+    structureTemplateId?: string | null;
     structureNumber: string | null;
     description: string | null;
     status: string;
@@ -164,6 +168,7 @@ function mapQuoteRelatedStructure(
     documentCount: structure._count?.documents ?? 0,
     jobId,
     folderPath: structure.job?.folderPath ?? null,
+    drillSheetId: structure.structureTemplateId ? structure.id : null,
   };
 }
 
@@ -387,6 +392,12 @@ export function mapQuoteToDetailView(
         })
       : [];
 
+  const drillSheetStructureIds = new Set(
+    (quote.jobStructures ?? [])
+      .filter((structure) => structure.structureTemplateId)
+      .map((structure) => structure.id),
+  );
+
   return {
     id: quote.id,
     quoteNumber: quote.quoteNumber,
@@ -420,7 +431,7 @@ export function mapQuoteToDetailView(
     sentAt: formatQuoteDate(quote.sentAt),
     bidListContractor: quote.jobBidder?.customer.name ?? null,
     expirationDate: formatQuoteDate(quote.expirationDate),
-    priceList: "—",
+    priceList: quote.priceList?.name ?? "—",
     taxRate: `${Number.isFinite(taxRateNumber) ? taxRateNumber : 0}%`,
     customerPo: quote.customerPO?.trim() || "—",
     customerNotes: quote.customerNotes?.trim() || "—",
@@ -443,7 +454,35 @@ export function mapQuoteToDetailView(
       taxable: line.taxable,
       total: formatUsd(line.total),
       statusNotes: formatLineNotes(line.statusNote, line.notes),
+      structureDrillSheetStatus:
+        line.lineType === "CONFIGURABLE_STRUCTURE"
+          ? getStructureDrillSheetStatus(
+              parseStructureConfigJson(line.structureConfigJson),
+              line.jobStructureId != null &&
+                drillSheetStructureIds.has(line.jobStructureId),
+            )
+          : null,
+      jobStructureId: line.jobStructureId ?? null,
+      costBreakdown:
+        line.lineType === "CUSTOM_STRUCTURE"
+          ? parseCustomStructureConfigJson(line.structureConfigJson)
+          : null,
     })),
+    // Won-quote linking creates placeholder structures (no template); a line
+    // stays "ready" until its structure is an actual drill sheet.
+    drillSheetReadyCount: quote.lineItems.filter((line) => {
+      if (line.lineType !== "CONFIGURABLE_STRUCTURE") {
+        return false;
+      }
+      if (
+        line.jobStructureId &&
+        drillSheetStructureIds.has(line.jobStructureId)
+      ) {
+        return false;
+      }
+      const config = parseStructureConfigJson(line.structureConfigJson);
+      return config?.detailLevel === "DRILL_SHEET";
+    }).length,
     summary: {
       subtotal: formatUsd(quote.subtotal),
       discount: formatUsd(quote.discountAmount),
@@ -535,44 +574,60 @@ export function mapQuoteToFormInitialValues(
         ? Number.parseFloat(line.poolHeightFeet.toString())
         : null,
       drainRingStyle: (line.drainRingStyle ?? "DRAIN") as DrainRingStyle,
-      structureConfig: parseStructureConfigJson(line.structureConfigJson),
+      structureConfig:
+        line.lineType === "CONFIGURABLE_STRUCTURE"
+          ? parseStructureConfigJson(line.structureConfigJson)
+          : null,
+      costBreakdown:
+        line.lineType === "CUSTOM_STRUCTURE"
+          ? parseCustomStructureConfigJson(line.structureConfigJson)
+          : null,
     })),
   };
 }
 
-export function mapProductToQuoteFormOption(product: {
+export function mapProductToQuoteFormOption(
+  product: {
   id: string;
   productCode: string;
   name: string;
-  category: string;
   description: string | null;
+  productCategory: { name: string };
+  subcategory?: { name: string } | null;
   unit: string;
-  defaultPrice: { toString(): string } | null;
   weight: { toString(): string } | null;
   yards: { toString(): string } | null;
   taxable: boolean;
   castingRole?: string | null;
-}) {
-  const isCastingAssembly = product.castingRole === "ASSEMBLY";
+  castingSoldAsUnit?: boolean;
+  castingSupplier?: { origin: "DOMESTIC" | "IMPORTED" } | null;
+},
+  unitPrice?: { toString(): string } | null,
+) {
+  const isCastingAssembly =
+    product.castingRole === "ASSEMBLY" && !product.castingSoldAsUnit;
   const isCastingComponent = product.castingRole === "COMPONENT";
-  const subcategory = product.description?.trim() || "";
-  const baseDescription = subcategory || product.name;
+  const isUnitCasting =
+    product.castingRole === "ASSEMBLY" && product.castingSoldAsUnit;
+  const subcategory = product.subcategory?.name?.trim() || "";
+  const baseDescription = product.description?.trim() || subcategory || product.name;
   const description = isCastingAssembly
     ? `${baseDescription} [Casting assembly]`
+    : isUnitCasting
+      ? `${baseDescription} [One-piece casting]`
     : isCastingComponent
       ? `${baseDescription} [Casting piece]`
       : baseDescription;
-
   return {
     id: product.id,
     code: product.productCode,
     name: product.name,
     description,
-    category: product.category,
+    category: product.productCategory.name,
     subcategory,
     unit: product.unit,
-    unitPrice: product.defaultPrice
-      ? Number.parseFloat(product.defaultPrice.toString())
+    unitPrice: unitPrice
+      ? Number.parseFloat(unitPrice.toString())
       : 0,
     weightLb: product.weight
       ? Number.parseFloat(product.weight.toString())
@@ -581,5 +636,7 @@ export function mapProductToQuoteFormOption(product: {
     taxable: product.taxable,
     isCastingAssembly,
     isCastingComponent,
+    castingOrigin: product.castingSupplier?.origin ?? null,
+    castingSoldAsUnit: product.castingSoldAsUnit ?? false,
   };
 }

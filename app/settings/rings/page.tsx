@@ -5,8 +5,7 @@ import { RingBuilderSettingsForm } from "@/components/settings/ring-builder-sett
 import { SettingsShell } from "@/components/settings/settings-shell";
 import { updateRingBuilderSettingsFormAction } from "@/app/settings/actions";
 import { getAppSettings } from "@/lib/app-settings";
-import { getAllSubcategories } from "@/lib/product-catalog-settings";
-import { getProductCatalog } from "@/lib/product-catalog-settings.server";
+import { listProductTaxonomy } from "@/lib/product-taxonomy.server";
 
 type RingBuilderSettingsPageProps = {
   searchParams: Promise<{ success?: string; error?: string }>;
@@ -25,11 +24,13 @@ export default async function RingBuilderSettingsPage({
   searchParams,
 }: RingBuilderSettingsPageProps) {
   const params = await searchParams;
-  const [settings, catalog] = await Promise.all([
+  const [settings, taxonomy] = await Promise.all([
     getAppSettings(),
-    getProductCatalog(),
+    listProductTaxonomy(),
   ]);
-  const subcategoryOptions = getAllSubcategories(catalog);
+  const subcategoryOptions = taxonomy.flatMap((category) =>
+    category.subcategories.map((subcategory) => subcategory.name),
+  );
 
   return (
     <SettingsShell
@@ -43,7 +44,7 @@ export default async function RingBuilderSettingsPage({
 
       <SectionCard
         title="Ring builder defaults"
-        description="Set a default price per foot for each ring diameter and style (Drain, Sanitary, Solid). For Drain and Sanitary rows, choose which product subcategories appear as Other options in the quote builder."
+        description="Default ring pricing and Other product options per diameter and style. Drain and Sanitary (8', 10', and 12'); Solid is not offered in the ring builder."
       >
         <RingBuilderSettingsForm
           initialConfig={settings.ringBuilderConfig}

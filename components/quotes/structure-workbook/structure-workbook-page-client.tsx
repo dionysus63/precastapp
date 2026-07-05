@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
+import type { PlanSheetRecord } from "@/app/quotes/plan-sheet-actions";
 import type { DrillSheetTemplateOption } from "@/components/drill-sheets/drill-sheet-form";
 import { StructureWorkbook } from "@/components/quotes/structure-workbook/structure-workbook";
 import type { EditableQuoteLineItem } from "@/lib/quotes/types";
@@ -10,8 +11,10 @@ import type { StructureWorkbookOptions } from "@/lib/quotes/structure-workbook";
 
 type StructureWorkbookPageClientProps = {
   quoteId?: string;
+  jobId?: string | null;
   returnPath: string;
   serverLineItems?: EditableQuoteLineItem[];
+  initialPlanSheet?: PlanSheetRecord | null;
   templates: DrillSheetTemplateOption[];
   castings: StructureWorkbookOptions["castings"];
   pipeOpeningSizes: StructureWorkbookOptions["pipeOpeningSizes"];
@@ -20,8 +23,10 @@ type StructureWorkbookPageClientProps = {
 
 export function StructureWorkbookPageClient({
   quoteId,
+  jobId,
   returnPath,
   serverLineItems = [],
+  initialPlanSheet = null,
   templates,
   castings,
   pipeOpeningSizes,
@@ -35,10 +40,13 @@ export function StructureWorkbookPageClient({
     return serverLineItems;
   }, [quoteId, serverLineItems]);
 
+  const effectiveReturnPath =
+    readWorkbookSession(quoteId)?.returnPath ?? returnPath;
+
   return (
     <>
       <Link
-        href={returnPath}
+        href={effectiveReturnPath}
         className="text-xs font-medium text-slate-500 hover:text-slate-900"
       >
         ← Back to Quote
@@ -46,8 +54,10 @@ export function StructureWorkbookPageClient({
       <div className="mt-4">
         <StructureWorkbook
           quoteId={quoteId}
-          returnPath={returnPath}
+          jobId={jobId ?? readWorkbookSession(quoteId)?.pendingFormState?.jobId}
+          returnPath={effectiveReturnPath}
           initialLineItems={initialLineItems}
+          initialPlanSheet={initialPlanSheet}
           templates={templates}
           castings={castings}
           pipeOpeningSizes={pipeOpeningSizes}

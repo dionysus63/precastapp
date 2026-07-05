@@ -1,72 +1,72 @@
-import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import { SectionCard } from "@/components/dashboard/section-card";
-import { StatusBadge } from "@/components/dashboard/status-badge";
-import { withDatabaseRetry } from "@/lib/prisma";
+import { InvoicesTabs } from "@/components/invoices/invoices-tabs";
+import {
+  getInvoiceTabCounts,
+  listInvoicesForPage,
+  listPaidWalkInInvoices,
+} from "@/app/invoices/actions";
+import { AppPermission } from "@/app/generated/prisma/client";
+import { getCurrentUser } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/permissions";
+import {
+  parsePageParam,
+  parseStringParam,
+  type RawSearchParams,
+} from "@/lib/list-params";
 
-export default async function InvoicesPage() {
-  const invoices = await withDatabaseRetry((prisma) =>
-    prisma.invoice.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 50,
-      include: {
-        deliveryTicket: { select: { ticketNumber: true } },
-      },
+export default async function InvoicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<RawSearchParams>;
+}) {
+  const params = await searchParams;
+  const tabParam = parseStringParam(params.tab);
+  const statusParam = parseStringParam(params.status) || "ALL";
+  const requestedPage = parsePageParam(params.page);
+
+  const [{ draftCount, finalCount, paidWalkInCount }, user] = await Promise.all([
+    getInvoiceTabCounts(),
+    getCurrentUser(),
+  ]);
+
+  const initialTab: "drafts" | "final" =
+    tabParam === "final"
+      ? "final"
+      : tabParam === "drafts" || draftCount > 0
+        ? "drafts"
+        : "final";
+
+  const [{ invoices, pageInfo }, paidWalkIns] = await Promise.all([
+    listInvoicesForPage({
+      tab: initialTab,
+      status: statusParam,
+      page: requestedPage,
     }),
-  );
+    initialTab === "drafts" ? listPaidWalkInInvoices() : Promise.resolve([]),
+  ]);
+
+  const canManage = user
+    ? await hasPermission(user, AppPermission.INVOICES_MANAGE)
+    : false;
 
   return (
     <DashboardShell
       title="Invoices"
-      subtitle="One invoice per delivered delivery ticket."
+      subtitle="Review draft invoices, then finalize and print."
     >
-      <SectionCard title="Recent Invoices" noPadding>
-        {invoices.length === 0 ? (
-          <p className="px-4 py-6 text-sm text-slate-500">
-            No invoices yet. Convert a delivered delivery ticket to create one.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-xs">
-              <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
-                <tr>
-                  <th className="px-4 py-2 font-semibold">Invoice</th>
-                  <th className="px-4 py-2 font-semibold">Ticket</th>
-                  <th className="px-4 py-2 font-semibold">Customer</th>
-                  <th className="px-4 py-2 font-semibold">Project</th>
-                  <th className="px-4 py-2 font-semibold">Total</th>
-                  <th className="px-4 py-2 font-semibold">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {invoices.map((invoice) => (
-                  <tr key={invoice.id} className="hover:bg-slate-50/60">
-                    <td className="px-4 py-2 font-medium">
-                      <Link
-                        href={`/invoices/${invoice.id}`}
-                        className="text-slate-900 hover:text-slate-700"
-                      >
-                        {invoice.invoiceNumber}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-2 text-slate-700">
-                      {invoice.deliveryTicket.ticketNumber}
-                    </td>
-                    <td className="px-4 py-2 text-slate-700">{invoice.customerName}</td>
-                    <td className="px-4 py-2 text-slate-700">{invoice.projectName}</td>
-                    <td className="px-4 py-2 font-medium text-slate-900">
-                      ${Number(invoice.total).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-4 py-2">
-                      <StatusBadge label={invoice.status} variant="info" />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </SectionCard>
+      <InvoicesTabs
+        invoices={invoices}
+        paidWalkIns={paidWalkIns}
+        pageInfo={pageInfo}
+        tabCounts={{
+          drafts: draftCount,
+          finals: finalCount,
+          paidWalkIns: paidWalkInCount,
+        }}
+        initialTab={initialTab}
+        initialStatus={statusParam}
+        canManage={canManage}
+      />
     </DashboardShell>
   );
 }

@@ -11,19 +11,18 @@ import {
 } from "@/components/common/use-list-query";
 import {
   type ProductRow,
-  productInventoryFilterOptions,
+  productCastingOriginFilterOptions,
   productStatusFormOptions,
   productSubmittalsFilterOptions,
   productTypeLabels,
 } from "@/components/products/product-utils";
+import { formatCastingSupplierOriginLabel } from "@/lib/casting-utils";
 import { ExportExcelLink } from "@/components/shared/export-excel-link";
 import {
   buildCategoryFilterOptions,
   buildSubcategoryFilterOptions,
-  mergeCatalogWithInUseValues,
-  type ProductCatalogCategory,
-  type ProductCatalogInUsePair,
-} from "@/lib/product-catalog-settings";
+  type ProductTaxonomyCategory,
+} from "@/lib/product-taxonomy";
 import type { PageInfo } from "@/lib/list-params";
 import {
   productKindBadgeVariant,
@@ -35,14 +34,13 @@ type ProductsListFilters = {
   category: string;
   subcategory: string;
   status: string;
-  inventory: string;
   submittals: string;
+  castingOrigin: string;
 };
 
 type ProductsListProps = {
   products: ProductRow[];
-  catalog: ProductCatalogCategory[];
-  inUsePairs: ProductCatalogInUsePair[];
+  taxonomy: ProductTaxonomyCategory[];
   pageInfo: PageInfo;
   filters: ProductsListFilters;
 };
@@ -67,10 +65,9 @@ const ProductsTable = memo(function ProductsTable({
             <th className="px-4 py-2.5 font-semibold">Category</th>
             <th className="px-4 py-2.5 font-semibold">Subcategory</th>
             <th className="px-4 py-2.5 font-semibold">Unit</th>
-            <th className="px-4 py-2.5 font-semibold">Default Price</th>
+            <th className="px-4 py-2.5 font-semibold">Unit Price</th>
             <th className="px-4 py-2.5 font-semibold">Weight</th>
             <th className="px-4 py-2.5 font-semibold">Yards</th>
-            <th className="px-4 py-2.5 font-semibold">Track Inventory</th>
             <th className="px-4 py-2.5 font-semibold">Submittals</th>
             <th className="px-4 py-2.5 font-semibold">Actions</th>
           </tr>
@@ -79,7 +76,7 @@ const ProductsTable = memo(function ProductsTable({
           {products.length === 0 ? (
             <tr>
               <td
-                colSpan={12}
+                colSpan={11}
                 className="px-4 py-8 text-center text-sm text-slate-500"
               >
                 {total === 0
@@ -106,6 +103,14 @@ const ProductsTable = memo(function ProductsTable({
                     ) : product.isCasting ? (
                       <StatusBadge label="Casting" variant="info" />
                     ) : null}
+                    {product.castingOrigin ? (
+                      <StatusBadge
+                        label={formatCastingSupplierOriginLabel(
+                          product.castingOrigin as "DOMESTIC" | "IMPORTED",
+                        )}
+                        variant="neutral"
+                      />
+                    ) : null}
                   </span>
                 </td>
                 <td className="px-4 py-2.5">
@@ -125,16 +130,10 @@ const ProductsTable = memo(function ProductsTable({
                 </td>
                 <td className="px-4 py-2.5 text-slate-600">{product.unit}</td>
                 <td className="px-4 py-2.5 font-medium text-slate-900">
-                  {product.defaultPrice}
+                  {product.unitPrice}
                 </td>
                 <td className="px-4 py-2.5 text-slate-600">{product.weight}</td>
                 <td className="px-4 py-2.5 text-slate-600">{product.yards}</td>
-                <td className="px-4 py-2.5">
-                  <StatusBadge
-                    label={product.trackInventory ? "Yes" : "No"}
-                    variant={product.trackInventory ? "success" : "neutral"}
-                  />
-                </td>
                 <td className="px-4 py-2.5">
                   {product.submittalCount > 0 ? (
                     <StatusBadge
@@ -164,31 +163,38 @@ const ProductsTable = memo(function ProductsTable({
 
 export function ProductsList({
   products,
-  catalog,
-  inUsePairs,
+  taxonomy,
   pageInfo,
   filters,
 }: ProductsListProps) {
   const { setParams } = useListQuery();
   const { search, setSearch } = useDebouncedSearchParam("q", filters.search);
 
-  const mergedCatalog = useMemo(
-    () => mergeCatalogWithInUseValues(catalog, inUsePairs),
-    [catalog, inUsePairs],
-  );
+  const selectedType =
+    filters.type && filters.type !== "All" ? filters.type : undefined;
 
   const categoryFilterOptions = useMemo(
-    () => buildCategoryFilterOptions(mergedCatalog),
-    [mergedCatalog],
+    () =>
+      buildCategoryFilterOptions(
+        taxonomy,
+        selectedType as Parameters<typeof buildCategoryFilterOptions>[1],
+      ),
+    [taxonomy, selectedType],
   );
+
+  const showSubcategoryFilter =
+    Boolean(filters.category) && filters.category !== "All";
 
   const subcategoryFilterOptions = useMemo(
     () =>
-      buildSubcategoryFilterOptions(mergedCatalog, filters.category || "All"),
-    [mergedCatalog, filters.category],
+      showSubcategoryFilter
+        ? buildSubcategoryFilterOptions(taxonomy, filters.category)
+        : [{ id: "All", name: "All" }],
+    [taxonomy, filters.category, showSubcategoryFilter],
   );
 
   const productTypeOptions = Object.entries(productTypeLabels);
+  const showCastingOriginFilter = filters.type === "CASTING";
 
   return (
     <div className="space-y-4">
@@ -203,7 +209,14 @@ export function ProductsList({
           />
           <select
             value={filters.type || "All"}
-            onChange={(event) => setParams({ type: event.target.value })}
+            onChange={(event) =>
+              setParams({
+                type: event.target.value,
+                category: null,
+                subcategory: null,
+                castingOrigin: null,
+              })
+            }
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
           >
             <option value="All">Product Type: All</option>
@@ -221,22 +234,26 @@ export function ProductsList({
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
           >
             {categoryFilterOptions.map((category) => (
-              <option key={category} value={category}>
-                Category: {category}
+              <option key={category.id} value={category.id}>
+                Category: {category.name}
               </option>
             ))}
           </select>
-          <select
-            value={filters.subcategory || "All"}
-            onChange={(event) => setParams({ subcategory: event.target.value })}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
-          >
-            {subcategoryFilterOptions.map((subcategory) => (
-              <option key={subcategory} value={subcategory}>
-                Subcategory: {subcategory}
-              </option>
-            ))}
-          </select>
+          {showSubcategoryFilter ? (
+            <select
+              value={filters.subcategory || "All"}
+              onChange={(event) =>
+                setParams({ subcategory: event.target.value })
+              }
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
+            >
+              {subcategoryFilterOptions.map((subcategory) => (
+                <option key={subcategory.id} value={subcategory.id}>
+                  Subcategory: {subcategory.name}
+                </option>
+              ))}
+            </select>
+          ) : null}
           <select
             value={filters.status || "All"}
             onChange={(event) => setParams({ status: event.target.value })}
@@ -246,17 +263,6 @@ export function ProductsList({
             {productStatusFormOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 Status: {option.label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={filters.inventory || "All"}
-            onChange={(event) => setParams({ inventory: event.target.value })}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
-          >
-            {productInventoryFilterOptions.map((option) => (
-              <option key={option} value={option}>
-                Track Inventory: {option}
               </option>
             ))}
           </select>
@@ -271,6 +277,21 @@ export function ProductsList({
               </option>
             ))}
           </select>
+          {showCastingOriginFilter ? (
+            <select
+              value={filters.castingOrigin || "All"}
+              onChange={(event) =>
+                setParams({ castingOrigin: event.target.value })
+              }
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
+            >
+              {productCastingOriginFilterOptions.map((option) => (
+                <option key={option} value={option}>
+                  Origin: {option}
+                </option>
+              ))}
+            </select>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap gap-2">

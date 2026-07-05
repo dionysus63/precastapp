@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { deleteCustomer } from "@/app/customers/actions";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 type DeleteCustomerButtonProps = {
   customerId: string;
@@ -12,13 +14,17 @@ export function DeleteCustomerButton({
   customerId,
   customerName,
 }: DeleteCustomerButtonProps) {
+  const confirm = useConfirm();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function handleDelete() {
-    const confirmed = window.confirm(
-      `Delete "${customerName}"? This cannot be undone.`,
-    );
+  async function handleDelete() {
+    const confirmed = await confirm({
+      title: "Delete customer?",
+      message: `Delete "${customerName}"? This cannot be undone.`,
+      confirmLabel: "Delete",
+      variant: "danger",
+    });
     if (!confirmed) {
       return;
     }
@@ -31,6 +37,9 @@ export function DeleteCustomerButton({
       const result = await deleteCustomer(formData);
       if (result?.error) {
         setError(result.error);
+        toast.error(result.error);
+      } else {
+        toast.success("Customer deleted.");
       }
     });
   }

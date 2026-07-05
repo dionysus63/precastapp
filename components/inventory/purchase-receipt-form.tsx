@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { savePurchaseReceipt } from "@/app/inventory/actions";
 import { SectionCard } from "@/components/dashboard/section-card";
-import { formatCastingPieceRoleLabel, type CastingPieceRole } from "@/lib/casting-utils";
+import {
+  formatCastingPieceRoleLabel,
+  formatCastingSupplierOriginLabel,
+  type CastingPieceRole,
+} from "@/lib/casting-utils";
+import { formatCastingReceiptLabel } from "@/lib/casting-service";
 
 type ProductOption = {
   id: string;
@@ -13,12 +18,18 @@ type ProductOption = {
   name: string;
   unit: string;
   castingPieceRole: CastingPieceRole | null;
+  castingRole?: string | null;
+  castingSoldAsUnit?: boolean;
+  manufacturerCode?: string | null;
+  castingSupplierId?: string | null;
 };
 
 type AssemblyOption = {
   id: string;
   productCode: string;
   name: string;
+  manufacturerCode?: string | null;
+  castingSupplierId?: string | null;
   components: Array<{
     pieceRole: CastingPieceRole;
     quantity: number;
@@ -29,6 +40,7 @@ type AssemblyOption = {
 type SupplierOption = {
   id: string;
   name: string;
+  origin?: "DOMESTIC" | "IMPORTED";
 };
 
 type PurchaseReceiptFormProps = {
@@ -59,14 +71,47 @@ export function PurchaseReceiptForm({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<"piece" | "assembly">("piece");
+  const [supplierId, setSupplierId] = useState("");
+  const [mode, setMode] = useState<"piece" | "assembly" | "unit">("piece");
   const [assemblyId, setAssemblyId] = useState("");
   const [assemblyQty, setAssemblyQty] = useState("1");
   const [lines, setLines] = useState<ReceiptLineRow[]>([createRow()]);
+  const [submissionKey] = useState(() => crypto.randomUUID());
+
+  const selectedSupplier = useMemo(
+    () => suppliers.find((entry) => entry.id === supplierId),
+    [suppliers, supplierId],
+  );
+
+  const supplierProducts = useMemo(() => {
+    if (!supplierId) {
+      return products;
+    }
+    return products.filter((product) => product.castingSupplierId === supplierId);
+  }, [products, supplierId]);
+
+  const supplierAssemblies = useMemo(() => {
+    if (!supplierId) {
+      return assemblies;
+    }
+    return assemblies.filter(
+      (assembly) => assembly.castingSupplierId === supplierId,
+    );
+  }, [assemblies, supplierId]);
+
+  const unitCastings = useMemo(
+    () => supplierProducts.filter((product) => product.castingSoldAsUnit),
+    [supplierProducts],
+  );
+
+  const componentProducts = useMemo(
+    () => supplierProducts.filter((product) => product.castingRole === "COMPONENT"),
+    [supplierProducts],
+  );
 
   const selectedAssembly = useMemo(
-    () => assemblies.find((entry) => entry.id === assemblyId),
-    [assemblies, assemblyId],
+    () => supplierAssemblies.find((entry) => entry.id === assemblyId),
+    [supplierAssemblies, assemblyId],
   );
 
   function addLine() {
@@ -84,10 +129,18 @@ export function PurchaseReceiptForm({
     setError(null);
     const form = event.currentTarget;
     const formData = new FormData(form);
+    formData.set("supplierId", supplierId);
 
     if (mode === "assembly") {
       formData.set("assemblyId", assemblyId);
       formData.set("assemblyQty", assemblyQty);
+    } else if (mode === "unit") {
+      for (const line of lines) {
+        if (line.productId && line.quantityReceived) {
+          formData.append("productId", line.productId);
+          formData.append("quantityReceived", line.quantityReceived);
+        }
+      }
     } else {
       for (const line of lines) {
         if (line.productId && line.quantityReceived) {
@@ -98,12 +151,13 @@ export function PurchaseReceiptForm({
     }
 
     startTransition(async () => {
+      formData.set("submissionKey", submissionKey);
       const result = await savePurchaseReceipt(formData);
       if (result.error) {
         setError(result.error);
         return;
       }
-      router.push("/inventory");
+      router.push("/inventory/receipts");
       router.refresh();
     });
   }
@@ -111,10 +165,47 @@ export function PurchaseReceiptForm({
   const inputClass =
     "mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm";
 
+  const activeProductOptions =
+    mode === "unit" ? unitCastings : componentProducts;
+
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      <SectionCard title="Receipt Date">
+      <SectionCard title="Supplier & receipt details">
         <div className="grid gap-4 sm:grid-cols-3">
+          <div className="sm:col-span-3">
+            <label htmlFor="supplierId" className="text-xs font-medium text-slate-700">
+              Supplier *
+            </label>
+            <select
+              id="supplierId"
+              required
+              value={supplierId}
+              onChange={(event) => {
+                setSupplierId(event.target.value);
+                setAssemblyId("");
+                setLines([createRow()]);
+              }}
+              className={inputClass}
+            >
+              <option value="">Select supplier…</option>
+              {suppliers.map((supplier) => (
+                <option key={supplier.id} value={supplier.id}>
+                  {supplier.name}
+                  {supplier.origin
+                    ? ` (${formatCastingSupplierOriginLabel(supplier.origin)})`
+                    : ""}
+                </option>
+              ))}
+            </select>
+            {selectedSupplier?.origin ? (
+              <p className="mt-2 text-xs text-slate-600">
+                Origin:{" "}
+                <span className="font-medium">
+                  {formatCastingSupplierOriginLabel(selectedSupplier.origin)}
+                </span>
+              </p>
+            ) : null}
+          </div>
           <div>
             <label htmlFor="receiptDate" className="text-xs font-medium text-slate-700">
               Date
@@ -129,156 +220,179 @@ export function PurchaseReceiptForm({
             />
           </div>
           <div>
-            <label htmlFor="supplierId" className="text-xs font-medium text-slate-700">
-              Supplier
-            </label>
-            <select id="supplierId" name="supplierId" className={inputClass}>
-              <option value="">— Optional —</option>
-              {suppliers.map((supplier) => (
-                <option key={supplier.id} value={supplier.id}>
-                  {supplier.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
             <label htmlFor="batchLabel" className="text-xs font-medium text-slate-700">
               Batch / PO reference
             </label>
             <input id="batchLabel" name="batchLabel" className={inputClass} />
           </div>
-        </div>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="enteredBy" className="text-xs font-medium text-slate-700">
               Received by
             </label>
             <input id="enteredBy" name="enteredBy" className={inputClass} />
           </div>
-          <div>
-            <label htmlFor="notes" className="text-xs font-medium text-slate-700">
-              Notes
-            </label>
-            <input id="notes" name="notes" className={inputClass} />
-          </div>
+        </div>
+        <div className="mt-4">
+          <label htmlFor="notes" className="text-xs font-medium text-slate-700">
+            Notes
+          </label>
+          <input id="notes" name="notes" className={inputClass} />
         </div>
       </SectionCard>
 
-      <SectionCard title="Receive mode">
-        <div className="flex flex-wrap gap-4 text-xs">
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="receiveMode"
-              checked={mode === "piece"}
-              onChange={() => setMode("piece")}
-            />
-            By piece (frame, cover, grate)
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="radio"
-              name="receiveMode"
-              checked={mode === "assembly"}
-              onChange={() => setMode("assembly")}
-            />
-            Full casting set (from assembly BOM)
-          </label>
-        </div>
-      </SectionCard>
-
-      {mode === "piece" ? (
-        <SectionCard title="Component lines">
-          <div className="space-y-3">
-            {lines.map((line) => (
-              <div key={line.id} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_120px]">
-                <select
-                  value={line.productId}
-                  onChange={(event) =>
-                    updateLine(line.id, { productId: event.target.value })
-                  }
-                  className={inputClass}
-                >
-                  <option value="">Select component…</option>
-                  {products.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.productCode} — {product.name}
-                      {product.castingPieceRole
-                        ? ` (${formatCastingPieceRoleLabel(product.castingPieceRole)})`
-                        : ""}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  placeholder="Qty"
-                  value={line.quantityReceived}
-                  onChange={(event) =>
-                    updateLine(line.id, { quantityReceived: event.target.value })
-                  }
-                  className={inputClass}
-                />
-              </div>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={addLine}
-            className="mt-3 text-xs font-medium text-slate-700 underline"
-          >
-            Add line
-          </button>
+      {!supplierId ? (
+        <SectionCard title="Receive lines">
+          <p className="text-sm text-slate-600">
+            Choose a supplier first to see the castings available to receive.
+          </p>
         </SectionCard>
       ) : (
-        <SectionCard title="Full casting set">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="assemblyId" className="text-xs font-medium text-slate-700">
-                Assembly
+        <>
+          <SectionCard title="Receive mode">
+            <div className="flex flex-wrap gap-4 text-xs">
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="receiveMode"
+                  checked={mode === "piece"}
+                  onChange={() => setMode("piece")}
+                />
+                By piece (frame, cover, grate)
               </label>
-              <select
-                id="assemblyId"
-                value={assemblyId}
-                onChange={(event) => setAssemblyId(event.target.value)}
-                className={inputClass}
-              >
-                <option value="">Select assembly…</option>
-                {assemblies.map((assembly) => (
-                  <option key={assembly.id} value={assembly.id}>
-                    {assembly.productCode} — {assembly.name}
-                  </option>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="receiveMode"
+                  checked={mode === "assembly"}
+                  onChange={() => setMode("assembly")}
+                  disabled={supplierAssemblies.length === 0}
+                />
+                Full casting set (BOM expansion)
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="receiveMode"
+                  checked={mode === "unit"}
+                  onChange={() => setMode("unit")}
+                  disabled={unitCastings.length === 0}
+                />
+                One-piece unit castings
+              </label>
+            </div>
+          </SectionCard>
+
+          {mode === "piece" || mode === "unit" ? (
+            <SectionCard
+              title={
+                mode === "unit"
+                  ? "One-piece unit lines"
+                  : "Component lines"
+              }
+            >
+              <div className="space-y-3">
+                {lines.map((line) => (
+                  <div
+                    key={line.id}
+                    className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_120px]"
+                  >
+                    <select
+                      value={line.productId}
+                      onChange={(event) =>
+                        updateLine(line.id, { productId: event.target.value })
+                      }
+                      className={inputClass}
+                    >
+                      <option value="">
+                        {mode === "unit"
+                          ? "Select one-piece casting…"
+                          : "Select component…"}
+                      </option>
+                      {activeProductOptions.map((product) => (
+                        <option key={product.id} value={product.id}>
+                          {formatCastingReceiptLabel(product)}
+                          {product.castingPieceRole
+                            ? ` (${formatCastingPieceRoleLabel(product.castingPieceRole)})`
+                            : mode === "unit"
+                              ? " (one-piece unit)"
+                              : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="Qty"
+                      value={line.quantityReceived}
+                      onChange={(event) =>
+                        updateLine(line.id, {
+                          quantityReceived: event.target.value,
+                        })
+                      }
+                      className={inputClass}
+                    />
+                  </div>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="assemblyQty" className="text-xs font-medium text-slate-700">
-                Number of full sets
-              </label>
-              <input
-                id="assemblyQty"
-                type="number"
-                min="1"
-                step="1"
-                value={assemblyQty}
-                onChange={(event) => setAssemblyQty(event.target.value)}
-                className={inputClass}
-              />
-            </div>
-          </div>
-          {selectedAssembly ? (
-            <ul className="mt-4 space-y-1 text-xs text-slate-600">
-              {selectedAssembly.components.map((row) => (
-                <li key={row.component.id}>
-                  {formatCastingPieceRoleLabel(row.pieceRole)} ×{" "}
-                  {row.quantity * (Number(assemblyQty) || 0)}: {row.component.productCode} —{" "}
-                  {row.component.name}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </SectionCard>
+              </div>
+              <button
+                type="button"
+                onClick={addLine}
+                className="mt-3 text-xs font-medium text-slate-700 underline"
+              >
+                Add line
+              </button>
+            </SectionCard>
+          ) : (
+            <SectionCard title="Full casting set">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="assemblyId" className="text-xs font-medium text-slate-700">
+                    Assembly
+                  </label>
+                  <select
+                    id="assemblyId"
+                    value={assemblyId}
+                    onChange={(event) => setAssemblyId(event.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">Select assembly…</option>
+                    {supplierAssemblies.map((assembly) => (
+                      <option key={assembly.id} value={assembly.id}>
+                        {formatCastingReceiptLabel(assembly)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="assemblyQty" className="text-xs font-medium text-slate-700">
+                    Number of full sets
+                  </label>
+                  <input
+                    id="assemblyQty"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={assemblyQty}
+                    onChange={(event) => setAssemblyQty(event.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+              {selectedAssembly ? (
+                <ul className="mt-4 space-y-1 text-xs text-slate-600">
+                  {selectedAssembly.components.map((row) => (
+                    <li key={row.component.id}>
+                      {formatCastingPieceRoleLabel(row.pieceRole)} ×{" "}
+                      {row.quantity * (Number(assemblyQty) || 0)}:{" "}
+                      {row.component.productCode} — {row.component.name}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </SectionCard>
+          )}
+        </>
       )}
 
       {error ? (
@@ -296,7 +410,7 @@ export function PurchaseReceiptForm({
         </Link>
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || !supplierId}
           className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
         >
           {pending ? "Saving…" : "Receive Castings"}

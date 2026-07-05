@@ -19,6 +19,12 @@ import {
   mapJobToQuoteFormOption,
 } from "@/app/quotes/quote-form-data";
 import { mapProductToQuoteFormOption } from "@/lib/quote-mapper";
+import {
+  isDerivableCastingAssembly,
+  loadDerivedAssemblyValues,
+} from "@/lib/casting-service";
+import { PHYSICAL_PRODUCT_TYPES } from "@/lib/product-types";
+import { getProductPricesForList } from "@/lib/price-list-service";
 import type {
   QuoteFormCustomerOption,
   QuoteFormJobOption,
@@ -30,6 +36,7 @@ import {
   type DrainRingStyle,
 } from "@/lib/drain-ring-utils";
 import { generateQuoteNumber } from "@/lib/quote-number";
+import { linkPlanSheetToQuote } from "@/app/quotes/plan-sheet-actions";
 import { computeMoneyTotals } from "@/lib/money";
 import { computeDeliveryAmount } from "@/lib/quotes/money-rules";
 import { canEditQuote } from "@/lib/quotes/edit-rules";
@@ -43,6 +50,10 @@ type QuoteTypeValue = (typeof QUOTE_TYPES)[number];
 type QuoteLineTypeValue = (typeof QUOTE_LINE_TYPES)[number];
 
 export type CreateQuoteLineItemInput = {
+  /** DB id of the line this row represents when editing (client-generated ids
+   * for new rows are ignored). Used to carry jobStructureId and revision
+   * lineage across updateQuote's delete-and-recreate. */
+  existingLineItemId?: string | null;
   lineNumber: number;
   lineType: QuoteLineTypeValue;
   productId: string | null;
@@ -92,6 +103,11 @@ export type CreateQuoteInput = {
   termsAndConditions: string | null;
   leadTime: string | null;
   deliveryNotes: string | null;
+  /** ISO updatedAt from when the edit form loaded the quote. When provided,
+   * updateQuote rejects the save if someone else changed the quote since
+   * (optimistic concurrency — same pattern as delivery tickets). */
+  expectedUpdatedAt?: string;
+  planSheetId?: string | null;
   lineItems: CreateQuoteLineItemInput[];
   totals: {
     subtotal: number;
@@ -428,6 +444,8 @@ export async function createQuote(
       }
     }
 
+    await linkPlanSheetToQuote(input.planSheetId, quote.id, input.jobId);
+
     revalidatePath("/quotes");
     redirect(
       previewAfterSave
@@ -530,6 +548,40 @@ export async function updateQuote(
 
     await withDatabaseRetry((client) =>
       client.$transaction(async (tx) => {
+        if (input.expectedUpdatedAt) {
+          // Lines are replaced wholesale below, so a stale save would silently
+          // discard another estimator's edits. Compare millisecond timestamps
+          // to detect a concurrent change since the form loaded.
+          const current = await tx.quote.findUnique({
+            where: { id: quoteId },
+            select: { updatedAt: true },
+          });
+          const expected = new Date(input.expectedUpdatedAt);
+          if (
+            !current ||
+            Number.isNaN(expected.getTime()) ||
+            current.updatedAt.getTime() !== expected.getTime()
+          ) {
+            throw new Error(
+              "This quote was changed by someone else while you were editing. Refresh the page to load the latest version, then re-apply your changes.",
+            );
+          }
+        }
+
+        // Lines are deleted and recreated below, which would sever production
+        // links (jobStructureId) and revision lineage (previousLineItemId).
+        // Snapshot them keyed by line id so rows the form kept can carry both
+        // forward. Only ids that belong to THIS quote are honored.
+        const priorLines = await tx.quoteLineItem.findMany({
+          where: { quoteId },
+          select: {
+            id: true,
+            jobStructureId: true,
+            previousLineItemId: true,
+          },
+        });
+        const priorById = new Map(priorLines.map((line) => [line.id, line]));
+
         await tx.quoteLineItem.deleteMany({ where: { quoteId } });
 
         await tx.quote.update({
@@ -581,38 +633,60 @@ export async function updateQuote(
             leadTime: input.leadTime,
             deliveryNotes: input.deliveryNotes,
             lineItems: {
-              create: input.lineItems.map((line, index) => ({
-                lineNumber: line.lineNumber,
-                lineType: line.lineType,
-                productId: line.productId,
-                itemCode: line.itemCode,
-                description: line.description,
-                quantity: toDecimal(line.quantity),
-                unit: line.unit,
-                unitPrice: toDecimal(line.unitPrice),
-                weight: toOptionalDecimal(line.weight),
-                yards: toOptionalDecimal(line.yards),
-                taxable: line.taxable,
-                total: lineTotals[index],
-                statusNote: line.statusNote,
-                sortOrder: index + 1,
-                notes: line.notes,
-                isDrainRing: line.isDrainRing ?? false,
-                ringDiameterFeet: toOptionalDecimal(line.ringDiameterFeet ?? null),
-                poolHeightFeet: toOptionalDecimal(line.poolHeightFeet ?? null),
-                drainRingStyle: line.isDrainRing
-                  ? parseDrainRingStyle(line.drainRingStyle ?? "DRAIN")
-                  : "DRAIN",
-                structureConfigJson:
-                  line.structureConfigJson != null
-                    ? (line.structureConfigJson as Prisma.InputJsonValue)
-                    : undefined,
-              })),
+              create: input.lineItems.map((line, index) => {
+                const prior = line.existingLineItemId
+                  ? priorById.get(line.existingLineItemId)
+                  : undefined;
+                return {
+                  lineNumber: line.lineNumber,
+                  lineType: line.lineType,
+                  productId: line.productId,
+                  jobStructureId: prior?.jobStructureId ?? null,
+                  previousLineItemId: prior?.previousLineItemId ?? null,
+                  itemCode: line.itemCode,
+                  description: line.description,
+                  quantity: toDecimal(line.quantity),
+                  unit: line.unit,
+                  unitPrice: toDecimal(line.unitPrice),
+                  weight: toOptionalDecimal(line.weight),
+                  yards: toOptionalDecimal(line.yards),
+                  taxable: line.taxable,
+                  total: lineTotals[index],
+                  statusNote: line.statusNote,
+                  sortOrder: index + 1,
+                  notes: line.notes,
+                  isDrainRing: line.isDrainRing ?? false,
+                  ringDiameterFeet: toOptionalDecimal(line.ringDiameterFeet ?? null),
+                  poolHeightFeet: toOptionalDecimal(line.poolHeightFeet ?? null),
+                  drainRingStyle: line.isDrainRing
+                    ? parseDrainRingStyle(line.drainRingStyle ?? "DRAIN")
+                    : "DRAIN",
+                  structureConfigJson:
+                    line.structureConfigJson != null
+                      ? (line.structureConfigJson as Prisma.InputJsonValue)
+                      : undefined,
+                };
+              }),
             },
           },
         });
+
+        // Keep linked structures' quantity in step with the edited line
+        // (same behavior as quote revision).
+        const relinked = await tx.quoteLineItem.findMany({
+          where: { quoteId, jobStructureId: { not: null } },
+          select: { jobStructureId: true, quantity: true },
+        });
+        for (const line of relinked) {
+          await tx.jobStructure.update({
+            where: { id: line.jobStructureId! },
+            data: { quantity: line.quantity },
+          });
+        }
       }),
     );
+
+    await linkPlanSheetToQuote(input.planSheetId, quoteId, input.jobId);
 
     revalidatePath("/quotes");
     revalidatePath(`/quotes/${quoteId}`);
@@ -763,15 +837,25 @@ export async function searchJobsForQuoteForm(
 
 export async function searchProductsForQuoteForm(
   query: string,
-  kindFilter: "STOCK" | "CONFIGURABLE",
+  kindFilter: "PHYSICAL" | "CONFIGURABLE",
+  priceListId?: string | null,
+  castingOrigin?: "DOMESTIC" | "IMPORTED" | null,
+  categoryId?: string | null,
+  subcategoryId?: string | null,
 ): Promise<QuoteFormProductOption[]> {
   await requirePermission(AppPermission.QUOTES_MANAGE);
 
   const trimmed = query.trim();
+  const resolvedCategoryId = categoryId?.trim() || null;
+  const resolvedSubcategoryId = subcategoryId?.trim() || null;
+
   const products = await withDatabaseRetry((client) =>
     client.product.findMany({
       where: {
-        productType: kindFilter,
+        productType:
+          kindFilter === "CONFIGURABLE"
+            ? "CONFIGURABLE"
+            : { in: [...PHYSICAL_PRODUCT_TYPES] },
         status: "ACTIVE",
         ...(trimmed
           ? {
@@ -781,16 +865,55 @@ export async function searchProductsForQuoteForm(
               ],
             }
           : {}),
+        ...(castingOrigin
+          ? {
+              castingSupplier: { origin: castingOrigin },
+            }
+          : {}),
+        ...(resolvedCategoryId ? { categoryId: resolvedCategoryId } : {}),
+        ...(resolvedSubcategoryId ? { subcategoryId: resolvedSubcategoryId } : {}),
       },
       orderBy: { productCode: "asc" },
-      take: 50,
+      take: resolvedCategoryId ? 150 : 50,
       select: QUOTE_PRODUCT_OPTION_SELECT,
     }),
   );
 
-  const options = products.map(mapProductToQuoteFormOption);
+  const priceMap = priceListId
+    ? await getProductPricesForList(
+        products.map((product) => product.id),
+        priceListId,
+      )
+    : new Map();
 
-  if (kindFilter === "STOCK") {
+  const derivableAssemblyIds = products
+    .filter((product) => isDerivableCastingAssembly(product))
+    .map((product) => product.id);
+  const derivedMap = derivableAssemblyIds.length
+    ? await withDatabaseRetry((client) =>
+        loadDerivedAssemblyValues(client, derivableAssemblyIds, priceListId),
+      )
+    : new Map();
+
+  const options = products.map((product) => {
+    const derived = derivedMap.get(product.id);
+    const effectiveUnitPrice = isDerivableCastingAssembly(product)
+      ? derived?.derivedUnitPrice != null
+        ? { toString: () => String(derived.derivedUnitPrice) }
+        : null
+      : priceMap.get(product.id);
+    const effectiveWeight =
+      isDerivableCastingAssembly(product)
+        ? { toString: () => String(derived?.derivedWeight ?? 0) }
+        : product.weight;
+
+    return mapProductToQuoteFormOption(
+      { ...product, weight: effectiveWeight },
+      effectiveUnitPrice,
+    );
+  });
+
+  if (kindFilter === "PHYSICAL") {
     // Match the previous page-level ordering: casting assemblies first.
     return options.sort((a, b) => {
       if (a.isCastingAssembly && !b.isCastingAssembly) {
@@ -804,6 +927,20 @@ export async function searchProductsForQuoteForm(
   }
 
   return options;
+}
+
+export async function reloadQuoteFormPriceOptions(priceListId: string | null) {
+  await requirePermission(AppPermission.QUOTES_MANAGE);
+  const appSettings = await withDatabaseRetry((client) =>
+    client.appSettings.findUnique({
+      where: { id: "default" },
+      select: { ringBuilderConfig: true },
+    }),
+  );
+  const { loadQuoteFormPriceOptions } = await import("@/app/quotes/quote-form-data");
+  const { parseRingBuilderConfig } = await import("@/lib/ring-builder-settings");
+  const ringBuilderConfig = parseRingBuilderConfig(appSettings?.ringBuilderConfig);
+  return loadQuoteFormPriceOptions(priceListId, ringBuilderConfig);
 }
 
 export async function listPriceListsForForm() {
@@ -824,7 +961,22 @@ export async function reviseQuote(
   try {
     const newQuoteId = await withDatabaseRetry(async (client) => {
       const { reviseQuoteInTransaction } = await import("@/lib/quote-revision");
-      return client.$transaction((tx) => reviseQuoteInTransaction(tx, quoteId));
+      // A concurrent commit can take the same quote number or revision slot
+      // (P2002) mid-transaction. Re-running the whole transaction regenerates
+      // both against the now-committed state; the CAS inside converts a true
+      // duplicate revision into a friendly "already revised" error.
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          return await client.$transaction((tx) =>
+            reviseQuoteInTransaction(tx, quoteId),
+          );
+        } catch (error) {
+          if (isQuoteNumberConflict(error) && attempt < 2) {
+            continue;
+          }
+          throw error;
+        }
+      }
     });
 
     revalidatePath("/quotes");

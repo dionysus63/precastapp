@@ -4,6 +4,7 @@ import {
   formatCurrency,
   formatFeetInches,
   formatFeetInchesShort,
+  formatPipeDescription,
   getStructureDimensions,
   getStructureElevations,
 } from "@/lib/drill-sheet";
@@ -167,9 +168,8 @@ function buildOpeningsTable(result: DrillSheetResult) {
   const header = `
     <tr style="background:#f8fafc;font-size:8px;">
       <th ${thStyle}>Op</th>
-      <th ${thStyle}>Material</th>
+      <th ${thStyle}>Material / Type</th>
       <th ${thStyle}>Size</th>
-      <th ${thStyle}>Type</th>
       <th ${thStyle}>Invert</th>
       <th ${thStyle}>Top Pipe</th>
       <th ${thStyle}>Bot Open</th>
@@ -182,7 +182,7 @@ function buildOpeningsTable(result: DrillSheetResult) {
 
   const body =
     result.openings.length === 0
-      ? `<tr><td colspan="12" ${tdStyle} style="text-align:center;color:#64748b;">No openings</td></tr>`
+      ? `<tr><td colspan="11" ${tdStyle} style="text-align:center;color:#64748b;">No openings</td></tr>`
       : result.openings
           .map((opening, index) => {
             const angleDeg = opening.isLowInvert
@@ -193,9 +193,8 @@ function buildOpeningsTable(result: DrillSheetResult) {
               : `${Math.round(angleDeg)}° (${angleToClockPosition(angleDeg)})`;
             return `<tr>
               <td ${tdStyle} style="font-weight:600;">${escapeHtml(opening.label || String.fromCharCode(65 + index))}${opening.isLowInvert ? "*" : ""}</td>
-              <td ${tdStyle}>${escapeHtml(opening.pipeMaterial ?? "—")}</td>
+              <td ${tdStyle}>${escapeHtml(formatPipeDescription(opening.pipeMaterial, opening.pipeType) || "—")}</td>
               <td ${tdStyle}>${opening.pipeSizeInches ?? "—"}</td>
-              <td ${tdStyle}>${escapeHtml(opening.pipeType ?? "—")}</td>
               <td ${tdStyle} style="font-variant-numeric:tabular-nums;">${feet(opening.invertElevation)}</td>
               <td ${tdStyle} style="font-variant-numeric:tabular-nums;">${feet(opening.topOfPipeFeet)}</td>
               <td ${tdStyle} style="font-variant-numeric:tabular-nums;">${feet(opening.bottomOfOpeningFeet)}</td>

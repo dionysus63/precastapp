@@ -11,13 +11,6 @@ import type { QuoteSummaryCard } from "@/lib/quotes/list-summary";
 export function QuotesActionsRow() {
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
-      <button
-        type="button"
-        disabled
-        className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-400"
-      >
-        Export
-      </button>
       <Link
         href="/quotes/new"
         className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
@@ -76,34 +69,6 @@ export function QuotesActivitySection({
           >
             New Quote
           </Link>
-          <button
-            type="button"
-            disabled
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-400"
-          >
-            Quote from Existing Job
-          </button>
-          <button
-            type="button"
-            disabled
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-400"
-          >
-            Duplicate Quote
-          </button>
-          <button
-            type="button"
-            disabled
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-400"
-          >
-            View Expiring Quotes
-          </button>
-          <button
-            type="button"
-            disabled
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-400"
-          >
-            View Won Quotes
-          </button>
         </div>
       </SectionCard>
     </div>

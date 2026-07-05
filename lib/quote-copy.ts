@@ -46,6 +46,7 @@ type LineItemSource = {
 export function computeQuoteTotalsFromLines(
   lineItems: LineItemSource[],
   taxRate: Prisma.Decimal,
+  discountAmount: Prisma.Decimal = new Prisma.Decimal(0),
 ) {
   const billableLines = lineItems.filter((line) => line.lineType !== "CATEGORY");
   const computed = computeMoneyTotals(
@@ -55,6 +56,7 @@ export function computeQuoteTotalsFromLines(
       taxable: line.taxable,
     })),
     taxRate,
+    discountAmount,
   );
 
   let billableIndex = 0;
