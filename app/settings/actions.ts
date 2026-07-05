@@ -9,6 +9,7 @@ import { syncAllJobFilesFromDisk } from "@/lib/job-files-service";
 import {
   formatLinesList,
   getAppSettings,
+  invalidateAppSettingsCache,
   parseLinesList,
 } from "@/lib/app-settings";
 import { removeCompanyLogo } from "@/lib/company-logo";
@@ -64,6 +65,7 @@ async function updateAppSettings(
         data,
       }),
     );
+    invalidateAppSettingsCache();
     revalidateSettingsPaths();
     return { success: "Settings saved." };
   } catch (error) {

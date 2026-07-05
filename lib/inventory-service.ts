@@ -112,6 +112,61 @@ async function applyStockChange(
   });
 }
 
+type InboundStockChange = Omit<StockChangeInput, "allowNegative">;
+
+/**
+ * Batched variant of {@link applyStockChange} for inbound-only changes
+ * (receipts, production): one ledger `createMany` plus one balance update per
+ * distinct product, instead of two round-trips per line. Inbound changes only
+ * increase stock, so the negative-balance guard is not needed. Must be called
+ * inside a `$transaction`.
+ */
+async function applyInboundStockChanges(
+  tx: DbClient,
+  changes: InboundStockChange[],
+): Promise<void> {
+  if (changes.length === 0) {
+    return;
+  }
+
+  const deltaByProduct = new Map<string, number>();
+  for (const change of changes) {
+    // Same whole-unit rule as applyStockChange: reject fractional magnitudes
+    // so the Decimal ledger and the Int balance never disagree.
+    const balanceDelta = change.quantityChange.toNumber();
+    if (!Number.isInteger(balanceDelta)) {
+      throw new Error(
+        `Stock is tracked in whole units; got a quantity of ${change.quantityChange.toString()}.`,
+      );
+    }
+    deltaByProduct.set(
+      change.productId,
+      (deltaByProduct.get(change.productId) ?? 0) + balanceDelta,
+    );
+  }
+
+  await tx.inventoryTransaction.createMany({
+    data: changes.map((change) => ({
+      productId: change.productId,
+      quantityChange: change.quantityChange,
+      transactionType: change.transactionType,
+      transactionDate: change.transactionDate,
+      referenceType: change.referenceType ?? null,
+      referenceId: change.referenceId ?? null,
+      notes: change.notes ?? null,
+      createdBy: change.createdBy ?? null,
+      submissionKey: change.submissionKey ?? null,
+    })),
+  });
+
+  for (const [productId, delta] of deltaByProduct) {
+    await tx.product.update({
+      where: { id: productId },
+      data: { currentStockQuantity: { increment: delta } },
+    });
+  }
+}
+
 /**
  * Record purchased casting inventory: ledger (+qty) and bump Product.currentStockQuantity.
  * Must be called inside a `$transaction` — the caller owns the transaction boundary so
@@ -157,16 +212,21 @@ export async function savePurchaseReceiptEntry(
     },
   });
 
+  // One validation read for the whole entry instead of one per line: large
+  // entries otherwise risk the transaction timeout on sequential round-trips.
+  const products = await tx.product.findMany({
+    where: { id: { in: [...new Set(input.lines.map((line) => line.productId))] } },
+    select: {
+      id: true,
+      trackInventory: true,
+      castingRole: true,
+      castingSoldAsUnit: true,
+    },
+  });
+  const productById = new Map(products.map((product) => [product.id, product]));
+
   for (const line of input.lines) {
-    const product = await tx.product.findUnique({
-      where: { id: line.productId },
-      select: {
-        id: true,
-        trackInventory: true,
-        castingRole: true,
-        castingSoldAsUnit: true,
-      },
-    });
+    const product = productById.get(line.productId);
 
     if (!product) {
       throw new Error("Product not found.");
@@ -180,30 +240,32 @@ export async function savePurchaseReceiptEntry(
       throw new Error("Receive component pieces, not casting assemblies.");
     }
 
-    const qty = new Prisma.Decimal(line.quantityReceived);
-    if (qty.lte(0)) {
+    if (new Prisma.Decimal(line.quantityReceived).lte(0)) {
       throw new Error("Quantity received must be greater than zero.");
     }
+  }
 
-    const receiptLine = await tx.purchaseReceiptLine.create({
-      data: {
-        purchaseReceiptId: entry.id,
-        productId: line.productId,
-        quantityReceived: qty,
-      },
-    });
-
-    await applyStockChange(tx, {
+  const receiptLines = await tx.purchaseReceiptLine.createManyAndReturn({
+    data: input.lines.map((line) => ({
+      purchaseReceiptId: entry.id,
       productId: line.productId,
-      quantityChange: qty,
-      transactionType: "PURCHASE_RECEIPT",
+      quantityReceived: new Prisma.Decimal(line.quantityReceived),
+    })),
+    select: { id: true, productId: true, quantityReceived: true },
+  });
+
+  await applyInboundStockChanges(
+    tx,
+    receiptLines.map((receiptLine) => ({
+      productId: receiptLine.productId,
+      quantityChange: receiptLine.quantityReceived,
+      transactionType: "PURCHASE_RECEIPT" as const,
       transactionDate: input.receiptDate,
-      referenceType: "PURCHASE_RECEIPT_LINE",
+      referenceType: "PURCHASE_RECEIPT_LINE" as const,
       referenceId: receiptLine.id,
       createdBy: input.enteredBy ?? null,
-      allowNegative: true,
-    });
-  }
+    })),
+  );
 
   return entry.id;
 }
@@ -226,69 +288,85 @@ export async function saveDailyProductionEntry(
     throw new Error("Add at least one production line.");
   }
 
-  return client.$transaction(async (tx) => {
-    // Idempotency: see savePurchaseReceiptEntry.
-    if (input.submissionKey) {
-      const existing = await tx.dailyProductionEntry.findUnique({
-        where: { submissionKey: input.submissionKey },
-        select: { id: true },
-      });
-      if (existing) {
-        return existing.id;
-      }
-    }
-
-    const entry = await tx.dailyProductionEntry.create({
-      data: {
-        productionDate: input.productionDate,
-        enteredBy: input.enteredBy ?? null,
-        notes: input.notes ?? null,
-        batchLabel: input.batchLabel ?? null,
-        submissionKey: input.submissionKey ?? null,
-      },
-    });
-
-    for (const line of input.lines) {
-      const product = await tx.product.findUnique({
-        where: { id: line.productId },
-        select: { id: true, trackInventory: true },
-      });
-
-      if (!product) {
-        throw new Error("Product not found.");
+  return client.$transaction(
+    async (tx) => {
+      // Idempotency: see savePurchaseReceiptEntry.
+      if (input.submissionKey) {
+        const existing = await tx.dailyProductionEntry.findUnique({
+          where: { submissionKey: input.submissionKey },
+          select: { id: true },
+        });
+        if (existing) {
+          return existing.id;
+        }
       }
 
-      if (!product.trackInventory) {
-        throw new Error("Product is not tracked in inventory.");
-      }
-
-      const qty = new Prisma.Decimal(line.quantityProduced);
-      if (qty.lte(0)) {
-        throw new Error("Quantity produced must be greater than zero.");
-      }
-
-      const productionLine = await tx.dailyProductionLine.create({
+      const entry = await tx.dailyProductionEntry.create({
         data: {
-          productionEntryId: entry.id,
-          productId: line.productId,
-          quantityProduced: qty,
+          productionDate: input.productionDate,
+          enteredBy: input.enteredBy ?? null,
+          notes: input.notes ?? null,
+          batchLabel: input.batchLabel ?? null,
+          submissionKey: input.submissionKey ?? null,
         },
       });
 
-      await applyStockChange(tx, {
-        productId: line.productId,
-        quantityChange: qty,
-        transactionType: "PRODUCTION",
-        transactionDate: input.productionDate,
-        referenceType: "DAILY_PRODUCTION_LINE",
-        referenceId: productionLine.id,
-        createdBy: input.enteredBy ?? null,
-        allowNegative: true,
+      // Batched like savePurchaseReceiptEntry: one validation read, one line
+      // createMany, one ledger createMany, one balance update per product.
+      const products = await tx.product.findMany({
+        where: {
+          id: { in: [...new Set(input.lines.map((line) => line.productId))] },
+        },
+        select: { id: true, trackInventory: true },
       });
-    }
+      const productById = new Map(
+        products.map((product) => [product.id, product]),
+      );
 
-    return entry.id;
-  });
+      for (const line of input.lines) {
+        const product = productById.get(line.productId);
+
+        if (!product) {
+          throw new Error("Product not found.");
+        }
+
+        if (!product.trackInventory) {
+          throw new Error("Product is not tracked in inventory.");
+        }
+
+        if (new Prisma.Decimal(line.quantityProduced).lte(0)) {
+          throw new Error("Quantity produced must be greater than zero.");
+        }
+      }
+
+      const productionLines = await tx.dailyProductionLine.createManyAndReturn({
+        data: input.lines.map((line) => ({
+          productionEntryId: entry.id,
+          productId: line.productId,
+          quantityProduced: new Prisma.Decimal(line.quantityProduced),
+        })),
+        select: { id: true, productId: true, quantityProduced: true },
+      });
+
+      await applyInboundStockChanges(
+        tx,
+        productionLines.map((productionLine) => ({
+          productId: productionLine.productId,
+          quantityChange: productionLine.quantityProduced,
+          transactionType: "PRODUCTION" as const,
+          transactionDate: input.productionDate,
+          referenceType: "DAILY_PRODUCTION_LINE" as const,
+          referenceId: productionLine.id,
+          createdBy: input.enteredBy ?? null,
+        })),
+      );
+
+      return entry.id;
+    },
+    // Generous ceiling for big production days; the batched writes above keep
+    // normal entries far under it.
+    { timeout: 30_000 },
+  );
 }
 
 /**

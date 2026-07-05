@@ -1,6 +1,6 @@
 import { access, readFile, stat, unlink } from "fs/promises";
 import path from "path";
-import { getJobsRoot } from "@/lib/app-settings";
+import { getJobsRoot, invalidateAppSettingsCache } from "@/lib/app-settings";
 import { assertPathUnderRoot } from "@/lib/job-path-security";
 import { withDatabaseRetry } from "@/lib/prisma";
 
@@ -68,6 +68,7 @@ export async function setCompanyLogoPath(logoPath: string | null) {
       data: { companyLogoPath: logoPath },
     }),
   );
+  invalidateAppSettingsCache();
 }
 
 export async function removeCompanyLogo() {

@@ -238,6 +238,11 @@ model Product {
   @@index([castingSupplierId])
   @@index([manufacturerCode])
   @@index([productKind, pipeDiameterInches])
+  // Trigram indexes back the products list's ILIKE %term% search; without
+  // them every keystroke search is a sequential scan.
+  @@index([productCode(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_productCode_trgm_idx")
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_name_trgm_idx")
+  @@index([description(ops: raw("gin_trgm_ops"))], type: Gin, map: "Product_description_trgm_idx")
 }
 
 /// BOM link: full casting assembly → frame/cover/grate component SKUs.
@@ -298,6 +303,14 @@ model Customer {
   quotes          Quote[]
   deliveryTickets DeliveryTicket[]
   invoices        Invoice[]
+
+  // btree for the list's default name sort and status filter; trigram
+  // indexes back the ILIKE %term% search fields.
+  @@index([name])
+  @@index([status])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Customer_name_trgm_idx")
+  @@index([primaryContactName(ops: raw("gin_trgm_ops"))], type: Gin, map: "Customer_primaryContactName_trgm_idx")
+  @@index([email(ops: raw("gin_trgm_ops"))], type: Gin, map: "Customer_email_trgm_idx")
 }
 
 model Contact {
@@ -357,6 +370,16 @@ model Job {
   @@index([year])
   @@index([yearTwoDigit])
   @@index([status])
+  // Dashboard "recent activity" sorts by updatedAt; trigram indexes back the
+  // jobs list's ILIKE %term% search fields.
+  @@index([updatedAt])
+  @@index([jobNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Job_jobNumber_trgm_idx")
+  @@index([projectName(ops: raw("gin_trgm_ops"))], type: Gin, map: "Job_projectName_trgm_idx")
+  @@index([customerName(ops: raw("gin_trgm_ops"))], type: Gin, map: "Job_customerName_trgm_idx")
+  @@index([projectAddress(ops: raw("gin_trgm_ops"))], type: Gin, map: "Job_projectAddress_trgm_idx")
+  @@index([city(ops: raw("gin_trgm_ops"))], type: Gin, map: "Job_city_trgm_idx")
+  @@index([state(ops: raw("gin_trgm_ops"))], type: Gin, map: "Job_state_trgm_idx")
+  @@index([zip(ops: raw("gin_trgm_ops"))], type: Gin, map: "Job_zip_trgm_idx")
 }
 
 /// Contractor invited to bid on a job (bid list entry).
@@ -820,6 +843,14 @@ model Quote {
   @@index([status])
   @@index([quoteDate])
   @@index([createdById])
+  // The quotes list default-sorts by updatedAt; trigram indexes back its
+  // ILIKE %term% search fields.
+  @@index([updatedAt])
+  @@index([quoteNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Quote_quoteNumber_trgm_idx")
+  @@index([jobNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Quote_jobNumber_trgm_idx")
+  @@index([customerName(ops: raw("gin_trgm_ops"))], type: Gin, map: "Quote_customerName_trgm_idx")
+  @@index([projectName(ops: raw("gin_trgm_ops"))], type: Gin, map: "Quote_projectName_trgm_idx")
+  @@index([scopeLabel(ops: raw("gin_trgm_ops"))], type: Gin, map: "Quote_scopeLabel_trgm_idx")
 }
 
 enum PlanSheetSourceType {
@@ -1003,6 +1034,13 @@ model DeliveryTicket {
   @@index([yearTwoDigit])
   @@index([ticketType])
   @@index([fulfillmentMethod])
+  // Trigram indexes back the tickets list's ILIKE %term% search fields.
+  @@index([ticketNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "DeliveryTicket_ticketNumber_trgm_idx")
+  @@index([jobNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "DeliveryTicket_jobNumber_trgm_idx")
+  @@index([customerName(ops: raw("gin_trgm_ops"))], type: Gin, map: "DeliveryTicket_customerName_trgm_idx")
+  @@index([projectName(ops: raw("gin_trgm_ops"))], type: Gin, map: "DeliveryTicket_projectName_trgm_idx")
+  @@index([truck(ops: raw("gin_trgm_ops"))], type: Gin, map: "DeliveryTicket_truck_trgm_idx")
+  @@index([driver(ops: raw("gin_trgm_ops"))], type: Gin, map: "DeliveryTicket_driver_trgm_idx")
 }
 
 /// Individual line on a delivery ticket: stock product, structure, service, or misc item.
