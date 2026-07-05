@@ -120,32 +120,34 @@ export default async function ProductsPage({
     ]),
   );
 
-  const priceMap = defaultPriceList
-    ? await getProductPricesForList(
-        products.map((product) => product.id),
-        defaultPriceList.id,
-      )
-    : new Map();
-
+  // All three enrichments depend only on the fetched page of products, not on
+  // each other — load them in parallel instead of three sequential waits.
   const derivableAssemblyIds = products
     .filter((product) => isDerivableCastingAssembly(product))
     .map((product) => product.id);
-  const derivedMap = derivableAssemblyIds.length
-    ? await withDatabaseRetry((client) =>
-        loadDerivedAssemblyValues(
-          client,
-          derivableAssemblyIds,
-          defaultPriceList?.id,
-        ),
-      )
-    : new Map();
-
-  const effectiveSubmittalCounts = await withDatabaseRetry((client) =>
-    loadEffectiveSubmittalCountsByProductId(
-      client,
-      products.map((product) => product.id),
+  const [priceMap, derivedMap, effectiveSubmittalCounts] = await Promise.all([
+    defaultPriceList
+      ? getProductPricesForList(
+          products.map((product) => product.id),
+          defaultPriceList.id,
+        )
+      : Promise.resolve(new Map()),
+    derivableAssemblyIds.length
+      ? withDatabaseRetry((client) =>
+          loadDerivedAssemblyValues(
+            client,
+            derivableAssemblyIds,
+            defaultPriceList?.id,
+          ),
+        )
+      : Promise.resolve(new Map()),
+    withDatabaseRetry((client) =>
+      loadEffectiveSubmittalCountsByProductId(
+        client,
+        products.map((product) => product.id),
+      ),
     ),
-  );
+  ]);
 
   const rows = products.map((product) =>
     mapProductToRow({

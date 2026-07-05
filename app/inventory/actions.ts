@@ -153,7 +153,10 @@ export async function savePurchaseReceipt(formData: FormData) {
           submissionKey,
           lines: txLines,
         });
-      });
+      },
+      // Generous ceiling for big receipts; the service batches its writes so
+      // normal entries stay far under it.
+      { timeout: 30_000 });
     });
 
     revalidatePath("/inventory");

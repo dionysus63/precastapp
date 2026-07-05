@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { AppPermission } from "@/app/generated/prisma/client";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/constants";
-import { writeAuditLog } from "@/lib/auth/audit";
+import { pruneOldAuditLogs, writeAuditLog } from "@/lib/auth/audit";
 import {
   canAccessPath,
   getDefaultHome,
@@ -178,12 +178,31 @@ export async function requireAuthForPath(pathname: string): Promise<AuthUser> {
   return user;
 }
 
+/**
+ * Opportunistic housekeeping on sign-in: expired sessions are otherwise only
+ * deleted when their own cookie returns (sessions from wiped browsers linger
+ * forever), and audit logs have a retention window. Both deletes are indexed
+ * and non-fatal — a failure must never block a sign-in.
+ */
+async function pruneExpiredAuthRows(): Promise<void> {
+  try {
+    await prisma.session.deleteMany({
+      where: { expiresAt: { lt: new Date() } },
+    });
+    await pruneOldAuditLogs();
+  } catch {
+    // Housekeeping only; the next sign-in retries.
+  }
+}
+
 export async function signInUser(userId: string): Promise<AuthUser> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
 
   if (!user || !user.isActive) {
     throw new Error("That user account is not available.");
   }
+
+  await pruneExpiredAuthRows();
 
   await createSession(user.id);
 

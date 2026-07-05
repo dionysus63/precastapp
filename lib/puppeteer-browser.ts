@@ -94,19 +94,54 @@ async function getSharedBrowser(): Promise<Browser> {
   return globalForBrowser.__pdfBrowserPromise;
 }
 
+// Each open page is a full render pipeline in Chromium; without a cap, N
+// simultaneous PDF/preview requests spawn N pipelines on the app box. Queue
+// excess requests instead — renders are fast, so waiting beats thrashing.
+const MAX_CONCURRENT_PAGES = 3;
+
+let activePages = 0;
+const pageWaiters: Array<() => void> = [];
+
+async function acquirePageSlot(): Promise<void> {
+  if (activePages < MAX_CONCURRENT_PAGES) {
+    activePages += 1;
+    return;
+  }
+  await new Promise<void>((resolve) => {
+    pageWaiters.push(() => {
+      activePages += 1;
+      resolve();
+    });
+  });
+}
+
+function releasePageSlot(): void {
+  activePages -= 1;
+  const next = pageWaiters.shift();
+  if (next) {
+    next();
+  }
+}
+
 /**
  * Runs `fn` with a fresh page on the shared browser. The page is always closed;
- * the browser is left running for reuse by the next call.
+ * the browser is left running for reuse by the next call. At most
+ * MAX_CONCURRENT_PAGES run at once; excess callers wait their turn.
  */
 export async function withBrowserPage<T>(
   fn: (page: Page) => Promise<T>,
 ): Promise<T> {
-  const browser = await getSharedBrowser();
-  const page = await browser.newPage();
+  await acquirePageSlot();
   try {
-    return await fn(page);
+    const browser = await getSharedBrowser();
+    const page = await browser.newPage();
+    try {
+      return await fn(page);
+    } finally {
+      await page.close().catch(() => undefined);
+    }
   } finally {
-    await page.close().catch(() => undefined);
+    releasePageSlot();
   }
 }
 

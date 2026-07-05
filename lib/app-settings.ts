@@ -178,9 +178,36 @@ async function ensureAppSettingsRow(client: PrismaClient): Promise<AppSettings> 
   });
 }
 
+/**
+ * Cross-request settings cache. Nearly every page render reads settings, and
+ * the row changes only when someone saves a settings form — so a short TTL
+ * plus explicit invalidation on save removes one query per request. The TTL
+ * (rather than invalidation alone) bounds staleness if the row is ever edited
+ * outside the app (e.g. psql / Prisma Studio).
+ */
+const APP_SETTINGS_CACHE_TTL_MS = 30_000;
+
+const globalForAppSettings = globalThis as unknown as {
+  __appSettingsCache?: { view: AppSettingsView; expiresAt: number } | null;
+};
+
+export function invalidateAppSettingsCache(): void {
+  globalForAppSettings.__appSettingsCache = null;
+}
+
 export const getAppSettings = cache(async (): Promise<AppSettingsView> => {
+  const cached = globalForAppSettings.__appSettingsCache;
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.view;
+  }
+
   const row = await withDatabaseRetry((client) => ensureAppSettingsRow(client));
-  return mapAppSettingsRow(row);
+  const view = mapAppSettingsRow(row);
+  globalForAppSettings.__appSettingsCache = {
+    view,
+    expiresAt: Date.now() + APP_SETTINGS_CACHE_TTL_MS,
+  };
+  return view;
 });
 
 export const getRoleDefaults = cache(

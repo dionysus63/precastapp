@@ -113,6 +113,31 @@ function toDecimal(value: number): Prisma.Decimal {
   return new Prisma.Decimal(value);
 }
 
+/**
+ * A ticket may only be linked to a WON quote. The picker UI already filters to
+ * won quotes; this is the server-side backstop, because a ticket against a
+ * still-editable quote (DRAFT/IN_REVIEW) would have its quote-line references
+ * silently severed by the next quote edit (line items are recreated with new
+ * ids on save).
+ */
+async function assertQuoteLinkable(
+  client: Prisma.TransactionClient,
+  quoteId: string,
+) {
+  const quote = await client.quote.findUnique({
+    where: { id: quoteId },
+    select: { status: true, quoteNumber: true },
+  });
+  if (!quote) {
+    throw new Error("The linked quote was not found.");
+  }
+  if (quote.status !== "WON") {
+    throw new Error(
+      `Delivery tickets can only be created from a won quote (${quote.quoteNumber} is ${quote.status}).`,
+    );
+  }
+}
+
 async function validateLines(
   client: Prisma.TransactionClient,
   input: SaveDeliveryTicketInput,
@@ -352,6 +377,9 @@ export async function createDeliveryTicket(
     const defaultPriceListId = input.priceListId ?? (await getDefaultPriceListId());
     const ticket = await withDatabaseRetry(async (client) =>
       client.$transaction(async (tx) => {
+        if (input.ticketType === "JOB" && input.quoteId) {
+          await assertQuoteLinkable(tx, input.quoteId);
+        }
         await validateLines(tx, input);
         const numbering = await allocateDeliveryTicketNumber(tx);
         return tx.deliveryTicket.create({
@@ -395,11 +423,21 @@ export async function updateDeliveryTicket(
       client.$transaction(async (tx) => {
         const existing = await tx.deliveryTicket.findUnique({
           where: { id: ticketId },
-          select: { status: true, updatedAt: true },
+          select: { status: true, updatedAt: true, quoteId: true },
         });
         if (!existing) throw new Error("Delivery ticket not found.");
         if (existing.status === "DELIVERED") {
           throw new Error("Delivered tickets cannot be edited.");
+        }
+
+        // Only re-check the quote when the link changes: a ticket's existing
+        // quote may legitimately have moved WON → REVISED since creation.
+        if (
+          input.ticketType === "JOB" &&
+          input.quoteId &&
+          input.quoteId !== existing.quoteId
+        ) {
+          await assertQuoteLinkable(tx, input.quoteId);
         }
         if (input.expectedUpdatedAt) {
           // Lines are replaced wholesale below, so a stale save would silently

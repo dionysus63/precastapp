@@ -5,6 +5,11 @@ import { generateDraftInvoicesBatchPdfBytes } from "@/lib/invoice-pdf-fill";
 import { INVOICE_PDF_INCLUDE } from "@/lib/invoice-pdf-data";
 import { withDatabaseRetry } from "@/lib/prisma";
 
+/** The whole batch is loaded with full includes and rendered into one PDF in
+ * memory, so an unbounded draft backlog could exhaust RAM. A day's billing is
+ * far below this; ask the user to narrow by date instead of degrading. */
+const MAX_BATCH_INVOICES = 200;
+
 function parseDateParam(value: string | null): Date | null {
   if (!value) return null;
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
@@ -44,11 +49,19 @@ export async function GET(request: Request) {
         },
         orderBy: { invoiceNumber: "asc" },
         include: INVOICE_PDF_INCLUDE,
+        take: MAX_BATCH_INVOICES + 1,
       }),
     );
 
     if (invoices.length === 0) {
       return new NextResponse("No draft invoices to print.", { status: 404 });
+    }
+
+    if (invoices.length > MAX_BATCH_INVOICES) {
+      return new NextResponse(
+        `Too many draft invoices to print in one batch (over ${MAX_BATCH_INVOICES}). Filter by delivery date and print smaller batches.`,
+        { status: 413 },
+      );
     }
 
     const pdfBytes = await generateDraftInvoicesBatchPdfBytes(invoices);

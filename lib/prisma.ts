@@ -128,7 +128,14 @@ function isSchemaValidationError(error: unknown) {
 }
 
 function getPrismaClient() {
-  if (globalForPrisma.prisma && isPrismaClientStale(globalForPrisma.prisma)) {
+  // Stale-client detection exists for `next dev` hot reload, where a cached
+  // client can outlive a schema change. A production build has one client for
+  // its lifetime, so skip the per-access field scans there.
+  if (
+    process.env.NODE_ENV !== "production" &&
+    globalForPrisma.prisma &&
+    isPrismaClientStale(globalForPrisma.prisma)
+  ) {
     resetPrismaState();
   }
 
