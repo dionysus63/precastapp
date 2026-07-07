@@ -24,20 +24,6 @@ function DetailField({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PlaceholderCard({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <SectionCard title={title}>
-      <p className="text-xs text-slate-500">{description}</p>
-    </SectionCard>
-  );
-}
-
 type CustomerDetailContentProps = {
   customer: CustomerDetailView;
 };
@@ -300,37 +286,65 @@ export function CustomerDetailContent({ customer }: CustomerDetailContentProps) 
               </table>
             </div>
           </SectionCard>
+
+          <SectionCard
+            title="Related Invoices"
+            description={`${customer.relatedInvoices.length} invoice${customer.relatedInvoices.length === 1 ? "" : "s"}`}
+            noPadding
+          >
+            <div className={tableFlushWrapperClassName}>
+              <table className={tableClassName}>
+                <thead>
+                  <tr>
+                    <th className={tableHeaderCellClassName}>Invoice</th>
+                    <th className={tableHeaderCellClassName}>Status</th>
+                    <th className={tableHeaderCellClassName}>Total</th>
+                    <th className={tableHeaderCellClassName}>Invoice Date</th>
+                  </tr>
+                </thead>
+                <tbody className={tableBodyClassName}>
+                  {customer.relatedInvoices.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={4}
+                        className={`${tableCellBordersClassName} px-3 py-6 text-center text-slate-500`}
+                      >
+                        No invoices for this customer yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    customer.relatedInvoices.map((invoice) => (
+                      <tr key={invoice.id} className={tableRowClassName}>
+                        <td className={tableCellClassName}>
+                          <Link
+                            href={`/invoices/${invoice.id}`}
+                            className="font-medium text-slate-900 hover:text-slate-700"
+                          >
+                            {invoice.invoiceNumber}
+                          </Link>
+                        </td>
+                        <td className={tableCellClassName}>
+                          <StatusBadge
+                            label={invoice.statusLabel}
+                            variant={invoice.statusVariant}
+                          />
+                        </td>
+                        <td className={`${tableCellClassName} font-medium text-slate-900`}>
+                          {invoice.total}
+                        </td>
+                        <td className={`${tableCellClassName} text-slate-600`}>
+                          {invoice.invoiceDate}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </SectionCard>
         </div>
 
         <aside className="space-y-4">
-          <PlaceholderCard
-            title="Jobs"
-            description={
-              customer.relatedJobs.length > 0
-                ? `${customer.relatedJobs.length} job${customer.relatedJobs.length === 1 ? "" : "s"} linked to this customer.`
-                : "Job history and quick actions coming soon."
-            }
-          />
-          <PlaceholderCard
-            title="Quotes"
-            description={
-              customer.relatedQuotes.length > 0
-                ? `${customer.relatedQuotes.length} quote${customer.relatedQuotes.length === 1 ? "" : "s"} linked to this customer.`
-                : "Quote history and quick actions coming soon."
-            }
-          />
-          <PlaceholderCard
-            title="Invoices"
-            description="Customer invoices will appear here."
-          />
-          <PlaceholderCard
-            title="Delivery Tickets"
-            description={
-              customer.relatedDeliveryTickets.length > 0
-                ? `${customer.relatedDeliveryTickets.length} ticket${customer.relatedDeliveryTickets.length === 1 ? "" : "s"} on record.`
-                : "Delivery tickets for this customer will appear here."
-            }
-          />
           <SectionCard title="Files">
             {customer.relatedJobs.length === 0 ? (
               <p className="text-xs text-slate-500">
@@ -359,10 +373,6 @@ export function CustomerDetailContent({ customer }: CustomerDetailContentProps) 
               Search all files for this customer →
             </Link>
           </SectionCard>
-          <PlaceholderCard
-            title="Activity"
-            description="Recent account activity will appear here."
-          />
         </aside>
       </div>
     </div>

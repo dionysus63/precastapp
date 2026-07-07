@@ -166,6 +166,15 @@ export type CustomerRelatedDeliveryTicket = {
   deliveryDate: string;
 };
 
+export type CustomerRelatedInvoice = {
+  id: string;
+  invoiceNumber: string;
+  statusLabel: string;
+  statusVariant: import("@/lib/status-variants").StatusVariant;
+  total: string;
+  invoiceDate: string;
+};
+
 export type CustomerContactRow = {
   id: string;
   name: string;
@@ -195,4 +204,5 @@ export type CustomerDetailView = {
   relatedJobs: CustomerRelatedJob[];
   relatedQuotes: CustomerRelatedQuote[];
   relatedDeliveryTickets: CustomerRelatedDeliveryTicket[];
+  relatedInvoices: CustomerRelatedInvoice[];
 };

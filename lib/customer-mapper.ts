@@ -1,8 +1,16 @@
-import type { Contact, Customer, DeliveryTicket, Job, Quote } from "@/app/generated/prisma/client";
+import type {
+  Contact,
+  Customer,
+  DeliveryTicket,
+  Invoice,
+  Job,
+  Quote,
+} from "@/app/generated/prisma/client";
 import type {
   CustomerContactRow,
   CustomerDetailView,
   CustomerRelatedDeliveryTicket,
+  CustomerRelatedInvoice,
   CustomerRelatedJob,
   CustomerRelatedQuote,
   CustomerRow,
@@ -117,6 +125,36 @@ export function mapDeliveryTicketToCustomerRelated(
   };
 }
 
+function invoiceStatusVariant(
+  status: string,
+): CustomerRelatedInvoice["statusVariant"] {
+  switch (status) {
+    case "PAID":
+      return "success";
+    case "SENT":
+      return "info";
+    case "VOID":
+      return "neutral";
+    default:
+      return "default";
+  }
+}
+
+export function mapInvoiceToCustomerRelated(
+  invoice: Invoice,
+): CustomerRelatedInvoice {
+  return {
+    id: invoice.id,
+    invoiceNumber: invoice.invoiceNumber,
+    statusLabel: invoice.status.replace(/_/g, " "),
+    statusVariant: invoiceStatusVariant(invoice.status),
+    total: formatUsd(invoice.total),
+    invoiceDate: invoice.invoiceDate
+      ? formatCustomerDate(invoice.invoiceDate)
+      : "—",
+  };
+}
+
 export function mapContactToRow(contact: Contact): CustomerContactRow {
   return {
     id: contact.id,
@@ -135,6 +173,7 @@ export function mapCustomerToDetailView(
   relatedQuotes: Quote[],
   relatedDeliveryTickets: DeliveryTicket[] = [],
   contacts: Contact[] = [],
+  relatedInvoices: Invoice[] = [],
 ): CustomerDetailView {
   const row = mapCustomerToRow(customer);
 
@@ -157,5 +196,6 @@ export function mapCustomerToDetailView(
     relatedJobs: relatedJobs.map(mapJobToCustomerRelated),
     relatedQuotes: relatedQuotes.map(mapQuoteToCustomerRelated),
     relatedDeliveryTickets: relatedDeliveryTickets.map(mapDeliveryTicketToCustomerRelated),
+    relatedInvoices: relatedInvoices.map(mapInvoiceToCustomerRelated),
   };
 }

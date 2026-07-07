@@ -80,28 +80,38 @@ export default async function CustomerDetailPage({
     notFound();
   }
 
-  // Independent of each other — run in parallel. Both are capped: years of
+  // Independent of each other — run in parallel. All are capped: years of
   // history belong on the dedicated list pages, not the profile.
-  const [relatedQuotes, relatedDeliveryTickets] = await Promise.all([
-    withDatabaseRetry((prisma) =>
-      prisma.quote.findMany({
-        where: {
-          OR: [{ customerId: customer.id }, { customerName: customer.name }],
-        },
-        orderBy: { updatedAt: "desc" },
-        take: 25,
-      }),
-    ),
-    withDatabaseRetry((prisma) =>
-      prisma.deliveryTicket.findMany({
-        where: {
-          OR: [{ customerId: customer.id }, { customerName: customer.name }],
-        },
-        orderBy: { updatedAt: "desc" },
-        take: 20,
-      }),
-    ),
-  ]);
+  const [relatedQuotes, relatedDeliveryTickets, relatedInvoices] =
+    await Promise.all([
+      withDatabaseRetry((prisma) =>
+        prisma.quote.findMany({
+          where: {
+            OR: [{ customerId: customer.id }, { customerName: customer.name }],
+          },
+          orderBy: { updatedAt: "desc" },
+          take: 25,
+        }),
+      ),
+      withDatabaseRetry((prisma) =>
+        prisma.deliveryTicket.findMany({
+          where: {
+            OR: [{ customerId: customer.id }, { customerName: customer.name }],
+          },
+          orderBy: { updatedAt: "desc" },
+          take: 20,
+        }),
+      ),
+      withDatabaseRetry((prisma) =>
+        prisma.invoice.findMany({
+          where: {
+            OR: [{ customerId: customer.id }, { customerName: customer.name }],
+          },
+          orderBy: { updatedAt: "desc" },
+          take: 20,
+        }),
+      ),
+    ]);
 
   const detail = mapCustomerToDetailView(
     customer,
@@ -109,6 +119,7 @@ export default async function CustomerDetailPage({
     relatedQuotes,
     relatedDeliveryTickets,
     customer.contacts,
+    relatedInvoices,
   );
 
   return (
