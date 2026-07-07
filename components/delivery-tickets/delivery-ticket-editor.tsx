@@ -17,7 +17,7 @@ import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warnin
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import type { QuoteLineFulfillment } from "@/lib/delivery-fulfillment";
-import { formatWeightLb } from "@/lib/format";
+import { formatUsd, formatWeightLb } from "@/lib/format";
 import {
   castingAssemblyEditorKey,
   formatCastingPieceRoleLabel,
@@ -51,6 +51,12 @@ type ProductOption = {
   unitPrice?: number | null;
   currentStock?: number | null;
   trackInventory?: boolean;
+  categoryId: string;
+  categoryName: string;
+  categorySortOrder: number;
+  subcategoryId: string | null;
+  subcategoryName: string | null;
+  subcategorySortOrder: number | null;
 };
 
 type EditorLine = {
@@ -92,6 +98,8 @@ const inputClass =
   "mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm";
 
 const inlineTableInputClass = tableInlineInputClassName;
+
+const WALK_IN_RESULT_LIMIT = 50;
 
 function todayDateInputValue(): string {
   const date = new Date();
@@ -252,7 +260,10 @@ export function DeliveryTicketEditor({
     defaultValues?.projectName ?? "",
   );
   const [walkInSearch, setWalkInSearch] = useState("");
-  const [walkInQty, setWalkInQty] = useState("1");
+  const [walkInCategoryId, setWalkInCategoryId] = useState("all");
+  const [walkInSubcategoryId, setWalkInSubcategoryId] = useState<string | null>(
+    null,
+  );
   const [jobId, setJobId] = useState(defaultValues?.jobId ?? "");
   const [quoteId, setQuoteId] = useState(() =>
     initialQuoteId(defaultValues?.jobId ?? "", defaultValues?.quoteId, jobs),
@@ -615,15 +626,114 @@ export function DeliveryTicketEditor({
 
   const isPickup = ticketType === "WALK_IN" || fulfillmentMethod === "PICKUP";
 
-  const walkInResults = useMemo(() => {
+  const walkInCategories = useMemo(() => {
+    const map = new Map<
+      string,
+      { id: string; name: string; sortOrder: number; count: number }
+    >();
+    for (const product of products) {
+      const existing = map.get(product.categoryId);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        map.set(product.categoryId, {
+          id: product.categoryId,
+          name: product.categoryName,
+          sortOrder: product.categorySortOrder,
+          count: 1,
+        });
+      }
+    }
+    return [...map.values()].sort(
+      (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
+    );
+  }, [products]);
+
+  const walkInSubcategories = useMemo(() => {
+    if (walkInCategoryId === "all") {
+      return [];
+    }
+    const map = new Map<
+      string,
+      { id: string; name: string; sortOrder: number; count: number }
+    >();
+    let withoutSubcategory = 0;
+    for (const product of products) {
+      if (product.categoryId !== walkInCategoryId) {
+        continue;
+      }
+      if (!product.subcategoryId) {
+        withoutSubcategory += 1;
+        continue;
+      }
+      const existing = map.get(product.subcategoryId);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        map.set(product.subcategoryId, {
+          id: product.subcategoryId,
+          name: product.subcategoryName ?? "Other",
+          sortOrder: product.subcategorySortOrder ?? 0,
+          count: 1,
+        });
+      }
+    }
+    const list = [...map.values()].sort(
+      (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
+    );
+    if (list.length > 0 && withoutSubcategory > 0) {
+      list.push({
+        id: "__none__",
+        name: "Other",
+        sortOrder: Number.MAX_SAFE_INTEGER,
+        count: withoutSubcategory,
+      });
+    }
+    return list;
+  }, [products, walkInCategoryId]);
+
+  const walkInFiltered = useMemo(() => {
     const q = walkInSearch.trim().toLowerCase();
-    const list = q
-      ? products.filter((product) =>
-          `${product.productCode} ${product.name}`.toLowerCase().includes(q),
-        )
-      : products;
-    return list.slice(0, 20);
-  }, [products, walkInSearch]);
+    return products.filter((product) => {
+      if (walkInCategoryId !== "all" && product.categoryId !== walkInCategoryId) {
+        return false;
+      }
+      if (walkInSubcategoryId) {
+        const matches =
+          walkInSubcategoryId === "__none__"
+            ? product.subcategoryId == null
+            : product.subcategoryId === walkInSubcategoryId;
+        if (!matches) {
+          return false;
+        }
+      }
+      if (q && !`${product.productCode} ${product.name}`.toLowerCase().includes(q)) {
+        return false;
+      }
+      return true;
+    });
+  }, [products, walkInSearch, walkInCategoryId, walkInSubcategoryId]);
+
+  const walkInResults = walkInFiltered.slice(0, WALK_IN_RESULT_LIMIT);
+
+  const walkInQtyByProductId = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const line of lines) {
+      if (line.quoteLineItemId != null || !line.productId) {
+        continue;
+      }
+      map.set(
+        line.productId,
+        (map.get(line.productId) ?? 0) + (Number(line.quantity) || 0),
+      );
+    }
+    return map;
+  }, [lines]);
+
+  function selectWalkInCategory(categoryId: string) {
+    setWalkInCategoryId(categoryId);
+    setWalkInSubcategoryId(null);
+  }
 
   function generateLineKey(): string {
     if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -637,25 +747,44 @@ export function DeliveryTicketEditor({
     if (!product) {
       return;
     }
-    const qty = walkInQty.trim() || "1";
-    const key = generateLineKey();
-    const newLine: EditorLine = {
-      key,
-      quoteLineItemId: null,
-      productId: product.id,
-      jobStructureId: null,
-      lineType: "STOCK_PRODUCT",
-      itemCode: product.productCode,
-      description: product.name,
-      quantity: qty,
-      unit: product.unit || "EA",
-      weightEach: product.weight != null ? String(product.weight) : "",
-      yardLocation: "",
-    };
-    setLines((current) => [...current, newLine]);
-    setSelectedLineIds((current) => new Set([...current, key]));
-    setWalkInSearch("");
-    setWalkInQty("1");
+    const existing = lines.find(
+      (line) => line.quoteLineItemId == null && line.productId === productId,
+    );
+    const newKey = generateLineKey();
+    // Look up again inside the updater so rapid clicks increment one line
+    // instead of appending duplicates.
+    setLines((current) => {
+      const match = current.find(
+        (line) => line.quoteLineItemId == null && line.productId === productId,
+      );
+      if (match) {
+        return current.map((line) =>
+          line.key === match.key
+            ? { ...line, quantity: String((Number(line.quantity) || 0) + 1) }
+            : line,
+        );
+      }
+      return [
+        ...current,
+        {
+          key: newKey,
+          quoteLineItemId: null,
+          productId: product.id,
+          jobStructureId: null,
+          lineType: "STOCK_PRODUCT",
+          itemCode: product.productCode,
+          description: product.name,
+          quantity: "1",
+          unit: product.unit || "EA",
+          weightEach: product.weight != null ? String(product.weight) : "",
+          yardLocation: "",
+        },
+      ];
+    });
+    setSelectedLineIds(
+      (current) => new Set([...current, existing ? existing.key : newKey]),
+    );
+    markDirty();
     setError(null);
   }
 
@@ -751,95 +880,94 @@ export function DeliveryTicketEditor({
 
   return (
     <div className="space-y-4" onChange={markDirty}>
-      <SectionCard title="Ticket type">
-        <div className="flex gap-4 text-xs">
-          <label
-            className={`flex items-center gap-2 text-slate-700 ${
-              ticketType === "JOB" ? "font-semibold text-slate-900" : ""
-            }`}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="inline-flex overflow-hidden rounded-lg border border-slate-200 bg-white text-xs font-medium shadow-sm">
+          <button
+            type="button"
+            onClick={() => setTicketType("JOB")}
+            className={
+              ticketType === "JOB"
+                ? "bg-slate-900 px-4 py-2 text-white"
+                : "px-4 py-2 text-slate-600 hover:bg-slate-50"
+            }
           >
-            <input
-              type="radio"
-              checked={ticketType === "JOB"}
-              onChange={() => setTicketType("JOB")}
-            />
             Job ticket
-          </label>
-          <label
-            className={`flex items-center gap-2 text-slate-700 ${
-              ticketType === "WALK_IN" ? "font-semibold text-slate-900" : ""
-            }`}
+          </button>
+          <button
+            type="button"
+            onClick={() => setTicketType("WALK_IN")}
+            className={
+              ticketType === "WALK_IN"
+                ? "bg-slate-900 px-4 py-2 text-white"
+                : "px-4 py-2 text-slate-600 hover:bg-slate-50"
+            }
           >
-            <input
-              type="radio"
-              checked={ticketType === "WALK_IN"}
-              onChange={() => setTicketType("WALK_IN")}
-            />
             Walk-in
-          </label>
+          </button>
         </div>
-        {ticketType === "JOB" ? (
-          <div className="mt-4 border-t border-slate-100 pt-3">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              Fulfillment
-            </p>
-            <div className="flex gap-4 text-xs">
+        {ticketType === "WALK_IN" ? (
+          <span className="text-xs text-slate-500">
+            Walk-in tickets are always customer pickups.
+          </span>
+        ) : null}
+      </div>
+
+      {ticketType === "JOB" ? (
+        <SectionCard title="Schedule & fulfillment">
+          <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
+            <div>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Fulfillment
+              </p>
+              <div className="flex gap-4 text-xs">
+                <label
+                  className={`flex items-center gap-2 text-slate-700 ${
+                    fulfillmentMethod === "DELIVERY"
+                      ? "font-semibold text-slate-900"
+                      : ""
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    checked={fulfillmentMethod === "DELIVERY"}
+                    onChange={() => setFulfillmentMethod("DELIVERY")}
+                  />
+                  We deliver
+                </label>
+                <label
+                  className={`flex items-center gap-2 text-slate-700 ${
+                    fulfillmentMethod === "PICKUP"
+                      ? "font-semibold text-slate-900"
+                      : ""
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    checked={fulfillmentMethod === "PICKUP"}
+                    onChange={() => setFulfillmentMethod("PICKUP")}
+                  />
+                  Customer pickup
+                </label>
+              </div>
+            </div>
+            <div className="w-48">
               <label
-                className={`flex items-center gap-2 text-slate-700 ${
-                  fulfillmentMethod === "DELIVERY"
-                    ? "font-semibold text-slate-900"
-                    : ""
-                }`}
+                htmlFor="deliveryDate"
+                className="block text-xs font-medium text-slate-700"
               >
-                <input
-                  type="radio"
-                  checked={fulfillmentMethod === "DELIVERY"}
-                  onChange={() => setFulfillmentMethod("DELIVERY")}
-                />
-                We deliver
+                {isPickup ? "Pickup date" : "Delivery date"}
               </label>
-              <label
-                className={`flex items-center gap-2 text-slate-700 ${
-                  fulfillmentMethod === "PICKUP"
-                    ? "font-semibold text-slate-900"
-                    : ""
-                }`}
-              >
-                <input
-                  type="radio"
-                  checked={fulfillmentMethod === "PICKUP"}
-                  onChange={() => setFulfillmentMethod("PICKUP")}
-                />
-                Customer pickup
-              </label>
+              <input
+                id="deliveryDate"
+                type="date"
+                value={deliveryDate}
+                onChange={(event) => setDeliveryDate(event.target.value)}
+                className={inputClass}
+              />
             </div>
           </div>
-        ) : (
-          <p className="mt-3 text-xs text-slate-500">
-            Walk-in tickets are always customer pickups.
-          </p>
-        )}
-      </SectionCard>
-
-      <SectionCard title="Schedule">
-        <div>
-          <label htmlFor="deliveryDate" className="block text-xs font-medium text-slate-700">
-            {isPickup ? "Pickup date" : "Delivery date"}
-          </label>
-          <input
-            id="deliveryDate"
-            type="date"
-            value={deliveryDate}
-            onChange={(event) => setDeliveryDate(event.target.value)}
-            className={inputClass}
-          />
-        </div>
-        <p className="mt-2 text-xs text-slate-500">
-          {isPickup
-            ? "Set the date the customer plans to pick up."
-            : "Required when scheduling a delivery."}
-        </p>
-      </SectionCard>
+        </SectionCard>
+      ) : null}
 
       {ticketType === "JOB" ? (
         <SectionCard title="Job and quote">
@@ -1375,10 +1503,10 @@ export function DeliveryTicketEditor({
 
       {ticketType === "WALK_IN" ? (
         <SectionCard
-          title="Walk-in customer"
-          description="Name the customer (or reference) for this counter sale."
+          title="Walk-in details"
+          description="Customer, pickup date, and payment for this counter sale."
         >
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <label className="block text-xs font-medium text-slate-700">
                 Customer name
@@ -1401,6 +1529,60 @@ export function DeliveryTicketEditor({
                 className={inputClass}
               />
             </div>
+            <div>
+              <label
+                htmlFor="deliveryDate"
+                className="block text-xs font-medium text-slate-700"
+              >
+                Pickup date
+              </label>
+              <input
+                id="deliveryDate"
+                type="date"
+                value={deliveryDate}
+                onChange={(event) => setDeliveryDate(event.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-700">
+                Payment method
+              </label>
+              <select
+                value={paymentMethod}
+                onChange={(event) =>
+                  setPaymentMethod(
+                    event.target.value as "PAY_NOW" | "ON_ACCOUNT" | "",
+                  )
+                }
+                className={inputClass}
+              >
+                <option value="">Not specified</option>
+                <option value="PAY_NOW">Pay now</option>
+                <option value="ON_ACCOUNT">Charge to account</option>
+              </select>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap items-end gap-x-6 gap-y-3">
+            <div className="w-full max-w-xs">
+              <label className="block text-xs font-medium text-slate-700">
+                Picked up by (optional)
+              </label>
+              <input
+                value={pickedUpBy}
+                onChange={(event) => setPickedUpBy(event.target.value)}
+                placeholder="Name on pickup"
+                className={inputClass}
+              />
+            </div>
+            <label className="flex items-center gap-2 pb-2 text-xs text-slate-700">
+              <input
+                type="checkbox"
+                checked={paymentReceived}
+                onChange={(event) => setPaymentReceived(event.target.checked)}
+              />
+              Payment received
+            </label>
           </div>
         </SectionCard>
       ) : null}
@@ -1408,7 +1590,7 @@ export function DeliveryTicketEditor({
       {ticketType === "WALK_IN" ? (
         <SectionCard
           title="Products on this ticket"
-          description="Add stock products the customer is buying."
+          description="Pick a category, then click products to add them. Click again to add another."
         >
           {products.length === 0 ? (
             <p className="text-xs text-slate-500">
@@ -1416,64 +1598,154 @@ export function DeliveryTicketEditor({
             </p>
           ) : (
             <div className="space-y-3">
-              <div className="flex flex-wrap items-end gap-2">
-                <div className="min-w-[16rem] flex-1">
-                  <label className="block text-xs font-medium text-slate-700">
-                    Search products
-                  </label>
-                  <input
-                    type="search"
-                    value={walkInSearch}
-                    onChange={(event) => setWalkInSearch(event.target.value)}
-                    placeholder="Search product code, name..."
-                    className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm placeholder:text-slate-400"
-                  />
-                </div>
-                <div className="w-24">
-                  <label className="block text-xs font-medium text-slate-700">
-                    Qty
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={walkInQty}
-                    onChange={(event) => setWalkInQty(event.target.value)}
-                    className={inputClass}
-                  />
-                </div>
+              <input
+                type="search"
+                value={walkInSearch}
+                onChange={(event) => setWalkInSearch(event.target.value)}
+                placeholder={
+                  walkInCategoryId === "all"
+                    ? "Search all products by code or name…"
+                    : "Search within this category…"
+                }
+                className="block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm placeholder:text-slate-400"
+              />
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => selectWalkInCategory("all")}
+                  className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+                    walkInCategoryId === "all"
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  All{" "}
+                  <span
+                    className={
+                      walkInCategoryId === "all"
+                        ? "text-slate-300"
+                        : "text-slate-400"
+                    }
+                  >
+                    {products.length}
+                  </span>
+                </button>
+                {walkInCategories.map((category) => (
+                  <button
+                    key={category.id}
+                    type="button"
+                    onClick={() => selectWalkInCategory(category.id)}
+                    className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+                      walkInCategoryId === category.id
+                        ? "border-slate-900 bg-slate-900 text-white"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {category.name}{" "}
+                    <span
+                      className={
+                        walkInCategoryId === category.id
+                          ? "text-slate-300"
+                          : "text-slate-400"
+                      }
+                    >
+                      {category.count}
+                    </span>
+                  </button>
+                ))}
               </div>
-              {walkInResults.length > 0 ? (
-                <ul className="max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white">
-                  {walkInResults.map((product) => (
-                    <li key={product.id}>
-                      <button
-                        type="button"
-                        onClick={() => addWalkInLine(product.id)}
-                        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs hover:bg-slate-50"
-                      >
-                        <span>
-                          <span className="font-medium text-slate-900">
-                            {product.productCode}
-                          </span>
-                          <span className="ml-2 text-slate-600">
-                            {product.name}
-                          </span>
-                        </span>
-                        {product.currentStock != null ? (
-                          <span className="shrink-0 text-slate-500">
-                            {product.currentStock} in stock
-                          </span>
-                        ) : null}
-                      </button>
-                    </li>
+              {walkInSubcategories.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] text-slate-400">
+                    Subcategory:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setWalkInSubcategoryId(null)}
+                    className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${
+                      walkInSubcategoryId == null
+                        ? "border-slate-300 bg-slate-100 text-slate-900"
+                        : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                    }`}
+                  >
+                    All
+                  </button>
+                  {walkInSubcategories.map((subcategory) => (
+                    <button
+                      key={subcategory.id}
+                      type="button"
+                      onClick={() => setWalkInSubcategoryId(subcategory.id)}
+                      className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${
+                        walkInSubcategoryId === subcategory.id
+                          ? "border-slate-300 bg-slate-100 text-slate-900"
+                          : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                      }`}
+                    >
+                      {subcategory.name}{" "}
+                      <span className="text-slate-400">{subcategory.count}</span>
+                    </button>
                   ))}
-                </ul>
+                </div>
+              ) : null}
+              {walkInResults.length > 0 ? (
+                <>
+                  <ul className="max-h-72 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200 bg-white">
+                    {walkInResults.map((product) => {
+                      const onTicket =
+                        walkInQtyByProductId.get(product.id) ?? 0;
+                      return (
+                        <li key={product.id}>
+                          <button
+                            type="button"
+                            onClick={() => addWalkInLine(product.id)}
+                            className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-xs ${
+                              onTicket > 0
+                                ? "bg-emerald-50/60 hover:bg-emerald-50"
+                                : "hover:bg-slate-50"
+                            }`}
+                          >
+                            <span className="min-w-0">
+                              <span className="font-medium text-slate-900">
+                                {product.productCode}
+                              </span>
+                              <span className="ml-2 text-slate-600">
+                                {product.name}
+                              </span>
+                            </span>
+                            <span className="flex shrink-0 items-center gap-3 text-slate-500">
+                              {product.unitPrice != null ? (
+                                <span className="font-medium text-slate-700">
+                                  {formatUsd(product.unitPrice)}
+                                </span>
+                              ) : null}
+                              {product.currentStock != null ? (
+                                <span>{product.currentStock} in stock</span>
+                              ) : null}
+                              {onTicket > 0 ? (
+                                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                                  {onTicket} on ticket
+                                </span>
+                              ) : (
+                                <span className="rounded-md border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                                  Add
+                                </span>
+                              )}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {walkInFiltered.length > walkInResults.length ? (
+                    <p className="text-[11px] text-slate-400">
+                      Showing {walkInResults.length} of {walkInFiltered.length} —
+                      refine with search or a subcategory.
+                    </p>
+                  ) : null}
+                </>
               ) : (
                 <p className="text-xs text-slate-500">
-                  {walkInSearch.trim()
-                    ? "No products match your search."
-                    : "Type to search products."}
+                  No products match this filter.
                 </p>
               )}
             </div>
@@ -1553,7 +1825,7 @@ export function DeliveryTicketEditor({
         </SectionCard>
       ) : null}
 
-      {isPickup ? (
+      {ticketType === "JOB" && fulfillmentMethod === "PICKUP" ? (
         <SectionCard
           title="Pickup & payment"
           description="How the customer is paying and who is picking up."
@@ -1696,7 +1968,8 @@ export function DeliveryTicketEditor({
 
       <SectionCard title="Summary">
         <p className="text-xs text-slate-600">
-          {selectedLineIds.size} line(s) selected
+          {lines.filter((line) => selectedLineIds.has(line.key)).length} line(s)
+          selected
           {totalWeight > 0 ? ` · ${formatWeight(totalWeight)} on this load` : ""}
           {deliveryDate ? ` · scheduled for ${deliveryDate}` : ""}
         </p>

@@ -37,6 +37,12 @@ export type TicketProductOption = {
   unitPrice: number | null;
   currentStock: number | null;
   trackInventory: boolean;
+  categoryId: string;
+  categoryName: string;
+  categorySortOrder: number;
+  subcategoryId: string | null;
+  subcategoryName: string | null;
+  subcategorySortOrder: number | null;
 };
 
 export type DeliveryTicketLineInput = {
@@ -892,6 +898,10 @@ export async function listStockProductsForTicket(
         manufacturerCode: true,
         currentStockQuantity: true,
         trackInventory: true,
+        categoryId: true,
+        subcategoryId: true,
+        productCategory: { select: { name: true, sortOrder: true } },
+        subcategory: { select: { name: true, sortOrder: true } },
       },
     }),
   );
@@ -935,6 +945,12 @@ export async function listStockProductsForTicket(
           : null,
       currentStock: product.trackInventory ? product.currentStockQuantity : null,
       trackInventory: product.trackInventory,
+      categoryId: product.categoryId,
+      categoryName: product.productCategory.name,
+      categorySortOrder: product.productCategory.sortOrder,
+      subcategoryId: product.subcategoryId,
+      subcategoryName: product.subcategory?.name ?? null,
+      subcategorySortOrder: product.subcategory?.sortOrder ?? null,
     };
   });
 }
