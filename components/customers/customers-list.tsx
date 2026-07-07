@@ -9,12 +9,19 @@ import {
   useDebouncedSearchParam,
   useListQuery,
 } from "@/components/common/use-list-query";
-import {
-  type CustomerRow,
-  customerStatusFormOptions,
-} from "@/components/customers/customer-utils";
+import { type CustomerRow } from "@/components/customers/customer-utils";
 import { ExportExcelLink } from "@/components/shared/export-excel-link";
 import type { PageInfo } from "@/lib/list-params";
+import {
+  tableBodyClassName,
+  tableCellBordersClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellWrapClassName,
+  tableNumericCellClassName,
+  tableRowClassName,
+} from "@/lib/table-styles";
 
 type SortColumn =
   | "name"
@@ -26,15 +33,22 @@ type SortColumn =
 
 type SortDirection = "asc" | "desc";
 
+type CustomerTabCounts = {
+  active: number;
+  prospect: number;
+  inactive: number;
+  all: number;
+};
+
 type CustomersListProps = {
   customers: CustomerRow[];
   pageInfo: PageInfo;
+  tabCounts: CustomerTabCounts;
   filters: { search: string; status: string };
   sort: { column: SortColumn; direction: SortDirection };
 };
 
-const sortableHeaderClassName =
-  "cursor-pointer px-4 py-2.5 font-semibold transition-colors hover:bg-slate-100 hover:text-slate-700 select-none";
+const sortableHeaderClassName = `${tableHeaderCellWrapClassName} cursor-pointer select-none transition-colors hover:bg-slate-200/60 hover:text-slate-700`;
 
 type SortableHeaderProps = {
   column: SortColumn;
@@ -94,10 +108,10 @@ const CustomersTable = memo(function CustomersTable({
   onSort: (column: SortColumn) => void;
 }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-xs">
+    <div className={tableFlushWrapperClassName}>
+      <table className={tableClassName}>
         <thead>
-          <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
+          <tr>
             <SortableHeader
               column="name"
               label="Customer Name"
@@ -133,8 +147,12 @@ const CustomersTable = memo(function CustomersTable({
               sortDirection={sortDirection}
               onSort={onSort}
             />
-            <th className="px-4 py-2.5 font-semibold">Open Quotes</th>
-            <th className="px-4 py-2.5 font-semibold">Balance</th>
+            <th className={`${tableHeaderCellWrapClassName} text-right`}>
+              Open Quotes
+            </th>
+            <th className={`${tableHeaderCellWrapClassName} text-right`}>
+              Balance
+            </th>
             <SortableHeader
               column="lastActivity"
               label="Last Activity"
@@ -142,15 +160,14 @@ const CustomersTable = memo(function CustomersTable({
               sortDirection={sortDirection}
               onSort={onSort}
             />
-            <th className="px-4 py-2.5 font-semibold">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className={tableBodyClassName}>
           {customers.length === 0 ? (
             <tr>
               <td
-                colSpan={9}
-                className="px-4 py-8 text-center text-sm text-slate-500"
+                colSpan={8}
+                className={`${tableCellBordersClassName} px-4 py-8 text-center text-sm text-slate-500`}
               >
                 {total === 0
                   ? "No customers match your search or filters."
@@ -159,8 +176,8 @@ const CustomersTable = memo(function CustomersTable({
             </tr>
           ) : (
             customers.map((customer) => (
-              <tr key={customer.id} className="hover:bg-slate-50/60">
-                <td className="px-4 py-2.5 font-medium text-slate-900">
+              <tr key={customer.id} className={tableRowClassName}>
+                <td className={`${tableCellClassName} font-medium text-slate-900`}>
                   <Link
                     href={`/customers/${customer.id}`}
                     className="hover:text-slate-700 hover:underline"
@@ -168,45 +185,35 @@ const CustomersTable = memo(function CustomersTable({
                     {customer.name}
                   </Link>
                 </td>
-                <td className="px-4 py-2.5 text-slate-700">
+                <td className={`${tableCellClassName} text-slate-700`}>
                   {customer.primaryContact}
                 </td>
-                <td className="px-4 py-2.5 whitespace-nowrap text-slate-600">
+                <td
+                  className={`${tableCellClassName} whitespace-nowrap text-slate-600`}
+                >
                   {customer.phone}
                 </td>
-                <td className="px-4 py-2.5 text-slate-600">
+                <td className={`${tableCellClassName} text-slate-600`}>
                   {customer.email}
                 </td>
-                <td className="px-4 py-2.5">
+                <td className={tableCellClassName}>
                   <StatusBadge
                     label={customer.status}
                     variant={customer.statusVariant}
                   />
                 </td>
-                <td className="px-4 py-2.5 text-slate-700">
+                <td className={`${tableNumericCellClassName} text-slate-700`}>
                   {customer.openQuotes}
                 </td>
-                <td className="px-4 py-2.5 font-medium text-slate-900">
+                <td
+                  className={`${tableNumericCellClassName} font-medium text-slate-900`}
+                >
                   {customer.balance}
                 </td>
-                <td className="px-4 py-2.5 whitespace-nowrap text-slate-600">
+                <td
+                  className={`${tableCellClassName} whitespace-nowrap text-slate-600`}
+                >
                   {customer.lastActivity}
-                </td>
-                <td className="px-4 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <Link
-                      href={`/customers/${customer.id}`}
-                      className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
-                    >
-                      View
-                    </Link>
-                    <Link
-                      href={`/customers/${customer.id}/edit`}
-                      className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
-                    >
-                      Edit
-                    </Link>
-                  </div>
                 </td>
               </tr>
             ))
@@ -220,6 +227,7 @@ const CustomersTable = memo(function CustomersTable({
 export function CustomersList({
   customers,
   pageInfo,
+  tabCounts,
   filters,
   sort,
 }: CustomersListProps) {
@@ -235,8 +243,59 @@ export function CustomersList({
     [sort.column, sort.direction, setParams],
   );
 
+  const statusTabs = [
+    {
+      label: "Active",
+      param: "",
+      count: tabCounts.active,
+      isActive: filters.status === "" || filters.status === "ACTIVE",
+    },
+    {
+      label: "Prospects",
+      param: "PROSPECT",
+      count: tabCounts.prospect,
+      isActive: filters.status === "PROSPECT",
+    },
+    {
+      label: "Inactive",
+      param: "INACTIVE",
+      count: tabCounts.inactive,
+      isActive: filters.status === "INACTIVE",
+    },
+    {
+      label: "All",
+      param: "ALL",
+      count: tabCounts.all,
+      isActive: filters.status === "ALL" || filters.status === "All",
+    },
+  ];
+
   return (
     <div className="space-y-4">
+      <div className="border-b border-slate-200">
+        <div className="-mb-px flex flex-wrap items-center gap-1">
+          {statusTabs.map((tab) => (
+            <button
+              key={tab.label}
+              type="button"
+              onClick={() => setParams({ status: tab.param })}
+              className={`border-b-2 px-3 py-2 text-xs font-medium transition-colors ${
+                tab.isActive
+                  ? "border-slate-900 text-slate-900"
+                  : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
+              }`}
+            >
+              {tab.label}
+              <span
+                className={`ml-1.5 ${tab.isActive ? "text-slate-500" : "text-slate-400"}`}
+              >
+                {tab.count.toLocaleString()}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-1 flex-col gap-3 sm:flex-row">
           <input
@@ -246,18 +305,6 @@ export function CustomersList({
             onChange={(event) => setSearch(event.target.value)}
             className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm placeholder:text-slate-400 sm:max-w-xs"
           />
-          <select
-            value={filters.status || "All"}
-            onChange={(event) => setParams({ status: event.target.value })}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
-          >
-            <option value="All">Status: All</option>
-            {customerStatusFormOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                Status: {option.label}
-              </option>
-            ))}
-          </select>
         </div>
         <div className="flex flex-wrap gap-2">
           <ExportExcelLink href="/api/export/customers" />

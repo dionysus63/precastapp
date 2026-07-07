@@ -50,10 +50,18 @@ export default async function CustomersPage({
   const sortDirection: "asc" | "desc" = dirParam === "desc" ? "desc" : "asc";
   const sortField = CUSTOMER_SORT_FIELDS[sortColumn];
 
-  const where: Prisma.CustomerWhereInput = {
-    ...(statusParam && VALID_CUSTOMER_STATUSES.has(statusParam)
-      ? { status: statusParam as Prisma.CustomerWhereInput["status"] }
-      : {}),
+  // The status param accepts single statuses plus ALL; bare /customers
+  // defaults to active customers — prospects/inactive live behind tabs.
+  const statusFilter =
+    statusParam === "ALL" || statusParam === "All"
+      ? null
+      : VALID_CUSTOMER_STATUSES.has(statusParam)
+        ? statusParam
+        : "ACTIVE";
+
+  // Every filter except status — tab counts are computed over this base so
+  // each tab shows what it would contain under the current search.
+  const baseWhere: Prisma.CustomerWhereInput = {
     ...(search
       ? {
           OR: [
@@ -64,16 +72,39 @@ export default async function CustomersPage({
         }
       : {}),
   };
+  const where: Prisma.CustomerWhereInput = statusFilter
+    ? {
+        ...baseWhere,
+        status: statusFilter as Prisma.CustomerWhereInput["status"],
+      }
+    : baseWhere;
 
   const orderBy: Prisma.CustomerOrderByWithRelationInput[] =
     sortField === "name"
       ? [{ name: sortDirection }]
       : [{ [sortField]: sortDirection }, { name: "asc" }];
 
-  const total = await withDatabaseRetry((prisma) =>
-    prisma.customer.count({ where }),
+  const [total, statusGroups] = await withDatabaseRetry((prisma) =>
+    Promise.all([
+      prisma.customer.count({ where }),
+      prisma.customer.groupBy({
+        by: ["status"],
+        _count: { _all: true },
+        where: baseWhere,
+      }),
+    ]),
   );
   const pageInfo = buildPageInfo(total, requestedPage);
+
+  const countByStatus = new Map(
+    statusGroups.map((group) => [group.status, group._count._all]),
+  );
+  const tabCounts = {
+    active: countByStatus.get("ACTIVE") ?? 0,
+    prospect: countByStatus.get("PROSPECT") ?? 0,
+    inactive: countByStatus.get("INACTIVE") ?? 0,
+    all: statusGroups.reduce((acc, group) => acc + group._count._all, 0),
+  };
 
   const customers = await withDatabaseRetry((prisma) =>
     prisma.customer.findMany({
@@ -136,6 +167,7 @@ export default async function CustomersPage({
       <CustomersList
         customers={rows}
         pageInfo={pageInfo}
+        tabCounts={tabCounts}
         filters={{ search, status: statusParam }}
         sort={{ column: sortColumn, direction: sortDirection }}
       />
