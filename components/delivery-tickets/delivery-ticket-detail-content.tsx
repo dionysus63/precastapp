@@ -180,13 +180,6 @@ export function DeliveryTicketDetailContent({
               Mark Delivered
             </button>
           )}
-          <button
-            type="button"
-            disabled
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-400"
-          >
-            More
-          </button>
         </div>
       </div>
 
