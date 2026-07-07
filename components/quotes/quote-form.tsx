@@ -7,6 +7,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
 } from "react";
@@ -20,6 +21,14 @@ import {
   updateQuote,
   type CreateQuoteInput,
 } from "@/app/quotes/actions";
+import {
+  lookupShippingRate,
+  lookupShippingRateAtPoint,
+  suggestShippingAddresses,
+  type ShippingLookupResult,
+} from "@/app/shipping/actions";
+import { AddressAutocomplete } from "@/components/shipping/address-autocomplete";
+import type { AddressSuggestion } from "@/lib/shipping/geocode";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning";
 import {
@@ -41,6 +50,7 @@ import {
   formatQuoteYards,
   getLineItemTotal,
   isCategoryLineItem,
+  resolveQuoteLineQuantityForStorage,
   parseQuoteNumber,
   pickDefaultCustomerContact,
   type QuoteFormCustomerContactOption,
@@ -73,6 +83,7 @@ import {
   writeWorkbookSession,
   type QuoteFormWorkbookSnapshot,
 } from "@/lib/quotes/structure-workbook";
+import { clearRectWorkbookSession } from "@/lib/quotes/rect-structure-workbook";
 import {
   createCostItemId,
   resolveCustomStructureUnitPrice,
@@ -87,9 +98,6 @@ import {
   type PipeQuoteProductType,
   type PipeUnitPriceEntry,
 } from "@/lib/pipe-quote-utils";
-
-const quoteTableInputClassName =
-  "w-full min-w-[4rem] rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 shadow-sm";
 
 // Client-only and rarely opened, so keep the ring builder out of the main
 // quote-form chunk and load it on first use.
@@ -381,6 +389,25 @@ export function QuoteForm({
   const [deliveryNotes, setDeliveryNotes] = useState(
     initialValues?.deliveryNotes ?? "",
   );
+  const [shippingHint, setShippingHint] = useState<{
+    zoneName: string;
+    ratePerLoad: number;
+    color: string;
+    distanceMiles: number | null;
+    truckCapacityLbs: number | null;
+  } | null>(null);
+  const [shippingStatus, setShippingStatus] = useState<
+    "idle" | "loading" | "matched" | "outside" | "error"
+  >("idle");
+  const shippingLookupSeq = useRef(0);
+  const lastShippingAddress = useRef("");
+  const lastAutoDeliveryNotes = useRef("");
+  // Editable delivery pricing: blank loads field means "auto from weight".
+  const [deliveryLoadsInput, setDeliveryLoadsInput] = useState("");
+  const [maxLoadLbsInput, setMaxLoadLbsInput] = useState("");
+  const [pricePerLoadInput, setPricePerLoadInput] = useState("");
+  const maxLoadLbsDirty = useRef(false);
+  const deliveryLineId = useRef<string | null>(null);
   const [termsAndConditions, setTermsAndConditions] = useState(
     initialValues?.termsAndConditions || initialTerms,
   );
@@ -631,7 +658,10 @@ export function QuoteForm({
         productId: line.productId ?? null,
         itemCode: line.item,
         description: line.description,
-        quantity: parseQuoteNumber(line.qty),
+        quantity: resolveQuoteLineQuantityForStorage(
+          line.type,
+          parseQuoteNumber(line.qty),
+        ),
         unit: line.unit,
         unitPrice: parseQuoteNumber(line.unitPrice),
         weight: line.weight.trim()
@@ -649,7 +679,7 @@ export function QuoteForm({
         structureConfigJson:
           line.type === "CUSTOM_STRUCTURE"
             ? serializeCustomStructureConfig(line.costBreakdown)
-            : line.structureConfig ?? null,
+            : (line.structureConfig ?? line.rectStructureConfig ?? null),
       })),
       totals,
     };
@@ -720,6 +750,162 @@ export function QuoteForm({
     }
   }
 
+  function applyShippingResult(seq: number, result: ShippingLookupResult) {
+    if (seq !== shippingLookupSeq.current) return;
+    if ("error" in result) {
+      setShippingHint(null);
+      setShippingStatus("error");
+      return;
+    }
+    if (!result.zone) {
+      setShippingHint(null);
+      setShippingStatus("outside");
+      return;
+    }
+    setShippingHint({
+      zoneName: result.zone.name,
+      ratePerLoad: result.zone.ratePerLoad,
+      color: result.zone.color,
+      distanceMiles: result.distanceMiles,
+      truckCapacityLbs: result.truckCapacityLbs,
+    });
+    setShippingStatus("matched");
+    // Prefill the editable delivery pricing for the new zone; a new
+    // address means the old per-load price and loads override are stale.
+    setPricePerLoadInput(String(result.zone.ratePerLoad));
+    setDeliveryLoadsInput("");
+    if (!maxLoadLbsDirty.current && result.truckCapacityLbs) {
+      setMaxLoadLbsInput(String(result.truckCapacityLbs));
+    }
+  }
+
+  function runShippingLookup(address: string) {
+    const query = address.trim();
+    if (!query) {
+      lastShippingAddress.current = "";
+      setShippingHint(null);
+      setShippingStatus("idle");
+      return;
+    }
+    if (query === lastShippingAddress.current) {
+      return;
+    }
+    lastShippingAddress.current = query;
+    const seq = ++shippingLookupSeq.current;
+    setShippingStatus("loading");
+    // Like getCustomerForQuoteForm above: not routed through the save
+    // transition so it can't flip the Save button into its pending state.
+    void lookupShippingRate(query)
+      .then((result) => applyShippingResult(seq, result))
+      .catch(() => {
+        if (seq !== shippingLookupSeq.current) return;
+        setShippingHint(null);
+        setShippingStatus("error");
+      });
+  }
+
+  function handleAddressSuggestionSelect(suggestion: AddressSuggestion) {
+    setProjectAddress(suggestion.label);
+    // The suggestion carries its own coordinates, so skip the geocode that
+    // would otherwise fire when focus leaves the field.
+    lastShippingAddress.current = suggestion.label;
+    const seq = ++shippingLookupSeq.current;
+    setShippingStatus("loading");
+    void lookupShippingRateAtPoint({
+      lat: suggestion.latitude,
+      lng: suggestion.longitude,
+      label: suggestion.label,
+    })
+      .then((result) => applyShippingResult(seq, result))
+      .catch(() => {
+        if (seq !== shippingLookupSeq.current) return;
+        setShippingHint(null);
+        setShippingStatus("error");
+      });
+  }
+
+  const maxLoadLbs = parseQuoteNumber(maxLoadLbsInput);
+  const autoDeliveryLoads =
+    maxLoadLbs > 0 && totals.totalWeight > 0
+      ? Math.max(1, Math.ceil(totals.totalWeight / maxLoadLbs))
+      : null;
+  const deliveryLoads = deliveryLoadsInput.trim()
+    ? Math.max(0, Math.round(parseQuoteNumber(deliveryLoadsInput)))
+    : autoDeliveryLoads;
+  const pricePerLoad = pricePerLoadInput.trim()
+    ? parseQuoteNumber(pricePerLoadInput)
+    : null;
+  const deliveryTotal =
+    deliveryLoads !== null && deliveryLoads > 0 && pricePerLoad !== null
+      ? deliveryLoads * pricePerLoad
+      : null;
+
+  // Keep the delivery note in sync with the zone and the editable pricing
+  // fields, but never overwrite text the user typed themselves.
+  useEffect(() => {
+    if (!shippingHint && pricePerLoad === null) return;
+    const zonePart = shippingHint ? `${shippingHint.zoneName} — ` : "";
+    let note: string;
+    if (deliveryLoads !== null && deliveryLoads > 0 && pricePerLoad !== null) {
+      const rateText = formatQuoteCurrency(pricePerLoad);
+      note = `Delivery: ${zonePart}est. ${deliveryLoads} load${deliveryLoads === 1 ? "" : "s"} @ ${rateText}/load`;
+    } else if (pricePerLoad !== null) {
+      note = `Delivery: ${zonePart}${formatQuoteCurrency(pricePerLoad)}/load`;
+    } else {
+      return;
+    }
+    setDeliveryNotes((current) => {
+      const trimmed = current.trim();
+      if (trimmed && trimmed !== lastAutoDeliveryNotes.current) {
+        return current;
+      }
+      lastAutoDeliveryNotes.current = note;
+      return note;
+    });
+  }, [shippingHint, deliveryLoads, pricePerLoad]);
+
+  function applyDeliveryLineItem() {
+    if (deliveryLoads === null || deliveryLoads <= 0 || pricePerLoad === null) {
+      return;
+    }
+    const serviceOption = serviceOptionsState.find((entry) =>
+      entry.item.toLowerCase().includes("delivery"),
+    );
+    const lineId = deliveryLineId.current ?? createLineId();
+    deliveryLineId.current = lineId;
+    setLineItems((current) => {
+      const line: EditableQuoteLineItem = {
+        id: lineId,
+        lineNumber: current.length + 1,
+        type: serviceOption?.lineType ?? "SERVICE",
+        typeLabel:
+          quoteLineItemTypeLabels[serviceOption?.lineType ?? "SERVICE"],
+        item: serviceOption?.item ?? "Delivery",
+        description: shippingHint
+          ? `Delivery — ${shippingHint.zoneName}`
+          : serviceOption?.description || "Delivery",
+        qty: String(deliveryLoads),
+        unit: serviceOption?.unit ?? "EA",
+        unitPrice: String(pricePerLoad),
+        weight: "",
+        yards: "",
+        taxable: serviceOption?.taxable ?? false,
+      };
+      const existingIndex = current.findIndex((entry) => entry.id === line.id);
+      if (existingIndex >= 0) {
+        const next = [...current];
+        next[existingIndex] = {
+          ...next[existingIndex],
+          description: line.description,
+          qty: line.qty,
+          unitPrice: line.unitPrice,
+        };
+        return next;
+      }
+      return renumberLineItems([...current, line]);
+    });
+  }
+
   function handleJobSelect(job: QuoteFormJobOption | null) {
     setJobId(job?.id ?? "");
 
@@ -731,6 +917,7 @@ export function QuoteForm({
     setJobNumber(job.jobNumber);
     setProjectName(job.projectName);
     setProjectAddress(job.projectAddress);
+    runShippingLookup(job.projectAddress ?? "");
 
     if (!customerLocked) {
       if (job.customerName) {
@@ -844,7 +1031,7 @@ export function QuoteForm({
           typeLabel: quoteLineItemTypeLabels.CATEGORY,
           item: "",
           description: buildPipeUnitPricesDescription(entries),
-          qty: "0",
+          qty: "1",
           unit: "",
           unitPrice: "0",
           weight: "",
@@ -914,6 +1101,25 @@ export function QuoteForm({
     router.push(workbookPath);
   }
 
+  function openRectStructureWorkbook() {
+    const returnPath = buildWorkbookReturnPath();
+    const workbookPath = quoteId
+      ? `/quotes/${quoteId}/edit/rect-structures`
+      : "/quotes/new/rect-structures";
+
+    // Shared stash: the rect workbook reads pendingLineItems/returnPath from
+    // here and keeps its own rows under a separate key, reseeded per visit.
+    writeWorkbookSession(quoteId, {
+      rows: [],
+      returnPath,
+      pendingLineItems: lineItems,
+      pendingFormState: buildWorkbookFormSnapshot(),
+    });
+    clearRectWorkbookSession(quoteId);
+
+    router.push(workbookPath);
+  }
+
   function addLineItem(line: EditableQuoteLineItem) {
     setLineItems((current) =>
       renumberLineItems([...current, { ...line, lineNumber: current.length + 1 }]),
@@ -932,7 +1138,7 @@ export function QuoteForm({
           typeLabel: quoteLineItemTypeLabels.CATEGORY,
           item: "",
           description: "",
-          qty: "0",
+          qty: "1",
           unit: "",
           unitPrice: "0",
           weight: "",
@@ -1415,6 +1621,85 @@ export function QuoteForm({
       </div>
 
       <div className="space-y-4">
+          <SectionCard
+            title="Quote Line Items"
+            description="Add stock products, structures, and services to the quote."
+          >
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {quoteLineItemTypeOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => openAddModal(option.value as AddLineModalType)}
+                    className={`rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors ${
+                      activeLineType === option.value
+                        ? "border-slate-900 bg-slate-900 text-white"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setRingBuilderModalOpen(true)}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  Add Rings
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPipeModalType("ADS_PIPE")}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  Add ADS Pipe
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPipeModalType("PRECAST_PIPE")}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  Add RCP Pipe
+                </button>
+                <button
+                  type="button"
+                  onClick={openStructureWorkbook}
+                  className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-800 transition-colors hover:bg-sky-100"
+                >
+                  Circular Structure Workbook
+                </button>
+                <button
+                  type="button"
+                  onClick={openRectStructureWorkbook}
+                  className="rounded-lg border border-teal-200 bg-teal-50 px-3 py-1.5 text-[11px] font-semibold text-teal-800 transition-colors hover:bg-teal-100"
+                >
+                  Rectangular Structure Workbook
+                </button>
+                <button
+                  type="button"
+                  onClick={addCategoryLine}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  Add Category
+                </button>
+              </div>
+
+              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                {activeHint}
+              </p>
+
+              <QuoteLineItemsTable
+                lineItems={lineItems}
+                onUpdateLine={updateLineItem}
+                onRemoveLine={removeLineItem}
+                onMoveLine={moveLineItem}
+                onEditCustomStructure={openEditCustomStructureLine}
+              />
+            </div>
+          </SectionCard>
+
+        <div className="grid items-start gap-4 xl:grid-cols-2">
           <SectionCard title="Quote Details">
             <div className="space-y-3">
               <div>
@@ -1614,17 +1899,48 @@ export function QuoteForm({
                       >
                         Project Address
                       </label>
-                      <input
-                        id="projectAddress"
-                        name="projectAddress"
-                        type="text"
+                      <AddressAutocomplete
+                        inputId="projectAddress"
                         value={projectAddress}
-                        onChange={(event) =>
-                          setProjectAddress(event.target.value)
-                        }
+                        onChangeText={setProjectAddress}
+                        onSelectSuggestion={handleAddressSuggestionSelect}
+                        onSettled={() => runShippingLookup(projectAddress)}
+                        suggest={suggestShippingAddresses}
                         placeholder="120 Main Street, Riverhead, NY"
-                        className={quoteCompactInputClassName}
+                        inputClassName={quoteCompactInputClassName}
                       />
+                      {shippingStatus !== "idle" ? (
+                        <p className="mt-1 text-[11px]">
+                          {shippingStatus === "loading" ? (
+                            <span className="text-slate-400">
+                              Checking shipping zone…
+                            </span>
+                          ) : shippingStatus === "matched" && shippingHint ? (
+                            <span className="font-medium text-slate-600">
+                              <span
+                                className="mr-1 inline-block h-2 w-2 rounded-full align-middle"
+                                style={{
+                                  backgroundColor: shippingHint.color,
+                                }}
+                              />
+                              {shippingHint.zoneName} —{" "}
+                              {formatQuoteCurrency(shippingHint.ratePerLoad)}
+                              /load
+                              {shippingHint.distanceMiles !== null
+                                ? ` (${shippingHint.distanceMiles.toFixed(0)} mi)`
+                                : ""}
+                            </span>
+                          ) : shippingStatus === "outside" ? (
+                            <span className="text-amber-600">
+                              Outside shipping zones — price delivery manually
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">
+                              Shipping zone lookup unavailable
+                            </span>
+                          )}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
 
@@ -1819,77 +2135,6 @@ export function QuoteForm({
             </div>
           </SectionCard>
 
-          <SectionCard
-            title="Quote Line Items"
-            description="Add stock products, structures, and services to the quote."
-          >
-            <div className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                {quoteLineItemTypeOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => openAddModal(option.value as AddLineModalType)}
-                    className={`rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors ${
-                      activeLineType === option.value
-                        ? "border-slate-900 bg-slate-900 text-white"
-                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setRingBuilderModalOpen(true)}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-                >
-                  Add Rings
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPipeModalType("ADS_PIPE")}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-                >
-                  Add ADS Pipe
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPipeModalType("PRECAST_PIPE")}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-                >
-                  Add RCP Pipe
-                </button>
-                <button
-                  type="button"
-                  onClick={openStructureWorkbook}
-                  className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-800 transition-colors hover:bg-sky-100"
-                >
-                  Circular Structure Workbook
-                </button>
-                <button
-                  type="button"
-                  onClick={addCategoryLine}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-                >
-                  Add Category
-                </button>
-              </div>
-
-              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                {activeHint}
-              </p>
-
-              <QuoteLineItemsTable
-                lineItems={lineItems}
-                onUpdateLine={updateLineItem}
-                onRemoveLine={removeLineItem}
-                onMoveLine={moveLineItem}
-                onEditCustomStructure={openEditCustomStructureLine}
-              />
-            </div>
-          </SectionCard>
-
           <SectionCard title="Notes and Terms">
             <div className="grid gap-5">
               <div>
@@ -1924,6 +2169,125 @@ export function QuoteForm({
                   className={quoteInputClassName}
                 />
               </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-slate-700">
+                    Delivery Pricing
+                  </p>
+                  {shippingHint ? (
+                    <p className="text-[11px] font-medium text-slate-600">
+                      <span
+                        className="mr-1 inline-block h-2 w-2 rounded-full align-middle"
+                        style={{ backgroundColor: shippingHint.color }}
+                      />
+                      {shippingHint.zoneName}
+                      {shippingHint.distanceMiles !== null
+                        ? ` — ${shippingHint.distanceMiles.toFixed(0)} mi from yard`
+                        : ""}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-slate-400">
+                      No zone matched — enter a project address in Quote
+                      Details or price manually
+                    </p>
+                  )}
+                </div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-4">
+                  <div>
+                    <label
+                      htmlFor="deliveryLoads"
+                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+                    >
+                      Loads
+                    </label>
+                    <input
+                      id="deliveryLoads"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={deliveryLoadsInput}
+                      onChange={(event) =>
+                        setDeliveryLoadsInput(event.target.value)
+                      }
+                      placeholder={
+                        autoDeliveryLoads !== null
+                          ? String(autoDeliveryLoads)
+                          : "—"
+                      }
+                      className={quoteCompactInputClassName}
+                    />
+                    <p className="mt-0.5 text-[10px] text-slate-400">
+                      {deliveryLoadsInput.trim()
+                        ? autoDeliveryLoads !== null
+                          ? `auto would be ${autoDeliveryLoads}`
+                          : "manual"
+                        : "blank = auto from weight"}
+                    </p>
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="maxLoadLbs"
+                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+                    >
+                      Max Weight / Load (lb)
+                    </label>
+                    <input
+                      id="maxLoadLbs"
+                      type="text"
+                      inputMode="numeric"
+                      value={maxLoadLbsInput}
+                      onChange={(event) => {
+                        maxLoadLbsDirty.current = true;
+                        setMaxLoadLbsInput(event.target.value);
+                      }}
+                      placeholder="80,000"
+                      className={quoteCompactInputClassName}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="pricePerLoad"
+                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+                    >
+                      Price / Load ($)
+                    </label>
+                    <input
+                      id="pricePerLoad"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={pricePerLoadInput}
+                      onChange={(event) =>
+                        setPricePerLoadInput(event.target.value)
+                      }
+                      className={quoteCompactInputClassName}
+                    />
+                  </div>
+                  <div>
+                    <p className="block text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                      Delivery Total
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                      {deliveryTotal !== null
+                        ? formatQuoteCurrency(deliveryTotal)
+                        : "—"}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={applyDeliveryLineItem}
+                      disabled={deliveryTotal === null}
+                      className="mt-1 rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-40"
+                    >
+                      {lineItems.some(
+                        (entry) => entry.id === deliveryLineId.current,
+                      )
+                        ? "Update delivery line"
+                        : "Add as line item"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div className="grid gap-5 sm:grid-cols-3">
                 <div>
                   <label
@@ -1986,6 +2350,7 @@ export function QuoteForm({
               </div>
             </div>
           </SectionCard>
+        </div>
       </div>
 
       {addModalType ? (
