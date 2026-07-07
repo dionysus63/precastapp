@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import {
   getSendQuoteDefaults,
-  sendQuote,
+  openQuoteInOutlook,
+  type SendQuoteRecipientOption,
 } from "@/app/quotes/send-actions";
 import { quoteInputClassName } from "@/components/quotes/quote-utils";
 
@@ -17,6 +18,8 @@ type SendQuoteButtonProps = {
   disabled?: boolean;
   disabledReason?: string;
   buttonClassName?: string;
+  /** Open the send dialog on mount (used by the form's save-then-send flow). */
+  defaultOpen?: boolean;
 };
 
 export function SendQuoteButton({
@@ -28,14 +31,19 @@ export function SendQuoteButton({
   disabled = false,
   disabledReason,
   buttonClassName = "rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50",
+  defaultOpen = false,
 }: SendQuoteButtonProps) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen && !disabled);
   const [pending, startTransition] = useTransition();
   const [loadingDefaults, setLoadingDefaults] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [to, setTo] = useState(contactEmail);
+  const [contacts, setContacts] = useState<SendQuoteRecipientOption[]>([]);
+  const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [extraTo, setExtraTo] = useState("");
   const [cc, setCc] = useState("");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
@@ -57,7 +65,9 @@ export function SendQuoteButton({
       }
 
       if ("error" in result) {
-        setTo(contactEmail);
+        setContacts([]);
+        setSelectedContactIds(new Set());
+        setExtraTo(contactEmail);
         setSubject(
           projectName.trim()
             ? `Quote ${quoteNumber} — ${projectName.trim()}`
@@ -66,7 +76,24 @@ export function SendQuoteButton({
         setMessage("");
         setError(result.error);
       } else {
-        setTo(result.to || contactEmail);
+        setContacts(result.contacts);
+        // Preselect the quote's contact when it matches a customer contact;
+        // otherwise fall back to the primary contact. An unmatched default
+        // address goes into the free-entry field instead.
+        const defaultEmail = result.to.trim().toLowerCase();
+        const matching = result.contacts.filter(
+          (contact) => contact.email.toLowerCase() === defaultEmail,
+        );
+        const preselected =
+          matching.length > 0
+            ? matching
+            : result.contacts.filter((contact) => contact.isPrimary);
+        setSelectedContactIds(
+          new Set(preselected.map((contact) => contact.id)),
+        );
+        setExtraTo(
+          defaultEmail && matching.length === 0 ? result.to.trim() : "",
+        );
         setSubject(result.subject);
         setMessage(result.message);
       }
@@ -79,6 +106,25 @@ export function SendQuoteButton({
     };
   }, [open, quoteId, contactEmail, contactName, projectName, quoteNumber]);
 
+  function toggleContact(contactId: string) {
+    setSelectedContactIds((current) => {
+      const next = new Set(current);
+      if (next.has(contactId)) {
+        next.delete(contactId);
+      } else {
+        next.add(contactId);
+      }
+      return next;
+    });
+  }
+
+  const selectedEmails = contacts
+    .filter((contact) => selectedContactIds.has(contact.id))
+    .map((contact) => contact.email);
+  const combinedTo = [selectedEmails.join(", "), extraTo.trim()]
+    .filter(Boolean)
+    .join(", ");
+
   function handleClose() {
     if (pending) {
       return;
@@ -88,12 +134,12 @@ export function SendQuoteButton({
     setSuccess(null);
   }
 
-  function handleSend() {
+  function handleOpenInOutlook() {
     setError(null);
     setSuccess(null);
     startTransition(async () => {
-      const result = await sendQuote(quoteId, {
-        to,
+      const result = await openQuoteInOutlook(quoteId, {
+        to: combinedTo,
         cc: cc.trim() || undefined,
         subject: subject.trim() || undefined,
         message: message.trim() || undefined,
@@ -104,12 +150,14 @@ export function SendQuoteButton({
         return;
       }
 
-      setSuccess(`Quote sent to ${result.sentTo}.`);
+      setSuccess(
+        `Outlook draft opened for ${result.to}. Review and hit Send in Outlook.`,
+      );
       router.refresh();
       window.setTimeout(() => {
         setOpen(false);
         setSuccess(null);
-      }, 1200);
+      }, 2500);
     });
   }
 
@@ -122,7 +170,7 @@ export function SendQuoteButton({
         onClick={() => setOpen(true)}
         className={buttonClassName}
       >
-        {pending ? "Sending..." : "Send Quote"}
+        {pending ? "Preparing..." : "Send Quote"}
       </button>
 
       {open ? (
@@ -130,8 +178,9 @@ export function SendQuoteButton({
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 shadow-lg">
             <h3 className="text-sm font-semibold text-slate-900">Send Quote</h3>
             <p className="mt-1 text-xs text-slate-500">
-              Email quote {quoteNumber} with the PDF attached. The quote will be
-              marked as Sent after delivery.
+              Pick who to send quote {quoteNumber} to. An Outlook draft opens
+              with the PDF attached — review it and hit Send there. The quote
+              is marked Sent when the draft is created.
             </p>
 
             {loadingDefaults ? (
@@ -139,14 +188,50 @@ export function SendQuoteButton({
             ) : (
               <div className="mt-4 space-y-3">
                 <div>
+                  <p className="block text-xs font-medium text-slate-700">
+                    Send to
+                  </p>
+                  {contacts.length > 0 ? (
+                    <div className="mt-1 space-y-1 rounded-lg border border-slate-200 p-2">
+                      {contacts.map((contact) => (
+                        <label
+                          key={contact.id}
+                          className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-xs text-slate-800 hover:bg-slate-50"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedContactIds.has(contact.id)}
+                            onChange={() => toggleContact(contact.id)}
+                            className="h-3.5 w-3.5 rounded border-slate-300"
+                          />
+                          <span className="font-medium">{contact.name}</span>
+                          {contact.title ? (
+                            <span className="text-slate-500">
+                              {contact.title}
+                            </span>
+                          ) : null}
+                          <span className="ml-auto text-slate-500">
+                            {contact.email}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      No customer contacts with an email address — enter one
+                      below.
+                    </p>
+                  )}
+                </div>
+                <div>
                   <label className="block text-xs font-medium text-slate-700">
-                    To
+                    Other recipients (optional)
                   </label>
                   <input
-                    type="email"
-                    value={to}
-                    onChange={(event) => setTo(event.target.value)}
-                    placeholder="customer@example.com"
+                    type="text"
+                    value={extraTo}
+                    onChange={(event) => setExtraTo(event.target.value)}
+                    placeholder="someone@example.com, another@example.com"
                     className={quoteInputClassName}
                   />
                 </div>
@@ -209,11 +294,11 @@ export function SendQuoteButton({
               </button>
               <button
                 type="button"
-                onClick={handleSend}
-                disabled={pending || loadingDefaults || !to.trim()}
+                onClick={handleOpenInOutlook}
+                disabled={pending || loadingDefaults || !combinedTo.trim()}
                 className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {pending ? "Sending..." : "Send Email"}
+                {pending ? "Preparing draft..." : "Open in Outlook"}
               </button>
             </div>
           </div>

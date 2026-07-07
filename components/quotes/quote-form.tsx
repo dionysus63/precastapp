@@ -20,6 +20,7 @@ import {
   reloadQuoteFormPriceOptions,
   updateQuote,
   type CreateQuoteInput,
+  type QuoteSaveDestination,
 } from "@/app/quotes/actions";
 import {
   lookupShippingRate,
@@ -685,7 +686,7 @@ export function QuoteForm({
     };
   }
 
-  function handleSaveDraft(previewAfterSave = false) {
+  function handleSaveDraft(afterSave: QuoteSaveDestination = "detail") {
     const validationError = validateQuote();
     if (validationError) {
       showFlash("error", validationError);
@@ -695,8 +696,8 @@ export function QuoteForm({
     startTransition(async () => {
       const input = buildCreateQuoteInput();
       const result = quoteId
-        ? await updateQuote(quoteId, input, previewAfterSave)
-        : await createQuote(input, previewAfterSave);
+        ? await updateQuote(quoteId, input, afterSave)
+        : await createQuote(input, afterSave);
       if (result?.error) {
         showFlash("error", result.error);
       }
@@ -704,7 +705,7 @@ export function QuoteForm({
   }
 
   function handleSaveAndPreview() {
-    handleSaveDraft(true);
+    handleSaveDraft("preview");
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -1603,12 +1604,12 @@ export function QuoteForm({
             </button>
             <button
               type="button"
-              onClick={() =>
-                showFlash("info", "Sending quotes will be added later.")
-              }
-              className="rounded-md border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+              disabled={isPending}
+              onClick={() => handleSaveDraft("send")}
+              title="Save the quote, then open the send dialog"
+              className="rounded-md border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Send Quote
+              {isPending ? "Saving..." : "Send Quote"}
             </button>
             <Link
               href={isEditing ? `/quotes/${quoteId}` : "/quotes"}

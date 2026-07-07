@@ -8,10 +8,15 @@ import { withDatabaseRetry } from "@/lib/prisma";
 
 type QuoteDetailPageProps = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ send?: string }>;
 };
 
-export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) {
+export default async function QuoteDetailPage({
+  params,
+  searchParams,
+}: QuoteDetailPageProps) {
   const { id } = await params;
+  const { send } = await searchParams;
 
   const quote = await withDatabaseRetry((prisma) =>
     prisma.quote.findUnique({
@@ -93,7 +98,7 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
 
   return (
     <DashboardShell title={detail.title} subtitle={detail.subtitle}>
-      <QuoteDetailContent quote={detail} />
+      <QuoteDetailContent quote={detail} autoOpenSend={send === "1"} />
     </DashboardShell>
   );
 }

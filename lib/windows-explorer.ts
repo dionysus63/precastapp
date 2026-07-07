@@ -88,6 +88,13 @@ async function assertFileExists(filePath: string) {
   }
 }
 
+function buildOpenFileVbs(filePath: string) {
+  const literal = escapeVbsString(filePath);
+  return `Set shell = CreateObject("Shell.Application")
+shell.ShellExecute "${literal}", "", "", "open", 1
+`;
+}
+
 function isExplorerLaunchFailure(error: unknown) {
   const err = error as NodeJS.ErrnoException & { code?: number | string; killed?: boolean };
   if (err.code === "ENOENT" || err.code === "ENOTFOUND") {
@@ -269,6 +276,37 @@ export async function launchWindowsFile(
     },
     options,
   );
+}
+
+/**
+ * Open a file with its default application (e.g. an .eml draft in Outlook),
+ * not Explorer. Same path guards as launchWindowsFile.
+ */
+export async function launchWindowsFileWithDefaultApp(
+  filePath: string,
+  options?: ExplorerLaunchOptions,
+): Promise<void> {
+  if (process.platform !== "win32") {
+    throw new Error("Opening files is supported on Windows only.");
+  }
+
+  const normalizedPath = normalizePath(filePath);
+  const root = options?.allowedRoot ?? (await getJobsRoot());
+  assertPathUnderRoot(root, normalizedPath);
+  await assertFileExists(normalizedPath);
+
+  const vbsPath = path.join(os.tmpdir(), `precast-open-${randomUUID()}.vbs`);
+  try {
+    await writeFile(vbsPath, buildOpenFileVbs(normalizedPath), "utf8");
+    await execFileAsync("wscript.exe", ["//Nologo", vbsPath]);
+    options?.onLaunchMethod?.("shell-vbs");
+  } catch {
+    // cmd `start "" <path>` opens with the default app as well.
+    await startViaCmd([normalizedPath]);
+    options?.onLaunchMethod?.("cmd-start");
+  } finally {
+    await unlink(vbsPath).catch(() => undefined);
+  }
 }
 
 export async function assertPathAccessible(

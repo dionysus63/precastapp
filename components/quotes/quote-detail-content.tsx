@@ -104,9 +104,14 @@ const toolbarDisabledClassName =
 
 type QuoteDetailContentProps = {
   quote: QuoteDetailView;
+  /** Auto-open the send dialog (form's save-then-send flow via ?send=1). */
+  autoOpenSend?: boolean;
 };
 
-export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
+export function QuoteDetailContent({
+  quote,
+  autoOpenSend = false,
+}: QuoteDetailContentProps) {
   const backHref = quote.jobId
     ? `/jobs/${quote.jobId}?tab=quotes`
     : "/quotes";
@@ -178,6 +183,7 @@ export function QuoteDetailContent({ quote }: QuoteDetailContentProps) {
             <SendQuoteButton
               quoteId={quote.id}
               quoteNumber={quote.quoteNumber}
+              defaultOpen={autoOpenSend}
               contactEmail={quote.contactEmailAddress}
               contactName={quote.contactName === "—" ? "" : quote.contactName}
               projectName={quote.projectName}

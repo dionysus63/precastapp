@@ -275,9 +275,27 @@ function toOptionalDecimal(value: number | null) {
   return new Prisma.Decimal(value);
 }
 
+/** Where the browser lands after a successful save. */
+export type QuoteSaveDestination = "detail" | "preview" | "send";
+
+function quoteSaveRedirectPath(
+  quoteId: string,
+  afterSave: QuoteSaveDestination,
+): string {
+  switch (afterSave) {
+    case "preview":
+      return `/quotes/${quoteId}/preview`;
+    // Detail page auto-opens the send dialog when ?send=1 is present.
+    case "send":
+      return `/quotes/${quoteId}?send=1`;
+    default:
+      return `/quotes/${quoteId}`;
+  }
+}
+
 export async function createQuote(
   input: CreateQuoteInput,
-  previewAfterSave = false,
+  afterSave: QuoteSaveDestination = "detail",
 ): Promise<{ error: string } | never> {
   const actor = await requirePermission(AppPermission.QUOTES_MANAGE);
   try {
@@ -450,11 +468,7 @@ export async function createQuote(
     await linkPlanSheetToQuote(input.planSheetId, quote.id, input.jobId);
 
     revalidatePath("/quotes");
-    redirect(
-      previewAfterSave
-        ? `/quotes/${quote.id}/preview`
-        : `/quotes/${quote.id}`,
-    );
+    redirect(quoteSaveRedirectPath(quote.id, afterSave));
   } catch (error) {
     if (
       error &&
@@ -477,7 +491,7 @@ export async function createQuote(
 export async function updateQuote(
   quoteId: string,
   input: CreateQuoteInput,
-  previewAfterSave = false,
+  afterSave: QuoteSaveDestination = "detail",
 ): Promise<{ error: string } | never> {
   await requirePermission(AppPermission.QUOTES_MANAGE);
 
@@ -722,11 +736,7 @@ export async function updateQuote(
     revalidatePath(`/quotes/${quoteId}`);
     revalidatePath(`/quotes/${quoteId}/preview`);
     revalidatePath(`/quotes/${quoteId}/edit`);
-    redirect(
-      previewAfterSave
-        ? `/quotes/${quoteId}/preview`
-        : `/quotes/${quoteId}`,
-    );
+    redirect(quoteSaveRedirectPath(quoteId, afterSave));
   } catch (error) {
     if (
       error &&
