@@ -36,6 +36,32 @@ export type JobRow = {
   lastActivity: string;
 };
 
+/** Actionable row on the job overview tab, linking to the tab that resolves it. */
+export type JobAttentionItem = {
+  key: string;
+  label: string;
+  tab: JobDetailTab;
+  tone: "warning" | "danger" | "info";
+};
+
+/** One row of the job overview's cross-record activity feed. */
+export type JobActivityItem = {
+  key: string;
+  typeLabel: string;
+  recordNumber: string;
+  href: string;
+  statusLabel: string;
+  statusVariant: JobStatusVariant;
+  updated: string;
+};
+
+export type JobOverviewData = {
+  attentionItems: JobAttentionItem[];
+  recentActivity: JobActivityItem[];
+  structuresTotal: number;
+  structuresShipped: number;
+};
+
 export type JobDetailTab =
   | "overview"
   | "bidding"

@@ -11,6 +11,8 @@ import type {
 } from "@/app/generated/prisma/client";
 import {
   jobStatusLabels,
+  type JobActivityItem,
+  type JobAttentionItem,
   type JobBidderContactOption,
   type JobBidderRow,
   type JobBiddingSummary,
@@ -18,6 +20,7 @@ import {
   type JobDetailView,
   type JobInvoiceableDelivery,
   type JobMasterQuoteOption,
+  type JobOverviewData,
   type JobRelatedDelivery,
   type JobRelatedInvoice,
   type JobRelatedQuote,
@@ -25,6 +28,7 @@ import {
   type JobStatusVariant,
 } from "@/components/jobs/job-utils";
 import { quoteStatusLabels, type QuoteStatus } from "@/components/quotes/quote-utils";
+import { OPEN_STATUSES } from "@/lib/quotes/list-summary";
 import { formatDateShort, formatUsd, formatWeightLb } from "@/lib/format";
 import { jobStatusVariant, quoteStatusVariant } from "@/lib/status-variants";
 import {
@@ -471,5 +475,184 @@ export function mapJobToDetailView(job: JobWithSummaryRelations): JobDetailView 
       structures: job._count.jobStructures,
       invoices: job._count.invoices,
     },
+  };
+}
+
+const structureActivityStatusLabels: Record<string, string> =
+  Object.fromEntries(
+    structureStatusOptions.map((option) => [option.value, option.label]),
+  );
+
+function structureActivityVariant(status: string): JobStatusVariant {
+  switch (status) {
+    case "MADE":
+    case "SHIPPED":
+      return "success";
+    case "APPROVED":
+    case "IN_PRODUCTION":
+      return "info";
+    case "SUBMITTED":
+      return "warning";
+    default:
+      return "neutral";
+  }
+}
+
+export type JobOverviewRecords = {
+  quotes: Pick<Quote, "id" | "quoteNumber" | "status" | "bidDueDate" | "updatedAt">[];
+  deliveryTickets: (Pick<
+    DeliveryTicket,
+    "id" | "ticketNumber" | "status" | "updatedAt"
+  > & { invoice: { id: string } | null })[];
+  structures: Pick<
+    JobStructure,
+    "id" | "structureNumber" | "status" | "needsSubmittal" | "updatedAt"
+  >[];
+  invoices: Pick<Invoice, "id" | "invoiceNumber" | "status" | "updatedAt">[];
+};
+
+const IN_FLIGHT_TICKET_STATUSES = new Set(["SCHEDULED", "LOADING", "IN_TRANSIT"]);
+
+/** Attention items + activity feed for the job overview tab. */
+export function buildJobOverview(
+  jobId: string,
+  folderPath: string | null,
+  records: JobOverviewRecords,
+): JobOverviewData {
+  const { quotes, deliveryTickets, structures, invoices } = records;
+
+  const attentionItems: JobAttentionItem[] = [];
+  const plural = (count: number, noun: string) =>
+    `${count} ${noun}${count === 1 ? "" : "s"}`;
+
+  const needSubmittal = structures.filter((s) => s.needsSubmittal).length;
+  if (needSubmittal > 0) {
+    attentionItems.push({
+      key: "submittals",
+      label: `${plural(needSubmittal, "structure")} need${needSubmittal === 1 ? "s" : ""} a submittal`,
+      tab: "production",
+      tone: "warning",
+    });
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const weekEnd = new Date(today);
+  weekEnd.setDate(today.getDate() + 7);
+  const bidsDueSoon = quotes.filter(
+    (quote) =>
+      OPEN_STATUSES.includes(quote.status as QuoteStatus) &&
+      quote.bidDueDate != null &&
+      quote.bidDueDate <= weekEnd,
+  ).length;
+  if (bidsDueSoon > 0) {
+    attentionItems.push({
+      key: "bids-due",
+      label: `${plural(bidsDueSoon, "open quote")} with a bid due soon or overdue`,
+      tab: "quotes",
+      tone: "danger",
+    });
+  }
+
+  const awaitingCustomer = quotes.filter((q) => q.status === "SENT").length;
+  if (awaitingCustomer > 0) {
+    attentionItems.push({
+      key: "awaiting-customer",
+      label: `${plural(awaitingCustomer, "quote")} awaiting customer response`,
+      tab: "quotes",
+      tone: "info",
+    });
+  }
+
+  const uninvoiced = deliveryTickets.filter(
+    (t) => t.status === "DELIVERED" && !t.invoice,
+  ).length;
+  if (uninvoiced > 0) {
+    attentionItems.push({
+      key: "uninvoiced",
+      label: `${plural(uninvoiced, "delivered load")} not invoiced yet`,
+      tab: "invoices",
+      tone: "danger",
+    });
+  }
+
+  const inFlight = deliveryTickets.filter((t) =>
+    IN_FLIGHT_TICKET_STATUSES.has(t.status),
+  ).length;
+  if (inFlight > 0) {
+    attentionItems.push({
+      key: "deliveries-in-flight",
+      label: `${inFlight} ${inFlight === 1 ? "delivery" : "deliveries"} scheduled or on the road`,
+      tab: "deliveries",
+      tone: "info",
+    });
+  }
+
+  if (!folderPath) {
+    attentionItems.push({
+      key: "no-folder",
+      label: "Job folder hasn't been created yet",
+      tab: "files",
+      tone: "warning",
+    });
+  }
+
+  const activity: (JobActivityItem & { sortDate: Date })[] = [
+    ...quotes.map((quote) => ({
+      key: `quote-${quote.id}`,
+      typeLabel: "Quote",
+      recordNumber: quote.quoteNumber,
+      href: `/quotes/${quote.id}`,
+      statusLabel:
+        quoteStatusLabels[quote.status as QuoteStatus] ?? quote.status,
+      statusVariant: quoteStatusVariant(quote.status),
+      updated: formatDate(quote.updatedAt),
+      sortDate: quote.updatedAt,
+    })),
+    ...deliveryTickets.map((ticket) => ({
+      key: `ticket-${ticket.id}`,
+      typeLabel: "Delivery",
+      recordNumber: ticket.ticketNumber,
+      href: `/delivery-tickets/${ticket.id}`,
+      statusLabel:
+        deliveryTicketStatusLabels[ticket.status as DeliveryTicketStatus] ??
+        ticket.status,
+      statusVariant: deliveryStatusVariant(ticket.status),
+      updated: formatDate(ticket.updatedAt),
+      sortDate: ticket.updatedAt,
+    })),
+    ...structures.map((structure) => ({
+      key: `structure-${structure.id}`,
+      typeLabel: "Structure",
+      recordNumber: structure.structureNumber ?? "—",
+      href: `/jobs/${jobId}?tab=production`,
+      statusLabel:
+        structureActivityStatusLabels[structure.status] ?? structure.status,
+      statusVariant: structureActivityVariant(structure.status),
+      updated: formatDate(structure.updatedAt),
+      sortDate: structure.updatedAt,
+    })),
+    ...invoices.map((invoice) => ({
+      key: `invoice-${invoice.id}`,
+      typeLabel: "Invoice",
+      recordNumber: invoice.invoiceNumber,
+      href: `/invoices/${invoice.id}`,
+      statusLabel: invoice.status.replace(/_/g, " "),
+      statusVariant: invoiceStatusVariant(invoice.status),
+      updated: formatDate(invoice.updatedAt),
+      sortDate: invoice.updatedAt,
+    })),
+  ];
+
+  const recentActivity = activity
+    .sort((a, b) => b.sortDate.getTime() - a.sortDate.getTime())
+    .slice(0, 6)
+    .map(({ sortDate: _sortDate, ...item }) => item);
+
+  return {
+    attentionItems,
+    recentActivity,
+    structuresTotal: structures.length,
+    structuresShipped: structures.filter((s) => s.status === "SHIPPED").length,
   };
 }

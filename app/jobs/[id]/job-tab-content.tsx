@@ -12,6 +12,7 @@ import type { JobDetailTab, JobDetailView } from "@/components/jobs/job-utils";
 import { mapFilesForBrowser } from "@/lib/job-file-mapper";
 import { getJobFilesForBrowser } from "@/app/files/actions";
 import {
+  buildJobOverview,
   mapJobBidders,
   mapJobDeliveries,
   mapJobInvoiceableDeliveries,
@@ -44,7 +45,59 @@ export async function JobTabContent({
   user,
 }: JobTabContentProps) {
   if (activeTab === "overview") {
-    return <JobOverviewSection detail={detail} />;
+    const [quotes, deliveryTickets, structures, invoices] =
+      await withDatabaseRetry((prisma) =>
+        Promise.all([
+          prisma.quote.findMany({
+            where: { jobId },
+            select: {
+              id: true,
+              quoteNumber: true,
+              status: true,
+              bidDueDate: true,
+              updatedAt: true,
+            },
+          }),
+          prisma.deliveryTicket.findMany({
+            where: { jobId },
+            select: {
+              id: true,
+              ticketNumber: true,
+              status: true,
+              updatedAt: true,
+              invoice: { select: { id: true } },
+            },
+          }),
+          prisma.jobStructure.findMany({
+            where: { jobId },
+            select: {
+              id: true,
+              structureNumber: true,
+              status: true,
+              needsSubmittal: true,
+              updatedAt: true,
+            },
+          }),
+          prisma.invoice.findMany({
+            where: { jobId },
+            select: {
+              id: true,
+              invoiceNumber: true,
+              status: true,
+              updatedAt: true,
+            },
+          }),
+        ]),
+      );
+
+    const overview = buildJobOverview(jobId, detail.folderPath, {
+      quotes,
+      deliveryTickets,
+      structures,
+      invoices,
+    });
+
+    return <JobOverviewSection detail={detail} overview={overview} />;
   }
 
   if (activeTab === "bidding") {
