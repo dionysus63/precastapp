@@ -5,6 +5,14 @@ import { Fragment, useState } from "react";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import type { JobRelatedDelivery } from "@/components/jobs/job-utils";
 
+import {
+  tableBodyClassName,
+  tableCellBordersClassName,
+  tableCellClassName,
+  tableClassName,
+  tableHeaderCellWrapClassName,
+  tableRowClassName,
+} from "@/lib/table-styles";
 type JobDeliveriesTableProps = {
   deliveries: JobRelatedDelivery[];
 };
@@ -47,7 +55,7 @@ export function JobDeliveriesTable({ deliveries }: JobDeliveriesTableProps) {
   if (deliveries.length === 0) {
     return (
       <tr>
-        <td colSpan={5} className="px-3 py-6 text-center text-slate-500">
+        <td colSpan={5} className={`${tableCellBordersClassName} px-3 py-6 text-center text-slate-500`}>
           No delivery tickets for this job yet.
         </td>
       </tr>
@@ -62,8 +70,8 @@ export function JobDeliveriesTable({ deliveries }: JobDeliveriesTableProps) {
 
         return (
           <Fragment key={ticket.id}>
-            <tr className="hover:bg-slate-50/60">
-              <td className="px-3 py-2.5">
+            <tr className={tableRowClassName}>
+              <td className={tableCellClassName}>
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
@@ -91,63 +99,63 @@ export function JobDeliveriesTable({ deliveries }: JobDeliveriesTableProps) {
                   ) : null}
                 </div>
               </td>
-              <td className="px-3 py-2.5 text-slate-700">{ticket.projectName}</td>
-              <td className="px-3 py-2.5 text-slate-600">{ticket.deliveryDate}</td>
-              <td className="px-3 py-2.5">
+              <td className={`${tableCellClassName} text-slate-700`}>{ticket.projectName}</td>
+              <td className={`${tableCellClassName} text-slate-600`}>{ticket.deliveryDate}</td>
+              <td className={tableCellClassName}>
                 <StatusBadge
                   label={ticket.statusLabel}
                   variant={ticket.statusVariant}
                 />
               </td>
-              <td className="px-3 py-2.5 text-slate-600">{ticket.lastUpdated}</td>
+              <td className={`${tableCellClassName} text-slate-600`}>{ticket.lastUpdated}</td>
             </tr>
             {expanded ? (
               <tr className="bg-slate-50/40">
-                <td colSpan={5} className="px-3 py-2">
+                <td colSpan={5} className={tableCellClassName}>
                   {hasLineItems ? (
                     <div className="ml-6 overflow-x-auto rounded-lg border border-slate-200/80 bg-white">
-                      <table className="min-w-full text-left text-[11px]">
+                      <table className={tableClassName}>
                         <thead>
-                          <tr className="border-b border-slate-100 bg-slate-50/80 text-[10px] uppercase tracking-wide text-slate-500">
-                            <th className="px-2.5 py-2 font-semibold">#</th>
-                            <th className="px-2.5 py-2 font-semibold">Item</th>
-                            <th className="px-2.5 py-2 font-semibold">
+                          <tr>
+                            <th className={tableHeaderCellWrapClassName}>#</th>
+                            <th className={tableHeaderCellWrapClassName}>Item</th>
+                            <th className={tableHeaderCellWrapClassName}>
                               Description
                             </th>
-                            <th className="px-2.5 py-2 font-semibold">Qty</th>
-                            <th className="px-2.5 py-2 font-semibold">
+                            <th className={tableHeaderCellWrapClassName}>Qty</th>
+                            <th className={tableHeaderCellWrapClassName}>
                               Weight
                             </th>
-                            <th className="px-2.5 py-2 font-semibold">
+                            <th className={tableHeaderCellWrapClassName}>
                               Yard
                             </th>
-                            <th className="px-2.5 py-2 font-semibold">
+                            <th className={tableHeaderCellWrapClassName}>
                               Status
                             </th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className={tableBodyClassName}>
                           {ticket.lineItems.map((line) => (
                             <tr key={line.id}>
-                              <td className="px-2.5 py-1.5 text-slate-500">
+                              <td className={`${tableCellClassName} text-slate-500`}>
                                 {line.lineNumber}
                               </td>
-                              <td className="px-2.5 py-1.5 font-medium text-slate-900">
+                              <td className={`${tableCellClassName} font-medium text-slate-900`}>
                                 {line.itemCode}
                               </td>
-                              <td className="px-2.5 py-1.5 text-slate-700">
+                              <td className={`${tableCellClassName} text-slate-700`}>
                                 {line.description}
                               </td>
-                              <td className="px-2.5 py-1.5 text-slate-600">
+                              <td className={`${tableCellClassName} text-slate-600`}>
                                 {line.quantity} {line.unit}
                               </td>
-                              <td className="px-2.5 py-1.5 text-slate-600">
+                              <td className={`${tableCellClassName} text-slate-600`}>
                                 {line.totalWeight}
                               </td>
-                              <td className="px-2.5 py-1.5 text-slate-600">
+                              <td className={`${tableCellClassName} text-slate-600`}>
                                 {line.yardLocation}
                               </td>
-                              <td className="px-2.5 py-1.5">
+                              <td className={tableCellClassName}>
                                 <StatusBadge
                                   label={line.statusLabel}
                                   variant={line.statusVariant}

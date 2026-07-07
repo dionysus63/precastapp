@@ -29,9 +29,8 @@ import {
   tableCellClassName,
   tableClassName,
   tableFlushWrapperClassName,
-  tableHeaderCellClassName,
+  tableHeaderCellWrapClassName,
   tableRowClassName,
-  tableWrapperClassName,
 } from "@/lib/table-styles";
 type JobDetailContentProps = {
   detail: JobDetailView;
@@ -467,47 +466,38 @@ export function JobQuotesSection({
           No quotes linked to this job yet.
         </p>
       ) : (
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-slate-200">
           {quoteGroups.map((group) => (
-            <div key={group.groupKey} className="p-4">
-              <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {group.scopeLabel ? (
-                      <span className="inline-flex rounded-full bg-sky-100 px-2.5 py-0.5 text-[11px] font-semibold text-sky-900">
-                        {group.scopeLabel}
-                      </span>
-                    ) : null}
-                    <span className="font-mono text-sm font-semibold text-slate-900">
-                      {group.masterQuoteNumber}
-                    </span>
-                    {group.quoteCount > 1 ? (
-                      <span className="text-[11px] text-slate-500">
-                        {group.quoteCount} customer
-                        {group.quoteCount === 1 ? "" : "s"}
-                      </span>
-                    ) : null}
-                  </div>
-                  {group.scopeLabel ? (
-                    <p className="text-[11px] text-slate-500">
-                      Master quote {group.masterQuoteNumber}
-                    </p>
-                  ) : null}
-                </div>
+            <div key={group.groupKey}>
+              <div className="flex flex-wrap items-center gap-2 px-4 py-2.5">
+                {group.scopeLabel ? (
+                  <span className="inline-flex rounded-full bg-sky-100 px-2.5 py-0.5 text-[11px] font-semibold text-sky-900">
+                    {group.scopeLabel}
+                  </span>
+                ) : null}
+                <span className="font-mono text-sm font-semibold text-slate-900">
+                  {group.masterQuoteNumber}
+                </span>
+                {group.quoteCount > 1 ? (
+                  <span className="text-[11px] text-slate-500">
+                    {group.quoteCount} customer
+                    {group.quoteCount === 1 ? "" : "s"}
+                  </span>
+                ) : null}
               </div>
-              <div className={tableWrapperClassName}>
+              <div className={tableFlushWrapperClassName}>
                 <table className={tableClassName}>
                   <thead>
                     <tr>
-                      <th className={tableHeaderCellClassName}>
+                      <th className={tableHeaderCellWrapClassName}>
                         Quote Number
                       </th>
-                      <th className={tableHeaderCellClassName}>
+                      <th className={tableHeaderCellWrapClassName}>
                         Customer
                       </th>
-                      <th className={tableHeaderCellClassName}>Status</th>
-                      <th className={tableHeaderCellClassName}>Total</th>
-                      <th className={tableHeaderCellClassName}>
+                      <th className={tableHeaderCellWrapClassName}>Status</th>
+                      <th className={tableHeaderCellWrapClassName}>Total</th>
+                      <th className={tableHeaderCellWrapClassName}>
                         Last Updated
                       </th>
                     </tr>
@@ -583,16 +573,37 @@ export function JobDeliveriesSection({
           >
             Schedule Loads
           </Link>
-          <Link
-            href={`/delivery-tickets/new?jobId=${jobId}&fulfillment=pickup`}
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-          >
-            New Pickup Ticket
-          </Link>
-          <NewRecordLink
-            href={`/delivery-tickets/new?jobId=${jobId}`}
-            label="New Delivery Ticket"
-          />
+          <details className="relative">
+            <summary className="flex cursor-pointer list-none items-center gap-1 rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-800 [&::-webkit-details-marker]:hidden">
+              New Ticket
+              <svg
+                viewBox="0 0 16 16"
+                className="h-3 w-3 text-white/70"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M4 6l4 4 4-4" />
+              </svg>
+            </summary>
+            <div className="absolute right-0 z-20 mt-1 flex w-44 flex-col gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+              <Link
+                href={`/delivery-tickets/new?jobId=${jobId}`}
+                className="rounded-lg px-3 py-1.5 text-left text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Delivery Ticket
+              </Link>
+              <Link
+                href={`/delivery-tickets/new?jobId=${jobId}&fulfillment=pickup`}
+                className="rounded-lg px-3 py-1.5 text-left text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Pickup Ticket
+              </Link>
+            </div>
+          </details>
         </div>
       }
       noPadding
@@ -601,11 +612,11 @@ export function JobDeliveriesSection({
         <table className={tableClassName}>
           <thead>
             <tr>
-              <th className={tableHeaderCellClassName}>Ticket</th>
-              <th className={tableHeaderCellClassName}>Project</th>
-              <th className={tableHeaderCellClassName}>Delivery Date</th>
-              <th className={tableHeaderCellClassName}>Status</th>
-              <th className={tableHeaderCellClassName}>Last Updated</th>
+              <th className={tableHeaderCellWrapClassName}>Ticket</th>
+              <th className={tableHeaderCellWrapClassName}>Project</th>
+              <th className={tableHeaderCellWrapClassName}>Delivery Date</th>
+              <th className={tableHeaderCellWrapClassName}>Status</th>
+              <th className={tableHeaderCellWrapClassName}>Last Updated</th>
             </tr>
           </thead>
           <tbody className={tableBodyClassName}>
@@ -652,16 +663,16 @@ export function JobProductionSection({
         <table className={tableClassName}>
           <thead>
             <tr>
-              <th className={tableHeaderCellClassName}>Structure</th>
-              <th className={tableHeaderCellClassName}>Description</th>
-              <th className={tableHeaderCellClassName}>Type</th>
-              <th className={tableHeaderCellClassName}>Qty</th>
-              <th className={tableHeaderCellClassName}>Docs</th>
-              <th className={tableHeaderCellClassName}>Status</th>
-              <th className={tableHeaderCellClassName}>Submitted</th>
-              <th className={tableHeaderCellClassName}>Made</th>
-              <th className={tableHeaderCellClassName}>Shipped</th>
-              <th className={tableHeaderCellClassName}>Actions</th>
+              <th className={tableHeaderCellWrapClassName}>Structure</th>
+              <th className={tableHeaderCellWrapClassName}>Description</th>
+              <th className={tableHeaderCellWrapClassName}>Type</th>
+              <th className={tableHeaderCellWrapClassName}>Qty</th>
+              <th className={tableHeaderCellWrapClassName}>Docs</th>
+              <th className={tableHeaderCellWrapClassName}>Status</th>
+              <th className={tableHeaderCellWrapClassName}>Submitted</th>
+              <th className={tableHeaderCellWrapClassName}>Made</th>
+              <th className={tableHeaderCellWrapClassName}>Shipped</th>
+              <th className={tableHeaderCellWrapClassName}>Actions</th>
             </tr>
           </thead>
           <tbody className={tableBodyClassName}>
@@ -709,9 +720,9 @@ export function JobProductionSection({
                     {structure.shippedDate}
                   </td>
                   <td className={tableCellClassName}>
-                    <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       {structure.drillSheetId ? (
-                        <div className="flex flex-wrap items-center gap-1.5">
+                        <>
                           <DrillSheetPdfLink
                             drillSheetId={structure.drillSheetId}
                             label="PDF"
@@ -722,7 +733,7 @@ export function JobProductionSection({
                           >
                             Drill Sheet
                           </Link>
-                        </div>
+                        </>
                       ) : null}
                       <JobStructureSubmittalActions
                         jobId={jobId}
@@ -754,7 +765,7 @@ export function JobInvoicesSection({
 }) {
   return (
     <div className="space-y-4">
-      {canManageInvoices ? (
+      {canManageInvoices && invoiceableDeliveries.length > 0 ? (
         <JobInvoiceActions deliveries={invoiceableDeliveries} />
       ) : null}
       <SectionCard
@@ -768,11 +779,11 @@ export function JobInvoicesSection({
         <table className={tableClassName}>
           <thead>
             <tr>
-              <th className={tableHeaderCellClassName}>Invoice</th>
-              <th className={tableHeaderCellClassName}>Ticket</th>
-              <th className={tableHeaderCellClassName}>Status</th>
-              <th className={tableHeaderCellClassName}>Total</th>
-              <th className={tableHeaderCellClassName}>Invoice Date</th>
+              <th className={tableHeaderCellWrapClassName}>Invoice</th>
+              <th className={tableHeaderCellWrapClassName}>Ticket</th>
+              <th className={tableHeaderCellWrapClassName}>Status</th>
+              <th className={tableHeaderCellWrapClassName}>Total</th>
+              <th className={tableHeaderCellWrapClassName}>Invoice Date</th>
             </tr>
           </thead>
           <tbody className={tableBodyClassName}>

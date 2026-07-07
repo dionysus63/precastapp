@@ -30,43 +30,42 @@ export function JobInvoiceActions({ deliveries }: JobInvoiceActionsProps) {
     });
   }
 
+  // Parent only renders this when there are un-invoiced delivered tickets.
   return (
     <SectionCard
       title="Create Invoice"
-      description="Invoices are generated from delivered delivery tickets."
+      description={`${deliveries.length} delivered ticket${deliveries.length === 1 ? "" : "s"} ready to invoice`}
+      noPadding
     >
-      {deliveries.length === 0 ? (
-        <p className="text-xs text-slate-500">
-          No delivered, un-invoiced delivery tickets for this job. Mark a
-          delivery ticket as delivered to create an invoice from it.
-        </p>
-      ) : (
-        <ul className="space-y-2">
-          {deliveries.map((ticket) => (
-            <li
-              key={ticket.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2"
+      <div>
+        {deliveries.map((ticket) => (
+          <div
+            key={ticket.id}
+            className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-2 last:border-b-0"
+          >
+            <div className="text-xs">
+              <span className="font-medium text-slate-900">
+                {ticket.ticketNumber}
+              </span>
+              <span className="text-slate-600"> — {ticket.projectName}</span>
+              <span className="text-slate-500"> · {ticket.deliveryDate}</span>
+            </div>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => handleConvert(ticket.id)}
+              className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-50"
             >
-              <div className="text-xs">
-                <span className="font-medium text-slate-900">
-                  {ticket.ticketNumber}
-                </span>
-                <span className="text-slate-600"> — {ticket.projectName}</span>
-                <span className="text-slate-500"> · {ticket.deliveryDate}</span>
-              </div>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => handleConvert(ticket.id)}
-                className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-50"
-              >
-                {pending && busyId === ticket.id ? "Creating…" : "Create Invoice"}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {error ? <p className="mt-2 text-xs text-red-600">{error}</p> : null}
+              {pending && busyId === ticket.id ? "Creating…" : "Create Invoice"}
+            </button>
+          </div>
+        ))}
+      </div>
+      {error ? (
+        <p className="border-t border-slate-100 px-4 py-2 text-xs text-red-600">
+          {error}
+        </p>
+      ) : null}
     </SectionCard>
   );
 }

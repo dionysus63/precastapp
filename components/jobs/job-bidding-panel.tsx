@@ -18,6 +18,15 @@ import type {
   JobMasterQuoteOption,
 } from "@/components/jobs/job-utils";
 
+import {
+  tableBodyClassName,
+  tableCellBordersClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellWrapClassName,
+  tableRowClassName,
+} from "@/lib/table-styles";
 type JobBiddingPanelProps = {
   jobId: string;
   isAwarded: boolean;
@@ -223,137 +232,122 @@ export function JobBiddingPanel({
 
   return (
     <div className="space-y-4">
-      {!isAwarded ? (
-        <SectionCard title="Add Contractor">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="min-w-[16rem] flex-1">
-              <label
-                htmlFor="bidListCustomer"
-                className="block text-xs font-medium text-slate-700"
-              >
-                Contractor
-              </label>
-              <select
-                id="bidListCustomer"
-                value={selectedCustomerId}
-                onChange={(event) => setSelectedCustomerId(event.target.value)}
-                disabled={pending}
-                className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm"
-              >
-                <option value="">Select contractor</option>
-                {availableCustomers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+      <SectionCard
+        title="Bid List"
+        description={`${bidders.length} contractor${bidders.length === 1 ? "" : "s"}`}
+        action={
+          !isAwarded && awardableBidders.length > 0 ? (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                setAwardBidderId(awardableBidders[0]?.id ?? "");
+                setAwardQuoteId(awardableBidders[0]?.quoteId ?? "");
+                setAwardDialogOpen(true);
+              }}
+              title="Mark the winning quote Won, update the job customer, and mark all other quotes Lost-BC."
+              className="rounded-lg bg-emerald-700 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-emerald-600 disabled:opacity-50"
+            >
+              Award Job…
+            </button>
+          ) : undefined
+        }
+        noPadding
+      >
+        {!isAwarded ? (
+          <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-slate-50/60 px-4 py-2.5">
+            <select
+              aria-label="Contractor to add to the bid list"
+              value={selectedCustomerId}
+              onChange={(event) => setSelectedCustomerId(event.target.value)}
+              disabled={pending}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-900 shadow-sm"
+            >
+              <option value="">Add contractor…</option>
+              {availableCustomers.map((customer) => (
+                <option key={customer.id} value={customer.id}>
+                  {customer.name}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
               disabled={pending || !selectedCustomerId}
               onClick={handleAddBidder}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+              className="rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
             >
-              Add to Bid List
+              Add
             </button>
+            {masterQuoteOptions.length > 0 ? (
+              <>
+                <span
+                  aria-hidden="true"
+                  className="mx-1 hidden h-5 border-l border-slate-200 sm:block"
+                />
+                <select
+                  aria-label="Master quote to copy line items from"
+                  value={templateQuoteId}
+                  onChange={(event) => setTemplateQuoteId(event.target.value)}
+                  disabled={pending}
+                  className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-900 shadow-sm"
+                >
+                  {masterQuoteOptions.map((quote) => (
+                    <option key={quote.id} value={quote.id}>
+                      Master: {quote.quoteNumber}
+                      {quote.scopeLabel ? ` — ${quote.scopeLabel}` : ""} (
+                      {quote.lineItemCount} lines)
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={pending || bidders.length === 0}
+                  onClick={handleGenerateQuotes}
+                  title="Copy line items from the master quote to every bidder who does not have a quote yet."
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Generate Quotes for All Bidders
+                </button>
+              </>
+            ) : null}
           </div>
-        </SectionCard>
-      ) : null}
+        ) : null}
 
-      {!isAwarded && masterQuoteOptions.length > 0 ? (
-        <SectionCard
-          title="Generate Quotes"
-          description="Copy line items from a master quote to every bidder who does not have a quote yet."
-        >
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="min-w-[16rem] flex-1">
-              <label
-                htmlFor="masterQuote"
-                className="block text-xs font-medium text-slate-700"
-              >
-                Master Quote
-              </label>
-              <select
-                id="masterQuote"
-                value={templateQuoteId}
-                onChange={(event) => setTemplateQuoteId(event.target.value)}
-                disabled={pending}
-                className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm"
-              >
-                {masterQuoteOptions.map((quote) => (
-                  <option key={quote.id} value={quote.id}>
-                    {quote.quoteNumber}
-                    {quote.scopeLabel ? ` — ${quote.scopeLabel}` : ""}
-                    ({quote.lineItemCount} lines)
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              type="button"
-              disabled={pending || bidders.length === 0}
-              onClick={handleGenerateQuotes}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-            >
-              Generate Quotes for All Bidders
-            </button>
+        {error || success ? (
+          <div className="border-b border-slate-100 px-4 py-2">
+            {error ? <p className="text-xs text-red-600">{error}</p> : null}
+            {success ? (
+              <p className="text-xs text-emerald-700">{success}</p>
+            ) : null}
           </div>
-        </SectionCard>
-      ) : null}
+        ) : null}
 
-      {!isAwarded && awardableBidders.length > 0 ? (
-        <SectionCard title="Award Job">
-          <p className="text-xs text-slate-600">
-            Select the winning contractor. Their quote will be marked Won, the job
-            customer will be updated, and all other quotes on this job will be
-            marked Lost-BC.
-          </p>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => {
-              setAwardBidderId(awardableBidders[0]?.id ?? "");
-              setAwardQuoteId(awardableBidders[0]?.quoteId ?? "");
-              setAwardDialogOpen(true);
-            }}
-            className="mt-3 rounded-lg bg-emerald-700 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50"
-          >
-            Award Job…
-          </button>
-        </SectionCard>
-      ) : null}
-
-      <SectionCard
-        title="Bid List"
-        description={`${bidders.length} contractor${bidders.length === 1 ? "" : "s"}`}
-        noPadding
-      >
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-xs">
+        <div className={tableFlushWrapperClassName}>
+          <table className={tableClassName}>
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                <th className="px-3 py-2.5 font-semibold">Contractor</th>
-                <th className="px-3 py-2.5 font-semibold">Contact</th>
-                <th className="px-3 py-2.5 font-semibold">Quote #</th>
-                <th className="px-3 py-2.5 font-semibold">Status</th>
-                <th className="px-3 py-2.5 font-semibold">Sent</th>
-                <th className="px-3 py-2.5 font-semibold">Actions</th>
+              <tr>
+                <th className={tableHeaderCellWrapClassName}>Contractor</th>
+                <th className={tableHeaderCellWrapClassName}>Contact</th>
+                <th className={tableHeaderCellWrapClassName}>Quote #</th>
+                <th className={tableHeaderCellWrapClassName}>Status</th>
+                <th className={tableHeaderCellWrapClassName}>Sent</th>
+                <th className={tableHeaderCellWrapClassName}>Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className={tableBodyClassName}>
               {bidders.length === 0 ? (
                 <tr>
                   <td
                     colSpan={6}
-                    className="px-3 py-6 text-center text-slate-500"
+                    className={`${tableCellBordersClassName} px-3 py-6 text-center text-slate-500`}
                   >
                     No contractors on the bid list yet.
                   </td>
                 </tr>
               ) : (
                 bidders.map((bidder) => (
-                  <tr key={bidder.id} className="hover:bg-slate-50/60">
-                    <td className="px-3 py-2.5">
+                  <tr key={bidder.id} className={tableRowClassName}>
+                    <td className={tableCellClassName}>
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-slate-900">
                           {bidder.customerName}
@@ -363,7 +357,7 @@ export function JobBiddingPanel({
                         ) : null}
                       </div>
                     </td>
-                    <td className="px-3 py-2.5 text-slate-600">
+                    <td className={`${tableCellClassName} text-slate-600`}>
                       {bidder.quoteId || isAwarded ? (
                         <>
                           <div>{bidder.contactName}</div>
@@ -426,7 +420,7 @@ export function JobBiddingPanel({
                         </>
                       )}
                     </td>
-                    <td className="px-3 py-2.5">
+                    <td className={tableCellClassName}>
                       {bidder.quoteId ? (
                         <Link
                           href={`/quotes/${bidder.quoteId}`}
@@ -443,7 +437,7 @@ export function JobBiddingPanel({
                         </Link>
                       )}
                     </td>
-                    <td className="px-3 py-2.5">
+                    <td className={tableCellClassName}>
                       {bidder.quoteStatusLabel ? (
                         <StatusBadge
                           label={bidder.quoteStatusLabel}
@@ -453,10 +447,10 @@ export function JobBiddingPanel({
                         "—"
                       )}
                     </td>
-                    <td className="px-3 py-2.5 text-slate-600">
+                    <td className={`${tableCellClassName} text-slate-600`}>
                       {bidder.sentAt ?? "—"}
                     </td>
-                    <td className="px-3 py-2.5">
+                    <td className={tableCellClassName}>
                       {!isAwarded && !bidder.quoteId ? (
                         <button
                           type="button"
@@ -475,9 +469,6 @@ export function JobBiddingPanel({
           </table>
         </div>
       </SectionCard>
-
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
-      {success ? <p className="text-xs text-emerald-700">{success}</p> : null}
 
       {awardDialogOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
