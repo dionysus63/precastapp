@@ -225,3 +225,38 @@ Staff rollout: [docs/office-rollout.md](docs/office-rollout.md)
 | `AGENTS.md`             | Rules for AI agents working in this repo    |
 
 
+
+---
+
+## Database backups
+
+Daily automated backup via Windows Task Scheduler (task: **"PrecastApp DB Backup"**,
+runs `scripts/backup-database.ps1` at 12:00 PM while logged on).
+
+- Backups: `C:\Backups\precastapp\precastapp_<date>_<time>.dump` (pg_dump custom format)
+- Retention: 30 days, pruned automatically; log at `C:\Backups\precastapp\backup.log`
+- Credentials come from `DATABASE_URL` in `.env` — no secrets in the script
+
+Run a backup manually:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\backup-database.ps1
+```
+
+Restore over the live database (stop the app first):
+
+```powershell
+& "C:\Program Files\PostgreSQL\18\bin\pg_restore.exe" -U postgres -h localhost `
+    -d precastapp --clean --if-exists "C:\Backups\precastapp\<file>.dump"
+```
+
+Restore into a scratch database to inspect without touching live data:
+
+```powershell
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -h localhost -d postgres -c "CREATE DATABASE precastapp_restore_test;"
+& "C:\Program Files\PostgreSQL\18\bin\pg_restore.exe" -U postgres -h localhost -d precastapp_restore_test --no-owner "C:\Backups\precastapp\<file>.dump"
+```
+
+> The backup folder lives on the same disk as the database. Copy or sync
+> `C:\Backups\precastapp` to a second machine, NAS, or cloud drive for real
+> disaster protection.
