@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
+import { DriverSelect } from "@/components/delivery-tickets/driver-select";
 import {
   deliveryTicketStatusLabels,
   type DeliveryTicketRow,
@@ -17,25 +18,11 @@ import {
 } from "@/lib/table-styles";
 type TodaysLoadsPanelProps = {
   tickets: DeliveryTicketRow[];
+  drivers: string[];
 };
 
-function formatTime(value: string | null): string {
-  if (!value) {
-    return "—";
-  }
-  const [hours, minutes] = value.split(":");
-  const hour = Number(hours);
-  if (Number.isNaN(hour)) {
-    return value;
-  }
-  const suffix = hour >= 12 ? "PM" : "AM";
-  const displayHour = hour % 12 || 12;
-  return `${displayHour}:${minutes ?? "00"} ${suffix}`;
-}
-
-// Server component: purely presentational (links only, no event handlers),
-// so it renders once on the server and ships no hydration JS.
-export function TodaysLoadsPanel({ tickets }: TodaysLoadsPanelProps) {
+// Server component shell; only the driver dropdowns hydrate on the client.
+export function TodaysLoadsPanel({ tickets, drivers }: TodaysLoadsPanelProps) {
   const todaysLoads = getTodaysScheduledLoads(tickets);
 
   return (
@@ -56,8 +43,6 @@ export function TodaysLoadsPanel({ tickets }: TodaysLoadsPanelProps) {
                 <th className={tableHeaderCellClassName}>Ticket</th>
                 <th className={tableHeaderCellClassName}>Job</th>
                 <th className={tableHeaderCellClassName}>Project</th>
-                <th className={tableHeaderCellClassName}>Time</th>
-                <th className={tableHeaderCellClassName}>Truck</th>
                 <th className={tableHeaderCellClassName}>Driver</th>
                 <th className={tableHeaderCellClassName}>Weight</th>
                 <th className={tableHeaderCellClassName}>Status</th>
@@ -76,11 +61,13 @@ export function TodaysLoadsPanel({ tickets }: TodaysLoadsPanelProps) {
                   <td className={`${tableCellClassName} font-medium text-slate-900`}>
                     {ticket.projectName}
                   </td>
-                  <td className={`${tableCellClassName} text-slate-600`}>
-                    {formatTime(ticket.deliveryTime)}
+                  <td className={tableCellClassName}>
+                    <DriverSelect
+                      ticketId={ticket.id}
+                      driver={ticket.driver === "—" ? null : ticket.driver}
+                      drivers={drivers}
+                    />
                   </td>
-                  <td className={`${tableCellClassName} text-slate-600`}>{ticket.truck}</td>
-                  <td className={`${tableCellClassName} text-slate-600`}>{ticket.driver}</td>
                   <td className={`${tableCellClassName} font-medium text-slate-900`}>
                     {ticket.totalWeight}
                   </td>

@@ -22,33 +22,39 @@ export function startOfDay(date: Date): Date {
   return copy;
 }
 
-export function getCurrentWeekWeekdays(reference = new Date()): WeekdayColumn[] {
-  const anchor = startOfDay(reference);
-  const day = anchor.getDay();
-  const mondayOffset = day === 0 ? -6 : 1 - day;
-  const monday = new Date(anchor);
-  monday.setDate(anchor.getDate() + mondayOffset);
-
+/**
+ * Rolling dispatch window: the reference day itself (even on a weekend),
+ * followed by the next business days (Mon–Fri) until `count` columns exist.
+ */
+export function getDispatchDays(
+  reference = new Date(),
+  count = 5,
+): WeekdayColumn[] {
   const actualTodayIso = formatDateIso(startOfDay(new Date()));
-  const weekdays: WeekdayColumn[] = [];
+  const days: WeekdayColumn[] = [];
 
-  for (let index = 0; index < 5; index += 1) {
-    const date = new Date(monday);
-    date.setDate(monday.getDate() + index);
-    const dateIso = formatDateIso(date);
-    weekdays.push({
-      date,
-      dateIso,
-      label: date.toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-      }),
-      isToday: dateIso === actualTodayIso,
-    });
+  const cursor = startOfDay(reference);
+  while (days.length < count) {
+    const isFirstColumn = days.length === 0;
+    const weekday = cursor.getDay();
+    if (isFirstColumn || (weekday !== 0 && weekday !== 6)) {
+      const date = new Date(cursor);
+      const dateIso = formatDateIso(date);
+      days.push({
+        date,
+        dateIso,
+        label: date.toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        }),
+        isToday: dateIso === actualTodayIso,
+      });
+    }
+    cursor.setDate(cursor.getDate() + 1);
   }
 
-  return weekdays;
+  return days;
 }
 
 export function formatWeekRangeLabel(weekdays: WeekdayColumn[]): string {

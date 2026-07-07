@@ -1065,6 +1065,53 @@ export async function updateDeliveryTicketStatus(
   }
 }
 
+export type UpdateTicketDriverResult =
+  | { success: true }
+  | { error: string };
+
+/**
+ * Dispatch quick-assign: change only the driver on an open ticket, e.g. from
+ * the Today's Loads panel. Full rescheduling stays in scheduleJobLoads.
+ */
+export async function updateTicketDriver(
+  ticketId: string,
+  driver: string | null,
+): Promise<UpdateTicketDriverResult> {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+  try {
+    const ticket = await withDatabaseRetry((client) =>
+      client.deliveryTicket.findUnique({
+        where: { id: ticketId },
+        select: { status: true, ticketNumber: true },
+      }),
+    );
+    if (!ticket) {
+      return { error: "Ticket not found. Refresh the page." };
+    }
+    if (ticket.status === "DELIVERED" || ticket.status === "CANCELLED") {
+      return {
+        error: `${ticket.ticketNumber} is ${ticket.status.toLowerCase()} and can't be reassigned.`,
+      };
+    }
+
+    await withDatabaseRetry((client) =>
+      client.deliveryTicket.update({
+        where: { id: ticketId },
+        data: { driver: driver?.trim() || null },
+      }),
+    );
+
+    revalidatePath("/delivery-tickets");
+    revalidatePath(`/delivery-tickets/${ticketId}`);
+    return { success: true };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "Could not update the driver.",
+    };
+  }
+}
+
 export type WalkInCustomerOption = {
   id: string;
   name: string;

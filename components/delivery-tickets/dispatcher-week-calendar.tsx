@@ -6,27 +6,13 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import type { DeliveryTicketRow } from "@/components/delivery-tickets/delivery-ticket-utils";
 import {
   formatWeekRangeLabel,
-  getCurrentWeekWeekdays,
+  getDispatchDays,
   groupTicketsByDeliveryDate,
 } from "@/lib/delivery-dispatch-utils";
 
 type DispatcherWeekCalendarProps = {
   tickets: DeliveryTicketRow[];
 };
-
-function formatTime(value: string | null): string {
-  if (!value) {
-    return "";
-  }
-  const [hours, minutes] = value.split(":");
-  const hour = Number(hours);
-  if (Number.isNaN(hour)) {
-    return value;
-  }
-  const suffix = hour >= 12 ? "PM" : "AM";
-  const displayHour = hour % 12 || 12;
-  return `${displayHour}:${minutes ?? "00"} ${suffix}`;
-}
 
 function getReferenceDateForWeekOffset(weekOffset: number): Date {
   const date = new Date();
@@ -44,7 +30,7 @@ export const DispatcherWeekCalendar = memo(function DispatcherWeekCalendar({
     [weekOffset],
   );
   const weekdays = useMemo(
-    () => getCurrentWeekWeekdays(referenceDate),
+    () => getDispatchDays(referenceDate),
     [referenceDate],
   );
   const grouped = useMemo(
@@ -58,7 +44,7 @@ export const DispatcherWeekCalendar = memo(function DispatcherWeekCalendar({
   return (
     <SectionCard
       title={title}
-      description="Monday through Friday deliveries on the schedule."
+      description="Today plus the next four business days."
       action={
         <div className="flex flex-wrap items-center gap-2">
           {weekOffset !== 0 ? (
@@ -112,29 +98,33 @@ export const DispatcherWeekCalendar = memo(function DispatcherWeekCalendar({
               {dayTickets.length === 0 ? (
                 <p className="text-xs text-slate-400">No deliveries scheduled</p>
               ) : (
-                <ul className="space-y-2">
+                <ul className="space-y-1.5">
                   {dayTickets.map((ticket) => (
                     <li
                       key={ticket.id}
-                      className="rounded-md border border-white/80 bg-white px-2.5 py-2 shadow-sm"
+                      className="rounded-md border border-white/80 bg-white px-2 py-1.5 shadow-sm"
                     >
+                      <p className="truncate text-xs font-semibold text-slate-900">
+                        {ticket.customer}
+                      </p>
+                      {ticket.jobId ? (
+                        <Link
+                          href={`/jobs/${ticket.jobId}`}
+                          className="block truncate text-[11px] font-medium text-sky-700 hover:underline"
+                        >
+                          {ticket.projectName}
+                        </Link>
+                      ) : (
+                        <p className="truncate text-[11px] text-slate-600">
+                          {ticket.projectName}
+                        </p>
+                      )}
                       <Link
                         href={`/delivery-tickets/${ticket.id}`}
-                        className="font-mono text-[11px] font-semibold text-slate-900 hover:text-slate-700"
+                        className="font-mono text-[10px] text-slate-500 hover:text-slate-900"
                       >
                         {ticket.ticketNumber}
                       </Link>
-                      <p className="mt-1 text-xs font-medium text-slate-800">
-                        {ticket.jobNumber}
-                      </p>
-                      <p className="mt-0.5 text-xs text-slate-600">
-                        {ticket.projectName}
-                      </p>
-                      {ticket.deliveryTime ? (
-                        <p className="mt-1 text-[10px] text-slate-500">
-                          {formatTime(ticket.deliveryTime)}
-                        </p>
-                      ) : null}
                     </li>
                   ))}
                 </ul>

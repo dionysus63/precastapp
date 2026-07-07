@@ -22,6 +22,7 @@ import type { Prisma } from "@/app/generated/prisma/client";
 const DELIVERY_LIST_SELECT = {
   id: true,
   ticketNumber: true,
+  jobId: true,
   jobNumber: true,
   projectName: true,
   customerName: true,
@@ -213,7 +214,7 @@ export default async function DeliveryTicketsPage({
         </div>
 
         <DispatcherWeekCalendar tickets={scheduleRows} />
-        <TodaysLoadsPanel tickets={scheduleRows} />
+        <TodaysLoadsPanel tickets={scheduleRows} drivers={settings.drivers} />
         <UnscheduledLoadsPanel drafts={unscheduledDrafts} />
 
         <DeliveryTicketsList

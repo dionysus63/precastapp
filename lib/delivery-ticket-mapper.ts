@@ -162,6 +162,7 @@ export function mapDbDeliveryTicketToDetailView(
 export function mapDbDeliveryTicketToListRow(ticket: {
   id: string;
   ticketNumber: string;
+  jobId?: string | null;
   jobNumber: string | null;
   projectName: string;
   customerName: string;
@@ -180,6 +181,7 @@ export function mapDbDeliveryTicketToListRow(ticket: {
   return {
     id: ticket.id,
     ticketNumber: ticket.ticketNumber,
+    jobId: ticket.jobId ?? null,
     jobNumber: ticket.jobNumber ?? "—",
     projectName: ticket.projectName,
     customer: ticket.customerName,
