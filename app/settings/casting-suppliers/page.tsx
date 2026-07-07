@@ -13,6 +13,14 @@ import {
 } from "@/lib/casting-utils";
 import { withDatabaseRetry } from "@/lib/prisma";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+  tableRowClassName,
+} from "@/lib/table-styles";
 type CastingSuppliersPageProps = {
   searchParams: Promise<{ success?: string; error?: string }>;
 };
@@ -47,31 +55,31 @@ export default async function CastingSuppliersPage({
             No suppliers yet. Add your domestic and imported vendors below.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-xs">
-              <thead className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
+          <div className={tableFlushWrapperClassName}>
+            <table className={tableClassName}>
+              <thead>
                 <tr>
-                  <th className="px-4 py-2.5 font-semibold">Name</th>
-                  <th className="px-4 py-2.5 font-semibold">Origin</th>
-                  <th className="px-4 py-2.5 font-semibold">Products</th>
-                  <th className="px-4 py-2.5 font-semibold">Status</th>
-                  <th className="px-4 py-2.5 font-semibold">Sort</th>
-                  <th className="px-4 py-2.5 font-semibold">Edit</th>
+                  <th className={tableHeaderCellClassName}>Name</th>
+                  <th className={tableHeaderCellClassName}>Origin</th>
+                  <th className={tableHeaderCellClassName}>Products</th>
+                  <th className={tableHeaderCellClassName}>Status</th>
+                  <th className={tableHeaderCellClassName}>Sort</th>
+                  <th className={tableHeaderCellClassName}>Edit</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className={tableBodyClassName}>
                 {suppliers.map((supplier) => (
-                  <tr key={supplier.id} className="hover:bg-slate-50/60">
-                    <td className="px-4 py-2.5 font-medium text-slate-900">
+                  <tr key={supplier.id} className={tableRowClassName}>
+                    <td className={`${tableCellClassName} font-medium text-slate-900`}>
                       {supplier.name}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-700">
+                    <td className={`${tableCellClassName} text-slate-700`}>
                       {formatCastingSupplierOriginLabel(supplier.origin)}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-700">
+                    <td className={`${tableCellClassName} text-slate-700`}>
                       {supplier._count.products}
                     </td>
-                    <td className="px-4 py-2.5">
+                    <td className={tableCellClassName}>
                       <StatusBadge
                         label={supplier.status === "ACTIVE" ? "Active" : "Inactive"}
                         variant={
@@ -79,10 +87,10 @@ export default async function CastingSuppliersPage({
                         }
                       />
                     </td>
-                    <td className="px-4 py-2.5 text-slate-700">
+                    <td className={`${tableCellClassName} text-slate-700`}>
                       {supplier.sortOrder}
                     </td>
-                    <td className="px-4 py-2.5">
+                    <td className={tableCellClassName}>
                       <details>
                         <summary className="cursor-pointer text-slate-700 underline hover:text-slate-900">
                           Edit

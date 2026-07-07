@@ -7,17 +7,42 @@ import { assertUploadAllowed } from "@/lib/upload-validation";
 
 const PDF_EXTENSIONS = [".pdf"] as const;
 
-export type StructureTemplatePdfRecord = {
-  id: string;
-  templateId: string;
+/**
+ * Full template PDF variant key. Circular templates use hasRiser/hasKey (and
+ * keep a single PDF; the app draws the differences). Rectangular templates
+ * use hasTopSlab/hasBaseSlab (four uploaded slots; the app draws joints,
+ * openings, and dimensions).
+ */
+export type TemplatePdfVariant = {
   hasRiser: boolean;
   hasKey: boolean;
+  hasTopSlab: boolean;
+  hasBaseSlab: boolean;
+};
+
+export type StructureTemplatePdfRecord = TemplatePdfVariant & {
+  id: string;
+  templateId: string;
   filePath: string;
   originalName: string;
   fileSize: number | null;
   uploadedAt: Date;
   updatedAt: Date;
 };
+
+/** File-name key for a rectangular variant, e.g. "topslab-nobase". */
+export function rectTemplateVariantKey(
+  hasTopSlab: boolean,
+  hasBaseSlab: boolean,
+): string {
+  return `${hasTopSlab ? "topslab" : "notopslab"}-${hasBaseSlab ? "base" : "nobase"}`;
+}
+
+function variantFileKey(variant: TemplatePdfVariant, isRect: boolean): string {
+  return isRect
+    ? rectTemplateVariantKey(variant.hasTopSlab, variant.hasBaseSlab)
+    : templateVariantKey(variant.hasRiser, variant.hasKey);
+}
 
 function normalizePath(filePath: string): string {
   return path.normalize(filePath);
@@ -36,15 +61,6 @@ export function getTemplatePdfDir(templateId: string): string {
   return path.join(getStructureTemplatePdfsRoot(), templateId);
 }
 
-export function getTemplatePdfPath(
-  templateId: string,
-  hasRiser: boolean,
-  hasKey: boolean,
-): string {
-  const variantKey = templateVariantKey(hasRiser, hasKey);
-  return path.join(getTemplatePdfDir(templateId), `${variantKey}.pdf`);
-}
-
 function assertPathUnderRoot(root: string, filePath: string): void {
   const resolvedRoot = path.resolve(root);
   const resolvedPath = path.resolve(filePath);
@@ -54,43 +70,63 @@ function assertPathUnderRoot(root: string, filePath: string): void {
   }
 }
 
-async function assertTemplateExists(
+async function getTemplateShape(
   client: PrismaClient,
   templateId: string,
-): Promise<void> {
+): Promise<"CIRCULAR" | "RECTANGULAR"> {
   const template = await client.structureTemplate.findUnique({
     where: { id: templateId },
-    select: { id: true },
+    select: { shape: true },
   });
   if (!template) {
     throw new Error("Structure template not found.");
   }
+  return template.shape;
 }
 
 export async function saveTemplatePdf(
   client: PrismaClient,
   templateId: string,
-  hasRiser: boolean,
-  hasKey: boolean,
+  variant: TemplatePdfVariant,
   file: File,
 ): Promise<StructureTemplatePdfRecord> {
   assertUploadAllowed(file, { allowedExtensions: PDF_EXTENSIONS });
 
-  await assertTemplateExists(client, templateId);
+  const shape = await getTemplateShape(client, templateId);
+  const isRect = shape === "RECTANGULAR";
+  // Zero out the other shape's flags so variants stay canonical per shape.
+  const canonical: TemplatePdfVariant = isRect
+    ? {
+        hasRiser: false,
+        hasKey: false,
+        hasTopSlab: variant.hasTopSlab,
+        hasBaseSlab: variant.hasBaseSlab,
+      }
+    : {
+        hasRiser: variant.hasRiser,
+        hasKey: variant.hasKey,
+        hasTopSlab: false,
+        hasBaseSlab: false,
+      };
 
   const root = getStructureTemplatePdfsRoot();
   const templateDir = getTemplatePdfDir(templateId);
   await mkdir(templateDir, { recursive: true });
 
   const outputPath = normalizePath(
-    getTemplatePdfPath(templateId, hasRiser, hasKey),
+    path.join(templateDir, `${variantFileKey(canonical, isRect)}.pdf`),
   );
   assertPathUnderRoot(root, outputPath);
 
-  const existing = await client.structureTemplatePdf.findUnique({
-    where: {
-      templateId_hasRiser_hasKey: { templateId, hasRiser, hasKey },
+  const uniqueWhere = {
+    templateId_hasRiser_hasKey_hasTopSlab_hasBaseSlab: {
+      templateId,
+      ...canonical,
     },
+  };
+
+  const existing = await client.structureTemplatePdf.findUnique({
+    where: uniqueWhere,
   });
 
   if (existing) {
@@ -107,13 +143,10 @@ export async function saveTemplatePdf(
   const originalName = sanitizeFileName(file.name);
 
   const row = await client.structureTemplatePdf.upsert({
-    where: {
-      templateId_hasRiser_hasKey: { templateId, hasRiser, hasKey },
-    },
+    where: uniqueWhere,
     create: {
       templateId,
-      hasRiser,
-      hasKey,
+      ...canonical,
       filePath: outputPath,
       originalName,
       fileSize: buffer.length,
@@ -125,19 +158,22 @@ export async function saveTemplatePdf(
     },
   });
 
-  // One PDF per template: the app draws riser/key differences itself, so any
-  // leftover variant PDFs from the old four-slot scheme are removed.
-  const others = await client.structureTemplatePdf.findMany({
-    where: { templateId, id: { not: row.id } },
-  });
-  for (const other of others) {
-    assertPathUnderRoot(root, other.filePath);
-    try {
-      await unlink(other.filePath);
-    } catch {
-      // File may already be gone from disk.
+  if (!isRect) {
+    // Circular: one PDF per template — the app draws riser/key differences
+    // itself, so any leftover variant PDFs from the old four-slot scheme are
+    // removed. Rectangular templates keep all four top/base slots.
+    const others = await client.structureTemplatePdf.findMany({
+      where: { templateId, id: { not: row.id } },
+    });
+    for (const other of others) {
+      assertPathUnderRoot(root, other.filePath);
+      try {
+        await unlink(other.filePath);
+      } catch {
+        // File may already be gone from disk.
+      }
+      await client.structureTemplatePdf.delete({ where: { id: other.id } });
     }
-    await client.structureTemplatePdf.delete({ where: { id: other.id } });
   }
 
   return row;

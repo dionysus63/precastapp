@@ -19,6 +19,14 @@ import {
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+  tableRowClassName,
+} from "@/lib/table-styles";
 function parseBulkPaste(text: string): BulkCustomerPasteRow[] {
   const lines = text
     .split(/\r?\n/)
@@ -258,68 +266,68 @@ export function BulkPasteForm() {
               No rows found. Paste Excel data above and click Parse Preview.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-xs">
+            <div className={tableFlushWrapperClassName}>
+              <table className={tableClassName}>
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                    <th className="px-4 py-2.5 font-semibold">Line</th>
-                    <th className="px-4 py-2.5 font-semibold">Status</th>
-                    <th className="px-4 py-2.5 font-semibold">Name</th>
-                    <th className="px-4 py-2.5 font-semibold">Customer Status</th>
-                    <th className="px-4 py-2.5 font-semibold">Primary Contact</th>
-                    <th className="px-4 py-2.5 font-semibold">Phone</th>
-                    <th className="px-4 py-2.5 font-semibold">Email</th>
-                    <th className="px-4 py-2.5 font-semibold">Address</th>
-                    <th className="px-4 py-2.5 font-semibold">Town</th>
-                    <th className="px-4 py-2.5 font-semibold">State</th>
-                    <th className="px-4 py-2.5 font-semibold">Zip</th>
-                    <th className="px-4 py-2.5 font-semibold">Notes</th>
-                    <th className="px-4 py-2.5 font-semibold">Issues</th>
+                  <tr>
+                    <th className={tableHeaderCellClassName}>Line</th>
+                    <th className={tableHeaderCellClassName}>Status</th>
+                    <th className={tableHeaderCellClassName}>Name</th>
+                    <th className={tableHeaderCellClassName}>Customer Status</th>
+                    <th className={tableHeaderCellClassName}>Primary Contact</th>
+                    <th className={tableHeaderCellClassName}>Phone</th>
+                    <th className={tableHeaderCellClassName}>Email</th>
+                    <th className={tableHeaderCellClassName}>Address</th>
+                    <th className={tableHeaderCellClassName}>Town</th>
+                    <th className={tableHeaderCellClassName}>State</th>
+                    <th className={tableHeaderCellClassName}>Zip</th>
+                    <th className={tableHeaderCellClassName}>Notes</th>
+                    <th className={tableHeaderCellClassName}>Issues</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className={tableBodyClassName}>
                   {previewRows.map((row) => (
-                    <tr key={row.lineNumber} className="hover:bg-slate-50/60">
-                      <td className="px-4 py-2.5 text-slate-500">
+                    <tr key={row.lineNumber} className={tableRowClassName}>
+                      <td className={`${tableCellClassName} text-slate-500`}>
                         {row.lineNumber}
                       </td>
-                      <td className="px-4 py-2.5">
+                      <td className={tableCellClassName}>
                         <StatusBadge
                           label={row.isValid ? "Valid" : "Invalid"}
                           variant={row.isValid ? "success" : "danger"}
                         />
                       </td>
-                      <td className="px-4 py-2.5 font-medium text-slate-900">
+                      <td className={`${tableCellClassName} font-medium text-slate-900`}>
                         {row.name || "—"}
                       </td>
-                      <td className="px-4 py-2.5 text-slate-600">
+                      <td className={`${tableCellClassName} text-slate-600`}>
                         {row.status || "Active"}
                       </td>
-                      <td className="px-4 py-2.5 text-slate-600">
+                      <td className={`${tableCellClassName} text-slate-600`}>
                         {row.primaryContactName || "—"}
                       </td>
-                      <td className="px-4 py-2.5 text-slate-600">
+                      <td className={`${tableCellClassName} text-slate-600`}>
                         {row.phone || "—"}
                       </td>
-                      <td className="px-4 py-2.5 text-slate-600">
+                      <td className={`${tableCellClassName} text-slate-600`}>
                         {row.email || "—"}
                       </td>
-                      <td className="px-4 py-2.5 text-slate-600">
+                      <td className={`${tableCellClassName} text-slate-600`}>
                         {row.address || "—"}
                       </td>
-                      <td className="px-4 py-2.5 text-slate-600">
+                      <td className={`${tableCellClassName} text-slate-600`}>
                         {row.town || "—"}
                       </td>
-                      <td className="px-4 py-2.5 text-slate-600">
+                      <td className={`${tableCellClassName} text-slate-600`}>
                         {row.state || "—"}
                       </td>
-                      <td className="px-4 py-2.5 text-slate-600">
+                      <td className={`${tableCellClassName} text-slate-600`}>
                         {row.zip || "—"}
                       </td>
-                      <td className="px-4 py-2.5 text-slate-600">
+                      <td className={`${tableCellClassName} text-slate-600`}>
                         {row.notes || "—"}
                       </td>
-                      <td className="px-4 py-2.5 text-red-600">
+                      <td className={`${tableCellClassName} text-red-600`}>
                         {row.issues.length > 0 ? row.issues.join(" ") : "—"}
                       </td>
                     </tr>

@@ -27,6 +27,16 @@ import type { PageInfo } from "@/lib/list-params";
 import {
   productKindBadgeVariant,
 } from "@/lib/product-kinds";
+import {
+  tableBodyClassName,
+  tableCellBordersClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+  tableNumericCellClassName,
+  tableRowClassName,
+} from "@/lib/table-styles";
 
 type ProductsListFilters = {
   search: string;
@@ -55,29 +65,33 @@ const ProductsTable = memo(function ProductsTable({
   total: number;
 }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-xs">
+    <div className={tableFlushWrapperClassName}>
+      <table className={tableClassName}>
         <thead>
-          <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-            <th className="px-4 py-2.5 font-semibold">Product Code</th>
-            <th className="px-4 py-2.5 font-semibold">Product Name</th>
-            <th className="px-4 py-2.5 font-semibold">Product Type</th>
-            <th className="px-4 py-2.5 font-semibold">Category</th>
-            <th className="px-4 py-2.5 font-semibold">Subcategory</th>
-            <th className="px-4 py-2.5 font-semibold">Unit</th>
-            <th className="px-4 py-2.5 font-semibold">Unit Price</th>
-            <th className="px-4 py-2.5 font-semibold">Weight</th>
-            <th className="px-4 py-2.5 font-semibold">Yards</th>
-            <th className="px-4 py-2.5 font-semibold">Submittals</th>
-            <th className="px-4 py-2.5 font-semibold">Actions</th>
+          <tr>
+            <th className={tableHeaderCellClassName}>Product Code</th>
+            <th className={tableHeaderCellClassName}>Product Name</th>
+            <th className={tableHeaderCellClassName}>Product Type</th>
+            <th className={tableHeaderCellClassName}>Category</th>
+            <th className={tableHeaderCellClassName}>Subcategory</th>
+            <th className={tableHeaderCellClassName}>Unit</th>
+            <th className={`${tableHeaderCellClassName} text-right`}>
+              Unit Price
+            </th>
+            <th className={`${tableHeaderCellClassName} text-right`}>
+              Weight
+            </th>
+            <th className={`${tableHeaderCellClassName} text-right`}>Yards</th>
+            <th className={tableHeaderCellClassName}>Submittals</th>
+            <th className={tableHeaderCellClassName}>Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className={tableBodyClassName}>
           {products.length === 0 ? (
             <tr>
               <td
                 colSpan={11}
-                className="px-4 py-8 text-center text-sm text-slate-500"
+                className={`${tableCellBordersClassName} px-4 py-8 text-center text-sm text-slate-500`}
               >
                 {total === 0
                   ? "No products match your search or filters."
@@ -86,11 +100,13 @@ const ProductsTable = memo(function ProductsTable({
             </tr>
           ) : (
             products.map((product) => (
-              <tr key={product.id} className="hover:bg-slate-50/60">
-                <td className="px-4 py-2.5 font-mono text-[11px] font-medium text-slate-900">
+              <tr key={product.id} className={tableRowClassName}>
+                <td
+                  className={`${tableCellClassName} font-mono text-[11px] font-medium text-slate-900`}
+                >
                   {product.productCode}
                 </td>
-                <td className="px-4 py-2.5 font-medium text-slate-900">
+                <td className={`${tableCellClassName} font-medium text-slate-900`}>
                   <span className="inline-flex items-center gap-1.5">
                     {product.productName}
                     {product.productKindLabel ? (
@@ -113,28 +129,36 @@ const ProductsTable = memo(function ProductsTable({
                     ) : null}
                   </span>
                 </td>
-                <td className="px-4 py-2.5">
+                <td className={tableCellClassName}>
                   <StatusBadge
                     label={product.productTypeLabel}
                     variant={product.productTypeVariant}
                   />
                 </td>
-                <td className="px-4 py-2.5">
+                <td className={tableCellClassName}>
                   <StatusBadge
                     label={product.category}
                     variant={product.categoryVariant}
                   />
                 </td>
-                <td className="px-4 py-2.5 text-slate-600">
+                <td className={`${tableCellClassName} text-slate-600`}>
                   {product.subcategory}
                 </td>
-                <td className="px-4 py-2.5 text-slate-600">{product.unit}</td>
-                <td className="px-4 py-2.5 font-medium text-slate-900">
+                <td className={`${tableCellClassName} text-slate-600`}>
+                  {product.unit}
+                </td>
+                <td
+                  className={`${tableNumericCellClassName} font-medium text-slate-900`}
+                >
                   {product.unitPrice}
                 </td>
-                <td className="px-4 py-2.5 text-slate-600">{product.weight}</td>
-                <td className="px-4 py-2.5 text-slate-600">{product.yards}</td>
-                <td className="px-4 py-2.5">
+                <td className={`${tableNumericCellClassName} text-slate-600`}>
+                  {product.weight}
+                </td>
+                <td className={`${tableNumericCellClassName} text-slate-600`}>
+                  {product.yards}
+                </td>
+                <td className={tableCellClassName}>
                   {product.submittalCount > 0 ? (
                     <StatusBadge
                       label={String(product.submittalCount)}
@@ -144,7 +168,7 @@ const ProductsTable = memo(function ProductsTable({
                     <span className="text-slate-400">—</span>
                   )}
                 </td>
-                <td className="px-4 py-2.5">
+                <td className={tableCellClassName}>
                   <Link
                     href={`/products/${product.id}`}
                     className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"

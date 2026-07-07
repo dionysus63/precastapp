@@ -197,6 +197,8 @@ const ROUTE_PERMISSION_RULES: Array<{
   { prefix: "/delivery-tickets", permission: "DELIVERY_VIEW" },
   { prefix: "/walk-ins", permission: "DELIVERY_VIEW" },
   { prefix: "/inventory", permission: "INVENTORY_VIEW" },
+  { prefix: "/receiving", permission: "INVENTORY_VIEW" },
+  { prefix: "/purchase-orders", permission: "INVENTORY_VIEW" },
   { prefix: "/files", permission: "FILES_VIEW" },
   { prefix: "/settings/users", permission: "USERS_MANAGE" },
   { prefix: "/settings/roles", permission: "USERS_MANAGE" },

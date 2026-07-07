@@ -16,6 +16,13 @@ import {
   type ApproveForProductionTarget,
 } from "@/components/production/approve-for-production-dialog";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+} from "@/lib/table-styles";
 export type ProductionQueueItem = {
   id: string;
   structureNumber: string | null;
@@ -59,26 +66,26 @@ function StructureQueueTable({
   renderActions: (item: ProductionQueueItem) => ReactNode;
 }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-xs">
-        <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+    <div className={tableFlushWrapperClassName}>
+      <table className={tableClassName}>
+        <thead>
           <tr>
-            <th className="px-4 py-2 font-semibold">Structure</th>
-            <th className="px-4 py-2 font-semibold">Job</th>
-            <th className="px-4 py-2 font-semibold">Quote</th>
-            <th className="px-4 py-2 font-semibold">Qty</th>
+            <th className={tableHeaderCellClassName}>Structure</th>
+            <th className={tableHeaderCellClassName}>Job</th>
+            <th className={tableHeaderCellClassName}>Quote</th>
+            <th className={tableHeaderCellClassName}>Qty</th>
             {showApprovalSource ? (
-              <th className="px-4 py-2 font-semibold">Approval</th>
+              <th className={tableHeaderCellClassName}>Approval</th>
             ) : (
-              <th className="px-4 py-2 font-semibold">Status</th>
+              <th className={tableHeaderCellClassName}>Status</th>
             )}
-            <th className="px-4 py-2 font-semibold">Actions</th>
+            <th className={tableHeaderCellClassName}>Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className={tableBodyClassName}>
           {items.map((item) => (
             <tr key={item.id} className="text-slate-800">
-              <td className="px-4 py-2">
+              <td className={tableCellClassName}>
                 <div className="font-medium text-slate-900">
                   <StructurePrimaryName item={item} />
                 </div>
@@ -86,7 +93,7 @@ function StructureQueueTable({
                   {item.description ?? item.productName ?? "—"}
                 </div>
               </td>
-              <td className="px-4 py-2">
+              <td className={tableCellClassName}>
                 {item.jobNumber ? (
                   <span>
                     {item.jobNumber}
@@ -98,11 +105,11 @@ function StructureQueueTable({
                   "—"
                 )}
               </td>
-              <td className="px-4 py-2">{item.quoteNumber ?? "—"}</td>
-              <td className="px-4 py-2">
+              <td className={tableCellClassName}>{item.quoteNumber ?? "—"}</td>
+              <td className={tableCellClassName}>
                 {item.quantity ?? "—"} {item.unit ?? ""}
               </td>
-              <td className="px-4 py-2">
+              <td className={tableCellClassName}>
                 {showApprovalSource ? (
                   <StatusBadge
                     label={
@@ -115,7 +122,7 @@ function StructureQueueTable({
                   <StatusBadge label={item.status.replace(/_/g, " ")} />
                 )}
               </td>
-              <td className="px-4 py-2">
+              <td className={tableCellClassName}>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {renderActions(item)}
                 </div>
@@ -260,22 +267,22 @@ export function ReadyToShipPanel({ items }: { items: ProductionQueueItem[] }) {
           No structures waiting to ship.
         </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-xs">
-            <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+        <div className={tableFlushWrapperClassName}>
+          <table className={tableClassName}>
+            <thead>
               <tr>
-                <th className="px-4 py-2 font-semibold">Structure</th>
-                <th className="px-4 py-2 font-semibold">Job</th>
-                <th className="px-4 py-2 font-semibold">Quote</th>
-                <th className="px-4 py-2 font-semibold">Qty</th>
-                <th className="px-4 py-2 font-semibold">Made</th>
-                <th className="px-4 py-2 font-semibold">Actions</th>
+                <th className={tableHeaderCellClassName}>Structure</th>
+                <th className={tableHeaderCellClassName}>Job</th>
+                <th className={tableHeaderCellClassName}>Quote</th>
+                <th className={tableHeaderCellClassName}>Qty</th>
+                <th className={tableHeaderCellClassName}>Made</th>
+                <th className={tableHeaderCellClassName}>Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className={tableBodyClassName}>
               {items.map((item) => (
                 <tr key={item.id} className="text-slate-800">
-                  <td className="px-4 py-2">
+                  <td className={tableCellClassName}>
                     <div className="font-medium text-slate-900">
                       <StructurePrimaryName item={item} />
                     </div>
@@ -283,7 +290,7 @@ export function ReadyToShipPanel({ items }: { items: ProductionQueueItem[] }) {
                       {item.description ?? item.productName ?? "—"}
                     </div>
                   </td>
-                  <td className="px-4 py-2">
+                  <td className={tableCellClassName}>
                     {item.jobNumber ? (
                       <span>
                         {item.jobNumber}
@@ -295,12 +302,12 @@ export function ReadyToShipPanel({ items }: { items: ProductionQueueItem[] }) {
                       "—"
                     )}
                   </td>
-                  <td className="px-4 py-2">{item.quoteNumber ?? "—"}</td>
-                  <td className="px-4 py-2">
+                  <td className={tableCellClassName}>{item.quoteNumber ?? "—"}</td>
+                  <td className={tableCellClassName}>
                     {item.quantity ?? "—"} {item.unit ?? ""}
                   </td>
-                  <td className="px-4 py-2">{item.madeDate ?? "—"}</td>
-                  <td className="px-4 py-2">
+                  <td className={tableCellClassName}>{item.madeDate ?? "—"}</td>
+                  <td className={tableCellClassName}>
                     <div className="flex flex-wrap items-center gap-1.5">
                       {item.drillSheetId ? (
                         <DrillSheetPdfLink

@@ -9,6 +9,14 @@ import { OpenFileButton } from "@/components/files/open-file-button";
 import { JOB_SUBFOLDERS } from "@/lib/job-folder-constants";
 import type { JobFileListRow, JobWithoutFolderRow } from "@/lib/job-file-mapper";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+  tableRowClassName,
+} from "@/lib/table-styles";
 type FilesHubProps = {
   files: JobFileListRow[];
   jobsMissingFolders: JobWithoutFolderRow[];
@@ -144,26 +152,26 @@ export function FilesHub({
             No files indexed yet. Create job folders, upload files, or sync from disk.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-xs">
-              <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+          <div className={tableFlushWrapperClassName}>
+            <table className={tableClassName}>
+              <thead>
                 <tr>
-                  <th className="px-4 py-2 font-semibold">File</th>
-                  <th className="px-4 py-2 font-semibold">Category</th>
-                  <th className="px-4 py-2 font-semibold">Job</th>
-                  <th className="px-4 py-2 font-semibold">Customer</th>
-                  <th className="px-4 py-2 font-semibold">Updated</th>
-                  <th className="px-4 py-2 font-semibold">Actions</th>
+                  <th className={tableHeaderCellClassName}>File</th>
+                  <th className={tableHeaderCellClassName}>Category</th>
+                  <th className={tableHeaderCellClassName}>Job</th>
+                  <th className={tableHeaderCellClassName}>Customer</th>
+                  <th className={tableHeaderCellClassName}>Updated</th>
+                  <th className={tableHeaderCellClassName}>Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className={tableBodyClassName}>
                 {files.map((file) => (
-                  <tr key={file.id} className="hover:bg-slate-50/60">
-                    <td className="px-4 py-2 font-medium text-slate-900">
+                  <tr key={file.id} className={tableRowClassName}>
+                    <td className={`${tableCellClassName} font-medium text-slate-900`}>
                       {file.fileName}
                     </td>
-                    <td className="px-4 py-2 text-slate-600">{file.folderCategory}</td>
-                    <td className="px-4 py-2">
+                    <td className={`${tableCellClassName} text-slate-600`}>{file.folderCategory}</td>
+                    <td className={tableCellClassName}>
                       <Link
                         href={`/files/jobs/${file.jobId}`}
                         className="font-medium text-slate-900 hover:text-slate-700"
@@ -171,11 +179,11 @@ export function FilesHub({
                         {file.jobNumber}
                       </Link>
                     </td>
-                    <td className="px-4 py-2 text-slate-600">{file.customerName}</td>
-                    <td className="px-4 py-2 whitespace-nowrap text-slate-600">
+                    <td className={`${tableCellClassName} text-slate-600`}>{file.customerName}</td>
+                    <td className={`${tableCellClassName} whitespace-nowrap text-slate-600`}>
                       {file.updatedAt}
                     </td>
-                    <td className="px-4 py-2">
+                    <td className={tableCellClassName}>
                       <OpenFileButton fileId={file.id} fileName={file.fileName} />
                     </td>
                   </tr>

@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { createJobStructureFromQuoteConfig } from "@/lib/drill-sheet-persistence";
+import { createRectJobStructureFromQuoteConfig } from "@/lib/rect-sheet-persistence";
 import { prisma } from "@/lib/prisma";
 import { parseStructureConfigJson } from "@/lib/quotes/structure-workbook";
+import { parseRectStructureConfigJson } from "@/lib/quotes/rect-structure-workbook";
 
 export async function createDrillSheetsFromQuote(quoteId: string) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
@@ -38,14 +40,20 @@ export async function createDrillSheetsFromQuote(quoteId: string) {
     }
 
     const config = parseStructureConfigJson(line.structureConfigJson);
-    if (!config || config.detailLevel !== "DRILL_SHEET") {
+    const rectConfig = config
+      ? null
+      : parseRectStructureConfigJson(line.structureConfigJson);
+    if (
+      (!config || config.detailLevel !== "DRILL_SHEET") &&
+      (!rectConfig || rectConfig.detailLevel !== "FULL")
+    ) {
       continue;
     }
 
     // Won-quote linking may have created a placeholder structure for this
     // line; upgrade it in place so status, documents, and delivery links
     // are preserved instead of creating a duplicate.
-    const jobStructureId = await createJobStructureFromQuoteConfig(config, {
+    const createOptions = {
       quoteId: quote.id,
       jobId: quote.jobId,
       structureNumber: line.itemCode,
@@ -53,7 +61,10 @@ export async function createDrillSheetsFromQuote(quoteId: string) {
       contractorName: quote.customerName,
       projectName: quote.projectName,
       upgradeJobStructureId: line.jobStructure?.id ?? null,
-    });
+    };
+    const jobStructureId = rectConfig
+      ? await createRectJobStructureFromQuoteConfig(rectConfig, createOptions)
+      : await createJobStructureFromQuoteConfig(config!, createOptions);
 
     if (!line.jobStructureId) {
       await prisma.quoteLineItem.update({

@@ -16,6 +16,7 @@ export const drillSheetDetailInclude = {
     select: {
       name: true,
       agencyStandard: true,
+      shape: true,
       templatePdfs: true,
     },
   },

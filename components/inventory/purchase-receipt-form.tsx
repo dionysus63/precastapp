@@ -2,9 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { savePurchaseReceipt } from "@/app/inventory/actions";
 import { SectionCard } from "@/components/dashboard/section-card";
+import {
+  buildPrefilledReceiptLines,
+  PurchaseOrderReceiptBanner,
+  type PurchaseOrderReceiptOption,
+} from "@/components/receiving/purchase-order-receipt-banner";
 import {
   formatCastingPieceRoleLabel,
   formatCastingSupplierOriginLabel,
@@ -47,6 +52,10 @@ type PurchaseReceiptFormProps = {
   products: ProductOption[];
   assemblies: AssemblyOption[];
   suppliers: SupplierOption[];
+  category?: "DOMESTIC_CASTINGS" | "IMPORTED_CASTINGS";
+  returnPath?: string;
+  lockedPurchaseOrder?: PurchaseOrderReceiptOption | null;
+  openPurchaseOrders?: PurchaseOrderReceiptOption[];
 };
 
 type ReceiptLineRow = {
@@ -55,11 +64,11 @@ type ReceiptLineRow = {
   quantityReceived: string;
 };
 
-function createRow(): ReceiptLineRow {
+function createRow(productId = "", quantityReceived = ""): ReceiptLineRow {
   return {
     id: crypto.randomUUID(),
-    productId: "",
-    quantityReceived: "",
+    productId,
+    quantityReceived,
   };
 }
 
@@ -67,20 +76,57 @@ export function PurchaseReceiptForm({
   products,
   assemblies,
   suppliers,
+  category,
+  returnPath = "/inventory/receipts",
+  lockedPurchaseOrder = null,
+  openPurchaseOrders = [],
 }: PurchaseReceiptFormProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [supplierId, setSupplierId] = useState("");
+  const [selectedPurchaseOrderId, setSelectedPurchaseOrderId] = useState(
+    lockedPurchaseOrder?.id ?? "",
+  );
   const [mode, setMode] = useState<"piece" | "assembly" | "unit">("piece");
   const [assemblyId, setAssemblyId] = useState("");
   const [assemblyQty, setAssemblyQty] = useState("1");
   const [lines, setLines] = useState<ReceiptLineRow[]>([createRow()]);
   const [submissionKey] = useState(() => crypto.randomUUID());
 
+  const activePurchaseOrder = useMemo(() => {
+    if (lockedPurchaseOrder) {
+      return lockedPurchaseOrder;
+    }
+    return (
+      openPurchaseOrders.find((po) => po.id === selectedPurchaseOrderId) ?? null
+    );
+  }, [lockedPurchaseOrder, openPurchaseOrders, selectedPurchaseOrderId]);
+
+  useEffect(() => {
+    if (!activePurchaseOrder) {
+      return;
+    }
+    const prefilled = buildPrefilledReceiptLines(activePurchaseOrder);
+    if (prefilled.length > 0) {
+      setMode("piece");
+      setLines(
+        prefilled.map((line) => createRow(line.productId, line.quantityReceived)),
+      );
+    }
+  }, [activePurchaseOrder]);
+
+  const filteredSuppliers = useMemo(() => {
+    if (!category) {
+      return suppliers;
+    }
+    const origin = category === "DOMESTIC_CASTINGS" ? "DOMESTIC" : "IMPORTED";
+    return suppliers.filter((supplier) => supplier.origin === origin);
+  }, [suppliers, category]);
+
   const selectedSupplier = useMemo(
-    () => suppliers.find((entry) => entry.id === supplierId),
-    [suppliers, supplierId],
+    () => filteredSuppliers.find((entry) => entry.id === supplierId),
+    [filteredSuppliers, supplierId],
   );
 
   const supplierProducts = useMemo(() => {
@@ -130,6 +176,13 @@ export function PurchaseReceiptForm({
     const form = event.currentTarget;
     const formData = new FormData(form);
     formData.set("supplierId", supplierId);
+    if (category) {
+      formData.set("category", category);
+    }
+    formData.set("returnPath", returnPath);
+    if (selectedPurchaseOrderId) {
+      formData.set("purchaseOrderId", selectedPurchaseOrderId);
+    }
 
     if (mode === "assembly") {
       formData.set("assemblyId", assemblyId);
@@ -157,7 +210,7 @@ export function PurchaseReceiptForm({
         setError(result.error);
         return;
       }
-      router.push("/inventory/receipts");
+      router.push(result.returnPath ?? returnPath);
       router.refresh();
     });
   }
@@ -170,6 +223,13 @@ export function PurchaseReceiptForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      <PurchaseOrderReceiptBanner
+        lockedPurchaseOrder={lockedPurchaseOrder}
+        openPurchaseOrders={openPurchaseOrders}
+        selectedPurchaseOrderId={selectedPurchaseOrderId}
+        onSelectPurchaseOrderId={setSelectedPurchaseOrderId}
+      />
+
       <SectionCard title="Supplier & receipt details">
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="sm:col-span-3">
@@ -188,7 +248,7 @@ export function PurchaseReceiptForm({
               className={inputClass}
             >
               <option value="">Select supplier…</option>
-              {suppliers.map((supplier) => (
+              {filteredSuppliers.map((supplier) => (
                 <option key={supplier.id} value={supplier.id}>
                   {supplier.name}
                   {supplier.origin
@@ -403,7 +463,7 @@ export function PurchaseReceiptForm({
 
       <div className="flex justify-end gap-2">
         <Link
-          href="/inventory"
+          href={returnPath.startsWith("/receiving") ? "/receiving" : "/inventory"}
           className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
         >
           Cancel

@@ -14,6 +14,14 @@ import { printPdfUrl } from "@/lib/print-pdf-url";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { PageInfo } from "@/lib/list-params";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+  tableRowClassName,
+} from "@/lib/table-styles";
 type InvoicesTabsProps = {
   invoices: InvoiceListRow[];
   paidWalkIns: InvoiceListRow[];
@@ -206,12 +214,12 @@ function DraftReviewTab({
             title={`Delivery date: ${dateKey === "No delivery date" ? "—" : dateKey}`}
             noPadding
           >
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-xs">
-                <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+            <div className={tableFlushWrapperClassName}>
+              <table className={tableClassName}>
+                <thead>
                   <tr>
                     {canManage ? (
-                      <th className="px-4 py-2">
+                      <th className={tableHeaderCellClassName}>
                         <input
                           type="checkbox"
                           checked={
@@ -222,21 +230,21 @@ function DraftReviewTab({
                         />
                       </th>
                     ) : null}
-                    <th className="px-4 py-2 font-semibold">Invoice</th>
-                    <th className="px-4 py-2 font-semibold">Ticket</th>
-                    <th className="px-4 py-2 font-semibold">Customer</th>
-                    <th className="px-4 py-2 font-semibold">Subtotal</th>
-                    <th className="px-4 py-2 font-semibold">Delivery</th>
-                    <th className="px-4 py-2 font-semibold">Tax</th>
-                    <th className="px-4 py-2 font-semibold">Total</th>
-                    <th className="px-4 py-2 font-semibold">Actions</th>
+                    <th className={tableHeaderCellClassName}>Invoice</th>
+                    <th className={tableHeaderCellClassName}>Ticket</th>
+                    <th className={tableHeaderCellClassName}>Customer</th>
+                    <th className={tableHeaderCellClassName}>Subtotal</th>
+                    <th className={tableHeaderCellClassName}>Delivery</th>
+                    <th className={tableHeaderCellClassName}>Tax</th>
+                    <th className={tableHeaderCellClassName}>Total</th>
+                    <th className={tableHeaderCellClassName}>Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className={tableBodyClassName}>
                   {rows.map((row) => (
-                    <tr key={row.id} className="hover:bg-slate-50/60">
+                    <tr key={row.id} className={tableRowClassName}>
                       {canManage ? (
-                        <td className="px-4 py-2">
+                        <td className={tableCellClassName}>
                           <input
                             type="checkbox"
                             checked={selected.has(row.id)}
@@ -245,7 +253,7 @@ function DraftReviewTab({
                           />
                         </td>
                       ) : null}
-                      <td className="px-4 py-2 font-medium">
+                      <td className={`${tableCellClassName} font-medium`}>
                         <Link
                           href={`/invoices/${row.id}`}
                           className="text-slate-900 hover:text-slate-700"
@@ -254,22 +262,22 @@ function DraftReviewTab({
                         </Link>
                         <InvoiceBadges row={row} />
                       </td>
-                      <td className="px-4 py-2">{row.ticketNumber}</td>
-                      <td className="px-4 py-2">
+                      <td className={tableCellClassName}>{row.ticketNumber}</td>
+                      <td className={tableCellClassName}>
                         {row.customerName}
                         <span className="block text-slate-500">
                           {row.projectName}
                         </span>
                       </td>
-                      <td className="px-4 py-2">{formatMoney(row.subtotal)}</td>
-                      <td className="px-4 py-2">
+                      <td className={tableCellClassName}>{formatMoney(row.subtotal)}</td>
+                      <td className={tableCellClassName}>
                         {formatMoney(row.deliveryAmount)}
                       </td>
-                      <td className="px-4 py-2">{formatMoney(row.salesTax)}</td>
-                      <td className="px-4 py-2 font-medium">
+                      <td className={tableCellClassName}>{formatMoney(row.salesTax)}</td>
+                      <td className={`${tableCellClassName} font-medium`}>
                         {formatMoney(row.total)}
                       </td>
-                      <td className="px-4 py-2">
+                      <td className={tableCellClassName}>
                         <div className="flex flex-wrap gap-2">
                           {canManage ? (
                             <Link
@@ -327,21 +335,21 @@ function DraftReviewTab({
             {paidWalkIns.length === 1 ? "" : "s"}
           </button>
           {showPaid ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-xs">
-                <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+            <div className={tableFlushWrapperClassName}>
+              <table className={tableClassName}>
+                <thead>
                   <tr>
-                    <th className="px-4 py-2 font-semibold">Invoice</th>
-                    <th className="px-4 py-2 font-semibold">Ticket</th>
-                    <th className="px-4 py-2 font-semibold">Customer</th>
-                    <th className="px-4 py-2 font-semibold">Total</th>
-                    <th className="px-4 py-2 font-semibold">Status</th>
+                    <th className={tableHeaderCellClassName}>Invoice</th>
+                    <th className={tableHeaderCellClassName}>Ticket</th>
+                    <th className={tableHeaderCellClassName}>Customer</th>
+                    <th className={tableHeaderCellClassName}>Total</th>
+                    <th className={tableHeaderCellClassName}>Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className={tableBodyClassName}>
                   {paidWalkIns.map((row) => (
                     <tr key={row.id}>
-                      <td className="px-4 py-2">
+                      <td className={tableCellClassName}>
                         <Link
                           href={`/invoices/${row.id}`}
                           className="font-medium text-slate-900"
@@ -352,10 +360,10 @@ function DraftReviewTab({
                           Already paid
                         </span>
                       </td>
-                      <td className="px-4 py-2">{row.ticketNumber}</td>
-                      <td className="px-4 py-2">{row.customerName}</td>
-                      <td className="px-4 py-2">{formatMoney(row.total)}</td>
-                      <td className="px-4 py-2">
+                      <td className={tableCellClassName}>{row.ticketNumber}</td>
+                      <td className={tableCellClassName}>{row.customerName}</td>
+                      <td className={tableCellClassName}>{formatMoney(row.total)}</td>
+                      <td className={tableCellClassName}>
                         <StatusBadge label="PAID" variant="success" />
                       </td>
                     </tr>
@@ -425,23 +433,23 @@ function FinalInvoicesTab({
             No finalized invoices yet.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-xs">
-              <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+          <div className={tableFlushWrapperClassName}>
+            <table className={tableClassName}>
+              <thead>
                 <tr>
-                  <th className="px-4 py-2 font-semibold">Invoice</th>
-                  <th className="px-4 py-2 font-semibold">Ticket</th>
-                  <th className="px-4 py-2 font-semibold">Customer</th>
-                  <th className="px-4 py-2 font-semibold">Invoice date</th>
-                  <th className="px-4 py-2 font-semibold">Total</th>
-                  <th className="px-4 py-2 font-semibold">Status</th>
-                  <th className="px-4 py-2 font-semibold">Actions</th>
+                  <th className={tableHeaderCellClassName}>Invoice</th>
+                  <th className={tableHeaderCellClassName}>Ticket</th>
+                  <th className={tableHeaderCellClassName}>Customer</th>
+                  <th className={tableHeaderCellClassName}>Invoice date</th>
+                  <th className={tableHeaderCellClassName}>Total</th>
+                  <th className={tableHeaderCellClassName}>Status</th>
+                  <th className={tableHeaderCellClassName}>Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className={tableBodyClassName}>
                 {filtered.map((row) => (
-                  <tr key={row.id} className="hover:bg-slate-50/60">
-                    <td className="px-4 py-2 font-medium">
+                  <tr key={row.id} className={tableRowClassName}>
+                    <td className={`${tableCellClassName} font-medium`}>
                       <Link
                         href={`/invoices/${row.id}`}
                         className="text-slate-900 hover:text-slate-700"
@@ -449,18 +457,18 @@ function FinalInvoicesTab({
                         {row.invoiceNumber}
                       </Link>
                     </td>
-                    <td className="px-4 py-2">{row.ticketNumber}</td>
-                    <td className="px-4 py-2">
+                    <td className={tableCellClassName}>{row.ticketNumber}</td>
+                    <td className={tableCellClassName}>
                       {row.customerName}
                       <span className="block text-slate-500">
                         {row.projectName}
                       </span>
                     </td>
-                    <td className="px-4 py-2">{formatDate(row.invoiceDate)}</td>
-                    <td className="px-4 py-2 font-medium">
+                    <td className={tableCellClassName}>{formatDate(row.invoiceDate)}</td>
+                    <td className={`${tableCellClassName} font-medium`}>
                       {formatMoney(row.total)}
                     </td>
-                    <td className="px-4 py-2">
+                    <td className={tableCellClassName}>
                       <StatusBadge
                         label={row.status === "SENT" ? "Final" : row.status}
                         variant={
@@ -472,7 +480,7 @@ function FinalInvoicesTab({
                         }
                       />
                     </td>
-                    <td className="px-4 py-2">
+                    <td className={tableCellClassName}>
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"

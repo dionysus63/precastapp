@@ -12,6 +12,13 @@ import {
 } from "@/lib/price-list-service";
 import { withDatabaseRetry } from "@/lib/prisma";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+} from "@/lib/table-styles";
 type PriceListDetailPageProps = {
   params: Promise<{ id: string }>;
 };
@@ -125,22 +132,22 @@ export default async function PriceListDetailPage({
             description="Active products without a price on this list."
             noPadding
           >
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-xs">
-                <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+            <div className={tableFlushWrapperClassName}>
+              <table className={tableClassName}>
+                <thead>
                   <tr>
-                    <th className="px-4 py-2 font-semibold">Product</th>
-                    <th className="px-4 py-2 font-semibold">Add price</th>
+                    <th className={tableHeaderCellClassName}>Product</th>
+                    <th className={tableHeaderCellClassName}>Add price</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className={tableBodyClassName}>
                   {missingProducts.map((product) => (
                     <tr key={product.id}>
-                      <td className="px-4 py-2">
+                      <td className={tableCellClassName}>
                         <div className="font-medium">{product.productCode}</div>
                         <div className="text-slate-500">{product.name}</div>
                       </td>
-                      <td className="px-4 py-2">
+                      <td className={tableCellClassName}>
                         <form
                           action={upsertPriceListItemFormAction}
                           className="flex items-end gap-2"
@@ -185,26 +192,26 @@ export default async function PriceListDetailPage({
           {priceList.items.length === 0 ? (
             <p className="px-4 py-6 text-sm text-slate-500">No items yet.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-xs">
-                <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+            <div className={tableFlushWrapperClassName}>
+              <table className={tableClassName}>
+                <thead>
                   <tr>
-                    <th className="px-4 py-2 font-semibold">Product</th>
-                    <th className="px-4 py-2 font-semibold">Unit price</th>
-                    <th className="px-4 py-2 font-semibold">Actions</th>
+                    <th className={tableHeaderCellClassName}>Product</th>
+                    <th className={tableHeaderCellClassName}>Unit price</th>
+                    <th className={tableHeaderCellClassName}>Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className={tableBodyClassName}>
                   {priceList.items.map((item) => (
                     <tr key={item.id}>
-                      <td className="px-4 py-2">
+                      <td className={tableCellClassName}>
                         <div className="font-medium">{item.product.productCode}</div>
                         <div className="text-slate-500">{item.product.name}</div>
                       </td>
-                      <td className="px-4 py-2">
+                      <td className={tableCellClassName}>
                         ${Number(item.unitPrice).toFixed(2)}
                       </td>
-                      <td className="px-4 py-2">
+                      <td className={tableCellClassName}>
                         <form action={deletePriceListItemFormAction}>
                           <input type="hidden" name="id" value={item.id} />
                           <input type="hidden" name="priceListId" value={priceList.id} />

@@ -156,6 +156,19 @@ export function StructureWorkbook({
         : initialLineItems;
     return rowsFromLineItems(sourceLineItems, templates, workbookDefaults);
   });
+
+  // Rectangular-workbook lines are not editable here; carry them through so
+  // applying this workbook never wipes them from the quote.
+  const [rectPassthroughLines] = useState<EditableQuoteLineItem[]>(() => {
+    const session = readWorkbookSession(quoteId);
+    if (session?.rectPassthroughLines?.length) {
+      return session.rectPassthroughLines;
+    }
+    const sourceLineItems = session?.pendingLineItems?.length
+      ? session.pendingLineItems
+      : initialLineItems;
+    return sourceLineItems.filter((line) => line.rectStructureConfig != null);
+  });
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -200,9 +213,10 @@ export function StructureWorkbook({
         viewMode: nextViewMode ?? viewMode,
         planSheetId: nextPlanSheetId ?? planSheet?.id ?? null,
         planMarkup: nextMarkup ?? markup,
+        rectPassthroughLines,
       });
     },
-    [quoteId, returnPath, defaults, workbookMode, viewMode, planSheet?.id, markup],
+    [quoteId, returnPath, defaults, workbookMode, viewMode, planSheet?.id, markup, rectPassthroughLines],
   );
 
   const scheduleMarkupSave = useCallback(
@@ -456,7 +470,7 @@ export function StructureWorkbook({
       .filter((line): line is EditableQuoteLineItem => line != null);
 
     writeWorkbookApplyPayload(quoteId, {
-      lineItems: workbookLineItems,
+      lineItems: [...workbookLineItems, ...rectPassthroughLines],
       returnPath: effectiveReturnPath,
       planSheetId: planSheet?.id ?? null,
     });

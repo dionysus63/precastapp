@@ -3,6 +3,13 @@ import { deactivateUser, reactivateUser } from "@/app/settings/users/actions";
 import type { UserRoleKey } from "@/lib/auth/constants";
 import { ROLE_LABELS } from "@/lib/auth/constants";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableHeaderCellClassName,
+  tableWrapperClassName,
+} from "@/lib/table-styles";
 export type UserListRow = {
   id: string;
   username: string;
@@ -19,31 +26,31 @@ type UsersListProps = {
 
 export function UsersList({ users }: UsersListProps) {
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-      <table className="min-w-full divide-y divide-slate-200 text-xs">
-        <thead className="bg-slate-50">
+    <div className={`${tableWrapperClassName} bg-white`}>
+      <table className={tableClassName}>
+        <thead>
           <tr>
-            <th className="px-4 py-3 text-left font-semibold text-slate-600">
+            <th className={tableHeaderCellClassName}>
               User
             </th>
-            <th className="px-4 py-3 text-left font-semibold text-slate-600">
+            <th className={tableHeaderCellClassName}>
               Role
             </th>
-            <th className="px-4 py-3 text-left font-semibold text-slate-600">
+            <th className={tableHeaderCellClassName}>
               Status
             </th>
-            <th className="px-4 py-3 text-left font-semibold text-slate-600">
+            <th className={tableHeaderCellClassName}>
               Last login
             </th>
-            <th className="px-4 py-3 text-right font-semibold text-slate-600">
+            <th className={`${tableHeaderCellClassName} text-right`}>
               Actions
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className={tableBodyClassName}>
           {users.map((user) => (
             <tr key={user.id}>
-              <td className="px-4 py-3">
+              <td className={tableCellClassName}>
                 <div className="flex items-center gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-700">
                     {user.initials}
@@ -59,10 +66,10 @@ export function UsersList({ users }: UsersListProps) {
                   </div>
                 </div>
               </td>
-              <td className="px-4 py-3 text-slate-700">
+              <td className={`${tableCellClassName} text-slate-700`}>
                 {ROLE_LABELS[user.role]}
               </td>
-              <td className="px-4 py-3">
+              <td className={tableCellClassName}>
                 <span
                   className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                     user.isActive
@@ -73,10 +80,10 @@ export function UsersList({ users }: UsersListProps) {
                   {user.isActive ? "Active" : "Inactive"}
                 </span>
               </td>
-              <td className="px-4 py-3 text-slate-600">
+              <td className={`${tableCellClassName} text-slate-600`}>
                 {user.lastLoginAt ?? "Never"}
               </td>
-              <td className="px-4 py-3">
+              <td className={tableCellClassName}>
                 <div className="flex justify-end gap-2">
                   <Link
                     href={`/settings/users/${user.id}`}

@@ -1613,15 +1613,16 @@ function makeBaselineAlignedProvider(
 
 export async function listTemplatePdfFields(
   bytes: Uint8Array,
+  expectedNames: readonly string[] = DRILL_SHEET_TEMPLATE_FIELD_NAMES,
 ): Promise<TemplatePdfFieldCoverage> {
   const doc = await PDFDocument.load(bytes);
   const pdfFields = doc.getForm().getFields().map((field) => field.getName());
-  const expected = new Set<string>(DRILL_SHEET_TEMPLATE_FIELD_NAMES);
+  const expected = new Set<string>(expectedNames);
   const pdfFieldSet = new Set(pdfFields);
 
   const matched = pdfFields.filter((name) => expected.has(name));
   const unmatched = pdfFields.filter((name) => !expected.has(name));
-  const missingFromPdf = DRILL_SHEET_TEMPLATE_FIELD_NAMES.filter(
+  const missingFromPdf = expectedNames.filter(
     (name) => !pdfFieldSet.has(name),
   );
 

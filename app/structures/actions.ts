@@ -7,6 +7,7 @@ import {
   listTemplatePdfFields,
   type TemplatePdfFieldCoverage,
 } from "@/lib/drill-sheet-template-pdf";
+import { RECT_SHEET_TEMPLATE_FIELD_NAMES } from "@/lib/rect-template-pdf-fields";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { translatePrismaError } from "@/lib/server/action-errors";
@@ -25,6 +26,11 @@ type DiameterPayload = {
   insideDiameterFeet: number;
 };
 
+type RectSizePayload = {
+  insideLengthFeet: number;
+  insideWidthFeet: number;
+};
+
 type TemplatePayload = {
   name: string;
   agencyStandard: string | null;
@@ -39,9 +45,15 @@ type TemplatePayload = {
   sumpFixedInches: number | null;
   openingToJointMinTopInches: number;
   openingToJointMinBottomInches: number;
+  rectWallPricePerFoot: number | null;
+  rectMinPricingHeightFeet: number | null;
+  rectTopSlabPrice: number | null;
+  rectBaseSlabPrice: number | null;
+  rectPdfSetId: string | null;
   status: StructureTemplateStatus;
   notes: string | null;
   diameters: DiameterPayload[];
+  rectSizes: RectSizePayload[];
 };
 
 function decimal(value: number): Prisma.Decimal {
@@ -114,8 +126,9 @@ function parseTemplatePayload(formData: FormData): TemplatePayload {
 
   const sumpMode: SumpMode = data.sumpMode === "FIXED" ? "FIXED" : "DEFAULT";
 
-  const diametersRaw = Array.isArray(data.diameters) ? data.diameters : [];
-  if (diametersRaw.length === 0) {
+  const diametersRaw =
+    shape === "CIRCULAR" && Array.isArray(data.diameters) ? data.diameters : [];
+  if (shape === "CIRCULAR" && diametersRaw.length === 0) {
     throw new Error("Add at least one diameter.");
   }
 
@@ -137,6 +150,45 @@ function parseTemplatePayload(formData: FormData): TemplatePayload {
       );
     }
     diameterKeys.add(diameter.insideDiameterFeet);
+  }
+
+  // Preset L x W sizes are optional (rect sheets also accept free entry);
+  // rows with both fields blank are dropped.
+  const rectSizesRaw =
+    shape === "RECTANGULAR" && Array.isArray(data.rectSizes)
+      ? data.rectSizes
+      : [];
+  const rectSizes: RectSizePayload[] = [];
+  rectSizesRaw.forEach((item, index) => {
+    const row = item as Record<string, unknown>;
+    const lengthBlank =
+      row.insideLengthFeet === "" || row.insideLengthFeet == null;
+    const widthBlank =
+      row.insideWidthFeet === "" || row.insideWidthFeet == null;
+    if (lengthBlank && widthBlank) {
+      return;
+    }
+    rectSizes.push({
+      insideLengthFeet: requirePositiveNumber(
+        row.insideLengthFeet,
+        `Preset size #${index + 1} inside length`,
+      ),
+      insideWidthFeet: requirePositiveNumber(
+        row.insideWidthFeet,
+        `Preset size #${index + 1} inside width`,
+      ),
+    });
+  });
+
+  const rectSizeKeys = new Set<string>();
+  for (const size of rectSizes) {
+    const key = `${size.insideLengthFeet}x${size.insideWidthFeet}`;
+    if (rectSizeKeys.has(key)) {
+      throw new Error(
+        `Duplicate preset size ${size.insideLengthFeet}' x ${size.insideWidthFeet}' in template.`,
+      );
+    }
+    rectSizeKeys.add(key);
   }
 
   return {
@@ -176,9 +228,30 @@ function parseTemplatePayload(formData: FormData): TemplatePayload {
       data.openingToJointMinBottomInches,
       "Opening-to-joint min (bottom)",
     ),
+    rectWallPricePerFoot:
+      shape === "RECTANGULAR"
+        ? optionalNonNegativeNumber(data.rectWallPricePerFoot)
+        : null,
+    rectMinPricingHeightFeet:
+      shape === "RECTANGULAR"
+        ? optionalNonNegativeNumber(data.rectMinPricingHeightFeet)
+        : null,
+    rectTopSlabPrice:
+      shape === "RECTANGULAR"
+        ? optionalNonNegativeNumber(data.rectTopSlabPrice)
+        : null,
+    rectBaseSlabPrice:
+      shape === "RECTANGULAR"
+        ? optionalNonNegativeNumber(data.rectBaseSlabPrice)
+        : null,
+    rectPdfSetId:
+      shape === "RECTANGULAR" && data.rectPdfSetId
+        ? String(data.rectPdfSetId)
+        : null,
     status,
     notes: String(data.notes ?? "").trim() || null,
     diameters,
+    rectSizes,
   };
 }
 
@@ -202,11 +275,35 @@ function buildNestedCreate(payload: TemplatePayload) {
     openingToJointMinBottomInches: decimal(
       payload.openingToJointMinBottomInches,
     ),
+    rectWallPricePerFoot:
+      payload.rectWallPricePerFoot === null
+        ? null
+        : decimal(payload.rectWallPricePerFoot),
+    rectMinPricingHeightFeet:
+      payload.rectMinPricingHeightFeet === null
+        ? null
+        : decimal(payload.rectMinPricingHeightFeet),
+    rectTopSlabPrice:
+      payload.rectTopSlabPrice === null
+        ? null
+        : decimal(payload.rectTopSlabPrice),
+    rectBaseSlabPrice:
+      payload.rectBaseSlabPrice === null
+        ? null
+        : decimal(payload.rectBaseSlabPrice),
+    rectPdfSetId: payload.rectPdfSetId,
     status: payload.status,
     notes: payload.notes,
     diameters: {
       create: payload.diameters.map((diameter, index) => ({
         insideDiameterFeet: decimal(diameter.insideDiameterFeet),
+        sortOrder: index,
+      })),
+    },
+    rectSizes: {
+      create: payload.rectSizes.map((size, index) => ({
+        insideLengthFeet: decimal(size.insideLengthFeet),
+        insideWidthFeet: decimal(size.insideWidthFeet),
         sortOrder: index,
       })),
     },
@@ -273,6 +370,9 @@ export async function updateStructureTemplate(
       await tx.structureTemplateDiameter.deleteMany({
         where: { templateId },
       });
+      await tx.structureTemplateRectSize.deleteMany({
+        where: { templateId },
+      });
 
       const nested = buildNestedCreate(payload);
       await tx.structureTemplate.update({
@@ -291,9 +391,15 @@ export async function updateStructureTemplate(
           sumpFixedInches: nested.sumpFixedInches,
           openingToJointMinTopInches: nested.openingToJointMinTopInches,
           openingToJointMinBottomInches: nested.openingToJointMinBottomInches,
+          rectWallPricePerFoot: nested.rectWallPricePerFoot,
+          rectMinPricingHeightFeet: nested.rectMinPricingHeightFeet,
+          rectTopSlabPrice: nested.rectTopSlabPrice,
+          rectBaseSlabPrice: nested.rectBaseSlabPrice,
+          rectPdfSetId: nested.rectPdfSetId,
           status: nested.status,
           notes: nested.notes,
           diameters: nested.diameters,
+          rectSizes: nested.rectSizes,
         },
       });
     });
@@ -345,6 +451,8 @@ export async function uploadStructureTemplatePdfAction(
   const templateId = String(formData.get("templateId") ?? "").trim();
   const hasRiser = parseBooleanField(formData.get("hasRiser"));
   const hasKey = parseBooleanField(formData.get("hasKey"));
+  const hasTopSlab = parseBooleanField(formData.get("hasTopSlab"));
+  const hasBaseSlab = parseBooleanField(formData.get("hasBaseSlab"));
   const file = formData.get("file");
 
   if (!templateId) {
@@ -354,15 +462,27 @@ export async function uploadStructureTemplatePdfAction(
     throw new Error("A PDF file is required.");
   }
 
+  const template = await prisma.structureTemplate.findUnique({
+    where: { id: templateId },
+    select: { shape: true },
+  });
+  if (!template) {
+    throw new Error("Structure template not found.");
+  }
+
   const row = await saveTemplatePdf(
     prisma,
     templateId,
-    hasRiser,
-    hasKey,
+    { hasRiser, hasKey, hasTopSlab, hasBaseSlab },
     file,
   );
   const bytes = await readTemplatePdfBytes(row);
-  const coverage = await listTemplatePdfFields(bytes);
+  const coverage = await listTemplatePdfFields(
+    bytes,
+    template.shape === "RECTANGULAR"
+      ? RECT_SHEET_TEMPLATE_FIELD_NAMES
+      : undefined,
+  );
 
   revalidatePath("/structures");
   revalidatePath(`/structures/${templateId}`);
@@ -392,11 +512,19 @@ export async function loadStructureTemplatePdfFieldCoverage(
 ): Promise<TemplatePdfFieldCoverage | null> {
   await requirePermission(AppPermission.STRUCTURES_VIEW);
 
-  const row = await prisma.structureTemplatePdf.findUnique({ where: { id } });
+  const row = await prisma.structureTemplatePdf.findUnique({
+    where: { id },
+    include: { template: { select: { shape: true } } },
+  });
   if (!row) {
     return null;
   }
 
   const bytes = await readTemplatePdfBytes(row);
-  return listTemplatePdfFields(bytes);
+  return listTemplatePdfFields(
+    bytes,
+    row.template.shape === "RECTANGULAR"
+      ? RECT_SHEET_TEMPLATE_FIELD_NAMES
+      : undefined,
+  );
 }

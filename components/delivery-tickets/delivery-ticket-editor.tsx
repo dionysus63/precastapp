@@ -26,6 +26,14 @@ import {
 } from "@/lib/casting-utils";
 import { formatDrainRingStyleLabel } from "@/lib/drain-ring-utils";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+  tableInlineInputClassName,
+} from "@/lib/table-styles";
 type JobOption = {
   id: string;
   jobNumber: string;
@@ -83,8 +91,7 @@ export type DeliveryTicketEditorProps = {
 const inputClass =
   "mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm";
 
-const inlineTableInputClass =
-  "rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 placeholder:text-slate-400";
+const inlineTableInputClass = tableInlineInputClassName;
 
 function todayDateInputValue(): string {
   const date = new Date();
@@ -899,20 +906,20 @@ export function DeliveryTicketEditor({
           description="Select items for this delivery and confirm quantities and weights."
           noPadding
         >
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-xs">
-              <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+          <div className={tableFlushWrapperClassName}>
+            <table className={tableClassName}>
+              <thead>
                 <tr>
-                  <th className="px-3 py-2">Pick</th>
-                  <th className="px-3 py-2">Item</th>
-                  <th className="px-3 py-2">Remaining</th>
-                  <th className="px-3 py-2">Qty on load</th>
-                  <th className="px-3 py-2">Weight each</th>
-                  <th className="px-3 py-2">Line weight</th>
-                  <th className="px-3 py-2">Status</th>
+                  <th className={tableHeaderCellClassName}>Pick</th>
+                  <th className={tableHeaderCellClassName}>Item</th>
+                  <th className={tableHeaderCellClassName}>Remaining</th>
+                  <th className={tableHeaderCellClassName}>Qty on load</th>
+                  <th className={tableHeaderCellClassName}>Weight each</th>
+                  <th className={tableHeaderCellClassName}>Line weight</th>
+                  <th className={tableHeaderCellClassName}>Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className={tableBodyClassName}>
                 {fulfillment.map((line) => {
                   if (line.isCastingAssembly) {
                     const setsUsed = getCastingSetsUsed(line);
@@ -920,7 +927,7 @@ export function DeliveryTicketEditor({
                     const overLimit = setsUsed > line.remainingQty + 0.001;
                     return (
                       <tr key={line.quoteLineItemId} className="bg-slate-50/40">
-                        <td className="px-3 py-3 align-top" colSpan={7}>
+                        <td className={`${tableCellClassName} align-top`} colSpan={7}>
                           <div className="flex flex-wrap items-baseline justify-between gap-2">
                             <div>
                               <span className="font-medium text-slate-900">
@@ -1037,7 +1044,7 @@ export function DeliveryTicketEditor({
                     const overLimit = feetUsed > line.remainingQty + 0.001;
                     return (
                       <tr key={line.quoteLineItemId} className="bg-slate-50/40">
-                        <td className="px-3 py-3 align-top" colSpan={7}>
+                        <td className={`${tableCellClassName} align-top`} colSpan={7}>
                           <div className="flex flex-wrap items-baseline justify-between gap-2">
                             <div>
                               <span className="font-medium text-slate-900">
@@ -1149,7 +1156,7 @@ export function DeliveryTicketEditor({
                     const overLimit = qtyUsed > line.remainingQty + 0.001;
                     return (
                       <tr key={line.quoteLineItemId} className="bg-slate-50/40">
-                        <td className="px-3 py-3 align-top" colSpan={7}>
+                        <td className={`${tableCellClassName} align-top`} colSpan={7}>
                           <div className="flex flex-wrap items-baseline justify-between gap-2">
                             <div>
                               <span className="font-medium text-slate-900">
@@ -1264,7 +1271,7 @@ export function DeliveryTicketEditor({
                     : "";
                   return (
                     <tr key={line.quoteLineItemId}>
-                      <td className="px-3 py-2 align-top">
+                      <td className={`${tableCellClassName} align-top`}>
                         <input
                           type="checkbox"
                           checked={checked}
@@ -1272,7 +1279,7 @@ export function DeliveryTicketEditor({
                           onChange={(event) => toggleLine(line, event.target.checked)}
                         />
                       </td>
-                      <td className="px-3 py-2 align-top">
+                      <td className={`${tableCellClassName} align-top`}>
                         <div className="font-medium text-slate-900">{line.displayName}</div>
                         <div className="mt-0.5 text-slate-500">{line.itemCode}</div>
                         {line.description ? (
@@ -1287,11 +1294,11 @@ export function DeliveryTicketEditor({
                           />
                         </div>
                       </td>
-                      <td className="px-3 py-2 align-top text-slate-700">
+                      <td className={`${tableCellClassName} align-top text-slate-700`}>
                         <div>{line.remainingQty} of {line.quotedQty}</div>
                         <div className="text-slate-500">{line.shippedQty} shipped</div>
                       </td>
-                      <td className="px-3 py-2 align-top">
+                      <td className={`${tableCellClassName} align-top`}>
                         {checked && editorLine ? (
                           <input
                             type="number"
@@ -1313,7 +1320,7 @@ export function DeliveryTicketEditor({
                           "—"
                         )}
                       </td>
-                      <td className="px-3 py-2 align-top text-slate-700">
+                      <td className={`${tableCellClassName} align-top text-slate-700`}>
                         {checked && editorLine ? (
                           <input
                             type="number"
@@ -1338,10 +1345,10 @@ export function DeliveryTicketEditor({
                           "—"
                         )}
                       </td>
-                      <td className="px-3 py-2 align-top font-medium text-slate-900">
+                      <td className={`${tableCellClassName} align-top font-medium text-slate-900`}>
                         {checked && lineWeight > 0 ? formatWeight(lineWeight) : "—"}
                       </td>
-                      <td className="px-3 py-2 align-top text-slate-600">
+                      <td className={`${tableCellClassName} align-top text-slate-600`}>
                         {line.eligible ? "Ready" : (line.eligibilityReason ?? "Not ready")}
                       </td>
                     </tr>
@@ -1350,13 +1357,13 @@ export function DeliveryTicketEditor({
               </tbody>
               <tfoot className="border-t border-slate-200 bg-slate-50/80">
                 <tr>
-                  <td colSpan={5} className="px-3 py-3 text-right font-medium text-slate-700">
+                  <td colSpan={5} className={`${tableCellClassName} text-right font-medium text-slate-700`}>
                     Total load weight
                   </td>
-                  <td className="px-3 py-3 font-semibold text-slate-900">
+                  <td className={`${tableCellClassName} font-semibold text-slate-900`}>
                     {totalWeight > 0 ? formatWeight(totalWeight) : "—"}
                   </td>
-                  <td className="px-3 py-3 text-slate-500">
+                  <td className={`${tableCellClassName} text-slate-500`}>
                     Capacity: {truckCapacityLabel}
                   </td>
                 </tr>
@@ -1474,24 +1481,24 @@ export function DeliveryTicketEditor({
 
           {lines.length > 0 ? (
             <div className="mt-4 overflow-x-auto">
-              <table className="min-w-full text-left text-xs">
-                <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+              <table className={tableClassName}>
+                <thead>
                   <tr>
-                    <th className="px-3 py-2">Item</th>
-                    <th className="px-3 py-2">Qty</th>
-                    <th className="px-3 py-2">Unit</th>
-                    <th className="px-3 py-2">Weight each</th>
-                    <th className="px-3 py-2">Line weight</th>
-                    <th className="px-3 py-2"></th>
+                    <th className={tableHeaderCellClassName}>Item</th>
+                    <th className={tableHeaderCellClassName}>Qty</th>
+                    <th className={tableHeaderCellClassName}>Unit</th>
+                    <th className={tableHeaderCellClassName}>Weight each</th>
+                    <th className={tableHeaderCellClassName}>Line weight</th>
+                    <th className={tableHeaderCellClassName}></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className={tableBodyClassName}>
                   {lines.map((line) => {
                     const qty = Number(line.quantity) || 0;
                     const each = parseEditorWeight(line.weightEach) ?? 0;
                     return (
                       <tr key={line.key}>
-                        <td className="px-3 py-2">
+                        <td className={tableCellClassName}>
                           <span className="font-medium text-slate-900">
                             {line.itemCode}
                           </span>
@@ -1499,7 +1506,7 @@ export function DeliveryTicketEditor({
                             {line.description}
                           </span>
                         </td>
-                        <td className="px-3 py-2">
+                        <td className={tableCellClassName}>
                           <input
                             type="number"
                             min="0"
@@ -1511,8 +1518,8 @@ export function DeliveryTicketEditor({
                             className={`w-20 ${inlineTableInputClass}`}
                           />
                         </td>
-                        <td className="px-3 py-2 text-slate-600">{line.unit}</td>
-                        <td className="px-3 py-2">
+                        <td className={`${tableCellClassName} text-slate-600`}>{line.unit}</td>
+                        <td className={tableCellClassName}>
                           <input
                             type="number"
                             min="0"
@@ -1524,10 +1531,10 @@ export function DeliveryTicketEditor({
                             className={`w-24 ${inlineTableInputClass}`}
                           />
                         </td>
-                        <td className="px-3 py-2 text-slate-600">
+                        <td className={`${tableCellClassName} text-slate-600`}>
                           {each > 0 ? formatWeight(qty * each) : "—"}
                         </td>
-                        <td className="px-3 py-2 text-right">
+                        <td className={`${tableCellClassName} text-right`}>
                           <button
                             type="button"
                             onClick={() => removeLine(line.key)}

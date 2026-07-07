@@ -15,6 +15,8 @@ import {
 type TemplatePdfSlot = {
   hasRiser: boolean;
   hasKey: boolean;
+  hasTopSlab: boolean;
+  hasBaseSlab: boolean;
   label: string;
   pdf: {
     id: string;
@@ -29,6 +31,10 @@ type TemplatePdfSlot = {
 type StructureTemplatePdfsSectionProps = {
   templateId: string;
   slots: TemplatePdfSlot[];
+  /** Expected AcroForm field names for this template's shape. */
+  fieldNames?: readonly string[];
+  title?: string;
+  description?: string;
 };
 
 function formatFileSize(bytes: number | null): string {
@@ -72,12 +78,14 @@ function CoverageSummary({ coverage }: { coverage: TemplatePdfFieldCoverage }) {
 function TemplatePdfSlotCard({
   templateId,
   slot,
+  fieldNames,
   pending,
   onUpload,
   onDelete,
 }: {
   templateId: string;
   slot: TemplatePdfSlot;
+  fieldNames: readonly string[];
   pending: boolean;
   onUpload: (formData: FormData) => void;
   onDelete: (id: string) => void;
@@ -127,6 +135,16 @@ function TemplatePdfSlotCard({
           value={slot.hasRiser ? "true" : "false"}
         />
         <input type="hidden" name="hasKey" value={slot.hasKey ? "true" : "false"} />
+        <input
+          type="hidden"
+          name="hasTopSlab"
+          value={slot.hasTopSlab ? "true" : "false"}
+        />
+        <input
+          type="hidden"
+          name="hasBaseSlab"
+          value={slot.hasBaseSlab ? "true" : "false"}
+        />
         <div className="min-w-[220px] flex-1">
           <label className="block text-[11px] font-medium text-slate-700">
             {slot.pdf ? "Replace PDF" : "Upload PDF"}
@@ -154,12 +172,11 @@ function TemplatePdfSlotCard({
         onClick={() => setShowFields((current) => !current)}
         className="mt-3 text-[11px] font-medium text-slate-500 hover:text-slate-800"
       >
-        {showFields ? "Hide" : "Show"} expected field names (
-        {DRILL_SHEET_TEMPLATE_FIELD_NAMES.length})
+        {showFields ? "Hide" : "Show"} expected field names ({fieldNames.length})
       </button>
       {showFields ? (
         <pre className="mt-2 max-h-40 overflow-auto rounded bg-slate-50 p-2 text-[10px] text-slate-600">
-          {DRILL_SHEET_TEMPLATE_FIELD_NAMES.join("\n")}
+          {fieldNames.join("\n")}
         </pre>
       ) : null}
     </div>
@@ -169,6 +186,9 @@ function TemplatePdfSlotCard({
 export function StructureTemplatePdfsSection({
   templateId,
   slots,
+  fieldNames = DRILL_SHEET_TEMPLATE_FIELD_NAMES,
+  title = "Drill Sheet PDF",
+  description = "Upload one fillable PDF template. The app fills the form fields and draws the section joints, heights, and elevations itself, so a single PDF covers every riser/key combination.",
 }: StructureTemplatePdfsSectionProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -213,10 +233,7 @@ export function StructureTemplatePdfsSection({
   }
 
   return (
-    <SectionCard
-      title="Drill Sheet PDF"
-      description="Upload one fillable PDF template. The app fills the form fields and draws the section joints, heights, and elevations itself, so a single PDF covers every riser/key combination."
-    >
+    <SectionCard title={title} description={description}>
       <div className="space-y-4">
         {message.error ? (
           <p className="text-xs text-red-600">{message.error}</p>
@@ -228,9 +245,10 @@ export function StructureTemplatePdfsSection({
         <div className="grid gap-4">
           {slots.map((slot) => (
             <TemplatePdfSlotCard
-              key={`${slot.hasRiser}-${slot.hasKey}`}
+              key={`${slot.hasRiser}-${slot.hasKey}-${slot.hasTopSlab}-${slot.hasBaseSlab}`}
               templateId={templateId}
               slot={slot}
+              fieldNames={fieldNames}
               pending={pending}
               onUpload={handleUpload}
               onDelete={handleDelete}

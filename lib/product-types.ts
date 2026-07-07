@@ -55,7 +55,7 @@ export const productTypeHelperText: Record<ProductType, string> = {
   ACCESSORY:
     "Supplies and accessories stocked alongside precast (e.g. filter fabric).",
   PRECAST_PIPE:
-    "Reinforced concrete pipe with diameter, length, class, and joint profile.",
+    "Reinforced concrete pipe with diameter, length, class, and O-Ring joint.",
   ADS_PIPE:
     "Plastic ADS pipe — diameter and length only; class/joint not applicable.",
   CONFIGURABLE:

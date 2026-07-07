@@ -6,6 +6,14 @@ import { RichTextContent } from "@/components/ui/rich-text-content";
 import { InvoiceDetailActions } from "@/components/invoices/invoice-detail-actions";
 import type { InvoiceDetailView } from "@/lib/invoice-mapper";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+  tableRowClassName,
+} from "@/lib/table-styles";
 function DetailField({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -113,33 +121,33 @@ export function InvoiceDetailContent({
           </SectionCard>
 
           <SectionCard title="Line Items" noPadding>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-xs">
-                <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+            <div className={tableFlushWrapperClassName}>
+              <table className={tableClassName}>
+                <thead>
                   <tr>
-                    <th className="px-3 py-2 font-semibold">#</th>
-                    <th className="px-3 py-2 font-semibold">Item</th>
-                    <th className="px-3 py-2 font-semibold">Description</th>
-                    <th className="px-3 py-2 font-semibold">Qty</th>
-                    <th className="px-3 py-2 font-semibold">Unit</th>
-                    <th className="px-3 py-2 font-semibold">Unit Price</th>
-                    <th className="px-3 py-2 font-semibold">Total</th>
+                    <th className={tableHeaderCellClassName}>#</th>
+                    <th className={tableHeaderCellClassName}>Item</th>
+                    <th className={tableHeaderCellClassName}>Description</th>
+                    <th className={tableHeaderCellClassName}>Qty</th>
+                    <th className={tableHeaderCellClassName}>Unit</th>
+                    <th className={tableHeaderCellClassName}>Unit Price</th>
+                    <th className={tableHeaderCellClassName}>Total</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700">
+                <tbody className={`${tableBodyClassName} text-slate-700`}>
                   {invoice.lineItems.map((line) => (
-                    <tr key={line.id} className="hover:bg-slate-50/60">
-                      <td className="px-3 py-2 text-slate-700">{line.lineNumber}</td>
-                      <td className="px-3 py-2 font-medium text-slate-900">
+                    <tr key={line.id} className={tableRowClassName}>
+                      <td className={`${tableCellClassName} text-slate-700`}>{line.lineNumber}</td>
+                      <td className={`${tableCellClassName} font-medium text-slate-900`}>
                         {line.itemCode}
                       </td>
-                      <td className="px-3 py-2 text-slate-600">
+                      <td className={`${tableCellClassName} text-slate-600`}>
                         <RichTextContent value={line.description} />
                       </td>
-                      <td className="px-3 py-2 text-slate-600">{line.quantity}</td>
-                      <td className="px-3 py-2 text-slate-600">{line.unit}</td>
-                      <td className="px-3 py-2 text-slate-700">{line.unitPrice}</td>
-                      <td className="px-3 py-2 font-medium text-slate-900">
+                      <td className={`${tableCellClassName} text-slate-600`}>{line.quantity}</td>
+                      <td className={`${tableCellClassName} text-slate-600`}>{line.unit}</td>
+                      <td className={`${tableCellClassName} text-slate-700`}>{line.unitPrice}</td>
+                      <td className={`${tableCellClassName} font-medium text-slate-900`}>
                         {line.total}
                       </td>
                     </tr>

@@ -14,6 +14,11 @@ import {
   loadAndComputeDrillSheet,
   parseDrillSheetPayload,
 } from "@/lib/drill-sheet-persistence";
+import {
+  createRectJobStructureFromPayload,
+  parseRectSheetPayload,
+  updateRectJobStructureFromPayload,
+} from "@/lib/rect-sheet-persistence";
 
 export async function createDrillSheet(formData: FormData) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
@@ -92,6 +97,38 @@ export async function updateDrillSheet(
   revalidatePath(`/drill-sheets/${drillSheetId}`);
   revalidatePath(`/drill-sheets/${drillSheetId}/edit`);
   redirect(`/drill-sheets/${drillSheetId}`);
+}
+
+export async function createRectSheet(formData: FormData) {
+  await requirePermission(AppPermission.STRUCTURES_MANAGE);
+  const payload = parseRectSheetPayload(formData);
+
+  const createdId = await createRectJobStructureFromPayload(payload);
+
+  revalidatePath("/drill-sheets");
+  redirect(`/drill-sheets/${createdId}`);
+}
+
+export async function updateRectSheet(
+  jobStructureId: string,
+  formData: FormData,
+) {
+  await requirePermission(AppPermission.STRUCTURES_MANAGE);
+  const payload = parseRectSheetPayload(formData);
+  const expectedUpdatedAtRaw = String(
+    formData.get("expectedUpdatedAt") ?? "",
+  ).trim();
+
+  await updateRectJobStructureFromPayload(
+    jobStructureId,
+    payload,
+    expectedUpdatedAtRaw,
+  );
+
+  revalidatePath("/drill-sheets");
+  revalidatePath(`/drill-sheets/${jobStructureId}`);
+  revalidatePath(`/drill-sheets/rect/${jobStructureId}/edit`);
+  redirect(`/drill-sheets/${jobStructureId}`);
 }
 
 export async function deleteDrillSheet(drillSheetId: string) {

@@ -136,6 +136,8 @@ export type StructureWorkbookSession = {
   planSheetId?: string | null;
   planMarkup?: import("@/lib/quotes/plan-sheet-markup").PlanSheetMarkup | null;
   viewMode?: "grid" | "takeoff";
+  /** Rectangular-workbook lines carried through untouched on apply. */
+  rectPassthroughLines?: EditableQuoteLineItem[] | null;
 };
 
 export type StructureWorkbookApplyPayload = {
@@ -472,10 +474,13 @@ export function countDrillSheetReadyLines(
   lineItems: EditableQuoteLineItem[],
 ): number {
   return lineItems.filter((line) => {
-    if (line.type !== "CONFIGURABLE_STRUCTURE" || !line.structureConfig) {
+    if (line.type !== "CONFIGURABLE_STRUCTURE") {
       return false;
     }
-    return line.structureConfig.detailLevel === "DRILL_SHEET";
+    if (line.structureConfig?.detailLevel === "DRILL_SHEET") {
+      return true;
+    }
+    return line.rectStructureConfig?.detailLevel === "FULL";
   }).length;
 }
 
@@ -1136,9 +1141,14 @@ export function mergeWorkbookLineItems(
   existingLineItems: EditableQuoteLineItem[],
   workbookLines: EditableQuoteLineItem[],
 ): EditableQuoteLineItem[] {
+  // Both workbooks (circular and rectangular) return the FULL set of
+  // workbook-managed structure lines — each passes the other shape's lines
+  // through untouched — so every configured structure line here is replaced
+  // by the incoming batch.
   const nonWorkbookStructures = existingLineItems.filter(
     (line) =>
-      line.type !== "CONFIGURABLE_STRUCTURE" || !line.structureConfig,
+      line.type !== "CONFIGURABLE_STRUCTURE" ||
+      (!line.structureConfig && !line.rectStructureConfig),
   );
   const merged = [...nonWorkbookStructures, ...workbookLines];
   return merged.map((line, index) => ({

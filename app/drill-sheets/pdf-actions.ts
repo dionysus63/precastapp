@@ -7,6 +7,8 @@ import {
   drillSheetDetailInclude,
 } from "@/lib/drill-sheet-detail";
 import { buildDrillSheetPdfBytes } from "@/lib/drill-sheet-pdf-generate";
+import { rectSheetDetailInclude } from "@/lib/rect-sheet-detail";
+import { buildRectSheetPdfBytes } from "@/lib/rect-sheet-pdf-generate";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import {
@@ -34,6 +36,19 @@ export async function generateDrillSheetPdf(
   }
 
   try {
+    const shapeRow = await withDatabaseRetry((prisma) =>
+      prisma.jobStructure.findUnique({
+        where: { id: drillSheetId },
+        select: { structureTemplate: { select: { shape: true } } },
+      }),
+    );
+    if (!shapeRow) {
+      return { success: false, error: "Drill sheet not found." };
+    }
+    if (shapeRow.structureTemplate?.shape === "RECTANGULAR") {
+      return generateRectSheetPdf(drillSheetId);
+    }
+
     const sheet = await withDatabaseRetry((prisma) =>
       prisma.jobStructure.findUnique({
         where: { id: drillSheetId },
@@ -114,4 +129,70 @@ export async function generateDrillSheetPdf(
         : "Failed to generate drill sheet PDF.";
     return { success: false, error: message };
   }
+}
+
+async function generateRectSheetPdf(
+  jobStructureId: string,
+): Promise<GenerateDrillSheetPdfResult> {
+  const sheet = await withDatabaseRetry((prisma) =>
+    prisma.jobStructure.findUnique({
+      where: { id: jobStructureId },
+      include: rectSheetDetailInclude,
+    }),
+  );
+  if (!sheet) {
+    return { success: false, error: "Sheet not found." };
+  }
+
+  let jobFolderPath: string | null = null;
+  if (sheet.jobId) {
+    const job = await withDatabaseRetry((prisma) =>
+      prisma.job.findUnique({
+        where: { id: sheet.jobId! },
+        select: { folderPath: true },
+      }),
+    );
+    jobFolderPath = job?.folderPath ?? null;
+  }
+
+  const built = await buildRectSheetPdfBytes(sheet);
+  if (!built.ok) {
+    return { success: false, error: built.error };
+  }
+
+  const baseName = buildDrillSheetPdfBaseName(
+    built.meta.structureNumber,
+    built.meta.project,
+  );
+  const outputDirectory = resolveDrillSheetPdfDirectory(jobFolderPath);
+  const outputPath = await resolveDrillSheetPdfOutputPath(
+    outputDirectory,
+    baseName,
+  );
+
+  if (jobFolderPath) {
+    assertPathUnderJobsRoot(await getJobsRoot(), outputPath);
+  }
+
+  await mkdir(path.dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, built.bytes);
+
+  if (sheet.jobId && jobFolderPath) {
+    await withDatabaseRetry((client) =>
+      registerJobFile(
+        client,
+        sheet.jobId!,
+        outputPath,
+        DRILL_SHEET_PDF_JOB_SUBFOLDER,
+      ),
+    );
+  }
+
+  try {
+    await launchWindowsFile(outputPath);
+  } catch {
+    // Ignore: the PDF was saved and its path is returned to the caller.
+  }
+
+  return { success: true, filePath: outputPath };
 }

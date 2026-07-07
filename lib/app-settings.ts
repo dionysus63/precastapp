@@ -80,6 +80,8 @@ export type AppSettingsView = {
   ringBuilderConfig: RingBuilderConfig;
   rolePermissions: RolePermissionsMap;
   companyLogoPath: string | null;
+  yardLatitude: number | null;
+  yardLongitude: number | null;
 };
 
 export const DEFAULT_APP_SETTINGS_DATA = {
@@ -161,6 +163,8 @@ export function mapAppSettingsRow(row: AppSettings): AppSettingsView {
     ringBuilderConfig: parseRingBuilderConfig(row.ringBuilderConfig),
     rolePermissions: parseRolePermissionsFromStorage(row.rolePermissions),
     companyLogoPath: row.companyLogoPath,
+    yardLatitude: row.yardLatitude === null ? null : Number(row.yardLatitude),
+    yardLongitude: row.yardLongitude === null ? null : Number(row.yardLongitude),
   };
 }
 

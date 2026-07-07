@@ -8,6 +8,13 @@ import {
   structureTableInputClassName,
 } from "@/components/structures/structure-utils";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+} from "@/lib/table-styles";
 export type PipeOpeningRow = {
   id: string;
   /** Combined material/type description, e.g. "PVC SDR35". */
@@ -94,24 +101,24 @@ export function PipeOpeningSizesForm({
         }
         noPadding
       >
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-xs">
+        <div className={tableFlushWrapperClassName}>
+          <table className={tableClassName}>
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                <th className="px-3 py-2 font-semibold">Material / Type</th>
-                <th className="px-3 py-2 font-semibold">Size (in)</th>
-                <th className="px-3 py-2 font-semibold">Boot?</th>
-                <th className="px-3 py-2 font-semibold">Hole (in)</th>
-                <th className="px-3 py-2 font-semibold">Pipe Wall (in)</th>
-                <th className="px-3 py-2 font-semibold">Boot Model</th>
-                <th className="px-3 py-2 font-semibold">Price/Boot</th>
-                <th className="px-3 py-2 font-semibold"></th>
+              <tr>
+                <th className={tableHeaderCellClassName}>Material / Type</th>
+                <th className={tableHeaderCellClassName}>Size (in)</th>
+                <th className={tableHeaderCellClassName}>Boot?</th>
+                <th className={tableHeaderCellClassName}>Hole (in)</th>
+                <th className={tableHeaderCellClassName}>Pipe Wall (in)</th>
+                <th className={tableHeaderCellClassName}>Boot Model</th>
+                <th className={tableHeaderCellClassName}>Price/Boot</th>
+                <th className={tableHeaderCellClassName}></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className={tableBodyClassName}>
               {rows.map((row) => (
                 <tr key={row.id}>
-                  <td className="px-3 py-1.5">
+                  <td className={tableCellClassName}>
                     <input
                       type="text"
                       value={row.pipeMaterial}
@@ -122,7 +129,7 @@ export function PipeOpeningSizesForm({
                       className={structureTableInputClassName}
                     />
                   </td>
-                  <td className="px-3 py-1.5">
+                  <td className={tableCellClassName}>
                     <input
                       type="text"
                       inputMode="numeric"
@@ -139,7 +146,7 @@ export function PipeOpeningSizesForm({
                       className={structureTableInputClassName}
                     />
                   </td>
-                  <td className="px-3 py-1.5">
+                  <td className={tableCellClassName}>
                     <select
                       value={row.hasBoot ? "yes" : "no"}
                       onChange={(e) =>
@@ -151,7 +158,7 @@ export function PipeOpeningSizesForm({
                       <option value="no">No Boot</option>
                     </select>
                   </td>
-                  <td className="px-3 py-1.5">
+                  <td className={tableCellClassName}>
                     <input
                       type="text"
                       inputMode="numeric"
@@ -168,7 +175,7 @@ export function PipeOpeningSizesForm({
                       className={structureTableInputClassName}
                     />
                   </td>
-                  <td className="px-3 py-1.5">
+                  <td className={tableCellClassName}>
                     <input
                       type="number"
                       min="0"
@@ -185,7 +192,7 @@ export function PipeOpeningSizesForm({
                       className={structureTableInputClassName}
                     />
                   </td>
-                  <td className="px-3 py-1.5">
+                  <td className={tableCellClassName}>
                     <input
                       type="text"
                       value={row.bootModel}
@@ -196,7 +203,7 @@ export function PipeOpeningSizesForm({
                       className={structureTableInputClassName}
                     />
                   </td>
-                  <td className="px-3 py-1.5">
+                  <td className={tableCellClassName}>
                     <input
                       type="number"
                       min="0"
@@ -209,7 +216,7 @@ export function PipeOpeningSizesForm({
                       className={structureTableInputClassName}
                     />
                   </td>
-                  <td className="px-3 py-1.5 text-right">
+                  <td className={`${tableCellClassName} py-1.5 text-right`}>
                     {rows.length > 1 ? (
                       <button
                         type="button"

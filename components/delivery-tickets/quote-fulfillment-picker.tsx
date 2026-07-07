@@ -5,6 +5,13 @@ import { getQuoteFulfillmentForTicket } from "@/app/operations/actions";
 import { SectionCard } from "@/components/dashboard/section-card";
 import type { QuoteLineFulfillment } from "@/lib/delivery-fulfillment";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+} from "@/lib/table-styles";
 type QuoteFulfillmentPickerProps = {
   quoteId: string;
   quoteLabel: string;
@@ -38,33 +45,33 @@ export function QuoteFulfillmentPicker({
       ) : lines.length === 0 ? (
         <p className="px-4 py-6 text-sm text-slate-500">No quote lines found.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-xs">
-            <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+        <div className={tableFlushWrapperClassName}>
+          <table className={tableClassName}>
+            <thead>
               <tr>
-                <th className="px-4 py-2 font-semibold">Item</th>
-                <th className="px-4 py-2 font-semibold">Type</th>
-                <th className="px-4 py-2 font-semibold">Quoted</th>
-                <th className="px-4 py-2 font-semibold">Shipped</th>
-                <th className="px-4 py-2 font-semibold">Remaining</th>
-                <th className="px-4 py-2 font-semibold">Eligible</th>
+                <th className={tableHeaderCellClassName}>Item</th>
+                <th className={tableHeaderCellClassName}>Type</th>
+                <th className={tableHeaderCellClassName}>Quoted</th>
+                <th className={tableHeaderCellClassName}>Shipped</th>
+                <th className={tableHeaderCellClassName}>Remaining</th>
+                <th className={tableHeaderCellClassName}>Eligible</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className={tableBodyClassName}>
               {lines.map((line) => (
                 <tr
                   key={line.quoteLineItemId}
                   className={line.eligible ? "text-slate-800" : "text-slate-400"}
                 >
-                  <td className="px-4 py-2">
+                  <td className={tableCellClassName}>
                     <div className="font-medium">{line.itemCode}</div>
                     <div className="text-slate-500">{line.description}</div>
                   </td>
-                  <td className="px-4 py-2">{line.lineType.replace(/_/g, " ")}</td>
-                  <td className="px-4 py-2">{line.quotedQty}</td>
-                  <td className="px-4 py-2">{line.shippedQty}</td>
-                  <td className="px-4 py-2">{line.remainingQty}</td>
-                  <td className="px-4 py-2">
+                  <td className={tableCellClassName}>{line.lineType.replace(/_/g, " ")}</td>
+                  <td className={tableCellClassName}>{line.quotedQty}</td>
+                  <td className={tableCellClassName}>{line.shippedQty}</td>
+                  <td className={tableCellClassName}>{line.remainingQty}</td>
+                  <td className={tableCellClassName}>
                     {line.eligible
                       ? "Yes"
                       : (line.eligibilityReason ?? "No")}

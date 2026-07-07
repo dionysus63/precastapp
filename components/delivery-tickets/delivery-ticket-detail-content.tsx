@@ -9,6 +9,14 @@ import { TicketSubmittalButton } from "@/components/delivery-tickets/ticket-subm
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import type { DeliveryTicketDetailView } from "@/components/delivery-tickets/delivery-ticket-utils";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+  tableRowClassName,
+} from "@/lib/table-styles";
 function DetailField({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -245,58 +253,58 @@ export function DeliveryTicketDetailContent({
           </SectionCard>
 
           <SectionCard title="Delivery Items" noPadding>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-xs">
+            <div className={tableFlushWrapperClassName}>
+              <table className={tableClassName}>
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                    <th className="px-3 py-2.5 font-semibold">Line #</th>
-                    <th className="px-3 py-2.5 font-semibold">Type</th>
-                    <th className="px-3 py-2.5 font-semibold">
+                  <tr>
+                    <th className={tableHeaderCellClassName}>Line #</th>
+                    <th className={tableHeaderCellClassName}>Type</th>
+                    <th className={tableHeaderCellClassName}>
                       Item/Structure
                     </th>
-                    <th className="px-3 py-2.5 font-semibold">Description</th>
-                    <th className="px-3 py-2.5 font-semibold">Qty</th>
-                    <th className="px-3 py-2.5 font-semibold">Unit</th>
-                    <th className="px-3 py-2.5 font-semibold">Weight Each</th>
-                    <th className="px-3 py-2.5 font-semibold">Total Weight</th>
-                    <th className="px-3 py-2.5 font-semibold">Yard Location</th>
-                    <th className="px-3 py-2.5 font-semibold">Status</th>
-                    <th className="px-3 py-2.5 font-semibold">Notes</th>
+                    <th className={tableHeaderCellClassName}>Description</th>
+                    <th className={tableHeaderCellClassName}>Qty</th>
+                    <th className={tableHeaderCellClassName}>Unit</th>
+                    <th className={tableHeaderCellClassName}>Weight Each</th>
+                    <th className={tableHeaderCellClassName}>Total Weight</th>
+                    <th className={tableHeaderCellClassName}>Yard Location</th>
+                    <th className={tableHeaderCellClassName}>Status</th>
+                    <th className={tableHeaderCellClassName}>Notes</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className={tableBodyClassName}>
                   {ticket.lineItems.map((line) => (
-                    <tr key={line.id} className="hover:bg-slate-50/60">
-                      <td className="px-3 py-2.5 text-slate-700">
+                    <tr key={line.id} className={tableRowClassName}>
+                      <td className={`${tableCellClassName} text-slate-700`}>
                         {line.lineNumber}
                       </td>
-                      <td className="px-3 py-2.5 font-mono text-[11px] text-slate-600">
+                      <td className={`${tableCellClassName} font-mono text-[11px] text-slate-600`}>
                         {line.type}
                       </td>
-                      <td className="px-3 py-2.5 font-medium text-slate-900">
+                      <td className={`${tableCellClassName} font-medium text-slate-900`}>
                         {line.item}
                       </td>
-                      <td className="px-3 py-2.5 text-slate-600">
+                      <td className={`${tableCellClassName} text-slate-600`}>
                         <RichTextContent value={line.description} />
                       </td>
-                      <td className="px-3 py-2.5 text-slate-600">{line.qty}</td>
-                      <td className="px-3 py-2.5 text-slate-600">{line.unit}</td>
-                      <td className="px-3 py-2.5 text-slate-600">
+                      <td className={`${tableCellClassName} text-slate-600`}>{line.qty}</td>
+                      <td className={`${tableCellClassName} text-slate-600`}>{line.unit}</td>
+                      <td className={`${tableCellClassName} text-slate-600`}>
                         {line.weightEach}
                       </td>
-                      <td className="px-3 py-2.5 font-medium text-slate-900">
+                      <td className={`${tableCellClassName} font-medium text-slate-900`}>
                         {line.totalWeight}
                       </td>
-                      <td className="px-3 py-2.5 text-slate-600">
+                      <td className={`${tableCellClassName} text-slate-600`}>
                         {line.yardLocation}
                       </td>
-                      <td className="px-3 py-2.5">
+                      <td className={tableCellClassName}>
                         <StatusBadge
                           label={line.status}
                           variant={line.statusVariant}
                         />
                       </td>
-                      <td className="px-3 py-2.5 text-slate-600">
+                      <td className={`${tableCellClassName} text-slate-600`}>
                         {line.notes}
                       </td>
                     </tr>

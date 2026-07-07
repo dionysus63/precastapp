@@ -18,6 +18,15 @@ import {
 } from "@/components/delivery-tickets/delivery-ticket-utils";
 import type { PageInfo } from "@/lib/list-params";
 
+import {
+  tableBodyClassName,
+  tableCellBordersClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+  tableRowClassName,
+} from "@/lib/table-styles";
 type DeliveryTicketsListFilters = {
   search: string;
   status: string;
@@ -42,64 +51,64 @@ const TicketsTable = memo(function TicketsTable({
   tickets: DeliveryTicketRow[];
 }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-xs">
+    <div className={tableFlushWrapperClassName}>
+      <table className={tableClassName}>
         <thead>
-          <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-            <th className="px-4 py-2.5 font-semibold">Ticket Number</th>
-            <th className="px-4 py-2.5 font-semibold">Job Number</th>
-            <th className="px-4 py-2.5 font-semibold">Project Name</th>
-            <th className="px-4 py-2.5 font-semibold">Customer</th>
-            <th className="px-4 py-2.5 font-semibold">Delivery Date</th>
-            <th className="px-4 py-2.5 font-semibold">Truck</th>
-            <th className="px-4 py-2.5 font-semibold">Driver</th>
-            <th className="px-4 py-2.5 font-semibold">Status</th>
-            <th className="px-4 py-2.5 font-semibold">Items</th>
-            <th className="px-4 py-2.5 font-semibold">Total Weight</th>
-            <th className="px-4 py-2.5 font-semibold">Actions</th>
+          <tr>
+            <th className={tableHeaderCellClassName}>Ticket Number</th>
+            <th className={tableHeaderCellClassName}>Job Number</th>
+            <th className={tableHeaderCellClassName}>Project Name</th>
+            <th className={tableHeaderCellClassName}>Customer</th>
+            <th className={tableHeaderCellClassName}>Delivery Date</th>
+            <th className={tableHeaderCellClassName}>Truck</th>
+            <th className={tableHeaderCellClassName}>Driver</th>
+            <th className={tableHeaderCellClassName}>Status</th>
+            <th className={tableHeaderCellClassName}>Items</th>
+            <th className={tableHeaderCellClassName}>Total Weight</th>
+            <th className={tableHeaderCellClassName}>Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className={tableBodyClassName}>
           {tickets.length === 0 ? (
             <tr>
               <td
                 colSpan={11}
-                className="px-4 py-8 text-center text-sm text-slate-500"
+                className={`${tableCellBordersClassName} px-4 py-8 text-center text-sm text-slate-500`}
               >
                 No delivery tickets match your search or filters.
               </td>
             </tr>
           ) : (
             tickets.map((ticket) => (
-              <tr key={ticket.id} className="hover:bg-slate-50/60">
-                <td className="px-4 py-2.5 font-mono text-[11px] font-medium text-slate-900">
+              <tr key={ticket.id} className={tableRowClassName}>
+                <td className={`${tableCellClassName} font-mono text-[11px] font-medium text-slate-900`}>
                   {ticket.ticketNumber}
                 </td>
-                <td className="px-4 py-2.5 font-mono text-[11px] text-slate-700">
+                <td className={`${tableCellClassName} font-mono text-[11px] text-slate-700`}>
                   {ticket.jobNumber}
                 </td>
-                <td className="px-4 py-2.5 font-medium text-slate-900">
+                <td className={`${tableCellClassName} font-medium text-slate-900`}>
                   {ticket.projectName}
                 </td>
-                <td className="px-4 py-2.5 text-slate-700">
+                <td className={`${tableCellClassName} text-slate-700`}>
                   {ticket.customer}
                 </td>
-                <td className="px-4 py-2.5 whitespace-nowrap text-slate-600">
+                <td className={`${tableCellClassName} whitespace-nowrap text-slate-600`}>
                   {ticket.deliveryDate}
                 </td>
-                <td className="px-4 py-2.5 text-slate-600">{ticket.truck}</td>
-                <td className="px-4 py-2.5 text-slate-600">{ticket.driver}</td>
-                <td className="px-4 py-2.5">
+                <td className={`${tableCellClassName} text-slate-600`}>{ticket.truck}</td>
+                <td className={`${tableCellClassName} text-slate-600`}>{ticket.driver}</td>
+                <td className={tableCellClassName}>
                   <StatusBadge
                     label={deliveryTicketStatusLabels[ticket.status]}
                     variant={ticket.statusVariant}
                   />
                 </td>
-                <td className="px-4 py-2.5 text-slate-600">{ticket.items}</td>
-                <td className="px-4 py-2.5 font-medium text-slate-900">
+                <td className={`${tableCellClassName} text-slate-600`}>{ticket.items}</td>
+                <td className={`${tableCellClassName} font-medium text-slate-900`}>
                   {ticket.totalWeight}
                 </td>
-                <td className="px-4 py-2.5">
+                <td className={tableCellClassName}>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <Link
                       href={`/delivery-tickets/${ticket.id}`}

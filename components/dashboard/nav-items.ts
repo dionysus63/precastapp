@@ -48,6 +48,12 @@ export const navItems: NavItem[] = [
     requiredPermission: "QUOTES_VIEW",
   },
   {
+    label: "Shipping Rates",
+    href: "/shipping",
+    section: "sales",
+    requiredPermission: "QUOTES_VIEW",
+  },
+  {
     label: "Production",
     href: "/production",
     section: "operations",
@@ -74,6 +80,18 @@ export const navItems: NavItem[] = [
   {
     label: "Inventory",
     href: "/inventory",
+    section: "operations",
+    requiredPermission: "INVENTORY_VIEW",
+  },
+  {
+    label: "Receiving",
+    href: "/receiving",
+    section: "operations",
+    requiredPermission: "INVENTORY_VIEW",
+  },
+  {
+    label: "Purchase Orders",
+    href: "/purchase-orders",
     section: "operations",
     requiredPermission: "INVENTORY_VIEW",
   },

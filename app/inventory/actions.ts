@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { AppPermission } from "@/app/generated/prisma/client";
+import { AppPermission, type ReceivingCategory } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import {
   adjustInventory,
@@ -9,7 +9,46 @@ import {
   savePurchaseReceiptEntry,
 } from "@/lib/inventory-service";
 import { withDatabaseRetry } from "@/lib/prisma";
+import {
+  isCastingReceivingCategory,
+  isPipeReceivingCategory,
+  parseReceivingCategory,
+} from "@/lib/receiving-utils";
 import { translatePrismaError } from "@/lib/server/action-errors";
+
+async function resolveReceivingCategory(input: {
+  categoryRaw: string | null;
+  supplierId: string | null;
+}): Promise<ReceivingCategory | null> {
+  const explicitCategory = input.categoryRaw
+    ? parseReceivingCategory(input.categoryRaw)
+    : null;
+
+  if (explicitCategory && isPipeReceivingCategory(explicitCategory)) {
+    return explicitCategory;
+  }
+
+  if (input.supplierId) {
+    const supplier = await withDatabaseRetry((client) =>
+      client.castingSupplier.findUnique({
+        where: { id: input.supplierId! },
+        select: { origin: true },
+      }),
+    );
+    if (supplier?.origin === "DOMESTIC") {
+      return "DOMESTIC_CASTINGS";
+    }
+    if (supplier?.origin === "IMPORTED") {
+      return "IMPORTED_CASTINGS";
+    }
+  }
+
+  if (explicitCategory && isCastingReceivingCategory(explicitCategory)) {
+    return explicitCategory;
+  }
+
+  return null;
+}
 
 export async function saveInventoryAdjustment(formData: FormData) {
   await requirePermission(AppPermission.INVENTORY_MANAGE);
@@ -81,6 +120,12 @@ export async function savePurchaseReceipt(formData: FormData) {
   const assemblyQtyRaw = String(formData.get("assemblyQty") ?? "").trim();
   const submissionKey =
     String(formData.get("submissionKey") ?? "").trim() || null;
+  const categoryRaw = String(formData.get("category") ?? "").trim() || null;
+  const returnPath = String(formData.get("returnPath") ?? "").trim() || null;
+  const purchaseOrderId =
+    String(formData.get("purchaseOrderId") ?? "").trim() || null;
+
+  const category = await resolveReceivingCategory({ categoryRaw, supplierId });
 
   const productIds = formData.getAll("productId").map(String);
   const quantities = formData.getAll("quantityReceived").map(String);
@@ -111,6 +156,31 @@ export async function savePurchaseReceipt(formData: FormData) {
   const receiptDate = dateRaw ? new Date(`${dateRaw}T00:00:00`) : new Date();
   if (Number.isNaN(receiptDate.getTime())) {
     return { error: "Invalid receipt date." };
+  }
+
+  if (category === "RCP" || category === "ADS_PIPE") {
+    const expectedType = category === "RCP" ? "PRECAST_PIPE" : "ADS_PIPE";
+    const productIdsToCheck = [...new Set(lines.map((line) => line.productId))];
+    if (productIdsToCheck.length > 0) {
+      const products = await withDatabaseRetry((client) =>
+        client.product.findMany({
+          where: { id: { in: productIdsToCheck } },
+          select: { id: true, productType: true, productCode: true },
+        }),
+      );
+      const productById = new Map(products.map((product) => [product.id, product]));
+      for (const line of lines) {
+        const product = productById.get(line.productId);
+        if (!product) {
+          return { error: "Product not found." };
+        }
+        if (product.productType !== expectedType) {
+          return {
+            error: `"${product.productCode}" is not a valid ${category === "RCP" ? "RCP" : "ADS Pipe"} product.`,
+          };
+        }
+      }
+    }
   }
 
   try {
@@ -146,7 +216,9 @@ export async function savePurchaseReceipt(formData: FormData) {
 
         await savePurchaseReceiptEntry(tx, {
           receiptDate,
+          category,
           supplierId,
+          purchaseOrderId,
           enteredBy,
           notes,
           batchLabel,
@@ -161,12 +233,31 @@ export async function savePurchaseReceipt(formData: FormData) {
 
     revalidatePath("/inventory");
     revalidatePath("/inventory/receipts");
-    return { success: true };
+    revalidatePath("/receiving");
+    revalidatePath("/purchase-orders");
+    if (purchaseOrderId) {
+      revalidatePath(`/purchase-orders/${purchaseOrderId}`);
+    }
+    return {
+      success: true,
+      returnPath:
+        returnPath && returnPath.startsWith("/") ? returnPath : "/inventory/receipts",
+    };
   } catch (error) {
     // The same submission already landed (double-click / retry) — success.
     if (isDuplicateSubmission(error)) {
       revalidatePath("/inventory");
-      return { success: true };
+      revalidatePath("/inventory/receipts");
+      revalidatePath("/receiving");
+      revalidatePath("/purchase-orders");
+      if (purchaseOrderId) {
+        revalidatePath(`/purchase-orders/${purchaseOrderId}`);
+      }
+      return {
+        success: true,
+        returnPath:
+          returnPath && returnPath.startsWith("/") ? returnPath : "/inventory/receipts",
+      };
     }
     return {
       error:

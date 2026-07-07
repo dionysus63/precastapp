@@ -2,6 +2,7 @@ import type {
   InventoryReferenceType,
   InventoryTransactionType,
   PrismaClient,
+  ReceivingCategory,
 } from "@/app/generated/prisma/client";
 import { Prisma } from "@/app/generated/prisma/client";
 
@@ -176,7 +177,9 @@ export async function savePurchaseReceiptEntry(
   tx: DbClient,
   input: {
     receiptDate: Date;
+    category?: ReceivingCategory | null;
     supplierId?: string | null;
+    purchaseOrderId?: string | null;
     enteredBy?: string | null;
     notes?: string | null;
     batchLabel?: string | null;
@@ -204,7 +207,9 @@ export async function savePurchaseReceiptEntry(
   const entry = await tx.purchaseReceiptEntry.create({
     data: {
       receiptDate: input.receiptDate,
+      category: input.category ?? null,
       supplierId: input.supplierId ?? null,
+      purchaseOrderId: input.purchaseOrderId ?? null,
       enteredBy: input.enteredBy ?? null,
       notes: input.notes ?? null,
       batchLabel: input.batchLabel ?? null,
@@ -266,6 +271,20 @@ export async function savePurchaseReceiptEntry(
       createdBy: input.enteredBy ?? null,
     })),
   );
+
+  if (input.purchaseOrderId) {
+    const { applyReceiptToPurchaseOrder } = await import(
+      "@/lib/purchase-order-service"
+    );
+    await applyReceiptToPurchaseOrder(
+      tx,
+      input.purchaseOrderId,
+      receiptLines.map((line) => ({
+        productId: line.productId,
+        quantityReceived: line.quantityReceived.toNumber(),
+      })),
+    );
+  }
 
   return entry.id;
 }

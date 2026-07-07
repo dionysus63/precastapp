@@ -9,6 +9,7 @@ import { productTypeForPreset } from "@/lib/product-types";
 import {
   parseAdsPipeJointType,
 } from "@/lib/ads-pipe-utils";
+import { RCP_PIPE_JOINT_TYPE } from "@/lib/rcp-pipe-utils";
 import {
   assertSanitaryDrainRingAllowed,
   diameterSupportsSanitaryDrainRing,
@@ -73,7 +74,7 @@ export const bulkImportPresetLabels: Record<BulkImportPreset, string> = {
   STOCK_PRECAST: "Stock precast — vaults, manholes, walls, slabs",
   ACCESSORY: "Accessory — filter fabric, hardware, etc.",
   DRAIN_RING: "Drain ring — diameter, height, and style",
-  PRECAST_PIPE: "Precast pipe — RCP with class and joint",
+  PRECAST_PIPE: "Precast pipe — RCP with class (O-Ring joint)",
   ADS_PIPE: "ADS pipe — plastic with watertight or soiltight joint",
   CASTING_SET_WITH_PARTS: "Casting set with parts — BOM assembly",
   CASTING_ONE_PIECE: "Casting one-piece unit — no BOM",
@@ -189,7 +190,6 @@ const bulkPastePrecastPipeBaseHeaders = [
   "Pipe Diameter (in)",
   "Pipe Length (ft)",
   "Class",
-  "Joint Type",
 ] as const;
 
 const bulkPasteAdsPipeBaseHeaders = [
@@ -257,7 +257,6 @@ export function getBulkPasteFieldKeys(preset: BulkImportPreset): string[] {
         "pipeDiameterInches",
         "pipeLengthFeet",
         "pipeClass",
-        "pipeJointType",
       ]);
     case "ADS_PIPE":
       return withBulkPasteTaxonomyKeys([
@@ -363,8 +362,8 @@ MH-48-R\t48" Manhole Riser\tManholes\tRiser\tEach\t980.00\t1650 lb\t0.5`,
 LIFT-1T\t1 Ton Lifting Anchor\tAccessories\t\tEach\t85.00\t18 lb\t0`,
   DRAIN_RING: `R-10-4-DRAIN\t10' Ring 4' tall\tRings\t\tEach\t850.00\t4200 lb\t0.8\t10\t4\tDRAIN
 R-10-4-SAN\t10' Ring 4' sanitary\tRings\t\tEach\t920.00\t4300 lb\t0.8\t10\t4\tSAN`,
-  PRECAST_PIPE: `RCP-24-8\t24" RCP 8' Class III\tPipes\t\tLF\t52.50\t2800 lb\t24\t8\tIII\tRCP
-RCP-36-8\t36" RCP 8' Class IV\tPipes\t\tLF\t85.00\t4200 lb\t36\t8\tIV\tRCP`,
+  PRECAST_PIPE: `RCP-24-8\t24" RCP 8' Class III\tPipes\t\tLF\t52.50\t2800 lb\t24\t8\tIII
+RCP-36-8\t36" RCP 8' Class IV\tPipes\t\tLF\t85.00\t4200 lb\t36\t8\tIV`,
   ADS_PIPE: `ADS-12-20-ST\t12" ADS 20' Soiltight\tADS Pipe\t\tLF\t9.25\t95 lb\t12\t20\tST
 ADS-12-20-WT\t12" ADS 20' Watertight\tADS Pipe\t\tLF\t10.50\t95 lb\t12\t20\tWT`,
   CASTING_SET_WITH_PARTS: `CA-24-STD\t24" Standard Casting Assembly\tCastings\t\tEach\t420.00\t180 lb\t0.67\t24\tV-1420\tCF-FRM-24\tCF-CGR-24\t\t
@@ -784,7 +783,7 @@ export function parseAndValidateProductProfile(
           pipeDiameterInches,
           pipeLengthFeet,
           pipeClass: reader.getString("pipeClass") || null,
-          pipeJointType: reader.getString("pipeJointType") || null,
+          pipeJointType: RCP_PIPE_JOINT_TYPE,
         };
       }
       if (productType === "ADS_PIPE") {

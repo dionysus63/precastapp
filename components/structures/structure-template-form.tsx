@@ -8,9 +8,22 @@ import {
   structureTableInputClassName,
 } from "@/components/structures/structure-utils";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+} from "@/lib/table-styles";
 type DiameterField = {
   id: string;
   insideDiameterFeet: string;
+};
+
+type RectSizeField = {
+  id: string;
+  insideLengthFeet: string;
+  insideWidthFeet: string;
 };
 
 export type CastingOption = {
@@ -33,9 +46,20 @@ export type StructureTemplateFormValue = {
   sumpFixedInches: string;
   openingToJointMinTopInches: string;
   openingToJointMinBottomInches: string;
+  rectWallPricePerFoot: string;
+  rectMinPricingHeightFeet: string;
+  rectTopSlabPrice: string;
+  rectBaseSlabPrice: string;
+  rectPdfSetId: string;
   status: "ACTIVE" | "INACTIVE";
   notes: string;
   diameters: DiameterField[];
+  rectSizes: RectSizeField[];
+};
+
+export type RectPdfSetOption = {
+  id: string;
+  name: string;
 };
 
 type StructureTemplateFormProps = {
@@ -47,6 +71,7 @@ type StructureTemplateFormProps = {
    * stale saves (optimistic concurrency). */
   expectedUpdatedAt?: string;
   castingOptions: CastingOption[];
+  rectPdfSetOptions?: RectPdfSetOption[];
 };
 
 function uid() {
@@ -55,6 +80,10 @@ function uid() {
 
 function createDiameter(): DiameterField {
   return { id: uid(), insideDiameterFeet: "" };
+}
+
+function createRectSize(): RectSizeField {
+  return { id: uid(), insideLengthFeet: "", insideWidthFeet: "" };
 }
 
 const defaultFormValue: StructureTemplateFormValue = {
@@ -71,9 +100,15 @@ const defaultFormValue: StructureTemplateFormValue = {
   sumpFixedInches: "",
   openingToJointMinTopInches: "4",
   openingToJointMinBottomInches: "4",
+  rectWallPricePerFoot: "",
+  rectMinPricingHeightFeet: "",
+  rectTopSlabPrice: "",
+  rectBaseSlabPrice: "",
+  rectPdfSetId: "",
   status: "ACTIVE",
   notes: "",
   diameters: [createDiameter()],
+  rectSizes: [createRectSize()],
 };
 
 export function StructureTemplateForm({
@@ -83,6 +118,7 @@ export function StructureTemplateForm({
   defaultValue,
   expectedUpdatedAt,
   castingOptions,
+  rectPdfSetOptions = [],
 }: StructureTemplateFormProps) {
   const initial = defaultValue ?? defaultFormValue;
   const [name, setName] = useState(initial.name);
@@ -112,11 +148,29 @@ export function StructureTemplateForm({
     useState(initial.openingToJointMinTopInches);
   const [openingToJointMinBottomInches, setOpeningToJointMinBottomInches] =
     useState(initial.openingToJointMinBottomInches);
+  const [rectWallPricePerFoot, setRectWallPricePerFoot] = useState(
+    initial.rectWallPricePerFoot,
+  );
+  const [rectMinPricingHeightFeet, setRectMinPricingHeightFeet] = useState(
+    initial.rectMinPricingHeightFeet,
+  );
+  const [rectTopSlabPrice, setRectTopSlabPrice] = useState(
+    initial.rectTopSlabPrice,
+  );
+  const [rectBaseSlabPrice, setRectBaseSlabPrice] = useState(
+    initial.rectBaseSlabPrice,
+  );
+  const [rectPdfSetId, setRectPdfSetId] = useState(initial.rectPdfSetId);
   const [status, setStatus] = useState(initial.status);
   const [notes, setNotes] = useState(initial.notes);
   const [diameters, setDiameters] = useState<DiameterField[]>(
     initial.diameters.length > 0 ? initial.diameters : [createDiameter()],
   );
+  const [rectSizes, setRectSizes] = useState<RectSizeField[]>(
+    initial.rectSizes.length > 0 ? initial.rectSizes : [createRectSize()],
+  );
+
+  const isRect = shape === "RECTANGULAR";
 
   const payloadJson = useMemo(() => {
     return JSON.stringify({
@@ -133,10 +187,19 @@ export function StructureTemplateForm({
       sumpFixedInches: sumpMode === "FIXED" ? sumpFixedInches : null,
       openingToJointMinTopInches,
       openingToJointMinBottomInches,
+      rectWallPricePerFoot: rectWallPricePerFoot || null,
+      rectMinPricingHeightFeet: rectMinPricingHeightFeet || null,
+      rectTopSlabPrice: rectTopSlabPrice || null,
+      rectBaseSlabPrice: rectBaseSlabPrice || null,
+      rectPdfSetId: rectPdfSetId || null,
       status,
       notes,
       diameters: diameters.map((d) => ({
         insideDiameterFeet: d.insideDiameterFeet,
+      })),
+      rectSizes: rectSizes.map((s) => ({
+        insideLengthFeet: s.insideLengthFeet,
+        insideWidthFeet: s.insideWidthFeet,
       })),
     });
   }, [
@@ -153,9 +216,15 @@ export function StructureTemplateForm({
     sumpFixedInches,
     openingToJointMinTopInches,
     openingToJointMinBottomInches,
+    rectWallPricePerFoot,
+    rectMinPricingHeightFeet,
+    rectTopSlabPrice,
+    rectBaseSlabPrice,
+    rectPdfSetId,
     status,
     notes,
     diameters,
+    rectSizes,
   ]);
 
   return (
@@ -207,9 +276,7 @@ export function StructureTemplateForm({
                 className={structureInputClassName}
               >
                 <option value="CIRCULAR">Circular</option>
-                <option value="RECTANGULAR" disabled>
-                  Rectangular (coming soon)
-                </option>
+                <option value="RECTANGULAR">Rectangular</option>
               </select>
             </div>
             <div>
@@ -230,25 +297,27 @@ export function StructureTemplateForm({
                 ))}
               </select>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-700">
-                Connection Type
-              </label>
-              <select
-                value={connectionType}
-                onChange={(e) =>
-                  setConnectionType(
-                    e.target.value as StructureTemplateFormValue["connectionType"],
-                  )
-                }
-                className={structureInputClassName}
-              >
-                <option value="KOR_N_SEAL">Kor-N-Seal Boot</option>
-                <option value="CAST_IN">Cast-In</option>
-                <option value="GROUTED">Grouted</option>
-                <option value="OTHER">Other</option>
-              </select>
-            </div>
+            {!isRect ? (
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Connection Type
+                </label>
+                <select
+                  value={connectionType}
+                  onChange={(e) =>
+                    setConnectionType(
+                      e.target.value as StructureTemplateFormValue["connectionType"],
+                    )
+                  }
+                  className={structureInputClassName}
+                >
+                  <option value="KOR_N_SEAL">Kor-N-Seal Boot</option>
+                  <option value="CAST_IN">Cast-In</option>
+                  <option value="GROUTED">Grouted</option>
+                  <option value="OTHER">Other</option>
+                </select>
+              </div>
+            ) : null}
             <div>
               <label className="block text-xs font-medium text-slate-700">
                 Status
@@ -295,7 +364,9 @@ export function StructureTemplateForm({
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-700">
-                Top Slab Thickness (in, incl. key)
+                {isRect
+                  ? "Top Slab Thickness (in)"
+                  : "Top Slab Thickness (in, incl. key)"}
               </label>
               <input
                 type="number"
@@ -352,35 +423,119 @@ export function StructureTemplateForm({
                 />
               </div>
             ) : null}
-            <div>
-              <label className="block text-xs font-medium text-slate-700">
-                Opening-to-Joint Min Top (in)
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={openingToJointMinTopInches}
-                onChange={(e) => setOpeningToJointMinTopInches(e.target.value)}
-                className={structureInputClassName}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-700">
-                Opening-to-Joint Min Bottom (in)
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={openingToJointMinBottomInches}
-                onChange={(e) =>
-                  setOpeningToJointMinBottomInches(e.target.value)
-                }
-                className={structureInputClassName}
-              />
-            </div>
+            {!isRect ? (
+              <>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700">
+                    Opening-to-Joint Min Top (in)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={openingToJointMinTopInches}
+                    onChange={(e) =>
+                      setOpeningToJointMinTopInches(e.target.value)
+                    }
+                    className={structureInputClassName}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700">
+                    Opening-to-Joint Min Bottom (in)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={openingToJointMinBottomInches}
+                    onChange={(e) =>
+                      setOpeningToJointMinBottomInches(e.target.value)
+                    }
+                    className={structureInputClassName}
+                  />
+                </div>
+              </>
+            ) : null}
           </div>
+
+          {isRect ? (
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Wall Price per Vertical Foot ($)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={rectWallPricePerFoot}
+                  onChange={(e) => setRectWallPricePerFoot(e.target.value)}
+                  placeholder="250.00"
+                  className={structureInputClassName}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Minimum Billed Height (ft)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={rectMinPricingHeightFeet}
+                  onChange={(e) => setRectMinPricingHeightFeet(e.target.value)}
+                  placeholder="4"
+                  className={structureInputClassName}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Top Slab Price ($)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={rectTopSlabPrice}
+                  onChange={(e) => setRectTopSlabPrice(e.target.value)}
+                  placeholder="300.00"
+                  className={structureInputClassName}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Base Slab Price ($)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={rectBaseSlabPrice}
+                  onChange={(e) => setRectBaseSlabPrice(e.target.value)}
+                  placeholder="200.00"
+                  className={structureInputClassName}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Sheet PDF Set
+                </label>
+                <select
+                  value={rectPdfSetId}
+                  onChange={(e) => setRectPdfSetId(e.target.value)}
+                  className={structureInputClassName}
+                >
+                  <option value="">— None —</option>
+                  {rectPdfSetOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          ) : null}
 
           <div>
             <label className="block text-xs font-medium text-slate-700">
@@ -396,6 +551,97 @@ export function StructureTemplateForm({
         </div>
       </SectionCard>
 
+      {isRect ? (
+        <SectionCard
+          title="Preset Sizes"
+          description="Optional inside length × width starting points. Sheets can always enter a free size."
+          action={
+            <button
+              type="button"
+              onClick={() => setRectSizes((rows) => [...rows, createRectSize()])}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Add Size
+            </button>
+          }
+          noPadding
+        >
+          <div className={tableFlushWrapperClassName}>
+            <table className={tableClassName}>
+              <thead>
+                <tr>
+                  <th className={tableHeaderCellClassName}>Inside Length (ft)</th>
+                  <th className={tableHeaderCellClassName}>Inside Width (ft)</th>
+                  <th className={tableHeaderCellClassName}></th>
+                </tr>
+              </thead>
+              <tbody className={tableBodyClassName}>
+                {rectSizes.map((size, index) => (
+                  <tr key={size.id}>
+                    <td className={tableCellClassName}>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.25"
+                        value={size.insideLengthFeet}
+                        onChange={(e) =>
+                          setRectSizes((rows) =>
+                            rows.map((row) =>
+                              row.id === size.id
+                                ? { ...row, insideLengthFeet: e.target.value }
+                                : row,
+                            ),
+                          )
+                        }
+                        placeholder="4"
+                        className={structureTableInputClassName}
+                      />
+                    </td>
+                    <td className={tableCellClassName}>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.25"
+                        value={size.insideWidthFeet}
+                        onChange={(e) =>
+                          setRectSizes((rows) =>
+                            rows.map((row) =>
+                              row.id === size.id
+                                ? { ...row, insideWidthFeet: e.target.value }
+                                : row,
+                            ),
+                          )
+                        }
+                        placeholder="4"
+                        className={structureTableInputClassName}
+                      />
+                    </td>
+                    <td className={`${tableCellClassName} py-1.5 text-right`}>
+                      {rectSizes.length > 1 ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setRectSizes((rows) =>
+                              rows.filter((row) => row.id !== size.id),
+                            )
+                          }
+                          className="text-[11px] font-medium text-rose-600 hover:text-rose-800"
+                        >
+                          Remove
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-slate-400">
+                          #{index + 1}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
+      ) : (
       <SectionCard
         title="Offered Diameters"
         description="Inside diameters available for this template. Mold limits and pricing are configured in Settings → Structure Diameters."
@@ -410,18 +656,18 @@ export function StructureTemplateForm({
         }
         noPadding
       >
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-xs">
+        <div className={tableFlushWrapperClassName}>
+          <table className={tableClassName}>
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                <th className="px-4 py-2.5 font-semibold">Inside Diameter (ft)</th>
-                <th className="px-4 py-2.5 font-semibold"></th>
+              <tr>
+                <th className={tableHeaderCellClassName}>Inside Diameter (ft)</th>
+                <th className={tableHeaderCellClassName}></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className={tableBodyClassName}>
               {diameters.map((diameter, index) => (
                 <tr key={diameter.id}>
-                  <td className="px-4 py-1.5">
+                  <td className={tableCellClassName}>
                     <input
                       type="number"
                       min="0"
@@ -440,7 +686,7 @@ export function StructureTemplateForm({
                       className={structureTableInputClassName}
                     />
                   </td>
-                  <td className="px-4 py-1.5 text-right">
+                  <td className={`${tableCellClassName} py-1.5 text-right`}>
                     {diameters.length > 1 ? (
                       <button
                         type="button"
@@ -465,6 +711,7 @@ export function StructureTemplateForm({
           </table>
         </div>
       </SectionCard>
+      )}
 
       <div className="flex flex-wrap justify-end gap-2 rounded-xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm">
         <Link

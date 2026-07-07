@@ -890,8 +890,11 @@ export function ProductForm({
           <p className="mt-1 text-xs text-slate-500">
             {productType === "ADS_PIPE"
               ? "ADS plastic pipe — diameter, 20' stick length, joint type (WT or ST), and price per foot."
-              : "Precast RCP — diameter, 8' stick length, class, joint, and price per foot."}
+              : "Precast RCP — diameter, 8' stick length, class, O-Ring joint, and price per foot."}
           </p>
+          {productType === "PRECAST_PIPE" ? (
+            <input type="hidden" name="pipeJointType" value="O-Ring" />
+          ) : null}
           <div className="mt-4 grid gap-5 sm:grid-cols-2">
             <div>
               <label
@@ -966,7 +969,6 @@ export function ProductForm({
               </div>
             ) : null}
             {productType === "PRECAST_PIPE" ? (
-            <>
             <div>
               <label
                 htmlFor="pipeClass"
@@ -983,23 +985,6 @@ export function ProductForm({
                 className={productInputClassName}
               />
             </div>
-            <div>
-              <label
-                htmlFor="pipeJointType"
-                className="block text-xs font-medium text-slate-700"
-              >
-                Joint Type
-              </label>
-              <input
-                id="pipeJointType"
-                name="pipeJointType"
-                type="text"
-                defaultValue={defaultValues?.pipeJointType ?? ""}
-                placeholder="RCP"
-                className={productInputClassName}
-              />
-            </div>
-            </>
             ) : null}
           </div>
         </div>

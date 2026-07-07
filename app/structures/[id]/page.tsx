@@ -28,15 +28,20 @@ export default async function EditStructureTemplatePage({
 }: EditStructureTemplatePageProps) {
   const { id } = await params;
 
-  const [template, castingOptions] = await Promise.all([
+  const [template, castingOptions, rectPdfSets] = await Promise.all([
     prisma.structureTemplate.findUnique({
       where: { id },
       include: {
         diameters: { orderBy: { sortOrder: "asc" } },
+        rectSizes: { orderBy: { sortOrder: "asc" } },
         templatePdfs: { orderBy: [{ hasRiser: "asc" }, { hasKey: "asc" }] },
       },
     }),
     loadCastingProductOptions(),
+    prisma.rectSheetPdfSet.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
   ]);
 
   if (!template) {
@@ -61,24 +66,39 @@ export default async function EditStructureTemplatePage({
     openingToJointMinBottomInches: decimalToString(
       template.openingToJointMinBottomInches,
     ),
+    rectWallPricePerFoot: decimalToString(template.rectWallPricePerFoot),
+    rectMinPricingHeightFeet: decimalToString(template.rectMinPricingHeightFeet),
+    rectTopSlabPrice: decimalToString(template.rectTopSlabPrice),
+    rectBaseSlabPrice: decimalToString(template.rectBaseSlabPrice),
+    rectPdfSetId: template.rectPdfSetId ?? "",
     status: template.status as "ACTIVE" | "INACTIVE",
     notes: template.notes ?? "",
     diameters: template.diameters.map((diameter) => ({
       id: diameter.id,
       insideDiameterFeet: decimalToString(diameter.insideDiameterFeet),
     })),
+    rectSizes: template.rectSizes.map((size) => ({
+      id: size.id,
+      insideLengthFeet: decimalToString(size.insideLengthFeet),
+      insideWidthFeet: decimalToString(size.insideWidthFeet),
+    })),
   };
 
   const updateAction = updateStructureTemplate.bind(null, template.id);
 
-  // One PDF per template: the app now draws riser/key differences (joints,
-  // section heights, elevations) onto the sheet itself.
+  const isRect = template.shape === "RECTANGULAR";
+
+  // Circular: one PDF per template — the app draws riser/key differences
+  // (joints, section heights, elevations) onto the sheet itself.
+  // Rectangular templates use shared PDF sets instead (Rect PDF Sets page).
   const existingPdf = template.templatePdfs[0] ?? null;
 
   const slotDefinitions = [
     {
       hasRiser: existingPdf?.hasRiser ?? false,
       hasKey: existingPdf?.hasKey ?? true,
+      hasTopSlab: false,
+      hasBaseSlab: false,
       label: "Drill Sheet Template PDF",
     },
   ];
@@ -87,7 +107,8 @@ export default async function EditStructureTemplatePage({
     slotDefinitions.map(async (slot) => {
       const pdf =
         template.templatePdfs.find(
-          (row) => row.hasRiser === slot.hasRiser && row.hasKey === slot.hasKey,
+          (row) =>
+            row.hasRiser === slot.hasRiser && row.hasKey === slot.hasKey,
         ) ?? existingPdf;
 
       if (!pdf) {
@@ -151,12 +172,30 @@ export default async function EditStructureTemplatePage({
           defaultValue={defaultValue}
           expectedUpdatedAt={template.updatedAt.toISOString()}
           castingOptions={castingOptions}
+          rectPdfSetOptions={rectPdfSets}
         />
       </div>
 
-      <div className="mt-6">
-        <StructureTemplatePdfsSection templateId={template.id} slots={pdfSlots} />
-      </div>
+      {isRect ? (
+        <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-600">
+          Sheet PDFs for rectangular templates come from the shared PDF set
+          selected above. Manage the sets (and their four slab variants) in{" "}
+          <Link
+            href="/structures/rect-pdf-sets"
+            className="font-semibold text-slate-800 underline"
+          >
+            Rect PDF Sets
+          </Link>
+          .
+        </div>
+      ) : (
+        <div className="mt-6">
+          <StructureTemplatePdfsSection
+            templateId={template.id}
+            slots={pdfSlots}
+          />
+        </div>
+      )}
     </DashboardShell>
   );
 }

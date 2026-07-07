@@ -39,6 +39,7 @@ import { generateQuoteNumber } from "@/lib/quote-number";
 import { linkPlanSheetToQuote } from "@/app/quotes/plan-sheet-actions";
 import { computeMoneyTotals } from "@/lib/money";
 import { computeDeliveryAmount } from "@/lib/quotes/money-rules";
+import { resolveQuoteLineQuantityForStorage } from "@/lib/quotes/constants";
 import { canEditQuote } from "@/lib/quotes/edit-rules";
 
 const QUOTE_STATUSES = Object.values(QuoteStatus);
@@ -393,7 +394,9 @@ export async function createQuote(
             productId: line.productId,
             itemCode: line.itemCode,
             description: line.description,
-            quantity: toDecimal(line.quantity),
+            quantity: toDecimal(
+              resolveQuoteLineQuantityForStorage(line.lineType, line.quantity),
+            ),
             unit: line.unit,
             unitPrice: toDecimal(line.unitPrice),
             weight: toOptionalDecimal(line.weight),
@@ -667,7 +670,12 @@ export async function updateQuote(
                   previousLineItemId: prior?.previousLineItemId ?? null,
                   itemCode: line.itemCode,
                   description: line.description,
-                  quantity: toDecimal(line.quantity),
+                  quantity: toDecimal(
+                    resolveQuoteLineQuantityForStorage(
+                      line.lineType,
+                      line.quantity,
+                    ),
+                  ),
                   unit: line.unit,
                   unitPrice: toDecimal(line.unitPrice),
                   weight: toOptionalDecimal(line.weight),

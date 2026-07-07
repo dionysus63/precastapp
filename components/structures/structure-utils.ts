@@ -1,3 +1,5 @@
+import { tableInlineInputClassName } from "@/lib/table-styles";
+
 export type StructureType =
   | "STOCK_PRODUCT"
   | "CONFIGURABLE_PRODUCT"
@@ -41,8 +43,7 @@ export const structureStatusOptions: {
 export const structureInputClassName =
   "mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm";
 
-export const structureTableInputClassName =
-  "w-full min-w-[72px] rounded border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-900";
+export const structureTableInputClassName = `${tableInlineInputClassName} w-full min-w-[72px]`;
 
 export type OpeningRow = {
   id: string;

@@ -5,6 +5,12 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableHeaderCellClassName,
+} from "@/lib/table-styles";
 export default async function SettingsUsersAuditPage() {
   await requirePermission(AppPermission.USERS_MANAGE);
 
@@ -37,27 +43,27 @@ export default async function SettingsUsersAuditPage() {
 
       <SectionCard title="Recent Activity" noPadding>
         <div className="overflow-hidden">
-          <table className="min-w-full divide-y divide-slate-200 text-xs">
-            <thead className="bg-slate-50">
+          <table className={tableClassName}>
+            <thead>
               <tr>
-                <th className="px-4 py-3 text-left font-semibold text-slate-600">
+                <th className={tableHeaderCellClassName}>
                   When
                 </th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-600">
+                <th className={tableHeaderCellClassName}>
                   User
                 </th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-600">
+                <th className={tableHeaderCellClassName}>
                   Action
                 </th>
-                <th className="px-4 py-3 text-left font-semibold text-slate-600">
+                <th className={tableHeaderCellClassName}>
                   Summary
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className={tableBodyClassName}>
               {logs.map((log) => (
                 <tr key={log.id}>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className={`${tableCellClassName} text-slate-600`}>
                     {log.createdAt.toLocaleString("en-US", {
                       month: "short",
                       day: "numeric",
@@ -66,15 +72,15 @@ export default async function SettingsUsersAuditPage() {
                       minute: "2-digit",
                     })}
                   </td>
-                  <td className="px-4 py-3 text-slate-700">
+                  <td className={`${tableCellClassName} text-slate-700`}>
                     {log.user
                       ? `${log.user.displayName} (@${log.user.username})`
                       : "System"}
                   </td>
-                  <td className="px-4 py-3 font-medium text-slate-800">
+                  <td className={`${tableCellClassName} font-medium text-slate-800`}>
                     {log.action}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className={`${tableCellClassName} text-slate-600`}>
                     {log.summary ?? "—"}
                   </td>
                 </tr>

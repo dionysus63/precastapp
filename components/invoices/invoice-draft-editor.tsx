@@ -13,6 +13,14 @@ import type { InvoiceLineType } from "@/app/generated/prisma/client";
 import { computeMoneyTotals } from "@/lib/money";
 import { computeDeliveryAmount } from "@/lib/quotes/money-rules";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+  tableInlineInputClassName,
+} from "@/lib/table-styles";
 type EditorLine = DraftInvoiceLineInput & { clientKey: string };
 
 type InvoiceDraftEditorProps = {
@@ -211,25 +219,25 @@ export function InvoiceDraftEditor({
       </SectionCard>
 
       <SectionCard title="Line items" noPadding>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-xs">
-            <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+        <div className={tableFlushWrapperClassName}>
+          <table className={tableClassName}>
+            <thead>
               <tr>
-                <th className="px-3 py-2 font-semibold">Type</th>
-                <th className="px-3 py-2 font-semibold">Item</th>
-                <th className="px-3 py-2 font-semibold">Description</th>
-                <th className="px-3 py-2 font-semibold">Qty</th>
-                <th className="px-3 py-2 font-semibold">Unit</th>
-                <th className="px-3 py-2 font-semibold">Unit price</th>
-                <th className="px-3 py-2 font-semibold">Taxable</th>
-                <th className="px-3 py-2 font-semibold">Total</th>
-                <th className="px-3 py-2 font-semibold" />
+                <th className={tableHeaderCellClassName}>Type</th>
+                <th className={tableHeaderCellClassName}>Item</th>
+                <th className={tableHeaderCellClassName}>Description</th>
+                <th className={tableHeaderCellClassName}>Qty</th>
+                <th className={tableHeaderCellClassName}>Unit</th>
+                <th className={tableHeaderCellClassName}>Unit price</th>
+                <th className={tableHeaderCellClassName}>Taxable</th>
+                <th className={tableHeaderCellClassName}>Total</th>
+                <th className={tableHeaderCellClassName} />
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className={tableBodyClassName}>
               {lines.map((line, index) => (
                 <tr key={line.clientKey}>
-                  <td className="px-3 py-2">
+                  <td className={tableCellClassName}>
                     <select
                       value={line.lineType}
                       onChange={(event) =>
@@ -237,7 +245,7 @@ export function InvoiceDraftEditor({
                           lineType: event.target.value as InvoiceLineType,
                         })
                       }
-                      className="rounded border border-slate-200 px-1.5 py-1"
+                      className={`${tableInlineInputClassName} cursor-pointer`}
                     >
                       {[
                         "STOCK_PRODUCT",
@@ -252,7 +260,7 @@ export function InvoiceDraftEditor({
                       ))}
                     </select>
                   </td>
-                  <td className="px-3 py-2">
+                  <td className={tableCellClassName}>
                     <input
                       value={line.itemCode}
                       onChange={(event) =>
@@ -260,10 +268,10 @@ export function InvoiceDraftEditor({
                           itemCode: event.target.value,
                         })
                       }
-                      className="w-28 rounded border border-slate-200 px-1.5 py-1"
+                      className={`${tableInlineInputClassName} w-28`}
                     />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className={tableCellClassName}>
                     <input
                       value={line.description}
                       onChange={(event) =>
@@ -271,10 +279,10 @@ export function InvoiceDraftEditor({
                           description: event.target.value,
                         })
                       }
-                      className="min-w-[12rem] rounded border border-slate-200 px-1.5 py-1"
+                      className={`${tableInlineInputClassName} w-full min-w-[12rem]`}
                     />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className={tableCellClassName}>
                     <input
                       type="number"
                       min="0"
@@ -285,19 +293,19 @@ export function InvoiceDraftEditor({
                           quantity: Number(event.target.value),
                         })
                       }
-                      className="w-20 rounded border border-slate-200 px-1.5 py-1"
+                      className={`${tableInlineInputClassName} w-20 text-right tabular-nums`}
                     />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className={tableCellClassName}>
                     <input
                       value={line.unit}
                       onChange={(event) =>
                         updateLine(line.clientKey, { unit: event.target.value })
                       }
-                      className="w-16 rounded border border-slate-200 px-1.5 py-1"
+                      className={`${tableInlineInputClassName} w-16`}
                     />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className={tableCellClassName}>
                     <input
                       type="number"
                       min="0"
@@ -308,10 +316,10 @@ export function InvoiceDraftEditor({
                           unitPrice: Number(event.target.value),
                         })
                       }
-                      className="w-24 rounded border border-slate-200 px-1.5 py-1"
+                      className={`${tableInlineInputClassName} w-24 text-right tabular-nums`}
                     />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className={tableCellClassName}>
                     <input
                       type="checkbox"
                       checked={line.taxable}
@@ -322,12 +330,12 @@ export function InvoiceDraftEditor({
                       }
                     />
                   </td>
-                  <td className="px-3 py-2 font-medium">
+                  <td className={`${tableCellClassName} font-medium`}>
                     {formatMoney(
                       Number(preview.computed.lineTotals[index]?.toString() ?? 0),
                     )}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className={tableCellClassName}>
                     <button
                       type="button"
                       onClick={() => removeLine(line.clientKey)}

@@ -39,6 +39,12 @@ import { productTypeLabels } from "@/lib/product-types";
 import { formatCastingSupplierOriginLabel } from "@/lib/casting-utils";
 import type { ProductTaxonomyCategory } from "@/lib/product-taxonomy.shared";
 
+import {
+  tableBodyClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableRowClassName,
+} from "@/lib/table-styles";
 const PROFILE_FIELD_KEYS = new Set([
   "ringDiameterFeet",
   "heightFeet",
@@ -652,10 +658,10 @@ export function BulkPasteForm({
               No rows found. Paste Excel data above and click Parse Preview.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-xs">
+            <div className={tableFlushWrapperClassName}>
+              <table className={tableClassName}>
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
+                  <tr>
                     {previewColumns.map((column) => (
                       <th
                         key={column.key}
@@ -666,9 +672,9 @@ export function BulkPasteForm({
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className={tableBodyClassName}>
                   {previewRows.map((row) => (
-                    <tr key={row.lineNumber} className="hover:bg-slate-50/60">
+                    <tr key={row.lineNumber} className={tableRowClassName}>
                       {previewColumns.map((column) => (
                         <td
                           key={column.key}

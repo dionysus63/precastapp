@@ -3,6 +3,11 @@ import type {
   DrillSheetJobOption,
   DrillSheetTemplateOption,
 } from "@/components/drill-sheets/drill-sheet-form";
+import type {
+  RectSheetCastingOption,
+  RectSheetTemplateOption,
+  RectSheetOpeningSizeOption,
+} from "@/components/drill-sheets/rect-sheet-form";
 import { prisma } from "@/lib/prisma";
 
 export type DrillSheetFormOptions = {
@@ -115,6 +120,106 @@ export async function loadDrillSheetFormOptions(): Promise<DrillSheetFormOptions
       keyHeightFeet: Number(config.keyHeightFeet),
       wallPricePerFoot: Number(config.wallPricePerFoot),
       basePrice: Number(config.basePrice),
+    })),
+  };
+}
+
+export type RectSheetFormOptions = {
+  templateOptions: RectSheetTemplateOption[];
+  castingOptions: RectSheetCastingOption[];
+  jobOptions: DrillSheetJobOption[];
+  openingSizes: RectSheetOpeningSizeOption[];
+};
+
+export async function loadRectSheetFormOptions(): Promise<RectSheetFormOptions> {
+  const [templates, castings, jobs, openingSizes] = await Promise.all([
+    prisma.structureTemplate.findMany({
+      where: { status: "ACTIVE", shape: "RECTANGULAR" },
+      orderBy: { name: "asc" },
+      include: {
+        castingProduct: {
+          select: { id: true, name: true, heightFeet: true },
+        },
+        rectSizes: { orderBy: { sortOrder: "asc" } },
+      },
+    }),
+    prisma.product.findMany({
+      where: { isCasting: true, status: "ACTIVE" },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        heightFeet: true,
+        castingClearOpeningInches: true,
+      },
+    }),
+    prisma.job.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      select: { id: true, jobNumber: true, projectName: true },
+    }),
+    prisma.rectOpeningSize.findMany({ orderBy: { sortOrder: "asc" } }),
+  ]);
+
+  return {
+    templateOptions: templates.map((template) => ({
+      id: template.id,
+      name: template.name,
+      agencyStandard: template.agencyStandard,
+      wallThicknessInches: Number(template.wallThicknessInches),
+      baseSlabThicknessInches: Number(template.baseSlabThicknessInches),
+      topSlabThicknessInches: Number(template.topSlabThicknessInches),
+      minimumBrickInches: Number(template.minimumBrickInches),
+      sumpMode: template.sumpMode,
+      sumpFixedInches:
+        template.sumpFixedInches != null
+          ? Number(template.sumpFixedInches)
+          : null,
+      wallPricePerFoot:
+        template.rectWallPricePerFoot != null
+          ? Number(template.rectWallPricePerFoot)
+          : 0,
+      minPricingHeightFeet:
+        template.rectMinPricingHeightFeet != null
+          ? Number(template.rectMinPricingHeightFeet)
+          : 0,
+      topSlabPrice:
+        template.rectTopSlabPrice != null
+          ? Number(template.rectTopSlabPrice)
+          : 0,
+      baseSlabPrice:
+        template.rectBaseSlabPrice != null
+          ? Number(template.rectBaseSlabPrice)
+          : 0,
+      defaultCastingProductId: template.castingProductId,
+      defaultCastingHeightFeet: template.castingProduct?.heightFeet
+        ? Number(template.castingProduct.heightFeet)
+        : null,
+      presetSizes: template.rectSizes.map((size) => ({
+        id: size.id,
+        insideLengthFeet: Number(size.insideLengthFeet),
+        insideWidthFeet: Number(size.insideWidthFeet),
+      })),
+    })),
+    castingOptions: castings.map((casting) => ({
+      id: casting.id,
+      name: casting.name,
+      heightFeet: casting.heightFeet ? Number(casting.heightFeet) : null,
+      clearOpeningInches: casting.castingClearOpeningInches
+        ? Number(casting.castingClearOpeningInches)
+        : null,
+    })),
+    jobOptions: jobs.map((job) => ({
+      id: job.id,
+      label: `${job.jobNumber} — ${job.projectName}`,
+    })),
+    openingSizes: openingSizes.map((entry) => ({
+      pipeMaterial: entry.pipeMaterial,
+      pipeSizeInches: Number(entry.pipeSizeInches),
+      openingWidthInches: Number(entry.openingWidthInches),
+      openingHeightInches: Number(entry.openingHeightInches),
+      pricePerOpening:
+        entry.pricePerOpening != null ? Number(entry.pricePerOpening) : null,
     })),
   };
 }

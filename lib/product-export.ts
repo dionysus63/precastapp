@@ -8,6 +8,7 @@ import {
   formatAdsPipeJointTypeLabel,
   normalizeAdsPipeJointType,
 } from "@/lib/ads-pipe-utils";
+import { formatRcpPipeJointTypeLabel } from "@/lib/rcp-pipe-utils";
 import {
   buildWorkbookBuffer,
   formatExportDate,
@@ -142,7 +143,9 @@ function mapProductToExportRow(
         ? formatAdsPipeJointTypeLabel(
             normalizeAdsPipeJointType(product.pipeJointType),
           )
-        : formatOptionalString(product.pipeJointType)
+        : isPrecastPipe
+          ? formatRcpPipeJointTypeLabel()
+          : formatOptionalString(product.pipeJointType)
       : "",
     product.id,
     formatExportDate(product.createdAt),

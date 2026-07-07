@@ -45,6 +45,22 @@ export const OPEN_TICKET_STATUSES: DeliveryTicketStatus[] = [
   ...SCHEDULED_TICKET_STATUSES,
 ];
 
+/**
+ * Tickets whose quantities should be ignored during aggregation — a single
+ * ticket while editing it, or the whole set of planner-managed drafts while
+ * re-planning them (their quantities live in the grid instead).
+ */
+type ExcludeTickets = string | string[] | undefined;
+
+function excludedTicketWhere(exclude: ExcludeTickets) {
+  if (!exclude || (Array.isArray(exclude) && exclude.length === 0)) {
+    return {};
+  }
+  return Array.isArray(exclude)
+    ? { id: { notIn: exclude } }
+    : { id: { not: exclude } };
+}
+
 export type DrainRingOption = {
   productId: string;
   productCode: string;
@@ -216,7 +232,7 @@ function rollUpNumberTotals(
 export async function getShippedQuantityForQuoteLine(
   client: DbClient,
   quoteLineItemId: string,
-  excludeTicketId?: string,
+  excludeTicketId?: string | string[],
 ): Promise<Prisma.Decimal> {
   const lineageMap = await buildQuoteLineLineageMap(client, [quoteLineItemId]);
   const quantities = await loadShippedQuantitiesByQuoteLineId(
@@ -234,7 +250,7 @@ export async function getShippedQuantityForQuoteLine(
 export async function getShippedFeetForDrainRingLine(
   client: DbClient,
   quoteLineItemId: string,
-  excludeTicketId?: string,
+  excludeTicketId?: string | string[],
 ): Promise<number> {
   const lineageMap = await buildQuoteLineLineageMap(client, [quoteLineItemId]);
   const feetByLineId = await loadShippedFeetByQuoteLineId(
@@ -248,7 +264,7 @@ export async function getShippedFeetForDrainRingLine(
 async function loadShippedQuantitiesByQuoteLineId(
   client: DbClient,
   lineageMap: Map<string, string[]>,
-  excludeTicketId?: string,
+  excludeTicketId?: string | string[],
   ticketStatuses: readonly DeliveryTicketStatus[] = [DELIVERED_TICKET_STATUS],
 ): Promise<Map<string, Prisma.Decimal>> {
   const quoteLineItemIds = allLineageIds(lineageMap);
@@ -262,7 +278,7 @@ async function loadShippedQuantitiesByQuoteLineId(
       quoteLineItemId: { in: quoteLineItemIds },
       deliveryTicket: {
         status: { in: [...ticketStatuses] },
-        ...(excludeTicketId ? { id: { not: excludeTicketId } } : {}),
+        ...excludedTicketWhere(excludeTicketId),
       },
     },
     _sum: { quantity: true },
@@ -285,7 +301,7 @@ async function loadShippedQuantitiesByQuoteLineId(
 async function loadShippedFeetByQuoteLineId(
   client: DbClient,
   lineageMap: Map<string, string[]>,
-  excludeTicketId?: string,
+  excludeTicketId?: string | string[],
   ticketStatuses: readonly DeliveryTicketStatus[] = [DELIVERED_TICKET_STATUS],
 ): Promise<Map<string, number>> {
   const quoteLineItemIds = allLineageIds(lineageMap);
@@ -301,7 +317,7 @@ async function loadShippedFeetByQuoteLineId(
       quoteLineItemId: { in: quoteLineItemIds },
       deliveryTicket: {
         status: { in: [...ticketStatuses] },
-        ...(excludeTicketId ? { id: { not: excludeTicketId } } : {}),
+        ...excludedTicketWhere(excludeTicketId),
       },
     },
     _sum: { quantity: true },
@@ -383,7 +399,7 @@ async function loadShippedCastingSetsByQuoteLineId(
     productId: string | null;
   }>,
   lineageMap: Map<string, string[]>,
-  excludeTicketId?: string,
+  excludeTicketId?: string | string[],
   ticketStatuses: readonly DeliveryTicketStatus[] = [DELIVERED_TICKET_STATUS],
 ): Promise<Map<string, number>> {
   if (castingLines.length === 0) {
@@ -410,7 +426,7 @@ async function loadShippedCastingSetsByQuoteLineId(
         quoteLineItemId: { in: lineIds },
         deliveryTicket: {
           status: { in: [...ticketStatuses] },
-          ...(excludeTicketId ? { id: { not: excludeTicketId } } : {}),
+          ...excludedTicketWhere(excludeTicketId),
         },
       },
       _sum: { quantity: true },
@@ -799,7 +815,7 @@ type QuoteFulfillmentContext = NonNullable<
 export async function getQuoteLineFulfillment(
   client: DbClient,
   quoteId: string,
-  excludeTicketId?: string,
+  excludeTicketId?: string | string[],
 ): Promise<QuoteLineFulfillment[]> {
   const context = await loadQuoteFulfillmentContext(client, quoteId);
   if (!context) {
@@ -811,7 +827,7 @@ export async function getQuoteLineFulfillment(
 async function buildFulfillmentFromContext(
   client: DbClient,
   context: QuoteFulfillmentContext,
-  excludeTicketId?: string,
+  excludeTicketId?: string | string[],
 ): Promise<QuoteLineFulfillment[]> {
   const {
     quote,
@@ -1127,7 +1143,7 @@ async function buildFulfillmentFromContext(
 export async function getQuoteLineScheduledQuantities(
   client: DbClient,
   quoteId: string,
-  excludeTicketId?: string,
+  excludeTicketId?: string | string[],
   ticketStatuses: readonly DeliveryTicketStatus[] = SCHEDULED_TICKET_STATUSES,
 ): Promise<Map<string, number>> {
   const context = await loadQuoteFulfillmentContext(client, quoteId);
@@ -1140,7 +1156,7 @@ export async function getQuoteLineScheduledQuantities(
 async function buildScheduledFromContext(
   client: DbClient,
   context: QuoteFulfillmentContext,
-  excludeTicketId: string | undefined,
+  excludeTicketId: string | string[] | undefined,
   ticketStatuses: readonly DeliveryTicketStatus[],
 ): Promise<Map<string, number>> {
   const { quote, lineageMap, castingAssemblyLines, standardLineage } = context;
@@ -1194,7 +1210,7 @@ async function buildScheduledFromContext(
 export async function getQuoteLineFulfillmentAndScheduled(
   client: DbClient,
   quoteId: string,
-  excludeTicketId?: string,
+  excludeTicketId?: string | string[],
   scheduledStatuses: readonly DeliveryTicketStatus[] = SCHEDULED_TICKET_STATUSES,
 ): Promise<{
   fulfillment: QuoteLineFulfillment[];

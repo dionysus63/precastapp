@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { InventoryFilters } from "@/components/inventory/inventory-filters";
 import { InventorySubmittalsCell } from "@/components/inventory/inventory-submittals-cell";
 import { PaginationControls } from "@/components/common/pagination-controls";
 import { SectionCard } from "@/components/dashboard/section-card";
@@ -13,11 +14,35 @@ import {
 } from "@/lib/list-params";
 import { PRODUCT_SUBMITTAL_DOCUMENT_TYPES } from "@/lib/product-submittals-service";
 import { loadEffectiveSubmittalCountsByProductId } from "@/lib/submittal-package";
-import { withDatabaseRetry } from "@/lib/prisma";
+import { prisma, withDatabaseRetry } from "@/lib/prisma";
 import type { Prisma } from "@/app/generated/prisma/client";
+
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+  tableNumericCellClassName,
+  tableRowClassName,
+} from "@/lib/table-styles";
 
 type InventoryPageProps = {
   searchParams: Promise<RawSearchParams>;
+};
+
+const baseWhere: Prisma.ProductWhereInput = {
+  trackInventory: true,
+  status: "ACTIVE",
+};
+
+const lowStockWhere: Prisma.ProductWhereInput = {
+  reorderLevel: { gt: 0 },
+  currentStockQuantity: { lte: prisma.product.fields.reorderLevel },
+};
+
+const outOfStockWhere: Prisma.ProductWhereInput = {
+  currentStockQuantity: { lte: 0 },
 };
 
 export default async function InventoryPage({
@@ -25,11 +50,26 @@ export default async function InventoryPage({
 }: InventoryPageProps) {
   const params = await searchParams;
   const requestedPage = parsePageParam(params.page);
+  const search = parseStringParam(params.q);
+  const stockParam = parseStringParam(params.stock);
   const castingOriginParam = parseStringParam(params.castingOrigin);
 
   const where: Prisma.ProductWhereInput = {
-    trackInventory: true,
-    status: "ACTIVE",
+    ...baseWhere,
+    ...(search
+      ? {
+          OR: [
+            { productCode: { contains: search, mode: "insensitive" } },
+            { name: { contains: search, mode: "insensitive" } },
+            { yardLocation: { contains: search, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+    ...(stockParam === "low"
+      ? lowStockWhere
+      : stockParam === "out"
+        ? outOfStockWhere
+        : {}),
     ...(castingOriginParam === "Domestic"
       ? { castingSupplier: { origin: "DOMESTIC" } }
       : castingOriginParam === "Imported"
@@ -37,8 +77,14 @@ export default async function InventoryPage({
         : {}),
   };
 
-  const total = await withDatabaseRetry((client) =>
-    client.product.count({ where }),
+  const [total, trackedCount, lowCount, outCount] = await withDatabaseRetry(
+    (client) =>
+      Promise.all([
+        client.product.count({ where }),
+        client.product.count({ where: baseWhere }),
+        client.product.count({ where: { ...baseWhere, ...lowStockWhere } }),
+        client.product.count({ where: { ...baseWhere, ...outOfStockWhere } }),
+      ]),
   );
   const pageInfo = buildPageInfo(total, requestedPage);
 
@@ -56,7 +102,6 @@ export default async function InventoryPage({
         reorderLevel: true,
         yardLocation: true,
         unit: true,
-        castingRole: true,
         castingSoldAsUnit: true,
         castingSupplier: { select: { origin: true } },
         _count: {
@@ -79,71 +124,70 @@ export default async function InventoryPage({
     ),
   );
 
-  function filterHref(next: Record<string, string | null>) {
-    const query = new URLSearchParams();
-    const merged = {
-      castingOrigin: castingOriginParam ?? "",
-      ...next,
-    };
-    for (const [key, value] of Object.entries(merged)) {
-      if (value) {
-        query.set(key, value);
-      }
-    }
-    const qs = query.toString();
-    return qs ? `/inventory?${qs}` : "/inventory";
-  }
+  const hasActiveFilters = Boolean(search || stockParam || castingOriginParam);
+
+  const summaryCards = [
+    {
+      label: "Tracked Products",
+      value: trackedCount,
+      href: "/inventory",
+      active: !stockParam,
+      valueClassName: "text-slate-900",
+    },
+    {
+      label: "Low Stock",
+      value: lowCount,
+      href: "/inventory?stock=low",
+      active: stockParam === "low",
+      valueClassName: lowCount > 0 ? "text-amber-700" : "text-slate-900",
+    },
+    {
+      label: "Out of Stock",
+      value: outCount,
+      href: "/inventory?stock=out",
+      active: stockParam === "out",
+      valueClassName: outCount > 0 ? "text-red-700" : "text-slate-900",
+    },
+  ];
 
   return (
     <DashboardShell
       title="Inventory"
       subtitle="Stock levels for products tracked in the yard."
     >
-      <div className="mb-4 flex flex-wrap justify-between gap-3">
-        <div className="flex flex-wrap gap-2 text-xs">
+      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+        {summaryCards.map((card) => (
           <Link
-            href={filterHref({ castingOrigin: null })}
-            className={`rounded-lg border px-3 py-2 ${
-              !castingOriginParam
-                ? "border-slate-900 bg-slate-900 text-white"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            key={card.label}
+            href={card.href}
+            className={`rounded-xl border bg-white px-4 py-3 shadow-sm transition hover:bg-slate-50 ${
+              card.active ? "border-slate-400 ring-1 ring-slate-300" : "border-slate-200"
             }`}
           >
-            All origins
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              {card.label}
+            </div>
+            <div className={`mt-1 text-xl font-semibold ${card.valueClassName}`}>
+              {card.value}
+            </div>
           </Link>
-          <Link
-            href={filterHref({ castingOrigin: "Domestic" })}
-            className={`rounded-lg border px-3 py-2 ${
-              castingOriginParam === "Domestic"
-                ? "border-slate-900 bg-slate-900 text-white"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-            }`}
-          >
-            Domestic
-          </Link>
-          <Link
-            href={filterHref({ castingOrigin: "Imported" })}
-            className={`rounded-lg border px-3 py-2 ${
-              castingOriginParam === "Imported"
-                ? "border-slate-900 bg-slate-900 text-white"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-            }`}
-          >
-            Imported
-          </Link>
-        </div>
+        ))}
+      </div>
+
+      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+        <InventoryFilters
+          filters={{
+            search: search ?? "",
+            stock: stockParam ?? "",
+            castingOrigin: castingOriginParam ?? "",
+          }}
+        />
         <div className="flex flex-wrap gap-2">
           <Link
             href="/inventory/receipts"
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-sm hover:bg-slate-50"
           >
             Receipt History
-          </Link>
-          <Link
-            href="/inventory/receive"
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-sm hover:bg-slate-50"
-          >
-            Receive Castings
           </Link>
           <Link
             href="/inventory/adjust"
@@ -157,36 +201,61 @@ export default async function InventoryPage({
           >
             Daily Production Entry
           </Link>
+          <Link
+            href="/inventory/receive"
+            className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white shadow-sm hover:bg-slate-800"
+          >
+            Receive Castings
+          </Link>
         </div>
       </div>
 
       <SectionCard title="Current Stock" noPadding>
         {products.length === 0 ? (
-          <p className="px-4 py-6 text-sm text-slate-500">
-            No inventory-tracked products match these filters.
-          </p>
+          <div className="px-4 py-8 text-center text-sm text-slate-500">
+            <p>No inventory-tracked products match these filters.</p>
+            {hasActiveFilters ? (
+              <Link
+                href="/inventory"
+                className="mt-2 inline-block text-xs font-medium text-slate-700 underline hover:text-slate-900"
+              >
+                Clear filters
+              </Link>
+            ) : null}
+          </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-xs">
-              <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+          <div className={tableFlushWrapperClassName}>
+            <table className={tableClassName}>
+              <thead>
                 <tr>
-                  <th className="px-4 py-2 font-semibold">Code</th>
-                  <th className="px-4 py-2 font-semibold">Product</th>
-                  <th className="px-4 py-2 font-semibold">On Hand</th>
-                  <th className="px-4 py-2 font-semibold">Reorder</th>
-                  <th className="px-4 py-2 font-semibold">Yard</th>
-                  <th className="px-4 py-2 font-semibold">Submittals</th>
-                  <th className="px-4 py-2 font-semibold">History</th>
+                  <th className={tableHeaderCellClassName}>Code</th>
+                  <th className={tableHeaderCellClassName}>Product</th>
+                  <th className={`${tableHeaderCellClassName} text-right`}>
+                    On Hand
+                  </th>
+                  <th className={`${tableHeaderCellClassName} text-right`}>
+                    Reorder
+                  </th>
+                  <th className={tableHeaderCellClassName}>Yard</th>
+                  <th className={tableHeaderCellClassName}>Submittals</th>
+                  <th className={tableHeaderCellClassName}>History</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className={tableBodyClassName}>
                 {products.map((product) => {
+                  const out = product.currentStockQuantity <= 0;
                   const low =
+                    !out &&
                     product.reorderLevel > 0 &&
                     product.currentStockQuantity <= product.reorderLevel;
                   return (
-                    <tr key={product.id} className="text-slate-800 hover:bg-slate-50/60">
-                      <td className="px-4 py-2 font-medium">
+                    <tr
+                      key={product.id}
+                      className={`${tableRowClassName} text-slate-800 ${
+                        out ? "bg-red-50/40" : low ? "bg-amber-50/40" : ""
+                      }`}
+                    >
+                      <td className={`${tableCellClassName} font-medium`}>
                         <Link
                           href={`/inventory/${product.id}`}
                           className="text-slate-900 hover:text-slate-700"
@@ -194,7 +263,7 @@ export default async function InventoryPage({
                           {product.productCode}
                         </Link>
                       </td>
-                      <td className="px-4 py-2">
+                      <td className={tableCellClassName}>
                         <div>{product.name}</div>
                         <div className="mt-1 flex flex-wrap gap-1">
                           {product.castingSupplier?.origin ? (
@@ -211,13 +280,32 @@ export default async function InventoryPage({
                         </div>
                       </td>
                       <td
-                        className={`px-4 py-2 ${low ? "font-semibold text-amber-700" : ""}`}
+                        className={`${tableNumericCellClassName} whitespace-nowrap ${
+                          out
+                            ? "font-semibold text-red-700"
+                            : low
+                              ? "font-semibold text-amber-700"
+                              : ""
+                        }`}
                       >
                         {product.currentStockQuantity} {product.unit}
+                        {out ? (
+                          <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-red-700">
+                            Out
+                          </span>
+                        ) : low ? (
+                          <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-700">
+                            Low
+                          </span>
+                        ) : null}
                       </td>
-                      <td className="px-4 py-2">{product.reorderLevel}</td>
-                      <td className="px-4 py-2">{product.yardLocation ?? "—"}</td>
-                      <td className="px-4 py-2">
+                      <td className={tableNumericCellClassName}>
+                        {product.reorderLevel > 0 ? product.reorderLevel : "—"}
+                      </td>
+                      <td className={tableCellClassName}>
+                        {product.yardLocation ?? "—"}
+                      </td>
+                      <td className={tableCellClassName}>
                         <InventorySubmittalsCell
                           productId={product.id}
                           submittalCount={
@@ -226,7 +314,7 @@ export default async function InventoryPage({
                           }
                         />
                       </td>
-                      <td className="px-4 py-2">
+                      <td className={tableCellClassName}>
                         <Link
                           href={`/inventory/${product.id}`}
                           className="text-slate-700 underline hover:text-slate-900"

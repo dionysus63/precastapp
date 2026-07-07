@@ -4,6 +4,13 @@ import { SettingsShell } from "@/components/settings/settings-shell";
 import { getDocumentNumberingPreview } from "@/app/settings/actions";
 import { getAppSettings } from "@/lib/app-settings";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+} from "@/lib/table-styles";
 export default async function SystemSettingsPage() {
   const [settings, numbering] = await Promise.all([
     getAppSettings(),
@@ -16,36 +23,36 @@ export default async function SystemSettingsPage() {
       subtitle="Document numbering, file sync, and environment summary."
     >
       <SectionCard title="Next document numbers" description={numbering.quoteNote}>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-xs">
-            <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+        <div className={tableFlushWrapperClassName}>
+          <table className={tableClassName}>
+            <thead>
               <tr>
-                <th className="px-3 py-2 font-semibold">Document</th>
-                <th className="px-3 py-2 font-semibold">Format</th>
-                <th className="px-3 py-2 font-semibold">Last # ({numbering.year})</th>
-                <th className="px-3 py-2 font-semibold">Next</th>
+                <th className={tableHeaderCellClassName}>Document</th>
+                <th className={tableHeaderCellClassName}>Format</th>
+                <th className={tableHeaderCellClassName}>Last # ({numbering.year})</th>
+                <th className={tableHeaderCellClassName}>Next</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className={tableBodyClassName}>
               <tr>
-                <td className="px-3 py-2 font-medium">Job</td>
-                <td className="px-3 py-2 font-mono">{numbering.job.format}</td>
-                <td className="px-3 py-2">{numbering.job.lastNumber}</td>
-                <td className="px-3 py-2 font-mono font-semibold">{numbering.job.next}</td>
+                <td className={`${tableCellClassName} font-medium`}>Job</td>
+                <td className={`${tableCellClassName} font-mono`}>{numbering.job.format}</td>
+                <td className={tableCellClassName}>{numbering.job.lastNumber}</td>
+                <td className={`${tableCellClassName} font-mono font-semibold`}>{numbering.job.next}</td>
               </tr>
               <tr>
-                <td className="px-3 py-2 font-medium">Delivery ticket</td>
-                <td className="px-3 py-2 font-mono">{numbering.deliveryTicket.format}</td>
-                <td className="px-3 py-2">{numbering.deliveryTicket.lastNumber}</td>
-                <td className="px-3 py-2 font-mono font-semibold">
+                <td className={`${tableCellClassName} font-medium`}>Delivery ticket</td>
+                <td className={`${tableCellClassName} font-mono`}>{numbering.deliveryTicket.format}</td>
+                <td className={tableCellClassName}>{numbering.deliveryTicket.lastNumber}</td>
+                <td className={`${tableCellClassName} font-mono font-semibold`}>
                   {numbering.deliveryTicket.next}
                 </td>
               </tr>
               <tr>
-                <td className="px-3 py-2 font-medium">Invoice</td>
-                <td className="px-3 py-2 font-mono">{numbering.invoice.format}</td>
-                <td className="px-3 py-2">{numbering.invoice.lastNumber}</td>
-                <td className="px-3 py-2 font-mono font-semibold">{numbering.invoice.next}</td>
+                <td className={`${tableCellClassName} font-medium`}>Invoice</td>
+                <td className={`${tableCellClassName} font-mono`}>{numbering.invoice.format}</td>
+                <td className={tableCellClassName}>{numbering.invoice.lastNumber}</td>
+                <td className={`${tableCellClassName} font-mono font-semibold`}>{numbering.invoice.next}</td>
               </tr>
             </tbody>
           </table>

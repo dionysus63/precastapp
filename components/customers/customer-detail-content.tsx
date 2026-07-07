@@ -4,6 +4,15 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import type { CustomerDetailView } from "@/components/customers/customer-utils";
 
+import {
+  tableBodyClassName,
+  tableCellBordersClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+  tableRowClassName,
+} from "@/lib/table-styles";
 function DetailField({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -137,30 +146,30 @@ export function CustomerDetailContent({ customer }: CustomerDetailContentProps) 
           />
 
           <SectionCard title="Related Jobs" noPadding>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-xs">
+            <div className={tableFlushWrapperClassName}>
+              <table className={tableClassName}>
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                    <th className="px-3 py-2.5 font-semibold">Job Number</th>
-                    <th className="px-3 py-2.5 font-semibold">Project Name</th>
-                    <th className="px-3 py-2.5 font-semibold">Status</th>
-                    <th className="px-3 py-2.5 font-semibold">Last Activity</th>
+                  <tr>
+                    <th className={tableHeaderCellClassName}>Job Number</th>
+                    <th className={tableHeaderCellClassName}>Project Name</th>
+                    <th className={tableHeaderCellClassName}>Status</th>
+                    <th className={tableHeaderCellClassName}>Last Activity</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className={tableBodyClassName}>
                   {customer.relatedJobs.length === 0 ? (
                     <tr>
                       <td
                         colSpan={4}
-                        className="px-3 py-6 text-center text-slate-500"
+                        className={`${tableCellBordersClassName} px-3 py-6 text-center text-slate-500`}
                       >
                         No related jobs yet.
                       </td>
                     </tr>
                   ) : (
                     customer.relatedJobs.map((job) => (
-                      <tr key={job.id} className="hover:bg-slate-50/60">
-                        <td className="px-3 py-2.5">
+                      <tr key={job.id} className={tableRowClassName}>
+                        <td className={tableCellClassName}>
                           <Link
                             href={`/jobs/${job.id}/edit`}
                             className="font-medium text-slate-900 hover:text-slate-700"
@@ -168,16 +177,16 @@ export function CustomerDetailContent({ customer }: CustomerDetailContentProps) 
                             {job.jobNumber}
                           </Link>
                         </td>
-                        <td className="px-3 py-2.5 text-slate-700">
+                        <td className={`${tableCellClassName} text-slate-700`}>
                           {job.projectName}
                         </td>
-                        <td className="px-3 py-2.5">
+                        <td className={tableCellClassName}>
                           <StatusBadge
                             label={job.status}
                             variant={job.statusVariant}
                           />
                         </td>
-                        <td className="px-3 py-2.5 text-slate-600">
+                        <td className={`${tableCellClassName} text-slate-600`}>
                           {job.lastActivity}
                         </td>
                       </tr>
@@ -189,31 +198,31 @@ export function CustomerDetailContent({ customer }: CustomerDetailContentProps) 
           </SectionCard>
 
           <SectionCard title="Related Quotes" noPadding>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-xs">
+            <div className={tableFlushWrapperClassName}>
+              <table className={tableClassName}>
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                    <th className="px-3 py-2.5 font-semibold">Quote Number</th>
-                    <th className="px-3 py-2.5 font-semibold">Project Name</th>
-                    <th className="px-3 py-2.5 font-semibold">Status</th>
-                    <th className="px-3 py-2.5 font-semibold">Total</th>
-                    <th className="px-3 py-2.5 font-semibold">Last Updated</th>
+                  <tr>
+                    <th className={tableHeaderCellClassName}>Quote Number</th>
+                    <th className={tableHeaderCellClassName}>Project Name</th>
+                    <th className={tableHeaderCellClassName}>Status</th>
+                    <th className={tableHeaderCellClassName}>Total</th>
+                    <th className={tableHeaderCellClassName}>Last Updated</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className={tableBodyClassName}>
                   {customer.relatedQuotes.length === 0 ? (
                     <tr>
                       <td
                         colSpan={5}
-                        className="px-3 py-6 text-center text-slate-500"
+                        className={`${tableCellBordersClassName} px-3 py-6 text-center text-slate-500`}
                       >
                         No related quotes yet.
                       </td>
                     </tr>
                   ) : (
                     customer.relatedQuotes.map((quote) => (
-                      <tr key={quote.id} className="hover:bg-slate-50/60">
-                        <td className="px-3 py-2.5">
+                      <tr key={quote.id} className={tableRowClassName}>
+                        <td className={tableCellClassName}>
                           <Link
                             href={`/quotes/${quote.id}`}
                             className="font-medium text-slate-900 hover:text-slate-700"
@@ -221,19 +230,19 @@ export function CustomerDetailContent({ customer }: CustomerDetailContentProps) 
                             {quote.quoteNumber}
                           </Link>
                         </td>
-                        <td className="px-3 py-2.5 text-slate-700">
+                        <td className={`${tableCellClassName} text-slate-700`}>
                           {quote.projectName}
                         </td>
-                        <td className="px-3 py-2.5">
+                        <td className={tableCellClassName}>
                           <StatusBadge
                             label={quote.statusLabel}
                             variant={quote.statusVariant}
                           />
                         </td>
-                        <td className="px-3 py-2.5 font-medium text-slate-900">
+                        <td className={`${tableCellClassName} font-medium text-slate-900`}>
                           {quote.total}
                         </td>
-                        <td className="px-3 py-2.5 text-slate-600">
+                        <td className={`${tableCellClassName} text-slate-600`}>
                           {quote.lastUpdated}
                         </td>
                       </tr>
@@ -244,30 +253,30 @@ export function CustomerDetailContent({ customer }: CustomerDetailContentProps) 
             </div>
           </SectionCard>
           <SectionCard title="Related Delivery Tickets" noPadding>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-xs">
+            <div className={tableFlushWrapperClassName}>
+              <table className={tableClassName}>
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                    <th className="px-3 py-2.5 font-semibold">Ticket</th>
-                    <th className="px-3 py-2.5 font-semibold">Project</th>
-                    <th className="px-3 py-2.5 font-semibold">Delivery Date</th>
-                    <th className="px-3 py-2.5 font-semibold">Status</th>
+                  <tr>
+                    <th className={tableHeaderCellClassName}>Ticket</th>
+                    <th className={tableHeaderCellClassName}>Project</th>
+                    <th className={tableHeaderCellClassName}>Delivery Date</th>
+                    <th className={tableHeaderCellClassName}>Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className={tableBodyClassName}>
                   {customer.relatedDeliveryTickets.length === 0 ? (
                     <tr>
                       <td
                         colSpan={4}
-                        className="px-3 py-6 text-center text-slate-500"
+                        className={`${tableCellBordersClassName} px-3 py-6 text-center text-slate-500`}
                       >
                         No delivery tickets yet.
                       </td>
                     </tr>
                   ) : (
                     customer.relatedDeliveryTickets.map((ticket) => (
-                      <tr key={ticket.id} className="hover:bg-slate-50/60">
-                        <td className="px-3 py-2.5">
+                      <tr key={ticket.id} className={tableRowClassName}>
+                        <td className={tableCellClassName}>
                           <Link
                             href={`/delivery-tickets/${ticket.id}`}
                             className="font-medium text-slate-900 hover:text-slate-700"
@@ -275,13 +284,13 @@ export function CustomerDetailContent({ customer }: CustomerDetailContentProps) 
                             {ticket.ticketNumber}
                           </Link>
                         </td>
-                        <td className="px-3 py-2.5 text-slate-700">
+                        <td className={`${tableCellClassName} text-slate-700`}>
                           {ticket.projectName}
                         </td>
-                        <td className="px-3 py-2.5 text-slate-600">
+                        <td className={`${tableCellClassName} text-slate-600`}>
                           {ticket.deliveryDate}
                         </td>
-                        <td className="px-3 py-2.5">
+                        <td className={tableCellClassName}>
                           <StatusBadge label={ticket.statusLabel} variant="info" />
                         </td>
                       </tr>

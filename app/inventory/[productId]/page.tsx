@@ -5,6 +5,13 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { withDatabaseRetry } from "@/lib/prisma";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+} from "@/lib/table-styles";
 type ProductInventoryPageProps = {
   params: Promise<{ productId: string }>;
 };
@@ -93,24 +100,24 @@ export default async function ProductInventoryPage({
         {transactions.length === 0 ? (
           <p className="px-4 py-6 text-sm text-slate-500">No transactions yet.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-xs">
-              <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+          <div className={tableFlushWrapperClassName}>
+            <table className={tableClassName}>
+              <thead>
                 <tr>
-                  <th className="px-4 py-2 font-semibold">Date</th>
-                  <th className="px-4 py-2 font-semibold">Type</th>
-                  <th className="px-4 py-2 font-semibold">Change</th>
-                  <th className="px-4 py-2 font-semibold">Notes</th>
-                  <th className="px-4 py-2 font-semibold">By</th>
+                  <th className={tableHeaderCellClassName}>Date</th>
+                  <th className={tableHeaderCellClassName}>Type</th>
+                  <th className={tableHeaderCellClassName}>Change</th>
+                  <th className={tableHeaderCellClassName}>Notes</th>
+                  <th className={tableHeaderCellClassName}>By</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className={tableBodyClassName}>
                 {transactions.map((txn) => (
                   <tr key={txn.id}>
-                    <td className="px-4 py-2 whitespace-nowrap">
+                    <td className={`${tableCellClassName} whitespace-nowrap`}>
                       {new Date(txn.transactionDate).toLocaleDateString()}
                     </td>
-                    <td className="px-4 py-2">
+                    <td className={tableCellClassName}>
                       <StatusBadge
                         label={txn.transactionType.replace(/_/g, " ")}
                         variant={
@@ -128,8 +135,8 @@ export default async function ProductInventoryPage({
                       {Number(txn.quantityChange) >= 0 ? "+" : ""}
                       {Number(txn.quantityChange)} {product.unit}
                     </td>
-                    <td className="px-4 py-2 text-slate-600">{txn.notes ?? "—"}</td>
-                    <td className="px-4 py-2 text-slate-600">{txn.createdBy ?? "—"}</td>
+                    <td className={`${tableCellClassName} text-slate-600`}>{txn.notes ?? "—"}</td>
+                    <td className={`${tableCellClassName} text-slate-600`}>{txn.createdBy ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>

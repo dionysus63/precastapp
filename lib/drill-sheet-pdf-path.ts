@@ -6,7 +6,9 @@ import {
 
 export const DRILL_SHEET_PDF_FALLBACK_DIR =
   "C:\\PrecastGeneratedPDFs\\DrillSheets";
-export const DRILL_SHEET_PDF_JOB_SUBFOLDER = "03 Drill Sheets";
+// Must be one of JOB_SUBFOLDERS (lib/job-folder-constants.ts) or
+// registerJobFile rejects the generated PDF after writing it.
+export const DRILL_SHEET_PDF_JOB_SUBFOLDER = "09 Cut Sheets";
 
 export function buildDrillSheetPdfBaseName(
   manholeNumber: string,

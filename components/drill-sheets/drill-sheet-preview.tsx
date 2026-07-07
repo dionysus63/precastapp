@@ -94,10 +94,13 @@ function CalcRow({
   );
 }
 
-const compactTableHead =
-  "border-b border-slate-100 bg-slate-50/80 text-[10px] uppercase tracking-wide text-slate-500";
-const compactTh = "px-2 py-1 font-semibold";
-const compactTd = "px-2 py-0.5";
+// Compact 10px variant of the shared Excel-style gridlines (lib/table-styles)
+// sized to mirror the printed drill sheet.
+const compactTableHead = "bg-slate-100 text-[10px] uppercase tracking-wide text-slate-600";
+const compactTh =
+  "border-b-2 border-r border-b-slate-300 border-r-slate-200 px-2 py-1 font-semibold last:border-r-0";
+const compactTd =
+  "border-b border-r border-slate-200 px-2 py-0.5 last:border-r-0";
 
 function PlanDiagram({ result }: { result: DrillSheetResult }) {
   const size = 180;
@@ -250,7 +253,7 @@ export function DrillSheetPreview({ meta, result }: DrillSheetPreviewProps) {
                       <th className={`${compactTh} text-right`}>Elev (ft)</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody>
                     {elevations.map((entry) => (
                       <tr key={entry.key}>
                         <td className={`${compactTd} text-slate-700`}>
@@ -277,7 +280,7 @@ export function DrillSheetPreview({ meta, result }: DrillSheetPreviewProps) {
                       <th className={`${compactTh} text-right`}>Dimension</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody>
                     {dimensions.map((dim) => (
                       <tr key={dim.key}>
                         <td className={`${compactTd} text-slate-700`}>{dim.label}</td>
@@ -385,7 +388,7 @@ export function DrillSheetPreview({ meta, result }: DrillSheetPreviewProps) {
                 <th className={compactTh}>Boot</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
               {result.openings.length === 0 ? (
                 <tr>
                   <td

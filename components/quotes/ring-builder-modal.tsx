@@ -25,14 +25,19 @@ import {
   type RingBuilderConfig,
 } from "@/lib/ring-builder-settings";
 
-const quoteTableInputClassName =
-  "w-full min-w-[4rem] rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 shadow-sm";
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableHeaderCellClassName,
+  tableInlineInputClassName,
+  tableWrapperClassName,
+} from "@/lib/table-styles";
+const quoteTableInputClassName = `${tableInlineInputClassName} w-full min-w-[4rem]`;
 
-const quoteTableQtyInputClassName =
-  "w-14 min-w-0 max-w-[4rem] rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 shadow-sm";
+const quoteTableQtyInputClassName = `${tableInlineInputClassName} w-14 min-w-0 max-w-[4rem] text-right tabular-nums`;
 
-const quoteTablePriceInputClassName =
-  "w-24 min-w-[5rem] max-w-[6rem] rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 shadow-sm";
+const quoteTablePriceInputClassName = `${tableInlineInputClassName} w-24 min-w-[5rem] max-w-[6rem] text-right tabular-nums`;
 
 function formatRingBuilderUnitPrice(value: number | string): string {
   const parsed = typeof value === "number" ? value : Number(value);
@@ -446,19 +451,19 @@ export function RingBuilderModal({
               Add row
             </button>
           </div>
-          <div className="overflow-x-auto rounded-lg border border-slate-100">
-            <table className="min-w-full text-left text-xs">
+          <div className={tableWrapperClassName}>
+            <table className={tableClassName}>
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                  <th className="px-3 py-2 font-semibold">Height (ft)</th>
-                  <th className="px-3 py-2 font-semibold"># Pools</th>
-                  <th className="px-3 py-2 font-semibold">Style</th>
-                  <th className="px-3 py-2 font-semibold">Price / ft</th>
-                  <th className="px-3 py-2 font-semibold">Total LF</th>
-                  <th className="px-3 py-2 font-semibold">Actions</th>
+                <tr>
+                  <th className={tableHeaderCellClassName}>Height (ft)</th>
+                  <th className={tableHeaderCellClassName}># Pools</th>
+                  <th className={tableHeaderCellClassName}>Style</th>
+                  <th className={tableHeaderCellClassName}>Price / ft</th>
+                  <th className={tableHeaderCellClassName}>Total LF</th>
+                  <th className={tableHeaderCellClassName}>Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className={tableBodyClassName}>
                 {heightPoolRows.map((row) => {
                   const poolHeight = Number(row.poolHeight);
                   const poolCount = Number(row.poolCount);
@@ -475,7 +480,7 @@ export function RingBuilderModal({
 
                   return (
                     <tr key={row.id}>
-                      <td className="px-3 py-2">
+                      <td className={tableCellClassName}>
                         <input
                           type="number"
                           min="0"
@@ -491,7 +496,7 @@ export function RingBuilderModal({
                           className={quoteTableInputClassName}
                         />
                       </td>
-                      <td className="px-3 py-2">
+                      <td className={tableCellClassName}>
                         <input
                           type="number"
                           min="0"
@@ -507,7 +512,7 @@ export function RingBuilderModal({
                           className={quoteTableInputClassName}
                         />
                       </td>
-                      <td className="px-3 py-2">
+                      <td className={tableCellClassName}>
                         <select
                           value={row.ringStyle}
                           onChange={(event) =>
@@ -526,7 +531,7 @@ export function RingBuilderModal({
                           ))}
                         </select>
                       </td>
-                      <td className="px-3 py-2">
+                      <td className={tableCellClassName}>
                         <input
                           type="number"
                           min="0"
@@ -549,7 +554,7 @@ export function RingBuilderModal({
                           className={quoteTablePriceInputClassName}
                         />
                       </td>
-                      <td className="px-3 py-2 text-slate-700">
+                      <td className={`${tableCellClassName} text-slate-700`}>
                         {totalFeet != null ? (
                           <>
                             {totalFeet} LF
@@ -561,7 +566,7 @@ export function RingBuilderModal({
                           "—"
                         )}
                       </td>
-                      <td className="px-3 py-2">
+                      <td className={tableCellClassName}>
                         {heightPoolRows.length > 1 ? (
                           <button
                             type="button"
@@ -643,18 +648,18 @@ function OtherSection({
       ) : products.length === 0 ? (
         <p className="text-xs text-slate-500">No Other products available.</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-100">
-          <table className="min-w-full text-left text-xs">
+        <div className={tableWrapperClassName}>
+          <table className={tableClassName}>
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                <th className="px-3 py-2 font-semibold">Product code</th>
-                <th className="px-3 py-2 font-semibold">Product name</th>
-                <th className="w-16 px-3 py-2 font-semibold">Qty</th>
-                <th className="px-3 py-2 font-semibold">Unit price</th>
-                <th className="px-3 py-2 font-semibold">Total</th>
+              <tr>
+                <th className={tableHeaderCellClassName}>Product code</th>
+                <th className={tableHeaderCellClassName}>Product name</th>
+                <th className={`${tableHeaderCellClassName} w-16`}>Qty</th>
+                <th className={tableHeaderCellClassName}>Unit price</th>
+                <th className={tableHeaderCellClassName}>Total</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className={tableBodyClassName}>
               {products.map((product) => {
                 const input = otherInputs[product.id] ?? {
                   qty: "",
@@ -671,11 +676,11 @@ function OtherSection({
 
                 return (
                   <tr key={product.id}>
-                    <td className="px-3 py-2 font-medium text-slate-900">
+                    <td className={`${tableCellClassName} font-medium text-slate-900`}>
                       {product.code}
                     </td>
-                    <td className="px-3 py-2 text-slate-700">{product.name}</td>
-                    <td className="w-16 px-3 py-2">
+                    <td className={`${tableCellClassName} text-slate-700`}>{product.name}</td>
+                    <td className={`${tableCellClassName} w-16`}>
                       <input
                         type="text"
                         value={input.qty}
@@ -686,7 +691,7 @@ function OtherSection({
                         className={quoteTableQtyInputClassName}
                       />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className={tableCellClassName}>
                       <input
                         type="number"
                         min="0"
@@ -709,7 +714,7 @@ function OtherSection({
                         className={quoteTablePriceInputClassName}
                       />
                     </td>
-                    <td className="px-3 py-2 text-slate-700">
+                    <td className={`${tableCellClassName} text-slate-700`}>
                       {lineTotal != null
                         ? formatQuoteCurrency(lineTotal)
                         : "—"}

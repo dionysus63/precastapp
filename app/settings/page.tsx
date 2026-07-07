@@ -62,6 +62,16 @@ const settingSections = [
     description: "Domestic and imported vendors for cast iron casting products.",
   },
   {
+    href: "/settings/shipping-zones",
+    title: "Shipping Zones",
+    description: "Delivery pricing zones: radius rings from the yard and drawn NYC boundaries.",
+  },
+  {
+    href: "/settings/vendors",
+    title: "Vendors",
+    description: "Purchase order vendors for pipe, castings, and one-off AP items.",
+  },
+  {
     href: "/settings/roles",
     title: "Roles & Permissions",
     description: "Default permissions for each role across the app.",

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { DrillSheetForm } from "@/components/drill-sheets/drill-sheet-form";
 import { updateDrillSheet } from "@/app/drill-sheets/actions";
@@ -38,6 +38,10 @@ export default async function EditDrillSheetPage({
 
   if (!sheet || !sheet.calc) {
     notFound();
+  }
+
+  if (sheet.structureTemplate?.shape === "RECTANGULAR") {
+    redirect(`/drill-sheets/rect/${id}/edit`);
   }
 
   const template = templateOptions.find(

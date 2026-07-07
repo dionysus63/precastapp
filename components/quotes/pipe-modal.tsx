@@ -19,6 +19,14 @@ import {
   roundPipeFeetToSticks,
 } from "@/lib/pipe-quote-utils";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableHeaderCellClassName,
+  tableInlineInputClassName,
+  tableWrapperClassName,
+} from "@/lib/table-styles";
 type PipeModalMode = "choose" | "quote" | "unitPrices";
 
 type PipeQuoteRow = {
@@ -327,18 +335,18 @@ export function PipeModal({
                   Add row
                 </button>
               </div>
-              <div className="overflow-x-auto rounded-lg border border-slate-100">
-                <table className="min-w-full text-left text-xs">
+              <div className={tableWrapperClassName}>
+                <table className={tableClassName}>
                   <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                      <th className="px-3 py-2 font-semibold">Pipe</th>
-                      <th className="px-3 py-2 font-semibold">Footage</th>
-                      <th className="px-3 py-2 font-semibold">Rounded</th>
-                      <th className="px-3 py-2 font-semibold">$/LF</th>
-                      <th className="px-3 py-2 font-semibold">Actions</th>
+                    <tr>
+                      <th className={tableHeaderCellClassName}>Pipe</th>
+                      <th className={tableHeaderCellClassName}>Footage</th>
+                      <th className={tableHeaderCellClassName}>Rounded</th>
+                      <th className={tableHeaderCellClassName}>$/LF</th>
+                      <th className={tableHeaderCellClassName}>Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className={tableBodyClassName}>
                     {quoteRows.map((row) => {
                       const product = productById.get(row.productId);
                       const requestedFeet = Number(row.feet);
@@ -358,7 +366,7 @@ export function PipeModal({
 
                       return (
                         <tr key={row.id}>
-                          <td className="px-3 py-2 min-w-[14rem]">
+                          <td className={`${tableCellClassName} min-w-[14rem]`}>
                             <select
                               value={row.productId}
                               onChange={(event) =>
@@ -377,7 +385,7 @@ export function PipeModal({
                               ))}
                             </select>
                           </td>
-                          <td className="px-3 py-2">
+                          <td className={tableCellClassName}>
                             <input
                               type="number"
                               min="0"
@@ -387,10 +395,10 @@ export function PipeModal({
                                 updateQuoteRow(row.id, "feet", event.target.value)
                               }
                               placeholder="LF"
-                              className="w-24 rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 shadow-sm"
+                              className={`${tableInlineInputClassName} w-24 text-right tabular-nums`}
                             />
                           </td>
-                          <td className="px-3 py-2 text-slate-600">
+                          <td className={`${tableCellClassName} text-slate-600`}>
                             {product &&
                             Number.isFinite(requestedFeet) &&
                             requestedFeet > 0
@@ -400,7 +408,7 @@ export function PipeModal({
                                 )
                               : "—"}
                           </td>
-                          <td className="px-3 py-2 text-slate-600">
+                          <td className={`${tableCellClassName} text-slate-600`}>
                             {product ? formatQuoteCurrency(product.unitPrice) : "—"}
                             {lineTotal != null ? (
                               <span className="block text-[11px] text-slate-500">
@@ -408,7 +416,7 @@ export function PipeModal({
                               </span>
                             ) : null}
                           </td>
-                          <td className="px-3 py-2">
+                          <td className={tableCellClassName}>
                             <button
                               type="button"
                               onClick={() =>

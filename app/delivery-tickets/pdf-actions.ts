@@ -22,6 +22,10 @@ import {
 } from "@/lib/quote-pdf-path";
 import { registerJobFile } from "@/lib/job-files-service";
 import { withDatabaseRetry } from "@/lib/prisma";
+import { loadJobDeliverySchedule } from "@/lib/delivery-schedule-data";
+import { buildDeliverySchedulePdfHtml } from "@/lib/delivery-schedule-pdf-html";
+import { renderPdfBytesFromHtml } from "@/lib/quote-pdf";
+import { sanitizeFilenamePart } from "@/lib/quote-pdf-path";
 
 export type GenerateDeliveryTicketPdfResult =
   | { success: true; filePath: string }
@@ -64,6 +68,78 @@ export async function getDeliveryTicketPdfPreviewBase64(
       error instanceof Error
         ? error.message
         : "Failed to generate delivery ticket preview.";
+    return { success: false, error: message };
+  }
+}
+
+export type SaveDeliverySchedulePdfResult =
+  | { success: true; filePath: string }
+  | { success: false; error: string };
+
+/**
+ * Archive the internal delivery-schedule document into the job's files folder
+ * so the office keeps a dated copy of what was sent to the contractor.
+ */
+export async function saveDeliverySchedulePdf(
+  jobId: string,
+): Promise<SaveDeliverySchedulePdfResult> {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+  if (!jobId.trim()) {
+    return { success: false, error: "Job id is required." };
+  }
+
+  try {
+    const schedule = await loadJobDeliverySchedule(jobId);
+    if (!schedule) {
+      return { success: false, error: "Job not found." };
+    }
+    const jobFolderPath = schedule.job.folderPath?.trim();
+    if (!jobFolderPath) {
+      return {
+        success: false,
+        error: "This job has no folder yet — create the job folder first.",
+      };
+    }
+
+    const html = await buildDeliverySchedulePdfHtml(schedule, "internal");
+    const pdfBytes = await renderPdfBytesFromHtml(html);
+
+    const now = new Date();
+    const datePart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const baseName = [
+      "Delivery Schedule",
+      sanitizeFilenamePart(schedule.job.jobNumber),
+      sanitizeFilenamePart(schedule.job.projectName),
+      datePart,
+    ]
+      .filter(Boolean)
+      .join(" - ");
+
+    const subfolders = await getJobSubfolders();
+    const deliverySubfolder = subfolders[4] ?? "05 Delivery Tickets";
+    const outputDirectory = path.join(jobFolderPath, deliverySubfolder);
+    const outputPath = await resolveQuotePdfOutputPath(outputDirectory, baseName);
+    assertPathUnderJobsRoot(await getJobsRoot(), outputPath);
+
+    await writeFile(outputPath, pdfBytes);
+
+    try {
+      await withDatabaseRetry((client) =>
+        registerJobFile(client, jobId, outputPath, deliverySubfolder),
+      );
+    } catch (error) {
+      // DB registration failed; remove the just-written PDF so no orphan is left.
+      await unlink(outputPath).catch(() => {});
+      throw error;
+    }
+
+    revalidatePath(`/jobs/${jobId}`);
+    return { success: true, filePath: outputPath };
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Failed to save the delivery schedule PDF.";
     return { success: false, error: message };
   }
 }

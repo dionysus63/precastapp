@@ -308,13 +308,24 @@ function buildLineCreates(lines: DeliveryTicketLineInput[]) {
   });
 }
 
-function ticketData(input: SaveDeliveryTicketInput) {
-  const lineCreates = buildLineCreates(input.lines);
-  const totalItems = input.lines.length;
+/** Line creates plus the totals they imply — shared by full ticket writes and
+ * the planner's lines-only draft updates. */
+function buildLinesPayload(lines: DeliveryTicketLineInput[]) {
+  const lineCreates = buildLineCreates(lines);
   const totalWeight = lineCreates.reduce((sum, line) => {
     if (!line.totalWeight) return sum;
     return sum.add(line.totalWeight);
   }, new Prisma.Decimal(0));
+
+  return {
+    lineCreates,
+    totalItems: lines.length,
+    totalWeight: totalWeight.gt(0) ? totalWeight : null,
+  };
+}
+
+function ticketData(input: SaveDeliveryTicketInput) {
+  const { lineCreates, totalItems, totalWeight } = buildLinesPayload(input.lines);
 
   return {
     ticketType: input.ticketType,
@@ -352,7 +363,7 @@ function ticketData(input: SaveDeliveryTicketInput) {
     customerNotes: input.customerNotes ?? null,
     loadingNotes: input.loadingNotes ?? null,
     totalItems,
-    totalWeight: totalWeight.gt(0) ? totalWeight : null,
+    totalWeight,
     lineItems: { create: lineCreates },
   };
 }
@@ -401,6 +412,381 @@ export async function createDeliveryTicket(
     return {
       error:
         error instanceof Error ? error.message : "Could not create delivery ticket.",
+    };
+  }
+}
+
+export type PlannedLoadInput = {
+  // Existing DRAFT ticket to rewrite; omit/null for a brand-new load.
+  ticketId?: string | null;
+  // Required when ticketId is set: ISO updatedAt as loaded by the planner.
+  expectedUpdatedAt?: string;
+  lines: DeliveryTicketLineInput[];
+};
+
+export type SavePlannedLoadsInput = {
+  jobId: string;
+  quoteId: string;
+  // Display order; loadSequence is renumbered "i of N" across this array.
+  loads: PlannedLoadInput[];
+  deletions: { ticketId: string; expectedUpdatedAt: string }[];
+};
+
+export type SavePlannedLoadsResult =
+  | {
+      success: true;
+      ticketIds: string[];
+      ticketNumbers: string[];
+      createdCount: number;
+      updatedCount: number;
+      deletedCount: number;
+    }
+  | { error: string };
+
+/**
+ * Save the whole load plan at once: rewrite the lines of existing DRAFT
+ * tickets, create tickets for new loads, delete removed drafts — all in one
+ * transaction. The managed drafts' lines are wiped first, so validateLines
+ * needs no exclusions: availability is "quoted − delivered − other open
+ * tickets", exactly the baseline the planner displayed. Loads are then
+ * validated sequentially — OPEN_TICKET_STATUSES includes DRAFT and the
+ * interactive transaction reads its own writes, so each load's quota check
+ * sees the loads written before it and the batch cannot jointly over-commit
+ * the quote. Any failure rolls the whole plan back.
+ *
+ * Existing drafts keep their header, schedule, and note fields — only lines,
+ * totals, and loadSequence are rewritten. Drafts outside the plan keep their
+ * old loadSequence strings (cosmetic).
+ */
+export async function savePlannedLoads(
+  input: SavePlannedLoadsInput,
+): Promise<SavePlannedLoadsResult> {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+
+  // New loads with nothing assigned are simply skipped; an existing ticket
+  // with no lines must arrive as a deletion instead.
+  const loads = input.loads.filter(
+    (load) => load.ticketId || load.lines.length > 0,
+  );
+  const deletions = input.deletions;
+
+  const managedIds = new Set<string>();
+  for (const load of loads) {
+    if (!load.ticketId) continue;
+    if (load.lines.length === 0) {
+      return {
+        error:
+          "An existing load has no items left — remove the load instead of leaving it empty.",
+      };
+    }
+    if (managedIds.has(load.ticketId)) {
+      return { error: "The plan lists the same ticket twice. Refresh the page." };
+    }
+    managedIds.add(load.ticketId);
+  }
+  for (const deletion of deletions) {
+    if (managedIds.has(deletion.ticketId)) {
+      return {
+        error: "A ticket can't be both kept and deleted. Refresh the page.",
+      };
+    }
+    managedIds.add(deletion.ticketId);
+  }
+  if (loads.length === 0 && deletions.length === 0) {
+    return { error: "Nothing to save." };
+  }
+
+  try {
+    const [job, quote, defaultPriceListId] = await Promise.all([
+      withDatabaseRetry((client) =>
+        client.job.findUnique({
+          where: { id: input.jobId },
+          select: {
+            jobNumber: true,
+            customerName: true,
+            projectName: true,
+            customerId: true,
+          },
+        }),
+      ),
+      withDatabaseRetry((client) =>
+        client.quote.findUnique({
+          where: { id: input.quoteId },
+          select: { quoteNumber: true, jobId: true },
+        }),
+      ),
+      getDefaultPriceListId(),
+    ]);
+    if (!job) {
+      return { error: "Job not found." };
+    }
+    if (!quote || quote.jobId !== input.jobId) {
+      return { error: "The selected quote does not belong to this job." };
+    }
+
+    const saved = await withDatabaseRetry(async (client) =>
+      client.$transaction(
+        async (tx) => {
+          await assertQuoteLinkable(tx, input.quoteId);
+
+          const managedRefs = [
+            ...loads
+              .filter((load) => load.ticketId)
+              .map((load) => ({
+                ticketId: load.ticketId!,
+                expectedUpdatedAt: load.expectedUpdatedAt,
+              })),
+            ...deletions,
+          ];
+
+          if (managedRefs.length > 0) {
+            const existing = await tx.deliveryTicket.findMany({
+              where: { id: { in: managedRefs.map((ref) => ref.ticketId) } },
+              select: {
+                id: true,
+                ticketNumber: true,
+                status: true,
+                jobId: true,
+                quoteId: true,
+                updatedAt: true,
+              },
+            });
+            const byId = new Map(existing.map((ticket) => [ticket.id, ticket]));
+            for (const ref of managedRefs) {
+              const ticket = byId.get(ref.ticketId);
+              if (
+                !ticket ||
+                ticket.jobId !== input.jobId ||
+                ticket.quoteId !== input.quoteId
+              ) {
+                throw new Error(
+                  "One of the planned tickets no longer belongs to this job. Refresh the page.",
+                );
+              }
+              if (ticket.status !== "DRAFT") {
+                throw new Error(
+                  `${ticket.ticketNumber} is ${ticket.status.toLowerCase().replace(/_/g, " ")} — it changed while you were planning and can't be re-planned here. Refresh the page.`,
+                );
+              }
+              const expected = ref.expectedUpdatedAt
+                ? new Date(ref.expectedUpdatedAt)
+                : null;
+              if (
+                !expected ||
+                Number.isNaN(expected.getTime()) ||
+                ticket.updatedAt.getTime() !== expected.getTime()
+              ) {
+                throw new Error(
+                  `${ticket.ticketNumber} was changed by someone else while you were planning. Refresh the page to load the latest version, then re-apply your changes.`,
+                );
+              }
+            }
+
+            // Wipe every managed draft's lines before validating anything.
+            await tx.deliveryTicketLineItem.deleteMany({
+              where: {
+                deliveryTicketId: { in: managedRefs.map((ref) => ref.ticketId) },
+              },
+            });
+          }
+
+          if (deletions.length > 0) {
+            await tx.deliveryTicket.deleteMany({
+              where: { id: { in: deletions.map((entry) => entry.ticketId) } },
+            });
+          }
+
+          const tickets: { id: string; ticketNumber: string; created: boolean }[] =
+            [];
+          for (const [index, load] of loads.entries()) {
+            const loadSequence = `${index + 1} of ${loads.length}`;
+            const loadInput: SaveDeliveryTicketInput = {
+              ticketType: "JOB",
+              fulfillmentMethod: "DELIVERY",
+              status: "DRAFT",
+              jobId: input.jobId,
+              quoteId: input.quoteId,
+              customerId: job.customerId,
+              priceListId: defaultPriceListId,
+              jobNumber: job.jobNumber,
+              quoteNumber: quote.quoteNumber,
+              customerName: job.customerName,
+              projectName: job.projectName,
+              loadSequence,
+              lines: load.lines,
+            };
+            await validateLines(tx, loadInput);
+
+            if (load.ticketId) {
+              const { lineCreates, totalItems, totalWeight } = buildLinesPayload(
+                load.lines,
+              );
+              const ticket = await tx.deliveryTicket.update({
+                where: { id: load.ticketId },
+                data: {
+                  loadSequence,
+                  totalItems,
+                  totalWeight,
+                  lineItems: { create: lineCreates },
+                },
+                select: { id: true, ticketNumber: true },
+              });
+              tickets.push({ ...ticket, created: false });
+            } else {
+              const numbering = await allocateDeliveryTicketNumber(tx);
+              const ticket = await tx.deliveryTicket.create({
+                data: {
+                  ...ticketData(loadInput),
+                  ticketNumber: numbering.ticketNumber,
+                  year: numbering.year,
+                  yearTwoDigit: numbering.yearTwoDigit,
+                  sequenceNumber: numbering.sequenceNumber,
+                },
+                select: { id: true, ticketNumber: true },
+              });
+              tickets.push({ ...ticket, created: true });
+            }
+          }
+          return tickets;
+        },
+        // Each load re-runs the fulfillment rollup; give large plans headroom
+        // beyond the 5s default.
+        { timeout: 30_000 },
+      ),
+    );
+
+    revalidatePath("/delivery-tickets");
+    revalidatePath(`/jobs/${input.jobId}`);
+    for (const ticketId of managedIds) {
+      revalidatePath(`/delivery-tickets/${ticketId}`);
+    }
+
+    return {
+      success: true,
+      ticketIds: saved.map((ticket) => ticket.id),
+      ticketNumbers: saved.map((ticket) => ticket.ticketNumber),
+      createdCount: saved.filter((ticket) => ticket.created).length,
+      updatedCount: saved.filter((ticket) => !ticket.created).length,
+      deletedCount: deletions.length,
+    };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "Could not save the load plan.",
+    };
+  }
+}
+
+export type ScheduleLoadUpdate = {
+  ticketId: string;
+  deliveryDate: string | null;
+  deliveryTime: string | null;
+  truck: string | null;
+  trailer: string | null;
+  driver: string | null;
+  // ISO updatedAt as loaded by the schedule page; stale saves are rejected.
+  expectedUpdatedAt: string;
+};
+
+export type ScheduleJobLoadsResult =
+  | { success: true; scheduledCount: number }
+  | { error: string };
+
+/**
+ * Dispatch-side scheduling: updates only the schedule fields (date, time,
+ * truck, trailer, driver) of a job's open tickets, promoting DRAFT tickets to
+ * SCHEDULED when they receive a date. Lines are untouched, so no quota
+ * re-validation is needed — DRAFT quantities already count as committed
+ * (see OPEN_TICKET_STATUSES). All-or-nothing across the batch.
+ */
+export async function scheduleJobLoads(
+  jobId: string,
+  updates: ScheduleLoadUpdate[],
+): Promise<ScheduleJobLoadsResult> {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+  if (updates.length === 0) {
+    return { error: "Nothing to save." };
+  }
+
+  const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+  try {
+    const scheduledCount = await withDatabaseRetry(async (client) =>
+      client.$transaction(async (tx) => {
+        let scheduled = 0;
+        for (const update of updates) {
+          const ticket = await tx.deliveryTicket.findUnique({
+            where: { id: update.ticketId },
+            select: {
+              ticketNumber: true,
+              jobId: true,
+              status: true,
+              updatedAt: true,
+            },
+          });
+          if (!ticket || ticket.jobId !== jobId) {
+            throw new Error("One of the tickets no longer belongs to this job. Refresh the page.");
+          }
+          if (ticket.status !== "DRAFT" && ticket.status !== "SCHEDULED") {
+            throw new Error(
+              `${ticket.ticketNumber} is ${ticket.status.toLowerCase().replace(/_/g, " ")} and can't be rescheduled here.`,
+            );
+          }
+
+          const expected = new Date(update.expectedUpdatedAt);
+          if (
+            Number.isNaN(expected.getTime()) ||
+            ticket.updatedAt.getTime() !== expected.getTime()
+          ) {
+            throw new Error(
+              `${ticket.ticketNumber} was changed by someone else while you were editing. Refresh the page to load the latest version, then re-apply your changes.`,
+            );
+          }
+
+          const deliveryDate = parseDate(update.deliveryDate);
+          if (update.deliveryDate?.trim() && !deliveryDate) {
+            throw new Error(`Invalid delivery date for ${ticket.ticketNumber}.`);
+          }
+          if (ticket.status === "SCHEDULED" && !deliveryDate) {
+            throw new Error(
+              `${ticket.ticketNumber} is already scheduled — it needs a delivery date. Cancel the ticket instead if the load is off.`,
+            );
+          }
+          const deliveryTime = update.deliveryTime?.trim() || null;
+          if (deliveryTime && !TIME_PATTERN.test(deliveryTime)) {
+            throw new Error(`Invalid delivery time for ${ticket.ticketNumber} (use HH:MM).`);
+          }
+
+          const status = deliveryDate ? "SCHEDULED" : ticket.status;
+          if (ticket.status === "DRAFT" && status === "SCHEDULED") {
+            scheduled += 1;
+          }
+
+          await tx.deliveryTicket.update({
+            where: { id: update.ticketId },
+            data: {
+              deliveryDate,
+              deliveryTime,
+              truck: update.truck?.trim() || null,
+              trailer: update.trailer?.trim() || null,
+              driver: update.driver?.trim() || null,
+              status,
+            },
+          });
+        }
+        return scheduled;
+      }),
+    );
+
+    revalidatePath("/delivery-tickets");
+    revalidatePath(`/jobs/${jobId}`);
+    for (const update of updates) {
+      revalidatePath(`/delivery-tickets/${update.ticketId}`);
+    }
+    return { success: true, scheduledCount };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "Could not save the schedule.",
     };
   }
 }

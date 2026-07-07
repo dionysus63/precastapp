@@ -4,16 +4,26 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { prisma } from "@/lib/prisma";
 
+import {
+  tableBodyClassName,
+  tableCellBordersClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+  tableRowClassName,
+} from "@/lib/table-styles";
 export default async function StructuresPage() {
-  const [templates, pipeOpeningCount] = await Promise.all([
+  const [templates, pipeOpeningCount, rectOpeningCount] = await Promise.all([
     prisma.structureTemplate.findMany({
       orderBy: { name: "asc" },
       include: {
         castingProduct: { select: { name: true } },
-        _count: { select: { diameters: true } },
+        _count: { select: { diameters: true, rectSizes: true } },
       },
     }),
     prisma.pipeOpeningSize.count(),
+    prisma.rectOpeningSize.count(),
   ]);
 
   return (
@@ -29,6 +39,18 @@ export default async function StructuresPage() {
           Pipe Opening Sizes ({pipeOpeningCount})
         </Link>
         <Link
+          href="/structures/rect-openings"
+          className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+        >
+          Rect Opening Sizes ({rectOpeningCount})
+        </Link>
+        <Link
+          href="/structures/rect-pdf-sets"
+          className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+        >
+          Rect PDF Sets
+        </Link>
+        <Link
           href="/structures/new"
           className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
         >
@@ -41,48 +63,50 @@ export default async function StructuresPage() {
         description={`${templates.length} template${templates.length === 1 ? "" : "s"}`}
         noPadding
       >
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-xs">
+        <div className={tableFlushWrapperClassName}>
+          <table className={tableClassName}>
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                <th className="px-4 py-2.5 font-semibold">Name</th>
-                <th className="px-4 py-2.5 font-semibold">Agency / Standard</th>
-                <th className="px-4 py-2.5 font-semibold">Shape</th>
-                <th className="px-4 py-2.5 font-semibold">Casting</th>
-                <th className="px-4 py-2.5 font-semibold">Diameters</th>
-                <th className="px-4 py-2.5 font-semibold">Status</th>
-                <th className="px-4 py-2.5 font-semibold">Actions</th>
+              <tr>
+                <th className={tableHeaderCellClassName}>Name</th>
+                <th className={tableHeaderCellClassName}>Agency / Standard</th>
+                <th className={tableHeaderCellClassName}>Shape</th>
+                <th className={tableHeaderCellClassName}>Casting</th>
+                <th className={tableHeaderCellClassName}>Sizes</th>
+                <th className={tableHeaderCellClassName}>Status</th>
+                <th className={tableHeaderCellClassName}>Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className={tableBodyClassName}>
               {templates.length === 0 ? (
                 <tr>
                   <td
                     colSpan={7}
-                    className="px-4 py-8 text-center text-sm text-slate-500"
+                    className={`${tableCellBordersClassName} px-4 py-8 text-center text-sm text-slate-500`}
                   >
                     No templates yet. Create one to start building drill sheets.
                   </td>
                 </tr>
               ) : (
                 templates.map((template) => (
-                  <tr key={template.id} className="hover:bg-slate-50/60">
-                    <td className="px-4 py-2.5 font-medium text-slate-900">
+                  <tr key={template.id} className={tableRowClassName}>
+                    <td className={`${tableCellClassName} font-medium text-slate-900`}>
                       {template.name}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-600">
+                    <td className={`${tableCellClassName} text-slate-600`}>
                       {template.agencyStandard ?? "—"}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-600">
+                    <td className={`${tableCellClassName} text-slate-600`}>
                       {template.shape === "CIRCULAR" ? "Circular" : "Rectangular"}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-600">
+                    <td className={`${tableCellClassName} text-slate-600`}>
                       {template.castingProduct?.name ?? "—"}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-600">
-                      {template._count.diameters}
+                    <td className={`${tableCellClassName} text-slate-600`}>
+                      {template.shape === "CIRCULAR"
+                        ? template._count.diameters
+                        : template._count.rectSizes}
                     </td>
-                    <td className="px-4 py-2.5">
+                    <td className={tableCellClassName}>
                       <StatusBadge
                         label={
                           template.status === "ACTIVE" ? "Active" : "Inactive"
@@ -92,7 +116,7 @@ export default async function StructuresPage() {
                         }
                       />
                     </td>
-                    <td className="px-4 py-2.5">
+                    <td className={tableCellClassName}>
                       <Link
                         href={`/structures/${template.id}`}
                         className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"

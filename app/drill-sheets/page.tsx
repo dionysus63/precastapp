@@ -12,6 +12,15 @@ import {
 } from "@/lib/list-params";
 import type { Prisma } from "@/app/generated/prisma/client";
 
+import {
+  tableBodyClassName,
+  tableCellBordersClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+  tableRowClassName,
+} from "@/lib/table-styles";
 const where: Prisma.JobStructureWhereInput = {
   structureTemplateId: { not: null },
 };
@@ -38,10 +47,12 @@ export default async function DrillSheetsPage({
       select: {
         id: true,
         structureNumber: true,
-        structureTemplate: { select: { name: true } },
+        structureTemplate: { select: { name: true, shape: true } },
         calc: {
           select: {
             insideDiameterFeet: true,
+            insideLengthFeet: true,
+            insideWidthFeet: true,
             wallHeightFeet: true,
             totalPrice: true,
             projectName: true,
@@ -55,9 +66,15 @@ export default async function DrillSheetsPage({
   return (
     <DashboardShell
       title="Drill Sheet Workbook"
-      subtitle="Build and review circular manhole drill sheets."
+      subtitle="Build and review circular manhole and rectangular structure sheets."
     >
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex justify-end gap-2">
+        <Link
+          href="/drill-sheets/rect/new"
+          className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+        >
+          New Rect Sheet
+        </Link>
         <Link
           href="/drill-sheets/new"
           className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
@@ -71,57 +88,62 @@ export default async function DrillSheetsPage({
         description={`${pageInfo.total.toLocaleString()} sheet${pageInfo.total === 1 ? "" : "s"}`}
         noPadding
       >
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-xs">
+        <div className={tableFlushWrapperClassName}>
+          <table className={tableClassName}>
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                <th className="px-4 py-2.5 font-semibold">Manhole #</th>
-                <th className="px-4 py-2.5 font-semibold">Template</th>
-                <th className="px-4 py-2.5 font-semibold">Diameter</th>
-                <th className="px-4 py-2.5 font-semibold">Wall Height</th>
-                <th className="px-4 py-2.5 font-semibold">Price</th>
-                <th className="px-4 py-2.5 font-semibold">Project</th>
-                <th className="px-4 py-2.5 font-semibold">Actions</th>
+              <tr>
+                <th className={tableHeaderCellClassName}>Structure #</th>
+                <th className={tableHeaderCellClassName}>Template</th>
+                <th className={tableHeaderCellClassName}>Size</th>
+                <th className={tableHeaderCellClassName}>Wall Height</th>
+                <th className={tableHeaderCellClassName}>Price</th>
+                <th className={tableHeaderCellClassName}>Project</th>
+                <th className={tableHeaderCellClassName}>Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className={tableBodyClassName}>
               {sheets.length === 0 ? (
                 <tr>
                   <td
                     colSpan={7}
-                    className="px-4 py-8 text-center text-sm text-slate-500"
+                    className={`${tableCellBordersClassName} px-4 py-8 text-center text-sm text-slate-500`}
                   >
                     No drill sheets yet. Create one to get started.
                   </td>
                 </tr>
               ) : (
                 sheets.map((sheet) => (
-                  <tr key={sheet.id} className="hover:bg-slate-50/60">
-                    <td className="px-4 py-2.5 font-medium text-slate-900">
+                  <tr key={sheet.id} className={tableRowClassName}>
+                    <td className={`${tableCellClassName} font-medium text-slate-900`}>
                       {sheet.structureNumber ?? "—"}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-600">
+                    <td className={`${tableCellClassName} text-slate-600`}>
                       {sheet.structureTemplate?.name ?? "—"}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-600">
-                      {sheet.calc?.insideDiameterFeet != null
-                        ? formatFeetInches(Number(sheet.calc.insideDiameterFeet))
-                        : "—"}
+                    <td className={`${tableCellClassName} text-slate-600`}>
+                      {sheet.structureTemplate?.shape === "RECTANGULAR"
+                        ? sheet.calc?.insideLengthFeet != null &&
+                          sheet.calc?.insideWidthFeet != null
+                          ? `${formatFeetInches(Number(sheet.calc.insideLengthFeet))} x ${formatFeetInches(Number(sheet.calc.insideWidthFeet))}`
+                          : "—"
+                        : sheet.calc?.insideDiameterFeet != null
+                          ? formatFeetInches(Number(sheet.calc.insideDiameterFeet))
+                          : "—"}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-600 tabular-nums">
+                    <td className={`${tableCellClassName} text-slate-600 tabular-nums`}>
                       {sheet.calc?.wallHeightFeet != null
                         ? formatFeetInches(Number(sheet.calc.wallHeightFeet))
                         : "—"}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-600 tabular-nums">
+                    <td className={`${tableCellClassName} text-slate-600 tabular-nums`}>
                       {sheet.calc?.totalPrice != null
                         ? formatUsd(Number(sheet.calc.totalPrice))
                         : "—"}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-600">
+                    <td className={`${tableCellClassName} text-slate-600`}>
                       {sheet.calc?.projectName ?? sheet.job?.projectName ?? "—"}
                     </td>
-                    <td className="px-4 py-2.5">
+                    <td className={tableCellClassName}>
                       <div className="flex gap-1.5">
                         <Link
                           href={`/drill-sheets/${sheet.id}`}
@@ -130,7 +152,11 @@ export default async function DrillSheetsPage({
                           View
                         </Link>
                         <Link
-                          href={`/drill-sheets/${sheet.id}/edit`}
+                          href={
+                            sheet.structureTemplate?.shape === "RECTANGULAR"
+                              ? `/drill-sheets/rect/${sheet.id}/edit`
+                              : `/drill-sheets/${sheet.id}/edit`
+                          }
                           className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
                         >
                           Edit

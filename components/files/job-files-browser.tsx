@@ -20,6 +20,13 @@ import {
   type JobFileBrowserItem,
 } from "@/lib/job-file-mapper";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+} from "@/lib/table-styles";
 type JobFilesBrowserProps = {
   jobId: string;
   jobNumber: string;
@@ -338,31 +345,31 @@ export function JobFilesBrowser({
             </p>
           )
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-xs">
-              <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+          <div className={tableFlushWrapperClassName}>
+            <table className={tableClassName}>
+              <thead>
                 <tr>
-                  <th className="px-4 py-2 font-semibold">File</th>
+                  <th className={tableHeaderCellClassName}>File</th>
                   {category === "All" ? (
-                    <th className="px-4 py-2 font-semibold">Category</th>
+                    <th className={tableHeaderCellClassName}>Category</th>
                   ) : null}
-                  <th className="px-4 py-2 font-semibold">Updated</th>
-                  <th className="px-4 py-2 font-semibold">Actions</th>
+                  <th className={tableHeaderCellClassName}>Updated</th>
+                  <th className={tableHeaderCellClassName}>Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className={tableBodyClassName}>
                 {visibleFiles.map((file) => (
                   <tr key={file.id}>
-                    <td className="px-4 py-2 font-medium text-slate-900">
+                    <td className={`${tableCellClassName} font-medium text-slate-900`}>
                       {file.fileName}
                     </td>
                     {category === "All" ? (
-                      <td className="px-4 py-2 text-slate-600">
+                      <td className={`${tableCellClassName} text-slate-600`}>
                         {file.folderCategory}
                       </td>
                     ) : null}
-                    <td className="px-4 py-2 text-slate-600">{file.updatedAt}</td>
-                    <td className="px-4 py-2">
+                    <td className={`${tableCellClassName} text-slate-600`}>{file.updatedAt}</td>
+                    <td className={tableCellClassName}>
                       <OpenFileButton fileId={file.id} fileName={file.fileName} />
                     </td>
                   </tr>

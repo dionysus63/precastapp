@@ -106,6 +106,19 @@ export function isCategoryLineItem(type: QuoteLineItemType | string): boolean {
   return type === "CATEGORY";
 }
 
+/** CATEGORY lines are non-billable but must satisfy DB quantity > 0. */
+export const CATEGORY_LINE_STORAGE_QUANTITY = 1;
+
+export function resolveQuoteLineQuantityForStorage(
+  lineType: QuoteLineItemType | string,
+  quantity: number,
+): number {
+  if (isCategoryLineItem(lineType)) {
+    return CATEGORY_LINE_STORAGE_QUANTITY;
+  }
+  return quantity;
+}
+
 export const DEFAULT_QUOTE_TAX_RATE = 8.625;
 
 export const DEFAULT_QUOTE_CUSTOMER_NAME = "Unassigned";

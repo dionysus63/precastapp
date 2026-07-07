@@ -75,6 +75,18 @@ export function formatWeekRangeLabel(weekdays: WeekdayColumn[]): string {
   return `${start} – ${end}`;
 }
 
+/**
+ * Leading integer of a loadSequence label ("3 of 7" → 3). Sequences are
+ * compared numerically because a string sort puts "10 of 12" before "2 of 12".
+ */
+export function parseLoadSequence(value: string | null | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+  const match = /^\s*(\d+)/.exec(value);
+  return match ? Number(match[1]) : null;
+}
+
 export function isDispatchTicket(ticket: DeliveryTicketRow): boolean {
   return (
     DISPATCH_STATUSES.has(ticket.status) &&

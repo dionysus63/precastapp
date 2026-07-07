@@ -54,6 +54,21 @@ export function deliveryTicketStatusVariant(status: string): StatusVariant {
   return "default";
 }
 
+export function purchaseOrderStatusVariant(status: string): StatusVariant {
+  switch (status) {
+    case "RECEIVED":
+      return "success";
+    case "PARTIALLY_RECEIVED":
+      return "warning";
+    case "ISSUED":
+      return "info";
+    case "CANCELLED":
+      return "neutral";
+    default:
+      return "default";
+  }
+}
+
 export function customerStatusVariant(status: string): StatusVariant {
   switch (status) {
     case "ACTIVE":

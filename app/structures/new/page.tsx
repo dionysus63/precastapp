@@ -5,9 +5,16 @@ import {
   createStructureTemplate,
   loadCastingProductOptions,
 } from "@/app/structures/actions";
+import { prisma } from "@/lib/prisma";
 
 export default async function NewStructureTemplatePage() {
-  const castingOptions = await loadCastingProductOptions();
+  const [castingOptions, rectPdfSets] = await Promise.all([
+    loadCastingProductOptions(),
+    prisma.rectSheetPdfSet.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
 
   return (
     <DashboardShell
@@ -27,6 +34,7 @@ export default async function NewStructureTemplatePage() {
           cancelHref="/structures"
           submitLabel="Create Template"
           castingOptions={castingOptions}
+          rectPdfSetOptions={rectPdfSets}
         />
       </div>
     </DashboardShell>

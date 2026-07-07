@@ -14,6 +14,13 @@ import {
   type RingSlabMapping,
 } from "@/lib/ring-builder-settings";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableHeaderCellClassName,
+  tableWrapperClassName,
+} from "@/lib/table-styles";
 type RingBuilderSettingsFormProps = {
   initialConfig: RingBuilderConfig;
   subcategoryOptions: string[];
@@ -195,20 +202,20 @@ export function RingBuilderSettingsForm({
         configured per diameter and top-level style (Drain or Sanitary).
       </p>
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200">
-        <table className="min-w-full text-left text-xs">
+      <div className={tableWrapperClassName}>
+        <table className={tableClassName}>
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-              <th className="px-3 py-2.5 font-semibold">Diameter / Style</th>
-              <th className="min-w-[120px] px-3 py-2.5 font-semibold">
+            <tr>
+              <th className={tableHeaderCellClassName}>Diameter / Style</th>
+              <th className={`${tableHeaderCellClassName} min-w-[120px]`}>
                 Default price/ft
               </th>
-              <th className="min-w-[220px] px-3 py-2.5 font-semibold">
+              <th className={`${tableHeaderCellClassName} min-w-[220px]`}>
                 Other products
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className={tableBodyClassName}>
             {mappings.map((mapping) => {
               const instance = instances.find(
                 (entry) =>
@@ -219,11 +226,11 @@ export function RingBuilderSettingsForm({
 
               return (
                 <tr key={mapping.id} className="align-top">
-                  <td className="px-3 py-3 font-medium text-slate-900">
+                  <td className={`${tableCellClassName} font-medium text-slate-900`}>
                     {instance?.label ??
                       `${mapping.diameterFeet}' ${mapping.style}`}
                   </td>
-                  <td className="px-3 py-3">
+                  <td className={tableCellClassName}>
                     <input
                       type="number"
                       min="0"
@@ -237,7 +244,7 @@ export function RingBuilderSettingsForm({
                       className={settingsInputClassName}
                     />
                   </td>
-                  <td className="px-3 py-3">
+                  <td className={tableCellClassName}>
                     {showOtherPicker ? (
                       <SubcategoryPicker
                         label="Other"

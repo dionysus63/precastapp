@@ -219,6 +219,7 @@ model Product {
   inventoryTransactions   InventoryTransaction[]
   productionLines         DailyProductionLine[]
   purchaseReceiptLines    PurchaseReceiptLine[]
+  purchaseOrderLines      PurchaseOrderLine[]
   priceListItems          PriceListItem[]
   invoiceLineItems        InvoiceLineItem[]
   castingSupplier         CastingSupplier?              @relation(fields: [castingSupplierId], references: [id], onDelete: SetNull)
@@ -452,6 +453,26 @@ enum SumpMode {
   FIXED
 }
 
+/// Plan-view wall of a rectangular structure. Declared in the physical enum
+/// order (renamed in place from the original A/B/C/D clockwise layout).
+enum RectWall {
+  UP
+  RIGHT
+  DOWN
+  LEFT
+}
+
+/// Horizontal placement of a rectangular wall opening along its wall.
+/// FROM_LEFT / FROM_RIGHT dimension the opening centerline from that inside
+/// face; TOUCH_LEFT / TOUCH_RIGHT draw the opening touching that wall end.
+enum RectOpeningPlacement {
+  CENTERED
+  FROM_LEFT
+  FROM_RIGHT
+  TOUCH_LEFT
+  TOUCH_RIGHT
+}
+
 /// Reusable structure template configured in the Structures tab.
 /// Drives the Drill Sheet Workbook calculations.
 model StructureTemplate {
@@ -469,27 +490,76 @@ model StructureTemplate {
   sumpFixedInches             Decimal?                @db.Decimal(6, 2)
   openingToJointMinTopInches    Decimal               @default(4) @db.Decimal(6, 2)
   openingToJointMinBottomInches Decimal               @default(4) @db.Decimal(6, 2)
+  /// Rectangular templates: wall price per vertical foot of structure height.
+  rectWallPricePerFoot        Decimal?                @db.Decimal(12, 2)
+  /// Rectangular templates: minimum billed height in feet (e.g. 4' minimum
+  /// wall pricing even when the structure is only 2' tall).
+  rectMinPricingHeightFeet    Decimal?                @db.Decimal(6, 2)
+  /// Rectangular templates: top slab price, charged only when the sheet has one.
+  rectTopSlabPrice            Decimal?                @db.Decimal(12, 2)
+  /// Rectangular templates: base slab price, charged only when the sheet has one.
+  rectBaseSlabPrice           Decimal?                @db.Decimal(12, 2)
+  /// Shared sheet-PDF set used by this rectangular template.
+  rectPdfSetId                String?
   status                      StructureTemplateStatus @default(ACTIVE)
   notes                       String?
   createdAt                   DateTime                @default(now())
   updatedAt                   DateTime                @updatedAt
 
   castingProduct Product? @relation("TemplateCasting", fields: [castingProductId], references: [id], onDelete: SetNull)
+  rectPdfSet     RectSheetPdfSet? @relation(fields: [rectPdfSetId], references: [id], onDelete: SetNull)
   diameters      StructureTemplateDiameter[]
+  rectSizes      StructureTemplateRectSize[]
   templatePdfs   StructureTemplatePdf[]
   jobStructures  JobStructure[]
 
   @@index([shape])
   @@index([status])
   @@index([castingProductId])
+  @@index([rectPdfSetId])
 }
 
-/// Fillable drill sheet PDF for a template variant (hasRiser x hasKey matrix).
+/// Named set of calibrated rect sheet PDFs (one per slab variant), shareable
+/// across rectangular structure templates.
+model RectSheetPdfSet {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  files     RectSheetPdfSetFile[]
+  templates StructureTemplate[]
+}
+
+/// One slab-variant PDF inside a set (top slab x base slab matrix).
+model RectSheetPdfSetFile {
+  id           String   @id @default(cuid())
+  setId        String
+  hasTopSlab   Boolean
+  hasBaseSlab  Boolean
+  filePath     String
+  originalName String
+  fileSize     Int?
+  uploadedAt   DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  set RectSheetPdfSet @relation(fields: [setId], references: [id], onDelete: Cascade)
+
+  @@unique([setId, hasTopSlab, hasBaseSlab])
+  @@index([setId])
+}
+
+/// Fillable drill sheet PDF for a template variant. Circular templates use
+/// the hasRiser x hasKey matrix; rectangular templates use hasTopSlab x
+/// hasBaseSlab (with hasRiser/hasKey left false).
 model StructureTemplatePdf {
   id           String   @id @default(cuid())
   templateId   String
   hasRiser     Boolean
   hasKey       Boolean
+  hasTopSlab   Boolean  @default(false)
+  hasBaseSlab  Boolean  @default(false)
   filePath     String
   originalName String
   fileSize     Int?
@@ -498,7 +568,7 @@ model StructureTemplatePdf {
 
   template StructureTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
-  @@unique([templateId, hasRiser, hasKey])
+  @@unique([templateId, hasRiser, hasKey, hasTopSlab, hasBaseSlab])
   @@index([templateId])
 }
 
@@ -514,6 +584,23 @@ model StructureTemplateDiameter {
   template StructureTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
   @@unique([templateId, insideDiameterFeet])
+  @@index([templateId])
+}
+
+/// Preset inside length x width combo for a rectangular structure template.
+/// Sheets can also enter free L x W; presets are one-click starting points.
+model StructureTemplateRectSize {
+  id               String   @id @default(cuid())
+  templateId       String
+  insideLengthFeet Decimal  @db.Decimal(6, 2)
+  insideWidthFeet  Decimal  @db.Decimal(6, 2)
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  template StructureTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, insideLengthFeet, insideWidthFeet])
   @@index([templateId])
 }
 
@@ -537,6 +624,24 @@ model PipeOpeningSize {
   @@unique([pipeMaterial, pipeSizeInches, pipeType, hasBoot])
   @@index([pipeMaterial])
   @@index([pipeSizeInches])
+}
+
+/// Rectangular-structure opening catalog: material + pipe size -> block-out
+/// opening width x height (inches). Skewed pipes have no formula; the sheet
+/// form lets the user override the width manually (height stays the same).
+model RectOpeningSize {
+  id                  String   @id @default(cuid())
+  pipeMaterial        String
+  pipeSizeInches      Decimal  @db.Decimal(6, 2)
+  openingWidthInches  Decimal  @db.Decimal(6, 2)
+  openingHeightInches Decimal  @db.Decimal(6, 2)
+  pricePerOpening     Decimal? @db.Decimal(12, 2)
+  sortOrder           Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([pipeMaterial, pipeSizeInches])
+  @@index([pipeMaterial])
 }
 
 /// Global per-diameter mold limits and pricing (Settings).
@@ -633,6 +738,9 @@ model JobStructureSection {
   heightFeet     Decimal     @db.Decimal(6, 4)
   label          String?
   sortOrder      Int         @default(0)
+  /// Computed pick weight of this section in pounds (150 lb/cf; includes the
+  /// base slab when it is cast attached to the bottom section).
+  pickWeightLbs  Decimal?    @db.Decimal(12, 2)
   /// Keyed joint at the bottom of this section (both mating faces must match).
   hasBottomKey   Boolean     @default(true)
   /// Keyed joint at the top of this section (both mating faces must match).
@@ -657,6 +765,16 @@ model JobStructureOpening {
   angle                        Decimal?            @db.Decimal(12, 4)
   connectionType               PipeConnectionType?
   holeDiameterInches           Decimal?            @db.Decimal(6, 2)
+  /// Rectangular structures: which plan wall this opening penetrates.
+  wall                         RectWall?
+  /// Rectangular structures: placement along the wall (defaults to centered).
+  horizontalPlacement          RectOpeningPlacement?
+  /// Opening centerline offset from the referenced inside face (inches),
+  /// used with FROM_LEFT / FROM_RIGHT placement.
+  offsetInches                 Decimal?            @db.Decimal(8, 2)
+  /// Rectangular block-out size; width is manually widened for skewed pipes.
+  openingWidthInches           Decimal?            @db.Decimal(6, 2)
+  openingHeightInches          Decimal?            @db.Decimal(6, 2)
   bootModel                    String?
   topOfPipeFeet                Decimal?            @db.Decimal(12, 4)
   bottomOfOpeningFeet          Decimal?            @db.Decimal(12, 4)
@@ -710,6 +828,19 @@ model JobStructureDimension {
   topSlabThickness  Decimal? @db.Decimal(12, 4)
   baseSlabThickness Decimal? @db.Decimal(12, 4)
   haunch            Decimal? @db.Decimal(12, 4)
+  /// Rectangular sheets: top slab present (omitted when the casting sits
+  /// directly on the walls). Top slab is always a separate pick.
+  hasTopSlab        Boolean?
+  /// Rectangular sheets: base slab present (open-bottom structures omit it).
+  hasBaseSlab       Boolean?
+  /// Base slab cast monolithically with the bottom wall section (included in
+  /// its pick weight); false = separate base piece.
+  baseAttached      Boolean?
+  /// Top-slab access opening (flush slab; opening touches one inside wall edge).
+  topSlabOpeningLengthInches Decimal?  @db.Decimal(6, 2)
+  topSlabOpeningWidthInches  Decimal?  @db.Decimal(6, 2)
+  /// Wall whose inside edge the top-slab opening touches.
+  topSlabOpeningSide         RectWall?
   notes             String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -739,6 +870,9 @@ model JobStructureCalc {
   hasKey                  Boolean   @default(true)
   totalHeightFeet         Decimal?  @db.Decimal(12, 4)
   insideDiameterFeet      Decimal?  @db.Decimal(12, 4)
+  /// Rectangular sheets: inside plan dimensions.
+  insideLengthFeet        Decimal?  @db.Decimal(12, 4)
+  insideWidthFeet         Decimal?  @db.Decimal(12, 4)
   baseSlabThicknessFeet   Decimal?  @db.Decimal(12, 4)
   wallPrice               Decimal?  @db.Decimal(12, 2)
   bootsPrice              Decimal?  @db.Decimal(12, 2)
@@ -1086,6 +1220,26 @@ model DeliveryTicketSequence {
   updatedAt  DateTime @updatedAt
 }
 
+enum ReceivingCategory {
+  RCP
+  ADS_PIPE
+  DOMESTIC_CASTINGS
+  IMPORTED_CASTINGS
+}
+
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ISSUED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
 enum InventoryTransactionType {
   PRODUCTION
   DELIVERY
@@ -1157,9 +1311,11 @@ model DailyProductionLine {
 
 /// Batch entry for purchased casting inventory received from a supplier.
 model PurchaseReceiptEntry {
-  id           String   @id @default(cuid())
-  receiptDate  DateTime @db.Date
+  id           String             @id @default(cuid())
+  receiptDate  DateTime           @db.Date
+  category     ReceivingCategory?
   supplierId   String?
+  purchaseOrderId String?
   batchLabel   String?
   enteredBy    String?
   notes        String?
@@ -1168,11 +1324,14 @@ model PurchaseReceiptEntry {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  supplier CastingSupplier?     @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  lines    PurchaseReceiptLine[]
+  supplier      CastingSupplier?     @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  purchaseOrder PurchaseOrder?       @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  lines         PurchaseReceiptLine[]
 
   @@index([receiptDate])
   @@index([supplierId])
+  @@index([purchaseOrderId])
+  @@index([category, receiptDate])
 }
 
 /// One product/qty row on a purchase receipt entry.
@@ -1186,6 +1345,84 @@ model PurchaseReceiptLine {
   product         Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([purchaseReceiptId])
+  @@index([productId])
+}
+
+/// AP vendor for purchase orders (pipe, castings, one-off suppliers).
+model Vendor {
+  id              String             @id @default(cuid())
+  name            String             @unique
+  status          VendorStatus       @default(ACTIVE)
+  defaultCategory ReceivingCategory?
+  notes           String?
+  sortOrder       Int                @default(0)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  purchaseOrders PurchaseOrder[]
+
+  @@index([status])
+  @@index([sortOrder])
+}
+
+/// Global sequence counter for purchase order numbers (year=0 row; PO10001+).
+model PurchaseOrderSequence {
+  id         String   @id @default(cuid())
+  year       Int      @unique
+  lastNumber Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+/// Vendor purchase order for accounts payable and receiving fulfillment.
+model PurchaseOrder {
+  id              String               @id @default(cuid())
+  poNumber        String               @unique
+  sequenceNumber  Int
+  vendorId        String
+  status          PurchaseOrderStatus  @default(DRAFT)
+  category        ReceivingCategory?
+  orderDate       DateTime             @db.Date
+  expectedDate    DateTime?            @db.Date
+  vendorQuotePath String?
+  vendorQuoteName String?
+  subtotal        Decimal              @default(0) @db.Decimal(12, 2)
+  total           Decimal              @default(0) @db.Decimal(12, 2)
+  notes           String?
+  enteredBy       String?
+  submissionKey   String?              @unique
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  vendor   Vendor                 @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  lines    PurchaseOrderLine[]
+  receipts PurchaseReceiptEntry[]
+
+  @@index([vendorId])
+  @@index([status])
+  @@index([category])
+  @@index([orderDate])
+}
+
+/// One line on a purchase order.
+model PurchaseOrderLine {
+  id               String  @id @default(cuid())
+  purchaseOrderId  String
+  lineNumber       Int
+  productId        String?
+  itemCode         String
+  description      String?
+  quantityOrdered  Decimal @db.Decimal(12, 4)
+  quantityReceived Decimal @default(0) @db.Decimal(12, 4)
+  unit             String  @default("EA")
+  unitPrice        Decimal @default(0) @db.Decimal(12, 4)
+  total            Decimal @default(0) @db.Decimal(12, 2)
+  sortOrder        Int     @default(0)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([purchaseOrderId])
   @@index([productId])
 }
 
@@ -1328,6 +1565,32 @@ model PriceListItem {
   @@index([productId])
 }
 
+/// Delivery pricing zone: either a radius ring measured from the yard, or a
+/// hand-drawn polygon (used inside NYC where radius bands don't fit).
+model ShippingZone {
+  id          String           @id @default(cuid())
+  name        String
+  kind        ShippingZoneKind
+  /// RADIUS zones: outer edge in straight-line miles from the yard.
+  radiusMiles Decimal?         @db.Decimal(8, 2)
+  /// POLYGON zones: array of [lat, lng] vertex pairs (unclosed ring).
+  polygon     Json?
+  ratePerLoad Decimal          @db.Decimal(12, 2)
+  color       String           @default("#2563eb")
+  sortOrder   Int              @default(0)
+  active      Boolean          @default(true)
+  notes       String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([active])
+}
+
+enum ShippingZoneKind {
+  RADIUS
+  POLYGON
+}
+
 /// Singleton application configuration (id is always "default").
 model AppSettings {
   id        String   @id @default("default")
@@ -1361,6 +1624,9 @@ model AppSettings {
   drivers            Json
   trailers           Json
   truckCapacityLabel String
+  // shipping zones: yard anchor point for radius-based zones
+  yardLatitude  Decimal? @db.Decimal(9, 6)
+  yardLongitude Decimal? @db.Decimal(9, 6)
   ringBuilderConfig  Json     @default("[]")
   rolePermissions    Json     @default("{}")
   createdAt DateTime @default(now())

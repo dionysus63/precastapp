@@ -10,6 +10,15 @@ import {
 } from "@/app/products/actions";
 import { SectionCard } from "@/components/dashboard/section-card";
 
+import {
+  tableBodyClassName,
+  tableCellBordersClassName,
+  tableCellClassName,
+  tableClassName,
+  tableHeaderCellClassName,
+  tableRowClassName,
+  tableWrapperClassName,
+} from "@/lib/table-styles";
 const documentTypeOptions = [
   { value: "GENERIC_SUBMITTAL", label: "Generic Submittal" },
   { value: "SHOP_DRAWING", label: "Shop Drawing" },
@@ -223,43 +232,43 @@ export function ProductDocumentsSection({
           <p className="text-xs text-green-700">{message.success}</p>
         ) : null}
 
-        <div className="overflow-x-auto rounded-lg border border-slate-100">
-          <table className="min-w-full text-left text-xs">
+        <div className={tableWrapperClassName}>
+          <table className={tableClassName}>
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                <th className="px-4 py-2.5 font-semibold">Document Name</th>
-                <th className="px-4 py-2.5 font-semibold">Document Type</th>
-                <th className="px-4 py-2.5 font-semibold">Uploaded Date</th>
-                <th className="px-4 py-2.5 font-semibold">File Size</th>
-                <th className="px-4 py-2.5 font-semibold">Actions</th>
+              <tr>
+                <th className={tableHeaderCellClassName}>Document Name</th>
+                <th className={tableHeaderCellClassName}>Document Type</th>
+                <th className={tableHeaderCellClassName}>Uploaded Date</th>
+                <th className={tableHeaderCellClassName}>File Size</th>
+                <th className={tableHeaderCellClassName}>Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className={tableBodyClassName}>
               {documents.length === 0 ? (
                 <tr>
                   <td
                     colSpan={5}
-                    className="px-4 py-8 text-center text-sm text-slate-500"
+                    className={`${tableCellBordersClassName} px-4 py-8 text-center text-sm text-slate-500`}
                   >
                     No documents yet. Upload a file or scan the product folder.
                   </td>
                 </tr>
               ) : (
                 documents.map((document) => (
-                  <tr key={document.id} className="hover:bg-slate-50/60">
-                    <td className="px-4 py-2.5 font-medium text-slate-900">
+                  <tr key={document.id} className={tableRowClassName}>
+                    <td className={`${tableCellClassName} font-medium text-slate-900`}>
                       {document.documentName}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-600">
+                    <td className={`${tableCellClassName} text-slate-600`}>
                       {document.documentTypeLabel}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-600">
+                    <td className={`${tableCellClassName} text-slate-600`}>
                       {document.uploadedDate}
                     </td>
-                    <td className="px-4 py-2.5 text-slate-600">
+                    <td className={`${tableCellClassName} text-slate-600`}>
                       {document.fileSize}
                     </td>
-                    <td className="px-4 py-2.5">
+                    <td className={tableCellClassName}>
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
                           <button

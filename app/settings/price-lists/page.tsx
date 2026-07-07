@@ -6,6 +6,13 @@ import { createPriceListFormAction } from "@/app/settings/actions";
 import { getPriceListCompleteness } from "@/lib/price-list-service";
 import { withDatabaseRetry } from "@/lib/prisma";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+} from "@/lib/table-styles";
 export default async function PriceListsPage() {
   const priceLists = await withDatabaseRetry(async (prisma) => {
     const lists = await prisma.priceList.findMany({
@@ -31,27 +38,27 @@ export default async function PriceListsPage() {
           {priceLists.length === 0 ? (
             <p className="px-4 py-6 text-sm text-slate-500">No price lists yet.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-xs">
-                <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+            <div className={tableFlushWrapperClassName}>
+              <table className={tableClassName}>
+                <thead>
                   <tr>
-                    <th className="px-4 py-2 font-semibold">Name</th>
-                    <th className="px-4 py-2 font-semibold">Effective</th>
-                    <th className="px-4 py-2 font-semibold">Coverage</th>
-                    <th className="px-4 py-2 font-semibold">Default</th>
-                    <th className="px-4 py-2 font-semibold">Actions</th>
+                    <th className={tableHeaderCellClassName}>Name</th>
+                    <th className={tableHeaderCellClassName}>Effective</th>
+                    <th className={tableHeaderCellClassName}>Coverage</th>
+                    <th className={tableHeaderCellClassName}>Default</th>
+                    <th className={tableHeaderCellClassName}>Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className={tableBodyClassName}>
                   {priceLists.map((list) => (
                     <tr key={list.id}>
-                      <td className="px-4 py-2 font-medium">{list.name}</td>
-                      <td className="px-4 py-2">
+                      <td className={`${tableCellClassName} font-medium`}>{list.name}</td>
+                      <td className={tableCellClassName}>
                         {list.effectiveDate
                           ? new Date(list.effectiveDate).toLocaleDateString()
                           : "—"}
                       </td>
-                      <td className="px-4 py-2">
+                      <td className={tableCellClassName}>
                         <div className="flex flex-wrap items-center gap-2">
                           <span>
                             {list.completeness.listedCount}/
@@ -67,14 +74,14 @@ export default async function PriceListsPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-2">
+                      <td className={tableCellClassName}>
                         {list.isDefault ? (
                           <StatusBadge label="Default" variant="success" />
                         ) : (
                           "—"
                         )}
                       </td>
-                      <td className="px-4 py-2">
+                      <td className={tableCellClassName}>
                         <Link
                           href={`/settings/price-lists/${list.id}`}
                           className="text-slate-700 underline hover:text-slate-900"

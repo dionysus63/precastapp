@@ -7,6 +7,12 @@ import {
   structureTableInputClassName,
 } from "@/components/structures/structure-utils";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableHeaderCellClassName,
+} from "@/lib/table-styles";
 export type DiameterConfigRow = {
   id: string;
   insideDiameterFeet: string;
@@ -86,22 +92,22 @@ export function StructureDiameterConfigForm({
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-slate-200">
-        <table className="min-w-full text-left text-xs">
+        <table className={tableClassName}>
           <thead>
-            <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-              <th className="px-3 py-2 font-semibold">Inside Ø (ft)</th>
-              <th className="px-3 py-2 font-semibold">Max Base (ft)</th>
-              <th className="px-3 py-2 font-semibold">Max Riser (ft)</th>
-              <th className="px-3 py-2 font-semibold">Key Height (ft)</th>
-              <th className="px-3 py-2 font-semibold">$/ft Wall</th>
-              <th className="px-3 py-2 font-semibold">Base Price</th>
-              <th className="px-3 py-2 font-semibold"></th>
+            <tr>
+              <th className={tableHeaderCellClassName}>Inside Ø (ft)</th>
+              <th className={tableHeaderCellClassName}>Max Base (ft)</th>
+              <th className={tableHeaderCellClassName}>Max Riser (ft)</th>
+              <th className={tableHeaderCellClassName}>Key Height (ft)</th>
+              <th className={tableHeaderCellClassName}>$/ft Wall</th>
+              <th className={tableHeaderCellClassName}>Base Price</th>
+              <th className={tableHeaderCellClassName}></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className={tableBodyClassName}>
             {rows.map((row) => (
               <tr key={row.id}>
-                <td className="px-3 py-1.5">
+                <td className={tableCellClassName}>
                   <input
                     type="number"
                     min="0"
@@ -113,7 +119,7 @@ export function StructureDiameterConfigForm({
                     className={structureTableInputClassName}
                   />
                 </td>
-                <td className="px-3 py-1.5">
+                <td className={tableCellClassName}>
                   <input
                     type="number"
                     min="0"
@@ -125,7 +131,7 @@ export function StructureDiameterConfigForm({
                     className={structureTableInputClassName}
                   />
                 </td>
-                <td className="px-3 py-1.5">
+                <td className={tableCellClassName}>
                   <input
                     type="number"
                     min="0"
@@ -137,7 +143,7 @@ export function StructureDiameterConfigForm({
                     className={structureTableInputClassName}
                   />
                 </td>
-                <td className="px-3 py-1.5">
+                <td className={tableCellClassName}>
                   <input
                     type="number"
                     min="0"
@@ -149,7 +155,7 @@ export function StructureDiameterConfigForm({
                     className={structureTableInputClassName}
                   />
                 </td>
-                <td className="px-3 py-1.5">
+                <td className={tableCellClassName}>
                   <input
                     type="number"
                     min="0"
@@ -161,7 +167,7 @@ export function StructureDiameterConfigForm({
                     className={structureTableInputClassName}
                   />
                 </td>
-                <td className="px-3 py-1.5">
+                <td className={tableCellClassName}>
                   <input
                     type="number"
                     min="0"
@@ -173,7 +179,7 @@ export function StructureDiameterConfigForm({
                     className={structureTableInputClassName}
                   />
                 </td>
-                <td className="px-3 py-1.5 text-right">
+                <td className={`${tableCellClassName} py-1.5 text-right`}>
                   {rows.length > 1 ? (
                     <button
                       type="button"

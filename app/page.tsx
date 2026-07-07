@@ -8,10 +8,19 @@ import { jobStatusLabels } from "@/components/jobs/job-utils";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { formatUsd } from "@/lib/format";
 
+import {
+  tableBodyClassName,
+  tableCellBordersClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+  tableRowClassName,
+} from "@/lib/table-styles";
 function CompactTable({ children }: { children: React.ReactNode }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-xs">{children}</table>
+    <div className={tableFlushWrapperClassName}>
+      <table className={tableClassName}>{children}</table>
     </div>
   );
 }
@@ -178,24 +187,24 @@ export default async function Home() {
           >
             <CompactTable>
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                  <th className="px-4 py-2 font-semibold">Quote</th>
-                  <th className="px-4 py-2 font-semibold">Customer</th>
-                  <th className="px-4 py-2 font-semibold">Status</th>
-                  <th className="px-4 py-2 text-right font-semibold">Amount</th>
+                <tr>
+                  <th className={tableHeaderCellClassName}>Quote</th>
+                  <th className={tableHeaderCellClassName}>Customer</th>
+                  <th className={tableHeaderCellClassName}>Status</th>
+                  <th className={`${tableHeaderCellClassName} text-right`}>Amount</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className={tableBodyClassName}>
                 {openQuotes.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-4 py-6 text-center text-slate-500">
+                    <td colSpan={4} className={`${tableCellBordersClassName} px-4 py-6 text-center text-slate-500`}>
                       No open quotes.
                     </td>
                   </tr>
                 ) : (
                   openQuotes.map((quote) => (
-                    <tr key={quote.id} className="hover:bg-slate-50/60">
-                      <td className="px-4 py-2.5">
+                    <tr key={quote.id} className={tableRowClassName}>
+                      <td className={tableCellClassName}>
                         <Link
                           href={`/quotes/${quote.id}`}
                           className="font-medium text-slate-900 hover:text-slate-700"
@@ -206,10 +215,10 @@ export default async function Home() {
                           {quote.projectName}
                         </p>
                       </td>
-                      <td className="px-4 py-2.5 text-slate-600">
+                      <td className={`${tableCellClassName} text-slate-600`}>
                         {quote.customerName}
                       </td>
-                      <td className="px-4 py-2.5">
+                      <td className={tableCellClassName}>
                         <StatusBadge
                           label={
                             quoteStatusLabels[quote.status as QuoteStatus] ??
@@ -218,7 +227,7 @@ export default async function Home() {
                           variant="info"
                         />
                       </td>
-                      <td className="px-4 py-2.5 text-right font-medium text-slate-900">
+                      <td className={`${tableCellClassName} text-right font-medium text-slate-900`}>
                         {formatUsd(quote.total)}
                       </td>
                     </tr>
@@ -243,23 +252,23 @@ export default async function Home() {
           >
             <CompactTable>
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                  <th className="px-4 py-2 font-semibold">Job #</th>
-                  <th className="px-4 py-2 font-semibold">Project</th>
-                  <th className="px-4 py-2 font-semibold">Status</th>
+                <tr>
+                  <th className={tableHeaderCellClassName}>Job #</th>
+                  <th className={tableHeaderCellClassName}>Project</th>
+                  <th className={tableHeaderCellClassName}>Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className={tableBodyClassName}>
                 {activeJobs.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-4 py-6 text-center text-slate-500">
+                    <td colSpan={3} className={`${tableCellBordersClassName} px-4 py-6 text-center text-slate-500`}>
                       No active jobs.
                     </td>
                   </tr>
                 ) : (
                   activeJobs.map((job) => (
-                    <tr key={job.id} className="hover:bg-slate-50/60">
-                      <td className="px-4 py-2.5 font-medium text-slate-900">
+                    <tr key={job.id} className={tableRowClassName}>
+                      <td className={`${tableCellClassName} font-medium text-slate-900`}>
                         <Link
                           href={`/jobs/${job.id}`}
                           className="hover:text-slate-700"
@@ -267,13 +276,13 @@ export default async function Home() {
                           {job.jobNumber}
                         </Link>
                       </td>
-                      <td className="px-4 py-2.5">
+                      <td className={tableCellClassName}>
                         <p className="font-medium text-slate-900">{job.projectName}</p>
                         <p className="text-[11px] text-slate-500">
                           {job.customerName}
                         </p>
                       </td>
-                      <td className="px-4 py-2.5">
+                      <td className={tableCellClassName}>
                         <StatusBadge
                           label={jobStatusLabels[job.status] ?? job.status}
                           variant="success"
@@ -301,35 +310,35 @@ export default async function Home() {
           >
             <CompactTable>
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                  <th className="px-4 py-2 font-semibold">Invoice</th>
-                  <th className="px-4 py-2 font-semibold">Customer</th>
-                  <th className="px-4 py-2 font-semibold">Status</th>
-                  <th className="px-4 py-2 text-right font-semibold">Amount</th>
+                <tr>
+                  <th className={tableHeaderCellClassName}>Invoice</th>
+                  <th className={tableHeaderCellClassName}>Customer</th>
+                  <th className={tableHeaderCellClassName}>Status</th>
+                  <th className={`${tableHeaderCellClassName} text-right`}>Amount</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className={tableBodyClassName}>
                 {pendingInvoices.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-4 py-6 text-center text-slate-500">
+                    <td colSpan={4} className={`${tableCellBordersClassName} px-4 py-6 text-center text-slate-500`}>
                       No pending invoices.
                     </td>
                   </tr>
                 ) : (
                   pendingInvoices.map((invoice) => (
-                    <tr key={invoice.id} className="hover:bg-slate-50/60">
-                      <td className="px-4 py-2.5 font-medium text-slate-900">
+                    <tr key={invoice.id} className={tableRowClassName}>
+                      <td className={`${tableCellClassName} font-medium text-slate-900`}>
                         <Link href={`/invoices/${invoice.id}`}>
                           {invoice.invoiceNumber}
                         </Link>
                       </td>
-                      <td className="px-4 py-2.5 text-slate-600">
+                      <td className={`${tableCellClassName} text-slate-600`}>
                         {invoice.customerName}
                       </td>
-                      <td className="px-4 py-2.5">
+                      <td className={tableCellClassName}>
                         <StatusBadge label={invoice.status} variant="warning" />
                       </td>
-                      <td className="px-4 py-2.5 text-right font-medium text-slate-900">
+                      <td className={`${tableCellClassName} text-right font-medium text-slate-900`}>
                         {formatUsd(invoice.total)}
                       </td>
                     </tr>
@@ -354,24 +363,24 @@ export default async function Home() {
           >
             <CompactTable>
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                  <th className="px-4 py-2 font-semibold">Item</th>
-                  <th className="px-4 py-2 font-semibold">SKU</th>
-                  <th className="px-4 py-2 font-semibold">Status</th>
-                  <th className="px-4 py-2 font-semibold">Detail</th>
+                <tr>
+                  <th className={tableHeaderCellClassName}>Item</th>
+                  <th className={tableHeaderCellClassName}>SKU</th>
+                  <th className={tableHeaderCellClassName}>Status</th>
+                  <th className={tableHeaderCellClassName}>Detail</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className={tableBodyClassName}>
                 {inventoryAlerts.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-4 py-6 text-center text-slate-500">
+                    <td colSpan={4} className={`${tableCellBordersClassName} px-4 py-6 text-center text-slate-500`}>
                       All stocked products above reorder levels.
                     </td>
                   </tr>
                 ) : (
                   inventoryAlerts.map((product) => (
-                    <tr key={product.id} className="hover:bg-slate-50/60">
-                      <td className="px-4 py-2.5 font-medium text-slate-900">
+                    <tr key={product.id} className={tableRowClassName}>
+                      <td className={`${tableCellClassName} font-medium text-slate-900`}>
                         <Link
                           href={`/inventory/${product.id}`}
                           className="hover:text-slate-700"
@@ -379,13 +388,13 @@ export default async function Home() {
                           {product.name}
                         </Link>
                       </td>
-                      <td className="px-4 py-2.5 font-mono text-[11px] text-slate-500">
+                      <td className={`${tableCellClassName} font-mono text-[11px] text-slate-500`}>
                         {product.productCode}
                       </td>
-                      <td className="px-4 py-2.5">
+                      <td className={tableCellClassName}>
                         <StatusBadge label="Low Stock" variant="danger" />
                       </td>
-                      <td className="px-4 py-2.5 text-slate-600">
+                      <td className={`${tableCellClassName} text-slate-600`}>
                         {product.currentStockQuantity} {product.unit} on hand
                       </td>
                     </tr>

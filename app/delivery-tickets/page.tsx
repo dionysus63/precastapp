@@ -3,6 +3,7 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { DeliveryTicketsList } from "@/components/delivery-tickets/delivery-tickets-list";
 import { DispatcherWeekCalendar } from "@/components/delivery-tickets/dispatcher-week-calendar";
 import { TodaysLoadsPanel } from "@/components/delivery-tickets/todays-loads-panel";
+import { UnscheduledLoadsPanel } from "@/components/delivery-tickets/unscheduled-loads-panel";
 import { mapDbDeliveryTicketToListRow } from "@/lib/delivery-ticket-mapper";
 import { getAppSettings } from "@/lib/app-settings";
 import { withDatabaseRetry } from "@/lib/prisma";
@@ -118,7 +119,7 @@ export default async function DeliveryTicketsPage({
   );
   const pageInfo = buildPageInfo(total, requestedPage);
 
-  const [ticketRecords, scheduleRecords, settings, jobNumberRows] =
+  const [ticketRecords, scheduleRecords, settings, jobNumberRows, draftRecords] =
     await withDatabaseRetry((prisma) =>
       Promise.all([
         prisma.deliveryTicket.findMany({
@@ -140,6 +141,23 @@ export default async function DeliveryTicketsPage({
           select: { jobNumber: true },
           orderBy: { jobNumber: "desc" },
         }),
+        // Job delivery loads awaiting scheduling (walk-ins and pickups are
+        // dispatched elsewhere). DRAFT = unscheduled regardless of date.
+        prisma.deliveryTicket.findMany({
+          where: {
+            status: "DRAFT",
+            ticketType: "JOB",
+            fulfillmentMethod: "DELIVERY",
+            jobId: { not: null },
+          },
+          select: {
+            jobId: true,
+            jobNumber: true,
+            projectName: true,
+            customerName: true,
+            totalWeight: true,
+          },
+        }),
       ]),
     );
 
@@ -153,6 +171,19 @@ export default async function DeliveryTicketsPage({
 
   const rows = ticketRecords.map(mapDbDeliveryTicketToListRow);
   const scheduleRows = scheduleRecords.map(mapDbDeliveryTicketToListRow);
+  const unscheduledDrafts = draftRecords
+    .filter(
+      (ticket): ticket is typeof ticket & { jobId: string } =>
+        ticket.jobId !== null,
+    )
+    .map((ticket) => ({
+      jobId: ticket.jobId,
+      jobNumber: ticket.jobNumber ?? "—",
+      projectName: ticket.projectName,
+      customerName: ticket.customerName,
+      totalWeight:
+        ticket.totalWeight != null ? Number(ticket.totalWeight) : null,
+    }));
 
   return (
     <DashboardShell
@@ -177,6 +208,7 @@ export default async function DeliveryTicketsPage({
 
         <DispatcherWeekCalendar tickets={scheduleRows} />
         <TodaysLoadsPanel tickets={scheduleRows} />
+        <UnscheduledLoadsPanel drafts={unscheduledDrafts} />
 
         <DeliveryTicketsList
           tickets={rows}

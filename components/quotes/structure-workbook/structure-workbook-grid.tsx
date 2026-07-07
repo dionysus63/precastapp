@@ -11,6 +11,11 @@ import type { DrillSheetTemplateOption } from "@/components/drill-sheets/drill-s
 import { structureTableInputClassName } from "@/components/structures/structure-utils";
 import { formatQuoteCurrency } from "@/components/quotes/quote-utils";
 import {
+  tableClassName,
+  tableHeaderCellClassName,
+  tableWrapperClassName,
+} from "@/lib/table-styles";
+import {
   applyTsvToRows,
   commitAllWorkbookRowPrices,
   commitWorkbookRowPrice,
@@ -506,15 +511,15 @@ export function StructureWorkbookGrid({
   const mainColumnCount = 12;
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-100">
+    <div className={tableWrapperClassName}>
       <table
         ref={tableRef}
-        className="min-w-full text-left text-xs"
+        className={tableClassName}
         onPaste={handlePaste}
       >
         <thead>
-          <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-            <th className="w-8 px-2 py-2 font-semibold">
+          <tr>
+            <th className={`${tableHeaderCellClassName} w-8`}>
               <input
                 type="checkbox"
                 checked={allSelected}
@@ -523,17 +528,23 @@ export function StructureWorkbookGrid({
                 className="rounded border-slate-300"
               />
             </th>
-            <th className="px-2 py-2 font-semibold">Structure #</th>
-            <th className="min-w-[8rem] px-2 py-2 font-semibold">Template</th>
-            <th className="px-2 py-2 font-semibold">Dia (ft)</th>
-            <th className="min-w-[8rem] px-2 py-2 font-semibold">Casting</th>
-            <th className="px-2 py-2 font-semibold">Rim</th>
-            <th className="px-2 py-2 font-semibold">Low Inv</th>
-            <th className="w-14 px-2 py-2 font-semibold">Boots</th>
-            <th className="w-14 px-2 py-2 font-semibold">Qty</th>
-            <th className="px-2 py-2 font-semibold">Wall Ht</th>
-            <th className="px-2 py-2 font-semibold">Unit Price</th>
-            <th className="min-w-[8rem] px-2 py-2 font-semibold">Status</th>
+            <th className={tableHeaderCellClassName}>Structure #</th>
+            <th className={`${tableHeaderCellClassName} min-w-[8rem]`}>
+              Template
+            </th>
+            <th className={tableHeaderCellClassName}>Dia (ft)</th>
+            <th className={`${tableHeaderCellClassName} min-w-[8rem]`}>
+              Casting
+            </th>
+            <th className={tableHeaderCellClassName}>Rim</th>
+            <th className={tableHeaderCellClassName}>Low Inv</th>
+            <th className={`${tableHeaderCellClassName} w-14`}>Boots</th>
+            <th className={`${tableHeaderCellClassName} w-14`}>Qty</th>
+            <th className={tableHeaderCellClassName}>Wall Ht</th>
+            <th className={tableHeaderCellClassName}>Unit Price</th>
+            <th className={`${tableHeaderCellClassName} min-w-[8rem]`}>
+              Status
+            </th>
           </tr>
         </thead>
         <tbody>

@@ -18,6 +18,13 @@ import {
 } from "@/lib/drill-sheet";
 import type { DrillSheetFormValues } from "@/lib/drill-sheet-detail";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+} from "@/lib/table-styles";
 export type DrillSheetTemplateOption = {
   id: string;
   name: string;
@@ -731,23 +738,23 @@ export function DrillSheetForm({
         }
         noPadding
       >
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-xs">
+        <div className={tableFlushWrapperClassName}>
+          <table className={tableClassName}>
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-                <th className="px-3 py-2 font-semibold">Label</th>
-                <th className="px-3 py-2 font-semibold">Invert</th>
-                <th className="px-3 py-2 font-semibold">Size (in)</th>
-                <th className="px-3 py-2 font-semibold">Material / Type</th>
-                <th className="px-3 py-2 font-semibold">Angle</th>
-                <th className="px-3 py-2 font-semibold">Connection</th>
-                <th className="px-3 py-2 font-semibold"></th>
+              <tr>
+                <th className={tableHeaderCellClassName}>Label</th>
+                <th className={tableHeaderCellClassName}>Invert</th>
+                <th className={tableHeaderCellClassName}>Size (in)</th>
+                <th className={tableHeaderCellClassName}>Material / Type</th>
+                <th className={tableHeaderCellClassName}>Angle</th>
+                <th className={tableHeaderCellClassName}>Connection</th>
+                <th className={tableHeaderCellClassName}></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className={tableBodyClassName}>
               {openings.map((opening) => (
                 <tr key={opening.id}>
-                  <td className="px-3 py-1.5">
+                  <td className={tableCellClassName}>
                     <input
                       type="text"
                       value={opening.label}
@@ -757,7 +764,7 @@ export function DrillSheetForm({
                       className={structureTableInputClassName}
                     />
                   </td>
-                  <td className="px-3 py-1.5">
+                  <td className={tableCellClassName}>
                     <input
                       type="number"
                       step="0.01"
@@ -778,7 +785,7 @@ export function DrillSheetForm({
                       className={structureTableInputClassName}
                     />
                   </td>
-                  <td className="px-3 py-1.5">
+                  <td className={tableCellClassName}>
                     <input
                       type="number"
                       step="0.01"
@@ -799,7 +806,7 @@ export function DrillSheetForm({
                       className={structureTableInputClassName}
                     />
                   </td>
-                  <td className="px-3 py-1.5">
+                  <td className={tableCellClassName}>
                     <input
                       type="text"
                       list="pipe-materials"
@@ -810,7 +817,7 @@ export function DrillSheetForm({
                       className={structureTableInputClassName}
                     />
                   </td>
-                  <td className="px-3 py-1.5">
+                  <td className={tableCellClassName}>
                     <input
                       type="number"
                       step="1"
@@ -827,7 +834,7 @@ export function DrillSheetForm({
                       className={structureTableInputClassName}
                     />
                   </td>
-                  <td className="px-3 py-1.5">
+                  <td className={tableCellClassName}>
                     <select
                       value={opening.connectionType}
                       onChange={(e) =>
@@ -846,7 +853,7 @@ export function DrillSheetForm({
                       ))}
                     </select>
                   </td>
-                  <td className="px-3 py-1.5 text-right">
+                  <td className={`${tableCellClassName} py-1.5 text-right`}>
                     {openings.length > 1 ? (
                       <button
                         type="button"

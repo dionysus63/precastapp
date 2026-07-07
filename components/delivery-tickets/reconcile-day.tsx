@@ -13,6 +13,13 @@ import {
   updateTicketPaperVerification,
 } from "@/app/operations/actions";
 
+import {
+  tableBodyClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+} from "@/lib/table-styles";
 export type ReconcileTicket = {
   id: string;
   ticketNumber: string;
@@ -234,27 +241,27 @@ function TicketTable({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-xs">
-        <thead className="border-b border-slate-100 bg-slate-50/80 text-slate-600">
+    <div className={tableFlushWrapperClassName}>
+      <table className={tableClassName}>
+        <thead>
           <tr>
-            <th className="px-4 py-2 font-semibold">Ticket</th>
-            <th className="px-4 py-2 font-semibold">Customer</th>
-            <th className="px-4 py-2 font-semibold">Status</th>
+            <th className={tableHeaderCellClassName}>Ticket</th>
+            <th className={tableHeaderCellClassName}>Customer</th>
+            <th className={tableHeaderCellClassName}>Status</th>
             {showScheduledDate ? (
-              <th className="px-4 py-2 font-semibold">Scheduled</th>
+              <th className={tableHeaderCellClassName}>Scheduled</th>
             ) : null}
-            <th className="px-4 py-2 font-semibold">Flags</th>
-            <th className="px-4 py-2 font-semibold">Paper verification</th>
-            <th className="px-4 py-2 font-semibold">Actions</th>
+            <th className={tableHeaderCellClassName}>Flags</th>
+            <th className={tableHeaderCellClassName}>Paper verification</th>
+            <th className={tableHeaderCellClassName}>Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className={tableBodyClassName}>
           {tickets.map((ticket) => {
             const flags = getMismatchFlags(ticket);
             return (
               <tr key={ticket.id}>
-                <td className="px-4 py-2 font-medium">
+                <td className={`${tableCellClassName} font-medium`}>
                   {ticket.ticketNumber}
                   {ticket.hasInvoice ? (
                     <span className="ml-1.5 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-normal text-sky-800">
@@ -267,19 +274,19 @@ function TicketTable({
                     </span>
                   ) : null}
                 </td>
-                <td className="px-4 py-2">
+                <td className={tableCellClassName}>
                   {ticket.customerName}
                   <span className="block text-slate-500">{ticket.projectName}</span>
                 </td>
-                <td className="px-4 py-2">
+                <td className={tableCellClassName}>
                   <StatusBadge label={ticket.status.replace(/_/g, " ")} />
                 </td>
                 {showScheduledDate ? (
-                  <td className="px-4 py-2 text-slate-600">
+                  <td className={`${tableCellClassName} text-slate-600`}>
                     {formatDateOnly(ticket.deliveryDate)}
                   </td>
                 ) : null}
-                <td className="px-4 py-2">
+                <td className={tableCellClassName}>
                   {flags.length === 0 ? (
                     <span className="text-slate-400">—</span>
                   ) : (
@@ -295,10 +302,10 @@ function TicketTable({
                     </ul>
                   )}
                 </td>
-                <td className="px-4 py-2">
+                <td className={tableCellClassName}>
                   <TicketVerificationForm ticket={ticket} />
                 </td>
-                <td className="px-4 py-2">
+                <td className={tableCellClassName}>
                   <TicketQuickActions
                     ticket={ticket}
                     reconcileDate={reconcileDate}

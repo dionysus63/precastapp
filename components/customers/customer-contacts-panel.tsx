@@ -12,6 +12,15 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import type { CustomerContactRow } from "@/components/customers/customer-utils";
 
+import {
+  tableBodyClassName,
+  tableCellBordersClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellClassName,
+  tableRowClassName,
+} from "@/lib/table-styles";
 type CustomerContactsPanelProps = {
   customerId: string;
   contacts: CustomerContactRow[];
@@ -235,38 +244,38 @@ export function CustomerContactsPanel({
         </div>
       ) : null}
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-left text-xs">
+      <div className={tableFlushWrapperClassName}>
+        <table className={tableClassName}>
           <thead>
-            <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-              <th className="px-3 py-2.5 font-semibold">Name</th>
-              <th className="px-3 py-2.5 font-semibold">Role</th>
-              <th className="px-3 py-2.5 font-semibold">Email</th>
-              <th className="px-3 py-2.5 font-semibold">Phone</th>
-              <th className="px-3 py-2.5 font-semibold">Primary</th>
-              <th className="px-3 py-2.5 font-semibold">Actions</th>
+            <tr>
+              <th className={tableHeaderCellClassName}>Name</th>
+              <th className={tableHeaderCellClassName}>Role</th>
+              <th className={tableHeaderCellClassName}>Email</th>
+              <th className={tableHeaderCellClassName}>Phone</th>
+              <th className={tableHeaderCellClassName}>Primary</th>
+              <th className={tableHeaderCellClassName}>Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className={tableBodyClassName}>
             {contacts.length === 0 ? (
               <tr>
                 <td
                   colSpan={6}
-                  className="px-3 py-6 text-center text-slate-500"
+                  className={`${tableCellBordersClassName} px-3 py-6 text-center text-slate-500`}
                 >
                   No contacts yet. Add the people you quote and deliver to.
                 </td>
               </tr>
             ) : (
               contacts.map((contact) => (
-                <tr key={contact.id} className="hover:bg-slate-50/60">
-                  <td className="px-3 py-2.5 font-medium text-slate-900">
+                <tr key={contact.id} className={tableRowClassName}>
+                  <td className={`${tableCellClassName} font-medium text-slate-900`}>
                     {contact.name}
                   </td>
-                  <td className="px-3 py-2.5 text-slate-600">{contact.title}</td>
-                  <td className="px-3 py-2.5 text-slate-600">{contact.email}</td>
-                  <td className="px-3 py-2.5 text-slate-600">{contact.phone}</td>
-                  <td className="px-3 py-2.5">
+                  <td className={`${tableCellClassName} text-slate-600`}>{contact.title}</td>
+                  <td className={`${tableCellClassName} text-slate-600`}>{contact.email}</td>
+                  <td className={`${tableCellClassName} text-slate-600`}>{contact.phone}</td>
+                  <td className={tableCellClassName}>
                     {contact.isPrimary ? (
                       <StatusBadge label="Primary" variant="success" />
                     ) : (
@@ -280,7 +289,7 @@ export function CustomerContactsPanel({
                       </button>
                     )}
                   </td>
-                  <td className="px-3 py-2.5">
+                  <td className={tableCellClassName}>
                     <div className="flex gap-2">
                       <button
                         type="button"
