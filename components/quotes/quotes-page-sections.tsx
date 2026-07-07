@@ -1,76 +1,47 @@
 import Link from "next/link";
-import { SectionCard } from "@/components/dashboard/section-card";
-import { SummaryCard } from "@/components/dashboard/summary-card";
-import type { QuoteActivityItem } from "@/components/quotes/quote-utils";
-import type { QuoteSummaryCard } from "@/lib/quotes/list-summary";
+import type { QuoteStatTile } from "@/lib/quotes/list-summary";
 
-// Server-rendered sections of the quotes page. These don't depend on client
-// filter state, so keeping them out of the "use client" list component means
-// they never re-render while the user types in the search box.
+// Server-rendered header of the quotes page. Kept out of the "use client"
+// list component so it never re-renders while the user types in the search box.
 
-export function QuotesActionsRow() {
+const tileToneClassName: Record<QuoteStatTile["tone"], string> = {
+  default: "text-slate-500",
+  warning: "text-amber-600",
+  success: "text-emerald-600",
+};
+
+export function QuotesSummarySection({ tiles }: { tiles: QuoteStatTile[] }) {
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2">
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="flex min-w-0 flex-1 flex-wrap divide-x divide-slate-100 overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
+        {tiles.map((tile) => (
+          <Link
+            key={tile.label}
+            href={tile.href}
+            className="min-w-[150px] flex-1 px-4 py-2 transition-colors hover:bg-slate-50"
+          >
+            <p
+              className={`text-[10px] font-medium uppercase tracking-wide ${tileToneClassName[tile.tone]}`}
+            >
+              {tile.label}
+            </p>
+            <p className="text-base font-semibold text-slate-900">
+              {tile.value}
+              {tile.detail ? (
+                <span className="ml-1.5 text-xs font-normal text-slate-500">
+                  · {tile.detail}
+                </span>
+              ) : null}
+            </p>
+          </Link>
+        ))}
+      </div>
       <Link
         href="/quotes/new"
         className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
       >
         New Quote
       </Link>
-    </div>
-  );
-}
-
-export function QuotesSummarySection({
-  summaryCards,
-}: {
-  summaryCards: QuoteSummaryCard[];
-}) {
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-      {summaryCards.map((card) => (
-        <SummaryCard key={card.label} {...card} />
-      ))}
-    </div>
-  );
-}
-
-export function QuotesActivitySection({
-  recentActivity,
-}: {
-  recentActivity: QuoteActivityItem[];
-}) {
-  return (
-    <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-      <SectionCard
-        title="Recent Quote Activity"
-        description="Latest quote updates across your pipeline."
-      >
-        <ul className="space-y-3">
-          {recentActivity.map((item) => (
-            <li
-              key={item.id}
-              className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5"
-            >
-              <p className="text-sm text-slate-800">{item.message}</p>
-              <p className="mt-1 text-[11px] text-slate-500">
-                {item.timestamp}
-              </p>
-            </li>
-          ))}
-        </ul>
-      </SectionCard>
-
-      <SectionCard title="Quick Actions" description="Common quote workflows.">
-        <div className="flex flex-col gap-2">
-          <Link
-            href="/quotes/new"
-            className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
-          >
-            New Quote
-          </Link>
-        </div>
-      </SectionCard>
     </div>
   );
 }

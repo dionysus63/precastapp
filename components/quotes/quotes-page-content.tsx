@@ -12,11 +12,21 @@ import {
 import {
   type QuoteRow,
   quoteDueDateFilterOptions,
-  quoteStatusFormOptions,
+  quoteStatusLabels,
   quoteTypeLabels,
   quoteYearFilterOptions,
 } from "@/components/quotes/quote-utils";
 import type { PageInfo } from "@/lib/list-params";
+
+import {
+  tableBodyClassName,
+  tableCellBordersClassName,
+  tableCellClassName,
+  tableClassName,
+  tableFlushWrapperClassName,
+  tableHeaderCellWrapClassName,
+  tableRowClassName,
+} from "@/lib/table-styles";
 
 type QuotesPageContentFilters = {
   search: string;
@@ -27,11 +37,28 @@ type QuotesPageContentFilters = {
   due: string;
 };
 
+type QuoteTabCounts = {
+  open: number;
+  won: number;
+  closed: number;
+  all: number;
+};
+
 type QuotesPageContentProps = {
   quotes: QuoteRow[];
   pageInfo: PageInfo;
   filters: QuotesPageContentFilters;
+  tabCounts: QuoteTabCounts;
   estimatorFilterOptions: string[];
+};
+
+const bidDueCellClassName: Record<
+  NonNullable<QuoteRow["bidDueUrgency"]> | "none",
+  string
+> = {
+  overdue: "font-semibold text-red-600",
+  soon: "font-medium text-amber-600",
+  none: "text-slate-600",
 };
 
 // Memoized so typing in the search box doesn't re-render the full row set;
@@ -44,30 +71,28 @@ const QuotesTable = memo(function QuotesTable({
   total: number;
 }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-left text-xs">
+    <div className={tableFlushWrapperClassName}>
+      <table className={tableClassName}>
         <thead>
-          <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
-            <th className="px-4 py-2.5 font-semibold">Quote Number</th>
-            <th className="px-4 py-2.5 font-semibold">Revision</th>
-            <th className="px-4 py-2.5 font-semibold">Job Number</th>
-            <th className="px-4 py-2.5 font-semibold">Project Name</th>
-            <th className="px-4 py-2.5 font-semibold">Customer</th>
-            <th className="px-4 py-2.5 font-semibold">Quote Type</th>
-            <th className="px-4 py-2.5 font-semibold">Status</th>
-            <th className="px-4 py-2.5 font-semibold">Bid Due Date</th>
-            <th className="px-4 py-2.5 font-semibold">Total</th>
-            <th className="px-4 py-2.5 font-semibold">Estimator</th>
-            <th className="px-4 py-2.5 font-semibold">Last Updated</th>
-            <th className="px-4 py-2.5 font-semibold">Actions</th>
+          <tr>
+            <th className={tableHeaderCellWrapClassName}>Quote Number</th>
+            <th className={tableHeaderCellWrapClassName}>Job Number</th>
+            <th className={tableHeaderCellWrapClassName}>Project Name</th>
+            <th className={tableHeaderCellWrapClassName}>Customer</th>
+            <th className={tableHeaderCellWrapClassName}>Quote Type</th>
+            <th className={tableHeaderCellWrapClassName}>Status</th>
+            <th className={tableHeaderCellWrapClassName}>Bid Due Date</th>
+            <th className={tableHeaderCellWrapClassName}>Total</th>
+            <th className={tableHeaderCellWrapClassName}>Estimator</th>
+            <th className={tableHeaderCellWrapClassName}>Last Updated</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className={tableBodyClassName}>
           {quotes.length === 0 ? (
             <tr>
               <td
-                colSpan={12}
-                className="px-4 py-8 text-center text-sm text-slate-500"
+                colSpan={10}
+                className={`${tableCellBordersClassName} px-4 py-8 text-center text-sm text-slate-500`}
               >
                 {total === 0 ? (
                   <span>
@@ -86,17 +111,33 @@ const QuotesTable = memo(function QuotesTable({
             </tr>
           ) : (
             quotes.map((quote) => (
-              <tr key={quote.id} className="hover:bg-slate-50/60">
-                <td className="px-4 py-2.5 font-mono text-[11px] font-medium text-slate-900">
-                  {quote.quoteNumber}
+              <tr key={quote.id} className={tableRowClassName}>
+                <td className={`${tableCellClassName} whitespace-nowrap font-mono text-[11px] font-medium`}>
+                  <Link
+                    href={`/quotes/${quote.id}`}
+                    className="text-slate-900 hover:underline"
+                  >
+                    {quote.quoteNumber}
+                  </Link>
+                  {quote.revision !== "R0" ? (
+                    <span className="ml-1.5 text-slate-400">
+                      {quote.revision}
+                    </span>
+                  ) : null}
                 </td>
-                <td className="px-4 py-2.5 text-slate-600">
-                  {quote.revision}
+                <td className={`${tableCellClassName} font-mono text-[11px]`}>
+                  {quote.jobId && quote.jobNumber !== "—" ? (
+                    <Link
+                      href={`/jobs/${quote.jobId}?tab=quotes`}
+                      className="text-slate-700 hover:underline"
+                    >
+                      {quote.jobNumber}
+                    </Link>
+                  ) : (
+                    <span className="text-slate-700">{quote.jobNumber}</span>
+                  )}
                 </td>
-                <td className="px-4 py-2.5 font-mono text-[11px] text-slate-700">
-                  {quote.jobNumber}
-                </td>
-                <td className="px-4 py-2.5 font-medium text-slate-900">
+                <td className={`${tableCellClassName} font-medium text-slate-900`}>
                   <div>{quote.projectName}</div>
                   {quote.scopeLabel ? (
                     <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
@@ -104,40 +145,34 @@ const QuotesTable = memo(function QuotesTable({
                     </span>
                   ) : null}
                 </td>
-                <td className="px-4 py-2.5 text-slate-700">
+                <td className={`${tableCellClassName} text-slate-700`}>
                   {quote.customer}
                 </td>
-                <td className="px-4 py-2.5">
+                <td className={tableCellClassName}>
                   <StatusBadge
                     label={quote.quoteTypeLabel}
                     variant="neutral"
                   />
                 </td>
-                <td className="px-4 py-2.5">
+                <td className={tableCellClassName}>
                   <StatusBadge
                     label={quote.statusLabel}
                     variant={quote.statusVariant}
                   />
                 </td>
-                <td className="px-4 py-2.5 whitespace-nowrap text-slate-600">
+                <td
+                  className={`${tableCellClassName} whitespace-nowrap ${bidDueCellClassName[quote.bidDueUrgency ?? "none"]}`}
+                >
                   {quote.bidDueDate}
                 </td>
-                <td className="px-4 py-2.5 font-medium text-slate-900">
+                <td className={`${tableCellClassName} font-medium text-slate-900`}>
                   {quote.total}
                 </td>
-                <td className="px-4 py-2.5 text-slate-600">
+                <td className={`${tableCellClassName} text-slate-600`}>
                   {quote.estimator}
                 </td>
-                <td className="px-4 py-2.5 whitespace-nowrap text-slate-600">
+                <td className={`${tableCellClassName} whitespace-nowrap text-slate-600`}>
                   {quote.lastUpdated}
-                </td>
-                <td className="px-4 py-2.5">
-                  <Link
-                    href={`/quotes/${quote.id}`}
-                    className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
-                  >
-                    View
-                  </Link>
                 </td>
               </tr>
             ))
@@ -148,13 +183,13 @@ const QuotesTable = memo(function QuotesTable({
   );
 });
 
-// Renders a fragment: the surrounding layout (actions row, summary cards,
-// recent activity) is server-rendered by app/quotes/page.tsx as siblings
-// inside the shared `space-y-4` wrapper.
+// Renders a fragment: the surrounding layout (stat strip) is server-rendered
+// by app/quotes/page.tsx as a sibling inside the shared `space-y-4` wrapper.
 export function QuotesPageContent({
   quotes,
   pageInfo,
   filters,
+  tabCounts,
   estimatorFilterOptions,
 }: QuotesPageContentProps) {
   const { setParams } = useListQuery();
@@ -162,8 +197,77 @@ export function QuotesPageContent({
 
   const quoteTypeOptions = Object.entries(quoteTypeLabels);
 
+  const statusTabs = [
+    {
+      label: "Open",
+      param: "",
+      count: tabCounts.open,
+      isActive: filters.status === "" || filters.status === "OPEN",
+    },
+    {
+      label: "Won",
+      param: "WON",
+      count: tabCounts.won,
+      isActive: filters.status === "WON",
+    },
+    {
+      label: "Closed",
+      param: "CLOSED",
+      count: tabCounts.closed,
+      isActive: filters.status === "CLOSED",
+    },
+    {
+      label: "All",
+      param: "ALL",
+      count: tabCounts.all,
+      isActive: filters.status === "ALL" || filters.status === "All",
+    },
+  ];
+  // A single-status link (e.g. the dashboard's ?status=DRAFT) isn't a tab —
+  // surface it as a removable filter chip instead.
+  const singleStatusLabel =
+    filters.status && !statusTabs.some((tab) => tab.isActive)
+      ? quoteStatusLabels[filters.status as keyof typeof quoteStatusLabels] ??
+        filters.status
+      : null;
+
   return (
     <>
+      <div className="border-b border-slate-200">
+        <div className="-mb-px flex flex-wrap items-center gap-1">
+          {statusTabs.map((tab) => (
+            <button
+              key={tab.label}
+              type="button"
+              onClick={() => setParams({ status: tab.param })}
+              className={`border-b-2 px-3 py-2 text-xs font-medium transition-colors ${
+                tab.isActive
+                  ? "border-slate-900 text-slate-900"
+                  : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
+              }`}
+            >
+              {tab.label}
+              <span
+                className={`ml-1.5 ${tab.isActive ? "text-slate-500" : "text-slate-400"}`}
+              >
+                {tab.count.toLocaleString()}
+              </span>
+            </button>
+          ))}
+          {singleStatusLabel ? (
+            <button
+              type="button"
+              onClick={() => setParams({ status: "" })}
+              title="Clear status filter"
+              className="mb-1 ml-2 inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
+            >
+              Status: {singleStatusLabel}
+              <span aria-hidden="true">×</span>
+            </button>
+          ) : null}
+        </div>
+      </div>
+
       <div className="flex flex-col gap-3 xl:flex-row xl:flex-wrap">
         <input
           type="search"
@@ -172,18 +276,6 @@ export function QuotesPageContent({
           onChange={(event) => setSearch(event.target.value)}
           className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm placeholder:text-slate-400 xl:max-w-sm"
         />
-        <select
-          value={filters.status || "All"}
-          onChange={(event) => setParams({ status: event.target.value })}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
-        >
-          <option value="All">Status: All</option>
-          {quoteStatusFormOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              Status: {option.label}
-            </option>
-          ))}
-        </select>
         <select
           value={filters.estimator || "All"}
           onChange={(event) => setParams({ estimator: event.target.value })}

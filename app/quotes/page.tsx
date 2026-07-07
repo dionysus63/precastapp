@@ -1,10 +1,6 @@
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { QuotesPageContent } from "@/components/quotes/quotes-page-content";
-import {
-  QuotesActionsRow,
-  QuotesActivitySection,
-  QuotesSummarySection,
-} from "@/components/quotes/quotes-page-sections";
+import { QuotesSummarySection } from "@/components/quotes/quotes-page-sections";
 import { getAppSettings } from "@/lib/app-settings";
 import { mapQuoteToRow } from "@/lib/quote-mapper";
 import { withDatabaseRetry } from "@/lib/prisma";
@@ -15,8 +11,8 @@ import {
   type RawSearchParams,
 } from "@/lib/list-params";
 import {
-  buildQuoteSummaryCards,
-  buildRecentQuoteActivity,
+  buildQuoteStatTiles,
+  CLOSED_STATUSES,
   OPEN_STATUSES,
 } from "@/lib/quotes/list-summary";
 import {
@@ -31,6 +27,7 @@ const QUOTE_LIST_SELECT = {
   id: true,
   quoteNumber: true,
   revisionNumber: true,
+  jobId: true,
   jobNumber: true,
   projectName: true,
   scopeLabel: true,
@@ -51,6 +48,24 @@ function startOfToday() {
   return today;
 }
 
+/**
+ * The status param accepts pseudo-values for the pipeline tabs (OPEN, CLOSED,
+ * ALL) alongside single statuses (e.g. the dashboard's ?status=DRAFT link).
+ * Bare /quotes defaults to the open pipeline — won/closed live behind tabs.
+ */
+function statusWhereFor(statusParam: string): Prisma.QuoteWhereInput | null {
+  if (statusParam === "ALL" || statusParam === "All") {
+    return null;
+  }
+  if (statusParam === "CLOSED") {
+    return { status: { in: CLOSED_STATUSES } };
+  }
+  if (statusParam && statusParam in quoteStatusLabels) {
+    return { status: statusParam as QuoteStatus };
+  }
+  return { status: { in: OPEN_STATUSES } };
+}
+
 export default async function QuotesPage({
   searchParams,
 }: {
@@ -65,10 +80,12 @@ export default async function QuotesPage({
   const dueDateParam = parseStringParam(params.due);
   const requestedPage = parsePageParam(params.page);
 
-  const and: Prisma.QuoteWhereInput[] = [];
+  // Every filter except status — the tab counts are computed over this base
+  // so each tab shows what it would contain under the current filters.
+  const baseAnd: Prisma.QuoteWhereInput[] = [];
 
   if (search) {
-    and.push({
+    baseAnd.push({
       OR: [
         { quoteNumber: { contains: search, mode: "insensitive" } },
         { jobNumber: { contains: search, mode: "insensitive" } },
@@ -79,16 +96,12 @@ export default async function QuotesPage({
     });
   }
 
-  if (statusParam && statusParam in quoteStatusLabels) {
-    and.push({ status: statusParam as QuoteStatus });
-  }
-
   if (typeParam && typeParam in quoteTypeLabels) {
-    and.push({ quoteType: typeParam as QuoteType });
+    baseAnd.push({ quoteType: typeParam as QuoteType });
   }
 
   if (estimatorParam) {
-    and.push({ estimator: estimatorParam });
+    baseAnd.push({ estimator: estimatorParam });
   }
 
   if (/^\d{4}$/.test(yearParam)) {
@@ -96,7 +109,7 @@ export default async function QuotesPage({
     const jan1 = new Date(year, 0, 1);
     const nextJan1 = new Date(year + 1, 0, 1);
     // Row year = quoteDate's year, falling back to createdAt when null.
-    and.push({
+    baseAnd.push({
       OR: [
         { quoteDate: { gte: jan1, lt: nextJan1 } },
         { quoteDate: null, createdAt: { gte: jan1, lt: nextJan1 } },
@@ -107,19 +120,25 @@ export default async function QuotesPage({
   if (dueDateParam && dueDateParam !== "All") {
     const today = startOfToday();
     if (dueDateParam === "Overdue") {
-      and.push({ bidDueDate: { lt: today } });
+      baseAnd.push({ bidDueDate: { lt: today } });
     } else if (dueDateParam === "Due This Week") {
       const weekEnd = new Date(today);
       weekEnd.setDate(today.getDate() + 7);
-      and.push({ bidDueDate: { gte: today, lte: weekEnd } });
+      baseAnd.push({ bidDueDate: { gte: today, lte: weekEnd } });
     } else if (dueDateParam === "Next 30 Days") {
       const monthEnd = new Date(today);
       monthEnd.setDate(today.getDate() + 30);
-      and.push({ bidDueDate: { gte: today, lte: monthEnd } });
+      baseAnd.push({ bidDueDate: { gte: today, lte: monthEnd } });
     }
   }
 
-  const where: Prisma.QuoteWhereInput = and.length ? { AND: and } : {};
+  const baseWhere: Prisma.QuoteWhereInput = baseAnd.length
+    ? { AND: baseAnd }
+    : {};
+  const statusWhere = statusWhereFor(statusParam);
+  const where: Prisma.QuoteWhereInput = statusWhere
+    ? { AND: [...baseAnd, statusWhere] }
+    : baseWhere;
 
   const today = startOfToday();
   const weekEnd = new Date(today);
@@ -141,7 +160,7 @@ export default async function QuotesPage({
     wonThisMonthCount,
     wonThisMonthTotal,
     openQuotesTotal,
-    recentQuotes,
+    statusGroups,
     quotes,
   ] = await withDatabaseRetry((prisma) =>
     Promise.all([
@@ -170,17 +189,10 @@ export default async function QuotesPage({
         where: { status: { in: OPEN_STATUSES } },
         _sum: { total: true },
       }),
-      prisma.quote.findMany({
-        orderBy: { updatedAt: "desc" },
-        take: 4,
-        select: {
-          id: true,
-          quoteNumber: true,
-          projectName: true,
-          customerName: true,
-          status: true,
-          updatedAt: true,
-        },
+      prisma.quote.groupBy({
+        by: ["status"],
+        _count: { _all: true },
+        where: baseWhere,
       }),
       prisma.quote.findMany({
         where,
@@ -193,7 +205,7 @@ export default async function QuotesPage({
   );
 
   const rows = quotes.map(mapQuoteToRow);
-  const summaryCards = buildQuoteSummaryCards({
+  const statTiles = buildQuoteStatTiles({
     openQuotesCount,
     dueThisWeekCount,
     awaitingCustomerCount,
@@ -201,17 +213,29 @@ export default async function QuotesPage({
     wonThisMonthTotal: Number(wonThisMonthTotal._sum.total ?? 0),
     openQuotesTotal: Number(openQuotesTotal._sum.total ?? 0),
   });
-  const recentActivity = buildRecentQuoteActivity(recentQuotes);
+
+  const countByStatus = new Map(
+    statusGroups.map((group) => [group.status, group._count._all]),
+  );
+  const sumStatuses = (statuses: QuoteStatus[]) =>
+    statuses.reduce((acc, status) => acc + (countByStatus.get(status) ?? 0), 0);
+  const tabCounts = {
+    open: sumStatuses(OPEN_STATUSES),
+    won: countByStatus.get("WON") ?? 0,
+    closed: sumStatuses(CLOSED_STATUSES),
+    all: statusGroups.reduce((acc, group) => acc + group._count._all, 0),
+  };
+
   const estimatorFilterOptions = ["All", ...appSettings.estimators];
 
   return (
     <DashboardShell title="Quotes" subtitle="Manage bids, revisions, and quote status.">
       <div className="space-y-4">
-        <QuotesActionsRow />
-        <QuotesSummarySection summaryCards={summaryCards} />
+        <QuotesSummarySection tiles={statTiles} />
         <QuotesPageContent
           quotes={rows}
           pageInfo={pageInfo}
+          tabCounts={tabCounts}
           estimatorFilterOptions={estimatorFilterOptions}
           filters={{
             search,
@@ -222,7 +246,6 @@ export default async function QuotesPage({
             due: dueDateParam,
           }}
         />
-        <QuotesActivitySection recentActivity={recentActivity} />
       </div>
     </DashboardShell>
   );

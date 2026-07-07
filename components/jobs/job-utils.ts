@@ -1,5 +1,18 @@
 import type { QuoteStatus } from "@/components/quotes/quote-utils";
 
+/** Jobs still alive — the default view on the jobs list. */
+export const OPEN_JOB_STATUSES = [
+  "LEAD",
+  "QUOTING",
+  "SUBMITTED",
+  "AWARDED",
+  "ACTIVE",
+  "ON_HOLD",
+] as const;
+
+/** Terminal non-complete statuses, grouped under the Closed tab. */
+export const CLOSED_JOB_STATUSES = ["LOST", "CANCELLED"] as const;
+
 export type JobStatusVariant =
   | "success"
   | "info"

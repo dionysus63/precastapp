@@ -6,8 +6,10 @@ import {
   type DrainRingStyle,
 } from "@/lib/drain-ring-utils";
 import { canEditQuote } from "@/lib/quotes/edit-rules";
+import { OPEN_STATUSES } from "@/lib/quotes/list-summary";
 import { canSendQuote } from "@/lib/quotes/send-rules";
 import { parseStructureConfigJson, getStructureDrillSheetStatus } from "@/lib/quotes/structure-workbook";
+import { parseRectStructureConfigJson } from "@/lib/quotes/rect-structure-workbook";
 import { parseCustomStructureConfigJson } from "@/lib/quotes/custom-structure";
 import {
   type QuoteFormInitialValues,
@@ -104,6 +106,8 @@ export type QuoteLineItemRecord = {
     id?: string;
     productCode: string;
     name: string;
+    trackInventory?: boolean;
+    currentStockQuantity?: number;
     documents?: {
       id: string;
       documentName: string;
@@ -151,6 +155,26 @@ export type QuoteDetailRecord = QuoteRecord & {
 const structureStatusLabels: Record<string, string> = Object.fromEntries(
   structureStatusOptions.map((option) => [option.value, option.label]),
 );
+
+/** Drill-sheet status chip for rectangular structure lines. */
+function rectStructureStatus(
+  line: { structureConfigJson?: unknown; jobStructureId?: string | null },
+  drillSheetStructureIds: Set<string>,
+) {
+  const config = parseRectStructureConfigJson(line.structureConfigJson);
+  if (!config) {
+    return null;
+  }
+  if (
+    line.jobStructureId != null &&
+    drillSheetStructureIds.has(line.jobStructureId)
+  ) {
+    return "created" as const;
+  }
+  return config.detailLevel === "FULL"
+    ? ("ready" as const)
+    : ("quote_only" as const);
+}
 
 function mapQuoteRelatedStructure(
   structure: NonNullable<QuoteDetailRecord["jobStructures"]>[number],
@@ -319,6 +343,7 @@ export type QuoteListRecord = Pick<
   | "id"
   | "quoteNumber"
   | "revisionNumber"
+  | "jobId"
   | "jobNumber"
   | "projectName"
   | "scopeLabel"
@@ -333,6 +358,24 @@ export type QuoteListRecord = Pick<
   | "createdAt"
 >;
 
+/** Urgency flag for open quotes: overdue, or bid due within the next 7 days. */
+function bidDueUrgencyFor(
+  status: QuoteStatus,
+  bidDueDate: Date | null,
+): QuoteRow["bidDueUrgency"] {
+  if (!bidDueDate || !OPEN_STATUSES.includes(status)) {
+    return null;
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (bidDueDate < today) {
+    return "overdue";
+  }
+  const weekEnd = new Date(today);
+  weekEnd.setDate(today.getDate() + 7);
+  return bidDueDate <= weekEnd ? "soon" : null;
+}
+
 export function mapQuoteToRow(quote: QuoteListRecord): QuoteRow {
   const status = quote.status as QuoteStatus;
   const quoteType = quote.quoteType as QuoteType;
@@ -341,6 +384,7 @@ export function mapQuoteToRow(quote: QuoteListRecord): QuoteRow {
     id: quote.id,
     quoteNumber: quote.quoteNumber,
     revision: `R${quote.revisionNumber}`,
+    jobId: quote.jobId,
     jobNumber: quote.jobNumber ?? "—",
     projectName: quote.projectName,
     scopeLabel: quote.scopeLabel?.trim() || null,
@@ -351,6 +395,7 @@ export function mapQuoteToRow(quote: QuoteListRecord): QuoteRow {
     statusLabel: quoteStatusLabels[status] ?? quote.status,
     statusVariant: quoteStatusVariant(quote.status),
     bidDueDate: formatQuoteDate(quote.bidDueDate),
+    bidDueUrgency: bidDueUrgencyFor(status, quote.bidDueDate),
     total: formatUsd(quote.total),
     estimator: quote.estimator ?? "—",
     lastUpdated: formatQuoteDateLong(quote.updatedAt),
@@ -450,17 +495,21 @@ export function mapQuoteToDetailView(
       unit: line.unit,
       unitPrice: formatUsd(line.unitPrice),
       weight: formatWeightLb(line.weight),
-      yards: formatYards(line.yards),
+      qtyOnHand:
+        line.product?.trackInventory &&
+        typeof line.product.currentStockQuantity === "number"
+          ? line.product.currentStockQuantity.toLocaleString("en-US")
+          : "—",
       taxable: line.taxable,
       total: formatUsd(line.total),
       statusNotes: formatLineNotes(line.statusNote, line.notes),
       structureDrillSheetStatus:
         line.lineType === "CONFIGURABLE_STRUCTURE"
-          ? getStructureDrillSheetStatus(
+          ? (getStructureDrillSheetStatus(
               parseStructureConfigJson(line.structureConfigJson),
               line.jobStructureId != null &&
                 drillSheetStructureIds.has(line.jobStructureId),
-            )
+            ) ?? rectStructureStatus(line, drillSheetStructureIds))
           : null,
       jobStructureId: line.jobStructureId ?? null,
       costBreakdown:
@@ -481,7 +530,11 @@ export function mapQuoteToDetailView(
         return false;
       }
       const config = parseStructureConfigJson(line.structureConfigJson);
-      return config?.detailLevel === "DRILL_SHEET";
+      if (config?.detailLevel === "DRILL_SHEET") {
+        return true;
+      }
+      const rectConfig = parseRectStructureConfigJson(line.structureConfigJson);
+      return rectConfig?.detailLevel === "FULL";
     }).length,
     summary: {
       subtotal: formatUsd(quote.subtotal),
@@ -577,6 +630,10 @@ export function mapQuoteToFormInitialValues(
       structureConfig:
         line.lineType === "CONFIGURABLE_STRUCTURE"
           ? parseStructureConfigJson(line.structureConfigJson)
+          : null,
+      rectStructureConfig:
+        line.lineType === "CONFIGURABLE_STRUCTURE"
+          ? parseRectStructureConfigJson(line.structureConfigJson)
           : null,
       costBreakdown:
         line.lineType === "CUSTOM_STRUCTURE"

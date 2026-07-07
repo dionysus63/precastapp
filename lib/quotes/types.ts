@@ -3,6 +3,7 @@ import type {
   QuoteStructureConfig,
   StructureDrillSheetStatus,
 } from "@/lib/quotes/structure-workbook";
+import type { RectQuoteStructureConfig } from "@/lib/quotes/rect-structure-workbook";
 
 export type QuoteStatus =
   | "DRAFT"
@@ -25,6 +26,7 @@ export type QuoteRow = {
   id: string;
   quoteNumber: string;
   revision: string;
+  jobId: string | null;
   jobNumber: string;
   projectName: string;
   scopeLabel: string | null;
@@ -35,16 +37,12 @@ export type QuoteRow = {
   statusLabel: string;
   statusVariant: StatusVariant;
   bidDueDate: string;
+  /** Overdue/soon flags for open quotes so the list can color the due date. */
+  bidDueUrgency: "overdue" | "soon" | null;
   total: string;
   estimator: string;
   lastUpdated: string;
   year: number;
-};
-
-export type QuoteActivityItem = {
-  id: string;
-  message: string;
-  timestamp: string;
 };
 
 export type QuoteLineItemType =
@@ -98,6 +96,7 @@ export type EditableQuoteLineItem = {
   poolHeightFeet?: number | null;
   drainRingStyle?: "DRAIN" | "SANITARY" | "SOLID";
   structureConfig?: QuoteStructureConfig | null;
+  rectStructureConfig?: RectQuoteStructureConfig | null;
   costBreakdown?: CustomStructureCostItem[] | null;
 };
 
@@ -260,7 +259,7 @@ export type QuoteDetailLineItem = {
   unit: string;
   unitPrice: string;
   weight: string;
-  yards: string;
+  qtyOnHand: string;
   taxable: boolean;
   total: string;
   statusNotes: string;
