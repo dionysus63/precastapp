@@ -260,3 +260,22 @@ Restore into a scratch database to inspect without touching live data:
 > The backup folder lives on the same disk as the database. Copy or sync
 > `C:\Backups\precastapp` to a second machine, NAS, or cloud drive for real
 > disaster protection.
+
+---
+
+## Tests
+
+```bash
+npm test         # run the vitest suite once
+npm run test:watch
+```
+
+- Unit tests (`tests/unit/`) cover the money math (`lib/money.ts`,
+  `lib/quotes/money-rules.ts`), quote status rules, and the Outlook
+  draft builder — no database needed.
+- Integration tests (`tests/integration/`) run real server-action logic
+  (e.g. the job award flow) against a scratch database.
+- The scratch DB is `precastapp_test`, derived from `DATABASE_URL` in
+  `.env`; the harness refuses any database whose name doesn't end in
+  `_test` and applies migrations via `prisma migrate deploy` on each run.
+  The real database is never touched.

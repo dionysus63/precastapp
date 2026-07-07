@@ -9,6 +9,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:sync-files": "npx tsx scripts/sync-job-files.ts",
     "deploy:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy/install-prerequisites.ps1",
@@ -53,7 +55,9 @@
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
     "tsx": "^4.22.4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^4.1.10"
   },
   "build": {
     "appId": "com.li-precast.precastops",
