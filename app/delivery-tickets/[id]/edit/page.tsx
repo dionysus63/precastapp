@@ -94,6 +94,7 @@ export default async function EditDeliveryTicketPage({
             pickedUpBy: ticket.pickedUpBy,
             jobId: ticket.jobId ?? "",
             quoteId: ticket.quoteId,
+            customerId: ticket.customerId,
             customerName: ticket.customerName,
             projectName: ticket.projectName,
             deliveryAddress: ticket.deliveryAddress,

@@ -18,7 +18,7 @@ export default async function DeliveryTicketPreviewPage({
   const ticket = await withDatabaseRetry((prisma) =>
     prisma.deliveryTicket.findUnique({
       where: { id },
-      select: { id: true, ticketNumber: true },
+      select: { id: true, ticketNumber: true, ticketType: true, status: true },
     }),
   );
 
@@ -26,12 +26,20 @@ export default async function DeliveryTicketPreviewPage({
     notFound();
   }
 
+  // Walk-in counter sales are completed by printing the ticket, not by
+  // scheduling and marking picked up later.
+  const completeOnPrint =
+    ticket.ticketType === "WALK_IN" &&
+    ticket.status !== "DELIVERED" &&
+    ticket.status !== "CANCELLED";
+
   return (
     <DeliveryTicketPreviewContent
       ticketId={ticket.id}
       ticketNumber={ticket.ticketNumber}
       backHref={fromWalkIns ? "/walk-ins" : undefined}
       backLabel={fromWalkIns ? "Back to Walk-Ins" : undefined}
+      completeOnPrint={completeOnPrint}
     />
   );
 }

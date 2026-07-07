@@ -120,6 +120,14 @@ function CalledInPickupCard({ row }: { row: WalkInRow }) {
       ) : null}
 
       <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+        {row.ticketType === "WALK_IN" && row.status === "DRAFT" ? (
+          <Link
+            href={`/delivery-tickets/${row.id}/edit`}
+            className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-800"
+          >
+            Resume Sale
+          </Link>
+        ) : null}
         <Link
           href={`/delivery-tickets/${row.id}/preview?from=walk-ins`}
           className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"

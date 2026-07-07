@@ -63,7 +63,10 @@ export default async function DeliveryTicketsPage({
   const dateParam = parseStringParam(params.date);
   const requestedPage = parsePageParam(params.page);
 
-  const and: Prisma.DeliveryTicketWhereInput[] = [];
+  // Walk-in counter sales live on the walk-ins board, never in the hub.
+  const and: Prisma.DeliveryTicketWhereInput[] = [
+    { ticketType: { not: "WALK_IN" } },
+  ];
 
   if (search) {
     and.push({
@@ -130,7 +133,10 @@ export default async function DeliveryTicketsPage({
           take: pageInfo.take,
         }),
         prisma.deliveryTicket.findMany({
-          where: { deliveryDate: { gte: scheduleCutoff } },
+          where: {
+            deliveryDate: { gte: scheduleCutoff },
+            ticketType: { not: "WALK_IN" },
+          },
           orderBy: [{ deliveryDate: "asc" }, { createdAt: "asc" }],
           select: DELIVERY_LIST_SELECT,
         }),

@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useState, useTransition } from "react";
 import { generateDeliveryTicketPdf } from "@/app/delivery-tickets/pdf-actions";
+import { deliverTicket } from "@/app/operations/actions";
 import {
   DeliveryTicketPdfCanvasPreview,
   getDeliveryTicketPreviewPrintUrl,
@@ -15,6 +17,8 @@ type DeliveryTicketPreviewContentProps = {
   ticketNumber: string;
   backHref?: string;
   backLabel?: string;
+  /** Walk-in counter sales: printing marks the ticket delivered/complete. */
+  completeOnPrint?: boolean;
 };
 
 export function DeliveryTicketPreviewContent({
@@ -22,11 +26,17 @@ export function DeliveryTicketPreviewContent({
   ticketNumber,
   backHref,
   backLabel = "Back to Ticket",
+  completeOnPrint = false,
 }: DeliveryTicketPreviewContentProps) {
+  const router = useRouter();
   const [previewCopy, setPreviewCopy] = useState(1);
   const [previewSheet, setPreviewSheet] = useState(1);
   const [sheetCount, setSheetCount] = useState(1);
   const [isPending, startTransition] = useTransition();
+  const [isCompleting, startCompleteTransition] = useTransition();
+  const [completeMessage, setCompleteMessage] = useState<
+    { type: "error" | "warning"; text: string } | null
+  >(null);
   const [pdfResult, setPdfResult] = useState<
     { type: "success"; filePath: string } | { type: "error"; message: string } | null
   >(null);
@@ -42,7 +52,7 @@ export function DeliveryTicketPreviewContent({
     setSheetCount(1);
   }
 
-  function handlePrint() {
+  function openPrintWindow() {
     const printWindow = window.open(getDeliveryTicketPreviewPrintUrl(ticketId), "_blank");
     if (!printWindow) {
       return;
@@ -50,6 +60,28 @@ export function DeliveryTicketPreviewContent({
     printWindow.addEventListener("load", () => {
       printWindow.focus();
       printWindow.print();
+    });
+  }
+
+  function handlePrint() {
+    if (!completeOnPrint) {
+      openPrintWindow();
+      return;
+    }
+    setCompleteMessage(null);
+    startCompleteTransition(async () => {
+      // Complete first so a printed ticket is always a completed sale; the
+      // action is idempotent, so re-printing an already-completed one is safe.
+      const result = await deliverTicket(ticketId);
+      if ("error" in result && result.error) {
+        setCompleteMessage({ type: "error", text: result.error });
+        return;
+      }
+      if ("warning" in result && result.warning) {
+        setCompleteMessage({ type: "warning", text: result.warning });
+      }
+      openPrintWindow();
+      router.refresh();
     });
   }
 
@@ -79,20 +111,51 @@ export function DeliveryTicketPreviewContent({
             <button
               type="button"
               onClick={handlePrint}
-              className="rounded border border-neutral-300 bg-white px-4 py-1.5 text-sm font-semibold text-neutral-800 hover:bg-neutral-50"
+              disabled={isCompleting}
+              className={
+                completeOnPrint
+                  ? "rounded border border-neutral-800 bg-neutral-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  : "rounded border border-neutral-300 bg-white px-4 py-1.5 text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-60"
+              }
             >
-              Print (3 copies)
+              {isCompleting
+                ? "Completing…"
+                : completeOnPrint
+                  ? "Print & Complete Sale"
+                  : "Print (3 copies)"}
             </button>
             <button
               type="button"
               onClick={handleGeneratePdf}
               disabled={isPending}
-              className="rounded border border-neutral-800 bg-neutral-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className={
+                completeOnPrint
+                  ? "rounded border border-neutral-300 bg-white px-4 py-1.5 text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  : "rounded border border-neutral-800 bg-neutral-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+              }
             >
               {isPending ? "Generating..." : "Generate PDF"}
             </button>
           </div>
         </div>
+        {completeOnPrint ? (
+          <div className="mx-auto max-w-[8.5in] px-4 pb-3 text-xs text-neutral-500">
+            Printing marks this sale complete: stock is deducted and the ticket
+            moves to “Recently completed” on the walk-ins board. Previewing
+            alone leaves it open.
+          </div>
+        ) : null}
+        {completeMessage ? (
+          <div
+            className={`mx-auto max-w-[8.5in] border-t px-4 py-3 text-sm ${
+              completeMessage.type === "error"
+                ? "border-red-100 bg-red-50 text-red-800"
+                : "border-amber-100 bg-amber-50 text-amber-900"
+            }`}
+          >
+            {completeMessage.text}
+          </div>
+        ) : null}
         {pdfResult?.type === "success" ? (
           <div className="mx-auto max-w-[8.5in] border-t border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
             <p className="font-semibold">PDF generated successfully.</p>

@@ -1065,6 +1065,29 @@ export async function updateDeliveryTicketStatus(
   }
 }
 
+export type WalkInCustomerOption = {
+  id: string;
+  name: string;
+};
+
+export async function searchCustomersForWalkInTicket(
+  query: string,
+): Promise<WalkInCustomerOption[]> {
+  await requirePermission(AppPermission.DELIVERY_VIEW);
+
+  const trimmed = query.trim();
+  return withDatabaseRetry((client) =>
+    client.customer.findMany({
+      where: trimmed
+        ? { name: { contains: trimmed, mode: "insensitive" } }
+        : {},
+      orderBy: { name: "asc" },
+      take: 20,
+      select: { id: true, name: true },
+    }),
+  );
+}
+
 export type DeliveryTicketJobSearchOption = {
   id: string;
   jobNumber: string;

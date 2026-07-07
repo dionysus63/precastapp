@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   createDeliveryTicket,
+  searchCustomersForWalkInTicket,
   searchJobsForDeliveryTicket,
   updateDeliveryTicket,
   type DeliveryTicketLineInput,
@@ -255,6 +256,12 @@ export function DeliveryTicketEditor({
   const [pickedUpBy, setPickedUpBy] = useState(defaultValues?.pickedUpBy ?? "");
   const [walkInCustomer, setWalkInCustomer] = useState(
     defaultValues?.customerName ?? "",
+  );
+  const [walkInCustomerId, setWalkInCustomerId] = useState<string | null>(
+    defaultValues?.customerId ?? null,
+  );
+  const [walkInOneOff, setWalkInOneOff] = useState(
+    () => !defaultValues?.customerId && Boolean(defaultValues?.customerName),
   );
   const [walkInReference, setWalkInReference] = useState(
     defaultValues?.projectName ?? "",
@@ -843,6 +850,11 @@ export function DeliveryTicketEditor({
       quoteId: ticketType === "JOB" ? quote?.id ?? null : null,
       quoteNumber: ticketType === "JOB" ? quote?.quoteNumber ?? null : null,
       jobNumber: selectedJob?.jobNumber ?? null,
+      customerId: isWalkIn
+        ? walkInOneOff
+          ? null
+          : walkInCustomerId
+        : defaultValues?.customerId ?? null,
       customerName: isWalkIn
         ? walkInCustomer.trim()
         : selectedJob?.customerName ?? defaultValues?.customerName ?? "",
@@ -861,7 +873,10 @@ export function DeliveryTicketEditor({
     };
   }
 
-  function submit(status: SaveDeliveryTicketInput["status"]) {
+  function submit(
+    status: SaveDeliveryTicketInput["status"],
+    destination: "detail" | "walkIns" | "preview" = "detail",
+  ) {
     setError(null);
     startTransition(async () => {
       const payload = buildPayload(status);
@@ -872,7 +887,13 @@ export function DeliveryTicketEditor({
       if ("error" in result && result.error) {
         setError(result.error);
       } else if ("success" in result && result.success) {
-        router.push(`/delivery-tickets/${result.ticketId}`);
+        const href =
+          destination === "preview"
+            ? `/delivery-tickets/${result.ticketId}/preview?from=walk-ins`
+            : destination === "walkIns"
+              ? "/walk-ins"
+              : `/delivery-tickets/${result.ticketId}`;
+        router.push(href);
         router.refresh();
       }
     });
@@ -1508,15 +1529,50 @@ export function DeliveryTicketEditor({
         >
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
-              <label className="block text-xs font-medium text-slate-700">
-                Customer name
+              <label
+                htmlFor="walkInCustomer"
+                className="block text-xs font-medium text-slate-700"
+              >
+                Customer
               </label>
-              <input
-                value={walkInCustomer}
-                onChange={(event) => setWalkInCustomer(event.target.value)}
-                placeholder="Cash sale / customer name"
-                className={inputClass}
-              />
+              {walkInOneOff ? (
+                <input
+                  id="walkInCustomer"
+                  value={walkInCustomer}
+                  onChange={(event) => setWalkInCustomer(event.target.value)}
+                  placeholder="Cash sale / customer name"
+                  className={inputClass}
+                />
+              ) : (
+                <FormTypeahead
+                  inputId="walkInCustomer"
+                  selectedLabel={walkInCustomerId ? walkInCustomer : ""}
+                  placeholder="Search customers…"
+                  searchItems={searchCustomersForWalkInTicket}
+                  itemKey={(customer) => customer.id}
+                  itemLabel={(customer) => customer.name}
+                  clearLabel="Clear customer"
+                  onSelect={(customer) => {
+                    setWalkInCustomerId(customer?.id ?? null);
+                    setWalkInCustomer(customer?.name ?? "");
+                    markDirty();
+                  }}
+                  inputClassName={inputClass}
+                />
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setWalkInOneOff((current) => !current);
+                  setWalkInCustomerId(null);
+                  setWalkInCustomer("");
+                }}
+                className="mt-1 text-[11px] font-medium text-slate-500 underline-offset-2 hover:text-slate-900 hover:underline"
+              >
+                {walkInOneOff
+                  ? "Search existing customers"
+                  : "Cash / one-off customer instead"}
+              </button>
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-700">
@@ -1983,7 +2039,13 @@ export function DeliveryTicketEditor({
 
       <div className="flex justify-end gap-2">
         <Link
-          href={mode === "edit" && ticketId ? `/delivery-tickets/${ticketId}` : "/delivery-tickets"}
+          href={
+            mode === "edit" && ticketId
+              ? `/delivery-tickets/${ticketId}`
+              : ticketType === "WALK_IN"
+                ? "/walk-ins"
+                : "/delivery-tickets"
+          }
           className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-medium hover:bg-slate-50"
         >
           Cancel
@@ -1991,23 +2053,36 @@ export function DeliveryTicketEditor({
         <button
           type="button"
           disabled={pending}
-          onClick={() => submit("DRAFT")}
+          onClick={() =>
+            submit("DRAFT", ticketType === "WALK_IN" ? "walkIns" : "detail")
+          }
           className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-50"
         >
           {pending ? "Saving…" : "Save Draft"}
         </button>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => submit("SCHEDULED")}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
-        >
-          {pending
-            ? "Saving…"
-            : isPickup
-              ? "Schedule Pickup"
-              : "Schedule Delivery"}
-        </button>
+        {ticketType === "WALK_IN" ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => submit("DRAFT", "preview")}
+            className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
+          >
+            {pending ? "Saving…" : "Save & Preview"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => submit("SCHEDULED")}
+            className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
+          >
+            {pending
+              ? "Saving…"
+              : isPickup
+                ? "Schedule Pickup"
+                : "Schedule Delivery"}
+          </button>
+        )}
       </div>
     </div>
   );

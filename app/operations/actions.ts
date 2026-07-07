@@ -231,6 +231,17 @@ export async function deliverTicket(deliveryTicketId: string) {
         : null,
     };
   } catch (error) {
+    // The DB blocks negative stock; translate the raw constraint failure for
+    // the front desk instead of leaking SQL wording.
+    if (
+      error instanceof Error &&
+      error.message.includes("Product_currentStockQuantity_nonneg")
+    ) {
+      return {
+        error:
+          "Not enough stock on hand to complete this ticket. Adjust inventory or the line quantities first.",
+      };
+    }
     return {
       error:
         error instanceof Error ? error.message : "Could not mark delivered.",
