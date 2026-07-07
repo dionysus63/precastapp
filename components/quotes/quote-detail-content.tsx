@@ -238,13 +238,24 @@ export function QuoteDetailContent({
                     Job Production & Submittals
                   </button>
                 )}
-                <button
-                  type="button"
-                  disabled
-                  className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-400"
-                >
-                  Convert to Invoice
-                </button>
+                {quote.jobId ? (
+                  <Link
+                    href={`/jobs/${quote.jobId}?tab=invoices`}
+                    title="Invoices are created from delivered delivery tickets on the job's Invoices tab."
+                    className="rounded-lg border border-slate-200 px-4 py-2 text-center text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    Convert to Invoice
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    title="Link this quote to a job first — invoices are created from the job's delivered delivery tickets."
+                    className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-400"
+                  >
+                    Convert to Invoice
+                  </button>
+                )}
                 {quote.jobId ? (
                   <Link
                     href={`/delivery-tickets/new?jobId=${quote.jobId}`}
