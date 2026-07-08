@@ -21,7 +21,12 @@ import {
 import { getAppSettings } from "@/lib/app-settings";
 import {
   DEFAULT_QUOTE_EMAIL_BODY_TEMPLATE,
+  DEFAULT_QUOTE_EMAIL_FONT,
+  DEFAULT_QUOTE_EMAIL_FONT_SIZE_PX,
+  DEFAULT_QUOTE_EMAIL_SIGNATURE_COLOR,
   DEFAULT_QUOTE_EMAIL_SUBJECT_TEMPLATE,
+  DEFAULT_QUOTE_EMAIL_TEXT_COLOR,
+  QUOTE_EMAIL_FONT_OPTIONS,
 } from "@/lib/email/quote-email";
 
 type CompanySettingsPageProps = {
@@ -216,6 +221,102 @@ export default async function CompanySettingsPage({
               className={settingsTextareaClassName}
             />
           </SettingsField>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <SettingsField
+              label="Quote email font"
+              hint="Email-safe fonts only."
+            >
+              <select
+                name="quoteEmailFontFamily"
+                defaultValue={
+                  settings.quoteEmailFontFamily ?? DEFAULT_QUOTE_EMAIL_FONT
+                }
+                className={settingsInputClassName}
+              >
+                {QUOTE_EMAIL_FONT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.value}
+                  </option>
+                ))}
+              </select>
+            </SettingsField>
+            <SettingsField label="Quote email size (px)" hint="10–24.">
+              <input
+                name="quoteEmailFontSizePx"
+                type="number"
+                min={10}
+                max={24}
+                defaultValue={settings.quoteEmailFontSizePx ?? ""}
+                placeholder={String(DEFAULT_QUOTE_EMAIL_FONT_SIZE_PX)}
+                className={settingsInputClassName}
+              />
+            </SettingsField>
+            <SettingsField label="Quote email text color" hint="Hex color.">
+              <input
+                name="quoteEmailTextColor"
+                defaultValue={settings.quoteEmailTextColor ?? ""}
+                placeholder={DEFAULT_QUOTE_EMAIL_TEXT_COLOR}
+                className={settingsInputClassName}
+              />
+            </SettingsField>
+          </div>
+          <SettingsField
+            label="Email signature — name"
+            hint="Signature block appended to quote emails (bold serif, signature color). Leave blank for no signature."
+          >
+            <input
+              name="quoteEmailSignatureName"
+              defaultValue={settings.quoteEmailSignatureName ?? ""}
+              placeholder="Nicholas Verruto, PE"
+              className={settingsInputClassName}
+            />
+          </SettingsField>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <SettingsField label="Signature — company">
+              <input
+                name="quoteEmailSignatureCompany"
+                defaultValue={settings.quoteEmailSignatureCompany ?? ""}
+                placeholder="Long Island Precast Inc."
+                className={settingsInputClassName}
+              />
+            </SettingsField>
+            <SettingsField label="Signature — color" hint="Hex color for the serif lines.">
+              <input
+                name="quoteEmailSignatureColor"
+                defaultValue={settings.quoteEmailSignatureColor ?? ""}
+                placeholder={DEFAULT_QUOTE_EMAIL_SIGNATURE_COLOR}
+                className={settingsInputClassName}
+              />
+            </SettingsField>
+          </div>
+          <SettingsField label="Signature — address" hint="One line per address line.">
+            <textarea
+              name="quoteEmailSignatureAddress"
+              rows={2}
+              defaultValue={settings.quoteEmailSignatureAddress ?? ""}
+              placeholder={"20 Stiriz Rd.\nBrookhaven, NY 11719"}
+              className={settingsTextareaClassName}
+            />
+          </SettingsField>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <SettingsField label="Signature — phone line">
+              <input
+                name="quoteEmailSignaturePhoneLine"
+                defaultValue={settings.quoteEmailSignaturePhoneLine ?? ""}
+                placeholder="Ph(631)286-0240 Fax(631)286-6313"
+                className={settingsInputClassName}
+              />
+            </SettingsField>
+            <SettingsField label="Signature — email" hint="Rendered as a mailto link.">
+              <input
+                name="quoteEmailSignatureEmail"
+                type="email"
+                defaultValue={settings.quoteEmailSignatureEmail ?? ""}
+                placeholder="nick@li-precast.com"
+                className={settingsInputClassName}
+              />
+            </SettingsField>
+          </div>
           <SettingsField
             label="Delivery ticket copy 1 name"
             hint="Filled into the Copy Name field on each printed page (e.g. Customer Copy)."

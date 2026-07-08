@@ -19,6 +19,7 @@ import {
   validateRingBuilderConfig,
 } from "@/lib/ring-builder-settings";
 import { writeAuditLog } from "@/lib/auth/audit";
+import { isValidEmail } from "@/lib/validation/email";
 import { parseRolePermissionsFromFormData } from "@/lib/role-permissions-settings";
 import {
   isSettingsResetConfigured,
@@ -225,6 +226,28 @@ export async function updateCompanySettingsFormAction(
     String(formData.get("quoteEmailSubjectTemplate") ?? "").trim() || null;
   const quoteEmailBodyTemplate =
     String(formData.get("quoteEmailBodyTemplate") ?? "").trim() || null;
+  const quoteEmailFontFamily =
+    String(formData.get("quoteEmailFontFamily") ?? "").trim() || null;
+  const quoteEmailFontSizeRaw = String(
+    formData.get("quoteEmailFontSizePx") ?? "",
+  ).trim();
+  const quoteEmailFontSizePx = quoteEmailFontSizeRaw
+    ? Number(quoteEmailFontSizeRaw)
+    : null;
+  const quoteEmailTextColor =
+    String(formData.get("quoteEmailTextColor") ?? "").trim() || null;
+  const quoteEmailSignatureName =
+    String(formData.get("quoteEmailSignatureName") ?? "").trim() || null;
+  const quoteEmailSignatureCompany =
+    String(formData.get("quoteEmailSignatureCompany") ?? "").trim() || null;
+  const quoteEmailSignatureAddress =
+    String(formData.get("quoteEmailSignatureAddress") ?? "").trim() || null;
+  const quoteEmailSignaturePhoneLine =
+    String(formData.get("quoteEmailSignaturePhoneLine") ?? "").trim() || null;
+  const quoteEmailSignatureEmail =
+    String(formData.get("quoteEmailSignatureEmail") ?? "").trim() || null;
+  const quoteEmailSignatureColor =
+    String(formData.get("quoteEmailSignatureColor") ?? "").trim() || null;
   const deliveryTicketCopy1Title =
     String(formData.get("deliveryTicketCopy1Title") ?? "").trim() || null;
   const deliveryTicketCopy2Title =
@@ -242,6 +265,28 @@ export async function updateCompanySettingsFormAction(
     return { error: "App title and subtitle are required." };
   }
 
+  if (
+    quoteEmailFontSizePx !== null &&
+    (!Number.isInteger(quoteEmailFontSizePx) ||
+      quoteEmailFontSizePx < 10 ||
+      quoteEmailFontSizePx > 24)
+  ) {
+    return { error: "Quote email font size must be between 10 and 24." };
+  }
+
+  const hexColor = /^#[0-9a-fA-F]{6}$/;
+  if (quoteEmailTextColor && !hexColor.test(quoteEmailTextColor)) {
+    return { error: "Quote email text color must be a hex color like #171717." };
+  }
+  if (quoteEmailSignatureColor && !hexColor.test(quoteEmailSignatureColor)) {
+    return {
+      error: "Signature color must be a hex color like #1F4E79.",
+    };
+  }
+  if (quoteEmailSignatureEmail && !isValidEmail(quoteEmailSignatureEmail)) {
+    return { error: "Signature email must be a valid email address." };
+  }
+
   return updateAppSettings({
     companyName,
     companyAddress,
@@ -252,6 +297,15 @@ export async function updateCompanySettingsFormAction(
     quoteFooterText,
     quoteEmailSubjectTemplate,
     quoteEmailBodyTemplate,
+    quoteEmailFontFamily,
+    quoteEmailFontSizePx,
+    quoteEmailTextColor,
+    quoteEmailSignatureName,
+    quoteEmailSignatureCompany,
+    quoteEmailSignatureAddress,
+    quoteEmailSignaturePhoneLine,
+    quoteEmailSignatureEmail,
+    quoteEmailSignatureColor,
     deliveryTicketCopy1Title,
     deliveryTicketCopy2Title,
     deliveryTicketCopy3Title,

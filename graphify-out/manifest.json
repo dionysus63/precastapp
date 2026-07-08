@@ -525,8 +525,8 @@
     "semantic_hash": ""
   },
   "app/settings/actions.ts": {
-    "mtime": 1783534568.1155434,
-    "ast_hash": "f7b461ad75db63f72db9ee46766a7fad",
+    "mtime": 1783536491.6367345,
+    "ast_hash": "68cd0425ee1305a58407d54f45ce2e1b",
     "semantic_hash": ""
   },
   "app/settings/billing/page.tsx": {
@@ -535,8 +535,8 @@
     "semantic_hash": "e1cbd50908e8e3d8c74d35028eae1b2e"
   },
   "app/settings/company/page.tsx": {
-    "mtime": 1783534598.977235,
-    "ast_hash": "eea20f4b0657ba670190e86f073c98d9",
+    "mtime": 1783536515.4572575,
+    "ast_hash": "5f037a9c88f06e8e5a18adafdf86e42f",
     "semantic_hash": ""
   },
   "app/settings/files/page.tsx": {
@@ -690,8 +690,8 @@
     "semantic_hash": ""
   },
   "lib/app-settings.ts": {
-    "mtime": 1783534530.7680254,
-    "ast_hash": "c1e2899086809ffd9c6e1e97c4a43a12",
+    "mtime": 1783536332.3705814,
+    "ast_hash": "e7c950a40f05b05e70ae4f2ca14a3584",
     "semantic_hash": ""
   },
   "lib/company-logo.ts": {
@@ -1695,8 +1695,8 @@
     "semantic_hash": ""
   },
   "app/quotes/send-actions.ts": {
-    "mtime": 1783453233.0126827,
-    "ast_hash": "5c972aae32f8d2b18bb836a0b9758e29",
+    "mtime": 1783536442.533079,
+    "ast_hash": "9e8e0155da9172afbaa9d3933ef23f83",
     "semantic_hash": ""
   },
   "app/settings/rings/page.tsx": {
@@ -1760,8 +1760,8 @@
     "semantic_hash": ""
   },
   "lib/email/quote-email.ts": {
-    "mtime": 1783534554.1788166,
-    "ast_hash": "b3262e4f7137a5303366058cdba369ee",
+    "mtime": 1783536366.9914021,
+    "ast_hash": "bf788f399d5ff96530599719527e90c9",
     "semantic_hash": ""
   },
   "lib/job-progress.ts": {
@@ -2930,8 +2930,8 @@
     "semantic_hash": ""
   },
   "lib/email/outlook-draft.ts": {
-    "mtime": 1783453185.8482969,
-    "ast_hash": "0dc75098905bbfd53382af7e81f50333",
+    "mtime": 1783536389.0159802,
+    "ast_hash": "872ec16dfb81fc4df922560841af98ff",
     "semantic_hash": ""
   },
   "tests/global-setup.ts": {
@@ -2960,8 +2960,8 @@
     "semantic_hash": ""
   },
   "tests/unit/outlook-draft.test.ts": {
-    "mtime": 1783456793.9981377,
-    "ast_hash": "39c5e3c43b26c8f9163d93e72027f364",
+    "mtime": 1783536562.74397,
+    "ast_hash": "80589218c9a02af1f89b8df2f2c23948",
     "semantic_hash": ""
   },
   "tests/unit/quote-preview-totals.test.ts": {
@@ -3055,8 +3055,13 @@
     "semantic_hash": ""
   },
   "tests/unit/quote-email-template.test.ts": {
-    "mtime": 1783534623.4496255,
-    "ast_hash": "b581a636598b1856f3a353aed9946d0e",
+    "mtime": 1783536541.3920312,
+    "ast_hash": "b62eea8065e3efee298b5f804ffab035",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260708235000_quote_email_style_and_signature/migration.sql": {
+    "mtime": 1783536269.141312,
+    "ast_hash": "34938432241d683f5c3cd8a3292858a5",
     "semantic_hash": ""
   }
 }

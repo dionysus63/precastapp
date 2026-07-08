@@ -62,6 +62,17 @@ export type AppSettingsView = {
   /** Send-quote email templates; null = built-in default wording. */
   quoteEmailSubjectTemplate: string | null;
   quoteEmailBodyTemplate: string | null;
+  /** Quote email message styling; null = Arial / 14px / near-black. */
+  quoteEmailFontFamily: string | null;
+  quoteEmailFontSizePx: number | null;
+  quoteEmailTextColor: string | null;
+  /** Branded signature block; blank name = no signature. */
+  quoteEmailSignatureName: string | null;
+  quoteEmailSignatureCompany: string | null;
+  quoteEmailSignatureAddress: string | null;
+  quoteEmailSignaturePhoneLine: string | null;
+  quoteEmailSignatureEmail: string | null;
+  quoteEmailSignatureColor: string | null;
   deliveryTicketCopy1Title: string;
   deliveryTicketCopy2Title: string;
   deliveryTicketCopy3Title: string;
@@ -143,6 +154,15 @@ export function mapAppSettingsRow(row: AppSettings): AppSettingsView {
     quoteFooterText: row.quoteFooterText,
     quoteEmailSubjectTemplate: row.quoteEmailSubjectTemplate,
     quoteEmailBodyTemplate: row.quoteEmailBodyTemplate,
+    quoteEmailFontFamily: row.quoteEmailFontFamily,
+    quoteEmailFontSizePx: row.quoteEmailFontSizePx,
+    quoteEmailTextColor: row.quoteEmailTextColor,
+    quoteEmailSignatureName: row.quoteEmailSignatureName,
+    quoteEmailSignatureCompany: row.quoteEmailSignatureCompany,
+    quoteEmailSignatureAddress: row.quoteEmailSignatureAddress,
+    quoteEmailSignaturePhoneLine: row.quoteEmailSignaturePhoneLine,
+    quoteEmailSignatureEmail: row.quoteEmailSignatureEmail,
+    quoteEmailSignatureColor: row.quoteEmailSignatureColor,
     deliveryTicketCopy1Title:
       row.deliveryTicketCopy1Title?.trim() || DEFAULT_DELIVERY_TICKET_COPY1_TITLE,
     deliveryTicketCopy2Title:

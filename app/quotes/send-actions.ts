@@ -12,6 +12,8 @@ import {
   buildDefaultQuoteEmailMessage,
   buildDefaultQuoteEmailSubject,
   buildQuoteEmailHtml,
+  buildSignatureText,
+  getQuoteEmailStyle,
 } from "@/lib/email/quote-email";
 import {
   isEmailConfigured,
@@ -178,7 +180,7 @@ export async function sendQuote(
       jobFolderPath = job?.folderPath ?? null;
     }
 
-    const [company, subject, messageBody] = await Promise.all([
+    const [company, subject, messageBody, emailStyle] = await Promise.all([
       getCompanyProfile(),
       input.subject?.trim()
         ? Promise.resolve(input.subject.trim())
@@ -186,7 +188,12 @@ export async function sendQuote(
       input.message?.trim()
         ? Promise.resolve(input.message.trim())
         : buildDefaultQuoteEmailMessage(quote),
+      getQuoteEmailStyle(),
     ]);
+    const signatureText = buildSignatureText(emailStyle.signature);
+    const textWithSignature = signatureText
+      ? `${messageBody}\n\n${signatureText}`
+      : messageBody;
 
     const to = parseEmailList(input.to).join(", ");
     const cc = input.cc?.trim()
@@ -203,8 +210,8 @@ export async function sendQuote(
         to,
         cc,
         subject,
-        text: messageBody,
-        html: buildQuoteEmailHtml(messageBody),
+        text: textWithSignature,
+        html: buildQuoteEmailHtml(messageBody, emailStyle),
         replyTo: company.email,
         fromName: company.name,
         attachments: [
@@ -364,14 +371,16 @@ export async function openQuoteInOutlook(
         jobFolderPath = job?.folderPath ?? null;
       }
 
-      const [subject, messageBody] = await Promise.all([
+      const [subject, messageBody, emailStyle] = await Promise.all([
         input.subject?.trim()
           ? Promise.resolve(input.subject.trim())
           : buildDefaultQuoteEmailSubject(quote),
         input.message?.trim()
           ? Promise.resolve(input.message.trim())
           : buildDefaultQuoteEmailMessage(quote),
+        getQuoteEmailStyle(),
       ]);
+      const signatureText = buildSignatureText(emailStyle.signature);
 
       const to = parseEmailList(input.to).join(", ");
       const cc = input.cc?.trim()
@@ -386,7 +395,10 @@ export async function openQuoteInOutlook(
         to,
         cc,
         subject,
-        message: messageBody,
+        message: signatureText
+          ? `${messageBody}\n\n${signatureText}`
+          : messageBody,
+        html: buildQuoteEmailHtml(messageBody, emailStyle),
         attachmentFilename: persisted.attachmentFilename,
         pdfBytes: persisted.bytes,
       });

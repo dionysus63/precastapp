@@ -1665,6 +1665,18 @@ model AppSettings {
   /// {companyPhone} {companyEmail}
   quoteEmailSubjectTemplate String?
   quoteEmailBodyTemplate    String?
+  /// Message styling for quote emails; null = Arial / 14 / near-black.
+  quoteEmailFontFamily String?
+  quoteEmailFontSizePx Int?
+  quoteEmailTextColor  String?
+  /// Branded signature block appended to quote emails (blue serif look).
+  /// Blank name = no signature block.
+  quoteEmailSignatureName      String?
+  quoteEmailSignatureCompany   String?
+  quoteEmailSignatureAddress   String?
+  quoteEmailSignaturePhoneLine String?
+  quoteEmailSignatureEmail     String?
+  quoteEmailSignatureColor     String?
   deliveryTicketCopy1Title   String?
   deliveryTicketCopy2Title   String?
   deliveryTicketCopy3Title   String?

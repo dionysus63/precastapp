@@ -5,6 +5,8 @@ export type QuoteDraftEmlInput = {
   cc?: string;
   subject: string;
   message: string;
+  /** Styled body; when present the draft opens with formatting + signature. */
+  html?: string;
   attachmentFilename: string;
   pdfBytes: Uint8Array;
 };
@@ -31,7 +33,9 @@ function sanitizeFilename(value: string): string {
 /**
  * Build an Outlook-openable draft email (.eml) with the quote PDF attached.
  * The X-Unsent header makes classic Outlook open it in compose mode instead
- * of as a received message.
+ * of as a received message. When `html` is provided the body is a
+ * multipart/alternative (plain + HTML) so the compose window keeps the
+ * styled message and signature.
  */
 export function buildQuoteDraftEml(input: QuoteDraftEmlInput): string {
   const boundary = `----precast_${randomUUID().replace(/-/g, "")}`;
@@ -46,14 +50,39 @@ export function buildQuoteDraftEml(input: QuoteDraftEmlInput): string {
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
   ];
 
-  const parts = [
-    headers.join("\r\n"),
-    "",
-    `--${boundary}`,
+  const plainPart = [
     'Content-Type: text/plain; charset="utf-8"',
     "Content-Transfer-Encoding: base64",
     "",
     base64Lines(Buffer.from(input.message, "utf8")),
+  ];
+
+  let bodyParts: string[];
+  if (input.html) {
+    const altBoundary = `----precast_alt_${randomUUID().replace(/-/g, "")}`;
+    bodyParts = [
+      `--${boundary}`,
+      `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
+      "",
+      `--${altBoundary}`,
+      ...plainPart,
+      "",
+      `--${altBoundary}`,
+      'Content-Type: text/html; charset="utf-8"',
+      "Content-Transfer-Encoding: base64",
+      "",
+      base64Lines(Buffer.from(input.html, "utf8")),
+      "",
+      `--${altBoundary}--`,
+    ];
+  } else {
+    bodyParts = [`--${boundary}`, ...plainPart];
+  }
+
+  const parts = [
+    headers.join("\r\n"),
+    "",
+    ...bodyParts,
     "",
     `--${boundary}`,
     `Content-Type: application/pdf; name="${filename}"`,

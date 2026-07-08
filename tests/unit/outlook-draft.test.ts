@@ -69,6 +69,43 @@ describe("buildQuoteDraftEml", () => {
     expect(/--\r\n$/.test(buildSample())).toBe(true);
   });
 
+  it("wraps plain + HTML bodies in multipart/alternative when html is given", () => {
+    const eml = buildQuoteDraftEml({
+      to: "a@b.com",
+      subject: "s",
+      message: "Hi Dan",
+      html: "<html><body><b>Hi Dan</b></body></html>",
+      attachmentFilename: "q.pdf",
+      pdfBytes: fakePdf,
+    });
+
+    expect(eml).toContain("Content-Type: multipart/alternative;");
+    expect(eml).toContain('Content-Type: text/html; charset="utf-8"');
+
+    const blocks = eml.split("Content-Transfer-Encoding: base64\r\n\r\n");
+    // Order: [1] plain, [2] html, [3] pdf.
+    const plain = Buffer.from(
+      blocks[1]!.split("\r\n--")[0]!.replace(/\r\n/g, ""),
+      "base64",
+    ).toString("utf8");
+    const html = Buffer.from(
+      blocks[2]!.split("\r\n--")[0]!.replace(/\r\n/g, ""),
+      "base64",
+    ).toString("utf8");
+    const pdf = Buffer.from(
+      blocks[3]!.split("\r\n--")[0]!.replace(/\r\n/g, ""),
+      "base64",
+    );
+
+    expect(plain).toBe("Hi Dan");
+    expect(html).toContain("<b>Hi Dan</b>");
+    expect(pdf.equals(fakePdf)).toBe(true);
+  });
+
+  it("keeps the plain-only layout when html is omitted", () => {
+    expect(buildSample()).not.toContain("multipart/alternative");
+  });
+
   it("sanitizes newlines and quotes so filenames cannot forge headers", () => {
     const eml = buildQuoteDraftEml({
       to: "a@b.com",
