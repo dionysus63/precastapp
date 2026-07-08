@@ -46,12 +46,15 @@ export default async function EditDeliveryTicketPage({
 
   const defaultLines = ticket.lineItems.map((line) => ({
     key:
-      line.quoteLineItem?.isDrainRing && line.quoteLineItemId && line.productId
-        ? `${line.quoteLineItemId}::${line.productId}`
-        : line.quoteLineItemId ?? line.id,
+      line.jobStructurePieceId && line.quoteLineItemId
+        ? `${line.quoteLineItemId}::${line.jobStructurePieceId}`
+        : line.quoteLineItem?.isDrainRing && line.quoteLineItemId && line.productId
+          ? `${line.quoteLineItemId}::${line.productId}`
+          : line.quoteLineItemId ?? line.id,
     quoteLineItemId: line.quoteLineItemId,
     productId: line.productId,
     jobStructureId: line.jobStructureId,
+    jobStructurePieceId: line.jobStructurePieceId,
     lineType: line.lineType,
     itemCode: line.itemCode,
     description: line.description ?? "",

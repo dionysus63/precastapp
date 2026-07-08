@@ -388,6 +388,7 @@ export async function convertDeliveryTicketToInvoice(
       line: (typeof current.lineItems)[number];
       unitPrice: Prisma.Decimal;
       taxable: boolean;
+      description: string | null;
     }> = [];
 
     for (const line of current.lineItems) {
@@ -405,7 +406,55 @@ export async function convertDeliveryTicketToInvoice(
         );
       }
 
-      resolvedLines.push({ line, unitPrice, taxable });
+      resolvedLines.push({ line, unitPrice, taxable, description: line.description });
+    }
+
+    // A split structure is billed exactly once across all its piece lines:
+    // the first (non-void) invoice to carry any of its pieces bills the full
+    // quote-line price; every other piece line bills $0 "(included)".
+    const splitStructureIds = [
+      ...new Set(
+        current.lineItems
+          .filter((line) => line.jobStructurePieceId && line.jobStructureId)
+          .map((line) => line.jobStructureId as string),
+      ),
+    ];
+    if (splitStructureIds.length > 0) {
+      const billedElsewhere = await tx.invoiceLineItem.findMany({
+        where: {
+          unitPrice: { gt: 0 },
+          invoice: { status: { not: "VOID" } },
+          deliveryTicketLineItem: {
+            jobStructurePieceId: { not: null },
+            jobStructureId: { in: splitStructureIds },
+          },
+        },
+        select: {
+          deliveryTicketLineItem: { select: { jobStructureId: true } },
+        },
+      });
+      const billedStructureIds = new Set<string>();
+      for (const row of billedElsewhere) {
+        if (row.deliveryTicketLineItem?.jobStructureId) {
+          billedStructureIds.add(row.deliveryTicketLineItem.jobStructureId);
+        }
+      }
+
+      for (const entry of resolvedLines) {
+        const structureId = entry.line.jobStructureId;
+        if (!entry.line.jobStructurePieceId || !structureId) {
+          continue;
+        }
+        if (billedStructureIds.has(structureId)) {
+          entry.unitPrice = new Prisma.Decimal(0);
+          entry.description = entry.description
+            ? `${entry.description} (included)`
+            : "(included)";
+        } else {
+          // First piece of this structure on this invoice carries the price.
+          billedStructureIds.add(structureId);
+        }
+      }
     }
 
     // Authoritative Decimal totals with shared cent-rounding (matches quotes).
@@ -425,7 +474,7 @@ export async function convertDeliveryTicketToInvoice(
       deliveryTicketLineItemId: entry.line.id,
       productId: entry.line.productId,
       itemCode: entry.line.itemCode,
-      description: entry.line.description,
+      description: entry.description,
       quantity: entry.line.quantity,
       unit: entry.line.unit,
       unitPrice: entry.unitPrice,

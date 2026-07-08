@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
 import {
   createDeliveryTicket,
   searchCustomersForWalkInTicket,
   searchJobsForDeliveryTicket,
+  splitStructureForShipping,
+  unsplitStructure,
   updateDeliveryTicket,
   type DeliveryTicketLineInput,
   type SaveDeliveryTicketInput,
@@ -65,6 +67,7 @@ type EditorLine = {
   quoteLineItemId: string | null;
   productId: string | null;
   jobStructureId: string | null;
+  jobStructurePieceId?: string | null;
   lineType: SaveDeliveryTicketInput["lines"][number]["lineType"];
   itemCode: string;
   description: string;
@@ -144,9 +147,10 @@ function getEffectiveWeightEach(
   if (fromEditor != null) {
     return fromEditor;
   }
-  // Casting piece lines point to the parent assembly's fulfillment; don't fall
-  // back to the assembly's set weight for individual pieces.
-  if (editorLine && isCastingAssemblyEditorKey(editorLine.key)) {
+  // Composite lines (casting pieces, drain ring SKUs, structure pieces) point
+  // to the parent line's fulfillment; don't fall back to the parent's weight
+  // for an individual sub-line.
+  if (editorLine && isCompositeEditorKey(editorLine.key)) {
     return null;
   }
   return fulfillmentLine.weightEach;
@@ -631,6 +635,157 @@ export function DeliveryTicketEditor({
     });
   }
 
+  // --- Split-structure pieces ---------------------------------------------
+
+  const [splitFormStructureId, setSplitFormStructureId] = useState<string | null>(
+    null,
+  );
+  const [splitDraft, setSplitDraft] = useState<{ name: string; weight: string }[]>(
+    [],
+  );
+  const [splitPending, setSplitPending] = useState(false);
+  const [splitError, setSplitError] = useState<string | null>(null);
+
+  function refreshFulfillment() {
+    if (ticketType === "JOB" && quoteId) {
+      void getQuoteFulfillmentForTicket(quoteId, ticketId).then(setFulfillment);
+    }
+  }
+
+  function buildSplitDraft(meta: QuoteLineFulfillment, count: number) {
+    const even =
+      meta.weightEach != null && count > 0
+        ? String(Math.round(meta.weightEach / count))
+        : "";
+    return Array.from({ length: count }, (_, index) => ({
+      name: `Piece ${index + 1}`,
+      weight: even,
+    }));
+  }
+
+  function openSplitForm(meta: QuoteLineFulfillment) {
+    if (!meta.jobStructureId) {
+      return;
+    }
+    setSplitError(null);
+    setSplitFormStructureId(meta.jobStructureId);
+    setSplitDraft(buildSplitDraft(meta, 4));
+  }
+
+  function setSplitPieceCount(meta: QuoteLineFulfillment, count: number) {
+    const clamped = Math.max(2, Math.min(12, count));
+    setSplitDraft((current) => {
+      const next = buildSplitDraft(meta, clamped);
+      // Keep names the user already typed; weights re-spread evenly.
+      for (let index = 0; index < Math.min(current.length, clamped); index += 1) {
+        next[index] = { ...next[index], name: current[index].name };
+      }
+      return next;
+    });
+  }
+
+  function updateSplitDraft(index: number, field: "name" | "weight", value: string) {
+    setSplitDraft((current) =>
+      current.map((piece, i) =>
+        i === index ? { ...piece, [field]: value } : piece,
+      ),
+    );
+  }
+
+  async function saveSplit(meta: QuoteLineFulfillment) {
+    if (!meta.jobStructureId) {
+      return;
+    }
+    setSplitError(null);
+    setSplitPending(true);
+    try {
+      const result = await splitStructureForShipping(
+        meta.jobStructureId,
+        splitDraft.map((piece) => {
+          const parsed = Number(piece.weight);
+          return {
+            name: piece.name,
+            weightLbs:
+              piece.weight.trim() && Number.isFinite(parsed) && parsed > 0
+                ? parsed
+                : null,
+          };
+        }),
+      );
+      if ("error" in result) {
+        setSplitError(result.error);
+        return;
+      }
+      setSplitFormStructureId(null);
+      refreshFulfillment();
+    } finally {
+      setSplitPending(false);
+    }
+  }
+
+  async function removeSplit(meta: QuoteLineFulfillment) {
+    if (!meta.jobStructureId) {
+      return;
+    }
+    setSplitError(null);
+    setSplitPending(true);
+    try {
+      const result = await unsplitStructure(meta.jobStructureId);
+      if ("error" in result) {
+        setSplitError(result.error);
+        return;
+      }
+      refreshFulfillment();
+    } finally {
+      setSplitPending(false);
+    }
+  }
+
+  function structurePieceLineKey(quoteLineItemId: string, pieceId: string) {
+    return `${quoteLineItemId}::${pieceId}`;
+  }
+
+  function toggleStructurePiece(
+    meta: QuoteLineFulfillment,
+    option: QuoteLineFulfillment["structurePieceOptions"][number],
+    checked: boolean,
+  ) {
+    const key = structurePieceLineKey(meta.quoteLineItemId, option.pieceId);
+    if (checked) {
+      setLines((current) => {
+        if (current.some((line) => line.key === key)) {
+          return current;
+        }
+        return [
+          ...current,
+          {
+            key,
+            quoteLineItemId: meta.quoteLineItemId,
+            productId: null,
+            jobStructureId: meta.jobStructureId,
+            jobStructurePieceId: option.pieceId,
+            lineType: meta.lineType as EditorLine["lineType"],
+            itemCode: meta.itemCode,
+            description: `${meta.displayName} — ${option.name}`,
+            quantity: "1",
+            unit: "EA",
+            weightEach: option.weightLbs != null ? String(option.weightLbs) : "",
+            yardLocation: "",
+          },
+        ];
+      });
+      setSelectedLineIds((current) => new Set([...current, key]));
+    } else {
+      setLines((current) => current.filter((line) => line.key !== key));
+      setSelectedLineIds((current) => {
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
+    }
+    markDirty();
+  }
+
   const isPickup = ticketType === "WALK_IN" || fulfillmentMethod === "PICKUP";
 
   const walkInCategories = useMemo(() => {
@@ -827,6 +982,7 @@ export function DeliveryTicketEditor({
           quoteLineItemId: line.quoteLineItemId,
           productId: line.productId,
           jobStructureId: line.jobStructureId,
+          jobStructurePieceId: line.jobStructurePieceId ?? null,
           lineType: line.lineType,
           itemCode: line.itemCode,
           description: line.description || null,
@@ -1409,6 +1565,135 @@ export function DeliveryTicketEditor({
                     );
                   }
 
+                  if (line.isSplitStructure) {
+                    const claimedElsewhere = line.structurePieceOptions.filter(
+                      (option) =>
+                        option.deliveredTicketNumber || option.openTicketNumber,
+                    ).length;
+                    const selectedHere = line.structurePieceOptions.filter(
+                      (option) =>
+                        selectedLineIds.has(
+                          structurePieceLineKey(line.quoteLineItemId, option.pieceId),
+                        ),
+                    ).length;
+                    const canUnsplit =
+                      claimedElsewhere === 0 && selectedHere === 0;
+                    return (
+                      <tr key={line.quoteLineItemId} className="bg-slate-50/40">
+                        <td className={`${tableCellClassName} align-top`} colSpan={7}>
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <div>
+                              <span className="font-medium text-slate-900">
+                                {line.displayName}
+                              </span>
+                              <span className="ml-2 text-slate-500">
+                                {line.itemCode}
+                              </span>
+                              <span className="ml-2 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-sky-800">
+                                Split · {line.structurePieceOptions.length} pieces
+                              </span>
+                            </div>
+                            <div className="text-slate-600">
+                              {line.structurePieceOptions.filter((o) => o.deliveredTicketNumber).length}{" "}
+                              shipped · {claimedElsewhere} claimed ·{" "}
+                              {line.structurePieceOptions.length - claimedElsewhere - selectedHere}{" "}
+                              available
+                            </div>
+                          </div>
+                          {line.description ? (
+                            <div className="mt-0.5 text-slate-500">
+                              <RichTextContent value={line.description} />
+                            </div>
+                          ) : null}
+
+                          {!line.eligible && line.eligibilityReason ? (
+                            <p className="mt-2 text-slate-500">{line.eligibilityReason}</p>
+                          ) : null}
+
+                          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            {line.structurePieceOptions.map((option) => {
+                              const key = structurePieceLineKey(
+                                line.quoteLineItemId,
+                                option.pieceId,
+                              );
+                              const claimedBy =
+                                option.deliveredTicketNumber ?? option.openTicketNumber;
+                              const checked = selectedLineIds.has(key);
+                              return (
+                                <div
+                                  key={option.pieceId}
+                                  className={`rounded-lg border px-3 py-2 ${
+                                    claimedBy
+                                      ? "border-slate-100 bg-slate-50"
+                                      : "border-slate-200 bg-white"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-medium text-slate-800">
+                                      {option.name}
+                                    </span>
+                                    <span className="text-slate-400">
+                                      {option.weightLbs != null
+                                        ? formatWeight(option.weightLbs)
+                                        : "—"}
+                                    </span>
+                                  </div>
+                                  {claimedBy ? (
+                                    <p
+                                      className={`mt-1 text-[11px] font-medium ${
+                                        option.deliveredTicketNumber
+                                          ? "text-green-700"
+                                          : "text-sky-700"
+                                      }`}
+                                    >
+                                      {option.deliveredTicketNumber
+                                        ? `Delivered · ${option.deliveredTicketNumber}`
+                                        : `On ${option.openTicketNumber}`}
+                                    </p>
+                                  ) : (
+                                    <label className="mt-1 flex items-center gap-2 text-xs text-slate-700">
+                                      <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        disabled={
+                                          !line.eligible && !checked
+                                        }
+                                        onChange={(event) =>
+                                          toggleStructurePiece(
+                                            line,
+                                            option,
+                                            event.target.checked,
+                                          )
+                                        }
+                                      />
+                                      On this load
+                                    </label>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <div className="mt-2 flex flex-wrap items-center gap-3">
+                            {canUnsplit ? (
+                              <button
+                                type="button"
+                                disabled={splitPending}
+                                onClick={() => void removeSplit(line)}
+                                className="text-[11px] font-medium text-slate-500 underline-offset-2 hover:text-slate-900 hover:underline disabled:opacity-50"
+                              >
+                                Remove split (ship whole)
+                              </button>
+                            ) : null}
+                            {splitError && splitFormStructureId === null ? (
+                              <span className="text-[11px] text-red-600">{splitError}</span>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+
                   const editorLine = linesByKey.get(line.quoteLineItemId);
                   const checked = selectedLineIds.has(line.quoteLineItemId);
                   const qty = editorLine ? Number(editorLine.quantity) || 0 : 0;
@@ -1442,6 +1727,94 @@ export function DeliveryTicketEditor({
                             variant="neutral"
                           />
                         </div>
+                        {(line.lineType === "CONFIGURABLE_STRUCTURE" ||
+                          line.lineType === "CUSTOM_STRUCTURE") &&
+                        line.jobStructureId &&
+                        line.quotedQty === 1 &&
+                        line.jobStructureStatus === "MADE" &&
+                        line.remainingQty > 0 ? (
+                          splitFormStructureId === line.jobStructureId ? (
+                            <div className="mt-2 max-w-md rounded-lg border border-slate-200 bg-slate-50 p-3">
+                              <div className="flex items-center gap-2">
+                                <label className="text-[11px] font-medium text-slate-700">
+                                  Pieces
+                                </label>
+                                <input
+                                  type="number"
+                                  min="2"
+                                  max="12"
+                                  value={splitDraft.length}
+                                  onChange={(event) =>
+                                    setSplitPieceCount(
+                                      line,
+                                      Number(event.target.value) || 2,
+                                    )
+                                  }
+                                  className={`w-16 ${inlineTableInputClass}`}
+                                />
+                                <span className="text-[10px] text-slate-400">
+                                  Names + optional weight each (lb)
+                                </span>
+                              </div>
+                              <div className="mt-2 grid grid-cols-[1fr_6rem] gap-1.5">
+                                {splitDraft.map((piece, index) => (
+                                  <Fragment key={index}>
+                                    <input
+                                      value={piece.name}
+                                      onChange={(event) =>
+                                        updateSplitDraft(index, "name", event.target.value)
+                                      }
+                                      placeholder={`Piece ${index + 1}`}
+                                      className={inlineTableInputClass}
+                                    />
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="any"
+                                      value={piece.weight}
+                                      onChange={(event) =>
+                                        updateSplitDraft(index, "weight", event.target.value)
+                                      }
+                                      placeholder="lb"
+                                      className={inlineTableInputClass}
+                                    />
+                                  </Fragment>
+                                ))}
+                              </div>
+                              {splitError ? (
+                                <p className="mt-2 text-[11px] text-red-600">{splitError}</p>
+                              ) : null}
+                              <div className="mt-2 flex gap-2">
+                                <button
+                                  type="button"
+                                  disabled={splitPending}
+                                  onClick={() => void saveSplit(line)}
+                                  className="rounded-md bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
+                                >
+                                  {splitPending
+                                    ? "Splitting…"
+                                    : `Create ${splitDraft.length} pieces`}
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={splitPending}
+                                  onClick={() => setSplitFormStructureId(null)}
+                                  className="rounded-md border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-white disabled:opacity-50"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => openSplitForm(line)}
+                              className="mt-2 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                            >
+                              Split for shipping
+                            </button>
+                          )
+                        ) : null}
                       </td>
                       <td className={`${tableCellClassName} align-top text-slate-700`}>
                         <div>{line.remainingQty} of {line.quotedQty}</div>

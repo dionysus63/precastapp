@@ -205,8 +205,22 @@ export default async function PlanLoadsPage({ searchParams }: PlanLoadsPageProps
       ),
     ]);
 
+  // The planner can't assign individual structure pieces (that lives in the
+  // ticket editor), so split structures surface here as ineligible rows.
+  const plannerFulfillment = fulfillment.map((line) =>
+    line.isSplitStructure
+      ? {
+          ...line,
+          eligible: false,
+          eligibilityReason:
+            line.eligibilityReason ??
+            "Split into pieces — assign pieces on a delivery ticket",
+        }
+      : line,
+  );
+
   const metaById = new Map(
-    fulfillment.map((line) => [line.quoteLineItemId, line]),
+    plannerFulfillment.map((line) => [line.quoteLineItemId, line]),
   );
   const draftColumns: DraftLoadColumn[] = [];
   const managedIds = new Set<string>();
@@ -284,7 +298,7 @@ export default async function PlanLoadsPage({ searchParams }: PlanLoadsPageProps
         <BulkLoadPlanner
           jobId={job.id}
           quoteId={selectedQuoteId}
-          fulfillment={fulfillment}
+          fulfillment={plannerFulfillment}
           scheduled={Object.fromEntries(scheduled)}
           draftColumns={draftColumns}
           existingTickets={existingTickets.map((ticket) => ({

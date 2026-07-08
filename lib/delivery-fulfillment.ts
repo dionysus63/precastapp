@@ -83,6 +83,14 @@ export type AdsPipeOption = {
   isSubstitute: boolean;
 };
 
+export type StructurePieceOption = {
+  pieceId: string;
+  name: string;
+  weightLbs: number | null;
+  deliveredTicketNumber: string | null;
+  openTicketNumber: string | null;
+};
+
 export type QuoteLineFulfillment = {
   quoteLineItemId: string;
   lineNumber: number;
@@ -110,6 +118,8 @@ export type QuoteLineFulfillment = {
   castingComponentOptions: CastingComponentOption[];
   isAdsPipe: boolean;
   adsPipeOptions: AdsPipeOption[];
+  isSplitStructure: boolean;
+  structurePieceOptions: StructurePieceOption[];
 };
 
 function resolveDisplayName(line: {
@@ -757,6 +767,15 @@ async function loadQuoteFulfillmentContext(client: DbClient, quoteId: string) {
               description: true,
               structureNumber: true,
               weight: true,
+              pieces: {
+                orderBy: { sortOrder: "asc" },
+                select: {
+                  id: true,
+                  name: true,
+                  weightLbs: true,
+                  sortOrder: true,
+                },
+              },
             },
           },
         },
@@ -774,6 +793,16 @@ async function loadQuoteFulfillmentContext(client: DbClient, quoteId: string) {
   const castingAssemblyLines = quote.lineItems.filter((line) =>
     isQuoteLineCastingAssembly(line),
   );
+  // Structure lines whose structure has been split into named shipping
+  // pieces. Tracked per piece, so they are excluded from the standard
+  // quantity aggregation (their qty-1 piece lines would inflate it).
+  const splitStructureLines = quote.lineItems.filter(
+    (line) =>
+      (line.lineType === "CONFIGURABLE_STRUCTURE" ||
+        line.lineType === "CUSTOM_STRUCTURE") &&
+      (line.jobStructure?.pieces.length ?? 0) > 0,
+  );
+  const splitStructureLineIds = new Set(splitStructureLines.map((line) => line.id));
   const adsPipeSubstituteLines = quote.lineItems.filter((line) => {
     if (isQuoteLineDrainRing(line) || isQuoteLineCastingAssembly(line)) {
       return false;
@@ -786,6 +815,7 @@ async function loadQuoteFulfillmentContext(client: DbClient, quoteId: string) {
       (line) =>
         !isQuoteLineDrainRing(line) &&
         !isQuoteLineCastingAssembly(line) &&
+        !splitStructureLineIds.has(line.id) &&
         !adsPipeSubstituteLines.some((candidate) => candidate.id === line.id),
     )
     .map((line) => line.id);
@@ -804,6 +834,7 @@ async function loadQuoteFulfillmentContext(client: DbClient, quoteId: string) {
     drainRingLines,
     castingAssemblyLines,
     adsPipeSubstituteLines,
+    splitStructureLineIds,
     standardLineage,
   };
 }
@@ -811,6 +842,54 @@ async function loadQuoteFulfillmentContext(client: DbClient, quoteId: string) {
 type QuoteFulfillmentContext = NonNullable<
   Awaited<ReturnType<typeof loadQuoteFulfillmentContext>>
 >;
+
+type PieceUsage = {
+  deliveredTicketNumber: string | null;
+  openTicketNumber: string | null;
+};
+
+/**
+ * Which delivery ticket (open or delivered) currently claims each structure
+ * piece. A piece lives on at most one ticket; delivered wins for display.
+ */
+async function loadStructurePieceUsage(
+  client: DbClient,
+  pieceIds: string[],
+  exclude: ExcludeTickets,
+): Promise<Map<string, PieceUsage>> {
+  if (pieceIds.length === 0) {
+    return new Map();
+  }
+  const lines = await client.deliveryTicketLineItem.findMany({
+    where: {
+      jobStructurePieceId: { in: pieceIds },
+      deliveryTicket: {
+        status: { in: [...OPEN_TICKET_STATUSES, DELIVERED_TICKET_STATUS] },
+        ...excludedTicketWhere(exclude),
+      },
+    },
+    select: {
+      jobStructurePieceId: true,
+      deliveryTicket: { select: { ticketNumber: true, status: true } },
+    },
+  });
+
+  const usage = new Map<string, PieceUsage>();
+  for (const line of lines) {
+    if (!line.jobStructurePieceId) continue;
+    const entry = usage.get(line.jobStructurePieceId) ?? {
+      deliveredTicketNumber: null,
+      openTicketNumber: null,
+    };
+    if (line.deliveryTicket.status === DELIVERED_TICKET_STATUS) {
+      entry.deliveredTicketNumber = line.deliveryTicket.ticketNumber;
+    } else {
+      entry.openTicketNumber = line.deliveryTicket.ticketNumber;
+    }
+    usage.set(line.jobStructurePieceId, entry);
+  }
+  return usage;
+}
 
 export async function getQuoteLineFulfillment(
   client: DbClient,
@@ -835,8 +914,18 @@ async function buildFulfillmentFromContext(
     drainRingLines,
     castingAssemblyLines,
     adsPipeSubstituteLines,
+    splitStructureLineIds,
     standardLineage,
   } = context;
+
+  const allSplitPieceIds = quote.lineItems
+    .filter((line) => splitStructureLineIds.has(line.id))
+    .flatMap((line) => line.jobStructure?.pieces.map((piece) => piece.id) ?? []);
+  const pieceUsage = await loadStructurePieceUsage(
+    client,
+    allSplitPieceIds,
+    excludeTicketId,
+  );
 
   const [shippedQuantities, shippedFeet, drainRingCatalog, shippedCastingSets, adsPipeCatalog] =
     await Promise.all([
@@ -947,6 +1036,8 @@ async function buildFulfillmentFromContext(
         castingComponentOptions: [],
         isAdsPipe: false,
         adsPipeOptions: [],
+        isSplitStructure: false,
+        structurePieceOptions: [],
       });
       continue;
     }
@@ -1013,6 +1104,79 @@ async function buildFulfillmentFromContext(
         castingComponentOptions,
         isAdsPipe: false,
         adsPipeOptions: [],
+        isSplitStructure: false,
+        structurePieceOptions: [],
+      });
+      continue;
+    }
+
+    if (splitStructureLineIds.has(line.id) && line.jobStructure) {
+      const structurePieceOptions: StructurePieceOption[] =
+        line.jobStructure.pieces.map((piece) => {
+          const usage = pieceUsage.get(piece.id);
+          return {
+            pieceId: piece.id,
+            name: piece.name,
+            weightLbs: piece.weightLbs != null ? Number(piece.weightLbs) : null,
+            deliveredTicketNumber: usage?.deliveredTicketNumber ?? null,
+            openTicketNumber: usage?.openTicketNumber ?? null,
+          };
+        });
+
+      const deliveredCount = structurePieceOptions.filter(
+        (option) => option.deliveredTicketNumber,
+      ).length;
+      const claimedCount = structurePieceOptions.filter(
+        (option) => option.deliveredTicketNumber || option.openTicketNumber,
+      ).length;
+
+      const quotedQty = Number(line.quantity);
+      const shippedQty =
+        deliveredCount === structurePieceOptions.length ? quotedQty : 0;
+      const remainingQty = Math.max(0, quotedQty - shippedQty);
+
+      let eligible = true;
+      let eligibilityReason: string | null = null;
+      if (remainingQty <= 0 || line.jobStructure.status === "SHIPPED") {
+        eligible = false;
+        eligibilityReason = "Fully shipped";
+      } else if (line.jobStructure.status !== "MADE") {
+        eligible = false;
+        eligibilityReason = `Structure status: ${line.jobStructure.status}`;
+      } else if (claimedCount === structurePieceOptions.length) {
+        eligible = false;
+        eligibilityReason = "All pieces are scheduled or shipped";
+      }
+
+      result.push({
+        quoteLineItemId: line.id,
+        lineNumber: line.lineNumber,
+        lineType: line.lineType,
+        itemCode: line.itemCode,
+        description: line.description,
+        displayName: resolveDisplayName(line),
+        unit: line.unit || "EA",
+        weightEach: resolveWeightEach(line),
+        quotedQty,
+        shippedQty,
+        remainingQty,
+        eligible,
+        eligibilityReason,
+        jobStructureId: line.jobStructureId,
+        jobStructureStatus: line.jobStructure.status,
+        productId: line.productId,
+        currentStock: null,
+        isDrainRing: false,
+        ringDiameterFeet: null,
+        poolHeightFeet: null,
+        drainRingStyle: "DRAIN",
+        drainRingOptions: [],
+        isCastingAssembly: false,
+        castingComponentOptions: [],
+        isAdsPipe: false,
+        adsPipeOptions: [],
+        isSplitStructure: true,
+        structurePieceOptions,
       });
       continue;
     }
@@ -1072,6 +1236,8 @@ async function buildFulfillmentFromContext(
         castingComponentOptions: [],
         isAdsPipe: true,
         adsPipeOptions,
+        isSplitStructure: false,
+        structurePieceOptions: [],
       });
       continue;
     }
@@ -1130,6 +1296,8 @@ async function buildFulfillmentFromContext(
       castingComponentOptions: [],
       isAdsPipe: false,
       adsPipeOptions: [],
+      isSplitStructure: false,
+      structurePieceOptions: [],
     });
   }
 
@@ -1275,14 +1443,44 @@ export async function markDeliveryTicketDelivered(
       return;
     }
 
+    const wholeStructureIds = new Set<string>();
+    const pieceStructureIds = new Set<string>();
     for (const line of ticket.lineItems) {
       if (
         line.jobStructureId &&
         (line.lineType === "CONFIGURABLE_STRUCTURE" ||
           line.lineType === "CUSTOM_STRUCTURE")
       ) {
+        if (line.jobStructurePieceId) {
+          pieceStructureIds.add(line.jobStructureId);
+        } else {
+          wholeStructureIds.add(line.jobStructureId);
+        }
+      }
+    }
+
+    for (const jobStructureId of wholeStructureIds) {
+      await tx.jobStructure.update({
+        where: { id: jobStructureId },
+        data: { status: "SHIPPED", shippedDate: deliveredAt },
+      });
+    }
+
+    // A split structure ships piecemeal: it flips to SHIPPED only when every
+    // piece has a line on a delivered ticket (this ticket's claim above is
+    // visible inside the transaction).
+    for (const jobStructureId of pieceStructureIds) {
+      const undeliveredPieces = await tx.jobStructurePiece.count({
+        where: {
+          jobStructureId,
+          deliveryTicketLineItems: {
+            none: { deliveryTicket: { status: DELIVERED_TICKET_STATUS } },
+          },
+        },
+      });
+      if (undeliveredPieces === 0) {
         await tx.jobStructure.update({
-          where: { id: line.jobStructureId },
+          where: { id: jobStructureId },
           data: { status: "SHIPPED", shippedDate: deliveredAt },
         });
       }

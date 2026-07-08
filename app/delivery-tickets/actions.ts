@@ -49,6 +49,7 @@ export type DeliveryTicketLineInput = {
   quoteLineItemId?: string | null;
   productId?: string | null;
   jobStructureId?: string | null;
+  jobStructurePieceId?: string | null;
   lineType: DeliveryLineType;
   itemCode: string;
   description?: string | null;
@@ -169,6 +170,7 @@ async function validateLines(
     const drainRingFeetByLine = new Map<string, number>();
     const adsPipeQtyByLine = new Map<string, number>();
     const castingPiecesByAssembly = new Map<string, Map<string, number>>();
+    const structurePiecesSeen = new Set<string>();
 
     for (const line of input.lines) {
       if (!line.quoteLineItemId) continue;
@@ -178,6 +180,46 @@ async function validateLines(
       }
       if (line.quantity <= 0) {
         throw new Error(`Quantity must be greater than zero for ${line.itemCode}.`);
+      }
+
+      if (meta.isSplitStructure) {
+        if (!line.jobStructurePieceId) {
+          throw new Error(
+            `${meta.displayName} is split into pieces — pick individual pieces instead of the whole structure.`,
+          );
+        }
+        if (line.quantity !== 1) {
+          throw new Error(
+            `Structure pieces ship one at a time (${meta.displayName}).`,
+          );
+        }
+        const option = meta.structurePieceOptions.find(
+          (piece) => piece.pieceId === line.jobStructurePieceId,
+        );
+        if (!option) {
+          throw new Error(
+            `${line.description || line.itemCode} is not a piece of ${meta.displayName}.`,
+          );
+        }
+        if (structurePiecesSeen.has(option.pieceId)) {
+          throw new Error(
+            `${meta.displayName} — ${option.name} is on this load twice.`,
+          );
+        }
+        structurePiecesSeen.add(option.pieceId);
+        const claimedBy =
+          option.deliveredTicketNumber ?? option.openTicketNumber;
+        if (claimedBy) {
+          throw new Error(
+            `${meta.displayName} — ${option.name} is already on ${claimedBy}.`,
+          );
+        }
+        if (meta.jobStructureStatus !== "MADE") {
+          throw new Error(
+            `${meta.displayName} is not made yet (${meta.jobStructureStatus ?? "no structure"}).`,
+          );
+        }
+        continue;
       }
 
       if (meta.isDrainRing) {
@@ -300,6 +342,7 @@ function buildLineCreates(lines: DeliveryTicketLineInput[]) {
       productId: line.productId ?? null,
       quoteLineItemId: line.quoteLineItemId ?? null,
       jobStructureId: line.jobStructureId ?? null,
+      jobStructurePieceId: line.jobStructurePieceId ?? null,
       itemCode: line.itemCode,
       description: line.description ?? null,
       quantity: qty,
@@ -1108,6 +1151,115 @@ export async function updateTicketDriver(
     return {
       error:
         error instanceof Error ? error.message : "Could not update the driver.",
+    };
+  }
+}
+
+export type SplitStructureResult = { success: true } | { error: string };
+
+/**
+ * Define (or redefine) the named shipping pieces of a structure. Allowed any
+ * time before pieces land on tickets; redefining wipes and recreates them.
+ */
+export async function splitStructureForShipping(
+  jobStructureId: string,
+  pieces: { name: string; weightLbs: number | null }[],
+): Promise<SplitStructureResult> {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+
+  const cleaned = pieces.map((piece) => ({
+    name: piece.name.trim(),
+    weightLbs:
+      piece.weightLbs != null &&
+      Number.isFinite(piece.weightLbs) &&
+      piece.weightLbs > 0
+        ? piece.weightLbs
+        : null,
+  }));
+  if (cleaned.length < 2) {
+    return { error: "Split into at least two pieces." };
+  }
+  if (cleaned.some((piece) => !piece.name)) {
+    return { error: "Every piece needs a name." };
+  }
+
+  try {
+    await withDatabaseRetry((client) =>
+      client.$transaction(async (tx) => {
+        const structure = await tx.jobStructure.findUnique({
+          where: { id: jobStructureId },
+          select: {
+            id: true,
+            status: true,
+            pieces: {
+              select: {
+                id: true,
+                deliveryTicketLineItems: { select: { id: true }, take: 1 },
+              },
+            },
+          },
+        });
+        if (!structure) {
+          throw new Error("Structure not found.");
+        }
+        if (structure.status === "SHIPPED") {
+          throw new Error("This structure has already shipped.");
+        }
+        if (
+          structure.pieces.some(
+            (piece) => piece.deliveryTicketLineItems.length > 0,
+          )
+        ) {
+          throw new Error(
+            "Pieces of this structure are already on delivery tickets — remove them from those tickets before re-splitting.",
+          );
+        }
+        await tx.jobStructurePiece.deleteMany({ where: { jobStructureId } });
+        await tx.jobStructurePiece.createMany({
+          data: cleaned.map((piece, index) => ({
+            jobStructureId,
+            name: piece.name,
+            weightLbs: piece.weightLbs,
+            sortOrder: index,
+          })),
+        });
+      }),
+    );
+    revalidatePath("/delivery-tickets");
+    return { success: true };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "Could not split the structure.",
+    };
+  }
+}
+
+/** Remove an unused split so the structure ships whole again. */
+export async function unsplitStructure(
+  jobStructureId: string,
+): Promise<SplitStructureResult> {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+  try {
+    await withDatabaseRetry((client) =>
+      client.$transaction(async (tx) => {
+        const used = await tx.deliveryTicketLineItem.count({
+          where: { jobStructurePiece: { jobStructureId } },
+        });
+        if (used > 0) {
+          throw new Error(
+            "Pieces of this structure are already on delivery tickets — remove them from those tickets first.",
+          );
+        }
+        await tx.jobStructurePiece.deleteMany({ where: { jobStructureId } });
+      }),
+    );
+    revalidatePath("/delivery-tickets");
+    return { success: true };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "Could not remove the split.",
     };
   }
 }

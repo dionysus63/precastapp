@@ -42,6 +42,7 @@ export function TodaysLoadsPanel({ tickets, drivers }: TodaysLoadsPanelProps) {
               <tr>
                 <th className={tableHeaderCellClassName}>Ticket</th>
                 <th className={tableHeaderCellClassName}>Job</th>
+                <th className={tableHeaderCellClassName}>Customer</th>
                 <th className={tableHeaderCellClassName}>Project</th>
                 <th className={tableHeaderCellClassName}>Driver</th>
                 <th className={tableHeaderCellClassName}>Weight</th>
@@ -59,6 +60,9 @@ export function TodaysLoadsPanel({ tickets, drivers }: TodaysLoadsPanelProps) {
                     {ticket.jobNumber}
                   </td>
                   <td className={`${tableCellClassName} font-medium text-slate-900`}>
+                    {ticket.customer}
+                  </td>
+                  <td className={`${tableCellClassName} text-slate-700`}>
                     {ticket.projectName}
                   </td>
                   <td className={tableCellClassName}>

@@ -722,12 +722,31 @@ model JobStructure {
   dimensions             JobStructureDimension?
   calc                   JobStructureCalc?
   documents              JobStructureDocument[]
+  pieces                 JobStructurePiece[]
 
   @@index([jobId])
   @@index([quoteId])
   @@index([productId])
   @@index([structureTemplateId])
   @@index([status])
+}
+
+/// Named shipping piece of a structure that leaves the yard in parts (e.g. a
+/// wet well's base, risers, and top slab). Defined at shipping time; each
+/// piece is claimed by at most one delivery ticket line.
+model JobStructurePiece {
+  id             String   @id @default(cuid())
+  jobStructureId String
+  name           String
+  sortOrder      Int      @default(0)
+  weightLbs      Decimal? @db.Decimal(12, 2)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  jobStructure            JobStructure             @relation(fields: [jobStructureId], references: [id], onDelete: Cascade)
+  deliveryTicketLineItems DeliveryTicketLineItem[]
+
+  @@index([jobStructureId])
 }
 
 /// Base/riser breakdown of a configured drill-sheet structure's precast wall.
@@ -1186,6 +1205,7 @@ model DeliveryTicketLineItem {
   productId        String?
   quoteLineItemId  String?
   jobStructureId   String?
+  jobStructurePieceId String?
   itemCode         String
   description      String?
   quantity         Decimal            @default(1) @db.Decimal(12, 4)
@@ -1203,12 +1223,14 @@ model DeliveryTicketLineItem {
   product         Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
   quoteLineItem   QuoteLineItem?  @relation(fields: [quoteLineItemId], references: [id], onDelete: SetNull)
   jobStructure    JobStructure?   @relation(fields: [jobStructureId], references: [id], onDelete: SetNull)
+  jobStructurePiece JobStructurePiece? @relation(fields: [jobStructurePieceId], references: [id], onDelete: SetNull)
   invoiceLineItems InvoiceLineItem[]
 
   @@index([deliveryTicketId])
   @@index([productId])
   @@index([quoteLineItemId])
   @@index([jobStructureId])
+  @@index([jobStructurePieceId])
 }
 
 /// Global sequence counter for delivery ticket numbers (year=0 row; DT10001+).
