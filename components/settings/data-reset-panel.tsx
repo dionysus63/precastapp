@@ -6,6 +6,7 @@ import {
   clearAllCustomersFormAction,
   clearAllJobsFormAction,
   clearAllProductsFormAction,
+  clearAllStructuresFormAction,
   type DataResetStats,
 } from "@/app/settings/actions";
 import { SettingsFeedback } from "@/components/settings/settings-form-fields";
@@ -112,7 +113,8 @@ export function DataResetPanel({ stats }: DataResetPanelProps) {
         description={
           <>
             Deletes every product ({stats.productCount} currently in the
-            database), including catalog documents and price list links. Quote,
+            database), including catalog documents, price list links, the
+            inventory ledger, production entries, and purchase receipts. Quote,
             delivery, and job lines keep their rows but lose product links.
             Product submittal files on disk are not removed.
           </>
@@ -122,6 +124,24 @@ export function DataResetPanel({ stats }: DataResetPanelProps) {
         buttonLabel="Delete all products"
         disabled={actionsDisabled}
         action={clearAllProductsFormAction}
+      />
+
+      <DataResetSection
+        title="Clear all structures & drill sheets"
+        description={
+          <>
+            Deletes every structure ({stats.structureCount} currently in the
+            database) with its drill-sheet data — sections, openings, castings,
+            dimensions, documents, and shipping pieces. Quote and delivery
+            ticket lines keep their rows but lose the structure link. Structure
+            templates and the opening catalogs are not touched.
+          </>
+        }
+        inputId="reset-password-structures"
+        count={stats.structureCount}
+        buttonLabel="Delete all structures"
+        disabled={actionsDisabled}
+        action={clearAllStructuresFormAction}
       />
 
       <DataResetSection

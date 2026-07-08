@@ -645,22 +645,26 @@ export type DataResetStats = {
   productCount: number;
   customerCount: number;
   jobCount: number;
+  structureCount: number;
   resetConfigured: boolean;
 };
 
 export async function getDataResetStats(): Promise<DataResetStats> {
   await requirePermission(AppPermission.SETTINGS_MANAGE);
 
-  const [productCount, customerCount, jobCount] = await Promise.all([
-    prisma.product.count(),
-    prisma.customer.count(),
-    prisma.job.count(),
-  ]);
+  const [productCount, customerCount, jobCount, structureCount] =
+    await Promise.all([
+      prisma.product.count(),
+      prisma.customer.count(),
+      prisma.job.count(),
+      prisma.jobStructure.count(),
+    ]);
 
   return {
     productCount,
     customerCount,
     jobCount,
+    structureCount,
     resetConfigured: isSettingsResetConfigured(),
   };
 }
@@ -728,9 +732,22 @@ export async function clearAllProductsFormAction(
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    // Product -> ledger/production/receiving FKs are Restrict (deleting a
+    // product must never silently erase history), so this full reset removes
+    // the operational records explicitly before the products.
+    const inventoryTransactionsDeleted =
+      await tx.inventoryTransaction.deleteMany();
+    await tx.dailyProductionLine.deleteMany();
+    const productionEntriesDeleted =
+      await tx.dailyProductionEntry.deleteMany();
+    await tx.purchaseReceiptLine.deleteMany();
+    const receiptEntriesDeleted = await tx.purchaseReceiptEntry.deleteMany();
     const castingLinksDeleted = await tx.productCastingComponent.deleteMany();
     const productsDeleted = await tx.product.deleteMany();
     return {
+      inventoryTransactionsDeleted: inventoryTransactionsDeleted.count,
+      productionEntriesDeleted: productionEntriesDeleted.count,
+      receiptEntriesDeleted: receiptEntriesDeleted.count,
       castingLinksDeleted: castingLinksDeleted.count,
       productsDeleted: productsDeleted.count,
     };
@@ -740,10 +757,13 @@ export async function clearAllProductsFormAction(
     userId: user.id,
     action: "settings.clear_all_products",
     entityType: "Product",
-    summary: `${user.displayName} cleared all products (${result.productsDeleted} deleted, ${result.castingLinksDeleted} casting BOM links removed)`,
+    summary: `${user.displayName} cleared all products (${result.productsDeleted} deleted, ${result.castingLinksDeleted} casting BOM links, ${result.inventoryTransactionsDeleted} inventory transactions, ${result.productionEntriesDeleted} production entries, ${result.receiptEntriesDeleted} purchase receipts removed)`,
     metadata: {
       deletedCount: result.productsDeleted,
       castingLinksDeleted: result.castingLinksDeleted,
+      inventoryTransactionsDeleted: result.inventoryTransactionsDeleted,
+      productionEntriesDeleted: result.productionEntriesDeleted,
+      receiptEntriesDeleted: result.receiptEntriesDeleted,
     },
   });
 
@@ -788,6 +808,43 @@ export async function clearAllCustomersFormAction(
   revalidateAfterCustomerReset();
   return {
     success: `Deleted ${result.customersDeleted} customer${result.customersDeleted === 1 ? "" : "s"}.`,
+  };
+}
+
+export async function clearAllStructuresFormAction(
+  formData: FormData,
+): Promise<SettingsActionResult> {
+  const user = await requirePermission(AppPermission.SETTINGS_MANAGE);
+  const resetPassword = parseResetPassword(formData);
+
+  if (!verifySettingsResetPassword(resetPassword)) {
+    return resetPasswordError();
+  }
+
+  const structureCount = await prisma.jobStructure.count();
+  if (structureCount === 0) {
+    return { success: "No structures to delete." };
+  }
+
+  // Sections, openings, castings, dimensions, calc, documents, and pieces
+  // cascade with each structure; quote and delivery ticket lines keep their
+  // rows and just lose the structure link (SetNull).
+  const result = await prisma.jobStructure.deleteMany();
+
+  await writeAuditLog({
+    userId: user.id,
+    action: "settings.clear_all_structures",
+    entityType: "JobStructure",
+    summary: `${user.displayName} cleared all structures and drill sheets (${result.count} deleted)`,
+    metadata: { deletedCount: result.count },
+  });
+
+  revalidatePath("/structures");
+  revalidatePath("/drill-sheets");
+  revalidatePath("/production");
+  revalidatePath("/settings/data-reset");
+  return {
+    success: `Deleted ${result.count} structure${result.count === 1 ? "" : "s"}.`,
   };
 }
 

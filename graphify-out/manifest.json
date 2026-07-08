@@ -340,8 +340,8 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1783523865.846463,
-    "ast_hash": "11d1e92da6f4642bb20734c3bf81f20e",
+    "mtime": 1783529071.9236834,
+    "ast_hash": "64f0f6c410f1de88649702ef1784503d",
     "semantic_hash": ""
   },
   "postcss.config.mjs": {
@@ -525,8 +525,8 @@
     "semantic_hash": ""
   },
   "app/settings/actions.ts": {
-    "mtime": 1783294092.2131438,
-    "ast_hash": "189149dd580db91d00306efd4d93f743",
+    "mtime": 1783532571.1283689,
+    "ast_hash": "e2321b6ca1dc86fa376cf6b61ef34d80",
     "semantic_hash": ""
   },
   "app/settings/billing/page.tsx": {
@@ -1155,8 +1155,8 @@
     "semantic_hash": ""
   },
   "app/settings/data-reset/page.tsx": {
-    "mtime": 1782910592.6243875,
-    "ast_hash": "fb19c14b3a414c89a4014498ffa4c051",
+    "mtime": 1783532586.902815,
+    "ast_hash": "83d545931688992b0b5f5f7952f6cbbd",
     "semantic_hash": ""
   },
   "components/jobs/job-bidding-panel.tsx": {
@@ -1165,8 +1165,8 @@
     "semantic_hash": ""
   },
   "components/settings/data-reset-panel.tsx": {
-    "mtime": 1782935430.7018719,
-    "ast_hash": "736c4b8c94466e4de6425cb4ff3a82a2",
+    "mtime": 1783532586.6571481,
+    "ast_hash": "f634957a260af4ea3bb2f615978a8f92",
     "semantic_hash": ""
   },
   "lib/quote-clone.ts": {
@@ -3042,6 +3042,11 @@
   "scripts/fixtures/example-t3.pdf": {
     "mtime": 1783016211.227551,
     "ast_hash": "8508376cc49dc677c10b0bfc4d02de1b",
+    "semantic_hash": ""
+  },
+  "docs/server-update-2026-07-08.pdf": {
+    "mtime": 1783528003.1678793,
+    "ast_hash": "950e02b4ab63845e47f6d7c40df34ddc",
     "semantic_hash": ""
   }
 }
