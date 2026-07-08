@@ -92,5 +92,14 @@
       "provider": "generic",
       "url": "http://localhost:3000/updates"
     }
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "electron@35.7.5": true,
+    "prisma@7.8.0": true,
+    "puppeteer@25.1.0": true,
+    "sharp@0.34.5": true,
+    "unrs-resolver@1.12.2": true,
+    "@prisma/engines@7.8.0": true
   }
 }
