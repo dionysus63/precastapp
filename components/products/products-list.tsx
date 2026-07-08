@@ -18,11 +18,6 @@ import {
 } from "@/components/products/product-utils";
 import { formatCastingSupplierOriginLabel } from "@/lib/casting-utils";
 import { ExportExcelLink } from "@/components/shared/export-excel-link";
-import {
-  buildCategoryFilterOptions,
-  buildSubcategoryFilterOptions,
-  type ProductTaxonomyCategory,
-} from "@/lib/product-taxonomy";
 import type { PageInfo } from "@/lib/list-params";
 import {
   productKindBadgeVariant,
@@ -41,8 +36,6 @@ import {
 type ProductsListFilters = {
   search: string;
   type: string;
-  category: string;
-  subcategory: string;
   status: string;
   submittals: string;
   castingOrigin: string;
@@ -50,7 +43,6 @@ type ProductsListFilters = {
 
 type ProductsListProps = {
   products: ProductRow[];
-  taxonomy: ProductTaxonomyCategory[];
   pageInfo: PageInfo;
   filters: ProductsListFilters;
 };
@@ -187,35 +179,11 @@ const ProductsTable = memo(function ProductsTable({
 
 export function ProductsList({
   products,
-  taxonomy,
   pageInfo,
   filters,
 }: ProductsListProps) {
   const { setParams } = useListQuery();
   const { search, setSearch } = useDebouncedSearchParam("q", filters.search);
-
-  const selectedType =
-    filters.type && filters.type !== "All" ? filters.type : undefined;
-
-  const categoryFilterOptions = useMemo(
-    () =>
-      buildCategoryFilterOptions(
-        taxonomy,
-        selectedType as Parameters<typeof buildCategoryFilterOptions>[1],
-      ),
-    [taxonomy, selectedType],
-  );
-
-  const showSubcategoryFilter =
-    Boolean(filters.category) && filters.category !== "All";
-
-  const subcategoryFilterOptions = useMemo(
-    () =>
-      showSubcategoryFilter
-        ? buildSubcategoryFilterOptions(taxonomy, filters.category)
-        : [{ id: "All", name: "All" }],
-    [taxonomy, filters.category, showSubcategoryFilter],
-  );
 
   const productTypeOptions = Object.entries(productTypeLabels);
   const showCastingOriginFilter = filters.type === "CASTING";
@@ -250,34 +218,6 @@ export function ProductsList({
               </option>
             ))}
           </select>
-          <select
-            value={filters.category || "All"}
-            onChange={(event) =>
-              setParams({ category: event.target.value, subcategory: null })
-            }
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
-          >
-            {categoryFilterOptions.map((category) => (
-              <option key={category.id} value={category.id}>
-                Category: {category.name}
-              </option>
-            ))}
-          </select>
-          {showSubcategoryFilter ? (
-            <select
-              value={filters.subcategory || "All"}
-              onChange={(event) =>
-                setParams({ subcategory: event.target.value })
-              }
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
-            >
-              {subcategoryFilterOptions.map((subcategory) => (
-                <option key={subcategory.id} value={subcategory.id}>
-                  Subcategory: {subcategory.name}
-                </option>
-              ))}
-            </select>
-          ) : null}
           <select
             value={filters.status || "All"}
             onChange={(event) => setParams({ status: event.target.value })}

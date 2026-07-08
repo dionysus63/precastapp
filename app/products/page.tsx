@@ -1,4 +1,5 @@
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { CategoryChipBar } from "@/components/common/category-chip-bar";
 import { ImportFeedbackBanner } from "@/components/common/import-feedback-banner";
 import { ProductsList } from "@/components/products/products-list";
 import { mapProductToRow } from "@/lib/product-mapper";
@@ -56,18 +57,14 @@ export default async function ProductsPage({
     documentType: { in: PRODUCT_SUBMITTAL_DOCUMENT_TYPES },
   };
 
-  const where: Prisma.ProductWhereInput = {
+  // Everything except the category/subcategory conditions — chip counts are
+  // computed against this so each chip shows what selecting it would yield.
+  const whereWithoutTaxonomy: Prisma.ProductWhereInput = {
     ...(typeParam && VALID_PRODUCT_TYPES.has(typeParam)
       ? { productType: typeParam as Prisma.ProductWhereInput["productType"] }
       : {}),
     ...(statusParam && VALID_PRODUCT_STATUSES.has(statusParam)
       ? { status: statusParam as Prisma.ProductWhereInput["status"] }
-      : {}),
-    ...(categoryParam && categoryParam !== "All"
-      ? { categoryId: categoryParam }
-      : {}),
-    ...(subcategoryParam && subcategoryParam !== "All"
-      ? { subcategoryId: subcategoryParam }
       : {}),
     ...(submittalsParam === "Has submittals"
       ? { documents: { some: submittalDocFilter } }
@@ -92,33 +89,111 @@ export default async function ProductsPage({
       : {}),
   };
 
+  const categorySelected =
+    categoryParam && categoryParam !== "All" ? categoryParam : null;
+  const subcategorySelected =
+    subcategoryParam && subcategoryParam !== "All" ? subcategoryParam : null;
+
+  const where: Prisma.ProductWhereInput = {
+    ...whereWithoutTaxonomy,
+    ...(categorySelected ? { categoryId: categorySelected } : {}),
+    ...(subcategorySelected
+      ? { subcategoryId: subcategorySelected === "none" ? null : subcategorySelected }
+      : {}),
+  };
+
   const total = await withDatabaseRetry((prisma) =>
     prisma.product.count({ where }),
   );
   const pageInfo = buildPageInfo(total, requestedPage);
 
-  const [products, taxonomy, defaultPriceList] = await withDatabaseRetry((prisma) =>
-    Promise.all([
-      prisma.product.findMany({
-        where,
-        orderBy: { name: "asc" },
-        skip: pageInfo.skip,
-        take: pageInfo.take,
-        include: {
-          productCategory: { select: { name: true } },
-          subcategory: { select: { name: true } },
-          castingSupplier: { select: { origin: true } },
-          _count: {
-            select: {
-              documents: { where: submittalDocFilter },
+  const [products, taxonomy, defaultPriceList, categoryGroups, subcategoryGroups] =
+    await withDatabaseRetry((prisma) =>
+      Promise.all([
+        prisma.product.findMany({
+          where,
+          orderBy: { name: "asc" },
+          skip: pageInfo.skip,
+          take: pageInfo.take,
+          include: {
+            productCategory: { select: { name: true } },
+            subcategory: { select: { name: true } },
+            castingSupplier: { select: { origin: true } },
+            _count: {
+              select: {
+                documents: { where: submittalDocFilter },
+              },
             },
           },
-        },
-      }),
-      listProductTaxonomy(),
-      getDefaultPriceList(prisma),
+        }),
+        listProductTaxonomy(),
+        getDefaultPriceList(prisma),
+        prisma.product.groupBy({
+          by: ["categoryId"],
+          where: whereWithoutTaxonomy,
+          _count: { _all: true },
+        }),
+        categorySelected
+          ? prisma.product.groupBy({
+              by: ["subcategoryId"],
+              where: { ...whereWithoutTaxonomy, categoryId: categorySelected },
+              _count: { _all: true },
+            })
+          : Promise.resolve(
+              [] as { subcategoryId: string | null; _count: { _all: number } }[],
+            ),
+      ]),
+    );
+
+  const categoryCountById = new Map(
+    categoryGroups.map((group) => [group.categoryId, group._count._all]),
+  );
+  const categoryChips = taxonomy
+    .filter(
+      (category) =>
+        (categoryCountById.get(category.id) ?? 0) > 0 ||
+        category.id === categorySelected,
+    )
+    .map((category) => ({
+      id: category.id,
+      name: category.name,
+      count: categoryCountById.get(category.id) ?? 0,
+    }));
+
+  const selectedCategory = taxonomy.find(
+    (category) => category.id === categorySelected,
+  );
+  const subcategoryCountById = new Map(
+    subcategoryGroups.map((group) => [
+      group.subcategoryId ?? "none",
+      group._count._all,
     ]),
   );
+  const subcategoryChips = selectedCategory
+    ? [
+        ...selectedCategory.subcategories
+          .filter(
+            (subcategory) =>
+              (subcategoryCountById.get(subcategory.id) ?? 0) > 0 ||
+              subcategory.id === subcategorySelected,
+          )
+          .map((subcategory) => ({
+            id: subcategory.id,
+            name: subcategory.name,
+            count: subcategoryCountById.get(subcategory.id) ?? 0,
+          })),
+        ...((subcategoryCountById.get("none") ?? 0) > 0 &&
+        selectedCategory.subcategories.length > 0
+          ? [
+              {
+                id: "none",
+                name: "Other",
+                count: subcategoryCountById.get("none") ?? 0,
+              },
+            ]
+          : []),
+      ]
+    : [];
 
   // All three enrichments depend only on the fetched page of products, not on
   // each other — load them in parallel instead of three sequential waits.
@@ -172,15 +247,20 @@ export default async function ProductsPage({
         updated={updated}
         noun="product"
       />
+      <div className="mb-4">
+        <CategoryChipBar
+          categories={categoryChips}
+          subcategories={subcategoryChips}
+          selectedCategoryId={categorySelected}
+          selectedSubcategoryId={subcategorySelected}
+        />
+      </div>
       <ProductsList
         products={rows}
-        taxonomy={taxonomy}
         pageInfo={pageInfo}
         filters={{
           search,
           type: typeParam,
-          category: categoryParam,
-          subcategory: subcategoryParam,
           status: statusParam,
           submittals: submittalsParam,
           castingOrigin: castingOriginParam,

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CategoryChipBar } from "@/components/common/category-chip-bar";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { InventoryFilters } from "@/components/inventory/inventory-filters";
 import { InventorySubmittalsCell } from "@/components/inventory/inventory-submittals-cell";
@@ -13,6 +14,7 @@ import {
   type RawSearchParams,
 } from "@/lib/list-params";
 import { PRODUCT_SUBMITTAL_DOCUMENT_TYPES } from "@/lib/product-submittals-service";
+import { listProductTaxonomy } from "@/lib/product-taxonomy.server";
 import { loadEffectiveSubmittalCountsByProductId } from "@/lib/submittal-package";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
 import type { Prisma } from "@/app/generated/prisma/client";
@@ -53,8 +55,17 @@ export default async function InventoryPage({
   const search = parseStringParam(params.q);
   const stockParam = parseStringParam(params.stock);
   const castingOriginParam = parseStringParam(params.castingOrigin);
+  const categoryParam = parseStringParam(params.category);
+  const subcategoryParam = parseStringParam(params.subcategory);
 
-  const where: Prisma.ProductWhereInput = {
+  const categorySelected =
+    categoryParam && categoryParam !== "All" ? categoryParam : null;
+  const subcategorySelected =
+    subcategoryParam && subcategoryParam !== "All" ? subcategoryParam : null;
+
+  // Everything except the category/subcategory conditions — chip counts are
+  // computed against this so each chip shows what selecting it would yield.
+  const whereWithoutTaxonomy: Prisma.ProductWhereInput = {
     ...baseWhere,
     ...(search
       ? {
@@ -77,16 +88,89 @@ export default async function InventoryPage({
         : {}),
   };
 
-  const [total, trackedCount, lowCount, outCount] = await withDatabaseRetry(
-    (client) =>
+  const where: Prisma.ProductWhereInput = {
+    ...whereWithoutTaxonomy,
+    ...(categorySelected ? { categoryId: categorySelected } : {}),
+    ...(subcategorySelected
+      ? { subcategoryId: subcategorySelected === "none" ? null : subcategorySelected }
+      : {}),
+  };
+
+  const [total, trackedCount, lowCount, outCount, categoryGroups, subcategoryGroups, taxonomy] =
+    await withDatabaseRetry((client) =>
       Promise.all([
         client.product.count({ where }),
         client.product.count({ where: baseWhere }),
         client.product.count({ where: { ...baseWhere, ...lowStockWhere } }),
         client.product.count({ where: { ...baseWhere, ...outOfStockWhere } }),
+        client.product.groupBy({
+          by: ["categoryId"],
+          where: whereWithoutTaxonomy,
+          _count: { _all: true },
+        }),
+        categorySelected
+          ? client.product.groupBy({
+              by: ["subcategoryId"],
+              where: { ...whereWithoutTaxonomy, categoryId: categorySelected },
+              _count: { _all: true },
+            })
+          : Promise.resolve(
+              [] as { subcategoryId: string | null; _count: { _all: number } }[],
+            ),
+        listProductTaxonomy(),
       ]),
-  );
+    );
   const pageInfo = buildPageInfo(total, requestedPage);
+
+  const categoryCountById = new Map(
+    categoryGroups.map((group) => [group.categoryId, group._count._all]),
+  );
+  const categoryChips = taxonomy
+    .filter(
+      (category) =>
+        (categoryCountById.get(category.id) ?? 0) > 0 ||
+        category.id === categorySelected,
+    )
+    .map((category) => ({
+      id: category.id,
+      name: category.name,
+      count: categoryCountById.get(category.id) ?? 0,
+    }));
+
+  const selectedCategory = taxonomy.find(
+    (category) => category.id === categorySelected,
+  );
+  const subcategoryCountById = new Map(
+    subcategoryGroups.map((group) => [
+      group.subcategoryId ?? "none",
+      group._count._all,
+    ]),
+  );
+  const subcategoryChips = selectedCategory
+    ? [
+        ...selectedCategory.subcategories
+          .filter(
+            (subcategory) =>
+              (subcategoryCountById.get(subcategory.id) ?? 0) > 0 ||
+              subcategory.id === subcategorySelected,
+          )
+          .map((subcategory) => ({
+            id: subcategory.id,
+            name: subcategory.name,
+            count: subcategoryCountById.get(subcategory.id) ?? 0,
+          })),
+        ...((subcategoryCountById.get("none") ?? 0) > 0 &&
+        selectedCategory.subcategories.length > 0
+          ? [
+              {
+                id: "none",
+                name: "Other",
+                count: subcategoryCountById.get("none") ?? 0,
+              },
+            ]
+          : []),
+      ]
+    : [];
 
   const products = await withDatabaseRetry((client) =>
     client.product.findMany({
@@ -124,7 +208,9 @@ export default async function InventoryPage({
     ),
   );
 
-  const hasActiveFilters = Boolean(search || stockParam || castingOriginParam);
+  const hasActiveFilters = Boolean(
+    search || stockParam || castingOriginParam || categorySelected,
+  );
 
   const summaryCards = [
     {
@@ -172,6 +258,15 @@ export default async function InventoryPage({
             </div>
           </Link>
         ))}
+      </div>
+
+      <div className="mb-4">
+        <CategoryChipBar
+          categories={categoryChips}
+          subcategories={subcategoryChips}
+          selectedCategoryId={categorySelected}
+          selectedSubcategoryId={subcategorySelected}
+        />
       </div>
 
       <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
