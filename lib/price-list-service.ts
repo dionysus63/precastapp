@@ -59,10 +59,13 @@ export async function getPriceListCompleteness(
   priceListId: string,
   client: DbClient = prisma,
 ): Promise<PriceListCompleteness> {
-  const [totalActiveProducts, listedCount] = await Promise.all([
-    getActiveProductCount(client),
-    client.priceListItem.count({ where: { priceListId } }),
-  ]);
+  // Sequential awaits: `client` may be a transaction client, which is pinned
+  // to a single pg connection — concurrent queries on it are unsupported
+  // (deprecated in pg 8, removed in pg 9).
+  const totalActiveProducts = await getActiveProductCount(client);
+  const listedCount = await client.priceListItem.count({
+    where: { priceListId },
+  });
 
   const missingCount = Math.max(0, totalActiveProducts - listedCount);
 

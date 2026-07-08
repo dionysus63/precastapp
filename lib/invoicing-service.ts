@@ -226,23 +226,26 @@ async function preloadUnitPriceLookups(
     ),
   ];
 
-  const [quoteLines, priceListItems] = await Promise.all([
+  // Sequential awaits: `client` may be a transaction client, which is pinned
+  // to a single pg connection — concurrent queries on it are unsupported
+  // (deprecated in pg 8, removed in pg 9).
+  const quoteLines =
     quoteLineItemIds.length > 0
-      ? client.quoteLineItem.findMany({
+      ? await client.quoteLineItem.findMany({
           where: { id: { in: quoteLineItemIds } },
           select: { id: true, unitPrice: true, taxable: true },
         })
-      : Promise.resolve([]),
+      : [];
+  const priceListItems =
     priceListId && productIds.length > 0
-      ? client.priceListItem.findMany({
+      ? await client.priceListItem.findMany({
           where: {
             priceListId,
             productId: { in: productIds },
           },
           select: { productId: true, unitPrice: true },
         })
-      : Promise.resolve([]),
-  ]);
+      : [];
 
   return {
     quoteLines: new Map(

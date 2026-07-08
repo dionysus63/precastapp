@@ -606,14 +606,14 @@ export async function updateQuote(
         // invariant is ever violated.
         const priorLineIds = priorLines.map((line) => line.id);
         if (priorLineIds.length > 0) {
-          const [ticketRefs, invoiceRefs] = await Promise.all([
-            tx.deliveryTicketLineItem.count({
-              where: { quoteLineItemId: { in: priorLineIds } },
-            }),
-            tx.invoiceLineItem.count({
-              where: { quoteLineItemId: { in: priorLineIds } },
-            }),
-          ]);
+          // Sequential awaits: a transaction client is pinned to one pg
+          // connection, so concurrent queries on it are unsupported.
+          const ticketRefs = await tx.deliveryTicketLineItem.count({
+            where: { quoteLineItemId: { in: priorLineIds } },
+          });
+          const invoiceRefs = await tx.invoiceLineItem.count({
+            where: { quoteLineItemId: { in: priorLineIds } },
+          });
           if (ticketRefs > 0 || invoiceRefs > 0) {
             throw new Error(
               "This quote has delivery tickets or invoices linked to its lines and can no longer be edited directly. Revise it to create a new revision instead.",

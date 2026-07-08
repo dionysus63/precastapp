@@ -523,23 +523,24 @@ export async function reverseInventoryForTicket(
     })
   ).map((l) => l.id);
 
-  const [deliveries, reversals] = await Promise.all([
-    client.inventoryTransaction.findMany({
-      where: {
-        referenceType: "DELIVERY_TICKET_LINE_ITEM",
-        transactionType: "DELIVERY",
-        referenceId: { in: lineItemIds },
-      },
-    }),
-    client.inventoryTransaction.findMany({
-      where: {
-        referenceType: "DELIVERY_TICKET_LINE_ITEM",
-        transactionType: "REVERSAL",
-        referenceId: { in: lineItemIds },
-      },
-      select: { referenceId: true },
-    }),
-  ]);
+  // Sequential awaits: `client` may be a transaction client, which is pinned
+  // to a single pg connection — concurrent queries on it are unsupported
+  // (deprecated in pg 8, removed in pg 9).
+  const deliveries = await client.inventoryTransaction.findMany({
+    where: {
+      referenceType: "DELIVERY_TICKET_LINE_ITEM",
+      transactionType: "DELIVERY",
+      referenceId: { in: lineItemIds },
+    },
+  });
+  const reversals = await client.inventoryTransaction.findMany({
+    where: {
+      referenceType: "DELIVERY_TICKET_LINE_ITEM",
+      transactionType: "REVERSAL",
+      referenceId: { in: lineItemIds },
+    },
+    select: { referenceId: true },
+  });
 
   // Skip line items already reversed so re-running this after a partial
   // failure (e.g. the ticket status update fails after reversal) doesn't

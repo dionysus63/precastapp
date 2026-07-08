@@ -429,28 +429,29 @@ async function loadShippedCastingSetsByQuoteLineId(
     ),
   ];
 
-  const [deliveryLines, bomRows] = await Promise.all([
-    client.deliveryTicketLineItem.groupBy({
-      by: ["quoteLineItemId", "productId"],
-      where: {
-        quoteLineItemId: { in: lineIds },
-        deliveryTicket: {
-          status: { in: [...ticketStatuses] },
-          ...excludedTicketWhere(excludeTicketId),
-        },
+  // Sequential awaits: `client` may be a transaction client, which is pinned
+  // to a single pg connection — concurrent queries on it are unsupported
+  // (deprecated in pg 8, removed in pg 9).
+  const deliveryLines = await client.deliveryTicketLineItem.groupBy({
+    by: ["quoteLineItemId", "productId"],
+    where: {
+      quoteLineItemId: { in: lineIds },
+      deliveryTicket: {
+        status: { in: [...ticketStatuses] },
+        ...excludedTicketWhere(excludeTicketId),
       },
-      _sum: { quantity: true },
-    }),
-    client.productCastingComponent.findMany({
-      where: { assemblyId: { in: assemblyIds } },
-      select: {
-        assemblyId: true,
-        componentId: true,
-        pieceRole: true,
-        quantity: true,
-      },
-    }),
-  ]);
+    },
+    _sum: { quantity: true },
+  });
+  const bomRows = await client.productCastingComponent.findMany({
+    where: { assemblyId: { in: assemblyIds } },
+    select: {
+      assemblyId: true,
+      componentId: true,
+      pieceRole: true,
+      quantity: true,
+    },
+  });
 
   const bomByAssembly = new Map<
     string,
@@ -927,22 +928,35 @@ async function buildFulfillmentFromContext(
     excludeTicketId,
   );
 
-  const [shippedQuantities, shippedFeet, drainRingCatalog, shippedCastingSets, adsPipeCatalog] =
-    await Promise.all([
-      loadShippedQuantitiesByQuoteLineId(client, standardLineage, excludeTicketId),
-      loadShippedFeetByQuoteLineId(client, lineageMap, excludeTicketId),
-      loadDrainRingCatalogByLine(client, drainRingLines),
-      loadShippedCastingSetsByQuoteLineId(
-        client,
-        castingAssemblyLines.map((line) => ({
-          id: line.id,
-          productId: line.productId,
-        })),
-        lineageMap,
-        excludeTicketId,
-      ),
-      loadAdsPipeCatalogByLine(client, adsPipeSubstituteLines),
-    ]);
+  // Sequential awaits: `client` may be a transaction client (single pinned
+  // connection; no concurrent queries — see loadCastingSetUsage).
+  const shippedQuantities = await loadShippedQuantitiesByQuoteLineId(
+    client,
+    standardLineage,
+    excludeTicketId,
+  );
+  const shippedFeet = await loadShippedFeetByQuoteLineId(
+    client,
+    lineageMap,
+    excludeTicketId,
+  );
+  const drainRingCatalog = await loadDrainRingCatalogByLine(
+    client,
+    drainRingLines,
+  );
+  const shippedCastingSets = await loadShippedCastingSetsByQuoteLineId(
+    client,
+    castingAssemblyLines.map((line) => ({
+      id: line.id,
+      productId: line.productId,
+    })),
+    lineageMap,
+    excludeTicketId,
+  );
+  const adsPipeCatalog = await loadAdsPipeCatalogByLine(
+    client,
+    adsPipeSubstituteLines,
+  );
 
   const uniqueAssemblyProductIds = [
     ...new Set(
@@ -1329,31 +1343,30 @@ async function buildScheduledFromContext(
 ): Promise<Map<string, number>> {
   const { quote, lineageMap, castingAssemblyLines, standardLineage } = context;
 
-  const [scheduledQuantities, scheduledFeet, scheduledCastingSets] =
-    await Promise.all([
-      loadShippedQuantitiesByQuoteLineId(
-        client,
-        standardLineage,
-        excludeTicketId,
-        ticketStatuses,
-      ),
-      loadShippedFeetByQuoteLineId(
-        client,
-        lineageMap,
-        excludeTicketId,
-        ticketStatuses,
-      ),
-      loadShippedCastingSetsByQuoteLineId(
-        client,
-        castingAssemblyLines.map((line) => ({
-          id: line.id,
-          productId: line.productId,
-        })),
-        lineageMap,
-        excludeTicketId,
-        ticketStatuses,
-      ),
-    ]);
+  // Sequential awaits: `client` may be a transaction client (single pinned
+  // connection; no concurrent queries — see loadCastingSetUsage).
+  const scheduledQuantities = await loadShippedQuantitiesByQuoteLineId(
+    client,
+    standardLineage,
+    excludeTicketId,
+    ticketStatuses,
+  );
+  const scheduledFeet = await loadShippedFeetByQuoteLineId(
+    client,
+    lineageMap,
+    excludeTicketId,
+    ticketStatuses,
+  );
+  const scheduledCastingSets = await loadShippedCastingSetsByQuoteLineId(
+    client,
+    castingAssemblyLines.map((line) => ({
+      id: line.id,
+      productId: line.productId,
+    })),
+    lineageMap,
+    excludeTicketId,
+    ticketStatuses,
+  );
 
   const result = new Map<string, number>();
   for (const line of quote.lineItems) {
@@ -1389,10 +1402,19 @@ export async function getQuoteLineFulfillmentAndScheduled(
     return { fulfillment: [], scheduled: new Map() };
   }
 
-  const [fulfillment, scheduled] = await Promise.all([
-    buildFulfillmentFromContext(client, context, excludeTicketId),
-    buildScheduledFromContext(client, context, excludeTicketId, scheduledStatuses),
-  ]);
+  // Sequential awaits: `client` may be a transaction client (single pinned
+  // connection; no concurrent queries — see loadCastingSetUsage).
+  const fulfillment = await buildFulfillmentFromContext(
+    client,
+    context,
+    excludeTicketId,
+  );
+  const scheduled = await buildScheduledFromContext(
+    client,
+    context,
+    excludeTicketId,
+    scheduledStatuses,
+  );
 
   return { fulfillment, scheduled };
 }

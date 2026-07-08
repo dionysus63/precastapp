@@ -107,12 +107,6 @@ function isPrismaClientStale(client: PrismaClient) {
   }
 
   // Existing delegate but missing newly generated AppSettings fields.
-  for (const field of REQUIRED_APP_SETTINGS_FIELDS) {
-    if (!(field in Prisma.AppSettingsScalarFieldEnum)) {
-      continue;
-    }
-  }
-
   return !clientHasAppSettingsFields(client);
 }
 

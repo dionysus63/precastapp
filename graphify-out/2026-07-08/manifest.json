@@ -115,8 +115,8 @@
     "semantic_hash": ""
   },
   "app/quotes/actions.ts": {
-    "mtime": 1783519860.0965426,
-    "ast_hash": "e99bb90f78c17cf20f908de43c10fffe",
+    "mtime": 1783452040.9962082,
+    "ast_hash": "eb0097d27b3faf1ef00655e08d644a55",
     "semantic_hash": ""
   },
   "app/quotes/new/page.tsx": {
@@ -305,8 +305,8 @@
     "semantic_hash": "0dd7c1833e66d85da1d0f21506d2a06a"
   },
   "lib/prisma.ts": {
-    "mtime": 1783519870.520633,
-    "ast_hash": "69a625d36dc06e6e23ab40fefa65d145",
+    "mtime": 1783294092.2211459,
+    "ast_hash": "3bb5f8564c733994aac53220bc91b0e2",
     "semantic_hash": ""
   },
   "lib/product-mapper.ts": {
@@ -710,8 +710,8 @@
     "semantic_hash": ""
   },
   "lib/delivery-fulfillment.ts": {
-    "mtime": 1783519847.4408753,
-    "ast_hash": "95add8852c3fe1e4ad0a94c499726bca",
+    "mtime": 1783468768.061402,
+    "ast_hash": "f09b17cc75ba4dd61c887b7f46c7ba0c",
     "semantic_hash": ""
   },
   "lib/delivery-ticket-mapper.ts": {
@@ -730,8 +730,8 @@
     "semantic_hash": ""
   },
   "lib/inventory-service.ts": {
-    "mtime": 1783519856.792779,
-    "ast_hash": "b9923a9ffa59c894098953cc80cc99b3",
+    "mtime": 1783298029.3053665,
+    "ast_hash": "a7772d815aa4aa27f192cd27ed1ad0ed",
     "semantic_hash": ""
   },
   "lib/invoice-mapper.ts": {
@@ -740,8 +740,8 @@
     "semantic_hash": ""
   },
   "lib/invoicing-service.ts": {
-    "mtime": 1783519963.0010138,
-    "ast_hash": "f32af0b9eaed23c744665d81476f6178",
+    "mtime": 1783468896.082559,
+    "ast_hash": "b3cd4af539b9e0ce47946827fbb69c3d",
     "semantic_hash": ""
   },
   "lib/job-file-mapper.ts": {
@@ -1115,8 +1115,8 @@
     "semantic_hash": ""
   },
   "middleware.ts": {
-    "mtime": 1783519871.9331064,
-    "ast_hash": "d0e70037910c1b0f1d64354e2621ae7c",
+    "mtime": 1782565264.41507,
+    "ast_hash": "a585b086bf880c9590554ef4a742c1af",
     "semantic_hash": ""
   },
   "prisma/migrations/20260621100000_job_file_path_unique/migration.sql": {
@@ -1180,8 +1180,8 @@
     "semantic_hash": ""
   },
   "lib/quote-clone.ts": {
-    "mtime": 1783519909.696712,
-    "ast_hash": "5cee7202a96fde25c0e70cd633ba6708",
+    "mtime": 1782735964.3312178,
+    "ast_hash": "b62482d7ede0681d82bf6d5f28519e7c",
     "semantic_hash": ""
   },
   "lib/quote-number.ts": {
@@ -2184,6 +2184,21 @@
     "ast_hash": "d8462dc2a423944029cacc5ba9f58d26",
     "semantic_hash": ""
   },
+  "arrow-A-outlet.png": {
+    "mtime": 1783003427.0850055,
+    "ast_hash": "95f1fba7a975246ca5c50f7acb55d7d4",
+    "semantic_hash": ""
+  },
+  "arrow-B-generated.png": {
+    "mtime": 1783003427.1315608,
+    "ast_hash": "b7de6a58c84dbd06bac864510deb3f93",
+    "semantic_hash": ""
+  },
+  "arrow-check-circle.png": {
+    "mtime": 1783003427.0244393,
+    "ast_hash": "2fbfd82a06a69d09d8fc593e559346d0",
+    "semantic_hash": ""
+  },
   "scripts/inspect-joint-linework.ts": {
     "mtime": 1783287348.2372003,
     "ast_hash": "aa5e9e4a13daa976d50dfd71f22f7602",
@@ -2375,8 +2390,8 @@
     "semantic_hash": ""
   },
   "lib/price-list-service.ts": {
-    "mtime": 1783519978.572515,
-    "ast_hash": "a56206e00d8adcac0af5cccb2f9157b2",
+    "mtime": 1783287348.2281997,
+    "ast_hash": "09afe701b523dec29f70dbb64d684078",
     "semantic_hash": ""
   },
   "prisma/migrations/20260703120000_price_lists_source_of_truth/migration.sql": {
@@ -3222,11 +3237,6 @@
   "components/common/category-chip-bar.tsx": {
     "mtime": 1783472641.2047675,
     "ast_hash": "a6005c17be6f6cb3265dabf38923d491",
-    "semantic_hash": ""
-  },
-  "prisma/migrations/20260708150000_restrict_product_delete_on_ledger/migration.sql": {
-    "mtime": 1783520074.4189634,
-    "ast_hash": "7fce85836057852daaa7028da00d58a5",
     "semantic_hash": ""
   }
 }

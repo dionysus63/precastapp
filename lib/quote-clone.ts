@@ -15,22 +15,22 @@ export async function cloneQuoteForBidder(
   jobBidderId: string,
   contactId?: string | null,
 ): Promise<string> {
-  const [template, bidder] = await Promise.all([
-    tx.quote.findUnique({
-      where: { id: templateQuoteId },
-      include: {
-        lineItems: { orderBy: { lineNumber: "asc" } },
-      },
-    }),
-    tx.jobBidder.findUnique({
-      where: { id: jobBidderId },
-      include: {
-        customer: true,
-        job: true,
-        quotes: { select: { id: true }, take: 1 },
-      },
-    }),
-  ]);
+  // Sequential awaits: a transaction client is pinned to one pg connection,
+  // so concurrent queries on it are unsupported (removed in pg 9).
+  const template = await tx.quote.findUnique({
+    where: { id: templateQuoteId },
+    include: {
+      lineItems: { orderBy: { lineNumber: "asc" } },
+    },
+  });
+  const bidder = await tx.jobBidder.findUnique({
+    where: { id: jobBidderId },
+    include: {
+      customer: true,
+      job: true,
+      quotes: { select: { id: true }, take: 1 },
+    },
+  });
 
   if (!template) {
     throw new Error("Template quote was not found.");

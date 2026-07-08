@@ -1292,7 +1292,9 @@ model InventoryTransaction {
   submissionKey   String?                  @unique
   createdAt       DateTime                 @default(now())
 
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  // Restrict: the ledger is the permanent inventory/financial history — a
+  // product delete must never silently erase it.
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@index([productId])
   @@index([transactionDate])
@@ -1325,7 +1327,9 @@ model DailyProductionLine {
   quantityProduced Decimal @db.Decimal(12, 4)
 
   productionEntry DailyProductionEntry @relation(fields: [productionEntryId], references: [id], onDelete: Cascade)
-  product         Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  // Restrict: production history must survive product deletion (see
+  // InventoryTransaction.product).
+  product         Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@index([productionEntryId])
   @@index([productId])
@@ -1364,7 +1368,9 @@ model PurchaseReceiptLine {
   quantityReceived  Decimal @db.Decimal(12, 4)
 
   purchaseReceipt PurchaseReceiptEntry @relation(fields: [purchaseReceiptId], references: [id], onDelete: Cascade)
-  product         Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  // Restrict: receiving history must survive product deletion (see
+  // InventoryTransaction.product).
+  product         Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@index([purchaseReceiptId])
   @@index([productId])
