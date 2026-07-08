@@ -8,6 +8,9 @@ type DbDeliveryTicket = {
   id: string;
   ticketNumber: string;
   status: string;
+  jobId: string | null;
+  quoteId: string | null;
+  customerId: string | null;
   customerName: string;
   projectName: string;
   deliveryDate: Date | null;
@@ -127,11 +130,11 @@ export function mapDbDeliveryTicketToDetailView(
     },
     relatedRecords: {
       jobNumber: ticket.jobNumber ?? "—",
-      jobHref: null,
+      jobHref: ticket.jobId ? `/jobs/${ticket.jobId}` : null,
       quoteNumber: ticket.quoteNumber ?? "—",
-      quoteHref: null,
+      quoteHref: ticket.quoteId ? `/quotes/${ticket.quoteId}` : null,
       customer: ticket.customerName,
-      customerHref: null,
+      customerHref: ticket.customerId ? `/customers/${ticket.customerId}` : null,
       invoice: "Not created",
       photos: "None",
       signedTicket: "Not uploaded",

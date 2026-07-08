@@ -55,10 +55,9 @@ const TicketsTable = memo(function TicketsTable({
       <table className={tableClassName}>
         <thead>
           <tr>
-            <th className={tableHeaderCellClassName}>Ticket Number</th>
-            <th className={tableHeaderCellClassName}>Job Number</th>
-            <th className={tableHeaderCellClassName}>Project Name</th>
+            <th className={tableHeaderCellClassName}>Ticket</th>
             <th className={tableHeaderCellClassName}>Customer</th>
+            <th className={tableHeaderCellClassName}>Job</th>
             <th className={tableHeaderCellClassName}>Delivery Date</th>
             <th className={tableHeaderCellClassName}>Truck</th>
             <th className={tableHeaderCellClassName}>Driver</th>
@@ -72,7 +71,7 @@ const TicketsTable = memo(function TicketsTable({
           {tickets.length === 0 ? (
             <tr>
               <td
-                colSpan={11}
+                colSpan={10}
                 className={`${tableCellBordersClassName} px-4 py-8 text-center text-sm text-slate-500`}
               >
                 No delivery tickets match your search or filters.
@@ -81,17 +80,31 @@ const TicketsTable = memo(function TicketsTable({
           ) : (
             tickets.map((ticket) => (
               <tr key={ticket.id} className={tableRowClassName}>
-                <td className={`${tableCellClassName} font-mono text-[11px] font-medium text-slate-900`}>
-                  {ticket.ticketNumber}
-                </td>
-                <td className={`${tableCellClassName} font-mono text-[11px] text-slate-700`}>
-                  {ticket.jobNumber}
+                <td className={tableCellClassName}>
+                  <Link
+                    href={`/delivery-tickets/${ticket.id}`}
+                    className="font-mono text-[11px] font-semibold text-slate-900 hover:text-sky-700 hover:underline"
+                  >
+                    {ticket.ticketNumber}
+                  </Link>
                 </td>
                 <td className={`${tableCellClassName} font-medium text-slate-900`}>
-                  {ticket.projectName}
-                </td>
-                <td className={`${tableCellClassName} text-slate-700`}>
                   {ticket.customer}
+                </td>
+                <td className={tableCellClassName}>
+                  {ticket.jobId ? (
+                    <Link
+                      href={`/jobs/${ticket.jobId}`}
+                      className="font-medium text-sky-700 hover:underline"
+                    >
+                      {ticket.projectName}
+                    </Link>
+                  ) : (
+                    <span className="text-slate-700">{ticket.projectName}</span>
+                  )}
+                  <span className="block font-mono text-[10px] text-slate-400">
+                    {ticket.jobNumber}
+                  </span>
                 </td>
                 <td className={`${tableCellClassName} whitespace-nowrap text-slate-600`}>
                   {ticket.deliveryDate}
@@ -109,20 +122,12 @@ const TicketsTable = memo(function TicketsTable({
                   {ticket.totalWeight}
                 </td>
                 <td className={tableCellClassName}>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <Link
-                      href={`/delivery-tickets/${ticket.id}`}
-                      className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                      View
-                    </Link>
-                    <Link
-                      href={`/delivery-tickets/${ticket.id}/preview`}
-                      className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                      Print
-                    </Link>
-                  </div>
+                  <Link
+                    href={`/delivery-tickets/${ticket.id}/preview`}
+                    className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    Print
+                  </Link>
                 </td>
               </tr>
             ))

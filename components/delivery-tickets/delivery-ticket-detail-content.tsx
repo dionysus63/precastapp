@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
-import { SummaryCard } from "@/components/dashboard/summary-card";
 import { TicketOperationsPanel } from "@/components/delivery-tickets/ticket-operations-panel";
 import { TicketPdfButton } from "@/components/delivery-tickets/ticket-pdf-button";
 import { TicketStatusActions } from "@/components/delivery-tickets/ticket-status-actions";
@@ -17,16 +16,61 @@ import {
   tableHeaderCellClassName,
   tableRowClassName,
 } from "@/lib/table-styles";
-function DetailField({ label, value }: { label: string; value: string }) {
+
+function isBlank(value: string | null | undefined): boolean {
+  return !value || value.trim() === "" || value.trim() === "—";
+}
+
+/** Labeled field that simply doesn't render when the value is empty. */
+function OptionalField({
+  label,
+  value,
+  href,
+}: {
+  label: string;
+  value: string;
+  href?: string | null;
+}) {
+  if (isBlank(value)) {
+    return null;
+  }
   return (
     <div>
       <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
         {label}
       </dt>
-      <dd className="mt-1 text-sm text-slate-900">{value}</dd>
+      <dd className="mt-1 text-sm text-slate-900">
+        {href ? (
+          <Link href={href} className="font-medium text-sky-700 hover:underline">
+            {value}
+          </Link>
+        ) : (
+          value
+        )}
+      </dd>
     </div>
   );
 }
+
+function StatItem({ label, value, detail }: { label: string; value: string; detail?: string | null }) {
+  return (
+    <div>
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+        {label}
+      </div>
+      <div className="mt-0.5 text-sm font-medium text-slate-900">
+        {value}
+        {detail && !isBlank(detail) ? (
+          <span className="ml-1.5 text-xs font-normal text-slate-500">
+            {detail}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+const RELATED_PLACEHOLDERS = new Set(["—", "Not created", "None", "Not uploaded"]);
 
 function RelatedRecordRow({
   label,
@@ -37,12 +81,16 @@ function RelatedRecordRow({
   value: string;
   href: string | null;
 }) {
+  // Placeholder rows without a destination are noise, not information.
+  if (!href && RELATED_PLACEHOLDERS.has(value)) {
+    return null;
+  }
   return (
     <div className="flex items-center justify-between gap-3">
       <dt className="text-slate-500">{label}</dt>
       <dd className="font-medium text-slate-900">
         {href ? (
-          <Link href={href} className="hover:text-slate-700">
+          <Link href={href} className="text-sky-700 hover:underline">
             {value}
           </Link>
         ) : (
@@ -76,6 +124,10 @@ function paymentMethodLabel(method: PickupInfo["paymentMethod"]): string {
   return "Not specified";
 }
 
+function formatLineType(value: string): string {
+  return value.replace(/_/g, " ");
+}
+
 export function DeliveryTicketDetailContent({
   ticket,
   ticketId,
@@ -86,38 +138,23 @@ export function DeliveryTicketDetailContent({
   canManageInvoices = false,
 }: DeliveryTicketDetailContentProps) {
   const isPickup = pickupInfo?.fulfillmentMethod === "PICKUP";
-  const topSummaryCards = [
-    {
-      label: "Status",
-      value: ticket.status,
-      detail: ticket.statusLabel,
-      accent: "amber" as const,
-    },
-    {
-      label: "Delivery Date",
-      value: ticket.deliveryDate,
-      detail: ticket.deliveryTime,
-      accent: "sky" as const,
-    },
-    {
-      label: "Truck",
-      value: ticket.truck,
-      detail: ticket.trailer,
-      accent: "emerald" as const,
-    },
-    {
-      label: "Driver",
-      value: ticket.driver,
-      detail: "Assigned driver",
-      accent: "sky" as const,
-    },
-    {
-      label: "Total Weight",
-      value: ticket.totalWeight,
-      detail: `${ticket.summary.totalItems} items on ticket`,
-      accent: "rose" as const,
-    },
-  ];
+
+  const noteEntries = [
+    ["Driver Notes", ticket.driverNotes],
+    ["Internal Notes", ticket.internalNotes],
+    ["Customer Notes", ticket.customerNotes],
+    ["Loading Notes", ticket.loadingNotes],
+    ["Site Instructions", ticket.siteInstructions],
+  ].filter(([, value]) => !isBlank(value));
+
+  const equipmentBadges = [
+    ticket.craneRequired === "Yes" ? "Crane required" : null,
+    ticket.forkliftRequired === "Yes" ? "Forklift required" : null,
+  ].filter((badge): badge is string => Boolean(badge));
+
+  const jobLine = !isBlank(ticket.jobNumber)
+    ? `${ticket.jobNumber} — ${ticket.projectName}`
+    : ticket.projectName;
 
   return (
     <div className="space-y-4">
@@ -183,66 +220,72 @@ export function DeliveryTicketDetailContent({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {topSummaryCards.map((card) => (
-          <SummaryCard key={card.label} {...card} />
-        ))}
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-3 rounded-xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm">
+        <StatusBadge label={ticket.statusLabel} variant={ticket.statusVariant} />
+        <StatItem
+          label={isPickup ? "Pickup" : "Delivery"}
+          value={ticket.deliveryDate}
+          detail={ticket.deliveryTime}
+        />
+        <StatItem
+          label="Truck / Trailer"
+          value={isBlank(ticket.truck) ? "—" : ticket.truck}
+          detail={isBlank(ticket.trailer) ? null : ticket.trailer}
+        />
+        <StatItem
+          label="Driver"
+          value={isBlank(ticket.driver) ? "—" : ticket.driver}
+        />
+        <StatItem
+          label="Load"
+          value={ticket.totalWeight}
+          detail={`${ticket.summary.totalItems} item${ticket.summary.totalItems === "1" ? "" : "s"}`}
+        />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-4">
-          <SectionCard title="Ticket Information">
+          <SectionCard title="Details">
             <dl className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              <DetailField label="Ticket Number" value={ticket.ticketNumber} />
-              <div>
-                <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
-                  Status
-                </dt>
-                <dd className="mt-1">
-                  <StatusBadge
-                    label={ticket.status}
-                    variant={ticket.statusVariant}
-                  />
-                </dd>
-              </div>
-              <DetailField label="Delivery Date" value={ticket.deliveryDate} />
-              <DetailField label="Delivery Time" value={ticket.deliveryTime} />
-              <DetailField label="Job Number" value={ticket.jobNumber} />
-              <DetailField label="Project Name" value={ticket.projectName} />
-              <DetailField label="Customer" value={ticket.customer} />
-              <DetailField
+              <OptionalField
+                label="Customer"
+                value={ticket.customer}
+                href={ticket.relatedRecords.customerHref}
+              />
+              <OptionalField
+                label={!isBlank(ticket.jobNumber) ? "Job" : "Project"}
+                value={jobLine}
+                href={ticket.relatedRecords.jobHref}
+              />
+              <OptionalField
                 label="Delivery Address"
                 value={ticket.deliveryAddress}
               />
-              <DetailField
-                label="Site Contact Name"
-                value={ticket.siteContactName}
+              <OptionalField
+                label="Site Contact"
+                value={
+                  isBlank(ticket.siteContactName)
+                    ? ticket.siteContactPhone
+                    : isBlank(ticket.siteContactPhone)
+                      ? ticket.siteContactName
+                      : `${ticket.siteContactName} · ${ticket.siteContactPhone}`
+                }
               />
-              <DetailField
-                label="Site Contact Phone"
-                value={ticket.siteContactPhone}
-              />
-              <DetailField label="Requested By" value={ticket.requestedBy} />
-              <DetailField label="Created By" value={ticket.createdBy} />
-            </dl>
-          </SectionCard>
-
-          <SectionCard title="Truck and Driver">
-            <dl className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              <DetailField label="Truck" value={ticket.truck} />
-              <DetailField label="Trailer" value={ticket.trailer} />
-              <DetailField label="Driver" value={ticket.driver} />
-              <DetailField label="Load Sequence" value={ticket.loadSequence} />
-              <DetailField label="Crane Required" value={ticket.craneRequired} />
-              <DetailField
-                label="Forklift Required"
-                value={ticket.forkliftRequired}
-              />
-              <DetailField
-                label="Special Equipment Needed"
+              <OptionalField label="Requested By" value={ticket.requestedBy} />
+              <OptionalField label="Created By" value={ticket.createdBy} />
+              <OptionalField label="Load Sequence" value={ticket.loadSequence} />
+              <OptionalField
+                label="Special Equipment"
                 value={ticket.specialEquipmentNeeded}
               />
             </dl>
+            {equipmentBadges.length > 0 ? (
+              <div className="mt-4 flex flex-wrap gap-1.5">
+                {equipmentBadges.map((badge) => (
+                  <StatusBadge key={badge} label={badge} variant="warning" />
+                ))}
+              </div>
+            ) : null}
           </SectionCard>
 
           <SectionCard title="Delivery Items" noPadding>
@@ -250,75 +293,92 @@ export function DeliveryTicketDetailContent({
               <table className={tableClassName}>
                 <thead>
                   <tr>
-                    <th className={tableHeaderCellClassName}>Line #</th>
-                    <th className={tableHeaderCellClassName}>Type</th>
-                    <th className={tableHeaderCellClassName}>
-                      Item/Structure
-                    </th>
+                    <th className={tableHeaderCellClassName}>Item/Structure</th>
                     <th className={tableHeaderCellClassName}>Description</th>
                     <th className={tableHeaderCellClassName}>Qty</th>
-                    <th className={tableHeaderCellClassName}>Unit</th>
                     <th className={tableHeaderCellClassName}>Weight Each</th>
                     <th className={tableHeaderCellClassName}>Total Weight</th>
-                    <th className={tableHeaderCellClassName}>Yard Location</th>
+                    <th className={tableHeaderCellClassName}>Yard</th>
                     <th className={tableHeaderCellClassName}>Status</th>
-                    <th className={tableHeaderCellClassName}>Notes</th>
                   </tr>
                 </thead>
                 <tbody className={tableBodyClassName}>
                   {ticket.lineItems.map((line) => (
                     <tr key={line.id} className={tableRowClassName}>
-                      <td className={`${tableCellClassName} text-slate-700`}>
-                        {line.lineNumber}
+                      <td className={`${tableCellClassName} align-top`}>
+                        <div className="font-medium text-slate-900">
+                          {line.item}
+                        </div>
+                        <div className="mt-0.5 text-[10px] uppercase tracking-wide text-slate-400">
+                          {formatLineType(line.type)}
+                        </div>
                       </td>
-                      <td className={`${tableCellClassName} font-mono text-[11px] text-slate-600`}>
-                        {line.type}
-                      </td>
-                      <td className={`${tableCellClassName} font-medium text-slate-900`}>
-                        {line.item}
-                      </td>
-                      <td className={`${tableCellClassName} text-slate-600`}>
+                      <td className={`${tableCellClassName} align-top text-slate-600`}>
                         <RichTextContent value={line.description} />
+                        {!isBlank(line.notes) ? (
+                          <div className="mt-1 text-[11px] text-slate-400">
+                            {line.notes}
+                          </div>
+                        ) : null}
                       </td>
-                      <td className={`${tableCellClassName} text-slate-600`}>{line.qty}</td>
-                      <td className={`${tableCellClassName} text-slate-600`}>{line.unit}</td>
-                      <td className={`${tableCellClassName} text-slate-600`}>
+                      <td className={`${tableCellClassName} align-top whitespace-nowrap text-slate-600`}>
+                        {line.qty} {line.unit}
+                      </td>
+                      <td className={`${tableCellClassName} align-top text-slate-600`}>
                         {line.weightEach}
                       </td>
-                      <td className={`${tableCellClassName} font-medium text-slate-900`}>
+                      <td className={`${tableCellClassName} align-top font-medium text-slate-900`}>
                         {line.totalWeight}
                       </td>
-                      <td className={`${tableCellClassName} text-slate-600`}>
+                      <td className={`${tableCellClassName} align-top text-slate-600`}>
                         {line.yardLocation}
                       </td>
-                      <td className={tableCellClassName}>
+                      <td className={`${tableCellClassName} align-top`}>
                         <StatusBadge
                           label={line.status}
                           variant={line.statusVariant}
                         />
                       </td>
-                      <td className={`${tableCellClassName} text-slate-600`}>
-                        {line.notes}
-                      </td>
                     </tr>
                   ))}
                 </tbody>
+                <tfoot className="border-t border-slate-200 bg-slate-50/80">
+                  <tr>
+                    <td
+                      colSpan={2}
+                      className={`${tableCellClassName} text-right font-medium text-slate-700`}
+                    >
+                      Total
+                    </td>
+                    <td className={`${tableCellClassName} whitespace-nowrap text-slate-700`}>
+                      {ticket.summary.totalItems} item
+                      {ticket.summary.totalItems === "1" ? "" : "s"}
+                    </td>
+                    <td className={tableCellClassName} />
+                    <td className={`${tableCellClassName} font-semibold text-slate-900`}>
+                      {ticket.summary.totalWeight}
+                    </td>
+                    <td colSpan={2} className={tableCellClassName} />
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </SectionCard>
 
-          <SectionCard title="Notes">
-            <dl className="grid gap-5">
-              <DetailField label="Driver Notes" value={ticket.driverNotes} />
-              <DetailField label="Internal Notes" value={ticket.internalNotes} />
-              <DetailField label="Customer Notes" value={ticket.customerNotes} />
-              <DetailField label="Loading Notes" value={ticket.loadingNotes} />
-              <DetailField
-                label="Site Instructions"
-                value={ticket.siteInstructions}
-              />
-            </dl>
-          </SectionCard>
+          {noteEntries.length > 0 ? (
+            <SectionCard title="Notes">
+              <dl className="grid gap-5">
+                {noteEntries.map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                      {label}
+                    </dt>
+                    <dd className="mt-1 text-sm text-slate-900">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </SectionCard>
+          ) : null}
         </div>
 
         <aside className="space-y-4">
@@ -359,33 +419,6 @@ export function DeliveryTicketDetailContent({
               </dl>
             </SectionCard>
           ) : null}
-
-          <SectionCard title="Delivery Summary">
-            <dl className="space-y-3 text-xs">
-              {[
-                ["Total Items", ticket.summary.totalItems],
-                ["Total Weight", ticket.summary.totalWeight],
-                ["Truck Capacity", ticket.summary.truckCapacity],
-                ["Remaining Capacity", ticket.summary.remainingCapacity],
-                ["Delivery Date", ticket.summary.deliveryDate],
-                ["Status", ticket.summary.status],
-              ].map(([label, value]) => (
-                <div
-                  key={label}
-                  className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2 last:border-b-0 last:pb-0"
-                >
-                  <dt className="text-slate-500">{label}</dt>
-                  <dd
-                    className={`font-medium ${
-                      label === "Total Weight" ? "text-slate-900" : "text-slate-700"
-                    }`}
-                  >
-                    {value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </SectionCard>
 
           <SectionCard title="Related Records">
             <dl className="space-y-3 text-xs">
