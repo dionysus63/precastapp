@@ -73,7 +73,10 @@ export type JobWithSummaryRelations = Job & {
 };
 
 export type JobBidderWithRelations = JobBidder & {
-  customer: Customer & { contacts: Contact[] };
+  customer: Customer & {
+    contacts: Contact[];
+    contactRoleDefaults: { role: string; contactId: string }[];
+  };
   quotes: Quote[];
 };
 
@@ -157,11 +160,16 @@ function mapBidderContact(contact: Contact): JobBidderContactOption {
   };
 }
 
-function defaultContactIdForBidder(contacts: JobBidderContactOption[]) {
+function defaultContactIdForBidder(
+  contacts: JobBidderContactOption[],
+  estimatingDefaultId: string | null,
+) {
   return (
-    contacts.find((contact) => contact.isPrimary)?.id ??
-    contacts[0]?.id ??
-    null
+    (estimatingDefaultId &&
+      contacts.find((contact) => contact.id === estimatingDefaultId)?.id) ||
+    (contacts.find((contact) => contact.isPrimary)?.id ??
+      contacts[0]?.id ??
+      null)
   );
 }
 
@@ -169,7 +177,14 @@ function mapBidder(bidder: JobBidderWithRelations): JobBidderRow {
   const quote = bidder.quotes[0] ?? null;
   const quoteStatus = quote ? (quote.status as QuoteStatus) : null;
   const contacts = bidder.customer.contacts.map(mapBidderContact);
-  const defaultContactId = defaultContactIdForBidder(contacts);
+  // Bid invitations go to whoever prices work for the contractor.
+  const estimatingDefaultId =
+    bidder.customer.contactRoleDefaults.find((d) => d.role === "ESTIMATING")
+      ?.contactId ?? null;
+  const defaultContactId = defaultContactIdForBidder(
+    contacts,
+    estimatingDefaultId,
+  );
   const selectedContact =
     contacts.find((contact) => contact.id === defaultContactId) ?? null;
 
@@ -177,16 +192,8 @@ function mapBidder(bidder: JobBidderWithRelations): JobBidderRow {
     id: bidder.id,
     customerId: bidder.customerId,
     customerName: bidder.customer.name,
-    contactName:
-      quote?.contactName ??
-      selectedContact?.name ??
-      bidder.customer.primaryContactName ??
-      "—",
-    contactEmail:
-      quote?.contactEmail ??
-      selectedContact?.email ??
-      bidder.customer.email ??
-      "—",
+    contactName: quote?.contactName ?? selectedContact?.name ?? "—",
+    contactEmail: quote?.contactEmail ?? selectedContact?.email ?? "—",
     contactPhone:
       quote?.contactPhone ??
       selectedContact?.phone ??

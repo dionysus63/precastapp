@@ -148,6 +148,8 @@ export type QuoteFormCustomerOption = {
   contactEmail: string;
   contactPhone: string;
   contacts: QuoteFormCustomerContactOption[];
+  /** Contact the customer marked as their estimating default, if any. */
+  estimatingContactId: string | null;
 };
 
 export type QuoteFormJobOption = {

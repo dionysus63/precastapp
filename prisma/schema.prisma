@@ -284,52 +284,82 @@ model ProductDocument {
 }
 
 model Customer {
-  id                 String         @id @default(cuid())
-  name               String
-  status             CustomerStatus @default(ACTIVE)
-  primaryContactName String?
-  phone              String?
-  email              String?
-  address            String?
-  town               String?
-  state              String?
-  zip                String?
-  notes              String?
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
+  id        String         @id @default(cuid())
+  name      String
+  status    CustomerStatus @default(ACTIVE)
+  /// Company main line; person-level phones live on contacts.
+  phone     String?
+  address   String?
+  town      String?
+  state     String?
+  zip       String?
+  notes     String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 
-  contacts        Contact[]
-  jobs            Job[]
-  jobBidders      JobBidder[]
-  quotes          Quote[]
-  deliveryTickets DeliveryTicket[]
-  invoices        Invoice[]
+  contacts            Contact[]
+  contactRoleDefaults CustomerContactRoleDefault[]
+  jobs                Job[]
+  jobBidders          JobBidder[]
+  quotes              Quote[]
+  deliveryTickets     DeliveryTicket[]
+  invoices            Invoice[]
 
   // btree for the list's default name sort and status filter; trigram
-  // indexes back the ILIKE %term% search fields.
+  // index backs the ILIKE %term% name search (person-level search moved
+  // to the Contact trigram indexes).
   @@index([name])
   @@index([status])
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Customer_name_trgm_idx")
-  @@index([primaryContactName(ops: raw("gin_trgm_ops"))], type: Gin, map: "Customer_primaryContactName_trgm_idx")
-  @@index([email(ops: raw("gin_trgm_ops"))], type: Gin, map: "Customer_email_trgm_idx")
+}
+
+/// What a contact handles for the customer; drives role-based defaults
+/// (quotes -> ESTIMATING, invoices -> BILLING, delivery tickets -> FIELD).
+enum ContactRole {
+  ESTIMATING
+  BILLING
+  FIELD
 }
 
 model Contact {
-  id         String   @id @default(cuid())
+  id         String        @id @default(cuid())
   customerId String
   name       String
   title      String?
   phone      String?
   email      String?
-  isPrimary  Boolean  @default(false)
+  /// General fallback contact (UI "Main") when no role default applies.
+  isPrimary  Boolean       @default(false)
+  roles      ContactRole[] @default([])
   notes      String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
 
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  quotes   Quote[]
+  customer     Customer                     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  quotes       Quote[]
+  roleDefaults CustomerContactRoleDefault[]
 
   @@index([customerId])
+  // Trigram indexes back the customer directory's person search now that
+  // the mirrored header columns are gone.
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Contact_name_trgm_idx")
+  @@index([email(ops: raw("gin_trgm_ops"))], type: Gin, map: "Contact_email_trgm_idx")
+}
+
+/// One default contact per role per customer (DB-enforced via the unique).
+model CustomerContactRoleDefault {
+  id         String      @id @default(cuid())
+  customerId String
+  role       ContactRole
+  contactId  String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contact  Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, role])
+  @@index([contactId])
 }
 
 model Job {

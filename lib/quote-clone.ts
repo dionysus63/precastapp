@@ -1,5 +1,5 @@
 import { Prisma, type Prisma as PrismaTypes } from "@/app/generated/prisma/client";
-import { getPrimaryContactForCustomer, contactToSnapshot } from "@/lib/customer-contact-sync";
+import { getDefaultContactForRole, contactToSnapshot } from "@/lib/customer-contacts";
 import { generateQuoteNumber } from "@/lib/quote-number";
 import {
   computeQuoteTotalsFromLines,
@@ -68,7 +68,12 @@ export async function cloneQuoteForBidder(
     }
     contactSnapshot = contactToSnapshot(selectedContact);
   } else {
-    contactSnapshot = await getPrimaryContactForCustomer(tx, customer.id);
+    // Bidder quotes go to whoever prices work for the contractor.
+    contactSnapshot = await getDefaultContactForRole(
+      tx,
+      customer.id,
+      "ESTIMATING",
+    );
   }
 
   const primaryContact = contactSnapshot;
@@ -93,14 +98,10 @@ export async function cloneQuoteForBidder(
       scopeLabel: template.scopeLabel,
       projectAddress: job?.projectAddress ?? template.projectAddress,
       contactName:
-        primaryContact?.contactName ??
-        job?.contactName ??
-        customer.primaryContactName ??
-        template.contactName,
+        primaryContact?.contactName ?? job?.contactName ?? template.contactName,
       contactEmail:
         primaryContact?.contactEmail ??
         job?.contactEmail ??
-        customer.email ??
         template.contactEmail,
       contactPhone:
         primaryContact?.contactPhone ??

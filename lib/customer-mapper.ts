@@ -7,7 +7,9 @@ import type {
   Quote,
 } from "@/app/generated/prisma/client";
 import type {
+  ContactRoleValue,
   CustomerContactRow,
+  CustomerDetailStats,
   CustomerDetailView,
   CustomerRelatedDeliveryTicket,
   CustomerRelatedInvoice,
@@ -71,9 +73,8 @@ export function mapCustomerToRow(
   return {
     id: customer.id,
     name: customer.name,
-    primaryContact: customer.primaryContactName ?? "—",
     phone: customer.phone ?? "—",
-    email: customer.email ?? "—",
+    town: customer.town ?? "—",
     status: customerStatusLabels[customer.status] ?? customer.status,
     statusVariant: customerStatusVariant(customer.status),
     openQuotes: aggregates?.openQuotes ?? 0,
@@ -155,7 +156,10 @@ export function mapInvoiceToCustomerRelated(
   };
 }
 
-export function mapContactToRow(contact: Contact): CustomerContactRow {
+export function mapContactToRow(
+  contact: Contact,
+  defaultForRoles: ContactRoleValue[] = [],
+): CustomerContactRow {
   return {
     id: contact.id,
     name: contact.name,
@@ -163,6 +167,8 @@ export function mapContactToRow(contact: Contact): CustomerContactRow {
     email: contact.email ?? "—",
     phone: contact.phone ?? "—",
     isPrimary: contact.isPrimary,
+    roles: contact.roles as ContactRoleValue[],
+    defaultForRoles,
     notes: contact.notes ?? "—",
   };
 }
@@ -174,17 +180,34 @@ export function mapCustomerToDetailView(
   relatedDeliveryTickets: DeliveryTicket[] = [],
   contacts: Contact[] = [],
   relatedInvoices: Invoice[] = [],
+  roleDefaults: { role: string; contactId: string }[] = [],
+  stats: CustomerDetailStats = {
+    openJobs: 0,
+    totalJobs: 0,
+    openQuotes: 0,
+    totalQuotes: 0,
+    scheduledTickets: 0,
+    totalTickets: 0,
+    unpaidInvoices: 0,
+    totalInvoices: 0,
+    unpaidTotal: "$0",
+  },
 ): CustomerDetailView {
   const row = mapCustomerToRow(customer);
+  const defaultsByContact = new Map<string, ContactRoleValue[]>();
+  for (const d of roleDefaults) {
+    const list = defaultsByContact.get(d.contactId) ?? [];
+    list.push(d.role as ContactRoleValue);
+    defaultsByContact.set(d.contactId, list);
+  }
 
   return {
     id: customer.id,
     name: customer.name,
     status: row.status,
     statusVariant: row.statusVariant,
-    primaryContact: row.primaryContact,
+    stats,
     phone: row.phone,
-    email: row.email,
     address: customer.address ?? "—",
     town: customer.town ?? "—",
     state: customer.state ?? "—",
@@ -192,7 +215,9 @@ export function mapCustomerToDetailView(
     notes: customer.notes ?? "—",
     createdAt: formatCustomerDate(customer.createdAt),
     updatedAt: formatCustomerDate(customer.updatedAt),
-    contacts: contacts.map(mapContactToRow),
+    contacts: contacts.map((contact) =>
+      mapContactToRow(contact, defaultsByContact.get(contact.id) ?? []),
+    ),
     relatedJobs: relatedJobs.map(mapJobToCustomerRelated),
     relatedQuotes: relatedQuotes.map(mapQuoteToCustomerRelated),
     relatedDeliveryTickets: relatedDeliveryTickets.map(mapDeliveryTicketToCustomerRelated),

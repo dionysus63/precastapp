@@ -36,8 +36,17 @@ export function formatQuoteYards(value: number): string {
 
 export function pickDefaultCustomerContact(
   contacts: import("@/lib/quotes/types").QuoteFormCustomerContactOption[],
+  estimatingContactId?: string | null,
 ) {
-  return contacts.find((contact) => contact.isPrimary) ?? contacts[0] ?? null;
+  // Quotes go to whoever prices work: estimating default -> Main -> first.
+  return (
+    (estimatingContactId
+      ? contacts.find((contact) => contact.id === estimatingContactId)
+      : null) ??
+    contacts.find((contact) => contact.isPrimary) ??
+    contacts[0] ??
+    null
+  );
 }
 
 export function getLineItemTotal(

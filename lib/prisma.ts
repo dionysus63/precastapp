@@ -93,7 +93,8 @@ function isPrismaClientStale(client: PrismaClient) {
     !("appSettings" in client) ||
     !("jobFile" in client) ||
     !("user" in client) ||
-    !("jobFavorite" in client)
+    !("jobFavorite" in client) ||
+    !("customerContactRoleDefault" in client)
   ) {
     return true;
   }

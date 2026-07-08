@@ -1,4 +1,4 @@
-import type { Customer } from "@/app/generated/prisma/client";
+import type { Contact, Customer } from "@/app/generated/prisma/client";
 import { customerStatusFormOptions } from "@/components/customers/customer-utils";
 import {
   buildWorkbookBuffer,
@@ -14,9 +14,13 @@ const customerStatusLabels = Object.fromEntries(
 export const customerExportHeaders = [
   "Name",
   "Status",
-  "Primary Contact",
-  "Phone",
-  "Email",
+  "Company Phone",
+  "Main Contact",
+  "Main Contact Phone",
+  "Main Contact Email",
+  "Estimating Contact",
+  "Billing Contact",
+  "Field Contact",
   "Address",
   "Town",
   "State",
@@ -27,13 +31,36 @@ export const customerExportHeaders = [
   "Updated",
 ] as const;
 
-function mapCustomerToExportRow(customer: Customer): unknown[] {
+type CustomerWithContacts = Customer & {
+  contacts: Contact[];
+  contactRoleDefaults: { role: string; contactId: string }[];
+};
+
+function roleContactName(
+  customer: CustomerWithContacts,
+  role: string,
+): string | null {
+  const contactId = customer.contactRoleDefaults.find(
+    (d) => d.role === role,
+  )?.contactId;
+  if (!contactId) return null;
+  return customer.contacts.find((c) => c.id === contactId)?.name ?? null;
+}
+
+function mapCustomerToExportRow(customer: CustomerWithContacts): unknown[] {
+  const main =
+    customer.contacts.find((c) => c.isPrimary) ?? customer.contacts[0] ?? null;
+
   return [
     customer.name,
     customerStatusLabels[customer.status] ?? customer.status,
-    formatOptionalString(customer.primaryContactName),
     formatOptionalString(customer.phone),
-    formatOptionalString(customer.email),
+    formatOptionalString(main?.name ?? null),
+    formatOptionalString(main?.phone ?? null),
+    formatOptionalString(main?.email ?? null),
+    formatOptionalString(roleContactName(customer, "ESTIMATING")),
+    formatOptionalString(roleContactName(customer, "BILLING")),
+    formatOptionalString(roleContactName(customer, "FIELD")),
     formatOptionalString(customer.address),
     formatOptionalString(customer.town),
     formatOptionalString(customer.state),
@@ -48,6 +75,10 @@ function mapCustomerToExportRow(customer: Customer): unknown[] {
 export async function buildCustomersExportBuffer(): Promise<Buffer> {
   const customers = await prisma.customer.findMany({
     orderBy: { name: "asc" },
+    include: {
+      contacts: { orderBy: [{ isPrimary: "desc" }, { name: "asc" }] },
+      contactRoleDefaults: { select: { role: true, contactId: true } },
+    },
   });
 
   return buildWorkbookBuffer(

@@ -10,6 +10,7 @@ import type {
   TicketPaymentMethod,
 } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import { getDefaultContactForRole } from "@/lib/customer-contacts";
 import { allocateDeliveryTicketNumber } from "@/lib/delivery-ticket-number";
 import {
   cancelDeliveredTicket,
@@ -441,10 +442,35 @@ export async function createDeliveryTicket(
           await assertQuoteLinkable(tx, input.quoteId);
         }
         await validateLines(tx, input);
+
+        // New tickets with a known customer and no site contact default to
+        // the customer's FIELD contact so the driver has someone to call.
+        let effectiveInput = input;
+        if (
+          input.customerId &&
+          !input.siteContactName?.trim() &&
+          !input.siteContactPhone?.trim() &&
+          !input.siteContactEmail?.trim()
+        ) {
+          const fieldContact = await getDefaultContactForRole(
+            tx,
+            input.customerId,
+            "FIELD",
+          );
+          if (fieldContact) {
+            effectiveInput = {
+              ...input,
+              siteContactName: fieldContact.contactName,
+              siteContactPhone: fieldContact.contactPhone,
+              siteContactEmail: fieldContact.contactEmail,
+            };
+          }
+        }
+
         const numbering = await allocateDeliveryTicketNumber(tx);
         return tx.deliveryTicket.create({
           data: {
-            ...ticketData({ ...input, priceListId: defaultPriceListId }),
+            ...ticketData({ ...effectiveInput, priceListId: defaultPriceListId }),
             ticketNumber: numbering.ticketNumber,
             year: numbering.year,
             yearTwoDigit: numbering.yearTwoDigit,

@@ -5,29 +5,32 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
-  checkBulkCustomerDbDuplicates,
-  importCustomers,
-} from "@/app/customers/actions";
-import { customerInputClassName } from "@/components/customers/customer-form";
-import {
-  type BulkCustomerPasteRow,
-  bulkPasteColumnHeaders,
-  bulkPasteExample,
-  markBulkPasteDuplicateRows,
-  validateBulkCustomerPasteRow,
-} from "@/components/customers/customer-utils";
+  checkBulkContactDbState,
+  importContacts,
+} from "@/app/customers/contact-actions";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
+import {
+  bulkContactColumnHeaders,
+  bulkContactExample,
+  bulkContactRowKey,
+  contactRoleLabels,
+  markBulkContactDuplicateRows,
+  validateBulkContactPasteRow,
+  type BulkContactPasteRow,
+} from "@/components/customers/customer-utils";
 
 import {
   tableBodyClassName,
+  tableCellBordersClassName,
   tableCellClassName,
   tableClassName,
   tableFlushWrapperClassName,
   tableHeaderCellClassName,
   tableRowClassName,
 } from "@/lib/table-styles";
-function parseBulkPaste(text: string): BulkCustomerPasteRow[] {
+
+function parseBulkContactPaste(text: string): BulkContactPasteRow[] {
   const lines = text
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -38,38 +41,28 @@ function parseBulkPaste(text: string): BulkCustomerPasteRow[] {
     const cells = line.split(delimiter).map((cell) => cell.trim());
 
     const [
+      customer = "",
       name = "",
-      status = "",
+      title = "",
+      rolesRaw = "",
       phone = "",
-      address = "",
-      town = "",
-      state = "",
-      zip = "",
+      email = "",
       notes = "",
     ] = cells;
 
-    return validateBulkCustomerPasteRow(
-      {
-        name,
-        status,
-        phone,
-        address,
-        town,
-        state,
-        zip,
-        notes,
-      },
+    return validateBulkContactPasteRow(
+      { customer, name, title, rolesRaw, phone, email, notes },
       index + 1,
     );
   });
 
-  return markBulkPasteDuplicateRows(rows);
+  return markBulkContactDuplicateRows(rows);
 }
 
-export function BulkPasteForm() {
+export function BulkContactPasteForm() {
   const router = useRouter();
   const [pasteText, setPasteText] = useState("");
-  const [previewRows, setPreviewRows] = useState<BulkCustomerPasteRow[]>([]);
+  const [previewRows, setPreviewRows] = useState<BulkContactPasteRow[]>([]);
   const [hasParsed, setHasParsed] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [importComplete, setImportComplete] = useState(false);
@@ -83,42 +76,49 @@ export function BulkPasteForm() {
   const invalidCount = previewRows.length - validCount;
 
   function handleParsePreview() {
-    const rows = parseBulkPaste(pasteText);
+    const rows = parseBulkContactPaste(pasteText);
     setPreviewRows(rows);
     setHasParsed(true);
     setImportComplete(false);
 
-    const namesToCheck = rows
-      .filter((row) => row.isValid && row.name.trim())
-      .map((row) => row.name);
+    const rowsToCheck = rows
+      .filter((row) => row.isValid)
+      .map((row) => ({ customer: row.customer, name: row.name }));
 
-    if (namesToCheck.length > 0) {
-      checkBulkCustomerDbDuplicates(namesToCheck)
-        .then((duplicates) => {
+    if (rowsToCheck.length > 0) {
+      checkBulkContactDbState(rowsToCheck)
+        .then((state) => {
+          const unknown = new Set(state.unknownCustomers);
+          const existing = new Set(state.existingContacts);
           setPreviewRows((current) =>
             current.map((row) => {
-              const match = duplicates[row.name];
-              if (!match) {
-                return row;
+              const issues = [...row.issues];
+              let isValid = row.isValid;
+              if (unknown.has(row.customer.trim().toLowerCase())) {
+                issues.push(
+                  "No customer with this exact name — row will be skipped.",
+                );
+                isValid = false;
+              } else if (existing.has(bulkContactRowKey(row))) {
+                issues.push(
+                  "This customer already has a contact with this name — row will be skipped.",
+                );
+                isValid = false;
               }
-              return {
-                ...row,
-                issues: [
-                  ...row.issues,
-                  `Possible duplicate of existing customer "${match}".`,
-                ],
-              };
+              return issues.length === row.issues.length
+                ? row
+                : { ...row, issues, isValid };
             }),
           );
         })
         .catch(() => {
-          // Permission error or network failure — skip duplicate detection.
+          // Permission error or network failure — the import re-checks anyway.
         });
     }
   }
 
   function handleLoadExample() {
-    setPasteText(bulkPasteExample);
+    setPasteText(bulkContactExample);
     setPreviewRows([]);
     setHasParsed(false);
     setImportComplete(false);
@@ -133,7 +133,7 @@ export function BulkPasteForm() {
   }
 
   function handleImport() {
-    if (importComplete) {
+    if (isPending || importComplete) {
       return;
     }
 
@@ -144,32 +144,31 @@ export function BulkPasteForm() {
 
     const formData = new FormData();
     formData.set(
-      "customers",
+      "contacts",
       JSON.stringify(
-        validRows.map(
-          ({ name, status, phone, address, town, state, zip, notes }) => ({
-            name,
-            status,
-            phone,
-            address,
-            town,
-            state,
-            zip,
-            notes,
-          }),
-        ),
+        validRows.map(({ customer, name, title, roles, phone, email, notes }) => ({
+          customer,
+          name,
+          title,
+          roles,
+          phone,
+          email,
+          notes,
+        })),
       ),
     );
 
     startTransition(async () => {
       try {
         setErrorMessage(null);
-        const result = await importCustomers(formData);
+        const result = await importContacts(formData);
         setImportComplete(true);
+        const skipped =
+          result.skippedUnknownCustomer + result.skippedExisting;
         toast.success(
-          `Imported ${result.imported} customer${result.imported === 1 ? "" : "s"}.`,
+          `Imported ${result.imported} contact${result.imported === 1 ? "" : "s"}${skipped > 0 ? ` (${skipped} skipped)` : ""}.`,
         );
-        router.push(`/customers?imported=${result.imported}`);
+        router.push("/customers");
         router.refresh();
       } catch (error) {
         setErrorMessage(
@@ -183,7 +182,7 @@ export function BulkPasteForm() {
     <div className="space-y-4">
       <SectionCard
         title="Paste from Excel"
-        description="Copy customer rows from Excel and paste below. Columns should be tab-separated. Empty status defaults to Active."
+        description="Copy contact rows from Excel and paste below. Columns should be tab-separated. Rows match customers by exact name; unknown customers are skipped."
       >
         <div className="space-y-4">
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -191,24 +190,29 @@ export function BulkPasteForm() {
               Expected column order
             </p>
             <p className="mt-1 text-[11px] text-slate-500">
-              {bulkPasteColumnHeaders.join(" → ")}
+              {bulkContactColumnHeaders.join(" → ")}
+            </p>
+            <p className="mt-1 text-[11px] text-slate-500">
+              Roles accepts comma-separated values: Estimating, Billing, Field
+              (est / bill / ap / site work too). The first contact imported for
+              a role becomes the customer&apos;s default for it.
             </p>
           </div>
 
           <div>
             <label
-              htmlFor="bulkPaste"
+              htmlFor="bulkContactPaste"
               className="block text-xs font-medium text-slate-700"
             >
               Paste Excel rows
             </label>
             <textarea
-              id="bulkPaste"
+              id="bulkContactPaste"
+              rows={8}
               value={pasteText}
               onChange={(event) => setPasteText(event.target.value)}
-              rows={10}
-              placeholder="Paste copied Excel rows here..."
-              className={`${customerInputClassName} font-mono text-[11px]`}
+              placeholder={bulkContactExample.trimEnd()}
+              className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-[11px] text-slate-900 shadow-sm placeholder:text-slate-400"
             />
           </div>
 
@@ -216,7 +220,8 @@ export function BulkPasteForm() {
             <button
               type="button"
               onClick={handleParsePreview}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+              disabled={!pasteText.trim()}
+              className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Parse Preview
             </button>
@@ -241,7 +246,7 @@ export function BulkPasteForm() {
       {hasParsed ? (
         <SectionCard
           title="Import Preview"
-          description={`${validCount} valid row${validCount === 1 ? "" : "s"}, ${invalidCount} with issues`}
+          description={`${validCount} valid row${validCount === 1 ? "" : "s"}, ${invalidCount} skipped or with issues`}
           noPadding
         >
           {previewRows.length === 0 ? (
@@ -255,13 +260,12 @@ export function BulkPasteForm() {
                   <tr>
                     <th className={tableHeaderCellClassName}>Line</th>
                     <th className={tableHeaderCellClassName}>Status</th>
+                    <th className={tableHeaderCellClassName}>Customer</th>
                     <th className={tableHeaderCellClassName}>Name</th>
-                    <th className={tableHeaderCellClassName}>Customer Status</th>
+                    <th className={tableHeaderCellClassName}>Title</th>
+                    <th className={tableHeaderCellClassName}>Roles</th>
                     <th className={tableHeaderCellClassName}>Phone</th>
-                    <th className={tableHeaderCellClassName}>Address</th>
-                    <th className={tableHeaderCellClassName}>Town</th>
-                    <th className={tableHeaderCellClassName}>State</th>
-                    <th className={tableHeaderCellClassName}>Zip</th>
+                    <th className={tableHeaderCellClassName}>Email</th>
                     <th className={tableHeaderCellClassName}>Notes</th>
                     <th className={tableHeaderCellClassName}>Issues</th>
                   </tr>
@@ -274,30 +278,31 @@ export function BulkPasteForm() {
                       </td>
                       <td className={tableCellClassName}>
                         <StatusBadge
-                          label={row.isValid ? "Valid" : "Invalid"}
+                          label={row.isValid ? "Valid" : "Skipped"}
                           variant={row.isValid ? "success" : "danger"}
                         />
+                      </td>
+                      <td className={`${tableCellClassName} text-slate-700`}>
+                        {row.customer || "—"}
                       </td>
                       <td className={`${tableCellClassName} font-medium text-slate-900`}>
                         {row.name || "—"}
                       </td>
                       <td className={`${tableCellClassName} text-slate-600`}>
-                        {row.status || "Active"}
+                        {row.title || "—"}
+                      </td>
+                      <td className={`${tableCellClassName} text-slate-600`}>
+                        {row.roles.length > 0
+                          ? row.roles
+                              .map((role) => contactRoleLabels[role] ?? role)
+                              .join(", ")
+                          : "—"}
                       </td>
                       <td className={`${tableCellClassName} text-slate-600`}>
                         {row.phone || "—"}
                       </td>
                       <td className={`${tableCellClassName} text-slate-600`}>
-                        {row.address || "—"}
-                      </td>
-                      <td className={`${tableCellClassName} text-slate-600`}>
-                        {row.town || "—"}
-                      </td>
-                      <td className={`${tableCellClassName} text-slate-600`}>
-                        {row.state || "—"}
-                      </td>
-                      <td className={`${tableCellClassName} text-slate-600`}>
-                        {row.zip || "—"}
+                        {row.email || "—"}
                       </td>
                       <td className={`${tableCellClassName} text-slate-600`}>
                         {row.notes || "—"}
@@ -331,7 +336,7 @@ export function BulkPasteForm() {
               >
                 {isPending
                   ? "Importing..."
-                  : `Import ${validCount} Customer${validCount === 1 ? "" : "s"}`}
+                  : `Import ${validCount} Contact${validCount === 1 ? "" : "s"}`}
               </button>
             </div>
           </div>

@@ -29,12 +29,15 @@ type InvoiceDetailContentProps = {
   invoice: InvoiceDetailView;
   ticketId?: string | null;
   canManage?: boolean;
+  /** Customer's billing-role default contact, e.g. "Dana Whitfield · ap@x.com". */
+  billingContact?: string | null;
 };
 
 export function InvoiceDetailContent({
   invoice,
   ticketId,
   canManage = false,
+  billingContact,
 }: InvoiceDetailContentProps) {
   const summaryCards = [
     {
@@ -107,6 +110,10 @@ export function InvoiceDetailContent({
                 </dd>
               </div>
               <DetailField label="Customer" value={invoice.customerName} />
+              <DetailField
+                label="Billing Contact"
+                value={billingContact ?? "—"}
+              />
               <DetailField label="Project" value={invoice.projectName} />
               <DetailField label="Job Number" value={invoice.jobNumber} />
               <DetailField label="Delivery Ticket" value={invoice.ticketNumber} />

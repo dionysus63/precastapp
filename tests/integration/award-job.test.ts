@@ -31,9 +31,15 @@ beforeAll(async () => {
   const winnerCustomer = await prisma.customer.create({
     data: {
       name: `${tag} Winner Co`,
-      primaryContactName: "Winner Contact",
-      email: "winner@example.com",
       phone: "555-0001",
+      contacts: {
+        create: {
+          name: "Winner Contact",
+          email: "winner@example.com",
+          phone: "555-0001",
+          isPrimary: true,
+        },
+      },
     },
   });
   const loserCustomer = await prisma.customer.create({

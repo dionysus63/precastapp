@@ -71,8 +71,6 @@ const QUOTE_SERVICE_OPTION_SELECT = {
 export const QUOTE_FORM_CUSTOMER_SELECT = {
   id: true,
   name: true,
-  primaryContactName: true,
-  email: true,
   phone: true,
   contacts: {
     orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
@@ -84,6 +82,10 @@ export const QUOTE_FORM_CUSTOMER_SELECT = {
       phone: true,
       isPrimary: true,
     },
+  },
+  contactRoleDefaults: {
+    where: { role: "ESTIMATING" },
+    select: { contactId: true },
   },
 } satisfies Prisma.CustomerSelect;
 
@@ -181,12 +183,24 @@ export async function loadPipeProductsForQuoteForm(priceListId: string | null) {
 export function mapCustomerToQuoteFormOption(
   customer: QuoteFormCustomerRow,
 ): QuoteFormCustomerOption {
+  const estimatingContactId =
+    customer.contactRoleDefaults[0]?.contactId ?? null;
+  // Header-level contact fields come from the default contact now that the
+  // customer record no longer mirrors one: estimating default -> Main -> first.
+  const defaultContact =
+    (estimatingContactId
+      ? customer.contacts.find((c) => c.id === estimatingContactId)
+      : null) ??
+    customer.contacts.find((c) => c.isPrimary) ??
+    customer.contacts[0] ??
+    null;
+
   return {
     id: customer.id,
     name: customer.name,
-    contactName: customer.primaryContactName ?? "",
-    contactEmail: customer.email ?? "",
-    contactPhone: customer.phone ?? "",
+    contactName: defaultContact?.name ?? "",
+    contactEmail: defaultContact?.email ?? "",
+    contactPhone: defaultContact?.phone ?? customer.phone ?? "",
     contacts: customer.contacts.map((contact) => ({
       id: contact.id,
       name: contact.name,
@@ -195,6 +209,7 @@ export function mapCustomerToQuoteFormOption(
       phone: contact.phone ?? "",
       isPrimary: contact.isPrimary,
     })),
+    estimatingContactId,
   };
 }
 

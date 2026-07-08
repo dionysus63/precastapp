@@ -214,8 +214,12 @@ export function QuoteForm({
 }: QuoteFormProps) {
   const router = useRouter();
   const isEditing = Boolean(quoteId && initialValues);
-  const initialSelectedContact =
-    initialCustomer ? pickDefaultCustomerContact(initialCustomer.contacts) : null;
+  const initialSelectedContact = initialCustomer
+    ? pickDefaultCustomerContact(
+        initialCustomer.contacts,
+        initialCustomer.estimatingContactId,
+      )
+    : null;
   const baseEstimatorOptions =
     quoteDefaults?.estimators?.length
       ? quoteDefaults.estimators
@@ -724,7 +728,10 @@ export function QuoteForm({
     }
 
     setCustomerName(customer.name);
-    const defaultContact = pickDefaultCustomerContact(customer.contacts);
+    const defaultContact = pickDefaultCustomerContact(
+      customer.contacts,
+      customer.estimatingContactId,
+    );
     if (defaultContact) {
       applyContactSelection(defaultContact);
     } else {

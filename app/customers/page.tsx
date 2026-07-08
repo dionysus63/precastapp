@@ -15,9 +15,8 @@ import type { Prisma } from "@/app/generated/prisma/client";
 
 const CUSTOMER_SORT_FIELDS = {
   name: "name",
-  primaryContact: "primaryContactName",
   phone: "phone",
-  email: "email",
+  town: "town",
   status: "status",
   lastActivity: "updatedAt",
 } as const;
@@ -64,10 +63,20 @@ export default async function CustomersPage({
   const baseWhere: Prisma.CustomerWhereInput = {
     ...(search
       ? {
+          // Person-level search goes through the contacts relation (backed
+          // by the Contact name/email trigram indexes).
           OR: [
             { name: { contains: search, mode: "insensitive" } },
-            { primaryContactName: { contains: search, mode: "insensitive" } },
-            { email: { contains: search, mode: "insensitive" } },
+            {
+              contacts: {
+                some: {
+                  OR: [
+                    { name: { contains: search, mode: "insensitive" } },
+                    { email: { contains: search, mode: "insensitive" } },
+                  ],
+                },
+              },
+            },
           ],
         }
       : {}),

@@ -2,11 +2,8 @@ import { notFound } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { CustomerDetailContent } from "@/components/customers/customer-detail-content";
 import { mapCustomerToDetailView } from "@/lib/customer-mapper";
-import {
-  ensurePrimaryContactBackfill,
-  hasPrimaryContactData,
-  syncCustomerHeaderFromPrimaryContact,
-} from "@/lib/customer-contact-sync";
+import { formatUsd } from "@/lib/format";
+import { OPEN_STATUSES } from "@/lib/quotes/list-summary";
 import { withDatabaseRetry } from "@/lib/prisma";
 
 type CustomerDetailPageProps = {
@@ -18,8 +15,8 @@ export default async function CustomerDetailPage({
 }: CustomerDetailPageProps) {
   const { id } = await params;
 
-  const customer = await withDatabaseRetry(async (prisma) => {
-    const record = await prisma.customer.findUnique({
+  const customer = await withDatabaseRetry((prisma) =>
+    prisma.customer.findUnique({
       where: { id },
       include: {
         jobs: {
@@ -28,90 +25,94 @@ export default async function CustomerDetailPage({
         contacts: {
           orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
         },
+        contactRoleDefaults: true,
       },
-    });
-
-    if (!record) {
-      return null;
-    }
-
-    // Backfill only migrates legacy header data when no contacts exist yet.
-    const needsBackfill =
-      record.contacts.length === 0 &&
-      hasPrimaryContactData({
-        name: record.primaryContactName,
-        phone: record.phone,
-        email: record.email,
-      });
-
-    // Sync mirrors the earliest-created primary contact onto the header;
-    // when they already match, running it would be a no-op write.
-    const primary =
-      record.contacts
-        .filter((contact) => contact.isPrimary)
-        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[0] ??
-      null;
-    const headerInSync =
-      record.primaryContactName === (primary?.name ?? null) &&
-      record.phone === (primary?.phone ?? null) &&
-      record.email === (primary?.email ?? null);
-
-    if (!needsBackfill && headerInSync) {
-      return record;
-    }
-
-    await ensurePrimaryContactBackfill(prisma, id);
-    await syncCustomerHeaderFromPrimaryContact(prisma, id);
-
-    return prisma.customer.findUnique({
-      where: { id },
-      include: {
-        jobs: {
-          orderBy: { updatedAt: "desc" },
-        },
-        contacts: {
-          orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
-        },
-      },
-    });
-  });
+    }),
+  );
 
   if (!customer) {
     notFound();
   }
 
-  // Independent of each other — run in parallel. All are capped: years of
-  // history belong on the dedicated list pages, not the profile.
-  const [relatedQuotes, relatedDeliveryTickets, relatedInvoices] =
-    await Promise.all([
-      withDatabaseRetry((prisma) =>
-        prisma.quote.findMany({
-          where: {
-            OR: [{ customerId: customer.id }, { customerName: customer.name }],
-          },
-          orderBy: { updatedAt: "desc" },
-          take: 25,
-        }),
-      ),
-      withDatabaseRetry((prisma) =>
-        prisma.deliveryTicket.findMany({
-          where: {
-            OR: [{ customerId: customer.id }, { customerName: customer.name }],
-          },
-          orderBy: { updatedAt: "desc" },
-          take: 20,
-        }),
-      ),
-      withDatabaseRetry((prisma) =>
-        prisma.invoice.findMany({
-          where: {
-            OR: [{ customerId: customer.id }, { customerName: customer.name }],
-          },
-          orderBy: { updatedAt: "desc" },
-          take: 20,
-        }),
-      ),
-    ]);
+  const relatedWhere = {
+    OR: [{ customerId: customer.id }, { customerName: customer.name }],
+  };
+
+  // Independent of each other — run in parallel. The lists are capped (years
+  // of history belong on the dedicated list pages); the counts back the stat
+  // strip and section summaries so they stay accurate past the caps.
+  const [
+    relatedQuotes,
+    relatedDeliveryTickets,
+    relatedInvoices,
+    openQuotes,
+    totalQuotes,
+    scheduledTickets,
+    totalTickets,
+    unpaidInvoiceAgg,
+    totalInvoices,
+  ] = await Promise.all([
+    withDatabaseRetry((prisma) =>
+      prisma.quote.findMany({
+        where: relatedWhere,
+        orderBy: { updatedAt: "desc" },
+        take: 25,
+      }),
+    ),
+    withDatabaseRetry((prisma) =>
+      prisma.deliveryTicket.findMany({
+        where: relatedWhere,
+        orderBy: { updatedAt: "desc" },
+        take: 20,
+      }),
+    ),
+    withDatabaseRetry((prisma) =>
+      prisma.invoice.findMany({
+        where: relatedWhere,
+        orderBy: { updatedAt: "desc" },
+        take: 20,
+      }),
+    ),
+    withDatabaseRetry((prisma) =>
+      prisma.quote.count({
+        where: { ...relatedWhere, status: { in: [...OPEN_STATUSES] } },
+      }),
+    ),
+    withDatabaseRetry((prisma) => prisma.quote.count({ where: relatedWhere })),
+    withDatabaseRetry((prisma) =>
+      prisma.deliveryTicket.count({
+        where: {
+          ...relatedWhere,
+          status: { in: ["SCHEDULED", "LOADING", "IN_TRANSIT"] },
+        },
+      }),
+    ),
+    withDatabaseRetry((prisma) =>
+      prisma.deliveryTicket.count({ where: relatedWhere }),
+    ),
+    withDatabaseRetry((prisma) =>
+      prisma.invoice.aggregate({
+        where: { ...relatedWhere, status: "SENT" },
+        _count: { _all: true },
+        _sum: { total: true },
+      }),
+    ),
+    withDatabaseRetry((prisma) =>
+      prisma.invoice.count({ where: relatedWhere }),
+    ),
+  ]);
+
+  const OPEN_JOB_STATUSES = new Set([
+    "LEAD",
+    "QUOTING",
+    "SUBMITTED",
+    "AWARDED",
+    "ACTIVE",
+    "ON_HOLD",
+  ]);
+  const openJobs = customer.jobs.filter((job) =>
+    OPEN_JOB_STATUSES.has(job.status),
+  ).length;
 
   const detail = mapCustomerToDetailView(
     customer,
@@ -120,6 +121,18 @@ export default async function CustomerDetailPage({
     relatedDeliveryTickets,
     customer.contacts,
     relatedInvoices,
+    customer.contactRoleDefaults,
+    {
+      openJobs,
+      totalJobs: customer.jobs.length,
+      openQuotes,
+      totalQuotes,
+      scheduledTickets,
+      totalTickets,
+      unpaidInvoices: unpaidInvoiceAgg._count._all,
+      totalInvoices,
+      unpaidTotal: formatUsd(Number(unpaidInvoiceAgg._sum.total ?? 0)),
+    },
   );
 
   return (

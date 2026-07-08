@@ -23,13 +23,7 @@ import {
   tableRowClassName,
 } from "@/lib/table-styles";
 
-type SortColumn =
-  | "name"
-  | "primaryContact"
-  | "phone"
-  | "email"
-  | "status"
-  | "lastActivity";
+type SortColumn = "name" | "phone" | "town" | "status" | "lastActivity";
 
 type SortDirection = "asc" | "desc";
 
@@ -120,13 +114,6 @@ const CustomersTable = memo(function CustomersTable({
               onSort={onSort}
             />
             <SortableHeader
-              column="primaryContact"
-              label="Primary Contact"
-              sortColumn={sortColumn}
-              sortDirection={sortDirection}
-              onSort={onSort}
-            />
-            <SortableHeader
               column="phone"
               label="Phone"
               sortColumn={sortColumn}
@@ -134,8 +121,8 @@ const CustomersTable = memo(function CustomersTable({
               onSort={onSort}
             />
             <SortableHeader
-              column="email"
-              label="Email"
+              column="town"
+              label="Town"
               sortColumn={sortColumn}
               sortDirection={sortDirection}
               onSort={onSort}
@@ -166,7 +153,7 @@ const CustomersTable = memo(function CustomersTable({
           {customers.length === 0 ? (
             <tr>
               <td
-                colSpan={8}
+                colSpan={7}
                 className={`${tableCellBordersClassName} px-4 py-8 text-center text-sm text-slate-500`}
               >
                 {total === 0
@@ -185,16 +172,13 @@ const CustomersTable = memo(function CustomersTable({
                     {customer.name}
                   </Link>
                 </td>
-                <td className={`${tableCellClassName} text-slate-700`}>
-                  {customer.primaryContact}
-                </td>
                 <td
                   className={`${tableCellClassName} whitespace-nowrap text-slate-600`}
                 >
                   {customer.phone}
                 </td>
                 <td className={`${tableCellClassName} text-slate-600`}>
-                  {customer.email}
+                  {customer.town}
                 </td>
                 <td className={tableCellClassName}>
                   <StatusBadge
@@ -313,6 +297,12 @@ export function CustomersList({
             className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
           >
             Bulk Add / Paste from Excel
+          </Link>
+          <Link
+            href="/customers/contacts/bulk"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+          >
+            Import Contacts
           </Link>
           <Link
             href="/customers/new"

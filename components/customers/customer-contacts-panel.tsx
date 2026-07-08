@@ -6,11 +6,16 @@ import {
   addCustomerContact,
   deleteCustomerContact,
   setPrimaryCustomerContact,
+  setRoleDefaultContact,
   updateCustomerContact,
 } from "@/app/customers/contact-actions";
+import type { ContactRole } from "@/app/generated/prisma/client";
 import { SectionCard } from "@/components/dashboard/section-card";
-import { StatusBadge } from "@/components/dashboard/status-badge";
-import type { CustomerContactRow } from "@/components/customers/customer-utils";
+import {
+  contactRoleOptions,
+  type ContactRoleValue,
+  type CustomerContactRow,
+} from "@/components/customers/customer-utils";
 
 import {
   tableBodyClassName,
@@ -21,6 +26,7 @@ import {
   tableHeaderCellClassName,
   tableRowClassName,
 } from "@/lib/table-styles";
+
 type CustomerContactsPanelProps = {
   customerId: string;
   contacts: CustomerContactRow[];
@@ -32,6 +38,7 @@ type ContactFormState = {
   email: string;
   phone: string;
   notes: string;
+  roles: ContactRoleValue[];
 };
 
 const emptyForm: ContactFormState = {
@@ -40,7 +47,52 @@ const emptyForm: ContactFormState = {
   email: "",
   phone: "",
   notes: "",
+  roles: [],
 };
+
+const roleChipClassNames: Record<ContactRoleValue, string> = {
+  ESTIMATING: "bg-sky-100 text-sky-800",
+  BILLING: "bg-amber-100 text-amber-800",
+  FIELD: "bg-emerald-100 text-emerald-800",
+};
+
+function RoleChip({
+  role,
+  isDefault,
+  pending,
+  onMakeDefault,
+}: {
+  role: ContactRoleValue;
+  isDefault: boolean;
+  pending: boolean;
+  onMakeDefault: () => void;
+}) {
+  const label =
+    contactRoleOptions.find((option) => option.value === role)?.label ?? role;
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${roleChipClassNames[role]}`}
+    >
+      {label}
+      {isDefault ? (
+        <span title={`Default ${label.toLowerCase()} contact`} aria-hidden>
+          ★
+        </span>
+      ) : (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={onMakeDefault}
+          title={`Make default ${label.toLowerCase()} contact`}
+          className="opacity-40 transition-opacity hover:opacity-100 disabled:opacity-20"
+        >
+          ☆
+        </button>
+      )}
+    </span>
+  );
+}
 
 export function CustomerContactsPanel({
   customerId,
@@ -69,7 +121,17 @@ export function CustomerContactsPanel({
       email: contact.email === "—" ? "" : contact.email,
       phone: contact.phone === "—" ? "" : contact.phone,
       notes: contact.notes === "—" ? "" : contact.notes,
+      roles: contact.roles,
     });
+  }
+
+  function toggleRole(role: ContactRoleValue) {
+    setForm((current) => ({
+      ...current,
+      roles: current.roles.includes(role)
+        ? current.roles.filter((r) => r !== role)
+        : [...current.roles, role],
+    }));
   }
 
   function refresh(message?: string) {
@@ -85,9 +147,10 @@ export function CustomerContactsPanel({
     setError(null);
     setSuccess(null);
     startTransition(async () => {
+      const payload = { ...form, roles: form.roles as ContactRole[] };
       const result = editingId
-        ? await updateCustomerContact(editingId, form)
-        : await addCustomerContact(customerId, form);
+        ? await updateCustomerContact(editingId, payload)
+        : await addCustomerContact(customerId, payload);
 
       if (result.error) {
         setError(result.error);
@@ -120,7 +183,23 @@ export function CustomerContactsPanel({
         setError(result.error);
         return;
       }
-      refresh("Primary contact updated.");
+      refresh("Main contact updated.");
+    });
+  }
+
+  function handleMakeRoleDefault(contactId: string, role: ContactRoleValue) {
+    setError(null);
+    setSuccess(null);
+    startTransition(async () => {
+      const result = await setRoleDefaultContact(
+        contactId,
+        role as ContactRole,
+      );
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      refresh("Default contact updated.");
     });
   }
 
@@ -129,7 +208,7 @@ export function CustomerContactsPanel({
   return (
     <SectionCard
       title="Contacts"
-      description={`${contacts.length} contact${contacts.length === 1 ? "" : "s"}`}
+      description={`${contacts.length} contact${contacts.length === 1 ? "" : "s"} — ★ marks the default for each role`}
       action={
         !formVisible ? (
           <button
@@ -168,7 +247,7 @@ export function CustomerContactsPanel({
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-700">
-                Role
+                Title
               </label>
               <input
                 type="text"
@@ -176,7 +255,7 @@ export function CustomerContactsPanel({
                 onChange={(event) =>
                   setForm((current) => ({ ...current, title: event.target.value }))
                 }
-                placeholder="Estimator, PM, etc."
+                placeholder="Owner, PM, Office Manager…"
                 className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
               />
             </div>
@@ -205,6 +284,31 @@ export function CustomerContactsPanel({
                 }
                 className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
               />
+            </div>
+            <div className="sm:col-span-2">
+              <span className="block text-xs font-medium text-slate-700">
+                Handles
+              </span>
+              <div className="mt-1.5 flex flex-wrap gap-3">
+                {contactRoleOptions.map((option) => (
+                  <label
+                    key={option.value}
+                    className="inline-flex items-center gap-1.5 text-xs text-slate-700"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={form.roles.includes(option.value)}
+                      onChange={() => toggleRole(option.value)}
+                      className="h-3.5 w-3.5 rounded border-slate-300"
+                    />
+                    {option.label}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Estimating gets quotes, Billing gets invoices, Field gets
+                delivery tickets.
+              </p>
             </div>
             <div className="sm:col-span-2">
               <label className="block text-xs font-medium text-slate-700">
@@ -249,10 +353,9 @@ export function CustomerContactsPanel({
           <thead>
             <tr>
               <th className={tableHeaderCellClassName}>Name</th>
-              <th className={tableHeaderCellClassName}>Role</th>
+              <th className={tableHeaderCellClassName}>Handles</th>
               <th className={tableHeaderCellClassName}>Email</th>
               <th className={tableHeaderCellClassName}>Phone</th>
-              <th className={tableHeaderCellClassName}>Primary</th>
               <th className={tableHeaderCellClassName}>Actions</th>
             </tr>
           </thead>
@@ -260,35 +363,52 @@ export function CustomerContactsPanel({
             {contacts.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={5}
                   className={`${tableCellBordersClassName} px-3 py-6 text-center text-slate-500`}
                 >
-                  No contacts yet. Add the people you quote and deliver to.
+                  No contacts yet. Add the people you quote, bill, and deliver
+                  to.
                 </td>
               </tr>
             ) : (
               contacts.map((contact) => (
                 <tr key={contact.id} className={tableRowClassName}>
-                  <td className={`${tableCellClassName} font-medium text-slate-900`}>
-                    {contact.name}
-                  </td>
-                  <td className={`${tableCellClassName} text-slate-600`}>{contact.title}</td>
-                  <td className={`${tableCellClassName} text-slate-600`}>{contact.email}</td>
-                  <td className={`${tableCellClassName} text-slate-600`}>{contact.phone}</td>
                   <td className={tableCellClassName}>
+                    <span className="font-medium text-slate-900">
+                      {contact.name}
+                    </span>
                     {contact.isPrimary ? (
-                      <StatusBadge label="Primary" variant="success" />
+                      <span className="ml-1.5 rounded-full border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                        Main
+                      </span>
+                    ) : null}
+                    {contact.title !== "—" ? (
+                      <span className="block text-[11px] text-slate-500">
+                        {contact.title}
+                      </span>
+                    ) : null}
+                  </td>
+                  <td className={tableCellClassName}>
+                    {contact.roles.length === 0 ? (
+                      <span className="text-slate-400">—</span>
                     ) : (
-                      <button
-                        type="button"
-                        disabled={pending}
-                        onClick={() => handleSetPrimary(contact.id)}
-                        className="text-[11px] font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50"
-                      >
-                        Set primary
-                      </button>
+                      <span className="flex flex-wrap gap-1">
+                        {contact.roles.map((role) => (
+                          <RoleChip
+                            key={role}
+                            role={role}
+                            isDefault={contact.defaultForRoles.includes(role)}
+                            pending={pending}
+                            onMakeDefault={() =>
+                              handleMakeRoleDefault(contact.id, role)
+                            }
+                          />
+                        ))}
+                      </span>
                     )}
                   </td>
+                  <td className={`${tableCellClassName} text-slate-600`}>{contact.email}</td>
+                  <td className={`${tableCellClassName} text-slate-600`}>{contact.phone}</td>
                   <td className={tableCellClassName}>
                     <div className="flex gap-2">
                       <button
@@ -299,6 +419,16 @@ export function CustomerContactsPanel({
                       >
                         Edit
                       </button>
+                      {!contact.isPrimary ? (
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => handleSetPrimary(contact.id)}
+                          className="text-[11px] font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50"
+                        >
+                          Set main
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         disabled={pending}

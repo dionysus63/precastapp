@@ -19,9 +19,7 @@ export type CustomerFormValues = {
   id?: string;
   name: string;
   status: string;
-  primaryContactName: string;
   phone: string;
-  email: string;
   address: string;
   town: string;
   state: string;
@@ -223,52 +221,22 @@ export function CustomerForm({
 
       <div>
         <label
-          htmlFor="primaryContactName"
+          htmlFor="phone"
           className="block text-xs font-medium text-slate-700"
         >
-          Primary Contact Name
+          Company Phone
         </label>
         <input
-          id="primaryContactName"
-          name="primaryContactName"
-          type="text"
-          defaultValue={defaultValues?.primaryContactName ?? ""}
+          id="phone"
+          name="phone"
+          type="tel"
+          defaultValue={defaultValues?.phone ?? ""}
           className={customerInputClassName}
         />
-      </div>
-
-      <div className="grid gap-5 sm:grid-cols-2">
-        <div>
-          <label
-            htmlFor="phone"
-            className="block text-xs font-medium text-slate-700"
-          >
-            Phone
-          </label>
-          <input
-            id="phone"
-            name="phone"
-            type="tel"
-            defaultValue={defaultValues?.phone ?? ""}
-            className={customerInputClassName}
-          />
-        </div>
-
-        <div>
-          <label
-            htmlFor="email"
-            className="block text-xs font-medium text-slate-700"
-          >
-            Email
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            defaultValue={defaultValues?.email ?? ""}
-            className={customerInputClassName}
-          />
-        </div>
+        <p className="mt-1 text-[11px] text-slate-500">
+          Main office line. People and their emails live under Contacts on the
+          customer page.
+        </p>
       </div>
 
       <div>

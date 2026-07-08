@@ -116,6 +116,9 @@ export async function JobTabContent({
                 contacts: {
                   orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
                 },
+                contactRoleDefaults: {
+                  select: { role: true, contactId: true },
+                },
               },
             },
             quotes: { orderBy: { updatedAt: "desc" }, take: 1 },

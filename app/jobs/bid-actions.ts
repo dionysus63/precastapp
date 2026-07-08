@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import { getDefaultContactForRole } from "@/lib/customer-contacts";
 import { cloneQuoteForBidder } from "@/lib/quote-clone";
 import { isQuoteNumberConflict } from "@/lib/quote-number";
 import { isAwardableQuoteStatus, isRemovableBidderQuoteStatus } from "@/lib/job-bid-utils";
@@ -265,6 +266,17 @@ export async function awardJob(
           throw new Error("This quote cannot be used to award the job.");
         }
 
+        // Fallback when the quote carries no contact snapshot: the
+        // contractor's estimating contact.
+        const estimatingContact =
+          quote.contactName || quote.contactEmail || quote.contactPhone
+            ? null
+            : await getDefaultContactForRole(
+                tx,
+                bidder.customerId,
+                "ESTIMATING",
+              );
+
         // Atomic compare-and-set: only one concurrent award can flip the job
         // out of its non-awarded state; the loser sees count === 0. The
         // findUnique check above is only for the friendly early error.
@@ -278,13 +290,14 @@ export async function awardJob(
             customerId: bidder.customerId,
             customerName: bidder.customer.name,
             contactName:
-              quote.contactName ??
-              bidder.customer.primaryContactName ??
-              null,
+              quote.contactName ?? estimatingContact?.contactName ?? null,
             contactEmail:
-              quote.contactEmail ?? bidder.customer.email ?? null,
+              quote.contactEmail ?? estimatingContact?.contactEmail ?? null,
             contactPhone:
-              quote.contactPhone ?? bidder.customer.phone ?? null,
+              quote.contactPhone ??
+              estimatingContact?.contactPhone ??
+              bidder.customer.phone ??
+              null,
             awardedDate: new Date(),
             status: "AWARDED",
           },
@@ -347,9 +360,6 @@ export async function listCustomersForBidList() {
       select: {
         id: true,
         name: true,
-        primaryContactName: true,
-        email: true,
-        phone: true,
       },
     }),
   );

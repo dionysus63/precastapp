@@ -9,10 +9,6 @@ import {
 } from "@/app/generated/prisma/client";
 import { parseBulkCustomerStatus } from "@/components/customers/customer-utils";
 import { findSimilarCustomers as rankSimilarCustomers } from "@/lib/customer-name-similarity";
-import {
-  syncCustomerHeaderFromPrimaryContact,
-  upsertPrimaryContactFromHeader,
-} from "@/lib/customer-contact-sync";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import {
@@ -37,9 +33,7 @@ const CUSTOMER_STATUSES = Object.values(CustomerStatus);
 type CustomerRecordInput = {
   name: string;
   status: CustomerStatus;
-  primaryContactName: string | null;
   phone: string | null;
-  email: string | null;
   address: string | null;
   town: string | null;
   state: string | null;
@@ -52,13 +46,7 @@ function parseCustomerFormData(formData: FormData): CustomerRecordInput {
   const status = getEnum(formData, "status", CUSTOMER_STATUSES, {
     label: "status",
   });
-  const primaryContactName = getOptionalString(formData, "primaryContactName");
   const phone = getOptionalString(formData, "phone");
-  const emailRaw = String(formData.get("email") ?? "").trim();
-  if (emailRaw && !isValidEmail(emailRaw)) {
-    throw new Error("Email must be a valid email address.");
-  }
-  const email = emailRaw || null;
   const address = getOptionalString(formData, "address");
   const town = getOptionalString(formData, "town");
   const state = getOptionalString(formData, "state");
@@ -68,9 +56,7 @@ function parseCustomerFormData(formData: FormData): CustomerRecordInput {
   return {
     name,
     status,
-    primaryContactName,
     phone,
-    email,
     address,
     town,
     state,
@@ -145,17 +131,7 @@ export async function createCustomer(
       }
     }
 
-    await prisma.$transaction(async (tx) => {
-      const customer = await tx.customer.create({ data });
-
-      await upsertPrimaryContactFromHeader(tx, customer.id, {
-        name: data.primaryContactName,
-        phone: data.phone,
-        email: data.email,
-      });
-
-      await syncCustomerHeaderFromPrimaryContact(tx, customer.id);
-    });
+    await prisma.customer.create({ data });
 
     revalidatePath("/customers");
     redirect("/customers");
@@ -179,19 +155,9 @@ export async function updateCustomer(
   try {
     const data = parseCustomerFormData(formData);
 
-    await prisma.$transaction(async (tx) => {
-      await tx.customer.update({
-        where: { id },
-        data,
-      });
-
-      await upsertPrimaryContactFromHeader(tx, id, {
-        name: data.primaryContactName,
-        phone: data.phone,
-        email: data.email,
-      });
-
-      await syncCustomerHeaderFromPrimaryContact(tx, id);
+    await prisma.customer.update({
+      where: { id },
+      data,
     });
 
     revalidatePath("/customers");
@@ -261,9 +227,7 @@ export async function deleteCustomer(
 type BulkImportRow = {
   name?: string;
   status?: string;
-  primaryContactName?: string;
   phone?: string;
-  email?: string;
   address?: string;
   town?: string;
   state?: string;
@@ -284,17 +248,10 @@ function mapBulkImportRow(row: BulkImportRow, lineNumber: number): CustomerRecor
     );
   }
 
-  const emailRaw = String(row.email ?? "").trim();
-  if (emailRaw && !isValidEmail(emailRaw)) {
-    throw new Error(`Line ${lineNumber}: email must be a valid email address.`);
-  }
-
   return {
     name,
     status: statusRaw as CustomerStatus,
-    primaryContactName: String(row.primaryContactName ?? "").trim() || null,
     phone: String(row.phone ?? "").trim() || null,
-    email: emailRaw || null,
     address: String(row.address ?? "").trim() || null,
     town: String(row.town ?? "").trim() || null,
     state: String(row.state ?? "").trim() || null,
@@ -347,9 +304,7 @@ export async function importCustomers(
   // so this action keeps throwing (with translated Prisma messages).
   const imported = await prisma.$transaction(async (tx) => {
     // Skip rows whose name already exists (a resubmitted paste should not
-    // duplicate customers), and create the rest one-by-one so each new
-    // customer's id is known for the contact sync — no fragile re-lookup
-    // by name.
+    // duplicate customers).
     const existing = await tx.customer.findMany({
       where: { name: { in: customers.map((row) => row.name) } },
       select: { name: true },
@@ -358,27 +313,14 @@ export async function importCustomers(
       existing.map((row) => row.name.toLowerCase()),
     );
 
-    let created = 0;
-    for (const row of customers) {
-      if (existingNames.has(row.name.toLowerCase())) {
-        continue;
-      }
-
-      const customer = await tx.customer.create({
-        data: row,
-        select: { id: true },
-      });
-      created += 1;
-
-      await upsertPrimaryContactFromHeader(tx, customer.id, {
-        name: row.primaryContactName,
-        phone: row.phone,
-        email: row.email,
-      });
-      await syncCustomerHeaderFromPrimaryContact(tx, customer.id);
+    const toCreate = customers.filter(
+      (row) => !existingNames.has(row.name.toLowerCase()),
+    );
+    if (toCreate.length > 0) {
+      await tx.customer.createMany({ data: toCreate });
     }
 
-    return created;
+    return toCreate.length;
   }).catch((error) => {
     throw translatePrismaError(error);
   });
