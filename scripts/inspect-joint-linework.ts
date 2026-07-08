@@ -9,7 +9,7 @@ import {
 } from "pdf-lib";
 
 async function main() {
-  const bytes = readFileSync(process.argv[2] ?? "example-t3.pdf");
+  const bytes = readFileSync(process.argv[2] ?? "scripts/fixtures/example-t3.pdf");
   const doc = await PDFDocument.load(bytes);
   const page = doc.getPage(0);
   console.log("page:", page.getWidth(), "x", page.getHeight());

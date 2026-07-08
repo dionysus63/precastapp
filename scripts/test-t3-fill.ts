@@ -11,7 +11,7 @@ async function main() {
   // Inject a section_stack marker over the cross-section cavity (T3 doesn't
   // carry one yet); mirrors what the user will add in Acrobat.
   const original = await PDFDocument.load(
-    new Uint8Array(readFileSync("example-t3.pdf")),
+    new Uint8Array(readFileSync("scripts/fixtures/example-t3.pdf")),
   );
   const stackField = original.getForm().createTextField("section_stack");
   stackField.addToPage(original.getPage(0), {
