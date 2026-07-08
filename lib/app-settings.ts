@@ -59,6 +59,9 @@ export type AppSettingsView = {
   appTitle: string;
   appSubtitle: string;
   quoteFooterText: string | null;
+  /** Send-quote email templates; null = built-in default wording. */
+  quoteEmailSubjectTemplate: string | null;
+  quoteEmailBodyTemplate: string | null;
   deliveryTicketCopy1Title: string;
   deliveryTicketCopy2Title: string;
   deliveryTicketCopy3Title: string;
@@ -138,6 +141,8 @@ export function mapAppSettingsRow(row: AppSettings): AppSettingsView {
     appTitle: row.appTitle,
     appSubtitle: row.appSubtitle,
     quoteFooterText: row.quoteFooterText,
+    quoteEmailSubjectTemplate: row.quoteEmailSubjectTemplate,
+    quoteEmailBodyTemplate: row.quoteEmailBodyTemplate,
     deliveryTicketCopy1Title:
       row.deliveryTicketCopy1Title?.trim() || DEFAULT_DELIVERY_TICKET_COPY1_TITLE,
     deliveryTicketCopy2Title:

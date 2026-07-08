@@ -19,6 +19,10 @@ import {
   hasCompanyLogo,
 } from "@/lib/company-logo";
 import { getAppSettings } from "@/lib/app-settings";
+import {
+  DEFAULT_QUOTE_EMAIL_BODY_TEMPLATE,
+  DEFAULT_QUOTE_EMAIL_SUBJECT_TEMPLATE,
+} from "@/lib/email/quote-email";
 
 type CompanySettingsPageProps = {
   searchParams: Promise<{ success?: string; error?: string }>;
@@ -186,6 +190,29 @@ export default async function CompanySettingsPage({
               name="quoteFooterText"
               rows={4}
               defaultValue={settings.quoteFooterText ?? ""}
+              className={settingsTextareaClassName}
+            />
+          </SettingsField>
+          <SettingsField
+            label="Quote email subject"
+            hint="Subject line when emailing a quote. Placeholders: {contact} {customer} {project} {quoteNumber} {companyName} {companyPhone} {companyEmail}. Leave blank for the standard wording."
+          >
+            <input
+              name="quoteEmailSubjectTemplate"
+              defaultValue={settings.quoteEmailSubjectTemplate ?? ""}
+              placeholder={DEFAULT_QUOTE_EMAIL_SUBJECT_TEMPLATE}
+              className={settingsInputClassName}
+            />
+          </SettingsField>
+          <SettingsField
+            label="Quote email body"
+            hint="Message body when emailing a quote; the PDF is always attached. Same placeholders as the subject. Lines whose placeholder comes up empty (e.g. no project) are tidied automatically. Leave blank for the standard wording."
+          >
+            <textarea
+              name="quoteEmailBodyTemplate"
+              rows={8}
+              defaultValue={settings.quoteEmailBodyTemplate ?? ""}
+              placeholder={DEFAULT_QUOTE_EMAIL_BODY_TEMPLATE}
               className={settingsTextareaClassName}
             />
           </SettingsField>

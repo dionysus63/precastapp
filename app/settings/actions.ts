@@ -221,6 +221,10 @@ export async function updateCompanySettingsFormAction(
   const appSubtitle = String(formData.get("appSubtitle") ?? "").trim();
   const quoteFooterText =
     String(formData.get("quoteFooterText") ?? "").trim() || null;
+  const quoteEmailSubjectTemplate =
+    String(formData.get("quoteEmailSubjectTemplate") ?? "").trim() || null;
+  const quoteEmailBodyTemplate =
+    String(formData.get("quoteEmailBodyTemplate") ?? "").trim() || null;
   const deliveryTicketCopy1Title =
     String(formData.get("deliveryTicketCopy1Title") ?? "").trim() || null;
   const deliveryTicketCopy2Title =
@@ -246,6 +250,8 @@ export async function updateCompanySettingsFormAction(
     appTitle,
     appSubtitle,
     quoteFooterText,
+    quoteEmailSubjectTemplate,
+    quoteEmailBodyTemplate,
     deliveryTicketCopy1Title,
     deliveryTicketCopy2Title,
     deliveryTicketCopy3Title,

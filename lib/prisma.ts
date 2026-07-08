@@ -60,6 +60,7 @@ function createPrismaClient() {
 const REQUIRED_APP_SETTINGS_FIELDS = [
   "companyLogoPath",
   "stockSubmittalsRoot",
+  "quoteEmailBodyTemplate",
 ] as const;
 
 function clientHasAppSettingsFields(client: PrismaClient) {

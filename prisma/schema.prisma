@@ -1660,6 +1660,11 @@ model AppSettings {
   appTitle        String
   appSubtitle     String
   quoteFooterText String?
+  /// Send-quote email templates; null = built-in default. Placeholders:
+  /// {contact} {customer} {project} {quoteNumber} {companyName}
+  /// {companyPhone} {companyEmail}
+  quoteEmailSubjectTemplate String?
+  quoteEmailBodyTemplate    String?
   deliveryTicketCopy1Title   String?
   deliveryTicketCopy2Title   String?
   deliveryTicketCopy3Title   String?
