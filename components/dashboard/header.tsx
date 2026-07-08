@@ -3,6 +3,7 @@ import type { AppPermission } from "@/app/generated/prisma/client";
 import type { AuthUser } from "@/lib/auth/permissions";
 import { ROLE_LABELS } from "@/lib/auth/constants";
 import { signOut } from "@/app/login/actions";
+import { NavIcon } from "./nav-icon";
 
 type HeaderProps = {
   title: string;
@@ -32,8 +33,18 @@ export function Header({ title, subtitle, user }: HeaderProps) {
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-500">
             {today}
           </div>
+          <Link
+            href="/"
+            aria-label="Home"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+          >
+            <NavIcon name="home" className="h-4 w-4" />
+          </Link>
           <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600"
+              aria-hidden="true"
+            >
               {user.initials}
             </div>
             <div className="min-w-0">

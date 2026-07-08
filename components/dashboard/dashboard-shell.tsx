@@ -74,6 +74,7 @@ export async function DashboardShell({
         logoUrl={logoUrl}
         permissions={permissions}
         userDisplayName={user.displayName}
+        userInitials={user.initials}
         userRole={user.role}
       />
       <div className="flex min-h-screen min-w-0 flex-col">
