@@ -85,8 +85,8 @@
     "semantic_hash": ""
   },
   "app/products/page.tsx": {
-    "mtime": 1783294136.5855556,
-    "ast_hash": "4c86cd1ecfd330fa665503aa877bb706",
+    "mtime": 1783472756.307719,
+    "ast_hash": "0beeee4c81973ab8bc4d2f966d514133",
     "semantic_hash": ""
   },
   "app/products/preview-actions.ts": {
@@ -240,8 +240,8 @@
     "semantic_hash": ""
   },
   "components/products/products-list.tsx": {
-    "mtime": 1783303279.48083,
-    "ast_hash": "4e9640464e5140a92dd67571a7a2fead",
+    "mtime": 1783472747.4198396,
+    "ast_hash": "c39629c7f4ec127a1a1acaa6ce0d7941",
     "semantic_hash": ""
   },
   "components/quotes/quote-detail-content.tsx": {
@@ -500,8 +500,8 @@
     "semantic_hash": "d333ad6cf194d0a398795fc255565dfd"
   },
   "app/inventory/page.tsx": {
-    "mtime": 1783361755.7559872,
-    "ast_hash": "1053487bded8a607bf9a1e0cb0307e43",
+    "mtime": 1783472807.1432734,
+    "ast_hash": "d42079ad86a697ae02cb380873fa1fd9",
     "semantic_hash": ""
   },
   "app/inventory/production/page.tsx": {
@@ -585,8 +585,8 @@
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-ticket-detail-content.tsx": {
-    "mtime": 1783455759.295326,
-    "ast_hash": "552517bbabefd1e00864818800531f40",
+    "mtime": 1783474793.9378226,
+    "ast_hash": "18db8d81979c6693beec6838c481507a",
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-ticket-editor.tsx": {
@@ -600,8 +600,8 @@
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-tickets-list.tsx": {
-    "mtime": 1783303393.7539306,
-    "ast_hash": "62255c1435da9045f2b40e4c0a63fbdf",
+    "mtime": 1783474824.822349,
+    "ast_hash": "effe6b4e9c2e460f077a75966eea58f8",
     "semantic_hash": ""
   },
   "components/delivery-tickets/quote-fulfillment-picker.tsx": {
@@ -715,8 +715,8 @@
     "semantic_hash": ""
   },
   "lib/delivery-ticket-mapper.ts": {
-    "mtime": 1783467280.5800488,
-    "ast_hash": "c3caef59d138097610716c06a675599f",
+    "mtime": 1783474704.2500556,
+    "ast_hash": "01bf761b5151a0eb4fc6235071952ff8",
     "semantic_hash": ""
   },
   "lib/delivery-ticket-number.ts": {
@@ -3232,6 +3232,11 @@
   "components/production/production-board.tsx": {
     "mtime": 1783471557.3226256,
     "ast_hash": "ec49d885353b8c17ca639257b881c45d",
+    "semantic_hash": ""
+  },
+  "components/common/category-chip-bar.tsx": {
+    "mtime": 1783472641.2047675,
+    "ast_hash": "a6005c17be6f6cb3265dabf38923d491",
     "semantic_hash": ""
   }
 }

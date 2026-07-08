@@ -119,44 +119,42 @@ export default async function Home() {
       label: "Open Quotes",
       value: String(openQuotesCount),
       detail: "Draft, in review, sent, or revised",
-      accent: "sky" as const,
-      href: "/quotes?status=DRAFT",
+      href: "/quotes",
     },
     {
       label: "Active Jobs",
       value: String(activeJobsCount),
-      detail: `${productionQueueCount} structures in production queue`,
-      accent: "emerald" as const,
-      href: "/jobs?status=ACTIVE",
+      detail: `${productionQueueCount} structure${productionQueueCount === 1 ? "" : "s"} in production queue`,
+      href: "/jobs",
     },
     {
       label: "Pending Invoices",
       value: String(pendingInvoicesCount),
       detail: `${outstandingTotal} outstanding`,
-      accent: "amber" as const,
       href: "/invoices?tab=drafts",
     },
     {
       label: "Inventory Alerts",
       value: String(inventoryAlertsCount),
       detail: "Items at or below reorder level",
-      accent: "rose" as const,
       href: "/inventory",
     },
     {
       label: "Deliveries Today",
       value: String(scheduledDeliveriesToday),
       detail: `${inTransitCount} in transit now`,
-      accent: "sky" as const,
       href: "/delivery-tickets?date=Today",
     },
   ];
 
   const quickActions = [
-    { label: "New Customer", href: "/customers/new", primary: false },
     { label: "New Job", href: "/jobs/new", primary: true },
     { label: "Create Quote", href: "/quotes/new", primary: true },
+    { label: "New Customer", href: "/customers/new", primary: false },
     { label: "Record Delivery", href: "/delivery-tickets/new", primary: false },
+    { label: "Production queue", href: "/production", primary: false },
+    { label: "Delivery tickets", href: "/delivery-tickets", primary: false },
+    { label: "Record production", href: "/inventory/production", primary: false },
   ];
 
   return (
@@ -405,73 +403,23 @@ export default async function Home() {
           </SectionCard>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-3">
-          <div className="xl:col-span-2">
-            <SectionCard
-              title="Operations Snapshot"
-              description="Production queue and delivery activity"
-            >
-              <dl className="grid gap-4 sm:grid-cols-3 text-xs">
-                <div>
-                  <dt className="text-slate-500">Production queue</dt>
-                  <dd className="mt-1 text-lg font-semibold text-slate-900">
-                    {productionQueueCount}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500">Scheduled today</dt>
-                  <dd className="mt-1 text-lg font-semibold text-slate-900">
-                    {scheduledDeliveriesToday}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-slate-500">In transit</dt>
-                  <dd className="mt-1 text-lg font-semibold text-slate-900">
-                    {inTransitCount}
-                  </dd>
-                </div>
-              </dl>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Link
-                  href="/production"
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-medium hover:bg-slate-50"
-                >
-                  Production queue
-                </Link>
-                <Link
-                  href="/delivery-tickets"
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-medium hover:bg-slate-50"
-                >
-                  Delivery tickets
-                </Link>
-                <Link
-                  href="/inventory/production"
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-medium hover:bg-slate-50"
-                >
-                  Record production
-                </Link>
-              </div>
-            </SectionCard>
+        <SectionCard title="Quick Actions" description="Common tasks for daily operations">
+          <div className="flex flex-wrap gap-2">
+            {quickActions.map((action) => (
+              <Link
+                key={action.label}
+                href={action.href}
+                className={`inline-flex items-center justify-center rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
+                  action.primary
+                    ? "bg-slate-900 text-white hover:bg-slate-800"
+                    : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                {action.label}
+              </Link>
+            ))}
           </div>
-
-          <SectionCard title="Quick Actions" description="Common tasks for daily operations">
-            <div className="grid gap-2">
-              {quickActions.map((action) => (
-                <Link
-                  key={action.label}
-                  href={action.href}
-                  className={`inline-flex items-center justify-center rounded-lg px-3 py-2.5 text-xs font-semibold transition-colors ${
-                    action.primary
-                      ? "bg-slate-900 text-white hover:bg-slate-800"
-                      : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  {action.label}
-                </Link>
-              ))}
-            </div>
-          </SectionCard>
-        </div>
+        </SectionCard>
       </div>
     </DashboardShell>
   );

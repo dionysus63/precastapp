@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { SummaryCard } from "@/components/dashboard/summary-card";
@@ -41,25 +41,21 @@ export function InvoiceDetailContent({
       label: "Status",
       value: invoice.statusLabel,
       detail: invoice.status,
-      accent: "amber" as const,
     },
     {
       label: "Total",
       value: invoice.total,
       detail: "Invoice total",
-      accent: "sky" as const,
     },
     {
       label: "Invoice Date",
       value: invoice.invoiceDate,
       detail: `Due ${invoice.dueDate}`,
-      accent: "emerald" as const,
     },
     {
       label: "Delivery Ticket",
       value: invoice.ticketNumber,
       detail: "Source ticket",
-      accent: "rose" as const,
     },
   ];
 
@@ -70,7 +66,7 @@ export function InvoiceDetailContent({
           href="/invoices"
           className="text-xs font-medium text-slate-500 hover:text-slate-900"
         >
-          ← Back to Invoices
+          â† Back to Invoices
         </Link>
         {ticketId ? (
           <Link
