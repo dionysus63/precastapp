@@ -41,6 +41,12 @@
     "sonner": "^2.0.7",
     "xlsx": "^0.18.5"
   },
+  "overrides": {
+    "@hono/node-server": "^1.19.13",
+    "next": {
+      "postcss": "^8.5.10"
+    }
+  },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/leaflet": "^1.9.21",
