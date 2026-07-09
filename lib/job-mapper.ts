@@ -25,11 +25,8 @@ function statusVariant(status: string): JobRow["statusVariant"] {
     case "COMPLETE":
       return "success";
     case "QUOTING":
-    case "SUBMITTED":
-    case "LEAD":
       return "info";
     case "ON_HOLD":
-    case "LOST":
       return "warning";
     default:
       return "neutral";

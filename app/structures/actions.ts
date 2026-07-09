@@ -199,14 +199,28 @@ function parseTemplatePayload(formData: FormData): TemplatePayload {
       data.wallThicknessInches,
       "Wall thickness",
     ),
-    baseSlabThicknessInches: requirePositiveNumber(
-      data.baseSlabThicknessInches,
-      "Base slab thickness",
-    ),
-    topSlabThicknessInches: requirePositiveNumber(
-      data.topSlabThicknessInches,
-      "Top slab thickness",
-    ),
+    // Rect structures can be open-bottom / open-top: 0 (or blank) thickness
+    // means the template has no such slab. Circular still requires both.
+    baseSlabThicknessInches:
+      shape === "RECTANGULAR"
+        ? requireNonNegativeNumber(
+            data.baseSlabThicknessInches ?? 0,
+            "Base slab thickness",
+          )
+        : requirePositiveNumber(
+            data.baseSlabThicknessInches,
+            "Base slab thickness",
+          ),
+    topSlabThicknessInches:
+      shape === "RECTANGULAR"
+        ? requireNonNegativeNumber(
+            data.topSlabThicknessInches ?? 0,
+            "Top slab thickness",
+          )
+        : requirePositiveNumber(
+            data.topSlabThicknessInches,
+            "Top slab thickness",
+          ),
     castingProductId: data.castingProductId
       ? String(data.castingProductId)
       : null,

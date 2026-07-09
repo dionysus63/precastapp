@@ -22,6 +22,7 @@ import {
   loadCastingComponentOptionsByAssembly,
   loadDerivedAssemblyValues,
 } from "@/lib/casting-service";
+import { promoteJobStatus } from "@/lib/job-status-workflow";
 import {
   formatAdsPipeJointTypeLabel,
   normalizeAdsPipeJointType,
@@ -1466,6 +1467,12 @@ export async function markDeliveryTicketDelivered(
 
     if (claimed.count === 0) {
       return;
+    }
+
+    // Product hitting the site means the job is underway: promote earlier
+    // pipeline stages to ACTIVE (never overrides ON_HOLD/COMPLETE/etc.).
+    if (ticket.jobId) {
+      await promoteJobStatus(tx, ticket.jobId, "DELIVERY_DELIVERED");
     }
 
     const wholeStructureIds = new Set<string>();

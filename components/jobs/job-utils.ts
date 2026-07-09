@@ -2,16 +2,14 @@ import type { QuoteStatus } from "@/components/quotes/quote-utils";
 
 /** Jobs still alive — the default view on the jobs list. */
 export const OPEN_JOB_STATUSES = [
-  "LEAD",
   "QUOTING",
-  "SUBMITTED",
   "AWARDED",
   "ACTIVE",
   "ON_HOLD",
 ] as const;
 
 /** Terminal non-complete statuses, grouped under the Closed tab. */
-export const CLOSED_JOB_STATUSES = ["LOST", "CANCELLED"] as const;
+export const CLOSED_JOB_STATUSES = ["CLOSED"] as const;
 
 export type JobStatusVariant =
   | "success"
@@ -258,6 +256,8 @@ export type JobDetailView = {
   customer: string;
   customerId: string | null;
   status: string;
+  /** Raw JobStatus enum value backing the quick status select. */
+  statusValue: string;
   statusVariant: JobStatusVariant;
   year: number;
   projectAddress: string;
@@ -277,15 +277,12 @@ export type JobDetailView = {
 };
 
 export const jobStatusLabels: Record<string, string> = {
-  LEAD: "Lead",
   QUOTING: "Quoting",
-  SUBMITTED: "Submitted",
   AWARDED: "Awarded",
   ACTIVE: "Active",
   ON_HOLD: "On Hold",
   COMPLETE: "Complete",
-  LOST: "Lost",
-  CANCELLED: "Cancelled",
+  CLOSED: "Closed",
 };
 
 export const jobInputClassName =
@@ -293,27 +290,21 @@ export const jobInputClassName =
 
 export const jobStatusFilterOptions = [
   "All",
-  "Lead",
   "Quoting",
-  "Submitted",
   "Awarded",
   "Active",
   "On Hold",
   "Complete",
-  "Lost",
-  "Cancelled",
+  "Closed",
 ];
 
 export const jobStatusFormOptions = [
-  { value: "LEAD", label: "Lead" },
   { value: "QUOTING", label: "Quoting" },
-  { value: "SUBMITTED", label: "Submitted" },
   { value: "AWARDED", label: "Awarded" },
   { value: "ACTIVE", label: "Active" },
   { value: "ON_HOLD", label: "On Hold" },
   { value: "COMPLETE", label: "Complete" },
-  { value: "LOST", label: "Lost" },
-  { value: "CANCELLED", label: "Cancelled" },
+  { value: "CLOSED", label: "Closed" },
 ];
 
 export function buildJobYearFilterOptions(years: number[]) {

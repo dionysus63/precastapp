@@ -103,9 +103,7 @@ export default async function CustomerDetailPage({
   ]);
 
   const OPEN_JOB_STATUSES = new Set([
-    "LEAD",
     "QUOTING",
-    "SUBMITTED",
     "AWARDED",
     "ACTIVE",
     "ON_HOLD",

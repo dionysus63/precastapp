@@ -250,8 +250,8 @@
     "semantic_hash": ""
   },
   "components/quotes/quote-form.tsx": {
-    "mtime": 1783627373.290302,
-    "ast_hash": "09f11c0ead3888d230e15f76e6de6a97",
+    "mtime": 1783525616.3017542,
+    "ast_hash": "e2ccb64483b12a7fba22b30116caae52",
     "semantic_hash": ""
   },
   "components/quotes/quote-preview-content.tsx": {
@@ -315,8 +315,8 @@
     "semantic_hash": ""
   },
   "lib/quote-mapper.ts": {
-    "mtime": 1783625947.6179736,
-    "ast_hash": "dfb853e6a6e6779c624464126a30cfcc",
+    "mtime": 1783443922.9221666,
+    "ast_hash": "ba3f8be55ae9c916cdaf4ed49fa358d4",
     "semantic_hash": ""
   },
   "lib/quote-pdf-html.ts": {
@@ -2470,8 +2470,8 @@
     "semantic_hash": ""
   },
   "components/quotes/stock-product-picker.tsx": {
-    "mtime": 1783625742.4916744,
-    "ast_hash": "4a66783cb349c08dcf7d423b7d3c64f6",
+    "mtime": 1783287348.2142017,
+    "ast_hash": "e5363f42c6fd682ecfc7088960106dc2",
     "semantic_hash": ""
   },
   "prisma/migrations/20260705180000_add_casting_manufacturer_code/migration.sql": {

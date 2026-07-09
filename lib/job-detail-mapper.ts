@@ -460,6 +460,7 @@ export function mapJobToDetailView(job: JobWithSummaryRelations): JobDetailView 
     customer: job.customerName,
     customerId: job.customerId,
     status: jobStatusLabels[job.status] ?? job.status,
+    statusValue: job.status,
     statusVariant: jobStatusVariant(job.status),
     year: job.year,
     projectAddress: formatProjectAddress(job),

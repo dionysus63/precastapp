@@ -335,9 +335,9 @@ export function createDefaultRectDefaults(
     insideLengthFeet: preset ? String(preset.insideLengthFeet) : "",
     insideWidthFeet: preset ? String(preset.insideWidthFeet) : "",
     castingProductId: template?.defaultCastingProductId ?? "",
-    hasTopSlab: true,
-    hasBaseSlab: true,
-    baseAttached: true,
+    hasTopSlab: !template || template.topSlabThicknessInches > 0,
+    hasBaseSlab: !template || template.baseSlabThicknessInches > 0,
+    baseAttached: !template || template.baseSlabThicknessInches > 0,
     qty: "1",
     maxPickWeightLbs: "",
   };

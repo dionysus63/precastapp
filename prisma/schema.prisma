@@ -19,15 +19,12 @@ enum CustomerStatus {
 }
 
 enum JobStatus {
-  LEAD
   QUOTING
-  SUBMITTED
   AWARDED
   ACTIVE
   ON_HOLD
   COMPLETE
-  LOST
-  CANCELLED
+  CLOSED
 }
 
 enum QuoteStatus {
@@ -373,7 +370,7 @@ model Job {
   city           String?
   state          String?
   zip            String?
-  status         JobStatus  @default(LEAD)
+  status         JobStatus  @default(QUOTING)
   bidDate        DateTime?
   awardedDate    DateTime?
   contactName    String?

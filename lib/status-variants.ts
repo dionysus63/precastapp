@@ -33,14 +33,9 @@ export function jobStatusVariant(status: string): StatusVariant {
     case "COMPLETE":
       return "success";
     case "QUOTING":
-    case "SUBMITTED":
-    case "LEAD":
       return "info";
     case "ON_HOLD":
       return "warning";
-    case "LOST":
-    case "CANCELLED":
-      return "danger";
     default:
       return "neutral";
   }

@@ -361,6 +361,11 @@ export function StructureTemplateForm({
                 onChange={(e) => setBaseSlabThicknessInches(e.target.value)}
                 className={structureInputClassName}
               />
+              {isRect ? (
+                <p className="mt-1 text-[11px] text-slate-400">
+                  0 or blank = no base slab (open bottom)
+                </p>
+              ) : null}
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-700">
@@ -376,6 +381,11 @@ export function StructureTemplateForm({
                 onChange={(e) => setTopSlabThicknessInches(e.target.value)}
                 className={structureInputClassName}
               />
+              {isRect ? (
+                <p className="mt-1 text-[11px] text-slate-400">
+                  0 or blank = no top slab
+                </p>
+              ) : null}
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-700">

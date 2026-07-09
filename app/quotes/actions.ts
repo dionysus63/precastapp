@@ -37,6 +37,7 @@ import {
   type DrainRingStyle,
 } from "@/lib/drain-ring-utils";
 import { generateQuoteNumber } from "@/lib/quote-number";
+import { promoteJobStatus } from "@/lib/job-status-workflow";
 import { linkPlanSheetToQuote } from "@/app/quotes/plan-sheet-actions";
 import { computeMoneyTotals } from "@/lib/money";
 import { computeDeliveryAmount } from "@/lib/quotes/money-rules";
@@ -766,6 +767,7 @@ export async function updateQuoteStatus(quoteId: string, status: QuoteStatusValu
   }
 
   try {
+    let jobId: string | null = null;
     await withDatabaseRetry(async (client) => {
       // Status flip and structure linking commit together: a failure while
       // creating structures must not leave the quote marked WON with a
@@ -773,12 +775,18 @@ export async function updateQuoteStatus(quoteId: string, status: QuoteStatusValu
       await client.$transaction(async (tx) => {
         const existing = await tx.quote.findUnique({
           where: { id: quoteId },
-          select: { sentAt: true },
+          select: {
+            sentAt: true,
+            jobId: true,
+            customerId: true,
+            customerName: true,
+          },
         });
 
         if (!existing) {
           throw new Error("Quote was not found.");
         }
+        jobId = existing.jobId;
 
         await tx.quote.update({
           where: { id: quoteId },
@@ -796,12 +804,37 @@ export async function updateQuoteStatus(quoteId: string, status: QuoteStatusValu
           );
           await linkJobStructuresFromQuoteInTransaction(tx, quoteId);
         }
+
+        // Workflow-driven job status: winning a quote moves the job to
+        // Awarded (earlier pipeline stages only — manual choices are never
+        // overridden).
+        if (existing.jobId && status === "WON") {
+          await promoteJobStatus(tx, existing.jobId, "QUOTE_WON");
+          if (existing.customerId) {
+            // A job with no contractor yet adopts the winning quote's.
+            await tx.job.updateMany({
+              where: {
+                id: existing.jobId,
+                customerId: null,
+                customerName: "Unassigned",
+              },
+              data: {
+                customerId: existing.customerId,
+                customerName: existing.customerName,
+              },
+            });
+          }
+        }
       });
     });
 
     revalidatePath("/quotes");
     revalidatePath(`/quotes/${quoteId}`);
     revalidatePath("/production");
+    if (jobId) {
+      revalidatePath("/jobs");
+      revalidatePath(`/jobs/${jobId}`);
+    }
     return { success: true };
   } catch (error) {
     return {

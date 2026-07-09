@@ -98,6 +98,43 @@ function slabPatchForValue(value: string) {
   };
 }
 
+/**
+ * Slab choices the template supports (0 thickness = no such slab), always
+ * keeping the currently selected value so the select stays controlled.
+ */
+function slabChoicesForTemplate(
+  template: RectSheetTemplateOption | undefined,
+  currentValue: string,
+) {
+  return SLAB_CHOICES.filter(
+    (choice) =>
+      choice.value === currentValue ||
+      ((!choice.hasTopSlab ||
+        !template ||
+        template.topSlabThicknessInches > 0) &&
+        (!choice.hasBaseSlab ||
+          !template ||
+          template.baseSlabThicknessInches > 0)),
+  );
+}
+
+/** Force-off slab flags a template cannot have (used on template change). */
+function slabPatchForTemplate(template: RectSheetTemplateOption | undefined) {
+  const patch: {
+    hasTopSlab?: boolean;
+    hasBaseSlab?: boolean;
+    baseAttached?: boolean;
+  } = {};
+  if (template && template.topSlabThicknessInches <= 0) {
+    patch.hasTopSlab = false;
+  }
+  if (template && template.baseSlabThicknessInches <= 0) {
+    patch.hasBaseSlab = false;
+    patch.baseAttached = false;
+  }
+  return patch;
+}
+
 function uniqueMaterials(
   openingSizes: RectWorkbookOptions["openingSizes"],
 ): string[] {
@@ -565,7 +602,14 @@ function RectDefaultsPanel({
           </label>
           <select
             value={defaults.templateId}
-            onChange={(e) => onChange({ templateId: e.target.value })}
+            onChange={(e) =>
+              onChange({
+                templateId: e.target.value,
+                ...slabPatchForTemplate(
+                  templates.find((entry) => entry.id === e.target.value),
+                ),
+              })
+            }
             className={structureInputClassName}
           >
             {templates.map((entry) => (
@@ -622,11 +666,13 @@ function RectDefaultsPanel({
             onChange={(e) => onChange(slabPatchForValue(e.target.value))}
             className={structureInputClassName}
           >
-            {SLAB_CHOICES.map((choice) => (
-              <option key={choice.value} value={choice.value}>
-                {choice.label}
-              </option>
-            ))}
+            {slabChoicesForTemplate(template, slabValueForRow(defaults)).map(
+              (choice) => (
+                <option key={choice.value} value={choice.value}>
+                  {choice.label}
+                </option>
+              ),
+            )}
           </select>
         </div>
         <div>
@@ -1229,15 +1275,18 @@ function RectWorkbookGrid({
                       value={row.templateId}
                       data-wb-row={rowIndex}
                       data-wb-col={columnIndexes.template}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const nextTemplate = options.templates.find(
+                          (entry) => entry.id === event.target.value,
+                        );
                         patchAndCommitRow(row.id, {
                           templateId: event.target.value,
                           castingProductId:
-                            options.templates.find(
-                              (entry) => entry.id === event.target.value,
-                            )?.defaultCastingProductId ?? row.castingProductId,
-                        })
-                      }
+                            nextTemplate?.defaultCastingProductId ??
+                            row.castingProductId,
+                          ...slabPatchForTemplate(nextTemplate),
+                        });
+                      }}
                       onKeyDown={(event) =>
                         handleCellKeyDown(
                           event,
@@ -1384,7 +1433,12 @@ function RectWorkbookGrid({
                       }
                       className={tableCellInputClassName}
                     >
-                      {SLAB_CHOICES.map((choice) => (
+                      {slabChoicesForTemplate(
+                        options.templates.find(
+                          (entry) => entry.id === row.templateId,
+                        ),
+                        slabValueForRow(row),
+                      ).map((choice) => (
                         <option key={choice.value} value={choice.value}>
                           {choice.label}
                         </option>

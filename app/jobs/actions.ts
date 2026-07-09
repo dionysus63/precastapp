@@ -279,6 +279,64 @@ export async function updateJob(formData: FormData) {
   redirect("/jobs");
 }
 
+/** Inline status change from the jobs list. */
+export async function updateJobStatusAction(jobId: string, status: string) {
+  await requirePermission(AppPermission.JOBS_MANAGE);
+  if (!JOB_STATUSES.includes(status as JobStatus)) {
+    throw new Error("Invalid job status.");
+  }
+
+  const job = await prisma.job.findUnique({
+    where: { id: jobId },
+    select: { awardedDate: true },
+  });
+  if (!job) {
+    throw new Error("Job was not found.");
+  }
+
+  await prisma.job.update({
+    where: { id: jobId },
+    data: {
+      status: status as JobStatus,
+      // First transition into AWARDED stamps the award date.
+      ...(status === "AWARDED" && !job.awardedDate
+        ? { awardedDate: new Date() }
+        : {}),
+    },
+  });
+
+  revalidatePath("/jobs");
+  revalidatePath(`/jobs/${jobId}`);
+}
+
+/** Inline contractor (customer) change from the jobs list. */
+export async function updateJobCustomerAction(
+  jobId: string,
+  customerId: string | null,
+) {
+  await requirePermission(AppPermission.JOBS_MANAGE);
+
+  const job = await prisma.job.findUnique({
+    where: { id: jobId },
+    select: { id: true },
+  });
+  if (!job) {
+    throw new Error("Job was not found.");
+  }
+
+  const customer = await resolveCustomerName(customerId?.trim() || null, "");
+  await prisma.job.update({
+    where: { id: jobId },
+    data: {
+      customerId: customer.customerId,
+      customerName: customer.customerName,
+    },
+  });
+
+  revalidatePath("/jobs");
+  revalidatePath(`/jobs/${jobId}`);
+}
+
 const STRUCTURE_TYPES = [
   "STOCK_PRODUCT",
   "CONFIGURABLE_PRODUCT",

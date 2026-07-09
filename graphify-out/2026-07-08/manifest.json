@@ -35,8 +35,8 @@
     "semantic_hash": ""
   },
   "app/jobs/actions.ts": {
-    "mtime": 1783287348.1911972,
-    "ast_hash": "e58455e65c9dfc2d3ce3af504ffca69f",
+    "mtime": 1783560277.9092824,
+    "ast_hash": "80f48832387be64e211e786c193ac454",
     "semantic_hash": ""
   },
   "app/jobs/new/page.tsx": {
@@ -45,7 +45,7 @@
     "semantic_hash": ""
   },
   "app/jobs/page.tsx": {
-    "mtime": 1783445083.537738,
+    "mtime": 1783561898.5004282,
     "ast_hash": "2f90d65797232bb3ec97ab56017a13d4",
     "semantic_hash": ""
   },
@@ -115,8 +115,8 @@
     "semantic_hash": ""
   },
   "app/quotes/actions.ts": {
-    "mtime": 1783552507.9782736,
-    "ast_hash": "e3276b6d2e46a30db4369688fd8d4381",
+    "mtime": 1783560995.2032068,
+    "ast_hash": "59fa8fb46f4feb9f82a2d569ff35b9df",
     "semantic_hash": ""
   },
   "app/quotes/new/page.tsx": {
@@ -205,12 +205,12 @@
     "semantic_hash": ""
   },
   "components/jobs/job-utils.ts": {
-    "mtime": 1783446750.1637547,
-    "ast_hash": "aa94d438c3ab3caef2233906df2aadb7",
+    "mtime": 1783561908.280107,
+    "ast_hash": "31a03a9ff7adb3eda1290d9e58413d78",
     "semantic_hash": ""
   },
   "components/jobs/jobs-list.tsx": {
-    "mtime": 1783445790.7328026,
+    "mtime": 1783561869.7863164,
     "ast_hash": "0d7ae6fb24e1dae3f7d678140615fa22",
     "semantic_hash": ""
   },
@@ -295,9 +295,9 @@
     "semantic_hash": ""
   },
   "lib/job-mapper.ts": {
-    "mtime": 1781869129.0227737,
+    "mtime": 1783561896.8536842,
     "ast_hash": "339257be23883e9084201dece5f7759b",
-    "semantic_hash": "339257be23883e9084201dece5f7759b"
+    "semantic_hash": ""
   },
   "lib/open-windows-folder.ts": {
     "mtime": 1781968468.5471625,
@@ -700,8 +700,8 @@
     "semantic_hash": ""
   },
   "lib/delivery-fulfillment.ts": {
-    "mtime": 1783552532.649007,
-    "ast_hash": "219e1e6dcae5687ab03e7a299c373d73",
+    "mtime": 1783561021.153339,
+    "ast_hash": "d961925d30ec44d1ee1a488670ebf87e",
     "semantic_hash": ""
   },
   "lib/delivery-ticket-mapper.ts": {
@@ -840,18 +840,18 @@
     "semantic_hash": "ea0ba06c05ec39f5fb7431ca5af86d09"
   },
   "app/jobs/[id]/page.tsx": {
-    "mtime": 1782946498.770628,
-    "ast_hash": "872e76f40a2e29f748679b714b991307",
+    "mtime": 1783561946.9892533,
+    "ast_hash": "5fe55cd35051ae6eaa18e3aeb8bd00a9",
     "semantic_hash": ""
   },
   "components/jobs/job-detail-content.tsx": {
-    "mtime": 1783448033.7560813,
-    "ast_hash": "a222f8721a17c5153c8703384bb963d2",
+    "mtime": 1783562284.6110404,
+    "ast_hash": "c108e87cc9727465c6160f4faa6000c1",
     "semantic_hash": ""
   },
   "lib/job-detail-mapper.ts": {
-    "mtime": 1783525452.5294957,
-    "ast_hash": "73cb4fa09c60c92c8e2c81d896886f80",
+    "mtime": 1783561928.1826794,
+    "ast_hash": "83b1a93f749072744340e29c0b6eb512",
     "semantic_hash": ""
   },
   "app/jobs/[id]/structures/new/page.tsx": {
@@ -1745,8 +1745,8 @@
     "semantic_hash": ""
   },
   "components/ui/rich-text-editor.tsx": {
-    "mtime": 1783287348.1862,
-    "ast_hash": "d78aa8b467cede213506a13ab2b1373e",
+    "mtime": 1783559220.5944347,
+    "ast_hash": "82593a4b68ff823d2d66df6894c4bb8e",
     "semantic_hash": ""
   },
   "components/walk-ins/walk-ins-board.tsx": {
@@ -1785,8 +1785,8 @@
     "semantic_hash": ""
   },
   "lib/rich-text.ts": {
-    "mtime": 1782481804.2592177,
-    "ast_hash": "64d79ebc3e85678799c93dbd01ce7530",
+    "mtime": 1783559276.3021646,
+    "ast_hash": "9fff090b92d1bc105baac5d47ba57719",
     "semantic_hash": ""
   },
   "lib/ring-builder-settings.ts": {
@@ -3077,6 +3077,16 @@
   "components/inventory/scan-submittals-button.tsx": {
     "mtime": 1783554755.6859548,
     "ast_hash": "d062339ec1d95fafbb309e97b462091f",
+    "semantic_hash": ""
+  },
+  "lib/job-status-workflow.ts": {
+    "mtime": 1783560951.1989,
+    "ast_hash": "42471c0e70698e0764e1c4c99e192d7a",
+    "semantic_hash": ""
+  },
+  "components/jobs/job-quick-edit.tsx": {
+    "mtime": 1783562280.6374402,
+    "ast_hash": "d397808d9bcffd3e2db29aa6c5762e72",
     "semantic_hash": ""
   }
 }

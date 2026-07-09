@@ -667,7 +667,10 @@ export function mapProductToQuoteFormOption(
   const isUnitCasting =
     product.castingRole === "ASSEMBLY" && product.castingSoldAsUnit;
   const subcategory = product.subcategory?.name?.trim() || "";
-  const baseDescription = product.description?.trim() || subcategory || product.name;
+  // The description column is optional (bulk imports leave it empty), so the
+  // product name is the fallback — never the subcategory, which turned rows
+  // into "Traffic Rated" instead of "60x84 Utility Vault".
+  const baseDescription = product.description?.trim() || product.name;
   const description = isCastingAssembly
     ? `${baseDescription} [Casting assembly]`
     : isUnitCasting

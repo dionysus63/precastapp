@@ -7,6 +7,11 @@ import { OpenJobFolderButton } from "@/components/jobs/open-job-folder-button";
 import { JobInvoiceActions } from "@/components/jobs/job-invoice-actions";
 import { JobStructureSubmittalActions } from "@/components/jobs/job-structure-submittal-actions";
 import { JobFavoriteStar } from "@/components/jobs/job-favorite-star";
+import {
+  JobCustomerEditor,
+  JobStatusSelect,
+  type AssignableCustomer,
+} from "@/components/jobs/job-quick-edit";
 import { StructureManageLink } from "@/components/jobs/structure-manage-link";
 import { DrillSheetPdfLink } from "@/components/drill-sheets/drill-sheet-pdf-link";
 import { JobDeliveriesTable } from "@/components/jobs/job-deliveries-table";
@@ -36,6 +41,7 @@ type JobDetailContentProps = {
   detail: JobDetailView;
   activeTab: JobDetailTab;
   isFavorited: boolean;
+  assignableCustomers: AssignableCustomer[];
   children: ReactNode;
 };
 
@@ -146,6 +152,7 @@ export function JobDetailContent({
   detail,
   activeTab,
   isFavorited,
+  assignableCustomers,
   children,
 }: JobDetailContentProps) {
   const tabCounts: Partial<Record<JobDetailTab, number>> = {
@@ -156,8 +163,9 @@ export function JobDetailContent({
     invoices: detail.counts.invoices,
   };
 
+  // Customer moved out of the context line — the header's quick contractor
+  // select shows (and edits) it.
   const contextLine = [
-    detail.customer,
     detail.projectAddress !== "—" ? detail.projectAddress : null,
   ].filter(Boolean);
 
@@ -213,9 +221,18 @@ export function JobDetailContent({
             <h2 className="font-mono text-lg font-semibold text-slate-900">
               {detail.jobNumber}
             </h2>
-            <StatusBadge
-              label={detail.status}
-              variant={detail.statusVariant}
+            <JobStatusSelect
+              jobId={detail.id}
+              jobNumber={detail.jobNumber}
+              statusValue={detail.statusValue}
+              statusVariant={detail.statusVariant}
+            />
+            <JobCustomerEditor
+              jobId={detail.id}
+              jobNumber={detail.jobNumber}
+              customerId={detail.customerId}
+              customerName={detail.customer}
+              customers={assignableCustomers}
             />
           </div>
 

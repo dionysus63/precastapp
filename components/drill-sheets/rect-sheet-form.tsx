@@ -194,10 +194,12 @@ export function RectSheetForm({
     defaultValues?.insideWidthFeet ?? "",
   );
   const [hasTopSlab, setHasTopSlab] = useState(
-    defaultValues?.hasTopSlab ?? true,
+    defaultValues?.hasTopSlab ??
+      (initialTemplate ? initialTemplate.topSlabThicknessInches > 0 : true),
   );
   const [hasBaseSlab, setHasBaseSlab] = useState(
-    defaultValues?.hasBaseSlab ?? true,
+    defaultValues?.hasBaseSlab ??
+      (initialTemplate ? initialTemplate.baseSlabThicknessInches > 0 : true),
   );
   const [baseAttached, setBaseAttached] = useState(
     defaultValues?.baseAttached ?? true,
@@ -241,6 +243,12 @@ export function RectSheetForm({
     const next = templates.find((t) => t.id === nextId) ?? null;
     if (next?.defaultCastingProductId) {
       setCastingProductId(next.defaultCastingProductId);
+    }
+    if (next && next.topSlabThicknessInches <= 0) {
+      setHasTopSlab(false);
+    }
+    if (next && next.baseSlabThicknessInches <= 0) {
+      setHasBaseSlab(false);
     }
   }
 
@@ -593,17 +601,37 @@ export function RectSheetForm({
                   <input
                     type="checkbox"
                     checked={hasTopSlab}
+                    disabled={
+                      template != null &&
+                      template.topSlabThicknessInches <= 0 &&
+                      !hasTopSlab
+                    }
                     onChange={(e) => setHasTopSlab(e.target.checked)}
                   />
                   Top slab
+                  {template && template.topSlabThicknessInches <= 0 ? (
+                    <span className="text-[10px] font-normal text-slate-400">
+                      (none on template)
+                    </span>
+                  ) : null}
                 </label>
                 <label className="flex items-center gap-2 text-xs font-medium text-slate-700">
                   <input
                     type="checkbox"
                     checked={hasBaseSlab}
+                    disabled={
+                      template != null &&
+                      template.baseSlabThicknessInches <= 0 &&
+                      !hasBaseSlab
+                    }
                     onChange={(e) => setHasBaseSlab(e.target.checked)}
                   />
                   Base slab
+                  {template && template.baseSlabThicknessInches <= 0 ? (
+                    <span className="text-[10px] font-normal text-slate-400">
+                      (none on template)
+                    </span>
+                  ) : null}
                 </label>
               </div>
               {hasBaseSlab ? (

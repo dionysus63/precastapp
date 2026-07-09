@@ -65,7 +65,10 @@ import {
   quoteTypeFormOptions,
 } from "@/components/quotes/quote-utils";
 import { QuoteFormTypeahead } from "@/components/quotes/quote-form-typeahead";
-import { StockProductPicker } from "@/components/quotes/stock-product-picker";
+import {
+  StockProductPicker,
+  type StagedStockProduct,
+} from "@/components/quotes/stock-product-picker";
 import { QuoteLineItemsTable } from "@/components/quotes/quote-line-items-table";
 import {
   CustomStructureCostBreakdown,
@@ -377,7 +380,11 @@ export function QuoteForm({
     initialValues?.estimator || initialEstimator,
   );
   const [bidDueDate, setBidDueDate] = useState(initialValues?.bidDueDate ?? "");
-  const [quoteDate, setQuoteDate] = useState(initialValues?.quoteDate ?? "");
+  // New quotes default to today (local time, not UTC — an evening quote
+  // shouldn't be dated tomorrow); editing keeps the stored date.
+  const [quoteDate, setQuoteDate] = useState(
+    initialValues?.quoteDate ?? new Date().toLocaleDateString("en-CA"),
+  );
   const [expirationDate, setExpirationDate] = useState(
     initialValues?.expirationDate || initialExpirationDate,
   );
@@ -437,8 +444,6 @@ export function QuoteForm({
     null,
   );
 
-  const [selectedStockProduct, setSelectedStockProduct] =
-    useState<QuoteFormProductOption | null>(null);
   const [selectedConfigurableProduct, setSelectedConfigurableProduct] =
     useState<QuoteFormProductOption | null>(null);
   const [structureNumber, setStructureNumber] = useState("MH-1");
@@ -961,10 +966,6 @@ export function QuoteForm({
     setActiveLineType(type);
     setAddModalType(type);
 
-    if (type === "STOCK_PRODUCT") {
-      setSelectedStockProduct(null);
-    }
-
     if (type === "CONFIGURABLE_STRUCTURE") {
       const product = selectedConfigurableProduct;
       setStructureDescription(
@@ -1157,27 +1158,28 @@ export function QuoteForm({
     );
   }
 
-  function handleAddStockProduct() {
-    const product = selectedStockProduct;
-    if (!product) {
+  function handleAddStockProducts(items: StagedStockProduct[]) {
+    if (items.length === 0) {
       return;
     }
 
-    addLineItem({
-      id: createLineId(),
-      lineNumber: lineItems.length + 1,
-      type: "STOCK_PRODUCT",
-      typeLabel: quoteLineItemTypeLabels.STOCK_PRODUCT,
-      item: product.code,
-      description: product.description,
-      qty: "1",
-      unit: product.unit,
-      unitPrice: String(product.unitPrice),
-      weight: product.weightLb > 0 ? String(product.weightLb) : "",
-      yards: product.yards > 0 ? String(product.yards) : "",
-      taxable: product.taxable,
-      productId: product.id,
-    });
+    addLineItems(
+      items.map(({ product, qty }) => ({
+        id: createLineId(),
+        lineNumber: 0,
+        type: "STOCK_PRODUCT" as const,
+        typeLabel: quoteLineItemTypeLabels.STOCK_PRODUCT,
+        item: product.code,
+        description: product.description,
+        qty: String(qty),
+        unit: product.unit,
+        unitPrice: String(product.unitPrice),
+        weight: product.weightLb > 0 ? String(product.weightLb) : "",
+        yards: product.yards > 0 ? String(product.yards) : "",
+        taxable: product.taxable,
+        productId: product.id,
+      })),
+    );
   }
 
   function handleAddConfigurableStructure() {
@@ -2368,7 +2370,7 @@ export function QuoteForm({
               addModalType === "CUSTOM_STRUCTURE"
                 ? "flex max-h-[90vh] max-w-5xl flex-col"
                 : addModalType === "STOCK_PRODUCT"
-                  ? "max-h-[90vh] max-w-2xl overflow-y-auto p-4"
+                  ? "flex max-h-[90vh] max-w-3xl flex-col"
                   : "max-w-lg p-4"
             }`}
           >
@@ -2593,38 +2595,21 @@ export function QuoteForm({
 
             {addModalType === "STOCK_PRODUCT" ? (
               <>
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Add Stock Product
-                </h3>
-                <p className="mt-1 text-xs text-slate-500">
-                  Choose a category to browse products, optionally narrow by
-                  subcategory, then click a product to add it.
-                </p>
-                <div className="mt-4">
-                  <StockProductPicker
-                    taxonomy={taxonomy}
-                    priceListId={priceListId || null}
-                    selectedProduct={selectedStockProduct}
-                    onSelect={setSelectedStockProduct}
-                  />
+                <div className="border-b border-slate-100 px-4 py-4">
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Add Stock Structures
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Browse by category, set quantities on everything you need
+                    — across categories too — then add them all at once.
+                  </p>
                 </div>
-                <div className="mt-4 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={closeAddModal}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAddStockProduct}
-                    disabled={!selectedStockProduct}
-                    className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Add to Quote
-                  </button>
-                </div>
+                <StockProductPicker
+                  taxonomy={taxonomy}
+                  priceListId={priceListId || null}
+                  onAdd={handleAddStockProducts}
+                  onCancel={closeAddModal}
+                />
               </>
             ) : null}
 

@@ -62,10 +62,10 @@ export default async function Home() {
         take: 3,
       }),
       prisma.job.count({
-        where: { status: { in: ["ACTIVE", "AWARDED", "SUBMITTED", "QUOTING"] } },
+        where: { status: { in: ["ACTIVE", "AWARDED", "QUOTING"] } },
       }),
       prisma.job.findMany({
-        where: { status: { in: ["ACTIVE", "AWARDED", "SUBMITTED", "QUOTING"] } },
+        where: { status: { in: ["ACTIVE", "AWARDED", "QUOTING"] } },
         orderBy: { updatedAt: "desc" },
         take: 3,
       }),
