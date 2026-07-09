@@ -5,6 +5,7 @@ import {
   useCallback,
   useLayoutEffect,
   useRef,
+  useState,
   type KeyboardEvent,
 } from "react";
 import { StatusBadge } from "@/components/dashboard/status-badge";
@@ -36,10 +37,10 @@ const iconButtonClassName =
   "inline-flex h-6 w-6 items-center justify-center rounded text-[13px] text-slate-500 hover:bg-slate-200/70 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-30";
 
 // Keyboard-navigable columns, in Tab/Enter order.
-// Description=0, Qty=1, Unit=2, Unit Price=3, Weight=4, Yards=5, Tax=6.
+// Description=0, Qty=1, Unit=2, Unit Price=3, Weight=4, Tax=5.
 // Rows expose only the columns that are editable for them (category rows only
 // col 0; custom structures skip cols 0 and 3), so navigation skips the gaps.
-const NAV_COLUMN_COUNT = 7;
+const NAV_COLUMN_COUNT = 6;
 
 type CellKeyDownHandler = (
   event: KeyboardEvent<HTMLElement>,
@@ -87,6 +88,53 @@ function QuoteLineDescriptionTextarea({
         autoResizeTextarea(event.target);
       }}
       className={className ?? tableCellTextareaClassName}
+    />
+  );
+}
+
+/** Formats a raw price string as currency ($1,234.50) when it parses. */
+function formatUnitPriceDisplay(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? formatQuoteCurrency(parsed) : value;
+}
+
+/**
+ * Unit-price cell: shows the currency-formatted value at rest (matching the
+ * Total column, minus the bold) and the raw number while editing.
+ */
+function QuoteUnitPriceInput({
+  value,
+  onChange,
+  rowIndex,
+  onCellKeyDown,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  rowIndex: number;
+  onCellKeyDown: CellKeyDownHandler;
+}) {
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <input
+      type="text"
+      value={focused ? value : formatUnitPriceDisplay(value)}
+      data-qli-row={rowIndex}
+      data-qli-col={3}
+      onKeyDown={(event) => onCellKeyDown(event, rowIndex, 3)}
+      onFocus={(event) => {
+        setFocused(true);
+        // Re-select after the raw value replaces the formatted one.
+        const target = event.currentTarget;
+        requestAnimationFrame(() => target.select());
+      }}
+      onBlur={() => setFocused(false)}
+      onChange={(event) => onChange(event.target.value)}
+      className={tableNumericCellInputClassName}
     />
   );
 }
@@ -183,7 +231,7 @@ const QuoteLineItemRow = memo(function QuoteLineItemRow({
         <td className={tableCellClassName}>
           <StatusBadge label={line.typeLabel} variant="neutral" />
         </td>
-        <td className={`${tableGridCellClassName} bg-slate-50/60`} colSpan={9}>
+        <td className={`${tableGridCellClassName} bg-slate-50/60`} colSpan={8}>
           <QuoteLineDescriptionTextarea
             value={line.description}
             onChange={(value) => onUpdateLine(line.id, "description", value)}
@@ -260,8 +308,8 @@ const QuoteLineItemRow = memo(function QuoteLineItemRow({
       </td>
       {line.type === "CUSTOM_STRUCTURE" && hasCostBreakdown(line.costBreakdown) ? (
         <td className={`${tableCellClassName} text-right`}>
-          <p className="font-medium tabular-nums text-slate-900">
-            {line.unitPrice}
+          <p className="tabular-nums text-slate-900">
+            {formatUnitPriceDisplay(line.unitPrice)}
           </p>
           <p className="text-[10px] text-slate-500">
             {line.costBreakdown!.length} cost line
@@ -270,16 +318,11 @@ const QuoteLineItemRow = memo(function QuoteLineItemRow({
         </td>
       ) : (
         <td className={tableGridCellClassName}>
-          <input
-            type="text"
+          <QuoteUnitPriceInput
             value={line.unitPrice}
-            data-qli-row={rowIndex}
-            data-qli-col={3}
-            onKeyDown={(event) => onCellKeyDown(event, rowIndex, 3)}
-            onChange={(event) =>
-              onUpdateLine(line.id, "unitPrice", event.target.value)
-            }
-            className={tableNumericCellInputClassName}
+            onChange={(value) => onUpdateLine(line.id, "unitPrice", value)}
+            rowIndex={rowIndex}
+            onCellKeyDown={onCellKeyDown}
           />
         </td>
       )}
@@ -298,25 +341,11 @@ const QuoteLineItemRow = memo(function QuoteLineItemRow({
         />
       </td>
       <td className={tableGridCellClassName}>
-        <input
-          type="text"
-          value={line.yards}
-          data-qli-row={rowIndex}
-          data-qli-col={5}
-          onKeyDown={(event) => onCellKeyDown(event, rowIndex, 5)}
-          onChange={(event) =>
-            onUpdateLine(line.id, "yards", event.target.value)
-          }
-          placeholder="—"
-          className={tableNumericCellInputClassName}
-        />
-      </td>
-      <td className={tableGridCellClassName}>
         <select
           value={line.taxable ? "yes" : "no"}
           data-qli-row={rowIndex}
-          data-qli-col={6}
-          onKeyDown={(event) => onCellKeyDown(event, rowIndex, 6)}
+          data-qli-col={5}
+          onKeyDown={(event) => onCellKeyDown(event, rowIndex, 5)}
           onChange={(event) =>
             onUpdateLine(line.id, "taxable", event.target.value === "yes")
           }
@@ -491,9 +520,6 @@ export const QuoteLineItemsTable = memo(function QuoteLineItemsTable({
             <th className={`${tableHeaderCellClassName} w-20 text-right`}>
               Weight
             </th>
-            <th className={`${tableHeaderCellClassName} w-16 text-right`}>
-              Yards
-            </th>
             <th className={`${tableHeaderCellClassName} w-16`}>Tax</th>
             <th className={`${tableHeaderCellClassName} w-24 text-right`}>
               Total
@@ -505,7 +531,7 @@ export const QuoteLineItemsTable = memo(function QuoteLineItemsTable({
           {lineItems.length === 0 ? (
             <tr>
               <td
-                colSpan={12}
+                colSpan={11}
                 className={`${tableCellBordersClassName} px-3 py-6 text-center text-slate-500`}
               >
                 No line items yet. Use the buttons above to add items.
