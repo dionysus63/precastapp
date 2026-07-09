@@ -41,6 +41,7 @@ type LineItemSource = {
   ringDiameterFeet: Prisma.Decimal | null;
   poolHeightFeet: Prisma.Decimal | null;
   drainRingStyle: string;
+  structureConfigJson?: Prisma.JsonValue | null;
 };
 
 export function computeQuoteTotalsFromLines(
@@ -116,11 +117,12 @@ export function mapLineItemForCreate(
   return {
     lineNumber: line.lineNumber,
     lineType: line.lineType,
+    // All relations by FK scalar: mixing relation syntax (connect) with
+    // scalars here flips Prisma's nested create into checked mode, which
+    // rejects productId/jobStructureId outright.
     productId: line.productId,
     jobStructureId: options?.jobStructureId ?? null,
-    ...(options?.previousLineItemId
-      ? { previousLineItem: { connect: { id: options.previousLineItemId } } }
-      : {}),
+    previousLineItemId: options?.previousLineItemId ?? null,
     itemCode: line.itemCode,
     description: line.description,
     quantity: toQuoteDecimal(line.quantity),
@@ -139,5 +141,10 @@ export function mapLineItemForCreate(
     drainRingStyle: line.isDrainRing
       ? parseDrainRingStyle(line.drainRingStyle)
       : "DRAIN",
+    // Structure workbook configs must survive copies/revisions — losing them
+    // would strand the drill-sheet workflow on the new quote's lines.
+    ...(line.structureConfigJson != null
+      ? { structureConfigJson: line.structureConfigJson as Prisma.InputJsonValue }
+      : {}),
   };
 }

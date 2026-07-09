@@ -520,8 +520,8 @@
     "semantic_hash": ""
   },
   "app/production/page.tsx": {
-    "mtime": 1783629474.843036,
-    "ast_hash": "d8b2257874f4d34d3763f2719527c41f",
+    "mtime": 1783631297.9989054,
+    "ast_hash": "b2b674956a664649b107f19101664996",
     "semantic_hash": ""
   },
   "app/settings/actions.ts": {
@@ -845,8 +845,8 @@
     "semantic_hash": ""
   },
   "components/jobs/job-detail-content.tsx": {
-    "mtime": 1783629780.1367416,
-    "ast_hash": "2912022c974d432a7a0222dcbfc6b66d",
+    "mtime": 1783631342.2117305,
+    "ast_hash": "15cd2bff672c7f334a54e760ca87d46c",
     "semantic_hash": ""
   },
   "lib/job-detail-mapper.ts": {
@@ -2070,8 +2070,8 @@
     "semantic_hash": ""
   },
   "app/jobs/[id]/job-tab-content.tsx": {
-    "mtime": 1783629770.7469206,
-    "ast_hash": "f32db104731f9b46f9b9ebd90e926271",
+    "mtime": 1783631336.42902,
+    "ast_hash": "79fe30b488046cc4982819370a5cc5bd",
     "semantic_hash": ""
   },
   "app/quotes/quote-form-data.ts": {
@@ -2155,8 +2155,8 @@
     "semantic_hash": ""
   },
   "app/quotes/structure-actions.ts": {
-    "mtime": 1783366224.7072053,
-    "ast_hash": "63b1506a0bbdd9e4d950fe5ef2a2f421",
+    "mtime": 1783631201.5560892,
+    "ast_hash": "cc4c24a2dcbb50fe493c8e922d45921a",
     "semantic_hash": ""
   },
   "components/quotes/create-drill-sheets-button.tsx": {
@@ -2855,8 +2855,8 @@
     "semantic_hash": ""
   },
   "components/quotes/rect-structure-workbook/rect-structure-workbook.tsx": {
-    "mtime": 1783601918.5213063,
-    "ast_hash": "892c07ff8a0ec275f433baf7a02086f3",
+    "mtime": 1783631210.9276984,
+    "ast_hash": "161ead1bd322fa85b1ad5e49ad5f58b1",
     "semantic_hash": ""
   },
   "lib/quotes/rect-structure-workbook.ts": {
@@ -3000,8 +3000,8 @@
     "semantic_hash": ""
   },
   "components/production/production-board.tsx": {
-    "mtime": 1783629513.1883068,
-    "ast_hash": "de329a6a6b60a5bb42e245c952cf455d",
+    "mtime": 1783631304.3036733,
+    "ast_hash": "53a40c9da982a679e12f9ad69a0f78ee",
     "semantic_hash": ""
   },
   "components/common/category-chip-bar.tsx": {
@@ -3097,6 +3097,16 @@
   "lib/needs-drill-sheet.ts": {
     "mtime": 1783629401.003024,
     "ast_hash": "0f5478e8de6bae2b0628e2eac98d4846",
+    "semantic_hash": ""
+  },
+  "app/quotes/[id]/complete-drill-sheets/page.tsx": {
+    "mtime": 1783631273.794528,
+    "ast_hash": "1d9e27d11dbc2db5743bbabc037e9ba7",
+    "semantic_hash": ""
+  },
+  "components/quotes/rect-structure-workbook/complete-drill-sheets-client.tsx": {
+    "mtime": 1783631242.1212614,
+    "ast_hash": "e8f74e709f1308115179ef7495401d60",
     "semantic_hash": ""
   }
 }
