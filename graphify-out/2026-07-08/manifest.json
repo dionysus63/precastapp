@@ -525,8 +525,8 @@
     "semantic_hash": ""
   },
   "app/settings/actions.ts": {
-    "mtime": 1783545106.30365,
-    "ast_hash": "65d93f0d757ff94973e504e4553427f8",
+    "mtime": 1783556097.5742624,
+    "ast_hash": "be6f876bcf2923db0fddff86e62bc930",
     "semantic_hash": ""
   },
   "app/settings/billing/page.tsx": {
@@ -1165,8 +1165,8 @@
     "semantic_hash": ""
   },
   "components/settings/data-reset-panel.tsx": {
-    "mtime": 1783545122.0831847,
-    "ast_hash": "c37bd9bf94b3ee493c6fc0fc87ba2c02",
+    "mtime": 1783556110.9637923,
+    "ast_hash": "399949ae843c1635b82382420c7eeb12",
     "semantic_hash": ""
   },
   "lib/quote-clone.ts": {

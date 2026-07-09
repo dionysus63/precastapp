@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useMemo } from "react";
+import { memo, useCallback, useMemo } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { PaginationControls } from "@/components/common/pagination-controls";
@@ -41,40 +41,127 @@ type ProductsListFilters = {
   castingOrigin: string;
 };
 
+type SortColumn =
+  | "code"
+  | "name"
+  | "type"
+  | "category"
+  | "subcategory"
+  | "unit"
+  | "price"
+  | "weight"
+  | "yards"
+  | "submittals";
+
+type SortDirection = "asc" | "desc";
+
 type ProductsListProps = {
   products: ProductRow[];
   pageInfo: PageInfo;
   filters: ProductsListFilters;
+  sort: { column: SortColumn; direction: SortDirection };
 };
 
+const sortableHeaderClassName = `${tableHeaderCellClassName} cursor-pointer select-none transition-colors hover:bg-slate-200/60 hover:text-slate-700`;
+
+type SortableHeaderProps = {
+  column: SortColumn;
+  label: string;
+  align?: "right";
+  sortColumn: SortColumn;
+  sortDirection: SortDirection;
+  onSort: (column: SortColumn) => void;
+};
+
+function SortableHeader({
+  column,
+  label,
+  align,
+  sortColumn,
+  sortDirection,
+  onSort,
+}: SortableHeaderProps) {
+  const isActive = sortColumn === column;
+
+  return (
+    <th
+      scope="col"
+      className={`${sortableHeaderClassName}${align === "right" ? " text-right" : ""}`}
+      onClick={() => onSort(column)}
+      aria-sort={
+        isActive
+          ? sortDirection === "asc"
+            ? "ascending"
+            : "descending"
+          : "none"
+      }
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {isActive ? (
+          <span className="text-slate-400" aria-hidden="true">
+            {sortDirection === "asc" ? "↑" : "↓"}
+          </span>
+        ) : null}
+      </span>
+    </th>
+  );
+}
+
 // Memoized so typing in the search box doesn't re-render the full row set;
-// rows only change when the server sends a new page.
+// props only change on navigation (rows, sort state) and onSort is stable.
 const ProductsTable = memo(function ProductsTable({
   products,
   total,
+  sortColumn,
+  sortDirection,
+  onSort,
 }: {
   products: ProductRow[];
   total: number;
+  sortColumn: SortColumn;
+  sortDirection: SortDirection;
+  onSort: (column: SortColumn) => void;
 }) {
+  const sortProps = { sortColumn, sortDirection, onSort };
   return (
     <div className={tableFlushWrapperClassName}>
       <table className={tableClassName}>
         <thead>
           <tr>
-            <th className={tableHeaderCellClassName}>Product Code</th>
-            <th className={tableHeaderCellClassName}>Product Name</th>
-            <th className={tableHeaderCellClassName}>Product Type</th>
-            <th className={tableHeaderCellClassName}>Category</th>
-            <th className={tableHeaderCellClassName}>Subcategory</th>
-            <th className={tableHeaderCellClassName}>Unit</th>
-            <th className={`${tableHeaderCellClassName} text-right`}>
-              Unit Price
-            </th>
-            <th className={`${tableHeaderCellClassName} text-right`}>
-              Weight
-            </th>
-            <th className={`${tableHeaderCellClassName} text-right`}>Yards</th>
-            <th className={tableHeaderCellClassName}>Submittals</th>
+            <SortableHeader column="code" label="Product Code" {...sortProps} />
+            <SortableHeader column="name" label="Product Name" {...sortProps} />
+            <SortableHeader column="type" label="Product Type" {...sortProps} />
+            <SortableHeader column="category" label="Category" {...sortProps} />
+            <SortableHeader
+              column="subcategory"
+              label="Subcategory"
+              {...sortProps}
+            />
+            <SortableHeader column="unit" label="Unit" {...sortProps} />
+            <SortableHeader
+              column="price"
+              label="Unit Price"
+              align="right"
+              {...sortProps}
+            />
+            <SortableHeader
+              column="weight"
+              label="Weight"
+              align="right"
+              {...sortProps}
+            />
+            <SortableHeader
+              column="yards"
+              label="Yards"
+              align="right"
+              {...sortProps}
+            />
+            <SortableHeader
+              column="submittals"
+              label="Submittals"
+              {...sortProps}
+            />
             <th className={tableHeaderCellClassName}>Actions</th>
           </tr>
         </thead>
@@ -181,9 +268,19 @@ export function ProductsList({
   products,
   pageInfo,
   filters,
+  sort,
 }: ProductsListProps) {
   const { setParams } = useListQuery();
   const { search, setSearch } = useDebouncedSearchParam("q", filters.search);
+
+  const handleSort = useCallback(
+    (column: SortColumn) => {
+      const nextDirection: SortDirection =
+        sort.column === column && sort.direction === "asc" ? "desc" : "asc";
+      setParams({ sort: column, dir: nextDirection });
+    },
+    [sort.column, sort.direction, setParams],
+  );
 
   const productTypeOptions = Object.entries(productTypeLabels);
   const showCastingOriginFilter = filters.type === "CASTING";
@@ -280,7 +377,13 @@ export function ProductsList({
         description={`${pageInfo.total.toLocaleString()} product${pageInfo.total === 1 ? "" : "s"} match`}
         noPadding
       >
-        <ProductsTable products={products} total={pageInfo.total} />
+        <ProductsTable
+          products={products}
+          total={pageInfo.total}
+          sortColumn={sort.column}
+          sortDirection={sort.direction}
+          onSort={handleSort}
+        />
         <PaginationControls
           page={pageInfo.page}
           totalPages={pageInfo.totalPages}

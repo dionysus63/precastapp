@@ -32,6 +32,45 @@ const VALID_PRODUCT_STATUSES = new Set<string>(
   productStatusFormOptions.map((option) => option.value),
 );
 
+const PRODUCT_SORT_COLUMNS = [
+  "code",
+  "name",
+  "type",
+  "category",
+  "subcategory",
+  "unit",
+  "price",
+  "weight",
+  "yards",
+  "submittals",
+] as const;
+
+type ProductSortColumn = (typeof PRODUCT_SORT_COLUMNS)[number];
+
+function buildProductOrderBy(
+  column: ProductSortColumn,
+  dir: "asc" | "desc",
+): Prisma.ProductOrderByWithRelationInput[] {
+  switch (column) {
+    case "code":
+      return [{ productCode: dir }];
+    case "type":
+      return [{ productType: dir }, { name: "asc" }];
+    case "category":
+      return [{ productCategory: { name: dir } }, { name: "asc" }];
+    case "subcategory":
+      return [{ subcategory: { name: dir } }, { name: "asc" }];
+    case "unit":
+      return [{ unit: dir }, { name: "asc" }];
+    case "weight":
+      return [{ weight: { sort: dir, nulls: "last" } }, { name: "asc" }];
+    case "yards":
+      return [{ yards: { sort: dir, nulls: "last" } }, { name: "asc" }];
+    default:
+      return [{ name: dir }];
+  }
+}
+
 export default async function ProductsPage({
   searchParams,
 }: {
@@ -45,7 +84,20 @@ export default async function ProductsPage({
   const statusParam = parseStringParam(params.status);
   const submittalsParam = parseStringParam(params.submittals);
   const castingOriginParam = parseStringParam(params.castingOrigin);
+  const sortParam = parseStringParam(params.sort);
+  const dirParam = parseStringParam(params.dir);
   const requestedPage = parsePageParam(params.page);
+
+  const sortColumn: ProductSortColumn = PRODUCT_SORT_COLUMNS.includes(
+    sortParam as ProductSortColumn,
+  )
+    ? (sortParam as ProductSortColumn)
+    : "name";
+  const sortDirection: "asc" | "desc" = dirParam === "desc" ? "desc" : "asc";
+  // Price and submittal counts aren't product columns (price-list entry and
+  // effective count with the assembly→components fallback), so those sorts
+  // order matching ids in memory instead of in SQL.
+  const isComputedSort = sortColumn === "price" || sortColumn === "submittals";
   const importedCount = Number.parseInt(parseStringParam(params.imported) ?? "", 10);
   const updatedCount = Number.parseInt(parseStringParam(params.updated) ?? "", 10);
   const imported =
@@ -102,19 +154,67 @@ export default async function ProductsPage({
       : {}),
   };
 
-  const total = await withDatabaseRetry((prisma) =>
-    prisma.product.count({ where }),
+  const [total, defaultPriceList] = await withDatabaseRetry((prisma) =>
+    Promise.all([prisma.product.count({ where }), getDefaultPriceList(prisma)]),
   );
   const pageInfo = buildPageInfo(total, requestedPage);
 
-  const [products, taxonomy, defaultPriceList, categoryGroups, subcategoryGroups] =
+  // Computed sorts: order every matching id in memory, then page over the ids.
+  let orderedPageIds: string[] | null = null;
+  if (isComputedSort) {
+    const idRows = await withDatabaseRetry((prisma) =>
+      prisma.product.findMany({ where, select: { id: true, name: true } }),
+    );
+    const valueById = new Map<string, number>();
+    if (sortColumn === "price") {
+      const priceMap = await getProductPricesForList(
+        idRows.map((row) => row.id),
+        defaultPriceList?.id ?? null,
+      );
+      for (const [id, price] of priceMap) {
+        valueById.set(id, Number(price));
+      }
+    } else {
+      const counts = await withDatabaseRetry((prisma) =>
+        loadEffectiveSubmittalCountsByProductId(
+          prisma,
+          idRows.map((row) => row.id),
+        ),
+      );
+      for (const [id, count] of counts) {
+        valueById.set(id, count);
+      }
+    }
+    idRows.sort((a, b) => {
+      const aValue = valueById.get(a.id) ?? null;
+      const bValue = valueById.get(b.id) ?? null;
+      // Missing values (no price on the list) always sort last.
+      if (aValue == null && bValue == null) {
+        return a.name.localeCompare(b.name);
+      }
+      if (aValue == null) {
+        return 1;
+      }
+      if (bValue == null) {
+        return -1;
+      }
+      const diff = sortDirection === "asc" ? aValue - bValue : bValue - aValue;
+      return diff !== 0 ? diff : a.name.localeCompare(b.name);
+    });
+    orderedPageIds = idRows
+      .slice(pageInfo.skip, pageInfo.skip + pageInfo.take)
+      .map((row) => row.id);
+  }
+
+  const [fetchedProducts, taxonomy, categoryGroups, subcategoryGroups] =
     await withDatabaseRetry((prisma) =>
       Promise.all([
         prisma.product.findMany({
-          where,
-          orderBy: { name: "asc" },
-          skip: pageInfo.skip,
-          take: pageInfo.take,
+          where: orderedPageIds ? { id: { in: orderedPageIds } } : where,
+          orderBy: buildProductOrderBy(sortColumn, sortDirection),
+          ...(orderedPageIds
+            ? {}
+            : { skip: pageInfo.skip, take: pageInfo.take }),
           include: {
             productCategory: { select: { name: true } },
             subcategory: { select: { name: true } },
@@ -127,7 +227,6 @@ export default async function ProductsPage({
           },
         }),
         listProductTaxonomy(),
-        getDefaultPriceList(prisma),
         prisma.product.groupBy({
           by: ["categoryId"],
           where: whereWithoutTaxonomy,
@@ -144,6 +243,13 @@ export default async function ProductsPage({
             ),
       ]),
     );
+
+  // `id: { in: ... }` loses the computed order — restore it.
+  const products = orderedPageIds
+    ? [...fetchedProducts].sort(
+        (a, b) => orderedPageIds.indexOf(a.id) - orderedPageIds.indexOf(b.id),
+      )
+    : fetchedProducts;
 
   const categoryCountById = new Map(
     categoryGroups.map((group) => [group.categoryId, group._count._all]),
@@ -261,6 +367,7 @@ export default async function ProductsPage({
           submittals: submittalsParam,
           castingOrigin: castingOriginParam,
         }}
+        sort={{ column: sortColumn, direction: sortDirection }}
       />
     </DashboardShell>
   );
