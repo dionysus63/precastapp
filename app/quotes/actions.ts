@@ -20,8 +20,9 @@ import {
 } from "@/app/quotes/quote-form-data";
 import { mapProductToQuoteFormOption } from "@/lib/quote-mapper";
 import {
-  isDerivableCastingAssembly,
+  isPartsModeCastingAssembly,
   loadDerivedAssemblyValues,
+  resolveEffectiveAssemblyWeight,
 } from "@/lib/casting-service";
 import { PHYSICAL_PRODUCT_TYPES } from "@/lib/product-types";
 import { getProductPricesForList } from "@/lib/price-list-service";
@@ -926,30 +927,30 @@ export async function searchProductsForQuoteForm(
       )
     : new Map();
 
-  const derivableAssemblyIds = products
-    .filter((product) => isDerivableCastingAssembly(product))
+  const partsAssemblyIds = products
+    .filter((product) => isPartsModeCastingAssembly(product))
     .map((product) => product.id);
-  const derivedMap = derivableAssemblyIds.length
+  const derivedMap = partsAssemblyIds.length
     ? await withDatabaseRetry((client) =>
-        loadDerivedAssemblyValues(client, derivableAssemblyIds, priceListId),
+        loadDerivedAssemblyValues(client, partsAssemblyIds),
       )
     : new Map();
 
   const options = products.map((product) => {
-    const derived = derivedMap.get(product.id);
-    const effectiveUnitPrice = isDerivableCastingAssembly(product)
-      ? derived?.derivedUnitPrice != null
-        ? { toString: () => String(derived.derivedUnitPrice) }
-        : null
-      : priceMap.get(product.id);
-    const effectiveWeight =
-      isDerivableCastingAssembly(product)
-        ? { toString: () => String(derived?.derivedWeight ?? 0) }
-        : product.weight;
+    const effectiveWeight = resolveEffectiveAssemblyWeight(
+      product,
+      derivedMap.get(product.id),
+    );
 
     return mapProductToQuoteFormOption(
-      { ...product, weight: effectiveWeight },
-      effectiveUnitPrice,
+      {
+        ...product,
+        weight:
+          effectiveWeight != null
+            ? { toString: () => String(effectiveWeight) }
+            : null,
+      },
+      priceMap.get(product.id),
     );
   });
 

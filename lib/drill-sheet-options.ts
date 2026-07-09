@@ -150,7 +150,6 @@ export async function loadRectSheetFormOptions(): Promise<RectSheetFormOptions> 
         id: true,
         name: true,
         heightFeet: true,
-        castingClearOpeningInches: true,
       },
     }),
     prisma.job.findMany({
@@ -205,9 +204,6 @@ export async function loadRectSheetFormOptions(): Promise<RectSheetFormOptions> 
       id: casting.id,
       name: casting.name,
       heightFeet: casting.heightFeet ? Number(casting.heightFeet) : null,
-      clearOpeningInches: casting.castingClearOpeningInches
-        ? Number(casting.castingClearOpeningInches)
-        : null,
     })),
     jobOptions: jobs.map((job) => ({
       id: job.id,

@@ -706,25 +706,41 @@ export type DataResetStats = {
   customerCount: number;
   jobCount: number;
   structureCount: number;
+  quoteCount: number;
+  deliveryTicketCount: number;
+  invoiceCount: number;
   resetConfigured: boolean;
 };
 
 export async function getDataResetStats(): Promise<DataResetStats> {
   await requirePermission(AppPermission.SETTINGS_MANAGE);
 
-  const [productCount, customerCount, jobCount, structureCount] =
-    await Promise.all([
-      prisma.product.count(),
-      prisma.customer.count(),
-      prisma.job.count(),
-      prisma.jobStructure.count(),
-    ]);
+  const [
+    productCount,
+    customerCount,
+    jobCount,
+    structureCount,
+    quoteCount,
+    deliveryTicketCount,
+    invoiceCount,
+  ] = await Promise.all([
+    prisma.product.count(),
+    prisma.customer.count(),
+    prisma.job.count(),
+    prisma.jobStructure.count(),
+    prisma.quote.count(),
+    prisma.deliveryTicket.count(),
+    prisma.invoice.count(),
+  ]);
 
   return {
     productCount,
     customerCount,
     jobCount,
     structureCount,
+    quoteCount,
+    deliveryTicketCount,
+    invoiceCount,
     resetConfigured: isSettingsResetConfigured(),
   };
 }
@@ -974,6 +990,117 @@ export async function clearAllJobsFormAction(
   revalidateAfterJobReset();
   return {
     success: `Deleted ${result.jobsDeleted} job${result.jobsDeleted === 1 ? "" : "s"}.${result.sequencesDeleted > 0 ? " Job numbering will start over for each year." : ""}`,
+  };
+}
+
+export async function clearAllQuotesFormAction(
+  formData: FormData,
+): Promise<SettingsActionResult> {
+  const user = await requirePermission(AppPermission.SETTINGS_MANAGE);
+  const resetPassword = parseResetPassword(formData);
+
+  if (!verifySettingsResetPassword(resetPassword)) {
+    return resetPasswordError();
+  }
+
+  const quoteCount = await prisma.quote.count();
+  if (quoteCount === 0) {
+    return { success: "No quotes to delete." };
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    // Structures reachable only through a quote (no job) would be orphaned by
+    // the quote FK going null, so remove them explicitly; job-linked ones
+    // survive with quoteId nulled. Same for quote-only plan sheets.
+    const structuresDeleted = await tx.jobStructure.deleteMany({
+      where: { quoteId: { not: null }, jobId: null },
+    });
+    const planSheetsDeleted = await tx.planSheet.deleteMany({
+      where: { quoteId: { not: null }, jobId: null },
+    });
+    // Quote line items cascade; delivery tickets and invoices keep their rows
+    // and just lose the quote link (SetNull).
+    const quotesDeleted = await tx.quote.deleteMany();
+    return {
+      quotesDeleted: quotesDeleted.count,
+      structuresDeleted: structuresDeleted.count,
+      planSheetsDeleted: planSheetsDeleted.count,
+    };
+  });
+
+  await writeAuditLog({
+    userId: user.id,
+    action: "settings.clear_all_quotes",
+    entityType: "Quote",
+    summary: `${user.displayName} cleared all quotes (${result.quotesDeleted} deleted, ${result.structuresDeleted} quote-only structure${result.structuresDeleted === 1 ? "" : "s"} and ${result.planSheetsDeleted} plan sheet${result.planSheetsDeleted === 1 ? "" : "s"} removed)`,
+    metadata: {
+      deletedCount: result.quotesDeleted,
+      structuresDeleted: result.structuresDeleted,
+      planSheetsDeleted: result.planSheetsDeleted,
+    },
+  });
+
+  revalidatePath("/quotes");
+  revalidatePath("/structures");
+  revalidatePath("/drill-sheets");
+  revalidatePath("/delivery-tickets");
+  revalidatePath("/settings/data-reset");
+  return {
+    success: `Deleted ${result.quotesDeleted} quote${result.quotesDeleted === 1 ? "" : "s"}.`,
+  };
+}
+
+export async function clearAllDeliveryTicketsFormAction(
+  formData: FormData,
+): Promise<SettingsActionResult> {
+  const user = await requirePermission(AppPermission.SETTINGS_MANAGE);
+  const resetPassword = parseResetPassword(formData);
+
+  if (!verifySettingsResetPassword(resetPassword)) {
+    return resetPasswordError();
+  }
+
+  const [ticketCount, invoiceCount] = await Promise.all([
+    prisma.deliveryTicket.count(),
+    prisma.invoice.count(),
+  ]);
+  if (ticketCount === 0 && invoiceCount === 0) {
+    return { success: "No delivery tickets or invoices to delete." };
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    // Invoice -> DeliveryTicket is Restrict, so invoices go first (their line
+    // items cascade). Ticket line items cascade with each ticket.
+    const invoicesDeleted = await tx.invoice.deleteMany();
+    const ticketsDeleted = await tx.deliveryTicket.deleteMany();
+    const ticketSequencesDeleted = await tx.deliveryTicketSequence.deleteMany();
+    const invoiceSequencesDeleted = await tx.invoiceSequence.deleteMany();
+    return {
+      invoicesDeleted: invoicesDeleted.count,
+      ticketsDeleted: ticketsDeleted.count,
+      sequencesDeleted:
+        ticketSequencesDeleted.count + invoiceSequencesDeleted.count,
+    };
+  });
+
+  await writeAuditLog({
+    userId: user.id,
+    action: "settings.clear_all_delivery_tickets",
+    entityType: "DeliveryTicket",
+    summary: `${user.displayName} cleared all delivery tickets and invoices (${result.ticketsDeleted} ticket${result.ticketsDeleted === 1 ? "" : "s"}, ${result.invoicesDeleted} invoice${result.invoicesDeleted === 1 ? "" : "s"} deleted)`,
+    metadata: {
+      ticketsDeleted: result.ticketsDeleted,
+      invoicesDeleted: result.invoicesDeleted,
+      sequencesDeleted: result.sequencesDeleted,
+    },
+  });
+
+  revalidatePath("/delivery-tickets");
+  revalidatePath("/walk-ins");
+  revalidatePath("/invoices");
+  revalidatePath("/settings/data-reset");
+  return {
+    success: `Deleted ${result.ticketsDeleted} delivery ticket${result.ticketsDeleted === 1 ? "" : "s"} and ${result.invoicesDeleted} invoice${result.invoicesDeleted === 1 ? "" : "s"}.${result.sequencesDeleted > 0 ? " Ticket and invoice numbering will start over." : ""}`,
   };
 }
 

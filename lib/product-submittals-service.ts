@@ -39,19 +39,53 @@ async function pathExists(targetPath: string) {
   }
 }
 
+function submittalFileBase(productCode: string) {
+  const base = sanitizeFilenamePart(productCode);
+  if (!base) {
+    throw new Error("Product code is required to resolve submittal files.");
+  }
+  return base;
+}
+
+/** Legacy layout: one folder per product code. Still scanned, no longer written to. */
 export async function getProductSubmittalDir(productCode: string) {
   const root = await getStockSubmittalsRoot();
-  const folderName = sanitizeFilenamePart(productCode);
-  if (!folderName) {
-    throw new Error("Product code is required to resolve the submittals folder.");
+  return path.join(root, submittalFileBase(productCode));
+}
+
+/**
+ * Flat layout: files live directly in the submittals root, named after the
+ * product code — `EJ103.pdf`, plus `EJ103 <anything>.pdf` for extra documents.
+ */
+function matchesProductCode(fileName: string, codeBase: string) {
+  const base = path.parse(fileName).name.toLowerCase();
+  const codeLower = codeBase.toLowerCase();
+  return base === codeLower || base.startsWith(`${codeLower} `);
+}
+
+/**
+ * Names a product's submittal files can carry: the product code, plus the
+ * manufacturer code when one is set (supplier PDFs often keep that name).
+ */
+function submittalNameBases(product: {
+  productCode: string;
+  manufacturerCode?: string | null;
+}): string[] {
+  const bases = [submittalFileBase(product.productCode)];
+  const manufacturerBase = sanitizeFilenamePart(product.manufacturerCode ?? "");
+  if (
+    manufacturerBase &&
+    manufacturerBase.toLowerCase() !== bases[0].toLowerCase()
+  ) {
+    bases.push(manufacturerBase);
   }
-  return path.join(root, folderName);
+  return bases;
 }
 
 async function assertProductExists(client: PrismaClient, productId: string) {
   const product = await client.product.findUnique({
     where: { id: productId },
-    select: { id: true, productCode: true, name: true },
+    select: { id: true, productCode: true, name: true, manufacturerCode: true },
   });
 
   if (!product) {
@@ -79,14 +113,20 @@ export async function uploadProductDocument(
 
   const product = await assertProductExists(client, productId);
   const parsedType = parseDocumentType(documentType);
-  const productDir = await getProductSubmittalDir(product.productCode);
   const root = await getStockSubmittalsRoot();
+  const codeBase = submittalFileBase(product.productCode);
 
-  await mkdir(productDir, { recursive: true });
+  await mkdir(root, { recursive: true });
 
+  // Flat layout: first upload becomes <code>.<ext>; further uploads keep the
+  // original name behind a "<code> - " prefix so scans still match them.
   const safeName = sanitizeFileName(file.name);
+  const ext = path.extname(safeName);
+  const preferredPath = path.join(root, `${codeBase}${ext}`);
   const outputPath = normalizePath(
-    await resolveUniqueFilePath(productDir, safeName),
+    (await pathExists(preferredPath))
+      ? await resolveUniqueFilePath(root, `${codeBase} - ${safeName}`)
+      : preferredPath,
   );
   assertPathUnderStockSubmittalsRoot(root, outputPath);
 
@@ -129,30 +169,59 @@ export async function uploadProductDocument(
   }
 }
 
-export async function scanProductDocuments(
-  client: PrismaClient,
-  productId: string,
-) {
-  const product = await assertProductExists(client, productId);
-  const productDir = await getProductSubmittalDir(product.productCode);
-  const root = await getStockSubmittalsRoot();
-  assertPathUnderStockSubmittalsRoot(root, productDir);
+type SubmittalDiskFile = { filePath: string; fileName: string };
 
-  if (!(await pathExists(productDir))) {
-    await mkdir(productDir, { recursive: true });
-    return { added: 0, removed: 0 };
+async function listRootEntries(root: string) {
+  if (!(await pathExists(root))) {
+    return [];
+  }
+  return readdir(root, { withFileTypes: true });
+}
+
+async function collectSubmittalFilesForCode(
+  root: string,
+  codeBases: string[],
+  rootEntries: Awaited<ReturnType<typeof listRootEntries>>,
+): Promise<SubmittalDiskFile[]> {
+  const filesByPath = new Map<string, SubmittalDiskFile>();
+
+  // Flat layout: files named after the product or manufacturer code, directly
+  // in the root.
+  for (const entry of rootEntries) {
+    if (
+      entry.isFile() &&
+      codeBases.some((codeBase) => matchesProductCode(entry.name, codeBase))
+    ) {
+      const filePath = normalizePath(path.join(root, entry.name));
+      filesByPath.set(filePath, { filePath, fileName: entry.name });
+    }
   }
 
-  const entries = await readdir(productDir, { withFileTypes: true });
+  // Legacy layout: a per-product-code folder from before the flat convention.
+  const legacyDir = path.join(root, codeBases[0]);
+  assertPathUnderStockSubmittalsRoot(root, legacyDir);
+  if (await pathExists(legacyDir)) {
+    const entries = await readdir(legacyDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isFile()) {
+        const filePath = normalizePath(path.join(legacyDir, entry.name));
+        filesByPath.set(filePath, { filePath, fileName: entry.name });
+      }
+    }
+  }
+
+  return [...filesByPath.values()];
+}
+
+async function syncProductDocumentRows(
+  client: PrismaClient,
+  productId: string,
+  files: SubmittalDiskFile[],
+) {
   const diskPaths = new Set<string>();
   let added = 0;
 
-  for (const entry of entries) {
-    if (!entry.isFile()) {
-      continue;
-    }
-
-    const filePath = normalizePath(path.join(productDir, entry.name));
+  for (const { filePath, fileName } of files) {
     diskPaths.add(filePath);
 
     const existing = await client.productDocument.findFirst({
@@ -162,13 +231,13 @@ export async function scanProductDocuments(
     if (existing) {
       const fileStat = await stat(filePath);
       if (
-        existing.documentName !== entry.name ||
+        existing.documentName !== fileName ||
         existing.fileSize !== fileStat.size
       ) {
         await client.productDocument.update({
           where: { id: existing.id },
           data: {
-            documentName: entry.name,
+            documentName: fileName,
             fileSize: fileStat.size,
             updatedAt: new Date(),
           },
@@ -182,7 +251,7 @@ export async function scanProductDocuments(
       data: {
         productId,
         documentType: "GENERIC_SUBMITTAL",
-        documentName: entry.name,
+        documentName: fileName,
         filePath,
         fileSize: fileStat.size,
         mimeType: null,
@@ -205,6 +274,53 @@ export async function scanProductDocuments(
   }
 
   return { added, removed };
+}
+
+export async function scanProductDocuments(
+  client: PrismaClient,
+  productId: string,
+) {
+  const product = await assertProductExists(client, productId);
+  const root = await getStockSubmittalsRoot();
+  const rootEntries = await listRootEntries(root);
+  const files = await collectSubmittalFilesForCode(
+    root,
+    submittalNameBases(product),
+    rootEntries,
+  );
+  return syncProductDocumentRows(client, productId, files);
+}
+
+/** One pass over the whole catalog: match every product against the flat submittals folder. */
+export async function scanAllProductSubmittals(client: PrismaClient) {
+  const root = await getStockSubmittalsRoot();
+  const rootEntries = await listRootEntries(root);
+  const products = await client.product.findMany({
+    select: { id: true, productCode: true, manufacturerCode: true },
+  });
+
+  let added = 0;
+  let removed = 0;
+  let productsWithFiles = 0;
+
+  for (const product of products) {
+    if (!sanitizeFilenamePart(product.productCode)) {
+      continue;
+    }
+    const files = await collectSubmittalFilesForCode(
+      root,
+      submittalNameBases(product),
+      rootEntries,
+    );
+    if (files.length > 0) {
+      productsWithFiles += 1;
+    }
+    const result = await syncProductDocumentRows(client, product.id, files);
+    added += result.added;
+    removed += result.removed;
+  }
+
+  return { added, removed, productsWithFiles };
 }
 
 export async function getProductDocumentForOpen(

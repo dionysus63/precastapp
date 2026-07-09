@@ -4,8 +4,10 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
 import {
   clearAllCustomersFormAction,
+  clearAllDeliveryTicketsFormAction,
   clearAllJobsFormAction,
   clearAllProductsFormAction,
+  clearAllQuotesFormAction,
   clearAllStructuresFormAction,
   type DataResetStats,
 } from "@/app/settings/actions";
@@ -159,6 +161,43 @@ export function DataResetPanel({ stats }: DataResetPanelProps) {
         buttonLabel="Delete all customers"
         disabled={actionsDisabled}
         action={clearAllCustomersFormAction}
+      />
+
+      <DataResetSection
+        title="Clear all quotes"
+        description={
+          <>
+            Deletes every quote ({stats.quoteCount} currently in the database)
+            with its line items. Structures that belong only to a quote (no
+            job) are removed with it; job-linked structures survive and lose
+            the quote link. Delivery tickets and invoices keep their rows but
+            no longer reference a quote. Quote PDFs on disk are not removed.
+          </>
+        }
+        inputId="reset-password-quotes"
+        count={stats.quoteCount}
+        buttonLabel="Delete all quotes"
+        disabled={actionsDisabled}
+        action={clearAllQuotesFormAction}
+      />
+
+      <DataResetSection
+        title="Clear all delivery tickets & invoices"
+        description={
+          <>
+            Deletes every delivery ticket ({stats.deliveryTicketCount} currently
+            in the database) with its line items — including the walk-in and
+            pickup tickets on the Walk-Ins board — and every invoice (
+            {stats.invoiceCount} currently in the database). Ticket and invoice
+            numbering sequences are reset. Jobs, quotes, and the inventory
+            ledger are not touched.
+          </>
+        }
+        inputId="reset-password-delivery-tickets"
+        count={stats.deliveryTicketCount + stats.invoiceCount}
+        buttonLabel="Delete all delivery tickets & invoices"
+        disabled={actionsDisabled}
+        action={clearAllDeliveryTicketsFormAction}
       />
 
       <DataResetSection

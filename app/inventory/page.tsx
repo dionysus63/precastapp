@@ -3,6 +3,7 @@ import { CategoryChipBar } from "@/components/common/category-chip-bar";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { InventoryFilters } from "@/components/inventory/inventory-filters";
 import { InventorySubmittalsCell } from "@/components/inventory/inventory-submittals-cell";
+import { ScanSubmittalsButton } from "@/components/inventory/scan-submittals-button";
 import { PaginationControls } from "@/components/common/pagination-controls";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
@@ -13,6 +14,7 @@ import {
   parseStringParam,
   type RawSearchParams,
 } from "@/lib/list-params";
+import { loadCastingComponentOptionsByAssembly } from "@/lib/casting-service";
 import { PRODUCT_SUBMITTAL_DOCUMENT_TYPES } from "@/lib/product-submittals-service";
 import { listProductTaxonomy } from "@/lib/product-taxonomy.server";
 import { loadEffectiveSubmittalCountsByProductId } from "@/lib/submittal-package";
@@ -33,7 +35,19 @@ type InventoryPageProps = {
   searchParams: Promise<RawSearchParams>;
 };
 
+// Parts-mode assemblies don't track their own stock but show up with a
+// buildable-sets count computed from their components.
+const partsAssemblyWhere: Prisma.ProductWhereInput = {
+  castingRole: "ASSEMBLY",
+  castingSoldAsUnit: false,
+};
+
 const baseWhere: Prisma.ProductWhereInput = {
+  status: "ACTIVE",
+  OR: [{ trackInventory: true }, partsAssemblyWhere],
+};
+
+const trackedWhere: Prisma.ProductWhereInput = {
   trackInventory: true,
   status: "ACTIVE",
 };
@@ -46,6 +60,30 @@ const lowStockWhere: Prisma.ProductWhereInput = {
 const outOfStockWhere: Prisma.ProductWhereInput = {
   currentStockQuantity: { lte: 0 },
 };
+
+/** Complete sets buildable from component stock: min over tracked parts. */
+function buildableSetCount(
+  options: Array<{
+    quantity: number;
+    currentStock: number | null;
+    trackInventory: boolean;
+  }>,
+): number | null {
+  const constrained = options.filter(
+    (option) => option.trackInventory && option.currentStock != null,
+  );
+  if (constrained.length === 0) {
+    return null;
+  }
+  return Math.max(
+    0,
+    Math.min(
+      ...constrained.map((option) =>
+        Math.floor((option.currentStock ?? 0) / Math.max(1, option.quantity)),
+      ),
+    ),
+  );
+}
 
 export default async function InventoryPage({
   searchParams,
@@ -65,27 +103,35 @@ export default async function InventoryPage({
 
   // Everything except the category/subcategory conditions — chip counts are
   // computed against this so each chip shows what selecting it would yield.
+  // Composed via AND because both the base scope and the search use OR lists.
   const whereWithoutTaxonomy: Prisma.ProductWhereInput = {
-    ...baseWhere,
-    ...(search
-      ? {
-          OR: [
-            { productCode: { contains: search, mode: "insensitive" } },
-            { name: { contains: search, mode: "insensitive" } },
-            { yardLocation: { contains: search, mode: "insensitive" } },
-          ],
-        }
-      : {}),
-    ...(stockParam === "low"
-      ? lowStockWhere
-      : stockParam === "out"
-        ? outOfStockWhere
-        : {}),
-    ...(castingOriginParam === "Domestic"
-      ? { castingSupplier: { origin: "DOMESTIC" } }
-      : castingOriginParam === "Imported"
-        ? { castingSupplier: { origin: "IMPORTED" } }
-        : {}),
+    AND: [
+      // Low/out are stock-ledger concepts, so those filters stay scoped to
+      // tracked products; "sets" narrows to the parts-mode assemblies.
+      stockParam === "sets"
+        ? { status: "ACTIVE", ...partsAssemblyWhere }
+        : stockParam === "low"
+          ? { ...trackedWhere, ...lowStockWhere }
+          : stockParam === "out"
+            ? { ...trackedWhere, ...outOfStockWhere }
+            : baseWhere,
+      ...(search
+        ? [
+            {
+              OR: [
+                { productCode: { contains: search, mode: "insensitive" as const } },
+                { name: { contains: search, mode: "insensitive" as const } },
+                { yardLocation: { contains: search, mode: "insensitive" as const } },
+              ],
+            },
+          ]
+        : []),
+      ...(castingOriginParam === "Domestic"
+        ? [{ castingSupplier: { origin: "DOMESTIC" as const } }]
+        : castingOriginParam === "Imported"
+          ? [{ castingSupplier: { origin: "IMPORTED" as const } }]
+          : []),
+    ],
   };
 
   const where: Prisma.ProductWhereInput = {
@@ -96,13 +142,14 @@ export default async function InventoryPage({
       : {}),
   };
 
-  const [total, trackedCount, lowCount, outCount, categoryGroups, subcategoryGroups, taxonomy] =
+  const [total, trackedCount, lowCount, outCount, setsCount, categoryGroups, subcategoryGroups, taxonomy] =
     await withDatabaseRetry((client) =>
       Promise.all([
         client.product.count({ where }),
-        client.product.count({ where: baseWhere }),
-        client.product.count({ where: { ...baseWhere, ...lowStockWhere } }),
-        client.product.count({ where: { ...baseWhere, ...outOfStockWhere } }),
+        client.product.count({ where: trackedWhere }),
+        client.product.count({ where: { ...trackedWhere, ...lowStockWhere } }),
+        client.product.count({ where: { ...trackedWhere, ...outOfStockWhere } }),
+        client.product.count({ where: { status: "ACTIVE", ...partsAssemblyWhere } }),
         client.product.groupBy({
           by: ["categoryId"],
           where: whereWithoutTaxonomy,
@@ -186,6 +233,8 @@ export default async function InventoryPage({
         reorderLevel: true,
         yardLocation: true,
         unit: true,
+        trackInventory: true,
+        castingRole: true,
         castingSoldAsUnit: true,
         castingSupplier: { select: { origin: true } },
         _count: {
@@ -201,12 +250,26 @@ export default async function InventoryPage({
     }),
   );
 
-  const effectiveSubmittalCounts = await withDatabaseRetry((client) =>
-    loadEffectiveSubmittalCountsByProductId(
-      client,
-      products.map((product) => product.id),
+  const partsAssemblyIds = products
+    .filter(
+      (product) =>
+        product.castingRole === "ASSEMBLY" && !product.castingSoldAsUnit,
+    )
+    .map((product) => product.id);
+
+  const [effectiveSubmittalCounts, bomByAssembly] = await Promise.all([
+    withDatabaseRetry((client) =>
+      loadEffectiveSubmittalCountsByProductId(
+        client,
+        products.map((product) => product.id),
+      ),
     ),
-  );
+    partsAssemblyIds.length
+      ? withDatabaseRetry((client) =>
+          loadCastingComponentOptionsByAssembly(client, partsAssemblyIds),
+        )
+      : Promise.resolve(new Map()),
+  ]);
 
   const hasActiveFilters = Boolean(
     search || stockParam || castingOriginParam || categorySelected,
@@ -234,14 +297,21 @@ export default async function InventoryPage({
       active: stockParam === "out",
       valueClassName: outCount > 0 ? "text-red-700" : "text-slate-900",
     },
+    {
+      label: "Casting Sets",
+      value: setsCount,
+      href: "/inventory?stock=sets",
+      active: stockParam === "sets",
+      valueClassName: "text-slate-900",
+    },
   ];
 
   return (
     <DashboardShell
       title="Inventory"
-      subtitle="Stock levels for products tracked in the yard."
+      subtitle="Stock levels for tracked products and buildable casting sets."
     >
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {summaryCards.map((card) => (
           <Link
             key={card.label}
@@ -278,6 +348,7 @@ export default async function InventoryPage({
           }}
         />
         <div className="flex flex-wrap gap-2">
+          <ScanSubmittalsButton />
           <Link
             href="/inventory/receipts"
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-sm hover:bg-slate-50"
@@ -338,8 +409,17 @@ export default async function InventoryPage({
               </thead>
               <tbody className={tableBodyClassName}>
                 {products.map((product) => {
-                  const out = product.currentStockQuantity <= 0;
+                  const isPartsAssembly =
+                    product.castingRole === "ASSEMBLY" &&
+                    !product.castingSoldAsUnit;
+                  const buildable = isPartsAssembly
+                    ? buildableSetCount(bomByAssembly.get(product.id) ?? [])
+                    : null;
+                  const out = isPartsAssembly
+                    ? buildable === 0
+                    : product.currentStockQuantity <= 0;
                   const low =
+                    !isPartsAssembly &&
                     !out &&
                     product.reorderLevel > 0 &&
                     product.currentStockQuantity <= product.reorderLevel;
@@ -372,6 +452,12 @@ export default async function InventoryPage({
                           {product.castingSoldAsUnit ? (
                             <StatusBadge label="One-piece" variant="info" />
                           ) : null}
+                          {isPartsAssembly ? (
+                            <StatusBadge
+                              label="Set — from parts"
+                              variant="info"
+                            />
+                          ) : null}
                         </div>
                       </td>
                       <td
@@ -383,7 +469,11 @@ export default async function InventoryPage({
                               : ""
                         }`}
                       >
-                        {product.currentStockQuantity} {product.unit}
+                        {isPartsAssembly
+                          ? buildable != null
+                            ? `${buildable} set${buildable === 1 ? "" : "s"} buildable`
+                            : "—"
+                          : `${product.currentStockQuantity} ${product.unit}`}
                         {out ? (
                           <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-red-700">
                             Out
@@ -395,7 +485,9 @@ export default async function InventoryPage({
                         ) : null}
                       </td>
                       <td className={tableNumericCellClassName}>
-                        {product.reorderLevel > 0 ? product.reorderLevel : "—"}
+                        {!isPartsAssembly && product.reorderLevel > 0
+                          ? product.reorderLevel
+                          : "—"}
                       </td>
                       <td className={tableCellClassName}>
                         {product.yardLocation ?? "—"}

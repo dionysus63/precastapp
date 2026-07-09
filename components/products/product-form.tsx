@@ -72,7 +72,6 @@ export type ProductFormValues = {
   manufacturerCode?: string;
   castingSoldAsUnit?: boolean;
   castingHeightFeet?: string;
-  castingClearOpeningInches?: string;
   pipeDiameterInches?: string;
   pipeLengthFeet?: string;
   pipeClass?: string;
@@ -232,18 +231,16 @@ export function ProductForm({
   const subcategoryOptions = getSubcategoriesForCategoryId(taxonomy, categoryId);
   const hideInventoryFields =
     productKind === "CASTING_ASSEMBLY" && castingStockingMode === "parts";
-  const isDerivedAssembly =
-    productKind === "CASTING_ASSEMBLY" &&
-    castingStockingMode === "parts" &&
-    !manufacturerCode.trim();
-  const derivedFromBom = useMemo(() => {
-    if (!isDerivedAssembly) {
+  const isPartsAssembly =
+    productKind === "CASTING_ASSEMBLY" && castingStockingMode === "parts";
+  // Live combined parts weight, shown as the fallback when the assembly's own
+  // weight is left blank or 0.
+  const bomPartsWeight = useMemo(() => {
+    if (!isPartsAssembly) {
       return null;
     }
 
     let totalWeight = 0;
-    let totalPrice = 0;
-    let hasPrice = false;
     let hasSelectedComponent = false;
 
     for (const row of bomRows) {
@@ -259,17 +256,10 @@ export function ProductForm({
       }
       const quantity = Number(row.quantity) || 0;
       totalWeight += quantity * (component.weight ?? 0);
-      if (component.unitPrice != null) {
-        hasPrice = true;
-        totalPrice += quantity * component.unitPrice;
-      }
     }
 
-    return {
-      weight: hasSelectedComponent ? totalWeight : null,
-      unitPrice: hasSelectedComponent && hasPrice ? totalPrice : null,
-    };
-  }, [isDerivedAssembly, bomRows, castingComponents]);
+    return hasSelectedComponent ? totalWeight : null;
+  }, [isPartsAssembly, bomRows, castingComponents]);
 
   function handleProductTypeChange(nextType: ProductType) {
     setProductType(nextType);
@@ -656,22 +646,12 @@ export function ProductForm({
             min="0"
             step="0.01"
             defaultValue={defaultValues?.unitPrice ?? ""}
-            value={
-              isDerivedAssembly
-                ? derivedFromBom?.unitPrice != null
-                  ? String(derivedFromBom.unitPrice)
-                  : ""
-                : undefined
-            }
-            readOnly={isDerivedAssembly}
-            disabled={isDerivedAssembly}
             placeholder="4850.00"
-            className={`${productInputClassName}${isDerivedAssembly ? " bg-slate-50 text-slate-600" : ""}`}
+            className={productInputClassName}
           />
-          {isDerivedAssembly ? (
+          {isPartsAssembly ? (
             <p className="mt-1 text-xs text-slate-500">
-              Derived from parts — leave manufacturer code blank to sum component
-              prices.
+              Assembly price — component prices are not added in.
             </p>
           ) : null}
         </div>
@@ -692,21 +672,13 @@ export function ProductForm({
             min="0"
             step="0.01"
             defaultValue={defaultValues?.weight ?? ""}
-            value={
-              isDerivedAssembly
-                ? derivedFromBom?.weight != null
-                  ? String(derivedFromBom.weight)
-                  : ""
-                : undefined
-            }
-            readOnly={isDerivedAssembly}
-            disabled={isDerivedAssembly}
             placeholder="8400"
-            className={`${productInputClassName}${isDerivedAssembly ? " bg-slate-50 text-slate-600" : ""}`}
+            className={productInputClassName}
           />
-          {isDerivedAssembly ? (
+          {isPartsAssembly ? (
             <p className="mt-1 text-xs text-slate-500">
-              Derived from parts — totals update as you change the BOM.
+              Leave blank or 0 to use the combined parts weight
+              {bomPartsWeight != null ? ` (currently ${bomPartsWeight} lb)` : ""}.
             </p>
           ) : null}
         </div>
@@ -1002,7 +974,7 @@ export function ProductForm({
             <p className="mt-1 text-xs text-slate-600">
               {productKind === "CASTING_ASSEMBLY"
                 ? "Full casting quoted on jobs and shown on submittals."
-                : "Individual frame, cover/grate, hood, or throat piece."}
+                : "Individual frame, cover/grate, or hood piece."}
             </p>
           </div>
 
@@ -1083,7 +1055,7 @@ export function ProductForm({
               </div>
               <p className="mt-2 text-xs text-slate-500">
                 {castingStockingMode === "parts"
-                  ? "Quote and ship as a set; inventory is tracked on each frame, cover/grate, and optional hood/throat."
+                  ? "Quote and ship as a set; inventory is tracked on each frame, cover/grate, and optional hood."
                   : "Stored, received, and shipped as a single SKU with no part breakdown."}
               </p>
             </div>
@@ -1137,9 +1109,8 @@ export function ProductForm({
                   className={productInputClassName}
                 />
                 <p className="mt-2 text-xs text-slate-500">
-                  Optional. When set, weight and price come from manufacturer
-                  assembly data. When blank, they are derived live from the BOM
-                  parts below.
+                  Optional supplier assembly number, shown when receiving
+                  castings.
                 </p>
               </div>
               <div className="grid gap-5 sm:grid-cols-2">
@@ -1164,25 +1135,6 @@ export function ProductForm({
                     Used on drill sheets — height removed from the wall at the
                     rim.
                   </p>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="castingClearOpeningInches"
-                    className="block text-xs font-medium text-slate-700"
-                  >
-                    Clear Opening (in)
-                  </label>
-                  <input
-                    id="castingClearOpeningInches"
-                    name="castingClearOpeningInches"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    defaultValue={defaultValues?.castingClearOpeningInches ?? ""}
-                    placeholder="24"
-                    className={productInputClassName}
-                  />
                 </div>
               </div>
 

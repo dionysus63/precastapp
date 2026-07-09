@@ -36,7 +36,6 @@ export type ProductRecord = {
   manufacturerCode?: string | null;
   castingSupplier?: { origin: string } | null;
   weightDerivedFromParts?: boolean;
-  priceDerivedFromParts?: boolean;
   _count?: {
     documents: number;
   };
@@ -76,7 +75,6 @@ export type ProductDetailView = {
   notes: string;
   manufacturerCode: string;
   weightDerivedFromParts: boolean;
-  priceDerivedFromParts: boolean;
   documents: {
     id: string;
     documentName: string;
@@ -170,11 +168,9 @@ export function mapProductToDetail(
     unitPrice?: { toString(): string } | null;
     priceListName?: string;
     weightDerivedFromParts?: boolean;
-    priceDerivedFromParts?: boolean;
   },
 ): ProductDetailView {
   const weightDerived = options?.weightDerivedFromParts ?? product.weightDerivedFromParts ?? false;
-  const priceDerived = options?.priceDerivedFromParts ?? product.priceDerivedFromParts ?? false;
   const weightValue = formatDecimal(product.weight);
 
   return {
@@ -188,9 +184,7 @@ export function mapProductToDetail(
     subcategory: product.subcategory?.name ?? "—",
     description: product.description ?? "—",
     unit: product.unit,
-    unitPrice: `${formatUsd(options?.unitPrice ?? product.unitPrice ?? null)}${
-      priceDerived ? " (derived from parts)" : ""
-    }`,
+    unitPrice: formatUsd(options?.unitPrice ?? product.unitPrice ?? null),
     priceListLabel: options?.priceListName ?? "Default price list",
     cost: formatUsd(product.cost),
     weight: `${weightValue}${weightDerived ? " (derived from parts)" : ""}`,
@@ -205,7 +199,6 @@ export function mapProductToDetail(
     notes: product.notes ?? "—",
     manufacturerCode: product.manufacturerCode?.trim() || "—",
     weightDerivedFromParts: weightDerived,
-    priceDerivedFromParts: priceDerived,
     documents: documents.map((document) => ({
       id: document.id,
       documentName: document.documentName,
@@ -220,7 +213,6 @@ export function mapProductToRow(product: ProductRecord): ProductRow {
   const productKind = product.productKind ?? "STANDARD";
   const kindLabel = formatProductKindBadgeLabel(productKind);
   const weightDerived = product.weightDerivedFromParts ?? false;
-  const priceDerived = product.priceDerivedFromParts ?? false;
   const weightValue = formatDecimal(product.weight);
 
   return {
@@ -234,9 +226,7 @@ export function mapProductToRow(product: ProductRecord): ProductRow {
     subcategory: product.subcategory?.name?.trim() || "—",
     categoryVariant: categoryVariant(product.productCategory.name),
     unit: product.unit,
-    unitPrice: `${formatUsd(product.unitPrice ?? null)}${
-      priceDerived ? " *" : ""
-    }`,
+    unitPrice: formatUsd(product.unitPrice ?? null),
     weight: `${weightValue}${weightDerived ? " *" : ""}`,
     yards: formatDecimal(product.yards),
     trackInventory: product.trackInventory,

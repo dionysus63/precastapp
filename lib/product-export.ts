@@ -19,7 +19,7 @@ import {
 import { productKindLabels } from "@/lib/product-kinds";
 import {
   enrichProductWithDerivedAssemblyValues,
-  isDerivableCastingAssembly,
+  isPartsModeCastingAssembly,
   loadDerivedAssemblyValues,
 } from "@/lib/casting-service";
 import { getDefaultPriceList, getProductPricesForList } from "@/lib/price-list-service";
@@ -71,7 +71,6 @@ export const productExportHeaders = [
   "Casting Role",
   "Casting Piece Role",
   "Manufacturer Code",
-  "Casting Clear Opening (in)",
   "Casting Supplier ID",
   "Pipe Diameter (in)",
   "Pipe Length (ft)",
@@ -87,7 +86,6 @@ function mapProductToExportRow(
     productCategory: { name: string };
     subcategory: { name: string } | null;
     weightDerivedFromParts?: boolean;
-    priceDerivedFromParts?: boolean;
   },
   unitPrice: { toString(): string } | null | undefined,
 ): unknown[] {
@@ -131,9 +129,6 @@ function mapProductToExportRow(
       ? formatCastingPieceRoleLabel(product.castingPieceRole)
       : "",
     formatOptionalString(product.manufacturerCode),
-    product.productKind === "CASTING_ASSEMBLY"
-      ? formatOptionalDecimal(product.castingClearOpeningInches)
-      : "",
     formatOptionalString(product.castingSupplierId),
     isPipe ? formatOptionalDecimal(product.pipeDiameterInches) : "",
     isPipe ? formatOptionalDecimal(product.pipeLengthFeet) : "",
@@ -176,11 +171,11 @@ export async function buildProductsExportBuffer(
       )
     : new Map();
 
-  const derivableAssemblyIds = products
-    .filter((product) => isDerivableCastingAssembly(product))
+  const partsAssemblyIds = products
+    .filter((product) => isPartsModeCastingAssembly(product))
     .map((product) => product.id);
-  const derivedMap = derivableAssemblyIds.length
-    ? await loadDerivedAssemblyValues(prisma, derivableAssemblyIds, resolvedPriceListId)
+  const derivedMap = partsAssemblyIds.length
+    ? await loadDerivedAssemblyValues(prisma, partsAssemblyIds)
     : new Map();
 
   return buildWorkbookBuffer(

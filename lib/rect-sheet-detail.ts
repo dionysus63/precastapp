@@ -21,13 +21,7 @@ export const rectSheetDetailInclude = {
   dimensions: true,
   openings: { orderBy: { openingNumber: "asc" } },
   sections: { orderBy: { sortOrder: "asc" } },
-  castings: {
-    include: {
-      castingProduct: {
-        select: { castingClearOpeningInches: true },
-      },
-    },
-  },
+  castings: true,
 } satisfies Prisma.JobStructureInclude;
 
 export type RectSheetWithDetail = Prisma.JobStructureGetPayload<{

@@ -54,12 +54,10 @@ const PROFILE_FIELD_KEYS = new Set([
   "pipeClass",
   "pipeJointType",
   "castingHeightFeet",
-  "castingClearOpeningInches",
   "manufacturerCode",
   "frameProductCode",
   "coverGrateProductCode",
   "hoodProductCode",
-  "throatProductCode",
   "castingPieceRole",
 ]);
 
@@ -323,7 +321,6 @@ export function BulkPasteForm({
             frameProductCode: row.kindFields.frameProductCode ?? "",
             coverGrateProductCode: row.kindFields.coverGrateProductCode ?? "",
             hoodProductCode: row.kindFields.hoodProductCode ?? "",
-            throatProductCode: row.kindFields.throatProductCode ?? "",
           })),
         );
 

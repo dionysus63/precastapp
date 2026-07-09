@@ -45,7 +45,7 @@ export const productKindFormOptions: { value: ProductKind; label: string }[] = [
   },
   {
     value: "CASTING_COMPONENT",
-    label: "Casting Component — frame, cover/grate, hood, or throat piece",
+    label: "Casting Component — frame, cover/grate, or hood piece",
   },
 ];
 
@@ -78,7 +78,7 @@ export const bulkImportPresetLabels: Record<BulkImportPreset, string> = {
   ADS_PIPE: "ADS pipe — plastic with watertight or soiltight joint",
   CASTING_SET_WITH_PARTS: "Casting set with parts — BOM assembly",
   CASTING_ONE_PIECE: "Casting one-piece unit — no BOM",
-  CASTING_COMPONENT: "Casting component — frame, cover, hood, or throat",
+  CASTING_COMPONENT: "Casting component — frame, cover, or hood",
 };
 
 export function presetToProductType(preset: BulkImportPreset): ProductType {
@@ -141,7 +141,7 @@ const bulkPasteCastingComponentBaseHeaders = [
   "Unit",
   "Unit Price",
   "Weight",
-  "Piece Role (FRAME/COVER_GRATE/HOOD/THROAT)",
+  "Piece Role (FRAME/COVER_GRATE/HOOD)",
 ] as const;
 
 const bulkPasteCastingOnePieceBaseHeaders = [
@@ -151,7 +151,6 @@ const bulkPasteCastingOnePieceBaseHeaders = [
   "Unit Price",
   "Weight",
   "Height (ft)",
-  "Clear Opening (in)",
 ] as const;
 
 const bulkPasteCastingSetBaseHeaders = [
@@ -161,12 +160,10 @@ const bulkPasteCastingSetBaseHeaders = [
   "Unit Price",
   "Weight",
   "Height (ft)",
-  "Clear Opening (in)",
   "Manufacturer Code",
   "Frame Code",
   "Cover/Grate Code",
   "Hood Code",
-  "Throat Code",
 ] as const;
 
 const bulkPasteDrainRingBaseHeaders = [
@@ -277,12 +274,10 @@ export function getBulkPasteFieldKeys(preset: BulkImportPreset): string[] {
         "unitPrice",
         "weight",
         "castingHeightFeet",
-        "castingClearOpeningInches",
         "manufacturerCode",
         "frameProductCode",
         "coverGrateProductCode",
         "hoodProductCode",
-        "throatProductCode",
       ]);
     case "CASTING_ONE_PIECE":
       return withBulkPasteTaxonomyKeys([
@@ -292,7 +287,6 @@ export function getBulkPasteFieldKeys(preset: BulkImportPreset): string[] {
         "unitPrice",
         "weight",
         "castingHeightFeet",
-        "castingClearOpeningInches",
       ]);
     case "CASTING_COMPONENT":
       return withBulkPasteTaxonomyKeys([
@@ -317,17 +311,17 @@ export function normalizeBulkPasteCells(
   }
 
   const normalized = [...cells];
-  const minimumColumns = 10;
+  const minimumColumns = 9;
 
-  // Only rows with ≤11 columns use the pre-manufacturer layout (Frame starts
-  // at index 9). Rows with 12+ columns already have Manufacturer Code at index 9
-  // — pad trailing Hood/Throat tabs only; do not insert a blank column.
+  // Only rows with ≤10 columns use the pre-manufacturer layout (Frame starts
+  // at index 8). Rows with 11+ columns already have Manufacturer Code at index 8
+  // — pad the trailing Hood tab only; do not insert a blank column.
   if (
     normalized.length >= minimumColumns &&
-    normalized.length <= 11 &&
+    normalized.length <= 10 &&
     normalized.length < expectedColumns
   ) {
-    normalized.splice(9, 0, "");
+    normalized.splice(8, 0, "");
   }
 
   while (normalized.length < expectedColumns) {
@@ -349,7 +343,7 @@ export function bulkPasteColumnCountIssue(
   }
 
   if (preset === "CASTING_SET_WITH_PARTS") {
-    return `Row has ${cells.length} column${cells.length === 1 ? "" : "s"} but needs at least 10 (through Clear Opening plus Frame and Cover/Grate codes). Use tab-separated values; optional Subcategory, Manufacturer Code, Hood, Throat, Unit Price, and Weight can be left blank.`;
+    return `Row has ${cells.length} column${cells.length === 1 ? "" : "s"} but needs at least 9 (through Height plus Frame and Cover/Grate codes). Use tab-separated values; optional Subcategory, Manufacturer Code, Hood, Unit Price, and Weight can be left blank.`;
   }
 
   return `Expected ${expectedColumns} tab-separated columns for ${bulkImportPresetLabels[preset]}.`;
@@ -366,10 +360,10 @@ R-10-4-SAN\t10' Ring 4' sanitary\tRings\t\tEach\t920.00\t4300 lb\t0.8\t10\t4\tSA
 RCP-36-8\t36" RCP 8' Class IV\tPipes\t\tLF\t85.00\t4200 lb\t36\t8\tIV`,
   ADS_PIPE: `ADS-12-20-ST\t12" ADS 20' Soiltight\tADS Pipe\t\tLF\t9.25\t95 lb\t12\t20\tST
 ADS-12-20-WT\t12" ADS 20' Watertight\tADS Pipe\t\tLF\t10.50\t95 lb\t12\t20\tWT`,
-  CASTING_SET_WITH_PARTS: `CA-24-STD\t24" Standard Casting Assembly\tCastings\t\tEach\t420.00\t180 lb\t0.67\t24\tV-1420\tCF-FRM-24\tCF-CGR-24\t\t
-CA-30-HOOD\t30" Casting with Hood\tCastings\t\tEach\t\t\t0.75\t30\t\tCF-FRM-30\tCF-CGR-30\tCF-HOOD-30\t`,
-  CASTING_ONE_PIECE: `CA-24-UNIT\t24" One-Piece Casting\tCastings\t\tEach\t380.00\t175 lb\t0.67\t24
-CA-30-UNIT\t30" One-Piece Casting\tCastings\t\tEach\t420.00\t195 lb\t0.75\t30`,
+  CASTING_SET_WITH_PARTS: `CA-24-STD\t24" Standard Casting Assembly\tCastings\t\tEach\t420.00\t180 lb\t0.67\tV-1420\tCF-FRM-24\tCF-CGR-24\t
+CA-30-HOOD\t30" Casting with Hood\tCastings\t\tEach\t\t\t0.75\t\tCF-FRM-30\tCF-CGR-30\tCF-HOOD-30`,
+  CASTING_ONE_PIECE: `CA-24-UNIT\t24" One-Piece Casting\tCastings\t\tEach\t380.00\t175 lb\t0.67
+CA-30-UNIT\t30" One-Piece Casting\tCastings\t\tEach\t420.00\t195 lb\t0.75`,
   CASTING_COMPONENT: `CF-FRM-24\t24" Casting Frame\tCastings\t\tEach\t180.00\t95 lb\tFRAME
 CF-CGR-24\t24" Casting Cover/Grate\tCastings\t\tEach\t120.00\t65 lb\tCOVER_GRATE`,
 };
@@ -623,7 +617,7 @@ export function validateBulkPasteRow(
       row.kindFields.castingPieceRole ?? "",
     );
     if (!pieceRole) {
-      issues.push('Piece role must be "FRAME", "COVER_GRATE", "HOOD", or "THROAT".');
+      issues.push('Piece role must be "FRAME", "COVER_GRATE", or "HOOD".');
     }
   }
 
@@ -643,18 +637,11 @@ export function validateBulkPasteRow(
       if (!row.kindFields.coverGrateProductCode?.trim()) {
         issues.push("Cover/Grate code is required (unless sold as unit).");
       }
-      const manufacturerCode = row.kindFields.manufacturerCode?.trim() ?? "";
-      if (manufacturerCode) {
-        const unitPrice = parsePositiveNumber(row.unitPrice ?? "", "Unit price");
-        if (unitPrice.error) {
-          issues.push(unitPrice.error);
-        }
-        const weightRaw = row.weight?.trim() ?? "";
-        if (weightRaw) {
-          const weight = parsePositiveNumber(weightRaw, "Weight");
-          if (weight.error) {
-            issues.push(weight.error);
-          }
+      const weightRaw = row.weight?.trim() ?? "";
+      if (weightRaw) {
+        const weight = parsePositiveNumber(weightRaw, "Weight");
+        if (weight.error) {
+          issues.push(weight.error);
         }
       }
     }
@@ -667,7 +654,6 @@ export type ParsedProductProfile = {
   heightFeet: string | null;
   ringDiameterFeet: string | null;
   drainRingStyle: DrainRingStyle;
-  castingClearOpeningInches: string | null;
   castingRole: CastingRole | null;
   castingPieceRole: CastingPieceRole | null;
   castingSupplierId: string | null;
@@ -693,7 +679,6 @@ export function parseAndValidateProductProfile(
     heightFeet: null,
     ringDiameterFeet: null,
     drainRingStyle: "DRAIN",
-    castingClearOpeningInches: null,
     castingRole: null,
     castingPieceRole: null,
     castingSupplierId: null,
@@ -741,10 +726,6 @@ export function parseAndValidateProductProfile(
       return {
         ...empty,
         heightFeet,
-        castingClearOpeningInches: reader.getDecimal(
-          "castingClearOpeningInches",
-          "Clear opening",
-        ),
         castingRole: "ASSEMBLY",
         castingSupplierId: reader.getString("castingSupplierId") || null,
         castingSoldAsUnit: soldAsUnit,

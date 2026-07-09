@@ -39,12 +39,14 @@ type ProductDocumentRow = {
 type ProductDocumentsSectionProps = {
   productId: string;
   productCode: string;
+  manufacturerCode?: string | null;
   documents: ProductDocumentRow[];
 };
 
 export function ProductDocumentsSection({
   productId,
   productCode,
+  manufacturerCode,
   documents,
 }: ProductDocumentsSectionProps) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -147,7 +149,9 @@ export function ProductDocumentsSection({
   return (
     <SectionCard
       title="Product Documents"
-      description={`Submittals and related files for ${productCode}. Stored under the stock submittals root.`}
+      description={`Submittals and related files for ${productCode}. Drop "${productCode}.pdf"${
+        manufacturerCode?.trim() ? ` or "${manufacturerCode.trim()}.pdf"` : ""
+      } (or "${productCode} <anything>.pdf") into the stock submittals folder and scan — no subfolders needed.`}
     >
       <div className="space-y-5">
         <div className="flex flex-wrap gap-2">
@@ -250,7 +254,8 @@ export function ProductDocumentsSection({
                     colSpan={5}
                     className={`${tableCellBordersClassName} px-4 py-8 text-center text-sm text-slate-500`}
                   >
-                    No documents yet. Upload a file or scan the product folder.
+                    No documents yet. Upload a file, or drop {productCode}.pdf
+                    into the submittals folder and scan.
                   </td>
                 </tr>
               ) : (

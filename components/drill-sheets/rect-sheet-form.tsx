@@ -55,7 +55,6 @@ export type RectSheetCastingOption = {
   id: string;
   name: string;
   heightFeet: number | null;
-  clearOpeningInches: number | null;
 };
 
 export type RectSheetOpeningSizeOption = {
@@ -237,26 +236,11 @@ export function RectSheetForm({
       .map((entry) => entry.pipeSizeInches);
   }
 
-  function applyCasting(nextId: string) {
-    setCastingProductId(nextId);
-    const next = castings.find((c) => c.id === nextId) ?? null;
-    // Default the top-slab opening to the casting clear opening (square)
-    // unless the user already typed one.
-    if (next?.clearOpeningInches != null) {
-      setTopSlabOpeningLengthInches((current) =>
-        current.trim() === "" ? String(next.clearOpeningInches) : current,
-      );
-      setTopSlabOpeningWidthInches((current) =>
-        current.trim() === "" ? String(next.clearOpeningInches) : current,
-      );
-    }
-  }
-
   function applyTemplate(nextId: string) {
     setTemplateId(nextId);
     const next = templates.find((t) => t.id === nextId) ?? null;
     if (next?.defaultCastingProductId) {
-      applyCasting(next.defaultCastingProductId);
+      setCastingProductId(next.defaultCastingProductId);
     }
   }
 
@@ -590,7 +574,7 @@ export function RectSheetForm({
                 </label>
                 <select
                   value={castingProductId}
-                  onChange={(e) => applyCasting(e.target.value)}
+                  onChange={(e) => setCastingProductId(e.target.value)}
                   className={structureInputClassName}
                 >
                   <option value="">— None —</option>

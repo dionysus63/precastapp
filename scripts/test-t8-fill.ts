@@ -87,13 +87,11 @@ async function main() {
     useBase: "2'-6\"",
     useRiser: "4'-0\"",
     brickAdjustment: '2"',
-    castingClearOpeningInches: 30,
   } as DrillSheetPreviewMeta;
 
   const fieldMap = buildDrillSheetFieldMap(meta, result);
   console.log("base_height_feet_and_inches =", JSON.stringify(fieldMap.base_height_feet_and_inches));
   console.log("total_riser_height_feet_and_inches =", JSON.stringify(fieldMap.total_riser_height_feet_and_inches));
-  console.log("top_slab_opening_inches =", JSON.stringify(fieldMap.top_slab_opening_inches));
   console.log("casting_thickness_inches =", JSON.stringify(fieldMap.casting_thickness_inches));
   console.log("brick_thickness_inches =", JSON.stringify(fieldMap.brick_thickness_inches));
   console.log("diameter_feet_only =", JSON.stringify(fieldMap.diameter_feet_only));

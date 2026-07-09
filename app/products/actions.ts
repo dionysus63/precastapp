@@ -10,12 +10,11 @@ import {
   ProductType,
 } from "@/app/generated/prisma/client";
 import { getStockSubmittalsRoot } from "@/lib/app-settings";
-import { assertPathUnderStockSubmittalsRoot } from "@/lib/product-path-security";
 import { requirePermission } from "@/lib/auth/session";
 import {
   deleteProductDocument,
   getProductDocumentForOpen,
-  getProductSubmittalDir,
+  scanAllProductSubmittals,
   scanProductDocuments,
   uploadProductDocument,
 } from "@/lib/product-submittals-service";
@@ -297,10 +296,6 @@ async function parseProductFormData(formData: FormData) {
     productKind === "CASTING_ASSEMBLY"
       ? String(formData.get("manufacturerCode") ?? "").trim() || null
       : null;
-  const isDerivedAssembly =
-    productKind === "CASTING_ASSEMBLY" &&
-    !castingSoldAsUnit &&
-    !manufacturerCode;
   const profile = parseAndValidateProductProfile(
     productKind,
     createFormProfileReader(formData),
@@ -347,10 +342,10 @@ async function parseProductFormData(formData: FormData) {
     subcategoryId: taxonomy.subcategoryId,
     description,
     unit,
-    unitPrice: isDerivedAssembly ? null : unitPrice,
+    unitPrice,
     priceListId,
     cost,
-    weight: isDerivedAssembly ? null : weight,
+    weight,
     yards,
     trackInventory: inventory.trackInventory,
     currentStockQuantity: inventory.currentStockQuantity,
@@ -363,7 +358,6 @@ async function parseProductFormData(formData: FormData) {
     ringDiameterFeet: toDecimal(profile.ringDiameterFeet),
     drainRingStyle: profile.drainRingStyle,
     isCasting: legacy.isCasting,
-    castingClearOpeningInches: toDecimal(profile.castingClearOpeningInches),
     castingRole: profile.castingRole,
     castingPieceRole: profile.castingPieceRole,
     castingSupplierId: profile.castingSupplierId,
@@ -617,8 +611,6 @@ function mapBulkImportRow(
     kind === "CASTING_ASSEMBLY" && !castingSoldAsUnit
       ? String(kindFields.manufacturerCode ?? "").trim() || null
       : null;
-  const isDerivedAssembly =
-    kind === "CASTING_ASSEMBLY" && !castingSoldAsUnit && !manufacturerCode;
 
   return {
     productCode,
@@ -628,14 +620,11 @@ function mapBulkImportRow(
     subcategoryId: taxonomy.subcategoryId,
     description: null,
     unit: unit === "Each" ? "EA" : unit,
-    unitPrice: isDerivedAssembly
-      ? null
-      : parseBulkNumeric(row.unitPrice, "Unit price", lineNumber),
+    unitPrice: parseBulkNumeric(row.unitPrice, "Unit price", lineNumber),
     cost: null,
-    weight: isDerivedAssembly
-      ? null
-      : (parseBulkNumeric(row.weight, "Weight", lineNumber) ??
-        new Prisma.Decimal(0)),
+    weight:
+      parseBulkNumeric(row.weight, "Weight", lineNumber) ??
+      new Prisma.Decimal(0),
     yards:
       kind === "CASTING_COMPONENT" || kind === "CASTING_ASSEMBLY"
         ? null
@@ -651,7 +640,6 @@ function mapBulkImportRow(
     ringDiameterFeet: toDecimal(profile.ringDiameterFeet),
     drainRingStyle: profile.drainRingStyle,
     isCasting: legacy.isCasting,
-    castingClearOpeningInches: toDecimal(profile.castingClearOpeningInches),
     castingRole: profile.castingRole,
     castingPieceRole: profile.castingPieceRole,
     castingSupplierId: supplierId,
@@ -695,7 +683,6 @@ function collectAssemblyBomImportRows(
       row.kindFields?.coverGrateProductCode ?? "",
     ).trim(),
     hoodProductCode: String(row.kindFields?.hoodProductCode ?? "").trim(),
-    throatProductCode: String(row.kindFields?.throatProductCode ?? "").trim(),
   }));
 }
 
@@ -708,7 +695,6 @@ function collectReferencedComponentCodes(
       row.frameProductCode,
       row.coverGrateProductCode,
       row.hoodProductCode,
-      row.throatProductCode,
     ]) {
       if (code) {
         codes.add(code);
@@ -726,7 +712,7 @@ async function loadCastingComponentsByCode(codes: string[]) {
         id: string;
         productCode: string;
         castingRole: "ASSEMBLY" | "COMPONENT" | null;
-        castingPieceRole: "FRAME" | "COVER_GRATE" | "HOOD" | "THROAT" | null;
+        castingPieceRole: "FRAME" | "COVER_GRATE" | "HOOD" | null;
       }
     >();
   }
@@ -752,7 +738,7 @@ function assertAllAssemblyComponentCodesExist(
       id: string;
       productCode: string;
       castingRole: "ASSEMBLY" | "COMPONENT" | null;
-        castingPieceRole: "FRAME" | "COVER_GRATE" | "HOOD" | "THROAT" | null;
+        castingPieceRole: "FRAME" | "COVER_GRATE" | "HOOD" | null;
     }
   >,
 ) {
@@ -763,7 +749,6 @@ function assertAllAssemblyComponentCodesExist(
       ["Frame code", row.frameProductCode],
       ["Cover/Grate code", row.coverGrateProductCode],
       ["Hood code", row.hoodProductCode],
-      ["Throat code", row.throatProductCode],
     ] as const) {
       if (!code) {
         continue;
@@ -1074,6 +1059,17 @@ export async function scanProductDocumentsAction(productId: string) {
   return result;
 }
 
+export async function scanAllProductSubmittalsAction() {
+  await requirePermission(AppPermission.PRODUCTS_MANAGE);
+  const result = await withDatabaseRetry((client) =>
+    scanAllProductSubmittals(client),
+  );
+
+  revalidatePath("/products");
+  revalidatePath("/inventory");
+  return result;
+}
+
 export async function openProductDocument(
   documentId: string,
 ): Promise<ProductExplorerOpenResult & { documentName: string }> {
@@ -1113,17 +1109,17 @@ export async function openProductSubmittalsFolder(
     throw new Error("Product was not found.");
   }
 
-  const folderPath = await getProductSubmittalDir(product.productCode);
+  // Submittals are flat files named after the product code, so the shared
+  // root is the folder to open.
   const root = await getStockSubmittalsRoot();
-  assertPathUnderStockSubmittalsRoot(root, folderPath);
 
   if (process.platform !== "win32") {
     throw new Error("Opening folders is supported on Windows only.");
   }
 
-  await launchWindowsFolder(folderPath, { allowedRoot: root });
+  await launchWindowsFolder(root, { allowedRoot: root });
 
-  return { success: true, path: folderPath };
+  return { success: true, path: root };
 }
 
 export async function deleteProductDocumentAction(documentId: string) {

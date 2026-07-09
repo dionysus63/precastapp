@@ -524,13 +524,9 @@ export function computeRectWorkbookRow(
     topSlabOpening: workingRow.hasTopSlab
       ? {
           lengthInches:
-            parseNum(workingRow.topSlabOpeningLengthInches) ??
-            casting?.clearOpeningInches ??
-            null,
+            parseNum(workingRow.topSlabOpeningLengthInches) ?? null,
           widthInches:
-            parseNum(workingRow.topSlabOpeningWidthInches) ??
-            casting?.clearOpeningInches ??
-            null,
+            parseNum(workingRow.topSlabOpeningWidthInches) ?? null,
           side: workingRow.topSlabOpeningSide,
         }
       : null,

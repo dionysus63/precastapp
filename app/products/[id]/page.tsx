@@ -12,7 +12,7 @@ import {
 import { mapProductToDetail } from "@/lib/product-mapper";
 import {
   enrichProductWithDerivedAssemblyValues,
-  isDerivableCastingAssembly,
+  isPartsModeCastingAssembly,
   loadDerivedAssemblyValues,
 } from "@/lib/casting-service";
 import { getDefaultPriceList } from "@/lib/price-list-service";
@@ -88,8 +88,8 @@ export default async function ProductDetailPage({
       })
     : null;
 
-  const derivedMap = isDerivableCastingAssembly(product)
-    ? await loadDerivedAssemblyValues(prisma, [product.id], defaultPriceList?.id)
+  const derivedMap = isPartsModeCastingAssembly(product)
+    ? await loadDerivedAssemblyValues(prisma, [product.id])
     : new Map();
   const enriched = enrichProductWithDerivedAssemblyValues(
     product,
@@ -101,7 +101,6 @@ export default async function ProductDetailPage({
     unitPrice: enriched.unitPrice,
     priceListName: defaultPriceList?.name,
     weightDerivedFromParts: enriched.weightDerivedFromParts,
-    priceDerivedFromParts: enriched.priceDerivedFromParts,
   });
 
   return (
@@ -201,12 +200,6 @@ export default async function ProductDetailPage({
                     value={product.heightFeet.toString()}
                   />
                 ) : null}
-                {product.castingClearOpeningInches ? (
-                  <DetailField
-                    label="Clear Opening (in)"
-                    value={product.castingClearOpeningInches.toString()}
-                  />
-                ) : null}
               </>
             ) : null}
           </dl>
@@ -262,6 +255,7 @@ export default async function ProductDetailPage({
         <ProductDocumentsSection
           productId={product.id}
           productCode={detail.productCode}
+          manufacturerCode={product.manufacturerCode}
           documents={detail.documents}
         />
       </div>

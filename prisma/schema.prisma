@@ -108,7 +108,6 @@ enum CastingPieceRole {
   FRAME
   COVER_GRATE
   HOOD
-  THROAT
 }
 
 enum ProductKind {
@@ -198,7 +197,6 @@ model Product {
   ringDiameterFeet     Decimal?        @db.Decimal(6, 2)
   drainRingStyle       DrainRingStyle  @default(DRAIN)
   isCasting                 Boolean          @default(false)
-  castingClearOpeningInches Decimal?         @db.Decimal(6, 2)
   castingRole               CastingRole?
   castingPieceRole          CastingPieceRole?
   castingSupplierId         String?

@@ -128,9 +128,6 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
                 castingHeightFeet: product.heightFeet
                   ? product.heightFeet.toString()
                   : "",
-                castingClearOpeningInches: product.castingClearOpeningInches
-                  ? product.castingClearOpeningInches.toString()
-                  : "",
                 pipeDiameterInches: product.pipeDiameterInches
                   ? product.pipeDiameterInches.toString()
                   : "",

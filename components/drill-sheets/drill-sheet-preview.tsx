@@ -27,8 +27,6 @@ export type DrillSheetPreviewMeta = {
   useBase: string;
   useRiser: string;
   brickAdjustment: string;
-  /** Clear opening of the casting frame; printed as the top slab opening. */
-  castingClearOpeningInches?: number | null;
 };
 
 type DrillSheetPreviewProps = {

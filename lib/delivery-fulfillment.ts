@@ -18,7 +18,7 @@ import {
   type CastingPieceRole,
 } from "@/lib/casting-utils";
 import {
-  isDerivableCastingAssembly,
+  resolveEffectiveAssemblyWeight,
   loadCastingComponentOptionsByAssembly,
   loadDerivedAssemblyValues,
 } from "@/lib/casting-service";
@@ -1086,10 +1086,13 @@ async function buildFulfillmentFromContext(
       const derived = line.productId
         ? derivedAssemblyValues.get(line.productId)
         : undefined;
+      // Line/product weight wins; a parts-mode assembly whose weight is blank
+      // or 0 falls back to the combined parts weight.
       const assemblyWeight =
-        line.product && isDerivableCastingAssembly(line.product)
-          ? derived?.derivedWeight ?? resolveWeightEach(line)
-          : resolveWeightEach(line);
+        resolveWeightEach(line) ||
+        (line.product
+          ? resolveEffectiveAssemblyWeight(line.product, derived)
+          : null);
 
       result.push({
         quoteLineItemId: line.id,

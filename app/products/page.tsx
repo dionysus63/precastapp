@@ -5,7 +5,7 @@ import { ProductsList } from "@/components/products/products-list";
 import { mapProductToRow } from "@/lib/product-mapper";
 import {
   enrichProductWithDerivedAssemblyValues,
-  isDerivableCastingAssembly,
+  isPartsModeCastingAssembly,
   loadDerivedAssemblyValues,
 } from "@/lib/casting-service";
 import { getDefaultPriceList, getProductPricesForList } from "@/lib/price-list-service";
@@ -197,8 +197,8 @@ export default async function ProductsPage({
 
   // All three enrichments depend only on the fetched page of products, not on
   // each other — load them in parallel instead of three sequential waits.
-  const derivableAssemblyIds = products
-    .filter((product) => isDerivableCastingAssembly(product))
+  const partsAssemblyIds = products
+    .filter((product) => isPartsModeCastingAssembly(product))
     .map((product) => product.id);
   const [priceMap, derivedMap, effectiveSubmittalCounts] = await Promise.all([
     defaultPriceList
@@ -207,13 +207,9 @@ export default async function ProductsPage({
           defaultPriceList.id,
         )
       : Promise.resolve(new Map()),
-    derivableAssemblyIds.length
+    partsAssemblyIds.length
       ? withDatabaseRetry((client) =>
-          loadDerivedAssemblyValues(
-            client,
-            derivableAssemblyIds,
-            defaultPriceList?.id,
-          ),
+          loadDerivedAssemblyValues(client, partsAssemblyIds),
         )
       : Promise.resolve(new Map()),
     withDatabaseRetry((client) =>

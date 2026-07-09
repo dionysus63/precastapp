@@ -24,7 +24,7 @@ import { maybeCreatePayNowInvoiceForTicket } from "@/lib/invoicing-service";
 import { getDefaultPriceListId, getProductPricesForList } from "@/lib/price-list-service";
 import {
   enrichProductWithDerivedAssemblyValues,
-  isDerivableCastingAssembly,
+  isPartsModeCastingAssembly,
   loadDerivedAssemblyValues,
 } from "@/lib/casting-service";
 import { withDatabaseRetry } from "@/lib/prisma";
@@ -982,16 +982,12 @@ export async function listStockProductsForTicket(
       )
     : new Map();
 
-  const derivableAssemblyIds = products
-    .filter((product) => isDerivableCastingAssembly(product))
+  const partsAssemblyIds = products
+    .filter((product) => isPartsModeCastingAssembly(product))
     .map((product) => product.id);
-  const derivedMap = derivableAssemblyIds.length
+  const derivedMap = partsAssemblyIds.length
     ? await withDatabaseRetry((client) =>
-        loadDerivedAssemblyValues(
-          client,
-          derivableAssemblyIds,
-          resolvedPriceListId,
-        ),
+        loadDerivedAssemblyValues(client, partsAssemblyIds),
       )
     : new Map();
 

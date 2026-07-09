@@ -13,7 +13,6 @@ export const castingAssemblyRequiredBomRoles = [
 
 export const castingAssemblyOptionalBomRoles = [
   "HOOD",
-  "THROAT",
 ] as const satisfies readonly CastingPieceRole[];
 
 export const castingAssemblyBomRoleOrder = [
@@ -25,7 +24,7 @@ export const castingRoleFormOptions: { value: CastingRole; label: string }[] = [
   { value: "ASSEMBLY", label: "Assembly — full casting (quoted & drill sheet)" },
   {
     value: "COMPONENT",
-    label: "Component — frame, cover/grate, hood, or throat piece",
+    label: "Component — frame, cover/grate, or hood piece",
   },
 ];
 
@@ -36,7 +35,6 @@ export const castingPieceRoleFormOptions: {
   { value: "FRAME", label: "Frame" },
   { value: "COVER_GRATE", label: "Cover / Grate" },
   { value: "HOOD", label: "Hood" },
-  { value: "THROAT", label: "Throat" },
 ];
 
 export const castingSupplierOriginFormOptions: {
@@ -68,9 +66,6 @@ export function formatCastingPieceRoleLabel(
   }
   if (role === "HOOD") {
     return "Hood";
-  }
-  if (role === "THROAT") {
-    return "Throat";
   }
   return "—";
 }
@@ -115,9 +110,6 @@ export function parseCastingPieceRole(value: string): CastingPieceRole | null {
   if (normalized === "HOOD") {
     return "HOOD";
   }
-  if (normalized === "THROAT") {
-    return "THROAT";
-  }
   return null;
 }
 
@@ -145,7 +137,6 @@ export type CastingAssemblyBomImportRow = {
   frameProductCode: string;
   coverGrateProductCode: string;
   hoodProductCode: string;
-  throatProductCode: string;
 };
 
 export type CastingComponentLookup = {
@@ -165,7 +156,6 @@ export function buildCastingBomFromProductCodes(
     { role: "FRAME", code: row.frameProductCode.trim() },
     { role: "COVER_GRATE", code: row.coverGrateProductCode.trim() },
     { role: "HOOD", code: row.hoodProductCode.trim() },
-    { role: "THROAT", code: row.throatProductCode.trim() },
   ];
 
   for (const { role, code } of roleCodes) {
@@ -218,7 +208,6 @@ export function validateCastingAssemblyImportCodes(
         label: "Cover/Grate code",
       },
       { role: "HOOD", code: row.hoodProductCode.trim(), label: "Hood code" },
-      { role: "THROAT", code: row.throatProductCode.trim(), label: "Throat code" },
     ];
 
     for (const { role, code, label } of roleCodes) {
@@ -271,7 +260,7 @@ export function validateCastingBom(
     throw new Error(`${context} requires at least a frame and cover/grate.`);
   }
   if (rows.length > castingAssemblyBomRoleOrder.length) {
-    throw new Error(`${context} supports at most four pieces.`);
+    throw new Error(`${context} supports at most three pieces.`);
   }
 
   const roles = new Set<CastingPieceRole>();

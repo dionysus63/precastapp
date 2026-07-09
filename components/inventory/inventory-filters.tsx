@@ -37,6 +37,7 @@ export function InventoryFilters({ filters }: InventoryFiltersProps) {
         <option value="All">Stock: All</option>
         <option value="low">Stock: Low</option>
         <option value="out">Stock: Out</option>
+        <option value="sets">Casting sets</option>
       </select>
       <select
         value={filters.castingOrigin || "All"}

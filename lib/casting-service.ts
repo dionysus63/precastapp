@@ -5,20 +5,23 @@ type DbClient = PrismaClient | Parameters<Parameters<PrismaClient["$transaction"
 
 export type DerivedAssemblyValues = {
   derivedWeight: number | null;
-  derivedUnitPrice: number | null;
   derivedCost: number | null;
 };
 
-export function isDerivableCastingAssembly(product: {
+/**
+ * Parts-mode assemblies (not one-piece units) fall back to their BOM for
+ * weight and cost when their own field is blank or 0. Price never derives
+ * from parts — it is always the assembly's own entered price.
+ */
+export function isPartsModeCastingAssembly(product: {
   castingRole?: string | null;
   castingSoldAsUnit?: boolean;
-  manufacturerCode?: string | null;
 }): boolean {
-  return (
-    product.castingRole === "ASSEMBLY" &&
-    !product.castingSoldAsUnit &&
-    !product.manufacturerCode?.trim()
-  );
+  return product.castingRole === "ASSEMBLY" && !product.castingSoldAsUnit;
+}
+
+function isBlankOrZero(value: { toString(): string } | null | undefined): boolean {
+  return value == null || Number(value.toString()) === 0;
 }
 
 function sumBomQuantityField(
@@ -40,11 +43,10 @@ function sumBomQuantityField(
   return sum;
 }
 
-/** Batched live weight/price/cost for parts-mode assemblies without a manufacturer code. */
+/** Batched live BOM weight/cost totals for parts-mode assemblies. */
 export async function loadDerivedAssemblyValues(
   client: DbClient,
   assemblyIds: string[],
-  priceListId?: string | null,
 ): Promise<Map<string, DerivedAssemblyValues>> {
   const result = new Map<string, DerivedAssemblyValues>();
   if (assemblyIds.length === 0) {
@@ -57,20 +59,19 @@ export async function loadDerivedAssemblyValues(
       id: true,
       castingRole: true,
       castingSoldAsUnit: true,
-      manufacturerCode: true,
     },
   });
 
-  const derivableIds = assemblies
-    .filter((assembly) => isDerivableCastingAssembly(assembly))
+  const partsModeIds = assemblies
+    .filter((assembly) => isPartsModeCastingAssembly(assembly))
     .map((assembly) => assembly.id);
 
-  if (derivableIds.length === 0) {
+  if (partsModeIds.length === 0) {
     return result;
   }
 
   const bomRows = await client.productCastingComponent.findMany({
-    where: { assemblyId: { in: derivableIds } },
+    where: { assemblyId: { in: partsModeIds } },
     select: {
       assemblyId: true,
       quantity: true,
@@ -78,13 +79,6 @@ export async function loadDerivedAssemblyValues(
         select: {
           weight: true,
           cost: true,
-          priceListItems: priceListId
-            ? {
-                where: { priceListId },
-                select: { unitPrice: true },
-                take: 1,
-              }
-            : false,
         },
       },
     },
@@ -96,7 +90,6 @@ export async function loadDerivedAssemblyValues(
       quantity: number;
       weight: number | null;
       cost: number | null;
-      unitPrice: number | null;
     }>
   >();
 
@@ -106,30 +99,16 @@ export async function loadDerivedAssemblyValues(
       quantity: row.quantity,
       weight: row.component.weight != null ? Number(row.component.weight) : null,
       cost: row.component.cost != null ? Number(row.component.cost) : null,
-      unitPrice:
-        priceListId &&
-        Array.isArray(row.component.priceListItems) &&
-        row.component.priceListItems[0]?.unitPrice != null
-          ? Number(row.component.priceListItems[0].unitPrice)
-          : priceListId
-            ? null
-            : null,
     });
     rowsByAssembly.set(row.assemblyId, componentRows);
   }
 
-  for (const assemblyId of derivableIds) {
+  for (const assemblyId of partsModeIds) {
     const componentRows = rowsByAssembly.get(assemblyId) ?? [];
     result.set(assemblyId, {
       derivedWeight: sumBomQuantityField(
         componentRows.map((row) => ({ quantity: row.quantity, value: row.weight })),
         { treatMissingAsZero: true },
-      ),
-      derivedUnitPrice: sumBomQuantityField(
-        componentRows.map((row) => ({
-          quantity: row.quantity,
-          value: row.unitPrice,
-        })),
       ),
       derivedCost: sumBomQuantityField(
         componentRows.map((row) => ({ quantity: row.quantity, value: row.cost })),
@@ -140,58 +119,23 @@ export async function loadDerivedAssemblyValues(
   return result;
 }
 
+/**
+ * Parts-mode assembly weight: the assembly's own weight wins; blank or 0
+ * falls back to the combined parts weight.
+ */
 export function resolveEffectiveAssemblyWeight(
   product: {
-    id: string;
     weight?: { toString(): string } | null;
     castingRole?: string | null;
     castingSoldAsUnit?: boolean;
-    manufacturerCode?: string | null;
   },
   derived?: DerivedAssemblyValues | null,
 ): number | null {
-  if (isDerivableCastingAssembly(product)) {
+  if (isPartsModeCastingAssembly(product) && isBlankOrZero(product.weight)) {
     return derived?.derivedWeight ?? 0;
   }
   if (product.weight != null) {
     return Number(product.weight);
-  }
-  return null;
-}
-
-export function resolveEffectiveAssemblyUnitPrice(
-  product: {
-    id: string;
-    castingRole?: string | null;
-    castingSoldAsUnit?: boolean;
-    manufacturerCode?: string | null;
-  },
-  storedUnitPrice: { toString(): string } | null | undefined,
-  derived?: DerivedAssemblyValues | null,
-): number {
-  if (isDerivableCastingAssembly(product)) {
-    return derived?.derivedUnitPrice ?? 0;
-  }
-  if (storedUnitPrice != null) {
-    return Number.parseFloat(storedUnitPrice.toString());
-  }
-  return 0;
-}
-
-export function resolveEffectiveAssemblyCost(
-  product: {
-    castingRole?: string | null;
-    castingSoldAsUnit?: boolean;
-    manufacturerCode?: string | null;
-    cost?: { toString(): string } | null;
-  },
-  derived?: DerivedAssemblyValues | null,
-): number | null {
-  if (isDerivableCastingAssembly(product)) {
-    return derived?.derivedCost ?? null;
-  }
-  if (product.cost != null) {
-    return Number(product.cost);
   }
   return null;
 }
@@ -203,7 +147,6 @@ export function enrichProductWithDerivedAssemblyValues<
     cost?: { toString(): string } | null;
     castingRole?: string | null;
     castingSoldAsUnit?: boolean;
-    manufacturerCode?: string | null;
   },
 >(
   product: T,
@@ -214,27 +157,23 @@ export function enrichProductWithDerivedAssemblyValues<
   weight: { toString(): string } | null;
   cost: { toString(): string } | null;
   weightDerivedFromParts: boolean;
-  priceDerivedFromParts: boolean;
 } {
-  const isDerived = isDerivableCastingAssembly(product);
+  const partsMode = isPartsModeCastingAssembly(product);
+  const weightFromParts = partsMode && isBlankOrZero(product.weight);
+  const costFromParts = partsMode && isBlankOrZero(product.cost);
 
   return {
     ...product,
-    unitPrice: isDerived
-      ? derived?.derivedUnitPrice != null
-        ? { toString: () => String(derived.derivedUnitPrice) }
-        : null
-      : (storedUnitPrice ?? null),
-    weight: isDerived
+    unitPrice: storedUnitPrice ?? null,
+    weight: weightFromParts
       ? { toString: () => String(derived?.derivedWeight ?? 0) }
       : (product.weight ?? null),
-    cost: isDerived
+    cost: costFromParts
       ? derived?.derivedCost != null
         ? { toString: () => String(derived.derivedCost) }
         : null
       : (product.cost ?? null),
-    weightDerivedFromParts: isDerived,
-    priceDerivedFromParts: isDerived,
+    weightDerivedFromParts: weightFromParts,
   };
 }
 

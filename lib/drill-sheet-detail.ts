@@ -23,13 +23,7 @@ export const drillSheetDetailInclude = {
   calc: true,
   openings: { orderBy: { openingNumber: "asc" } },
   sections: { orderBy: { sortOrder: "asc" } },
-  castings: {
-    include: {
-      castingProduct: {
-        select: { castingClearOpeningInches: true },
-      },
-    },
-  },
+  castings: true,
 } satisfies Prisma.JobStructureInclude;
 
 export type DrillSheetWithDetail = Prisma.JobStructureGetPayload<{
@@ -226,9 +220,6 @@ export function buildDrillSheetDetail(
       ? new Intl.DateTimeFormat("en-US").format(calc.sheetDate)
       : "",
     castingName: sheet.castings[0]?.castingDescription ?? "",
-    castingClearOpeningInches: num(
-      sheet.castings[0]?.castingProduct?.castingClearOpeningInches ?? null,
-    ),
     insideDiameterFeet: num(calc.insideDiameterFeet),
     hasSteps: calc.hasSteps,
     inspection: calc.inspection ?? "",

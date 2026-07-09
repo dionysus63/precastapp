@@ -162,7 +162,6 @@ export const DRILL_SHEET_TEMPLATE_FIELD_NAMES = [
   "total_riser_height_feet_and_inches",
   "base_slab_thickness_inches",
   "diameter_feet_only",
-  "top_slab_opening_inches",
   "bottom_casting_elevation",
   "top_of_top_slab_elevation",
   "bottom_of_top_slab_elevation",
@@ -328,11 +327,6 @@ export function buildDrillSheetFieldMap(
     // Bare feet number for the "Use: __'Ø" blank (template prints the 'Ø).
     diameter_feet_only:
       meta.insideDiameterFeet != null ? String(meta.insideDiameterFeet) : "",
-    // Clear opening of the casting frame, printed on the top slab band.
-    top_slab_opening_inches:
-      meta.castingClearOpeningInches != null
-        ? `${Number(meta.castingClearOpeningInches)}"`
-        : "",
     base_slab_thickness_inches: inchesFromFeet(result.baseSlabThicknessFeet),
     bottom_casting_elevation: decimalFeet(elevationFeet(result, "casting")),
     top_of_top_slab_elevation: decimalFeet(elevationFeet(result, "top-slab-top")),
