@@ -26,6 +26,11 @@ export default async function JobStructureDetailPage({
         },
         quote: { select: { quoteNumber: true } },
         documents: { orderBy: { uploadedAt: "desc" } },
+        // Quote config drives the "Create drill sheet" link for placeholders.
+        quoteLineItems: {
+          select: { structureConfigJson: true },
+          take: 1,
+        },
       },
     }),
   );

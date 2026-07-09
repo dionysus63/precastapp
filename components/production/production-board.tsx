@@ -45,6 +45,10 @@ export type ProductionQueueItem = {
   drillSheetId: string | null;
   /** Awaiting-approval tab: NOT_SUBMITTED structures that skip submittals. */
   noSubmittalRequired?: boolean;
+  /** Needs-drill-sheet tab: where "Create drill sheet" should link. */
+  createDrillSheetHref?: string | null;
+  /** Needs-drill-sheet tab: bulk-complete workbook for the whole quote. */
+  completeWorkbookHref?: string | null;
 };
 
 export type ProductionTabId =
@@ -52,6 +56,7 @@ export type ProductionTabId =
   | "in-production"
   | "ready-to-ship"
   | "needs-submittal"
+  | "needs-drill-sheet"
   | "awaiting-approval";
 
 const TABS: {
@@ -98,6 +103,16 @@ const TABS: {
     detailHeader: "Submittal",
     emptyMessage: "No structures waiting for submittals.",
     hint: null,
+  },
+  {
+    id: "needs-drill-sheet",
+    label: "Needs drill sheet",
+    title: "Needs drill sheet",
+    description:
+      "Structures quoted without drill-sheet detail. Create the cut sheet before they can be approved for production.",
+    detailHeader: "Quoted",
+    emptyMessage: "No structures waiting on drill sheets.",
+    hint: "Create drill sheet opens the sheet editor pre-filled from the quote. Saving upgrades the structure in place — quote link, status, and documents are kept.",
   },
   {
     id: "awaiting-approval",
@@ -155,6 +170,7 @@ export function ProductionBoard({
   inProduction,
   readyToShip,
   needsSubmittal,
+  needsDrillSheet,
   awaitingApproval,
   initialTab,
 }: {
@@ -162,6 +178,7 @@ export function ProductionBoard({
   inProduction: ProductionQueueItem[];
   readyToShip: ProductionQueueItem[];
   needsSubmittal: ProductionQueueItem[];
+  needsDrillSheet: ProductionQueueItem[];
   awaitingApproval: ProductionQueueItem[];
   initialTab?: string;
 }) {
@@ -172,9 +189,17 @@ export function ProductionBoard({
       "in-production": inProduction,
       "ready-to-ship": readyToShip,
       "needs-submittal": needsSubmittal,
+      "needs-drill-sheet": needsDrillSheet,
       "awaiting-approval": awaitingApproval,
     }),
-    [approved, inProduction, readyToShip, needsSubmittal, awaitingApproval],
+    [
+      approved,
+      inProduction,
+      readyToShip,
+      needsSubmittal,
+      needsDrillSheet,
+      awaitingApproval,
+    ],
   );
 
   const defaultTab: ProductionTabId = isProductionTabId(initialTab)
@@ -266,6 +291,12 @@ export function ProductionBoard({
         return item.madeDate ?? "—";
       case "needs-submittal":
         return <span className="text-slate-500">Awaiting upload</span>;
+      case "needs-drill-sheet":
+        return item.quoteNumber ? (
+          <span className="text-slate-500">{item.quoteNumber}</span>
+        ) : (
+          <span className="text-slate-500">Quote only — no cut sheet</span>
+        );
       case "awaiting-approval":
         return item.noSubmittalRequired ? (
           <span className="text-slate-500">No submittal required</span>
@@ -331,6 +362,34 @@ export function ProductionBoard({
             className="rounded border border-slate-200 px-2 py-1 text-[11px] font-medium hover:bg-slate-50"
           >
             Add submittal
+          </Link>
+        ) : (
+          "—"
+        );
+      case "needs-drill-sheet":
+        return item.createDrillSheetHref ? (
+          <>
+            <Link
+              href={item.createDrillSheetHref}
+              className="rounded border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-100"
+            >
+              Create drill sheet
+            </Link>
+            {item.completeWorkbookHref ? (
+              <Link
+                href={item.completeWorkbookHref}
+                className="rounded border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Complete all in workbook
+              </Link>
+            ) : null}
+          </>
+        ) : item.jobId ? (
+          <Link
+            href={`/jobs/${item.jobId}/structures/${item.id}`}
+            className="rounded border border-slate-200 px-2 py-1 text-[11px] hover:bg-slate-50"
+          >
+            Open structure
           </Link>
         ) : (
           "—"

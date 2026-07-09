@@ -56,12 +56,24 @@ export function JobStructureDetailContent({
     (!detail.needsSubmittal || detail.jobSpecificSubmittalCount > 0);
 
   const canApproveDirectly =
-    detail.status === "SUBMITTED" ||
-    (detail.status === "NOT_SUBMITTED" && !detail.needsSubmittal);
+    !detail.needsDrillSheet &&
+    (detail.status === "SUBMITTED" ||
+      (detail.status === "NOT_SUBMITTED" && !detail.needsSubmittal));
 
   const nextAction = (() => {
     switch (detail.status) {
       case "NOT_SUBMITTED":
+        if (detail.needsDrillSheet) {
+          // Quote-only placeholder: the cut sheet must exist before approval.
+          return {
+            label: "Approve for production",
+            hint: detail.createDrillSheetHref
+              ? "Quote-only structure — create the drill sheet first (link above)."
+              : "Quote-only structure — complete it in the quote's structure workbook before approving.",
+            disabled: true,
+            onClick: () => {},
+          };
+        }
         if (!detail.needsSubmittal) {
           return {
             label: "Approve for production",
@@ -128,7 +140,15 @@ export function JobStructureDetailContent({
           </h2>
           <p className="mt-1 text-sm text-slate-600">{detail.description}</p>
         </div>
-        <StatusBadge label={detail.statusLabel} variant={detail.statusVariant} />
+        <span className="inline-flex flex-wrap items-center gap-1.5">
+          <StatusBadge
+            label={detail.statusLabel}
+            variant={detail.statusVariant}
+          />
+          {detail.needsDrillSheet ? (
+            <StatusBadge label="Needs drill sheet" variant="warning" />
+          ) : null}
+        </span>
       </div>
 
       <div className="flex flex-wrap gap-2 text-xs">
@@ -150,6 +170,14 @@ export function JobStructureDetailContent({
             className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-50"
           >
             Quote {detail.quoteNumber}
+          </Link>
+        ) : null}
+        {detail.createDrillSheetHref ? (
+          <Link
+            href={detail.createDrillSheetHref}
+            className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 font-semibold text-sky-800 hover:bg-sky-100"
+          >
+            Create Drill Sheet
           </Link>
         ) : null}
         {detail.drillSheetId ? (

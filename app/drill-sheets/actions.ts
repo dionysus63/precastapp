@@ -131,6 +131,53 @@ export async function updateRectSheet(
   redirect(`/drill-sheets/${jobStructureId}`);
 }
 
+/**
+ * Complete the drill sheet for a quote-only placeholder structure. Upgrades
+ * the existing JobStructure in place so its quote-line link, status,
+ * quantity, and documents survive.
+ */
+export async function upgradeRectSheetFromPlaceholder(
+  jobStructureId: string,
+  formData: FormData,
+) {
+  await requirePermission(AppPermission.STRUCTURES_MANAGE);
+  const payload = parseRectSheetPayload(formData);
+  const expectedUpdatedAtRaw = String(
+    formData.get("expectedUpdatedAt") ?? "",
+  ).trim();
+
+  const existing = await prisma.jobStructure.findUnique({
+    where: { id: jobStructureId },
+    select: { jobId: true, quoteId: true, structureTemplateId: true },
+  });
+  if (!existing) {
+    throw new Error("Structure was not found.");
+  }
+  if (existing.structureTemplateId) {
+    throw new Error(
+      "This structure already has a drill sheet. Edit it from the Drill Sheet Workbook instead.",
+    );
+  }
+
+  await updateRectJobStructureFromPayload(
+    jobStructureId,
+    payload,
+    expectedUpdatedAtRaw,
+  );
+
+  revalidatePath("/drill-sheets");
+  revalidatePath(`/drill-sheets/${jobStructureId}`);
+  revalidatePath("/production");
+  if (existing.jobId) {
+    revalidatePath(`/jobs/${existing.jobId}`);
+    revalidatePath(`/jobs/${existing.jobId}/structures/${jobStructureId}`);
+  }
+  if (existing.quoteId) {
+    revalidatePath(`/quotes/${existing.quoteId}`);
+  }
+  redirect(`/drill-sheets/${jobStructureId}`);
+}
+
 export async function deleteDrillSheet(drillSheetId: string) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
   await prisma.jobStructure.delete({ where: { id: drillSheetId } });

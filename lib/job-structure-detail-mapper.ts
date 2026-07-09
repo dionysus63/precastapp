@@ -5,12 +5,35 @@ import type {
 } from "@/app/generated/prisma/client";
 import type { JobStatusVariant } from "@/components/jobs/job-utils";
 import {
+  structureNeedsDrillSheet,
   structureStatusOptions,
   structureTypeOptions,
   type StructureStatus,
   type StructureType,
 } from "@/components/structures/structure-utils";
 import { formatJobStructureDocumentTypeLabel } from "@/lib/job-structure-documents-service";
+import { resolveCreateDrillSheetHref } from "@/lib/needs-drill-sheet";
+
+/** Optional quote-line slice used to derive the create-drill-sheet link. */
+type WithQuoteLineConfig = {
+  quoteLineItems?: { structureConfigJson: unknown }[];
+};
+
+function deriveNeedsDrillSheet(
+  structure: JobStructure & WithQuoteLineConfig,
+): { needsDrillSheet: boolean; createDrillSheetHref: string | null } {
+  const needsDrillSheet = structureNeedsDrillSheet(structure);
+  return {
+    needsDrillSheet,
+    createDrillSheetHref: needsDrillSheet
+      ? resolveCreateDrillSheetHref(
+          structure.id,
+          structure.quoteId,
+          structure.quoteLineItems?.[0]?.structureConfigJson ?? null,
+        )
+      : null,
+  };
+}
 
 const structureStatusLabels: Record<string, string> = Object.fromEntries(
   structureStatusOptions.map((option) => [option.value, option.label]),
@@ -112,6 +135,9 @@ export type JobStructureDetailView = {
   statusVariant: JobStatusVariant;
   needsSubmittal: boolean;
   needsCutSheet: boolean;
+  /** Quote-only structure whose cut sheet hasn't been created yet. */
+  needsDrillSheet: boolean;
+  createDrillSheetHref: string | null;
   /** Set when this structure is a drill sheet (has a structure template). */
   drillSheetId: string | null;
   notes: string;
@@ -171,15 +197,16 @@ function buildWorkflowSteps(
   });
 }
 
-type JobStructureWithRelations = JobStructure & {
-  job: {
-    jobNumber: string;
-    projectName: string;
-    folderPath: string | null;
-  } | null;
-  quote: { quoteNumber: string } | null;
-  documents: JobStructureDocument[];
-};
+type JobStructureWithRelations = JobStructure &
+  WithQuoteLineConfig & {
+    job: {
+      jobNumber: string;
+      projectName: string;
+      folderPath: string | null;
+    } | null;
+    quote: { quoteNumber: string } | null;
+    documents: JobStructureDocument[];
+  };
 
 export function mapJobStructureToDetailView(
   structure: JobStructureWithRelations,
@@ -211,6 +238,7 @@ export function mapJobStructureToDetailView(
     statusVariant: structureStatusVariant(structure.status),
     needsSubmittal: structure.needsSubmittal,
     needsCutSheet: structure.needsCutSheet,
+    ...deriveNeedsDrillSheet(structure),
     drillSheetId: structure.structureTemplateId ? structure.id : null,
     notes: structure.notes ?? "",
     folderPath: structure.job.folderPath,
@@ -234,7 +262,8 @@ export function mapJobStructureToDetailView(
 }
 
 export function mapStructureForJobList(
-  structure: JobStructure & { _count?: { documents: number } },
+  structure: JobStructure &
+    WithQuoteLineConfig & { _count?: { documents: number } },
 ): {
   id: string;
   structureNumber: string;
@@ -250,6 +279,8 @@ export function mapStructureForJobList(
   shippedDate: string;
   status: string;
   drillSheetId: string | null;
+  needsDrillSheet: boolean;
+  createDrillSheetHref: string | null;
 } {
   const type = structure.structureType as StructureType;
   const status = structure.status as StructureStatus;
@@ -269,5 +300,6 @@ export function mapStructureForJobList(
     madeDate: formatDate(structure.madeDate),
     shippedDate: formatDate(structure.shippedDate),
     drillSheetId: structure.structureTemplateId ? structure.id : null,
+    ...deriveNeedsDrillSheet(structure),
   };
 }

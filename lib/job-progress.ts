@@ -6,8 +6,12 @@ import type {
   JobProgressView,
   JobStatusVariant,
 } from "@/components/jobs/job-utils";
-import { structureStatusOptions } from "@/components/structures/structure-utils";
+import {
+  structureNeedsDrillSheet,
+  structureStatusOptions,
+} from "@/components/structures/structure-utils";
 import { getQuoteLineFulfillmentAndScheduled } from "@/lib/delivery-fulfillment";
+import { resolveCreateDrillSheetHref } from "@/lib/needs-drill-sheet";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -200,7 +204,15 @@ export async function getJobProgress(
             id: true,
             status: true,
             needsSubmittal: true,
+            needsCutSheet: true,
+            structureTemplateId: true,
+            structureType: true,
+            quoteId: true,
             documents: { select: { documentType: true } },
+            quoteLineItems: {
+              select: { structureConfigJson: true },
+              take: 1,
+            },
           },
         })
       : [];
@@ -219,6 +231,17 @@ export async function getJobProgress(
     const structureStatus = structure?.status ?? line.jobStructureStatus;
     const needsSubmittal = structure?.needsSubmittal ?? false;
     const scheduledQty = scheduledMap.get(line.quoteLineItemId) ?? 0;
+    const needsDrillSheet = structure
+      ? structureNeedsDrillSheet(structure)
+      : false;
+    const createDrillSheetHref =
+      needsDrillSheet && structure
+        ? resolveCreateDrillSheetHref(
+            structure.id,
+            structure.quoteId,
+            structure.quoteLineItems[0]?.structureConfigJson ?? null,
+          )
+        : null;
 
     return {
       quoteLineItemId: line.quoteLineItemId,
@@ -247,14 +270,21 @@ export async function getJobProgress(
         ? submittalStatusVariant(structureStatus ?? "NOT_SUBMITTED")
         : "neutral",
       submittalDocCount,
-      structureStatus: structureStatus
-        ? (structureStatusLabels[structureStatus] ?? structureStatus)
-        : "—",
-      structureStatusVariant: structureStatus
-        ? structureStatusVariant(structureStatus)
-        : "neutral",
+      // "Not Submitted" is misleading while the cut sheet doesn't exist yet.
+      structureStatus: needsDrillSheet
+        ? "Needs drill sheet"
+        : structureStatus
+          ? (structureStatusLabels[structureStatus] ?? structureStatus)
+          : "—",
+      structureStatusVariant: needsDrillSheet
+        ? "warning"
+        : structureStatus
+          ? structureStatusVariant(structureStatus)
+          : "neutral",
       lineType: line.lineType,
       jobStructureId: line.jobStructureId,
+      needsDrillSheet,
+      createDrillSheetHref,
     };
   });
 

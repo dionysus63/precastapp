@@ -22,6 +22,8 @@ import {
   mapJobStructures,
 } from "@/lib/job-detail-mapper";
 import { getJobProgress } from "@/lib/job-progress";
+import { structureNeedsDrillSheet } from "@/components/structures/structure-utils";
+import { parseRectStructureConfigJson } from "@/lib/quotes/rect-structure-workbook";
 import { hasPermission, type AuthUser } from "@/lib/auth/permissions";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { withDatabaseRetry } from "@/lib/prisma";
@@ -205,8 +207,25 @@ export async function JobTabContent({
       prisma.jobStructure.findMany({
         where: { jobId },
         orderBy: { updatedAt: "desc" },
-        include: { _count: { select: { documents: true } } },
+        include: {
+          _count: { select: { documents: true } },
+          // Quote config drives the "Create drill sheet" link for placeholders.
+          quoteLineItems: {
+            select: { structureConfigJson: true },
+            take: 1,
+          },
+        },
       }),
+    );
+
+    // Bulk-complete link when any rect quote-only placeholder exists.
+    const rectPlaceholder = structures.find(
+      (structure) =>
+        structureNeedsDrillSheet(structure) &&
+        structure.quoteId &&
+        parseRectStructureConfigJson(
+          structure.quoteLineItems[0]?.structureConfigJson ?? null,
+        ) != null,
     );
 
     return (
@@ -214,6 +233,11 @@ export async function JobTabContent({
         jobId={jobId}
         folderPath={detail.folderPath}
         structures={mapJobStructures(structures)}
+        completeDrillSheetsHref={
+          rectPlaceholder
+            ? `/quotes/${rectPlaceholder.quoteId}/complete-drill-sheets`
+            : null
+        }
       />
     );
   }

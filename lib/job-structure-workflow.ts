@@ -4,6 +4,7 @@ import type {
   StructureStatus,
   StructureType,
 } from "@/app/generated/prisma/client";
+import { structureNeedsDrillSheet } from "@/components/structures/structure-utils";
 
 const STRUCTURE_LINE_TYPES: QuoteLineType[] = [
   "CONFIGURABLE_STRUCTURE",
@@ -168,11 +169,23 @@ export async function approveJobStructureForProduction(
 ): Promise<void> {
   const structure = await client.jobStructure.findUnique({
     where: { id: jobStructureId },
-    select: { status: true, needsSubmittal: true },
+    select: {
+      status: true,
+      needsSubmittal: true,
+      needsCutSheet: true,
+      structureTemplateId: true,
+      structureType: true,
+    },
   });
 
   if (!structure) {
     throw new Error("Structure was not found.");
+  }
+
+  if (structureNeedsDrillSheet(structure)) {
+    throw new Error(
+      "This structure still needs its cut sheet. Create the drill sheet before approving for production.",
+    );
   }
 
   if (structure.needsSubmittal && structure.status !== "SUBMITTED") {

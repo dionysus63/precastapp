@@ -205,8 +205,8 @@
     "semantic_hash": ""
   },
   "components/jobs/job-utils.ts": {
-    "mtime": 1783562710.6094894,
-    "ast_hash": "3d48444226cd2a1257670bfd82134e74",
+    "mtime": 1783629756.4701695,
+    "ast_hash": "af09843f4ddf6c8953b8090080e94ac4",
     "semantic_hash": ""
   },
   "components/jobs/jobs-list.tsx": {
@@ -250,8 +250,8 @@
     "semantic_hash": ""
   },
   "components/quotes/quote-form.tsx": {
-    "mtime": 1783525616.3017542,
-    "ast_hash": "e2ccb64483b12a7fba22b30116caae52",
+    "mtime": 1783627373.290302,
+    "ast_hash": "09f11c0ead3888d230e15f76e6de6a97",
     "semantic_hash": ""
   },
   "components/quotes/quote-preview-content.tsx": {
@@ -270,8 +270,8 @@
     "semantic_hash": ""
   },
   "components/structures/structure-utils.ts": {
-    "mtime": 1783304096.6885824,
-    "ast_hash": "c079057008ff39320e6c1977c296638d",
+    "mtime": 1783629110.4611535,
+    "ast_hash": "81578c90e94bd683878b69223ca83182",
     "semantic_hash": ""
   },
   "eslint.config.mjs": {
@@ -315,8 +315,8 @@
     "semantic_hash": ""
   },
   "lib/quote-mapper.ts": {
-    "mtime": 1783443922.9221666,
-    "ast_hash": "ba3f8be55ae9c916cdaf4ed49fa358d4",
+    "mtime": 1783625947.6179736,
+    "ast_hash": "dfb853e6a6e6779c624464126a30cfcc",
     "semantic_hash": ""
   },
   "lib/quote-pdf-html.ts": {
@@ -520,8 +520,8 @@
     "semantic_hash": ""
   },
   "app/production/page.tsx": {
-    "mtime": 1783471579.0540373,
-    "ast_hash": "f3edb678d25c6503cd50558cac8dc54f",
+    "mtime": 1783629474.843036,
+    "ast_hash": "d8b2257874f4d34d3763f2719527c41f",
     "semantic_hash": ""
   },
   "app/settings/actions.ts": {
@@ -755,8 +755,8 @@
     "semantic_hash": "caa4a2e41c671b33ef823cd429195415"
   },
   "lib/job-structure-workflow.ts": {
-    "mtime": 1783287348.2001982,
-    "ast_hash": "73188155698da39a0c377b8df76a2123",
+    "mtime": 1783629147.8676634,
+    "ast_hash": "2811582432a5807e64e875bd271ac393",
     "semantic_hash": ""
   },
   "lib/open-windows-file.ts": {
@@ -845,8 +845,8 @@
     "semantic_hash": ""
   },
   "components/jobs/job-detail-content.tsx": {
-    "mtime": 1783562284.6110404,
-    "ast_hash": "c108e87cc9727465c6160f4faa6000c1",
+    "mtime": 1783629780.1367416,
+    "ast_hash": "2912022c974d432a7a0222dcbfc6b66d",
     "semantic_hash": ""
   },
   "lib/job-detail-mapper.ts": {
@@ -935,8 +935,8 @@
     "semantic_hash": ""
   },
   "app/jobs/[id]/structures/[structureId]/page.tsx": {
-    "mtime": 1782082646.645769,
-    "ast_hash": "1cf39b19690fc620619207fc4601b3c6",
+    "mtime": 1783629804.1590705,
+    "ast_hash": "b99a82e6e9aca5b5345ae2ffb58dc736",
     "semantic_hash": ""
   },
   "app/login/actions.ts": {
@@ -1005,8 +1005,8 @@
     "semantic_hash": ""
   },
   "components/jobs/job-structure-detail-content.tsx": {
-    "mtime": 1783287348.2232008,
-    "ast_hash": "0a4d1d375b1a7c43e015a847651271d6",
+    "mtime": 1783629827.1529772,
+    "ast_hash": "e0b6a4733a647d487f5986357aa53c40",
     "semantic_hash": ""
   },
   "components/jobs/job-structure-documents-section.tsx": {
@@ -1090,8 +1090,8 @@
     "semantic_hash": ""
   },
   "lib/job-structure-detail-mapper.ts": {
-    "mtime": 1783287348.2321994,
-    "ast_hash": "05c978ee959bedc3d3004c48eacbb166",
+    "mtime": 1783629740.900262,
+    "ast_hash": "3f97ec557fcf873d551f43c65b0d389a",
     "semantic_hash": ""
   },
   "lib/job-structure-documents-service.ts": {
@@ -1215,8 +1215,8 @@
     "semantic_hash": ""
   },
   "app/drill-sheets/actions.ts": {
-    "mtime": 1783349592.082999,
-    "ast_hash": "a0ea5aab661340b38c5d4717ba6dfbd2",
+    "mtime": 1783629174.427712,
+    "ast_hash": "9021df8d180d6a0b25db52d75796c7af",
     "semantic_hash": ""
   },
   "app/drill-sheets/new/page.tsx": {
@@ -1720,8 +1720,8 @@
     "semantic_hash": ""
   },
   "components/jobs/job-progress-panel.tsx": {
-    "mtime": 1783447935.5784469,
-    "ast_hash": "3e2f222de6e7d7fd0fd51a2e3dd90c11",
+    "mtime": 1783629597.4365747,
+    "ast_hash": "7f84747d3c94dafe4f5e872799dfc7dd",
     "semantic_hash": ""
   },
   "components/quotes/ring-builder-modal.tsx": {
@@ -1765,8 +1765,8 @@
     "semantic_hash": ""
   },
   "lib/job-progress.ts": {
-    "mtime": 1782945390.6236181,
-    "ast_hash": "22561270c10eb61251a7e8a897d89d98",
+    "mtime": 1783629574.420287,
+    "ast_hash": "89fff87a7aeae532c0b03be71cfb4424",
     "semantic_hash": ""
   },
   "lib/quote-pdf-persist.ts": {
@@ -2070,8 +2070,8 @@
     "semantic_hash": ""
   },
   "app/jobs/[id]/job-tab-content.tsx": {
-    "mtime": 1783525522.2563746,
-    "ast_hash": "f7c477c79477912d573cfb6ec8b0f876",
+    "mtime": 1783629770.7469206,
+    "ast_hash": "f32db104731f9b46f9b9ebd90e926271",
     "semantic_hash": ""
   },
   "app/quotes/quote-form-data.ts": {
@@ -2470,8 +2470,8 @@
     "semantic_hash": ""
   },
   "components/quotes/stock-product-picker.tsx": {
-    "mtime": 1783287348.2142017,
-    "ast_hash": "e5363f42c6fd682ecfc7088960106dc2",
+    "mtime": 1783625742.4916744,
+    "ast_hash": "4a66783cb349c08dcf7d423b7d3c64f6",
     "semantic_hash": ""
   },
   "prisma/migrations/20260705180000_add_casting_manufacturer_code/migration.sql": {
@@ -2635,8 +2635,8 @@
     "semantic_hash": ""
   },
   "app/drill-sheets/rect/new/page.tsx": {
-    "mtime": 1783349679.1718423,
-    "ast_hash": "db7d5160295026de5f71819b1954c4e0",
+    "mtime": 1783629438.4496577,
+    "ast_hash": "149dcdecb6c35c19228675438711ae9d",
     "semantic_hash": ""
   },
   "app/structures/rect-openings/actions.ts": {
@@ -2665,8 +2665,8 @@
     "semantic_hash": ""
   },
   "lib/rect-sheet-detail.ts": {
-    "mtime": 1783543768.0978136,
-    "ast_hash": "3fead33e6a2e673937709b7666050ae7",
+    "mtime": 1783629368.8106115,
+    "ast_hash": "22a3e727f113121574ec13bd76645757",
     "semantic_hash": ""
   },
   "lib/rect-sheet-pdf-generate.ts": {
@@ -2860,8 +2860,8 @@
     "semantic_hash": ""
   },
   "lib/quotes/rect-structure-workbook.ts": {
-    "mtime": 1783601872.9851832,
-    "ast_hash": "df61df3eeacce3449b84b811fedea8b0",
+    "mtime": 1783629320.621322,
+    "ast_hash": "45093635b69a5056393b9e08adf5bd44",
     "semantic_hash": ""
   },
   "prisma/migrations/20260706210000_rect_wall_directions/migration.sql": {
@@ -3000,8 +3000,8 @@
     "semantic_hash": ""
   },
   "components/production/production-board.tsx": {
-    "mtime": 1783471557.3226256,
-    "ast_hash": "ec49d885353b8c17ca639257b881c45d",
+    "mtime": 1783629513.1883068,
+    "ast_hash": "de329a6a6b60a5bb42e245c952cf455d",
     "semantic_hash": ""
   },
   "components/common/category-chip-bar.tsx": {
@@ -3092,6 +3092,11 @@
   "prisma/migrations/20260708150000_simplify_job_statuses/migration.sql": {
     "mtime": 1783562644.5628612,
     "ast_hash": "e8bcc0ba13be54c575cf2870ed2d9b36",
+    "semantic_hash": ""
+  },
+  "lib/needs-drill-sheet.ts": {
+    "mtime": 1783629401.003024,
+    "ast_hash": "0f5478e8de6bae2b0628e2eac98d4846",
     "semantic_hash": ""
   }
 }

@@ -66,6 +66,16 @@ export type RectQuoteStructureConfig = {
   topSlabOpeningSide?: RectWall | null;
   detailLevel: RectQuoteDetailLevel;
   openings: RectQuoteOpening[];
+  /**
+   * Quote-only pipe list (material/size/count). Openings carry no pipe data
+   * in QUOTE mode, so this keeps the pipes for drill-sheet seeding after
+   * award and for reloading the workbook row.
+   */
+  penetrations?: {
+    pipeMaterial: string;
+    pipeSizeInches: number;
+    qty: number;
+  }[];
   wallHeightFeet?: number;
   heaviestPickLbs?: number | null;
   wallPrice?: number;
@@ -605,7 +615,28 @@ function buildRectQuoteConfig(
       ? "FULL"
       : "QUOTE";
 
+  // Quote-mode openings carry no pipe data, so persist the pipe list itself.
+  const penetrations =
+    mode === "QUOTE"
+      ? row.penetrations
+          .map((penetration) => ({
+            pipeMaterial: penetration.pipeMaterial.trim(),
+            pipeSizeInches: parseNum(penetration.pipeSizeInches),
+            qty: Math.max(1, Math.floor(parseNum(penetration.qty) ?? 1)),
+          }))
+          .filter(
+            (
+              penetration,
+            ): penetration is {
+              pipeMaterial: string;
+              pipeSizeInches: number;
+              qty: number;
+            } => penetration.pipeMaterial !== "" && penetration.pipeSizeInches != null,
+          )
+      : [];
+
   return {
+    ...(penetrations.length > 0 ? { penetrations } : {}),
     shape: "RECTANGULAR",
     templateId: template.id,
     templateName: template.name,
@@ -694,19 +725,34 @@ export function rectLineItemToWorkbookRow(
     return null;
   }
   const penetrationGroups = new Map<string, RectWorkbookPenetration>();
-  for (const opening of config.openings) {
-    if (opening.pipeMaterial && opening.pipeSizeInches != null) {
-      const key = `${opening.pipeMaterial}|${opening.pipeSizeInches}`;
-      const existing = penetrationGroups.get(key);
-      if (existing) {
-        existing.qty = String((Number(existing.qty) || 0) + 1);
-      } else {
-        penetrationGroups.set(key, {
-          id: createRowId(),
-          pipeMaterial: opening.pipeMaterial,
-          pipeSizeInches: String(opening.pipeSizeInches),
-          qty: "1",
-        });
+  // Quote-only configs persist the pipe list directly; older configs (and
+  // FULL ones) derive it by grouping openings.
+  for (const penetration of config.penetrations ?? []) {
+    penetrationGroups.set(
+      `${penetration.pipeMaterial}|${penetration.pipeSizeInches}`,
+      {
+        id: createRowId(),
+        pipeMaterial: penetration.pipeMaterial,
+        pipeSizeInches: String(penetration.pipeSizeInches),
+        qty: String(penetration.qty),
+      },
+    );
+  }
+  if (penetrationGroups.size === 0) {
+    for (const opening of config.openings) {
+      if (opening.pipeMaterial && opening.pipeSizeInches != null) {
+        const key = `${opening.pipeMaterial}|${opening.pipeSizeInches}`;
+        const existing = penetrationGroups.get(key);
+        if (existing) {
+          existing.qty = String((Number(existing.qty) || 0) + 1);
+        } else {
+          penetrationGroups.set(key, {
+            id: createRowId(),
+            pipeMaterial: opening.pipeMaterial,
+            pipeSizeInches: String(opening.pipeSizeInches),
+            qty: "1",
+          });
+        }
       }
     }
   }
@@ -891,11 +937,38 @@ export function parseRectStructureConfigJson(
     }
   }
 
+  const penetrations: NonNullable<RectQuoteStructureConfig["penetrations"]> =
+    [];
+  if (Array.isArray(data.penetrations)) {
+    for (const entry of data.penetrations) {
+      if (!entry || typeof entry !== "object") {
+        continue;
+      }
+      const penetration = entry as Record<string, unknown>;
+      if (
+        typeof penetration.pipeMaterial !== "string" ||
+        !penetration.pipeMaterial.trim() ||
+        typeof penetration.pipeSizeInches !== "number"
+      ) {
+        continue;
+      }
+      penetrations.push({
+        pipeMaterial: penetration.pipeMaterial,
+        pipeSizeInches: penetration.pipeSizeInches,
+        qty:
+          typeof penetration.qty === "number" && penetration.qty >= 1
+            ? Math.floor(penetration.qty)
+            : 1,
+      });
+    }
+  }
+
   return {
     shape: "RECTANGULAR",
     templateId: data.templateId,
     templateName:
       typeof data.templateName === "string" ? data.templateName : undefined,
+    ...(penetrations.length > 0 ? { penetrations } : {}),
     insideLengthFeet: data.insideLengthFeet,
     insideWidthFeet: data.insideWidthFeet,
     castingProductId:

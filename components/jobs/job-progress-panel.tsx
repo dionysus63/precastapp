@@ -157,10 +157,20 @@ export function JobProgressPanel({ jobId, progress }: JobProgressPanelProps) {
                       {line.structureStatus === "—" ? (
                         <span className="text-slate-400">—</span>
                       ) : (
-                        <StatusBadge
-                          label={line.structureStatus}
-                          variant={line.structureStatusVariant}
-                        />
+                        <span className="inline-flex flex-wrap items-center gap-1.5">
+                          <StatusBadge
+                            label={line.structureStatus}
+                            variant={line.structureStatusVariant}
+                          />
+                          {line.createDrillSheetHref ? (
+                            <Link
+                              href={line.createDrillSheetHref}
+                              className="text-[11px] font-medium text-sky-700 underline decoration-dotted underline-offset-2 hover:text-sky-900"
+                            >
+                              Create drill sheet
+                            </Link>
+                          ) : null}
+                        </span>
                       )}
                     </td>
                   </tr>

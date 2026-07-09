@@ -184,6 +184,9 @@ export type JobProgressLine = {
   structureStatusVariant: JobStatusVariant;
   lineType: string;
   jobStructureId: string | null;
+  /** Quote-only structure whose cut sheet hasn't been created yet. */
+  needsDrillSheet: boolean;
+  createDrillSheetHref: string | null;
 };
 
 export type JobProgressSummary = {
@@ -216,6 +219,9 @@ export type JobRelatedStructure = {
   shippedDate: string;
   /** Set when this structure is a drill sheet (has a structure template). */
   drillSheetId: string | null;
+  /** Quote-only structure whose cut sheet hasn't been created yet. */
+  needsDrillSheet: boolean;
+  createDrillSheetHref: string | null;
 };
 
 export type JobRelatedInvoice = {

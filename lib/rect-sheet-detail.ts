@@ -4,6 +4,7 @@ import type {
   RectSectionField,
   RectSheetFormValues,
 } from "@/components/drill-sheets/rect-sheet-form";
+import type { RectQuoteStructureConfig } from "@/lib/quotes/rect-structure-workbook";
 import type { RectOpeningPlacement, RectWall } from "@/lib/rect-structure";
 import type { RectSheetPayload } from "@/lib/rect-sheet-persistence";
 
@@ -123,6 +124,154 @@ export function buildRectSheetFormValues(
     topSlabOpeningSide: (dims?.topSlabOpeningSide ?? "UP") as RectWall,
     maxPickWeightLbs: "",
     sections,
+    openings,
+  };
+}
+
+/** Identity fields for seeding a new sheet from a placeholder structure. */
+export type RectSheetSeedIdentity = {
+  jobId: string | null;
+  structureNumber: string | null;
+  contractor: string;
+  project: string;
+};
+
+function emptyOpeningField(label: string): RectOpeningField {
+  return {
+    id: nextId(),
+    label,
+    wall: "UP",
+    pipeMaterial: "",
+    pipeSizeInches: "",
+    invertElevation: "",
+    angle: "",
+    placement: "CENTERED",
+    offsetInches: "",
+    widthOverrideInches: "",
+  };
+}
+
+/**
+ * Blank sheet form seeded with just the placeholder's identity — used when a
+ * placeholder has no parseable quote config (manual structure or deleted
+ * quote line).
+ */
+export function buildRectSheetFormValuesForIdentity(
+  seed: RectSheetSeedIdentity,
+): RectSheetFormValues {
+  return {
+    templateId: "",
+    castingProductId: "",
+    jobId: seed.jobId ?? "",
+    structureNumber: seed.structureNumber ?? "",
+    contractor: seed.contractor,
+    project: seed.project,
+    date: toDateInputValue(new Date()),
+    inspection: "",
+    approvedBy: "",
+    rimElevation: "",
+    insideLengthFeet: "",
+    insideWidthFeet: "",
+    hasTopSlab: true,
+    hasBaseSlab: true,
+    baseAttached: true,
+    topSlabOpeningLengthInches: "",
+    topSlabOpeningWidthInches: "",
+    topSlabOpeningSide: "UP",
+    maxPickWeightLbs: "",
+    sections: [],
+    openings: [emptyOpeningField("A")],
+  };
+}
+
+/**
+ * Seeds the sheet form from a quote-only rect config so completing the drill
+ * sheet starts from everything the estimator already entered: template, size,
+ * casting, rim/invert, slab flags, and the pipe list.
+ */
+export function buildRectSheetFormValuesFromQuoteConfig(
+  config: RectQuoteStructureConfig,
+  seed: RectSheetSeedIdentity,
+): RectSheetFormValues {
+  const hasPipeOpenings = config.openings.some(
+    (opening) => opening.pipeMaterial && opening.pipeSizeInches != null,
+  );
+
+  let openings: RectOpeningField[];
+  if (!hasPipeOpenings && config.penetrations?.length) {
+    // Quote-only: expand the pipe list into opening rows, first at the low
+    // invert (mirrors upgradeRectRowToFull in the workbook).
+    openings = [];
+    for (const penetration of config.penetrations) {
+      for (let index = 0; index < penetration.qty; index += 1) {
+        openings.push({
+          ...emptyOpeningField(String.fromCharCode(65 + openings.length)),
+          pipeMaterial: penetration.pipeMaterial,
+          pipeSizeInches: String(penetration.pipeSizeInches),
+          invertElevation:
+            openings.length === 0 ? String(config.lowInvertElevation) : "",
+        });
+      }
+    }
+  } else {
+    openings = config.openings.map((opening, index) => ({
+      id: nextId(),
+      label: opening.label || String.fromCharCode(65 + index),
+      wall: opening.wall,
+      pipeMaterial: opening.pipeMaterial ?? "",
+      pipeSizeInches:
+        opening.pipeSizeInches != null ? String(opening.pipeSizeInches) : "",
+      invertElevation: String(opening.invertElevation),
+      angle:
+        opening.angleDegrees != null && opening.angleDegrees !== 0
+          ? String(opening.angleDegrees)
+          : "",
+      placement: opening.placement ?? "CENTERED",
+      offsetInches:
+        opening.offsetInches != null ? String(opening.offsetInches) : "",
+      widthOverrideInches:
+        opening.widthOverrideInches != null
+          ? String(opening.widthOverrideInches)
+          : "",
+    }));
+  }
+
+  if (openings.length === 0) {
+    openings = [
+      {
+        ...emptyOpeningField("A"),
+        invertElevation: String(config.lowInvertElevation),
+      },
+    ];
+  }
+
+  return {
+    templateId: config.templateId,
+    castingProductId: config.castingProductId ?? "",
+    jobId: seed.jobId ?? "",
+    structureNumber: seed.structureNumber ?? "",
+    contractor: seed.contractor,
+    project: seed.project,
+    date: toDateInputValue(new Date()),
+    inspection: "",
+    approvedBy: "",
+    rimElevation: String(config.rimElevation),
+    insideLengthFeet: String(config.insideLengthFeet),
+    insideWidthFeet: String(config.insideWidthFeet),
+    hasTopSlab: config.hasTopSlab,
+    hasBaseSlab: config.hasBaseSlab,
+    baseAttached: config.baseAttached,
+    topSlabOpeningLengthInches:
+      config.topSlabOpeningLengthInches != null
+        ? String(config.topSlabOpeningLengthInches)
+        : "",
+    topSlabOpeningWidthInches:
+      config.topSlabOpeningWidthInches != null
+        ? String(config.topSlabOpeningWidthInches)
+        : "",
+    topSlabOpeningSide: (config.topSlabOpeningSide ?? "UP") as RectWall,
+    maxPickWeightLbs: "",
+    sections: [],
     openings,
   };
 }

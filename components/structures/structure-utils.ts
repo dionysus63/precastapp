@@ -40,6 +40,24 @@ export const structureStatusOptions: {
   { value: "SHIPPED", label: "Shipped" },
 ];
 
+/**
+ * True when a structure was quoted without drill-sheet detail and still needs
+ * its cut sheet created. Scoped to CONFIGURABLE_PRODUCT: custom structures
+ * also carry needsCutSheet but never get a structure template — their
+ * drawings arrive as submittal uploads, so they must not be gated on one.
+ */
+export function structureNeedsDrillSheet(structure: {
+  needsCutSheet: boolean;
+  structureTemplateId: string | null;
+  structureType: string;
+}): boolean {
+  return (
+    structure.needsCutSheet &&
+    structure.structureTemplateId == null &&
+    structure.structureType === "CONFIGURABLE_PRODUCT"
+  );
+}
+
 export const structureInputClassName =
   "mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm";
 

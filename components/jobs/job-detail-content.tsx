@@ -649,10 +649,12 @@ export function JobProductionSection({
   jobId,
   folderPath,
   structures,
+  completeDrillSheetsHref,
 }: {
   jobId: string;
   folderPath: string | null;
   structures: JobRelatedStructure[];
+  completeDrillSheetsHref?: string | null;
 }) {
   return (
     <SectionCard
@@ -662,6 +664,14 @@ export function JobProductionSection({
       }`}
       action={
         <div className="flex flex-wrap items-center gap-2">
+          {completeDrillSheetsHref ? (
+            <Link
+              href={completeDrillSheetsHref}
+              className="inline-flex items-center justify-center rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-700 hover:bg-sky-100"
+            >
+              Complete Drill Sheets
+            </Link>
+          ) : null}
           <Link
             href="/production"
             className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
@@ -722,10 +732,18 @@ export function JobProductionSection({
                     {structure.documentCount}
                   </td>
                   <td className={tableCellClassName}>
-                    <StatusBadge
-                      label={structure.statusLabel}
-                      variant={structure.statusVariant}
-                    />
+                    <span className="inline-flex flex-wrap items-center gap-1">
+                      <StatusBadge
+                        label={structure.statusLabel}
+                        variant={structure.statusVariant}
+                      />
+                      {structure.needsDrillSheet ? (
+                        <StatusBadge
+                          label="Needs drill sheet"
+                          variant="warning"
+                        />
+                      ) : null}
+                    </span>
                   </td>
                   <td className={`${tableCellClassName} text-slate-600`}>
                     {structure.submittedDate}
@@ -738,6 +756,14 @@ export function JobProductionSection({
                   </td>
                   <td className={tableCellClassName}>
                     <div className="flex flex-wrap items-center gap-1.5">
+                      {structure.createDrillSheetHref ? (
+                        <Link
+                          href={structure.createDrillSheetHref}
+                          className="inline-flex w-fit rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-100"
+                        >
+                          Create Drill Sheet
+                        </Link>
+                      ) : null}
                       {structure.drillSheetId ? (
                         <>
                           <DrillSheetPdfLink

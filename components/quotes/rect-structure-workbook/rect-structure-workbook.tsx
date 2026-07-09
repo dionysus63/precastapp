@@ -997,7 +997,8 @@ function RowOpeningsEditor({
   );
 }
 
-function RectWorkbookGrid({
+/** Exported for the post-award "complete drill sheets" workbook page too. */
+export function RectWorkbookGrid({
   rows,
   options,
   defaults,
