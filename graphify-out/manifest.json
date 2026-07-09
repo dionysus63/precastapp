@@ -1745,8 +1745,8 @@
     "semantic_hash": ""
   },
   "components/ui/rich-text-editor.tsx": {
-    "mtime": 1783287348.1862,
-    "ast_hash": "d78aa8b467cede213506a13ab2b1373e",
+    "mtime": 1783559220.5944347,
+    "ast_hash": "82593a4b68ff823d2d66df6894c4bb8e",
     "semantic_hash": ""
   },
   "components/walk-ins/walk-ins-board.tsx": {
@@ -1785,8 +1785,8 @@
     "semantic_hash": ""
   },
   "lib/rich-text.ts": {
-    "mtime": 1782481804.2592177,
-    "ast_hash": "64d79ebc3e85678799c93dbd01ce7530",
+    "mtime": 1783559276.3021646,
+    "ast_hash": "9fff090b92d1bc105baac5d47ba57719",
     "semantic_hash": ""
   },
   "lib/ring-builder-settings.ts": {

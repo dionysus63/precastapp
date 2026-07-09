@@ -22,10 +22,18 @@ export function RichTextEditor({
   minHeightClassName = "min-h-[4.5rem]",
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
+  const lastEmittedRef = useRef<string | null>(null);
 
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) {
+      return;
+    }
+
+    // Only write external value changes into the DOM. Rewriting on the echo
+    // of our own onChange would reset the caret and eat trailing spaces
+    // mid-typing (sanitizing trims and normalizes &nbsp;).
+    if (value === lastEmittedRef.current) {
       return;
     }
 
@@ -41,7 +49,9 @@ export function RichTextEditor({
       return;
     }
 
-    onChange(sanitizeRichText(editor.innerHTML));
+    const next = sanitizeRichText(editor.innerHTML);
+    lastEmittedRef.current = next;
+    onChange(next);
   }
 
   function applyCommand(command: "bold" | "italic" | "underline") {

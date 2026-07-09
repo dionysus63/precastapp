@@ -22,6 +22,21 @@ export function isRichText(value: string): boolean {
   return /<\/?[a-z][^>]*>/i.test(value);
 }
 
+/** True when the string already carries HTML entities (i.e. came from innerHTML). */
+function containsHtmlEntity(value: string): boolean {
+  return /&(#\d+|#x[0-9a-f]+|[a-z][a-z0-9]*);/i.test(value);
+}
+
+/**
+ * Collapse non-breaking spaces to regular spaces, including the doubly
+ * escaped `&amp;nbsp;` forms older sanitizer versions produced.
+ */
+function normalizeNbsp(value: string): string {
+  return value
+    .replace(/&(amp;)*nbsp;/gi, " ")
+    .replace(/\u00a0/g, " ");
+}
+
 export function plainTextToRichText(value: string): string {
   const normalized = value.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   if (!normalized.trim()) {
@@ -32,12 +47,15 @@ export function plainTextToRichText(value: string): string {
 }
 
 export function sanitizeRichText(value: string): string {
-  const trimmed = value.trim();
+  const trimmed = normalizeNbsp(value).trim();
   if (!trimmed) {
     return "";
   }
 
-  if (!isRichText(trimmed)) {
+  // Only genuinely plain text gets escaped. Strings carrying entities came
+  // from innerHTML and are already HTML-encoded — escaping again would turn
+  // them into visible text like "&amp;nbsp;".
+  if (!isRichText(trimmed) && !containsHtmlEntity(trimmed)) {
     return plainTextToRichText(trimmed);
   }
 
@@ -45,11 +63,13 @@ export function sanitizeRichText(value: string): string {
     .replace(/<\/?(script|style|iframe|object|embed|link|meta)[^>]*>/gi, "")
     .replace(/\s(on\w+|style|class|id)=("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
 
+  // contentEditable wraps each line after the first in <div>…</div>, so the
+  // break belongs before the opening tag; closing tags carry no break.
   html = html
-    .replace(/<\/div>/gi, "<br>")
-    .replace(/<div[^>]*>/gi, "")
-    .replace(/<\/p>/gi, "<br>")
-    .replace(/<p[^>]*>/gi, "");
+    .replace(/<div[^>]*>/gi, "<br>")
+    .replace(/<\/div>/gi, "")
+    .replace(/<p[^>]*>/gi, "<br>")
+    .replace(/<\/p>/gi, "");
 
   html = html.replace(/<\/?([a-z0-9]+)[^>]*>/gi, (match, tagName: string) => {
     const tag = tagName.toLowerCase();
@@ -73,7 +93,7 @@ export function sanitizeRichText(value: string): string {
 }
 
 export function richTextToPlainText(value: string): string {
-  const trimmed = value.trim();
+  const trimmed = normalizeNbsp(value).trim();
   if (!trimmed) {
     return "";
   }
@@ -84,10 +104,10 @@ export function richTextToPlainText(value: string): string {
 
   const withBreaks = trimmed
     .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/div>/gi, "\n")
-    .replace(/<div[^>]*>/gi, "")
-    .replace(/<\/p>/gi, "\n")
-    .replace(/<p[^>]*>/gi, "");
+    .replace(/<div[^>]*>/gi, "\n")
+    .replace(/<\/div>/gi, "")
+    .replace(/<p[^>]*>/gi, "\n")
+    .replace(/<\/p>/gi, "");
 
   const withoutTags = withBreaks.replace(/<\/?[^>]+>/g, "");
   return decodeHtmlEntities(withoutTags)
