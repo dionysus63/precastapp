@@ -17,7 +17,7 @@ const SCHEDULE_TICKET_SELECT = {
   updatedAt: true,
   lineItems: {
     orderBy: { lineNumber: "asc" as const },
-    select: { itemCode: true, quantity: true },
+    select: { itemCode: true, description: true, quantity: true },
   },
 } as const;
 
@@ -35,6 +35,10 @@ export async function loadJobDeliverySchedule(jobId: string) {
           jobNumber: true,
           projectName: true,
           customerName: true,
+          projectAddress: true,
+          city: true,
+          state: true,
+          zip: true,
           folderPath: true,
         },
       }),

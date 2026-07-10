@@ -40,10 +40,30 @@ function formatTime12(value: string | null): string {
   return `${displayHour}:${minutes ?? "00"} ${suffix}`;
 }
 
-function ticketContents(ticket: DeliveryScheduleTicket): string {
+/** Pre-escaped HTML: one line per item so descriptions stay readable. */
+function ticketContentsHtml(ticket: DeliveryScheduleTicket): string {
+  if (ticket.lineItems.length === 0) {
+    return "—";
+  }
   return ticket.lineItems
-    .map((line) => `${formatQuantity(line.quantity)}× ${line.itemCode}`)
+    .map((line) => {
+      const label = line.description?.trim()
+        ? `${line.itemCode} — ${line.description.trim()}`
+        : line.itemCode;
+      return `<div>${escapeHtml(`${formatQuantity(line.quantity)}× ${label}`)}</div>`;
+    })
+    .join("");
+}
+
+function formatDeliveryAddress(job: JobDeliverySchedule["job"]): string | null {
+  const cityStateZip = [
+    job.city?.trim(),
+    [job.state?.trim(), job.zip?.trim()].filter(Boolean).join(" "),
+  ]
+    .filter(Boolean)
     .join(", ");
+  const parts = [job.projectAddress?.trim(), cityStateZip].filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : null;
 }
 
 function ticketWeight(ticket: DeliveryScheduleTicket): number | null {
@@ -134,7 +154,7 @@ export async function buildDeliverySchedulePdfHtml(
             ${delivered ? `<span class="delivered-tag">Delivered</span>` : ""}
           </td>
           <td>${escapeHtml(formatTime12(ticket.deliveryTime))}</td>
-          <td>${escapeHtml(ticketContents(ticket) || "—")}</td>
+          <td>${ticketContentsHtml(ticket)}</td>
           <td class="num">${formatQuantity(ticketPieces(ticket))}</td>
           <td class="num">${weight != null ? escapeHtml(formatWeightLb(weight)) : "—"}</td>
           ${internalCells}
@@ -180,7 +200,7 @@ export async function buildDeliverySchedulePdfHtml(
               return `
             <tr>
               <td class="item">${escapeHtml(loadLabel(ticket))}</td>
-              <td>${escapeHtml(ticketContents(ticket) || "—")}</td>
+              <td>${ticketContentsHtml(ticket)}</td>
               <td class="num">${formatQuantity(ticketPieces(ticket))}</td>
               <td class="num">${weight != null ? escapeHtml(formatWeightLb(weight)) : "—"}</td>
             </tr>
@@ -208,6 +228,7 @@ export async function buildDeliverySchedulePdfHtml(
     : "";
 
   const generatedAt = new Date();
+  const deliveryAddress = formatDeliveryAddress(schedule.job);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -344,6 +365,7 @@ export async function buildDeliverySchedulePdfHtml(
               <li><dt>Job #</dt><dd>${escapeHtml(schedule.job.jobNumber)}</dd></li>
               <li><dt>Project</dt><dd>${escapeHtml(schedule.job.projectName)}</dd></li>
               <li><dt>Customer</dt><dd>${escapeHtml(schedule.job.customerName)}</dd></li>
+              ${deliveryAddress ? `<li><dt>Deliver To</dt><dd>${escapeHtml(deliveryAddress)}</dd></li>` : ""}
               <li><dt>Generated</dt><dd>${escapeHtml(formatFriendlyDate(generatedAt))}</dd></li>
             </dl>
           </div>
