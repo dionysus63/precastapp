@@ -28,7 +28,7 @@ type CandidateDraft = {
 
 /**
  * A draft is grid-manageable only when every line maps onto a planner row
- * (plain quote line, or a drain-ring/ADS option) and carries no per-line
+ * (plain quote line, or a drain-ring/ADS/casting-piece option) and carries no per-line
  * annotations — saving regenerates lines from the grid cells, so anything
  * the grid can't represent would be silently destroyed. Non-manageable
  * drafts stay in the read-only strip and keep reducing availability.
@@ -41,14 +41,18 @@ function mapDraftToCells(
   for (const line of draft.lineItems) {
     if (!line.quoteLineItemId) return null;
     const meta = metaById.get(line.quoteLineItemId);
-    if (!meta || meta.isCastingAssembly || meta.lineType === "CATEGORY") {
+    if (!meta || meta.lineType === "CATEGORY") {
       return null;
     }
     if (line.notes != null || line.yardLocation != null) return null;
 
     let rowKey: string;
-    if (meta.isDrainRing || meta.isAdsPipe) {
-      const options = meta.isDrainRing ? meta.drainRingOptions : meta.adsPipeOptions;
+    if (meta.isDrainRing || meta.isAdsPipe || meta.isCastingAssembly) {
+      const options = meta.isDrainRing
+        ? meta.drainRingOptions
+        : meta.isAdsPipe
+          ? meta.adsPipeOptions
+          : meta.castingComponentOptions;
       if (
         !line.productId ||
         !options.some((option) => option.productId === line.productId)

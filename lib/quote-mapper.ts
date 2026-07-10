@@ -550,6 +550,8 @@ export function mapQuoteToDetailView(
     canRevise: status === "SENT" || status === "WON",
     canEdit: canEditQuote(status, supersededBy),
     canSend: canSendQuote(status, supersededBy),
+    // Won quotes anchor job structures/progress — revise or mark Lost instead.
+    canDelete: status !== "WON",
     supersededBy,
     relatedStructures: (quote.jobStructures ?? []).map((structure) =>
       mapQuoteRelatedStructure(structure, quote.jobId),

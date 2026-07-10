@@ -10,6 +10,7 @@ import {
   QuoteType,
 } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import { writeAuditLog } from "@/lib/auth/audit";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
 import {
   QUOTE_FORM_CUSTOMER_SELECT,
@@ -780,6 +781,8 @@ export async function updateQuoteStatus(quoteId: string, status: QuoteStatusValu
             jobId: true,
             customerId: true,
             customerName: true,
+            originalQuoteId: true,
+            revisionNumber: true,
           },
         });
 
@@ -787,6 +790,26 @@ export async function updateQuoteStatus(quoteId: string, status: QuoteStatusValu
           throw new Error("Quote was not found.");
         }
         jobId = existing.jobId;
+
+        // A superseded quote must not be won — its structure links belong to
+        // the newest revision's lineage. Fall back by deleting the revision
+        // first if the old version is really the one that won.
+        if (status === "WON") {
+          const rootId = existing.originalQuoteId ?? quoteId;
+          const newer = await tx.quote.findFirst({
+            where: {
+              OR: [{ id: rootId }, { originalQuoteId: rootId }],
+              revisionNumber: { gt: existing.revisionNumber },
+            },
+            orderBy: { revisionNumber: "asc" },
+            select: { quoteNumber: true },
+          });
+          if (newer) {
+            throw new Error(
+              `This quote was revised — mark ${newer.quoteNumber} as won instead, or delete that revision first to fall back to this one.`,
+            );
+          }
+        }
 
         await tx.quote.update({
           where: { id: quoteId },
@@ -840,6 +863,81 @@ export async function updateQuoteStatus(quoteId: string, status: QuoteStatusValu
     return {
       error:
         error instanceof Error ? error.message : "Could not update quote status.",
+    };
+  }
+}
+
+export type DeleteQuoteResult = { success: true } | { error: string };
+
+export async function deleteQuote(quoteId: string): Promise<DeleteQuoteResult> {
+  const user = await requirePermission(AppPermission.QUOTES_MANAGE);
+
+  const quote = await withDatabaseRetry((client) =>
+    client.quote.findUnique({
+      where: { id: quoteId },
+      select: {
+        id: true,
+        quoteNumber: true,
+        status: true,
+        jobId: true,
+        customerName: true,
+      },
+    }),
+  );
+  if (!quote) {
+    return { error: "Quote was not found." };
+  }
+  if (quote.status === "WON") {
+    return {
+      error:
+        "Won quotes anchor the job's structures and progress — revise the quote or mark it Lost instead of deleting it.",
+    };
+  }
+
+  try {
+    const result = await withDatabaseRetry((client) =>
+      client.$transaction(async (tx) => {
+        // Structures and plan sheets reachable only through this quote (no
+        // job) would be orphaned by the SetNull FK — remove them with it.
+        // Job-linked ones survive and just lose the quote link.
+        const structuresDeleted = await tx.jobStructure.deleteMany({
+          where: { quoteId, jobId: null },
+        });
+        const planSheetsDeleted = await tx.planSheet.deleteMany({
+          where: { quoteId, jobId: null },
+        });
+        await tx.quote.delete({ where: { id: quoteId } });
+        return {
+          structuresDeleted: structuresDeleted.count,
+          planSheetsDeleted: planSheetsDeleted.count,
+        };
+      }),
+    );
+
+    await writeAuditLog({
+      userId: user.id,
+      action: "quote.delete",
+      entityType: "Quote",
+      entityId: quoteId,
+      summary: `${user.displayName} deleted quote ${quote.quoteNumber} (${quote.customerName}, status ${quote.status})`,
+      metadata: {
+        quoteNumber: quote.quoteNumber,
+        status: quote.status,
+        structuresDeleted: result.structuresDeleted,
+        planSheetsDeleted: result.planSheetsDeleted,
+      },
+    });
+
+    revalidatePath("/quotes");
+    revalidatePath("/production");
+    if (quote.jobId) {
+      revalidatePath(`/jobs/${quote.jobId}`);
+    }
+    return { success: true };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "Could not delete the quote.",
     };
   }
 }

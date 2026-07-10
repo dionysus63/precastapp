@@ -146,37 +146,12 @@ export async function reviseQuoteInTransaction(
     select: { id: true },
   });
 
-  const newLineItems = await tx.quoteLineItem.findMany({
-    where: { quoteId: newQuote.id },
-    orderBy: [{ sortOrder: "asc" }, { lineNumber: "asc" }],
-  });
-
-  for (let index = 0; index < source.lineItems.length; index += 1) {
-    const sourceLine = source.lineItems[index];
-    const newLine = newLineItems[index];
-
-    if (!newLine || !sourceLine.jobStructureId) {
-      continue;
-    }
-
-    await tx.jobStructure.update({
-      where: { id: sourceLine.jobStructureId },
-      data: {
-        quoteId: newQuote.id,
-        quantity: newLine.quantity,
-      },
-    });
-
-    await tx.quoteLineItem.update({
-      where: { id: newLine.id },
-      data: { jobStructureId: sourceLine.jobStructureId },
-    });
-
-    await tx.quoteLineItem.update({
-      where: { id: sourceLine.id },
-      data: { jobStructureId: null },
-    });
-  }
+  // Job structures deliberately stay linked to the source quote's lines: the
+  // revision is only a draft until it's won, at which point winning adopts
+  // the structures across via each line's previousLineItemId lineage
+  // (linkJobStructuresFromQuoteInTransaction). Moving them eagerly stranded
+  // structures when a draft revision was discarded and caused duplicates
+  // when the superseded original was re-won.
 
   return newQuote.id;
 }

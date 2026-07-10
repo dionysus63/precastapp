@@ -351,6 +351,7 @@ export type QuoteDetailView = {
   canRevise: boolean;
   canEdit: boolean;
   canSend: boolean;
+  canDelete: boolean;
   supersededBy: {
     id: string;
     quoteNumber: string;

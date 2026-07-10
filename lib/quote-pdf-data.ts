@@ -37,29 +37,61 @@ function formatDateForPdf(value: Date | null | undefined): string {
   });
 }
 
+/**
+ * Splits a project address across the template's two address lines: explicit
+ * newlines win; otherwise a comma-structured address defaults to street on
+ * top and city/state/zip below ("123 Main St, Suite 5, Shirley, NY 11967" →
+ * "123 Main St, Suite 5" / "Shirley, NY 11967").
+ */
 function splitMultilineAddress(value: string | null | undefined): string[] {
   if (!value?.trim()) {
     return [];
   }
-  return value
+
+  const explicitLines = value
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
+  if (explicitLines.length > 1) {
+    return explicitLines;
+  }
+
+  const segments = explicitLines[0]
+    .split(",")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  if (segments.length < 2) {
+    return explicitLines;
+  }
+
+  // A zip in its own segment ("…, NY, 11710") belongs with the state, not as
+  // its own tail — merge it so the city lands on line 2 with state and zip.
+  if (segments.length >= 3 && /^\d{5}(-\d{4})?$/.test(segments[segments.length - 1])) {
+    const zip = segments.pop()!;
+    segments[segments.length - 1] = `${segments[segments.length - 1]} ${zip}`;
+  }
+
+  // Street (plus any suite/building segments) on top; city + state/zip below.
+  const tailCount = Math.min(2, segments.length - 1);
+  return [
+    segments.slice(0, segments.length - tailCount).join(", "),
+    segments.slice(segments.length - tailCount).join(", "),
+  ];
 }
 
+/**
+ * The printed quote intentionally omits the internal quote number; only the
+ * revision marker shows (blank for the original).
+ */
 function formatQuoteNumberForPdf(quote: DbQuoteForPdf): string {
-  const base = quote.quoteNumber.trim();
   if (quote.revisionNumber > 0) {
-    return `${base} R${quote.revisionNumber}`;
+    return `R${quote.revisionNumber}`;
   }
-  return base;
+  return "";
 }
 
 function formatPageNumber(page: QuoteContentPage): string {
-  if (page.count <= 1) {
-    return "1";
-  }
-  return `${page.number} of ${page.count}`;
+  return `${page.number} of ${Math.max(page.count, 1)}`;
 }
 
 function parseAmount(value: { toString(): string }): number {

@@ -10,6 +10,7 @@ import {
 import { DrillSheetPdfLink } from "@/components/drill-sheets/drill-sheet-pdf-link";
 import { LinkStructuresButton } from "@/components/quotes/link-structures-button";
 import { MarkWonButton } from "@/components/quotes/mark-won-button";
+import { DeleteQuoteButton } from "@/components/quotes/delete-quote-button";
 import { ReviseQuoteButton } from "@/components/quotes/revise-quote-button";
 import { SendQuoteButton } from "@/components/quotes/send-quote-button";
 import { JobStructureSubmittalActions } from "@/components/jobs/job-structure-submittal-actions";
@@ -273,6 +274,14 @@ export function QuoteDetailContent({
                     Create Delivery Ticket
                   </button>
                 )}
+                <div className="border-t border-slate-100 pt-2">
+                  <DeleteQuoteButton
+                    quoteId={quote.id}
+                    quoteNumber={quote.quoteNumber}
+                    disabled={!quote.canDelete}
+                    disabledReason="Won quotes anchor the job's structures — revise the quote or mark it Lost instead."
+                  />
+                </div>
               </div>
             </details>
           </div>

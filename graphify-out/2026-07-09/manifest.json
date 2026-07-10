@@ -115,8 +115,8 @@
     "semantic_hash": ""
   },
   "app/quotes/actions.ts": {
-    "mtime": 1783562766.1896994,
-    "ast_hash": "9b1dd2df8737431371a64dd1dcfebca4",
+    "mtime": 1783638584.7834933,
+    "ast_hash": "74855de3d74859fba076e2bd7246c3ca",
     "semantic_hash": ""
   },
   "app/quotes/new/page.tsx": {
@@ -245,8 +245,8 @@
     "semantic_hash": ""
   },
   "components/quotes/quote-detail-content.tsx": {
-    "mtime": 1783455496.4940996,
-    "ast_hash": "5792d339edfaa49b3c33f7c46925f393",
+    "mtime": 1783638651.1835558,
+    "ast_hash": "4c7e8ef39ec2ccebe2fcf25f3dbe465f",
     "semantic_hash": ""
   },
   "components/quotes/quote-form.tsx": {
@@ -315,8 +315,8 @@
     "semantic_hash": ""
   },
   "lib/quote-mapper.ts": {
-    "mtime": 1783625947.6179736,
-    "ast_hash": "dfb853e6a6e6779c624464126a30cfcc",
+    "mtime": 1783638599.007084,
+    "ast_hash": "3dcfbd1d5fac32549bd3bab2a7e4692a",
     "semantic_hash": ""
   },
   "lib/quote-pdf-html.ts": {
@@ -1425,8 +1425,8 @@
     "semantic_hash": ""
   },
   "lib/quotes/types.ts": {
-    "mtime": 1783525567.0866866,
-    "ast_hash": "185f9f789a8f92e036486f576965cde5",
+    "mtime": 1783638627.623532,
+    "ast_hash": "a9bf7d86aecfc4fcac1fcef5aabed1f4",
     "semantic_hash": ""
   },
   "lib/server/form-data.ts": {
@@ -1630,13 +1630,13 @@
     "semantic_hash": ""
   },
   "lib/quote-pdf-data.ts": {
-    "mtime": 1782735964.3242164,
-    "ast_hash": "b749a90b469f0a840b7dd45bb36eae26",
+    "mtime": 1783638365.3188157,
+    "ast_hash": "61d257280bbe9f11b3496cc59ae18d31",
     "semantic_hash": ""
   },
   "lib/quote-pdf-fill.ts": {
-    "mtime": 1782735964.3262167,
-    "ast_hash": "b803fcebe20c537bea652adc967f969d",
+    "mtime": 1783637452.928204,
+    "ast_hash": "229d7901f379ee4a2c61a8d1d8eb2ac0",
     "semantic_hash": ""
   },
   "lib/quote-pdf-layout.ts": {
@@ -2085,8 +2085,8 @@
     "semantic_hash": ""
   },
   "components/quotes/quote-line-items-table.tsx": {
-    "mtime": 1783303203.0240617,
-    "ast_hash": "5ef947a0c6e3faef2d8bd63a9f9e52f7",
+    "mtime": 1783632944.6140645,
+    "ast_hash": "74665ae631aebc20bbee4284929c6d63",
     "semantic_hash": ""
   },
   "components/quotes/quotes-page-sections.tsx": {
@@ -3107,6 +3107,11 @@
   "components/quotes/rect-structure-workbook/complete-drill-sheets-client.tsx": {
     "mtime": 1783631242.1212614,
     "ast_hash": "e8f74e709f1308115179ef7495401d60",
+    "semantic_hash": ""
+  },
+  "components/quotes/delete-quote-button.tsx": {
+    "mtime": 1783638665.7671585,
+    "ast_hash": "ed8a5cf8711f7d2a29148c340ca0caf1",
     "semantic_hash": ""
   }
 }

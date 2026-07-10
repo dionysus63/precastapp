@@ -9,6 +9,7 @@ import {
   type PlannedLoadInput,
   type SavePlannedLoadsInput,
 } from "@/app/delivery-tickets/actions";
+import { formatCastingPieceRoleLabel } from "@/lib/casting-utils";
 import type { QuoteLineFulfillment } from "@/lib/delivery-fulfillment";
 import { formatQuantity, formatWeightLb } from "@/lib/format";
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning";
@@ -86,6 +87,8 @@ type ItemRow = {
   weightEach: number | null;
   /** Drain rings assign EA but consume the quote line in LF. */
   feetPerUnit: number | null;
+  /** Casting pieces: how many of this piece one complete set needs. */
+  perSetQty: number | null;
   quoteLineItemId: string;
   productId: string | null;
   jobStructureId: string | null;
@@ -118,10 +121,15 @@ type Group = {
   available: number;
   unitLabel: string;
   isDrainRing: boolean;
+  /** Casting assemblies count complete sets: min across the piece rows. */
+  isCastingAssembly: boolean;
+  /** Castings only: total pieces in one complete set. */
+  piecesPerSet: number | null;
   scheduledQty: number;
   /**
-   * Weight per accounting unit (lb/EA, or lb/LF for drain rings, derived from
-   * ring weight ÷ ring height). Null when no weight is on file.
+   * Weight per accounting unit (lb/EA, lb/LF for drain rings derived from
+   * ring weight ÷ ring height, or lb per complete set for castings). Null
+   * when no weight is on file.
    */
   weightPerUnit: number | null;
 };
@@ -176,7 +184,8 @@ function buildRows(
       continue;
     }
 
-    if (meta.isCastingAssembly) {
+    if (meta.isCastingAssembly && meta.castingComponentOptions.length === 0) {
+      // No BOM pieces to assign — the single-ticket editor is the only home.
       excludedCastings.push({
         itemCode: meta.itemCode,
         displayName: meta.displayName,
@@ -195,7 +204,11 @@ function buildRows(
         ? meta.adsPipeOptions.map(
             (option) => `${meta.quoteLineItemId}::${option.productId}`,
           )
-        : [meta.quoteLineItemId];
+        : meta.isCastingAssembly
+          ? meta.castingComponentOptions.map(
+              (option) => `${meta.quoteLineItemId}::${option.productId}`,
+            )
+          : [meta.quoteLineItemId];
     const hasSeededCells = optionKeys.some((key) => seededRowKeys.has(key));
 
     if ((!meta.eligible || available <= 0) && !hasSeededCells) {
@@ -222,6 +235,8 @@ function buildRows(
         available,
         unitLabel: "LF",
         isDrainRing: true,
+        isCastingAssembly: false,
+        piecesPerSet: null,
         scheduledQty,
         weightPerUnit:
           rateOption && rateOption.weightEach != null
@@ -254,6 +269,7 @@ function buildRows(
           unit: "EA",
           weightEach: option.weightEach,
           feetPerUnit: option.heightFeet,
+          perSetQty: null,
           quoteLineItemId: meta.quoteLineItemId,
           productId: option.productId,
           jobStructureId: null,
@@ -270,6 +286,8 @@ function buildRows(
         available,
         unitLabel: meta.unit,
         isDrainRing: false,
+        isCastingAssembly: false,
+        piecesPerSet: null,
         scheduledQty,
         weightPerUnit:
           meta.adsPipeOptions.find((option) => option.weightEach != null)
@@ -301,6 +319,7 @@ function buildRows(
           unit: meta.unit,
           weightEach: option.weightEach,
           feetPerUnit: null,
+          perSetQty: null,
           quoteLineItemId: meta.quoteLineItemId,
           productId: option.productId,
           jobStructureId: null,
@@ -313,11 +332,99 @@ function buildRows(
       continue;
     }
 
+    if (meta.isCastingAssembly) {
+      // Assemblies ship as component pieces; a complete set needs every
+      // piece. Same product in two roles merges into one row so grid cells
+      // and ticket lines stay keyed by product.
+      const pieceRows = new Map<
+        string,
+        { option: (typeof meta.castingComponentOptions)[number]; perSetQty: number; roles: string[] }
+      >();
+      for (const option of meta.castingComponentOptions) {
+        const existing = pieceRows.get(option.productId);
+        if (existing) {
+          existing.perSetQty += option.quantity;
+          existing.roles.push(formatCastingPieceRoleLabel(option.pieceRole));
+        } else {
+          pieceRows.set(option.productId, {
+            option,
+            perSetQty: option.quantity,
+            roles: [formatCastingPieceRoleLabel(option.pieceRole)],
+          });
+        }
+      }
+
+      let setWeight = 0;
+      let setWeightComplete = true;
+      for (const piece of pieceRows.values()) {
+        if (piece.option.weightEach == null) {
+          setWeightComplete = false;
+        } else {
+          setWeight += piece.option.weightEach * piece.perSetQty;
+        }
+      }
+
+      groups.set(meta.quoteLineItemId, {
+        key: meta.quoteLineItemId,
+        available,
+        unitLabel: "sets",
+        isDrainRing: false,
+        isCastingAssembly: true,
+        piecesPerSet: [...pieceRows.values()].reduce(
+          (sum, piece) => sum + piece.perSetQty,
+          0,
+        ),
+        scheduledQty,
+        weightPerUnit: setWeightComplete ? setWeight : null,
+      });
+      rows.push({
+        kind: "group",
+        key: `group-${meta.quoteLineItemId}`,
+        groupKey: meta.quoteLineItemId,
+        itemCode: meta.itemCode,
+        displayName: meta.displayName,
+      });
+      for (const piece of pieceRows.values()) {
+        const roleLabel = piece.roles.join(" + ");
+        rows.push({
+          kind: "item",
+          key: `${meta.quoteLineItemId}::${piece.option.productId}`,
+          groupKey: meta.quoteLineItemId,
+          navRow: navRow++,
+          indent: true,
+          itemCode: piece.option.productCode,
+          displayName: piece.option.name,
+          detail:
+            piece.perSetQty > 1
+              ? `${roleLabel} — ${piece.perSetQty}/set`
+              : roleLabel,
+          warning:
+            piece.option.trackInventory &&
+            piece.option.currentStock != null &&
+            piece.option.currentStock <= 0
+              ? "No stock"
+              : null,
+          unit: "EA",
+          weightEach: piece.option.weightEach,
+          feetPerUnit: null,
+          perSetQty: piece.perSetQty,
+          quoteLineItemId: meta.quoteLineItemId,
+          productId: piece.option.productId,
+          jobStructureId: null,
+          lineType: "STOCK_PRODUCT",
+          description: `${piece.option.name} (${roleLabel})`,
+        });
+      }
+      continue;
+    }
+
     groups.set(meta.quoteLineItemId, {
       key: meta.quoteLineItemId,
       available,
       unitLabel: meta.unit,
       isDrainRing: false,
+      isCastingAssembly: false,
+      piecesPerSet: null,
       scheduledQty,
       weightPerUnit: meta.weightEach,
     });
@@ -334,6 +441,7 @@ function buildRows(
       unit: meta.unit,
       weightEach: meta.weightEach,
       feetPerUnit: null,
+      perSetQty: null,
       quoteLineItemId: meta.quoteLineItemId,
       productId: meta.productId,
       jobStructureId: meta.jobStructureId,
@@ -346,7 +454,13 @@ function buildRows(
   return { rows, groups, editableRows, excludedCastings };
 }
 
-const stickyItemCellClassName = `${tableCellClassName} sticky left-0 z-[5] bg-white min-w-[16rem]`;
+// Pinned columns: Item at left 0, Available beside it, Assigned/Left on the
+// right edge. Item needs a fixed width so Available's left offset lines up.
+const stickyItemCellClassName = `${tableCellClassName} sticky left-0 z-[5] w-64 min-w-[16rem] max-w-[16rem] bg-white`;
+const stickyAvailableCellClassName = `${tableNumericCellClassName} sticky left-[16rem] z-[5] bg-white`;
+// Inset line stands in for the missing left border while content scrolls under.
+const stickyRightEdgeShadow = "shadow-[inset_2px_0_0_0_#cbd5e1]";
+const stickyAssignedCellClassName = `${tableNumericCellClassName} sticky right-0 z-[5] bg-white ${stickyRightEdgeShadow}`;
 
 function seedCellsFromDrafts(
   draftColumns: DraftLoadColumn[],
@@ -402,7 +516,8 @@ export function BulkLoadPlanner({
       if (group.isDrainRing) {
         if (group.available > 0) hasRingFootage = true;
       } else {
-        pieces += group.available;
+        // A casting set is several physical pieces on the truck.
+        pieces += group.available * (group.piecesPerSet ?? 1);
       }
     }
     return { weight, pieces: roundQty(pieces), hasRingFootage, complete };
@@ -501,27 +616,65 @@ export function BulkLoadPlanner({
     [cells, loads, editableRows],
   );
 
+  // Casting sets: complete sets are the min across piece rows; a piece row is
+  // over-assigned when it exceeds available sets × pieces-per-set.
+  const castingStats = useMemo(() => {
+    const map = new Map<
+      string,
+      { sets: number; over: boolean; incomplete: boolean }
+    >();
+    for (const group of groups.values()) {
+      if (!group.isCastingAssembly) continue;
+      let sets = Number.POSITIVE_INFINITY;
+      let over = false;
+      let incomplete = false;
+      for (const row of editableRows) {
+        if (row.groupKey !== group.key) continue;
+        const perSet = row.perSetQty ?? 1;
+        const assigned = rowAssigned.get(row.key) ?? 0;
+        if (assigned > group.available * perSet + 0.001) over = true;
+        if (assigned < group.available * perSet - 0.001) incomplete = true;
+        sets = Math.min(sets, Math.floor((assigned + 0.001) / perSet));
+      }
+      map.set(group.key, {
+        sets: Number.isFinite(sets) ? sets : 0,
+        over,
+        incomplete,
+      });
+    }
+    return map;
+  }, [groups, editableRows, rowAssigned]);
+
   const overAssignedGroups = useMemo(() => {
     const set = new Set<string>();
     for (const [groupKey, assigned] of groupAssigned) {
       const group = groups.get(groupKey);
-      if (group && assigned > group.available + 0.001) {
+      if (group && !group.isCastingAssembly && assigned > group.available + 0.001) {
+        set.add(groupKey);
+      }
+    }
+    for (const [groupKey, stats] of castingStats) {
+      if (stats.over) {
         set.add(groupKey);
       }
     }
     return set;
-  }, [groupAssigned, groups]);
+  }, [groupAssigned, groups, castingStats]);
 
   const totalPieces = loadTotals.reduce((sum, load) => sum + load.pieces, 0);
   const totalWeight = loadTotals.reduce((sum, load) => sum + load.weight, 0);
   const unassignedGroupCount = useMemo(() => {
     let count = 0;
     for (const group of groups.values()) {
+      if (group.isCastingAssembly) {
+        if (castingStats.get(group.key)?.incomplete) count += 1;
+        continue;
+      }
       const assigned = groupAssigned.get(group.key) ?? 0;
       if (assigned < group.available - 0.001) count += 1;
     }
     return count;
-  }, [groups, groupAssigned]);
+  }, [groups, groupAssigned, castingStats]);
 
   const nonEmptyLoads = loadTotals.filter((load) => load.pieces > 0).length;
   const hasExistingDrafts = loads.some((load) => load.ticketId);
@@ -771,7 +924,7 @@ export function BulkLoadPlanner({
   /** One-click: put this row's unassigned remainder onto the last load. */
   function fillRemainder(row: ItemRow) {
     const group = groups.get(row.groupKey);
-    if (!group || group.isDrainRing) return;
+    if (!group || group.isDrainRing || group.isCastingAssembly) return;
     const assigned = groupAssigned.get(row.groupKey) ?? 0;
     const left = roundQty(group.available - assigned);
     if (left <= 0) return;
@@ -998,50 +1151,85 @@ export function BulkLoadPlanner({
           <table ref={tableRef} className={tableClassName} onPaste={handlePaste}>
             <thead>
               <tr>
-                <th className={`${tableHeaderCellClassName} sticky left-0 z-20 min-w-[16rem]`}>
+                <th
+                  className={`${tableHeaderCellClassName} sticky left-0 z-20 w-64 min-w-[16rem] max-w-[16rem] align-top`}
+                >
                   Item
                 </th>
-                <th className={`${tableHeaderCellClassName} text-right`}>Available</th>
-                {loads.map((load, loadIndex) => (
-                  <th key={load.key} className={loadColumnHeaderClassName}>
-                    <div className="flex items-center justify-between gap-2">
-                      {load.ticketId ? (
-                        <span className="min-w-0">
-                          <Link
-                            href={`/delivery-tickets/${load.ticketId}`}
-                            className="text-[11px] font-semibold text-sky-700 hover:text-sky-900"
-                            title={`Open ${load.ticketNumber}`}
-                          >
-                            {load.ticketNumber}
-                          </Link>
-                          <span className="ml-1 rounded border border-slate-300 px-1 text-[9px] font-medium uppercase text-slate-400">
-                            draft
+                <th
+                  className={`${tableHeaderCellClassName} sticky left-[16rem] z-20 text-right align-top`}
+                >
+                  Available
+                </th>
+                {loads.map((load, loadIndex) => {
+                  const totals = loadTotals[loadIndex];
+                  return (
+                    <th key={load.key} className={`${loadColumnHeaderClassName} align-top`}>
+                      <div className="flex items-center justify-between gap-2">
+                        {load.ticketId ? (
+                          <span className="min-w-0">
+                            <Link
+                              href={`/delivery-tickets/${load.ticketId}`}
+                              className="text-[11px] font-semibold text-sky-700 hover:text-sky-900"
+                              title={`Open ${load.ticketNumber}`}
+                            >
+                              {load.ticketNumber}
+                            </Link>
+                            <span className="ml-1 rounded border border-slate-300 px-1 text-[9px] font-medium uppercase text-slate-400">
+                              draft
+                            </span>
                           </span>
-                        </span>
-                      ) : (
-                        <span className="text-[11px] font-semibold uppercase tracking-wide">
-                          Load {loadIndex + 1}
-                        </span>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => removeLoad(load.key)}
-                        disabled={loads.length <= 1}
-                        className="text-slate-400 hover:text-red-600 disabled:opacity-30"
-                        title={load.ticketId ? `Delete ${load.ticketNumber}` : "Remove load"}
-                        aria-label={
-                          load.ticketId
-                            ? `Delete ${load.ticketNumber}`
-                            : `Remove load ${loadIndex + 1}`
-                        }
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </th>
-                ))}
-                <th className={`${tableHeaderCellClassName} text-right`}>
-                  Assigned / Left
+                        ) : (
+                          <span className="text-[11px] font-semibold uppercase tracking-wide">
+                            Load {loadIndex + 1}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeLoad(load.key)}
+                          disabled={loads.length <= 1}
+                          className="text-slate-400 hover:text-red-600 disabled:opacity-30"
+                          title={load.ticketId ? `Delete ${load.ticketNumber}` : "Remove load"}
+                          aria-label={
+                            load.ticketId
+                              ? `Delete ${load.ticketNumber}`
+                              : `Remove load ${loadIndex + 1}`
+                          }
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <div className="mt-0.5 text-right text-[10px] font-semibold normal-case tabular-nums text-slate-700">
+                        {totals && totals.pieces > 0 ? (
+                          <>
+                            {formatWeightLb(totals.weight)}
+                            {!totals.weightComplete ? (
+                              <span
+                                className="ml-0.5 text-amber-500"
+                                title="Some items on this load have no weight on file."
+                              >
+                                *
+                              </span>
+                            ) : null}
+                          </>
+                        ) : (
+                          <span className="font-normal text-slate-400">—</span>
+                        )}
+                      </div>
+                    </th>
+                  );
+                })}
+                <th
+                  className={`${tableHeaderCellClassName} sticky right-0 z-20 text-right align-top ${stickyRightEdgeShadow}`}
+                >
+                  <div>Assigned / Left</div>
+                  <div className="mt-0.5 text-[10px] font-semibold normal-case tabular-nums text-slate-700">
+                    {totalPieces > 0 ? (
+                      formatWeightLb(totalWeight)
+                    ) : (
+                      <span className="font-normal text-slate-400">—</span>
+                    )}
+                  </div>
                 </th>
               </tr>
             </thead>
@@ -1067,14 +1255,14 @@ export function BulkLoadPlanner({
                         <span className="font-medium">{row.itemCode}</span>{" "}
                         <span>{row.displayName}</span>
                       </td>
-                      <td className={`${tableNumericCellClassName} text-slate-300`}>—</td>
+                      <td className={`${stickyAvailableCellClassName} text-slate-300`}>—</td>
                       <td
                         colSpan={loads.length}
                         className={`${tableCellClassName} italic`}
                       >
                         {row.reason}
                       </td>
-                      <td className={`${tableNumericCellClassName} text-slate-300`}>—</td>
+                      <td className={`${stickyAssignedCellClassName} text-slate-300`}>—</td>
                     </tr>
                   );
                 }
@@ -1082,7 +1270,11 @@ export function BulkLoadPlanner({
                 if (row.kind === "group") {
                   const group = groups.get(row.groupKey);
                   if (!group) return null;
-                  const assigned = groupAssigned.get(row.groupKey) ?? 0;
+                  // Casting groups track complete sets (min across pieces),
+                  // not a sum of sub-row quantities.
+                  const assigned = group.isCastingAssembly
+                    ? (castingStats.get(row.groupKey)?.sets ?? 0)
+                    : (groupAssigned.get(row.groupKey) ?? 0);
                   const left = roundQty(group.available - assigned);
                   const over = overAssignedGroups.has(row.groupKey);
                   return (
@@ -1093,21 +1285,23 @@ export function BulkLoadPlanner({
                         </span>{" "}
                         <span className="text-slate-600">{row.displayName}</span>
                       </td>
-                      <td className={`${tableNumericCellClassName} font-medium`}>
+                      <td className={`${stickyAvailableCellClassName} !bg-slate-50 font-medium`}>
                         {formatQuantity(group.available)} {group.unitLabel}
                       </td>
                       <td colSpan={loads.length} className={`${tableCellClassName} text-[11px] text-slate-400`}>
-                        {group.isDrainRing
-                          ? "Assign ring counts below — feet are tallied against the quote line."
-                          : "Assign quantities below — options share this line's total."}
+                        {group.isCastingAssembly
+                          ? "Assign piece counts below — a set is complete only when every piece ships."
+                          : group.isDrainRing
+                            ? "Assign ring counts below — feet are tallied against the quote line."
+                            : "Assign quantities below — options share this line's total."}
                       </td>
                       <td
-                        className={`${tableNumericCellClassName} font-medium ${
+                        className={`${stickyAssignedCellClassName} font-medium ${
                           over
-                            ? "bg-red-50 text-red-700"
+                            ? "!bg-red-50 text-red-700"
                             : left > 0.001
-                              ? "text-amber-600"
-                              : "text-emerald-700"
+                              ? "!bg-slate-50 text-amber-600"
+                              : "!bg-slate-50 text-emerald-700"
                         }`}
                       >
                         {formatQuantity(assigned)} / {formatQuantity(left)}{" "}
@@ -1146,7 +1340,7 @@ export function BulkLoadPlanner({
                         ) : null}
                       </div>
                     </td>
-                    <td className={tableNumericCellClassName}>
+                    <td className={stickyAvailableCellClassName}>
                       {grouped ? (
                         <span className="text-slate-300">·</span>
                       ) : (
@@ -1189,9 +1383,9 @@ export function BulkLoadPlanner({
                       );
                     })}
                     <td
-                      className={`${tableNumericCellClassName} ${
+                      className={`${stickyAssignedCellClassName} ${
                         over
-                          ? "bg-red-50 font-medium text-red-700"
+                          ? "!bg-red-50 font-medium text-red-700"
                           : grouped
                             ? "text-slate-500"
                             : leftForGroup > 0.001
@@ -1227,11 +1421,12 @@ export function BulkLoadPlanner({
               })}
             </tbody>
             <tfoot>
+              {/* Per-load weight lives pinned in the header with the load numbers. */}
               <tr className="border-t-2 border-slate-300">
-                <td className={`${tableCellClassName} sticky left-0 z-[5] bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500`}>
+                <td className={`${tableCellClassName} sticky left-0 z-[5] w-64 min-w-[16rem] max-w-[16rem] bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500`}>
                   Pieces
                 </td>
-                <td className={`${tableNumericCellClassName} bg-slate-50`} />
+                <td className={`${stickyAvailableCellClassName} !bg-slate-50`} />
                 {loadTotals.map((totals, index) => (
                   <td
                     key={loads[index].key}
@@ -1240,47 +1435,16 @@ export function BulkLoadPlanner({
                     {totals.pieces > 0 ? formatQuantity(totals.pieces) : "—"}
                   </td>
                 ))}
-                <td className={`${tableNumericCellClassName} bg-slate-50 font-medium`}>
+                <td className={`${stickyAssignedCellClassName} !bg-slate-50 font-medium`}>
                   {totalPieces > 0 ? formatQuantity(totalPieces) : "—"}
-                </td>
-              </tr>
-              <tr>
-                <td className={`${tableCellClassName} sticky left-0 z-[5] bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500`}>
-                  Weight
-                </td>
-                <td className={`${tableNumericCellClassName} bg-slate-50`} />
-                {loadTotals.map((totals, index) => (
-                  <td
-                    key={loads[index].key}
-                    className={`${tableNumericCellClassName} bg-slate-50 font-semibold text-slate-900`}
-                  >
-                    {totals.pieces > 0 ? (
-                      <>
-                        {formatWeightLb(totals.weight)}
-                        {!totals.weightComplete ? (
-                          <span
-                            className="ml-0.5 text-amber-500"
-                            title="Some items on this load have no weight on file."
-                          >
-                            *
-                          </span>
-                        ) : null}
-                      </>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                ))}
-                <td className={`${tableNumericCellClassName} bg-slate-50 font-semibold`}>
-                  {totalPieces > 0 ? formatWeightLb(totalWeight) : "—"}
                 </td>
               </tr>
               {truckCapacityLbs ? (
                 <tr>
-                  <td className={`${tableCellClassName} sticky left-0 z-[5] bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500`}>
+                  <td className={`${tableCellClassName} sticky left-0 z-[5] w-64 min-w-[16rem] max-w-[16rem] bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500`}>
                     Capacity
                   </td>
-                  <td className={`${tableCellClassName} bg-slate-50`} />
+                  <td className={`${stickyAvailableCellClassName} !bg-slate-50`} />
                   {loadTotals.map((totals, index) => {
                     const pct = capacityPct(totals.weight) ?? 0;
                     const barColor =
@@ -1314,7 +1478,7 @@ export function BulkLoadPlanner({
                       </td>
                     );
                   })}
-                  <td className={`${tableCellClassName} bg-slate-50`} />
+                  <td className={`${stickyAssignedCellClassName} !bg-slate-50`} />
                 </tr>
               ) : null}
             </tfoot>
@@ -1328,8 +1492,8 @@ export function BulkLoadPlanner({
             Needs the single-ticket editor
           </p>
           <p className="mt-0.5 text-[11px] text-slate-400">
-            Casting assemblies ship as complete sets of pieces and can&apos;t be
-            planned in this grid.
+            These casting assemblies have no component pieces defined, so there
+            is nothing to plan piece-by-piece here.
           </p>
           <ul className="mt-1 space-y-0.5">
             {excludedCastings.map((line) => (

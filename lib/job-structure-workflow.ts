@@ -24,8 +24,36 @@ type StructureLinkClient = Pick<
 >;
 
 /**
- * When a quote is WON, create JobStructure rows for configurable/custom lines
- * and link them on QuoteLineItem.jobStructureId.
+ * Follows a line's previousLineItemId lineage (set when quotes are revised)
+ * looking for an ancestor line that still holds a job structure. Capped so a
+ * corrupted lineage cycle can't spin forever.
+ */
+async function findAncestorLineWithStructure(
+  client: StructureLinkClient,
+  previousLineItemId: string | null,
+): Promise<{ lineId: string; jobStructureId: string } | null> {
+  let currentId = previousLineItemId;
+  for (let hop = 0; hop < 10 && currentId; hop += 1) {
+    const ancestor = await client.quoteLineItem.findUnique({
+      where: { id: currentId },
+      select: { id: true, jobStructureId: true, previousLineItemId: true },
+    });
+    if (!ancestor) {
+      return null;
+    }
+    if (ancestor.jobStructureId) {
+      return { lineId: ancestor.id, jobStructureId: ancestor.jobStructureId };
+    }
+    currentId = ancestor.previousLineItemId;
+  }
+  return null;
+}
+
+/**
+ * When a quote is WON, link JobStructure rows to its structure lines. Lines
+ * that descend from a previously won quote's lines (revisions) adopt the
+ * existing structure — preserving its drill sheet, status, and documents —
+ * instead of creating a duplicate; only truly new lines get fresh rows.
  */
 export async function linkJobStructuresFromQuoteInTransaction(
   client: StructureLinkClient,
@@ -51,6 +79,29 @@ export async function linkJobStructuresFromQuoteInTransaction(
   let created = 0;
 
   for (const line of quote.lineItems) {
+    const ancestor = await findAncestorLineWithStructure(
+      client,
+      line.previousLineItemId,
+    );
+    if (ancestor) {
+      await client.jobStructure.update({
+        where: { id: ancestor.jobStructureId },
+        data: {
+          quoteId: quote.id,
+          quantity: line.quantity,
+        },
+      });
+      await client.quoteLineItem.update({
+        where: { id: line.id },
+        data: { jobStructureId: ancestor.jobStructureId },
+      });
+      await client.quoteLineItem.update({
+        where: { id: ancestor.lineId },
+        data: { jobStructureId: null },
+      });
+      continue;
+    }
+
     const structure = await client.jobStructure.create({
       data: {
         jobId: quote.jobId,
