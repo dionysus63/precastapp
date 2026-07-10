@@ -18,6 +18,10 @@
 //     billed height.
 
 import { computeWallHeightFeet, type SumpMode } from "@/lib/drill-sheet";
+import { RECT_OPENING_ROWS } from "@/lib/rect-template-pdf-fields";
+
+/** Rows in the printed sheet's INVERT/DIA/TYPE openings table (A-E). */
+export const RECT_OPENING_TABLE_ROWS = RECT_OPENING_ROWS.length;
 
 export type RectWall = "UP" | "DOWN" | "LEFT" | "RIGHT";
 
@@ -394,6 +398,50 @@ function computeHorizontalGeometry(
   };
 }
 
+/**
+ * Warns when two openings on the same wall physically intersect — real
+ * block-outs cannot overlap, so this is almost always a data-entry mistake.
+ */
+function warnOnOverlappingOpenings(
+  openings: ComputedRectOpening[],
+  warnings: string[],
+): void {
+  const labelFor = (opening: ComputedRectOpening, index: number) =>
+    opening.label?.trim() || String.fromCharCode(65 + index);
+  for (let i = 0; i < openings.length; i += 1) {
+    for (let j = i + 1; j < openings.length; j += 1) {
+      const a = openings[i];
+      const b = openings[j];
+      if (a.wall == null || a.wall !== b.wall) {
+        continue;
+      }
+      if (
+        a.leftEdgeInches == null ||
+        a.rightEdgeInches == null ||
+        b.leftEdgeInches == null ||
+        b.rightEdgeInches == null ||
+        a.bottomOfOpeningFeet == null ||
+        a.topOfOpeningFeet == null ||
+        b.bottomOfOpeningFeet == null ||
+        b.topOfOpeningFeet == null
+      ) {
+        continue;
+      }
+      const horizontal =
+        a.leftEdgeInches < b.rightEdgeInches - EPSILON &&
+        b.leftEdgeInches < a.rightEdgeInches - EPSILON;
+      const vertical =
+        a.bottomOfOpeningFeet < b.topOfOpeningFeet - EPSILON &&
+        b.bottomOfOpeningFeet < a.topOfOpeningFeet - EPSILON;
+      if (horizontal && vertical) {
+        warnings.push(
+          `Openings ${labelFor(a, i)} and ${labelFor(b, j)} overlap on the ${RECT_WALL_LABELS[a.wall]} wall.`,
+        );
+      }
+    }
+  }
+}
+
 /** Marks each opening with the manual section it penetrates (bottom = 0). */
 export function annotateRectOpeningSections(
   openings: ComputedRectOpening[],
@@ -645,6 +693,16 @@ export function computeRectStructure(
       warnings,
     ),
   );
+
+  // The printed openings table only has rows A-E; extra openings still draw
+  // on the exploded view but never get an invert/size row.
+  if (openings.length > RECT_OPENING_TABLE_ROWS) {
+    warnings.push(
+      `Only ${RECT_OPENING_TABLE_ROWS} openings fit the printed INVERT/DIA/TYPE table — ${openings.length - RECT_OPENING_TABLE_ROWS} more will be drawn but not listed. Remove openings or split the structure across sheets.`,
+    );
+  }
+
+  warnOnOverlappingOpenings(openings, warnings);
 
   // Manual sections: default to a single pour of the full wall height.
   const rawHeights =

@@ -439,6 +439,9 @@ function drawArrowhead(
   );
 }
 
+/** Width reserved right of the section chain line for its inch labels. */
+const SECTION_CHAIN_CLEARANCE_PT = 36;
+
 /**
  * Vertical/horizontal dimension from the fold line (top of base slab) to the
  * opening's bottom edge, with arrowheads and the `+N"` value beside it, run
@@ -446,6 +449,9 @@ function drawArrowhead(
  * that run there is no clean place for the line or its text (it tangles with
  * the section chain and the neighbor's callout leader), so the dimension is
  * omitted — the callout's `@ +N"` line already states the value.
+ *
+ * Returns the drawn extent (line + text) so later passes can treat it as an
+ * obstacle, or null when the dimension was omitted.
  */
 function drawFoldDimension(
   page: PDFPage,
@@ -454,8 +460,8 @@ function drawFoldDimension(
   rect: PageRect,
   offsetInches: number,
   otherRects: PageRect[],
-  hasSectionChain: boolean,
-): void {
+  chainX: number | null,
+): PageRect | null {
   const text = `+${offsetInches}"`;
   const textWidth = font.widthOfTextAtSize(text, CALLOUT_FONT_SIZE_PT);
 
@@ -474,7 +480,7 @@ function drawFoldDimension(
         other.y + other.height > yLo,
     );
     if (blocked) {
-      return;
+      return null;
     }
 
     page.drawLine({
@@ -490,17 +496,27 @@ function drawFoldDimension(
     // Text sits left of the line unless that would leave the flap or hit
     // the section-dimension chain along the Up flap's left edge.
     const chainZone =
-      hasSectionChain && flap.wall === "UP" ? flap.x + 44 : flap.x + 2;
+      chainX != null && flap.wall === "UP"
+        ? chainX + SECTION_CHAIN_CLEARANCE_PT
+        : flap.x + 2;
     const textX =
       dimX - textWidth - 4 >= chainZone ? dimX - textWidth - 4 : dimX + 4;
+    const textY = (foldY + openY) / 2 - CALLOUT_FONT_SIZE_PT * 0.36;
     page.drawText(text, {
       x: textX,
-      y: (foldY + openY) / 2 - CALLOUT_FONT_SIZE_PT * 0.36,
+      y: textY,
       size: CALLOUT_FONT_SIZE_PT,
       font,
       color: BLACK,
     });
-    return;
+    const x0 = Math.min(dimX - ARROW_HALF_WIDTH_PT, textX);
+    const y0 = Math.min(yLo, textY);
+    return {
+      x: x0,
+      y: y0,
+      width: Math.max(dimX + ARROW_HALF_WIDTH_PT, textX + textWidth) - x0,
+      height: Math.max(yHi, textY + CALLOUT_FONT_SIZE_PT) - y0,
+    };
   }
 
   // Left/Right walls: height runs along page X.
@@ -518,7 +534,7 @@ function drawFoldDimension(
       other.x + other.width > xLo,
   );
   if (blocked) {
-    return;
+    return null;
   }
 
   page.drawLine({
@@ -531,13 +547,23 @@ function drawFoldDimension(
     drawArrowhead(page, foldX, dimY, openX, dimY);
     drawArrowhead(page, openX, dimY, foldX, dimY);
   }
+  const textX = (foldX + openX) / 2 - textWidth / 2;
+  const textY = dimY + 4;
   page.drawText(text, {
-    x: (foldX + openX) / 2 - textWidth / 2,
-    y: dimY + 4,
+    x: textX,
+    y: textY,
     size: CALLOUT_FONT_SIZE_PT,
     font,
     color: BLACK,
   });
+  const x0 = Math.min(xLo, textX);
+  const y0 = dimY - ARROW_HALF_WIDTH_PT;
+  return {
+    x: x0,
+    y: y0,
+    width: Math.max(xHi, textX + textWidth) - x0,
+    height: textY + CALLOUT_FONT_SIZE_PT - y0,
+  };
 }
 
 /** `@ +22"` line, or `@ Bottom` when the opening sits on the base slab. */
@@ -574,10 +600,12 @@ function locationText(opening: ComputedRectOpening): string | null {
 //   - callouts on each side of the cross form ONE column of fixed slots;
 //     openings are sorted by height and take slots in the same order, so
 //     leaders on a side can never cross each other;
-//   - each callout takes the free slot nearest its opening, keeping leaders
-//     short;
+//   - each callout prefers a slot whose leader clears every knockout and
+//     fold dimension; among clear slots it takes the one nearest its
+//     opening, keeping leaders short;
 //   - fold dimensions dodge other openings on the same wall;
-//   - joint labels sit inside the flap, away from the callout lane.
+//   - the section chain slides right when a knockout covers the flap's left
+//     edge, and joint labels take the widest clear gap along their line.
 // ---------------------------------------------------------------------------
 
 type PlannedOpening = {
@@ -586,6 +614,158 @@ type PlannedOpening = {
   rect: PageRect;
   index: number;
 };
+
+/** What the exploded-view opening pass produced, for the joint/chain passes. */
+type ExplodedDrawInfo = {
+  /** X of the section chain line on the Up flap (null when no split). */
+  chainX: number | null;
+  /** Knockouts + fold-dimension extents on the Up flap. */
+  upFlapObstacles: PageRect[];
+  /** Knockouts + fold-dimension extents on the Down flap. */
+  downFlapObstacles: PageRect[];
+};
+
+/** True when the segment passes through the rect (inflated by pad). */
+function segmentIntersectsRect(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  rect: PageRect,
+  pad: number,
+): boolean {
+  // Liang-Barsky clip of the parametric segment against the inflated box.
+  const loX = rect.x - pad;
+  const hiX = rect.x + rect.width + pad;
+  const loY = rect.y - pad;
+  const hiY = rect.y + rect.height + pad;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  let t0 = 0;
+  let t1 = 1;
+  const clips: [number, number][] = [
+    [-dx, x1 - loX],
+    [dx, hiX - x1],
+    [-dy, y1 - loY],
+    [dy, hiY - y1],
+  ];
+  for (const [p, q] of clips) {
+    if (Math.abs(p) < EPSILON) {
+      if (q < 0) {
+        return false;
+      }
+      continue;
+    }
+    const r = q / p;
+    if (p < 0) {
+      if (r > t1) {
+        return false;
+      }
+      if (r > t0) {
+        t0 = r;
+      }
+    } else {
+      if (r < t0) {
+        return false;
+      }
+      if (r < t1) {
+        t1 = r;
+      }
+    }
+  }
+  // Ignore endpoint grazes (the leader's tip touches its own target edge).
+  return t1 - t0 > 0.02;
+}
+
+/** Text/geometry shared by a callout block and its leader prediction. */
+type CalloutLayout = {
+  letter: string;
+  sizeText: string;
+  offsetText: string | null;
+  location: string | null;
+  blockHalfWidth: number;
+  /** Badge center's drop below the block's top edge. */
+  badgeDrop: number;
+};
+
+function calloutLayout(entry: PlannedOpening, font: PDFFont): CalloutLayout {
+  const { opening, index } = entry;
+  const letter = opening.label?.trim() || String.fromCharCode(65 + index);
+  const sizeText =
+    opening.openingWidthInches != null && opening.openingHeightInches != null
+      ? `${opening.openingWidthInches}"x${opening.openingHeightInches}"`
+      : letter;
+  const offsetText = baseOffsetText(opening);
+  const location = locationText(opening);
+  const textDrop =
+    CALLOUT_FONT_SIZE_PT +
+    (offsetText ? CALLOUT_LINE_GAP_PT : 0) +
+    (location ? 3 + CALLOUT_LOCATION_FONT_SIZE_PT : 0);
+  const blockHalfWidth =
+    Math.max(
+      font.widthOfTextAtSize(sizeText, CALLOUT_FONT_SIZE_PT),
+      offsetText ? font.widthOfTextAtSize(offsetText, CALLOUT_FONT_SIZE_PT) : 0,
+    ) / 2;
+  return {
+    letter,
+    sizeText,
+    offsetText,
+    location,
+    blockHalfWidth,
+    badgeDrop: textDrop + 6 + BADGE_RADIUS_PT,
+  };
+}
+
+/** The leader a callout at (blockCx, blockTopY) would draw to its opening. */
+function leaderSegmentFor(
+  entry: PlannedOpening,
+  layout: CalloutLayout,
+  blockCx: number,
+  blockTopY: number,
+): { x1: number; y1: number; x2: number; y2: number } {
+  const { rect } = entry;
+  const badgeCy = blockTopY - layout.badgeDrop;
+  const blockCyMid = (blockTopY + badgeCy - BADGE_RADIUS_PT) / 2;
+  const targetX =
+    blockCx < rect.x
+      ? rect.x
+      : blockCx > rect.x + rect.width
+        ? rect.x + rect.width
+        : blockCx;
+  const targetY =
+    blockCyMid < rect.y
+      ? rect.y
+      : blockCyMid > rect.y + rect.height
+        ? rect.y + rect.height
+        : blockCyMid;
+  const startX =
+    targetX < blockCx
+      ? blockCx - layout.blockHalfWidth - 3
+      : targetX > blockCx
+        ? blockCx + layout.blockHalfWidth + 3
+        : blockCx;
+  return { x1: startX, y1: blockCyMid, x2: targetX, y2: targetY };
+}
+
+/**
+ * X for the section chain line on the Up flap: the leftmost vertical strip
+ * clear of every knockout (the chain spans the full flap height).
+ */
+function sectionChainX(flap: Flap, knockouts: PageRect[]): number {
+  const base = flap.x + 14;
+  const limit = flap.x + flap.width / 2;
+  for (let x = base; x <= limit; x += 4) {
+    const blocked = knockouts.some(
+      (rect) =>
+        x + ARROW_HALF_WIDTH_PT + 2 > rect.x &&
+        x - ARROW_HALF_WIDTH_PT - 2 < rect.x + rect.width,
+    );
+    if (!blocked) {
+      return x;
+    }
+  }
+  return base;
+}
 
 /** Top edges of the callout slots beside the cross, top to bottom. The gap
  * between the two upper and three lower slots is the side flap band, which
@@ -609,7 +789,7 @@ function drawOpeningsOnFlaps(
   result: RectStructureResult,
   page: PDFPage,
   font: PDFFont,
-): void {
+): ExplodedDrawInfo {
   const planned: PlannedOpening[] = [];
   const rectsByWall = new Map<RectWall, PageRect[]>();
 
@@ -629,8 +809,15 @@ function drawOpeningsOnFlaps(
   });
 
   const hasSectionChain = result.sections.length > 1;
+  const upFlap = flaps.find((entry) => entry.wall === "UP") ?? null;
+  const upKnockouts = rectsByWall.get("UP") ?? [];
+  // The chain X is settled first so fold dimensions can keep clear of it.
+  const chainX =
+    hasSectionChain && upFlap ? sectionChainX(upFlap, upKnockouts) : null;
 
-  // Knockouts + fold dimensions (with same-wall avoidance).
+  // Knockouts + fold dimensions (with same-wall avoidance). Fold dims report
+  // their drawn extents so leader routing can dodge them too.
+  const foldDimRects: PageRect[] = [];
   for (const entry of planned) {
     drawOpeningKnockout(page, entry.rect);
     const offsetInches = entry.opening.floorToOpeningBottomInches;
@@ -638,17 +825,22 @@ function drawOpeningsOnFlaps(
       const others = (rectsByWall.get(entry.flap.wall) ?? []).filter(
         (rect) => rect !== entry.rect,
       );
-      drawFoldDimension(
+      const drawn = drawFoldDimension(
         page,
         font,
         entry.flap,
         entry.rect,
         offsetInches,
         others,
-        hasSectionChain,
+        chainX,
       );
+      if (drawn) {
+        foldDimRects.push(drawn);
+      }
     }
   }
+
+  const obstacles = [...planned.map((entry) => entry.rect), ...foldDimRects];
 
   // Callout columns: Left-wall openings hang on the west side, everything
   // else on the east side.
@@ -659,9 +851,20 @@ function drawOpeningsOnFlaps(
   // edge, so the west lane sits toward the outer page edge.
   const westLaneCx = exploded.x + (center.x - exploded.x) * 0.32;
 
-  const sides: { list: PlannedOpening[]; laneCx: number }[] = [
-    { list: planned.filter((entry) => entry.flap.wall !== "LEFT"), laneCx: eastLaneCx },
-    { list: planned.filter((entry) => entry.flap.wall === "LEFT"), laneCx: westLaneCx },
+  const sides: { list: PlannedOpening[]; laneCx: number; slots: number[] }[] = [
+    {
+      list: planned.filter((entry) => entry.flap.wall !== "LEFT"),
+      laneCx: eastLaneCx,
+      slots: slotTops,
+    },
+    {
+      // The upper-west quadrant holds the TOP SLAB detail box on the sheet
+      // artwork (all variants), so west callouts only use the below-cross
+      // slots.
+      list: planned.filter((entry) => entry.flap.wall === "LEFT"),
+      laneCx: westLaneCx,
+      slots: slotTops.slice(2),
+    },
   ];
 
   for (const side of sides) {
@@ -669,33 +872,68 @@ function drawOpeningsOnFlaps(
       continue;
     }
     // Top-most opening gets the top-most slot, preserving vertical order so
-    // leaders never cross; among order-preserving choices, each callout
-    // takes the slot nearest its opening.
+    // leaders on a side never cross each other. Among order-preserving
+    // choices, prefer slots whose leader clears every knockout and fold
+    // dimension; among those, take the slot nearest the opening.
     const ordered = [...side.list].sort(
       (a, b) => b.rect.y + b.rect.height / 2 - (a.rect.y + a.rect.height / 2),
     );
     let nextSlot = 0;
     ordered.forEach((entry, position) => {
+      const layout = calloutLayout(entry, font);
       const remaining = ordered.length - position;
-      const lastUsable = Math.max(slotTops.length - remaining, nextSlot);
-      let bestIdx = Math.min(nextSlot, slotTops.length - 1);
+      const lastUsable = Math.max(side.slots.length - remaining, nextSlot);
+      let bestIdx = Math.min(nextSlot, side.slots.length - 1);
       let bestDist = Number.POSITIVE_INFINITY;
+      let bestClearIdx = -1;
+      let bestClearDist = Number.POSITIVE_INFINITY;
       for (
         let idx = nextSlot;
-        idx <= Math.min(lastUsable, slotTops.length - 1);
+        idx <= Math.min(lastUsable, side.slots.length - 1);
         idx += 1
       ) {
-        const blockMidY = slotTops[idx] - 26;
+        const blockMidY = side.slots[idx] - 26;
         const dist = Math.abs(blockMidY - (entry.rect.y + entry.rect.height / 2));
         if (dist < bestDist) {
           bestDist = dist;
           bestIdx = idx;
         }
+        const seg = leaderSegmentFor(entry, layout, side.laneCx, side.slots[idx]);
+        const crosses = obstacles.some(
+          (rect) =>
+            rect !== entry.rect &&
+            segmentIntersectsRect(seg.x1, seg.y1, seg.x2, seg.y2, rect, 2),
+        );
+        if (!crosses && dist < bestClearDist) {
+          bestClearDist = dist;
+          bestClearIdx = idx;
+        }
       }
-      nextSlot = bestIdx + 1;
-      drawCalloutBlock(page, font, entry, side.laneCx, slotTops[bestIdx]);
+      const chosen = bestClearIdx >= 0 ? bestClearIdx : bestIdx;
+      nextSlot = chosen + 1;
+      drawCalloutBlock(page, font, entry, layout, side.laneCx, side.slots[chosen]);
     });
   }
+
+  const obstaclesOn = (flap: Flap | null, knockouts: PageRect[]) =>
+    flap
+      ? [
+          ...knockouts,
+          ...foldDimRects.filter(
+            (rect) =>
+              rect.x < flap.x + flap.width &&
+              rect.x + rect.width > flap.x &&
+              rect.y < flap.y + flap.height &&
+              rect.y + rect.height > flap.y,
+          ),
+        ]
+      : [];
+  const downFlap = flaps.find((entry) => entry.wall === "DOWN") ?? null;
+  return {
+    chainX,
+    upFlapObstacles: obstaclesOn(upFlap, upKnockouts),
+    downFlapObstacles: obstaclesOn(downFlap, rectsByWall.get("DOWN") ?? []),
+  };
 }
 
 /** One callout block (size / offset / location / circled letter) + leader. */
@@ -703,17 +941,11 @@ function drawCalloutBlock(
   page: PDFPage,
   font: PDFFont,
   entry: PlannedOpening,
+  layout: CalloutLayout,
   blockCx: number,
   blockTopY: number,
 ): void {
-  const { opening, rect, index } = entry;
-  const letter = opening.label?.trim() || String.fromCharCode(65 + index);
-  const sizeText =
-    opening.openingWidthInches != null && opening.openingHeightInches != null
-      ? `${opening.openingWidthInches}"x${opening.openingHeightInches}"`
-      : letter;
-  const offsetText = baseOffsetText(opening);
-  const location = locationText(opening);
+  const { letter, sizeText, offsetText, location } = layout;
 
   let cursorY = blockTopY;
   // Trailing inch marks read as overhang, so center on the text without
@@ -758,38 +990,15 @@ function drawCalloutBlock(
   });
 
   // Leader from the block's near side to the opening's nearest point, tipped
-  // with an arrowhead.
-  const blockCyMid = (blockTopY + badgeCy - BADGE_RADIUS_PT) / 2;
-  const targetX =
-    blockCx < rect.x
-      ? rect.x
-      : blockCx > rect.x + rect.width
-        ? rect.x + rect.width
-        : blockCx;
-  const targetY =
-    blockCyMid < rect.y
-      ? rect.y
-      : blockCyMid > rect.y + rect.height
-        ? rect.y + rect.height
-        : blockCyMid;
-  const blockHalfWidth =
-    Math.max(
-      font.widthOfTextAtSize(sizeText, CALLOUT_FONT_SIZE_PT),
-      offsetText ? font.widthOfTextAtSize(offsetText, CALLOUT_FONT_SIZE_PT) : 0,
-    ) / 2;
-  const startX =
-    targetX < blockCx
-      ? blockCx - blockHalfWidth - 3
-      : targetX > blockCx
-        ? blockCx + blockHalfWidth + 3
-        : blockCx;
+  // with an arrowhead. Same geometry the slot planner predicted.
+  const seg = leaderSegmentFor(entry, layout, blockCx, blockTopY);
   page.drawLine({
-    start: { x: startX, y: blockCyMid },
-    end: { x: targetX, y: targetY },
+    start: { x: seg.x1, y: seg.y1 },
+    end: { x: seg.x2, y: seg.y2 },
     thickness: 0.7,
     color: BLACK,
   });
-  drawArrowhead(page, targetX, targetY, startX, blockCyMid);
+  drawArrowhead(page, seg.x2, seg.y2, seg.x1, seg.y1);
 }
 
 /** Section joint lines across every flap, labeled on the Up wall's flap. */
@@ -798,18 +1007,54 @@ function drawJointsOnFlaps(
   result: RectStructureResult,
   page: PDFPage,
   font: PDFFont,
+  drawInfo: ExplodedDrawInfo,
 ): void {
   if (result.wallHeightFeet <= EPSILON) {
     return;
   }
-  const upFlap = flaps.find((flap) => flap.wall === "UP");
-  const upRects = upFlap
-    ? result.openings
-        .filter((opening) => opening.wall === "UP")
-        .map((opening) => openingRectOnFlap(upFlap, opening, result))
-        .filter((rect): rect is PageRect => rect != null)
-    : [];
-  const hasSectionChain = result.sections.length > 1;
+
+  const upFlap = flaps.find((flap) => flap.wall === "UP") ?? null;
+  const downFlap = flaps.find((flap) => flap.wall === "DOWN") ?? null;
+
+  // Rightmost spot along the flap's joint line clear of knockouts, fold
+  // dimensions, and (on the Up flap) the section chain; null when the whole
+  // line is covered.
+  const clearLabelX = (
+    flap: Flap,
+    obstacles: PageRect[],
+    chainX: number | null,
+    labelY: number,
+    labelWidth: number,
+  ): number | null => {
+    const blocked = obstacles
+      .filter(
+        (rect) =>
+          labelY < rect.y + rect.height + 2 &&
+          labelY + SMALL_FONT_SIZE_PT > rect.y - 2,
+      )
+      .map((rect) => ({ lo: rect.x - 3, hi: rect.x + rect.width + 3 }));
+    if (chainX != null) {
+      blocked.push({ lo: flap.x, hi: chainX + SECTION_CHAIN_CLEARANCE_PT });
+    }
+    blocked.sort((a, b) => a.lo - b.lo);
+
+    const gaps: { lo: number; hi: number }[] = [];
+    let cursor = flap.x + 4;
+    const rightEdge = flap.x + flap.width - 4;
+    for (const zone of blocked) {
+      if (zone.lo > cursor) {
+        gaps.push({ lo: cursor, hi: Math.min(zone.lo, rightEdge) });
+      }
+      cursor = Math.max(cursor, zone.hi);
+    }
+    if (cursor < rightEdge) {
+      gaps.push({ lo: cursor, hi: rightEdge });
+    }
+    const fit = [...gaps]
+      .reverse()
+      .find((gap) => gap.hi - gap.lo >= labelWidth + 2);
+    return fit ? Math.max(fit.lo + 1, fit.hi - labelWidth - 1) : null;
+  };
 
   for (const joint of sectionJointHeightsFeet(result)) {
     const upFrac = joint.heightFromFloorFeet / result.wallHeightFeet;
@@ -817,41 +1062,76 @@ function drawJointsOnFlaps(
       continue;
     }
     for (const flap of flaps) {
-      const start = flap.point(0, upFrac);
-      const end = flap.point(1, upFrac);
       page.drawLine({
-        start,
-        end,
+        start: flap.point(0, upFrac),
+        end: flap.point(1, upFrac),
         thickness: LINE_WIDTH_PT,
         color: BLACK,
         dashArray: [4, 2],
       });
-      if (flap.wall === "UP") {
-        // Label INSIDE the flap (the outside lane belongs to callout
-        // leaders), right-aligned above the dashed line; fall back to the
-        // left side when an opening sits under it.
-        const label = joint.keyed ? "KEYED JOINT" : "JOINT";
-        const labelWidth = font.widthOfTextAtSize(label, SMALL_FONT_SIZE_PT);
-        const labelY = Math.min(start.y, end.y) + 2;
-        let labelX = flap.x + flap.width - labelWidth - 4;
-        const collides = upRects.some(
-          (rect) =>
-            labelX < rect.x + rect.width &&
-            labelX + labelWidth > rect.x &&
-            labelY < rect.y + rect.height &&
-            labelY + SMALL_FONT_SIZE_PT > rect.y,
-        );
-        if (collides) {
-          labelX = flap.x + (hasSectionChain ? 44 : 4);
-        }
-        page.drawText(label, {
-          x: labelX,
-          y: labelY,
-          size: SMALL_FONT_SIZE_PT,
-          font,
-          color: BLACK,
-        });
+    }
+
+    // Label INSIDE a flap (the outside lane belongs to callout leaders),
+    // just above the dashed line: the Up flap's rightmost clear gap, the
+    // Down flap's when a wide knockout covers the Up line entirely, and
+    // right-aligned on the Up flap as the all-blocked fallback.
+    const label = joint.keyed ? "KEYED JOINT" : "JOINT";
+    const labelWidth = font.widthOfTextAtSize(label, SMALL_FONT_SIZE_PT);
+    let spot: { x: number; y: number } | null = null;
+    if (upFlap) {
+      const labelY = Math.min(upFlap.point(0, upFrac).y, upFlap.point(1, upFrac).y) + 2;
+      const x = clearLabelX(
+        upFlap,
+        drawInfo.upFlapObstacles,
+        drawInfo.chainX,
+        labelY,
+        labelWidth,
+      );
+      if (x != null) {
+        spot = { x, y: labelY };
       }
+    }
+    if (!spot && downFlap) {
+      const labelY =
+        Math.min(downFlap.point(0, upFrac).y, downFlap.point(1, upFrac).y) + 2;
+      const x = clearLabelX(
+        downFlap,
+        drawInfo.downFlapObstacles,
+        null,
+        labelY,
+        labelWidth,
+      );
+      if (x != null) {
+        spot = { x, y: labelY };
+      }
+    }
+    if (!spot && upFlap) {
+      // Every flap's line is covered (only possible when an opening crosses
+      // the joint, which computeRectStructure already warns about): sit
+      // right-aligned above whatever covers that corner instead of printing
+      // through the knockout's X.
+      const x = upFlap.x + upFlap.width - labelWidth - 4;
+      let y = Math.min(upFlap.point(0, upFrac).y, upFlap.point(1, upFrac).y) + 2;
+      for (const rect of drawInfo.upFlapObstacles) {
+        if (
+          x < rect.x + rect.width &&
+          x + labelWidth > rect.x &&
+          y < rect.y + rect.height &&
+          y + SMALL_FONT_SIZE_PT > rect.y
+        ) {
+          y = Math.max(y, rect.y + rect.height + 2);
+        }
+      }
+      spot = { x, y };
+    }
+    if (spot) {
+      page.drawText(label, {
+        x: spot.x,
+        y: spot.y,
+        size: SMALL_FONT_SIZE_PT,
+        font,
+        color: BLACK,
+      });
     }
   }
 }
@@ -892,6 +1172,7 @@ function drawSectionDimsOnUpFlap(
   result: RectStructureResult,
   page: PDFPage,
   font: PDFFont,
+  drawInfo: ExplodedDrawInfo,
 ): void {
   if (result.sections.length < 2 || result.wallHeightFeet <= EPSILON) {
     return;
@@ -900,11 +1181,18 @@ function drawSectionDimsOnUpFlap(
   if (!flap) {
     return;
   }
-  const dimX = flap.x + 14;
-  const upRects = result.openings
-    .filter((opening) => opening.wall === "UP")
-    .map((opening) => openingRectOnFlap(flap, opening, result))
-    .filter((rect): rect is PageRect => rect != null);
+  const dimX = drawInfo.chainX ?? flap.x + 14;
+  const upRects = drawInfo.upFlapObstacles;
+
+  // Knockouts the chain's strip still crosses (when the whole scan range was
+  // blocked): the line breaks around them instead of running through.
+  const strip = upRects.filter(
+    (rect) =>
+      dimX + ARROW_HALF_WIDTH_PT > rect.x &&
+      dimX - ARROW_HALF_WIDTH_PT < rect.x + rect.width,
+  );
+  const insideStrip = (y: number) =>
+    strip.some((rect) => y > rect.y - 2 && y < rect.y + rect.height + 2);
 
   let cursorFeet = 0;
   for (const section of result.sections) {
@@ -912,15 +1200,35 @@ function drawSectionDimsOnUpFlap(
     cursorFeet += section.heightFeet;
     const y1 = flap.y + (cursorFeet / result.wallHeightFeet) * flap.height;
 
-    page.drawLine({
-      start: { x: dimX, y: y0 },
-      end: { x: dimX, y: y1 },
-      thickness: 0.7,
-      color: BLACK,
-    });
+    // Split the segment at knockout edges and draw only the clear runs.
+    const cuts = [y0, y1];
+    for (const rect of strip) {
+      if (rect.y > y0 && rect.y < y1) {
+        cuts.push(rect.y);
+      }
+      if (rect.y + rect.height > y0 && rect.y + rect.height < y1) {
+        cuts.push(rect.y + rect.height);
+      }
+    }
+    cuts.sort((a, b) => a - b);
+    for (let i = 0; i < cuts.length - 1; i += 1) {
+      const mid = (cuts[i] + cuts[i + 1]) / 2;
+      if (!insideStrip(mid)) {
+        page.drawLine({
+          start: { x: dimX, y: cuts[i] },
+          end: { x: dimX, y: cuts[i + 1] },
+          thickness: 0.7,
+          color: BLACK,
+        });
+      }
+    }
     if (y1 - y0 > ARROW_LENGTH_PT * 2 + 2) {
-      drawArrowhead(page, dimX, y0, dimX, y1);
-      drawArrowhead(page, dimX, y1, dimX, y0);
+      if (!insideStrip(y0 + 1)) {
+        drawArrowhead(page, dimX, y0, dimX, y1);
+      }
+      if (!insideStrip(y1 - 1)) {
+        drawArrowhead(page, dimX, y1, dimX, y0);
+      }
     }
     const text = `${Math.round(section.heightFeet * 12)}"`;
     const textX = dimX + 4;
@@ -1034,9 +1342,16 @@ export async function fillRectSheetTemplatePdf(
   );
   if (exploded && center) {
     const flaps = buildFlaps(exploded, center);
-    drawOpeningsOnFlaps(flaps, exploded, center, result, exploded.page, font);
-    drawJointsOnFlaps(flaps, result, exploded.page, font);
-    drawSectionDimsOnUpFlap(flaps, result, exploded.page, font);
+    const drawInfo = drawOpeningsOnFlaps(
+      flaps,
+      exploded,
+      center,
+      result,
+      exploded.page,
+      font,
+    );
+    drawJointsOnFlaps(flaps, result, exploded.page, font, drawInfo);
+    drawSectionDimsOnUpFlap(flaps, result, exploded.page, font, drawInfo);
   }
 
   const elevationWalls = await consumeMarkerField(

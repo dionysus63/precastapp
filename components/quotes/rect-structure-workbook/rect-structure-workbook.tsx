@@ -17,7 +17,7 @@ import type {
 import { SectionCard } from "@/components/dashboard/section-card";
 import { structureInputClassName } from "@/components/structures/structure-utils";
 import { formatQuoteCurrency } from "@/components/quotes/quote-utils";
-import { formatPounds, RECT_WALL_LABELS, type RectOpeningPlacement, type RectWall } from "@/lib/rect-structure";
+import { formatPounds, RECT_OPENING_TABLE_ROWS, RECT_WALL_LABELS, type RectOpeningPlacement, type RectWall } from "@/lib/rect-structure";
 import {
   parseTsvPaste,
   readWorkbookSession,
@@ -936,6 +936,12 @@ function RowOpeningsEditor({
       <div className="mt-1.5 flex flex-wrap items-center gap-4">
         <button
           type="button"
+          disabled={row.openings.length >= RECT_OPENING_TABLE_ROWS}
+          title={
+            row.openings.length >= RECT_OPENING_TABLE_ROWS
+              ? `The printed openings table has ${RECT_OPENING_TABLE_ROWS} rows (A-E).`
+              : undefined
+          }
           onClick={() =>
             onRowPatch({
               openings: [
@@ -946,7 +952,7 @@ function RowOpeningsEditor({
               ],
             })
           }
-          className="rounded border border-slate-200 bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-700 hover:bg-white"
+          className="rounded border border-slate-200 bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-700 hover:bg-white disabled:opacity-40"
         >
           + Opening
         </button>

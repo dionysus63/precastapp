@@ -15,6 +15,7 @@ import {
 import {
   computeRectStructure,
   formatPounds,
+  RECT_OPENING_TABLE_ROWS,
   RECT_WALL_LABELS,
   type RectOpeningPlacement,
   type RectStructureInput,
@@ -707,10 +708,16 @@ export function RectSheetForm({
             action={
               <button
                 type="button"
+                disabled={openings.length >= RECT_OPENING_TABLE_ROWS}
+                title={
+                  openings.length >= RECT_OPENING_TABLE_ROWS
+                    ? `The printed openings table has ${RECT_OPENING_TABLE_ROWS} rows (A-E).`
+                    : undefined
+                }
                 onClick={() =>
                   setOpenings((current) => [...current, createOpening()])
                 }
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
               >
                 Add Opening
               </button>
