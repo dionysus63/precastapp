@@ -12,7 +12,7 @@ import {
   readRectPdfSetFileBytes,
   saveRectPdfSetFile,
 } from "@/lib/rect-pdf-set-service";
-import { RECT_SHEET_TEMPLATE_FIELD_NAMES } from "@/lib/rect-template-pdf-fields";
+import { rectVariantExpectedFieldNames } from "@/lib/rect-template-pdf-fields";
 import { prisma } from "@/lib/prisma";
 import { translatePrismaError } from "@/lib/server/action-errors";
 
@@ -113,7 +113,7 @@ export async function uploadRectPdfSetFileAction(
   const bytes = await readRectPdfSetFileBytes(row);
   const coverage = await listTemplatePdfFields(
     bytes,
-    RECT_SHEET_TEMPLATE_FIELD_NAMES,
+    rectVariantExpectedFieldNames(hasTopSlab, hasBaseSlab),
   );
 
   revalidate();

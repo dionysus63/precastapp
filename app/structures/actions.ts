@@ -7,7 +7,7 @@ import {
   listTemplatePdfFields,
   type TemplatePdfFieldCoverage,
 } from "@/lib/drill-sheet-template-pdf";
-import { RECT_SHEET_TEMPLATE_FIELD_NAMES } from "@/lib/rect-template-pdf-fields";
+import { rectVariantExpectedFieldNames } from "@/lib/rect-template-pdf-fields";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { translatePrismaError } from "@/lib/server/action-errors";
@@ -494,7 +494,7 @@ export async function uploadStructureTemplatePdfAction(
   const coverage = await listTemplatePdfFields(
     bytes,
     template.shape === "RECTANGULAR"
-      ? RECT_SHEET_TEMPLATE_FIELD_NAMES
+      ? rectVariantExpectedFieldNames(hasTopSlab, hasBaseSlab)
       : undefined,
   );
 
@@ -538,7 +538,7 @@ export async function loadStructureTemplatePdfFieldCoverage(
   return listTemplatePdfFields(
     bytes,
     row.template.shape === "RECTANGULAR"
-      ? RECT_SHEET_TEMPLATE_FIELD_NAMES
+      ? rectVariantExpectedFieldNames(row.hasTopSlab, row.hasBaseSlab)
       : undefined,
   );
 }

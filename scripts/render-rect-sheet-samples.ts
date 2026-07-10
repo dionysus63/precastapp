@@ -103,6 +103,65 @@ const SAMPLES: Sample[] = [
       ],
     },
   },
+  {
+    // No-top variant with a split: joint lines must land on the taller
+    // elevation wall band of the notopslab layouts.
+    name: "no-top-split",
+    payload: {
+      ...base,
+      structureNumber: "S4",
+      rimElevation: "100",
+      insideLengthFeet: "4",
+      insideWidthFeet: "4",
+      hasTopSlab: false,
+      topSlabOpeningLengthInches: "",
+      topSlabOpeningWidthInches: "",
+      sectionHeightsFeet: ["2.5", "2"],
+      jointKeys: [true],
+      openings: [
+        opening({ label: "A", wall: "UP", invertElevation: "95.5" }),
+        opening({ label: "B", wall: "RIGHT", invertElevation: "96.4" }),
+      ],
+    },
+  },
+  {
+    // Open bottom (X'd cross center): opening touching a wall end near the
+    // fold line, plus a separate base weight must NOT print.
+    name: "no-base-touch-end",
+    payload: {
+      ...base,
+      structureNumber: "S5",
+      rimElevation: "100",
+      insideLengthFeet: "4",
+      insideWidthFeet: "4",
+      hasBaseSlab: false,
+      baseAttached: false,
+      openings: [
+        opening({ label: "A", wall: "UP", pipeSizeInches: "15", invertElevation: "95.2", placement: "TOUCH_LEFT" }),
+        opening({ label: "B", wall: "DOWN", invertElevation: "96.6" }),
+      ],
+    },
+  },
+  {
+    // Fully open top + bottom on a single pour.
+    name: "open-top-bottom",
+    payload: {
+      ...base,
+      structureNumber: "S6",
+      rimElevation: "100",
+      insideLengthFeet: "6",
+      insideWidthFeet: "4",
+      hasTopSlab: false,
+      hasBaseSlab: false,
+      baseAttached: false,
+      topSlabOpeningLengthInches: "",
+      topSlabOpeningWidthInches: "",
+      openings: [
+        opening({ label: "A", wall: "LEFT", invertElevation: "96" }),
+        opening({ label: "B", wall: "RIGHT", invertElevation: "96.8" }),
+      ],
+    },
+  },
 ];
 
 async function main() {

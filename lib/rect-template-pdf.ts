@@ -1,9 +1,10 @@
-// Fills a calibrated rectangular-structure template PDF (AcroForm) and draws
-// the app-generated line work.
+// Fills a rectangular-structure template PDF (AcroForm) and draws the
+// app-generated line work.
 //
-// The calibrated template (scripts/calibrate-rect-templates.ts) carries the
-// static artwork plus text fields; three marker fields tell the app where to
-// draw (see lib/rect-template-pdf-fields.ts):
+// The template (Nick's fillable PDFs, enriched with markers by
+// scripts/import-rect-sheet-pdfs.ts) carries the static artwork plus text
+// fields; marker fields tell the app where to draw (see
+// lib/rect-template-pdf-fields.ts):
 //   - rect_exploded_view / rect_exploded_center: the unfolded box cross on
 //     the right. Flaps = walls (Up, Right, Down, Left). Openings,
 //     their size/location annotations, and section joint lines draw here.
@@ -113,14 +114,14 @@ export function buildRectSheetFieldMap(
     contractor: meta.contractor,
     project: meta.project,
     date: extras.date ?? "",
-    box_no: meta.structureNumber,
+    catch_basin_name: meta.structureNumber,
     wall_thickness: wholeInches(result.wallThicknessFeet),
-    base_note: baseNote,
+    base: baseNote,
     casting: meta.castingName ?? "",
     // Exploded view dims
-    inside_length_inches: wholeInches(result.insideLengthFeet),
-    inside_width_inches: wholeInches(result.insideWidthFeet),
-    wall_height_inches: wholeInches(result.wallHeightFeet),
+    length: wholeInches(result.insideLengthFeet),
+    width: wholeInches(result.insideWidthFeet),
+    height: wholeInches(result.wallHeightFeet),
     // Elevation thickness stack
     casting_thickness_inches: wholeInches(result.castingHeightFeet),
     brick_thickness_inches: wholeInches(result.brickFeet),
@@ -130,27 +131,19 @@ export function buildRectSheetFieldMap(
     base_slab_thickness_inches: result.hasBaseSlab
       ? wholeInches(result.baseSlabThicknessFeet)
       : "",
-    // Elevation ladder
+    // Elevation ladder. Walls end at the bottom of the top slab (when there
+    // is one) and start at the floor (top of base slab, or grade).
     rim_elevation: feet2(rim),
-    rim_elevation_drawing: feet2(rim),
-    wall_height_stack_inches: wholeInches(result.wallHeightFeet),
     bottom_casting_elevation: feet2(bottomCasting),
     top_of_top_slab_elevation: result.hasTopSlab ? feet2(topSlabTop) : "",
-    bottom_of_top_slab_elevation: result.hasTopSlab ? feet2(topSlabBottom) : "",
-    top_of_wall_elevation: !result.hasTopSlab ? feet2(topSlabTop) : "",
-    top_of_bottom_slab_elevation: feet2(result.floorElevation),
+    top_of_wall_elevation: result.hasTopSlab
+      ? feet2(topSlabBottom)
+      : feet2(topSlabTop),
+    bottom_of_wall_elevation: feet2(result.floorElevation),
     bottom_of_bottom_slab_elevation:
       result.hasBaseSlab && result.floorElevation != null
         ? feet2(result.floorElevation - result.baseSlabThicknessFeet)
         : "",
-    // Height-math ladder (decimal feet)
-    low_invert: feet2(result.lowInvertElevation),
-    invert_to_top: feet2(result.invertToTopFeet),
-    casting_minus: feet2(result.castingHeightFeet),
-    brick_minus: feet2(result.brickFeet),
-    top_slab_minus: feet2(result.topSlabThicknessFeet),
-    sump_plus: feet2(result.sumpFeet),
-    wall_height: feet2(result.wallHeightFeet),
     // Top slab detail box (outside dims; slab is flush with the walls)
     top_slab_length: result.hasTopSlab
       ? wholeInches(result.outsideLengthFeet)
@@ -158,7 +151,7 @@ export function buildRectSheetFieldMap(
     top_slab_width: result.hasTopSlab
       ? wholeInches(result.outsideWidthFeet)
       : "",
-    // Piece weights (upper right)
+    // Piece weights
     weight_top_slab: weightLine("Top Slab", result.weights.topSlabLbs),
     weight_base: weightLine("Base", result.weights.baseSlabLbs),
   };
@@ -990,6 +983,16 @@ function drawTopSlabOpening(
   });
 }
 
+function fixedFontSizeFor(fieldName: string): number {
+  if (fieldName.startsWith("weight_")) {
+    return 7;
+  }
+  if (fieldName.startsWith("type_")) {
+    return 8;
+  }
+  return 10;
+}
+
 /**
  * Fills the template's text fields and draws the dynamic line work on the
  * marker fields. Returns the modified PDF bytes (fields still interactive;
@@ -1007,6 +1010,12 @@ export async function fillRectSheetTemplatePdf(
   for (const [name, value] of Object.entries(fieldMap)) {
     try {
       const field = form.getTextField(name);
+      // Acrobat-authored fields often use auto-size ("0 Tf"); pdf-lib then
+      // scales short values to fill the widget height, so pin a sane size.
+      const da = field.acroField.getDefaultAppearance() ?? "";
+      if (/\b0(?:\.0+)?\s+Tf\b/.test(da)) {
+        field.setFontSize(fixedFontSizeFor(name));
+      }
       field.setText(value);
     } catch {
       // Field not present in this template variant — skip.

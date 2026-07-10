@@ -7,7 +7,7 @@ import {
 } from "@/components/structures/rect-pdf-set-manager";
 import { listTemplatePdfFields } from "@/lib/drill-sheet-template-pdf";
 import { readRectPdfSetFileBytes } from "@/lib/rect-pdf-set-service";
-import { RECT_SHEET_TEMPLATE_FIELD_NAMES } from "@/lib/rect-template-pdf-fields";
+import { rectVariantExpectedFieldNames } from "@/lib/rect-template-pdf-fields";
 import { prisma } from "@/lib/prisma";
 
 const SLOT_DEFINITIONS = [
@@ -43,7 +43,7 @@ export default async function RectPdfSetsPage() {
             const bytes = await readRectPdfSetFileBytes(file);
             const coverage = await listTemplatePdfFields(
               bytes,
-              RECT_SHEET_TEMPLATE_FIELD_NAMES,
+              rectVariantExpectedFieldNames(slot.hasTopSlab, slot.hasBaseSlab),
             );
             return {
               ...slot,
@@ -54,7 +54,8 @@ export default async function RectPdfSetsPage() {
                   file.uploadedAt,
                 ),
                 matched: coverage.matched.length,
-                missing: coverage.missingFromPdf.length,
+                unmatched: coverage.unmatched,
+                missing: coverage.missingFromPdf,
                 loadError: null,
               },
             };
@@ -68,7 +69,8 @@ export default async function RectPdfSetsPage() {
                   file.uploadedAt,
                 ),
                 matched: 0,
-                missing: 0,
+                unmatched: [],
+                missing: [],
                 loadError:
                   error instanceof Error
                     ? error.message

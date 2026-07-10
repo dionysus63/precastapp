@@ -1,3 +1,8 @@
+// LEGACY — superseded by scripts/import-rect-sheet-pdfs.ts (2026-07-10).
+// Nick now authors fillable PDFs directly; this script's field names predate
+// the current convention in lib/rect-template-pdf-fields.ts. Kept only to
+// document how the old "Catch Basin Standard" set was produced.
+//
 // Calibrates Nick's 4-page rectangular-structure template PDF into four
 // upload-ready fillable variants (top slab x base slab).
 //

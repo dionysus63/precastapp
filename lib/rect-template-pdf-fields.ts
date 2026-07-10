@@ -1,17 +1,20 @@
 // AcroForm field-name conventions for rectangular structure template PDFs.
 // Constants only (no pdf-lib import) so client components can list them.
 //
-// Rectangular templates upload FOUR variant PDFs (top slab x base slab),
-// generated from Nick's AutoCAD master by scripts/calibrate-rect-templates.ts.
-// The app fills the text fields and draws openings, joints, and the top-slab
-// opening onto the marker fields.
+// Rectangular templates upload FOUR variant PDFs (top slab x base slab).
+// Nick authors them with fillable fields (Word/Acrobat); the one-time
+// scripts/import-rect-sheet-pdfs.ts run injects the invisible marker fields
+// and the piece-weights block, producing "enriched masters" that upload via
+// Structures -> Rect PDF Sets. The app fills the text fields and draws
+// openings, joints, and the top-slab opening onto the marker fields.
 //
-// Sheet layout (landscape letter): header block top-left; section elevation
+// Sheet layout (landscape letter): header block upper-left; section elevation
 // left with a thickness stack (inches) and elevation ladder; openings table
-// (rows A-E: INVERT | DIA | TYPE) bottom-left; height-math ladder in decimal
-// feet bottom-center; TOP SLAB detail box top-center; unfolded "exploded
-// view" cross on the right (flaps = walls: Up, Right, Down, Left);
-// piece-weights block upper right.
+// (rows A-E: INVERT | DIA | TYPE) lower-left; TOP SLAB detail box top-center
+// ("NO TOP SLAB" artwork on no-top variants); unfolded "exploded view" cross
+// on the right (flaps = walls: Up, Right, Down, Left; the CENTER square is
+// the base slab, X'd out on no-base variants); piece-weights block injected
+// into blank space.
 
 /**
  * Marker over the full exploded-view cross (all four flaps). Combined with
@@ -20,7 +23,7 @@
  */
 export const RECT_EXPLODED_MARKER_FIELD = "rect_exploded_view";
 
-/** Marker over the exploded view's center square (the floor plan). */
+/** Marker over the exploded view's center square (the base-slab plan). */
 export const RECT_EXPLODED_CENTER_MARKER_FIELD = "rect_exploded_center";
 
 /**
@@ -40,23 +43,23 @@ export const RECT_TOP_SLAB_MARKER_FIELD = "rect_top_slab_box";
 /** Opening table rows on the sheet (A-E). */
 export const RECT_OPENING_ROWS = ["a", "b", "c", "d", "e"] as const;
 
-/** Piece-weight lines available in the upper-right weights block. */
+/** Piece-weight lines available in the weights block. */
 export const RECT_WEIGHT_PIECE_LINES = 4;
 
-/** AcroForm field names expected in calibrated rectangular template PDFs. */
+/** AcroForm field names expected in rectangular template PDFs. */
 export const RECT_SHEET_TEMPLATE_FIELD_NAMES = [
   // Header block
   "contractor",
   "project",
   "date",
-  "box_no",
+  "catch_basin_name",
   "wall_thickness",
-  "base_note",
+  "base",
   "casting",
   // Exploded-view dimensions (inches text, e.g. 48")
-  "inside_length_inches",
-  "inside_width_inches",
-  "wall_height_inches",
+  "length",
+  "width",
+  "height",
   // Elevation thickness stack (inches text)
   "casting_thickness_inches",
   "brick_thickness_inches",
@@ -64,33 +67,22 @@ export const RECT_SHEET_TEMPLATE_FIELD_NAMES = [
   "base_slab_thickness_inches",
   // Elevation ladder (decimal elevations; variants carry the rows they show)
   "rim_elevation",
-  "rim_elevation_drawing",
-  "wall_height_stack_inches",
   "bottom_casting_elevation",
   "top_of_top_slab_elevation",
-  "bottom_of_top_slab_elevation",
   "top_of_wall_elevation",
-  "top_of_bottom_slab_elevation",
+  "bottom_of_wall_elevation",
   "bottom_of_bottom_slab_elevation",
-  // Height-math ladder (decimal feet)
-  "low_invert",
-  "invert_to_top",
-  "casting_minus",
-  "brick_minus",
-  "top_slab_minus",
-  "sump_plus",
-  "wall_height",
   // Top slab detail box dims (top-slab variants only)
   "top_slab_length",
   "top_slab_width",
-  // Piece weights (upper right)
+  // Piece weights (injected by the import script)
   "weight_top_slab",
   "weight_base",
   ...Array.from(
     { length: RECT_WEIGHT_PIECE_LINES },
     (_, i) => `weight_piece_${i + 1}`,
   ),
-  // Markers the app draws on
+  // Markers the app draws on (injected by the import script)
   RECT_EXPLODED_MARKER_FIELD,
   RECT_EXPLODED_CENTER_MARKER_FIELD,
   RECT_ELEVATION_WALL_MARKER_FIELD,
@@ -102,3 +94,35 @@ export const RECT_SHEET_TEMPLATE_FIELD_NAMES = [
     ),
   ),
 ] as const;
+
+/** Field names only present on top-slab variants. */
+const TOP_SLAB_ONLY_FIELDS = new Set<string>([
+  "top_of_top_slab_elevation",
+  "top_slab_thickness_inches",
+  "top_slab_length",
+  "top_slab_width",
+  "weight_top_slab",
+  RECT_TOP_SLAB_MARKER_FIELD,
+]);
+
+/** Field names only present on base-slab variants. */
+const BASE_SLAB_ONLY_FIELDS = new Set<string>([
+  "bottom_of_bottom_slab_elevation",
+  "base_slab_thickness_inches",
+  "weight_base",
+]);
+
+/**
+ * Expected field names for one variant slot: the master list minus the
+ * slab-specific fields the variant's layout does not carry.
+ */
+export function rectVariantExpectedFieldNames(
+  hasTopSlab: boolean,
+  hasBaseSlab: boolean,
+): string[] {
+  return RECT_SHEET_TEMPLATE_FIELD_NAMES.filter(
+    (name) =>
+      (hasTopSlab || !TOP_SLAB_ONLY_FIELDS.has(name)) &&
+      (hasBaseSlab || !BASE_SLAB_ONLY_FIELDS.has(name)),
+  );
+}

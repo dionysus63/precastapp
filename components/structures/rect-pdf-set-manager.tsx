@@ -22,7 +22,10 @@ export type RectPdfSetSlotView = {
     originalName: string;
     uploadedAt: string;
     matched: number;
-    missing: number;
+    /** Field names present in the PDF but not in the convention. */
+    unmatched: string[];
+    /** Convention field names this variant expects but the PDF lacks. */
+    missing: string[];
     loadError: string | null;
   } | null;
 };
@@ -180,21 +183,46 @@ function RectPdfSetCard({
                   {slot.label}
                 </h4>
                 {slot.file ? (
-                  <p className="mt-0.5 text-[11px] text-slate-600">
-                    {slot.file.originalName} · {slot.file.uploadedAt}
+                  <div className="mt-0.5 text-[11px] text-slate-600">
+                    <p>
+                      {slot.file.originalName} · {slot.file.uploadedAt}
+                    </p>
                     {slot.file.loadError ? (
-                      <span className="block text-rose-700">
-                        {slot.file.loadError}
-                      </span>
+                      <p className="text-rose-700">{slot.file.loadError}</p>
                     ) : (
-                      <span className="block text-slate-500">
-                        {slot.file.matched} fields matched
-                        {slot.file.missing > 0
-                          ? ` · ${slot.file.missing} convention fields missing`
-                          : ""}
-                      </span>
+                      <>
+                        <p>
+                          <span className="font-medium text-green-700">
+                            {slot.file.matched} matched
+                          </span>
+                          {" · "}
+                          <span
+                            className={
+                              slot.file.missing.length > 0
+                                ? "font-medium text-amber-700"
+                                : "font-medium text-slate-500"
+                            }
+                          >
+                            {slot.file.missing.length} missing
+                          </span>
+                          {" · "}
+                          <span className="font-medium text-slate-500">
+                            {slot.file.unmatched.length} unmatched in PDF
+                          </span>
+                        </p>
+                        {slot.file.missing.length > 0 ? (
+                          <p className="text-amber-700">
+                            Missing: {slot.file.missing.join(", ")}
+                          </p>
+                        ) : null}
+                        {slot.file.unmatched.length > 0 ? (
+                          <p className="text-slate-500">
+                            Unmatched PDF fields: {slot.file.unmatched.join(", ")}
+                          </p>
+                        ) : null}
+                      </>
                     )}
-                  </p>
+                  </div>
                 ) : (
                   <p className="mt-0.5 text-[11px] text-slate-500">
                     No PDF uploaded.

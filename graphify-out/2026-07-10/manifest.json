@@ -1255,8 +1255,8 @@
     "semantic_hash": ""
   },
   "app/structures/actions.ts": {
-    "mtime": 1783693918.3914752,
-    "ast_hash": "c656c3c3daf84fa039df6612f1224db1",
+    "mtime": 1783601813.1125896,
+    "ast_hash": "0a225e009bc1cfc0f01af4c5541d780f",
     "semantic_hash": ""
   },
   "app/structures/page.tsx": {
@@ -2690,13 +2690,13 @@
     "semantic_hash": ""
   },
   "lib/rect-template-pdf-fields.ts": {
-    "mtime": 1783693574.2189126,
-    "ast_hash": "68e28b14fd6c2174078377f3431b8cbe",
+    "mtime": 1783379476.8898213,
+    "ast_hash": "5145d26250f2140bf3a8cfd9475c8f3e",
     "semantic_hash": ""
   },
   "lib/rect-template-pdf.ts": {
-    "mtime": 1783693640.1153505,
-    "ast_hash": "a199c09cc8f232d0d73b721ebe8b334f",
+    "mtime": 1783380963.838233,
+    "ast_hash": "c274c82b92861a513434937bf02f5667",
     "semantic_hash": ""
   },
   "prisma/migrations/20260706100000_rect_structures/migration.sql": {
@@ -2710,8 +2710,8 @@
     "semantic_hash": ""
   },
   "scripts/calibrate-rect-templates.ts": {
-    "mtime": 1783693799.6901536,
-    "ast_hash": "3d2cec5618ac8069cd42cb609484ab30",
+    "mtime": 1783379476.8917933,
+    "ast_hash": "a462c1ab706c8c6e0c4d2d1c93580240",
     "semantic_hash": ""
   },
   "assets/templates/rect-calibrated/notopslab-base.pdf": {
@@ -2795,18 +2795,18 @@
     "semantic_hash": ""
   },
   "app/structures/rect-pdf-sets/actions.ts": {
-    "mtime": 1783693895.7224445,
-    "ast_hash": "d78faee00228fb0247444ab88d47bcb7",
+    "mtime": 1783363434.78548,
+    "ast_hash": "59f326bb324e332979bc30530b7380b1",
     "semantic_hash": ""
   },
   "app/structures/rect-pdf-sets/page.tsx": {
-    "mtime": 1783693859.9469228,
-    "ast_hash": "4b2cfadc9e16d9cc3c355d3818785144",
+    "mtime": 1783363482.056864,
+    "ast_hash": "7e0d8852812aeffc528f8e20e022bb10",
     "semantic_hash": ""
   },
   "components/structures/rect-pdf-set-manager.tsx": {
-    "mtime": 1783693877.228727,
-    "ast_hash": "270ea0f68a03973dcafd08961077a731",
+    "mtime": 1783363466.0825894,
+    "ast_hash": "2af3acfd130296b3420940acf45a76f9",
     "semantic_hash": ""
   },
   "lib/rect-pdf-set-service.ts": {
@@ -2870,8 +2870,8 @@
     "semantic_hash": ""
   },
   "scripts/render-rect-sheet-samples.ts": {
-    "mtime": 1783694374.418061,
-    "ast_hash": "2e2bfdad211f45e0a1e02a52c0f4172e",
+    "mtime": 1783380376.9461627,
+    "ast_hash": "612ff9b4258c8f802b85480aca6a9aa4",
     "semantic_hash": ""
   },
   "app/delivery-tickets/plan/page.tsx": {
@@ -3112,51 +3112,6 @@
   "components/quotes/delete-quote-button.tsx": {
     "mtime": 1783638665.7671585,
     "ast_hash": "ed8a5cf8711f7d2a29148c340ca0caf1",
-    "semantic_hash": ""
-  },
-  "scripts/import-rect-sheet-pdfs.ts": {
-    "mtime": 1783694262.568989,
-    "ast_hash": "8ad326928e809d9dd6b6e95ec4cd6f14",
-    "semantic_hash": ""
-  },
-  "assets/templates/rect-imported/notopslab-base.pdf": {
-    "mtime": 1783694299.1678255,
-    "ast_hash": "12680cecb53306076ee8a5e2c81d25d6",
-    "semantic_hash": ""
-  },
-  "assets/templates/rect-imported/notopslab-nobase.pdf": {
-    "mtime": 1783694299.2320666,
-    "ast_hash": "d502d928b942ab13063414978cc6edba",
-    "semantic_hash": ""
-  },
-  "assets/templates/rect-imported/topslab-base.pdf": {
-    "mtime": 1783694299.039416,
-    "ast_hash": "b0f65d2bbab2647b6b0034a2dd0f96d6",
-    "semantic_hash": ""
-  },
-  "assets/templates/rect-imported/topslab-nobase.pdf": {
-    "mtime": 1783694299.1058197,
-    "ast_hash": "0ce9eda31c38e503a203b0aba471f2aa",
-    "semantic_hash": ""
-  },
-  "assets/templates/rect-pdf-sets/cmrf1j65l0000wgv8ytbp1jef/notopslab-base.pdf": {
-    "mtime": 1783694299.9195344,
-    "ast_hash": "12680cecb53306076ee8a5e2c81d25d6",
-    "semantic_hash": ""
-  },
-  "assets/templates/rect-pdf-sets/cmrf1j65l0000wgv8ytbp1jef/notopslab-nobase.pdf": {
-    "mtime": 1783694299.9235497,
-    "ast_hash": "d502d928b942ab13063414978cc6edba",
-    "semantic_hash": ""
-  },
-  "assets/templates/rect-pdf-sets/cmrf1j65l0000wgv8ytbp1jef/topslab-base.pdf": {
-    "mtime": 1783694299.9015477,
-    "ast_hash": "b0f65d2bbab2647b6b0034a2dd0f96d6",
-    "semantic_hash": ""
-  },
-  "assets/templates/rect-pdf-sets/cmrf1j65l0000wgv8ytbp1jef/topslab-nobase.pdf": {
-    "mtime": 1783694299.9125235,
-    "ast_hash": "0ce9eda31c38e503a203b0aba471f2aa",
     "semantic_hash": ""
   }
 }
