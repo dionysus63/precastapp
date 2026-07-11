@@ -1205,8 +1205,8 @@
     "semantic_hash": ""
   },
   "app/drill-sheets/[id]/page.tsx": {
-    "mtime": 1783808089.021283,
-    "ast_hash": "47c1c85d935b2c434ef585a9b58af3bc",
+    "mtime": 1783349669.0866475,
+    "ast_hash": "7f2b5e13b428e1644ec0e4e0ecd6e270",
     "semantic_hash": ""
   },
   "app/drill-sheets/[id]/preview/page.tsx": {
@@ -2655,8 +2655,8 @@
     "semantic_hash": ""
   },
   "components/drill-sheets/rect-sheet-preview.tsx": {
-    "mtime": 1783807954.6899402,
-    "ast_hash": "8bc0b52b44a7d73434e87cb37ac8ec5b",
+    "mtime": 1783372637.384889,
+    "ast_hash": "86c38cb889aa6663bcd3164185ea8478",
     "semantic_hash": ""
   },
   "components/structures/rect-opening-sizes-form.tsx": {
@@ -3157,16 +3157,6 @@
   "assets/templates/rect-pdf-sets/cmrf1j65l0000wgv8ytbp1jef/topslab-nobase.pdf": {
     "mtime": 1783694299.9125235,
     "ast_hash": "0ce9eda31c38e503a203b0aba471f2aa",
-    "semantic_hash": ""
-  },
-  "components/drill-sheets/drill-sheet-job-nav.tsx": {
-    "mtime": 1783808030.8785646,
-    "ast_hash": "e1dbe18d2e436608fb9dc793476693a1",
-    "semantic_hash": ""
-  },
-  "components/drill-sheets/rect-sheet-detail-view.tsx": {
-    "mtime": 1783808015.3248107,
-    "ast_hash": "ab141b0beda8f8929836d98ac990a863",
     "semantic_hash": ""
   }
 }

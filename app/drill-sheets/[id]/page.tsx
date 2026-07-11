@@ -3,8 +3,12 @@ import { notFound } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { DrillSheetPreview } from "@/components/drill-sheets/drill-sheet-preview";
 import { DeleteDrillSheetButton } from "@/components/drill-sheets/delete-drill-sheet-button";
+import {
+  DrillSheetJobNav,
+  type JobSheetNavEntry,
+} from "@/components/drill-sheets/drill-sheet-job-nav";
 import { DrillSheetPdfButton } from "@/components/drill-sheets/drill-sheet-pdf-button";
-import { RectSheetPreview } from "@/components/drill-sheets/rect-sheet-preview";
+import { RectSheetDetailView } from "@/components/drill-sheets/rect-sheet-detail-view";
 import {
   buildDrillSheetDetail,
   drillSheetDetailInclude,
@@ -20,6 +24,34 @@ import { prisma } from "@/lib/prisma";
 type DrillSheetDetailPageProps = {
   params: Promise<{ id: string }>;
 };
+
+/** The job's viewable sheets in natural structure-number order. */
+async function loadJobSheetNav(
+  jobId: string | null,
+): Promise<JobSheetNavEntry[]> {
+  if (!jobId) {
+    return [];
+  }
+  const rows = await prisma.jobStructure.findMany({
+    // Placeholder structures without a calc row have no sheet to view.
+    where: { jobId, calc: { isNot: null } },
+    select: { id: true, structureNumber: true },
+  });
+  return rows
+    .map((row) => ({
+      id: row.id,
+      structureNumber: row.structureNumber ?? "",
+    }))
+    .sort((a, b) =>
+      a.structureNumber.localeCompare(b.structureNumber, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      }),
+    );
+}
+
+const headerButtonClassName =
+  "rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50";
 
 export default async function DrillSheetDetailPage({
   params,
@@ -53,32 +85,44 @@ export default async function DrillSheetDetailPage({
   }
 
   const { meta, result } = detail;
+  const navEntries = await loadJobSheetNav(sheet.jobId);
 
   return (
     <DashboardShell
       title={`Drill Sheet — ${sheet.structureNumber ?? "Untitled"}`}
       subtitle={sheet.structureTemplate?.name ?? "Circular manhole"}
     >
-      <div className="flex items-center justify-between">
-        <Link
-          href="/drill-sheets"
-          className="text-xs font-medium text-slate-500 hover:text-slate-900"
-        >
-          ← Back to Workbook
-        </Link>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-4">
+          <Link
+            href="/drill-sheets"
+            className="text-xs font-medium text-slate-500 hover:text-slate-900"
+          >
+            ← Back to Workbook
+          </Link>
+          <DrillSheetJobNav entries={navEntries} currentId={sheet.id} />
+        </div>
         <div className="flex items-center gap-2">
           <Link
             href={`/drill-sheets/${sheet.id}/edit`}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className={headerButtonClassName}
           >
             Edit
           </Link>
           <Link
             href={`/drill-sheets/${sheet.id}/preview`}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className={headerButtonClassName}
           >
             Preview/Print
           </Link>
+          <a
+            href={`/api/drill-sheets/${sheet.id}/preview`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={headerButtonClassName}
+          >
+            View PDF
+          </a>
           <DrillSheetPdfButton drillSheetId={sheet.id} />
           <DeleteDrillSheetButton drillSheetId={sheet.id} />
         </div>
@@ -116,33 +160,45 @@ async function RectSheetDetail({ id }: { id: string }) {
   const { result, casting } = await loadAndComputeRectSheet(
     rectPayloadFromFormValues(formValues),
   );
+  const navEntries = await loadJobSheetNav(sheet.jobId);
 
   return (
     <DashboardShell
       title={`Rect Sheet — ${sheet.structureNumber ?? "Untitled"}`}
       subtitle={sheet.structureTemplate?.name ?? "Rectangular structure"}
     >
-      <div className="flex items-center justify-between">
-        <Link
-          href="/drill-sheets"
-          className="text-xs font-medium text-slate-500 hover:text-slate-900"
-        >
-          ← Back to Workbook
-        </Link>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-4">
+          <Link
+            href="/drill-sheets"
+            className="text-xs font-medium text-slate-500 hover:text-slate-900"
+          >
+            ← Back to Workbook
+          </Link>
+          <DrillSheetJobNav entries={navEntries} currentId={sheet.id} />
+        </div>
         <div className="flex items-center gap-2">
           <Link
             href={`/drill-sheets/rect/${sheet.id}/edit`}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className={headerButtonClassName}
           >
             Edit
           </Link>
+          <a
+            href={`/api/drill-sheets/${sheet.id}/preview`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={headerButtonClassName}
+          >
+            View PDF
+          </a>
           <DrillSheetPdfButton drillSheetId={sheet.id} />
           <DeleteDrillSheetButton drillSheetId={sheet.id} />
         </div>
       </div>
 
       <div className="mt-4">
-        <RectSheetPreview
+        <RectSheetDetailView
           result={result}
           meta={{
             structureNumber: sheet.structureNumber ?? "",
@@ -151,6 +207,12 @@ async function RectSheetDetail({ id }: { id: string }) {
             templateName: sheet.structureTemplate?.name ?? "",
             castingName: casting?.name ?? null,
           }}
+          agencyStandard={sheet.structureTemplate?.agencyStandard ?? null}
+          dateText={
+            sheet.calc?.sheetDate
+              ? new Intl.DateTimeFormat("en-US").format(sheet.calc.sheetDate)
+              : ""
+          }
         />
       </div>
     </DashboardShell>

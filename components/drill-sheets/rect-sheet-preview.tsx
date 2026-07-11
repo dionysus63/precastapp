@@ -23,6 +23,8 @@ export type RectSheetPreviewMeta = {
 type RectSheetPreviewProps = {
   result: RectStructureResult;
   meta: RectSheetPreviewMeta;
+  /** Hide the summary/warnings panel when the page renders its own. */
+  showSummary?: boolean;
 };
 
 const STROKE = "#0f172a";
@@ -37,7 +39,11 @@ function fmtElevation(value: number | null): string {
  * Schematic elevation + plan + top-slab preview. Mirrors the geometry
  * helpers used by the PDF overlay so what you see is what prints.
  */
-export function RectSheetPreview({ result, meta }: RectSheetPreviewProps) {
+export function RectSheetPreview({
+  result,
+  meta,
+  showSummary = true,
+}: RectSheetPreviewProps) {
   const hasGeometry =
     result.wallHeightFeet > 0 &&
     result.insideLengthFeet != null &&
@@ -77,7 +83,7 @@ export function RectSheetPreview({ result, meta }: RectSheetPreviewProps) {
         )}
       </div>
 
-      <SummaryPanel result={result} meta={meta} />
+      {showSummary ? <SummaryPanel result={result} meta={meta} /> : null}
     </div>
   );
 }
