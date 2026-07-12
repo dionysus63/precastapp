@@ -72,7 +72,6 @@ function parseBulkPaste(
     .filter(Boolean);
 
   const fieldKeys = getBulkPasteFieldKeys(preset);
-  const expectedColumns = fieldKeys.length;
 
   return lines.map((line, index) => {
     const delimiter = line.includes("\t") ? "\t" : ",";

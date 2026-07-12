@@ -25,7 +25,6 @@ let winnerQuoteId: string;
 let loserQuoteId: string;
 let masterQuoteId: string;
 let winnerCustomerId: string;
-let loserCustomerId: string;
 
 beforeAll(async () => {
   const winnerCustomer = await prisma.customer.create({
@@ -46,7 +45,6 @@ beforeAll(async () => {
     data: { name: `${tag} Loser Co` },
   });
   winnerCustomerId = winnerCustomer.id;
-  loserCustomerId = loserCustomer.id;
 
   const job = await prisma.job.create({
     data: {

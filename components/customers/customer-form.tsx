@@ -62,8 +62,6 @@ export function CustomerForm({
 
     const trimmed = name.trim();
     if (trimmed.length < 3) {
-      setSimilarMatches([]);
-      setShowConfirmPanel(false);
       return;
     }
 
@@ -87,6 +85,9 @@ export function CustomerForm({
   function handleNameChange(value: string) {
     setName(value);
     setShowConfirmPanel(false);
+    if (value.trim().length < 3) {
+      setSimilarMatches([]);
+    }
     setSubmitError(null);
   }
 

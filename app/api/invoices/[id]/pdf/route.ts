@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
-import {
-  generateDraftInvoicesBatchPdfBytes,
-  generateInvoicePdfBytes,
-} from "@/lib/invoice-pdf-fill";
+import { generateInvoicePdfBytes } from "@/lib/invoice-pdf-fill";
 import { INVOICE_PDF_INCLUDE } from "@/lib/invoice-pdf-data";
 import { withDatabaseRetry } from "@/lib/prisma";
 

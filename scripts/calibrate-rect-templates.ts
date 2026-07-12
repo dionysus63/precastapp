@@ -29,7 +29,6 @@ import {
   RECT_ELEVATION_WALL_MARKER_FIELD,
   RECT_EXPLODED_CENTER_MARKER_FIELD,
   RECT_EXPLODED_MARKER_FIELD,
-  RECT_OPENING_ROWS,
   RECT_TOP_SLAB_MARKER_FIELD,
 } from "@/lib/rect-template-pdf-fields";
 
@@ -277,16 +276,26 @@ async function extractTextItems(bytes: Uint8Array): Promise<TextItem[][]> {
   for (let p = 1; p <= doc.numPages; p++) {
     const page = await doc.getPage(p);
     const content = await page.getTextContent();
+    // pdf.js text content mixes TextItem with marker entries that lack `str`.
+    const rawItems = content.items as Array<{
+      str?: string;
+      transform: number[];
+      width: number;
+    }>;
     pages.push(
-      content.items
-        .filter((it: any) => it.str && it.str.trim())
-        .map((it: any) => ({
-          str: it.str.trim(),
-          x: it.transform[4],
-          y: it.transform[5],
-          w: it.width,
-          h: Math.hypot(it.transform[1], it.transform[3]),
-        })),
+      rawItems.flatMap((it) =>
+        it.str && it.str.trim()
+          ? [
+              {
+                str: it.str.trim(),
+                x: it.transform[4],
+                y: it.transform[5],
+                w: it.width,
+                h: Math.hypot(it.transform[1], it.transform[3]),
+              },
+            ]
+          : [],
+      ),
     );
   }
   return pages;

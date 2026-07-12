@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { savePurchaseReceipt } from "@/app/inventory/actions";
 import { SectionCard } from "@/components/dashboard/section-card";
 import {
@@ -10,7 +10,6 @@ import {
   PurchaseOrderReceiptBanner,
   type PurchaseOrderReceiptOption,
 } from "@/components/receiving/purchase-order-receipt-banner";
-import type { ReceivingCategoryKey } from "@/lib/receiving-utils";
 import {
   receivingCategoryDefaultSupplier,
   receivingCategoryLabels,
@@ -45,6 +44,21 @@ function createRow(productId = "", quantityReceived = ""): ReceiptLineRow {
   };
 }
 
+function prefillRowsFromPurchaseOrder(
+  purchaseOrder: PurchaseOrderReceiptOption | null | undefined,
+): ReceiptLineRow[] | null {
+  if (!purchaseOrder) {
+    return null;
+  }
+  const prefilled = buildPrefilledReceiptLines(purchaseOrder);
+  if (prefilled.length === 0) {
+    return null;
+  }
+  return prefilled.map((line) =>
+    createRow(line.productId, line.quantityReceived),
+  );
+}
+
 export function PipeReceiptForm({
   category,
   products,
@@ -58,30 +72,23 @@ export function PipeReceiptForm({
   const [selectedPurchaseOrderId, setSelectedPurchaseOrderId] = useState(
     lockedPurchaseOrder?.id ?? "",
   );
-  const [lines, setLines] = useState<ReceiptLineRow[]>([createRow()]);
+  const [lines, setLines] = useState<ReceiptLineRow[]>(
+    () => prefillRowsFromPurchaseOrder(lockedPurchaseOrder) ?? [createRow()],
+  );
   const [submissionKey] = useState(() => crypto.randomUUID());
   const defaultSupplier = receivingCategoryDefaultSupplier[category] ?? "";
 
-  const activePurchaseOrder = useMemo(() => {
-    if (lockedPurchaseOrder) {
-      return lockedPurchaseOrder;
+  // Prefill happens on the selection event (and lazily above for a locked PO)
+  // so a server-props refresh can't overwrite quantities the user edited.
+  function handleSelectPurchaseOrder(purchaseOrderId: string) {
+    setSelectedPurchaseOrderId(purchaseOrderId);
+    const purchaseOrder =
+      openPurchaseOrders.find((po) => po.id === purchaseOrderId) ?? null;
+    const prefilledRows = prefillRowsFromPurchaseOrder(purchaseOrder);
+    if (prefilledRows) {
+      setLines(prefilledRows);
     }
-    return (
-      openPurchaseOrders.find((po) => po.id === selectedPurchaseOrderId) ?? null
-    );
-  }, [lockedPurchaseOrder, openPurchaseOrders, selectedPurchaseOrderId]);
-
-  useEffect(() => {
-    if (!activePurchaseOrder) {
-      return;
-    }
-    const prefilled = buildPrefilledReceiptLines(activePurchaseOrder);
-    if (prefilled.length > 0) {
-      setLines(
-        prefilled.map((line) => createRow(line.productId, line.quantityReceived)),
-      );
-    }
-  }, [activePurchaseOrder]);
+  }
 
   function addLine() {
     setLines((current) => [...current, createRow()]);
@@ -132,7 +139,7 @@ export function PipeReceiptForm({
         lockedPurchaseOrder={lockedPurchaseOrder}
         openPurchaseOrders={openPurchaseOrders}
         selectedPurchaseOrderId={selectedPurchaseOrderId}
-        onSelectPurchaseOrderId={setSelectedPurchaseOrderId}
+        onSelectPurchaseOrderId={handleSelectPurchaseOrder}
       />
 
       <SectionCard title="Delivery details">

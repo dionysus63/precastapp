@@ -1,11 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
-import {
-  structureInputClassName,
-  structureTableInputClassName,
-} from "@/components/structures/structure-utils";
+import { structureTableInputClassName } from "@/components/structures/structure-utils";
 
 import {
   tableBodyClassName,

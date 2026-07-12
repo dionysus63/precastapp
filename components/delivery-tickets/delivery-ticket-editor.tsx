@@ -24,7 +24,6 @@ import { formatUsd, formatWeightLb } from "@/lib/format";
 import {
   castingAssemblyEditorKey,
   formatCastingPieceRoleLabel,
-  isCastingAssemblyEditorKey,
   type CastingPieceRole,
 } from "@/lib/casting-utils";
 import { formatDrainRingStyleLabel } from "@/lib/drain-ring-utils";
@@ -156,6 +155,13 @@ function getEffectiveWeightEach(
   return fulfillmentLine.weightEach;
 }
 
+function generateLineKey(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `walkin-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 function mergeFulfillmentIntoLine(
   existing: EditorLine,
   meta: QuoteLineFulfillment,
@@ -190,10 +196,6 @@ function mapFulfillmentToLine(meta: QuoteLineFulfillment): EditorLine {
     weightEach: meta.weightEach != null ? String(meta.weightEach) : "",
     yardLocation: "",
   };
-}
-
-function isDrainRingEditorKey(key: string): boolean {
-  return key.includes("::") && !isCastingAssemblyEditorKey(key);
 }
 
 function isCompositeEditorKey(key: string): boolean {
@@ -306,7 +308,7 @@ export function DeliveryTicketEditor({
   function resolveFleetValue(
     selected: string,
     other: string,
-    options: string[],
+    _options: string[],
   ) {
     if (selected === "__other__") {
       return other.trim() || null;
@@ -314,18 +316,33 @@ export function DeliveryTicketEditor({
     return selected.trim() || null;
   }
 
-  useEffect(() => {
+  // Server refreshes hand down new defaultValues (e.g. after a save); adopt
+  // them during the render they change rather than one render later.
+  const [prevDefaultLines, setPrevDefaultLines] = useState(defaultValues?.lines);
+  if (defaultValues?.lines !== prevDefaultLines) {
+    setPrevDefaultLines(defaultValues?.lines);
     if (defaultValues?.lines?.length) {
       setLines(defaultValues.lines);
       setSelectedLineIds(new Set(defaultValues.lines.map((l) => l.key)));
     }
-  }, [defaultValues?.lines]);
+  }
 
-  useEffect(() => {
+  const [prevDefaultDeliveryDate, setPrevDefaultDeliveryDate] = useState(
+    defaultValues?.deliveryDate,
+  );
+  if (defaultValues?.deliveryDate !== prevDefaultDeliveryDate) {
+    setPrevDefaultDeliveryDate(defaultValues?.deliveryDate);
     if (defaultValues?.deliveryDate) {
       setDeliveryDate(defaultValues.deliveryDate);
     }
-  }, [defaultValues?.deliveryDate]);
+  }
+
+  function handleTicketTypeChange(next: "JOB" | "WALK_IN") {
+    setTicketType(next);
+    if (next !== "JOB") {
+      setFulfillment([]);
+    }
+  }
 
   function handleJobChange(nextJobId: string) {
     setJobId(nextJobId);
@@ -333,6 +350,7 @@ export function DeliveryTicketEditor({
     setQuoteId(nextJob?.quotes[0]?.id ?? "");
     setLines([]);
     setSelectedLineIds(new Set());
+    setFulfillment([]);
     setError(null);
   }
 
@@ -343,6 +361,7 @@ export function DeliveryTicketEditor({
     setQuoteId(nextQuoteId);
     setLines([]);
     setSelectedLineIds(new Set());
+    setFulfillment([]);
     setError(null);
   }
 
@@ -353,10 +372,34 @@ export function DeliveryTicketEditor({
 
   useEffect(() => {
     if (ticketType !== "JOB" || !quoteId) {
-      setFulfillment([]);
       return;
     }
-    void getQuoteFulfillmentForTicket(quoteId, ticketId).then(setFulfillment);
+    void getQuoteFulfillmentForTicket(quoteId, ticketId).then((fetched) => {
+      setFulfillment(fetched);
+      // Backfill fetched weights into lines restored from a saved ticket.
+      // Lines selected after this point go through toggleLine, which merges
+      // the fulfillment meta itself.
+      const byId = new Map(fetched.map((line) => [line.quoteLineItemId, line]));
+      setLines((current) => {
+        let changed = false;
+        const next = current.map((line) => {
+          if (isCompositeEditorKey(line.key)) {
+            return line;
+          }
+          const meta = byId.get(line.key);
+          if (!meta || line.weightEach.trim() || meta.weightEach == null) {
+            return line;
+          }
+          changed = true;
+          return {
+            ...line,
+            weightEach: String(meta.weightEach),
+            unit: line.unit.trim() ? line.unit : meta.unit,
+          };
+        });
+        return changed ? next : current;
+      });
+    });
   }, [ticketType, quoteId, ticketId]);
 
   const fulfillmentById = useMemo(
@@ -368,35 +411,6 @@ export function DeliveryTicketEditor({
     () => new Map(lines.map((line) => [line.key, line])),
     [lines],
   );
-
-  useEffect(() => {
-    if (fulfillment.length === 0) {
-      return;
-    }
-
-    setLines((current) => {
-      let changed = false;
-      const next = current.map((line) => {
-        if (isCompositeEditorKey(line.key)) {
-          return line;
-        }
-        if (!selectedLineIds.has(line.key)) {
-          return line;
-        }
-        const meta = fulfillmentById.get(line.key);
-        if (!meta || line.weightEach.trim() || meta.weightEach == null) {
-          return line;
-        }
-        changed = true;
-        return {
-          ...line,
-          weightEach: String(meta.weightEach),
-          unit: line.unit.trim() ? line.unit : meta.unit,
-        };
-      });
-      return changed ? next : current;
-    });
-  }, [fulfillment, fulfillmentById, selectedLineIds]);
 
   const totalWeight = useMemo(() => {
     return lines
@@ -897,13 +911,6 @@ export function DeliveryTicketEditor({
     setWalkInSubcategoryId(null);
   }
 
-  function generateLineKey(): string {
-    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-      return crypto.randomUUID();
-    }
-    return `walkin-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  }
-
   function addWalkInLine(productId: string) {
     const product = products.find((entry) => entry.id === productId);
     if (!product) {
@@ -1061,7 +1068,7 @@ export function DeliveryTicketEditor({
         <div className="inline-flex overflow-hidden rounded-lg border border-slate-200 bg-white text-xs font-medium shadow-sm">
           <button
             type="button"
-            onClick={() => setTicketType("JOB")}
+            onClick={() => handleTicketTypeChange("JOB")}
             className={
               ticketType === "JOB"
                 ? "bg-slate-900 px-4 py-2 text-white"
@@ -1072,7 +1079,7 @@ export function DeliveryTicketEditor({
           </button>
           <button
             type="button"
-            onClick={() => setTicketType("WALK_IN")}
+            onClick={() => handleTicketTypeChange("WALK_IN")}
             className={
               ticketType === "WALK_IN"
                 ? "bg-slate-900 px-4 py-2 text-white"
@@ -1360,7 +1367,7 @@ export function DeliveryTicketEditor({
                               </span>
                               {line.ringDiameterFeet ? (
                                 <span className="ml-2 text-slate-500">
-                                  {line.ringDiameterFeet}' diameter ·{" "}
+                                  {line.ringDiameterFeet}&apos; diameter ·{" "}
                                   {formatDrainRingStyleLabel(line.drainRingStyle)}
                                 </span>
                               ) : null}
@@ -1390,7 +1397,7 @@ export function DeliveryTicketEditor({
                                 >
                                   <div className="flex items-center justify-between">
                                     <span className="font-medium text-slate-800">
-                                      {option.heightFeet}' ring
+                                      {option.heightFeet}&apos; ring
                                     </span>
                                     <span className="text-slate-400">
                                       {option.productCode}

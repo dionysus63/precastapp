@@ -422,7 +422,7 @@ export function RectStructureWorkbook({
         <p className="mt-1 text-xs text-slate-600">
           Choose quote-only for fast pricing (just size, rim, and low
           invert), or full drill sheet detail when you already know every
-          opening's wall, invert, and placement. Quote-only rows can be
+          opening&apos;s wall, invert, and placement. Quote-only rows can be
           upgraded later in this workbook.
         </p>
         <div className="mt-3 inline-flex rounded-lg border border-slate-200 p-1">
@@ -706,7 +706,7 @@ function RectDefaultsPanel({
               }
               className="rounded-md border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
             >
-              {size.insideLengthFeet}' x {size.insideWidthFeet}'
+              {size.insideLengthFeet}&apos; x {size.insideWidthFeet}&apos;
             </button>
           ))}
         </div>

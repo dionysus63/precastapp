@@ -4,7 +4,6 @@ import {
   bulkPasteExamples,
   getBulkPasteHeaders,
   productKindLabels,
-  type BulkImportPreset,
 } from "@/lib/product-kinds";
 import {
   CATALOG_PRODUCT_TYPES,

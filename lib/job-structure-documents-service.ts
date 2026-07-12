@@ -120,7 +120,7 @@ export async function uploadJobStructureDocument(
 ) {
   assertUploadAllowed(file);
 
-  const { structure, jobFolderPath } = await assertJobStructureWithFolder(
+  const { jobFolderPath } = await assertJobStructureWithFolder(
     client,
     jobStructureId,
   );

@@ -13,7 +13,6 @@ import {
   type DrainRingStyle,
 } from "@/lib/drain-ring-utils";
 import {
-  formatCastingPieceRoleLabel,
   type CastingComponentOption,
   type CastingPieceRole,
 } from "@/lib/casting-utils";
@@ -585,13 +584,6 @@ async function loadDrainRingCatalogByLine(
   }
 
   return catalog;
-}
-
-function adsPipeCatalogKey(
-  pipeDiameterInches: Prisma.Decimal,
-  pipeLengthFeet: Prisma.Decimal,
-): string {
-  return `${pipeDiameterInches.toString()}::${pipeLengthFeet.toString()}`;
 }
 
 function needsAdsPipeSubstitute(

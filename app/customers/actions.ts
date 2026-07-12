@@ -20,7 +20,6 @@ import {
   getOptionalString,
   getRequiredString,
 } from "@/lib/server/form-data";
-import { isValidEmail } from "@/lib/validation/email";
 
 export type SimilarCustomerMatch = {
   id: string;

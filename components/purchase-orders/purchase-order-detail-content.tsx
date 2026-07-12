@@ -7,10 +7,7 @@ import { updatePurchaseOrderStatus } from "@/app/purchase-orders/actions";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { VendorQuotePreview } from "@/components/purchase-orders/vendor-quote-preview";
-import {
-  purchaseOrderReceivePercent,
-  purchaseOrderStatusLabels,
-} from "@/lib/purchase-order-utils";
+import { purchaseOrderReceivePercent } from "@/lib/purchase-order-utils";
 import { formatUsd } from "@/lib/format";
 
 import {

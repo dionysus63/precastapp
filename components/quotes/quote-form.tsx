@@ -75,7 +75,6 @@ import {
   CustomStructurePricingFooter,
 } from "@/components/quotes/custom-structure-cost-breakdown";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
-import { formatCastingSupplierOriginLabel } from "@/lib/casting-utils";
 import type { ProductTaxonomyCategory } from "@/lib/product-taxonomy";
 import type { RingBuilderConfig } from "@/lib/ring-builder-settings";
 import { richTextHasContent, sanitizeRichText } from "@/lib/rich-text";
@@ -256,55 +255,6 @@ export function QuoteForm({
     initialValues?.lineItems ?? [],
   );
   const [planSheetId, setPlanSheetId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const payload = readWorkbookApplyPayload(quoteId);
-    if (!payload?.lineItems?.length) {
-      if (payload?.planSheetId) {
-        setPlanSheetId(payload.planSheetId);
-        clearWorkbookApplyPayload(quoteId);
-      }
-      return;
-    }
-    setLineItems((current) =>
-      mergeWorkbookLineItems(current, payload.lineItems),
-    );
-    if (payload.planSheetId) {
-      setPlanSheetId(payload.planSheetId);
-    }
-    clearWorkbookApplyPayload(quoteId);
-  }, [quoteId]);
-
-  useEffect(() => {
-    const snapshot = readWorkbookSession(quoteId)?.pendingFormState;
-    if (!snapshot) {
-      return;
-    }
-
-    setCustomerId(snapshot.customerId);
-    setCustomerName(snapshot.customerName);
-    setCustomerLocked(snapshot.customerLocked);
-    setJobId(snapshot.jobId);
-    setJobBidderId(snapshot.jobBidderId);
-    setSelectedJobLabel(snapshot.selectedJobLabel);
-    setJobNumber(snapshot.jobNumber);
-    setProjectName(snapshot.projectName);
-    setScopeLabel(snapshot.scopeLabel);
-    setProjectAddress(snapshot.projectAddress);
-    setContactId(snapshot.contactId);
-    setContactName(snapshot.contactName);
-    setContactEmail(snapshot.contactEmail);
-    setContactPhone(snapshot.contactPhone);
-    setContactTitle(snapshot.contactTitle);
-
-    if (snapshot.customerId) {
-      void getCustomerForQuoteForm(snapshot.customerId).then((customer) => {
-        if (customer) {
-          setSelectedCustomer(customer);
-        }
-      });
-    }
-  }, [quoteId]);
   const [customerLocked, setCustomerLocked] = useState(
     Boolean(initialValues?.customerId || initialCustomerId || initialJobBidderId),
   );
@@ -370,6 +320,63 @@ export function QuoteForm({
       initialJob?.contactPhone ??
       "",
   );
+
+  // Restore state the structure workbook handed back through sessionStorage.
+  // This has to run after hydration: reading sessionStorage inside useState
+  // initializers would make the client's first render differ from the
+  // server-rendered HTML (hydration mismatch), and the payload must be
+  // cleared exactly once after a successful merge.
+  /* eslint-disable react-hooks/set-state-in-effect -- one-shot post-hydration restore from sessionStorage; see comment above */
+  useEffect(() => {
+    const payload = readWorkbookApplyPayload(quoteId);
+    if (!payload?.lineItems?.length) {
+      if (payload?.planSheetId) {
+        setPlanSheetId(payload.planSheetId);
+        clearWorkbookApplyPayload(quoteId);
+      }
+      return;
+    }
+    setLineItems((current) =>
+      mergeWorkbookLineItems(current, payload.lineItems),
+    );
+    if (payload.planSheetId) {
+      setPlanSheetId(payload.planSheetId);
+    }
+    clearWorkbookApplyPayload(quoteId);
+  }, [quoteId]);
+
+  useEffect(() => {
+    const snapshot = readWorkbookSession(quoteId)?.pendingFormState;
+    if (!snapshot) {
+      return;
+    }
+
+    setCustomerId(snapshot.customerId);
+    setCustomerName(snapshot.customerName);
+    setCustomerLocked(snapshot.customerLocked);
+    setJobId(snapshot.jobId);
+    setJobBidderId(snapshot.jobBidderId);
+    setSelectedJobLabel(snapshot.selectedJobLabel);
+    setJobNumber(snapshot.jobNumber);
+    setProjectName(snapshot.projectName);
+    setScopeLabel(snapshot.scopeLabel);
+    setProjectAddress(snapshot.projectAddress);
+    setContactId(snapshot.contactId);
+    setContactName(snapshot.contactName);
+    setContactEmail(snapshot.contactEmail);
+    setContactPhone(snapshot.contactPhone);
+    setContactTitle(snapshot.contactTitle);
+
+    if (snapshot.customerId) {
+      void getCustomerForQuoteForm(snapshot.customerId).then((customer) => {
+        if (customer) {
+          setSelectedCustomer(customer);
+        }
+      });
+    }
+  }, [quoteId]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
   const [status, setStatus] = useState<QuoteStatus>(
     initialValues?.status ?? "DRAFT",
   );
@@ -419,7 +426,8 @@ export function QuoteForm({
   const [maxLoadLbsInput, setMaxLoadLbsInput] = useState("");
   const [pricePerLoadInput, setPricePerLoadInput] = useState("");
   const maxLoadLbsDirty = useRef(false);
-  const deliveryLineId = useRef<string | null>(null);
+  // State (not a ref): the "add vs update" button label below renders from it.
+  const [deliveryLineId, setDeliveryLineId] = useState<string | null>(null);
   const [termsAndConditions, setTermsAndConditions] = useState(
     initialValues?.termsAndConditions || initialTerms,
   );
@@ -884,8 +892,8 @@ export function QuoteForm({
     const serviceOption = serviceOptionsState.find((entry) =>
       entry.item.toLowerCase().includes("delivery"),
     );
-    const lineId = deliveryLineId.current ?? createLineId();
-    deliveryLineId.current = lineId;
+    const lineId = deliveryLineId ?? createLineId();
+    setDeliveryLineId(lineId);
     setLineItems((current) => {
       const line: EditableQuoteLineItem = {
         id: lineId,
@@ -2289,7 +2297,7 @@ export function QuoteForm({
                       className="mt-1 rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-40"
                     >
                       {lineItems.some(
-                        (entry) => entry.id === deliveryLineId.current,
+                        (entry) => entry.id === deliveryLineId,
                       )
                         ? "Update delivery line"
                         : "Add as line item"}

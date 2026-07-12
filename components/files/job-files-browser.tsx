@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import {
   listJobFilesAction,
   openJobFolderCategory,
@@ -111,9 +111,12 @@ export function JobFilesBrowser({
   const [openError, setOpenError] = useState<string | null>(null);
   const [openSuccess, setOpenSuccess] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Adopt refreshed server file listings during the render they arrive.
+  const [prevFiles, setPrevFiles] = useState(files);
+  if (files !== prevFiles) {
+    setPrevFiles(files);
     setDisplayFiles(files);
-  }, [files]);
+  }
 
   const buildCategoryHref = (categoryValue?: string) => {
     const params = new URLSearchParams(baseQuery);

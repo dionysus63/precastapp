@@ -25,10 +25,6 @@ import {
   type SubmittalCoverProduct,
 } from "@/lib/submittal-package-html";
 
-type QuoteWithProducts = Awaited<
-  ReturnType<typeof fetchQuoteForSubmittalPackage>
->;
-
 export type SubmittalStatusQuote = {
   lineItems: Array<{
     product?: {

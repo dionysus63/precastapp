@@ -36,7 +36,7 @@ export function SendQuoteButton({
   const router = useRouter();
   const [open, setOpen] = useState(defaultOpen && !disabled);
   const [pending, startTransition] = useTransition();
-  const [loadingDefaults, setLoadingDefaults] = useState(false);
+  const [loadingDefaults, setLoadingDefaults] = useState(defaultOpen && !disabled);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [contacts, setContacts] = useState<SendQuoteRecipientOption[]>([]);
@@ -48,16 +48,20 @@ export function SendQuoteButton({
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
 
+  function openDialog() {
+    setLoadingDefaults(true);
+    setError(null);
+    setSuccess(null);
+    setCc("");
+    setOpen(true);
+  }
+
   useEffect(() => {
     if (!open) {
       return;
     }
 
     let cancelled = false;
-    setLoadingDefaults(true);
-    setError(null);
-    setSuccess(null);
-    setCc("");
 
     void getSendQuoteDefaults(quoteId).then((result) => {
       if (cancelled) {
@@ -167,7 +171,7 @@ export function SendQuoteButton({
         type="button"
         disabled={disabled || pending}
         title={disabled ? disabledReason : undefined}
-        onClick={() => setOpen(true)}
+        onClick={openDialog}
         className={buttonClassName}
       >
         {pending ? "Preparing..." : "Send Quote"}

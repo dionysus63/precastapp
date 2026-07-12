@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import {
   structureInputClassName,
@@ -220,7 +220,7 @@ export function DrillSheetForm({
   cancelHref = "/drill-sheets",
   submitLabel = "Save Drill Sheet",
 }: DrillSheetFormProps) {
-  const initialForm = useRef(initFormState(initialValues)).current;
+  const [initialForm] = useState(() => initFormState(initialValues));
   const [templateId, setTemplateId] = useState(
     initialValues?.templateId ?? templates[0]?.id ?? "",
   );

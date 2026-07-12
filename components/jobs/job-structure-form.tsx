@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { createJobStructure } from "@/app/jobs/actions";
 import {
@@ -21,12 +21,13 @@ export function JobStructureForm({ jobId, jobNumber }: JobStructureFormProps) {
   const [needsSubmittal, setNeedsSubmittal] = useState(false);
   const [needsCutSheet, setNeedsCutSheet] = useState(false);
 
-  useEffect(() => {
-    if (structureType === "CUSTOM_STRUCTURE") {
+  function handleStructureTypeChange(next: StructureType) {
+    setStructureType(next);
+    if (next === "CUSTOM_STRUCTURE") {
       setNeedsSubmittal(true);
       setNeedsCutSheet(true);
     }
-  }, [structureType]);
+  }
 
   return (
     <form action={createJobStructure} className="space-y-4">
@@ -50,7 +51,7 @@ export function JobStructureForm({ jobId, jobNumber }: JobStructureFormProps) {
                 name="structureType"
                 value={structureType}
                 onChange={(event) =>
-                  setStructureType(event.target.value as StructureType)
+                  handleStructureTypeChange(event.target.value as StructureType)
                 }
                 className={structureInputClassName}
               >

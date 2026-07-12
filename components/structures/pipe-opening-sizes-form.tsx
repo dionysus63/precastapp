@@ -3,10 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
-import {
-  structureInputClassName,
-  structureTableInputClassName,
-} from "@/components/structures/structure-utils";
+import { structureTableInputClassName } from "@/components/structures/structure-utils";
 
 import {
   tableBodyClassName,

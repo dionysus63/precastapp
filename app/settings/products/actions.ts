@@ -8,7 +8,7 @@ import {
   parseCategoryDefaultProductKind,
   parseCategoryProductType,
 } from "@/lib/product-taxonomy";
-import { prisma, withDatabaseRetry } from "@/lib/prisma";
+import { withDatabaseRetry } from "@/lib/prisma";
 import {
   isNextRedirectError,
   translatePrismaError,

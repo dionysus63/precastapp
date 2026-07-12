@@ -22,7 +22,6 @@ import {
 
 import {
   tableBodyClassName,
-  tableCellBordersClassName,
   tableCellClassName,
   tableClassName,
   tableFlushWrapperClassName,

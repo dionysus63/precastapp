@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useCallback, useMemo } from "react";
+import { memo, useCallback } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { PaginationControls } from "@/components/common/pagination-controls";

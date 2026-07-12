@@ -533,7 +533,7 @@ export function RectSheetForm({
                     }}
                     className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
                   >
-                    {size.insideLengthFeet}' x {size.insideWidthFeet}'
+                    {size.insideLengthFeet}&apos; x {size.insideWidthFeet}&apos;
                   </button>
                 ))}
               </div>
@@ -1017,7 +1017,7 @@ export function RectSheetForm({
                 })}
                 {result && result.wallHeightFeet > 0 ? (
                   <p className="text-[11px] text-slate-500">
-                    Wall height to fill: {result.wallHeightFeet.toFixed(2)}'
+                    Wall height to fill: {result.wallHeightFeet.toFixed(2)}&apos;
                   </p>
                 ) : null}
               </div>

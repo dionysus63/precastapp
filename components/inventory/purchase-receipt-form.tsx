@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { savePurchaseReceipt } from "@/app/inventory/actions";
 import { SectionCard } from "@/components/dashboard/section-card";
 import {
@@ -72,6 +72,21 @@ function createRow(productId = "", quantityReceived = ""): ReceiptLineRow {
   };
 }
 
+function prefillRowsFromPurchaseOrder(
+  purchaseOrder: PurchaseOrderReceiptOption | null | undefined,
+): ReceiptLineRow[] | null {
+  if (!purchaseOrder) {
+    return null;
+  }
+  const prefilled = buildPrefilledReceiptLines(purchaseOrder);
+  if (prefilled.length === 0) {
+    return null;
+  }
+  return prefilled.map((line) =>
+    createRow(line.productId, line.quantityReceived),
+  );
+}
+
 export function PurchaseReceiptForm({
   products,
   assemblies,
@@ -91,30 +106,23 @@ export function PurchaseReceiptForm({
   const [mode, setMode] = useState<"piece" | "assembly" | "unit">("piece");
   const [assemblyId, setAssemblyId] = useState("");
   const [assemblyQty, setAssemblyQty] = useState("1");
-  const [lines, setLines] = useState<ReceiptLineRow[]>([createRow()]);
+  const [lines, setLines] = useState<ReceiptLineRow[]>(
+    () => prefillRowsFromPurchaseOrder(lockedPurchaseOrder) ?? [createRow()],
+  );
   const [submissionKey] = useState(() => crypto.randomUUID());
 
-  const activePurchaseOrder = useMemo(() => {
-    if (lockedPurchaseOrder) {
-      return lockedPurchaseOrder;
-    }
-    return (
-      openPurchaseOrders.find((po) => po.id === selectedPurchaseOrderId) ?? null
-    );
-  }, [lockedPurchaseOrder, openPurchaseOrders, selectedPurchaseOrderId]);
-
-  useEffect(() => {
-    if (!activePurchaseOrder) {
-      return;
-    }
-    const prefilled = buildPrefilledReceiptLines(activePurchaseOrder);
-    if (prefilled.length > 0) {
+  // Prefill happens on the selection event (and lazily above for a locked PO)
+  // so a server-props refresh can't overwrite quantities the user edited.
+  function handleSelectPurchaseOrder(purchaseOrderId: string) {
+    setSelectedPurchaseOrderId(purchaseOrderId);
+    const purchaseOrder =
+      openPurchaseOrders.find((po) => po.id === purchaseOrderId) ?? null;
+    const prefilledRows = prefillRowsFromPurchaseOrder(purchaseOrder);
+    if (prefilledRows) {
       setMode("piece");
-      setLines(
-        prefilled.map((line) => createRow(line.productId, line.quantityReceived)),
-      );
+      setLines(prefilledRows);
     }
-  }, [activePurchaseOrder]);
+  }
 
   const filteredSuppliers = useMemo(() => {
     if (!category) {
@@ -227,7 +235,7 @@ export function PurchaseReceiptForm({
         lockedPurchaseOrder={lockedPurchaseOrder}
         openPurchaseOrders={openPurchaseOrders}
         selectedPurchaseOrderId={selectedPurchaseOrderId}
-        onSelectPurchaseOrderId={setSelectedPurchaseOrderId}
+        onSelectPurchaseOrderId={handleSelectPurchaseOrder}
       />
 
       <SectionCard title="Supplier & receipt details">

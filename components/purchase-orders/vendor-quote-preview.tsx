@@ -15,25 +15,30 @@ export function VendorQuotePreview({
 }: VendorQuotePreviewProps) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
 
+  // Object URLs are an external resource: creation and revocation have to be
+  // paired in an effect, and the resulting URL cannot be derived during
+  // render, so storing it from the effect is the correct shape here.
   useEffect(() => {
     if (!file) {
-      setObjectUrl(null);
       return;
     }
     const url = URL.createObjectURL(file);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- see comment above the effect
     setObjectUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
   const src = useMemo(() => {
-    if (objectUrl) {
+    // Ignore objectUrl once the file is gone; the effect above only revokes
+    // it, the stale string stays in state harmlessly.
+    if (file && objectUrl) {
       return objectUrl;
     }
     if (purchaseOrderId) {
       return `/api/purchase-orders/${purchaseOrderId}/vendor-quote`;
     }
     return null;
-  }, [objectUrl, purchaseOrderId]);
+  }, [file, objectUrl, purchaseOrderId]);
 
   if (!src) {
     return (

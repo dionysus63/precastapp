@@ -41,10 +41,7 @@ export function AddressAutocomplete({
   useEffect(() => {
     if (!open || !typedSinceFocus.current) return;
     const query = value.trim();
-    if (query.length < 3) {
-      setItems([]);
-      return;
-    }
+    if (query.length < 3) return;
     const seq = ++searchSeq.current;
     const handle = setTimeout(() => {
       startSearchTransition(async () => {
@@ -86,6 +83,12 @@ export function AddressAutocomplete({
         onFocus={() => setOpen(true)}
         onChange={(event) => {
           typedSinceFocus.current = true;
+          if (event.target.value.trim().length < 3) {
+            // Too short to suggest: drop stale suggestions and invalidate any
+            // in-flight fetch so it can't repopulate them.
+            searchSeq.current++;
+            setItems([]);
+          }
           onChangeText(event.target.value);
           if (!open) setOpen(true);
         }}
@@ -113,6 +116,7 @@ export function AddressAutocomplete({
               key={`${item.label}|${item.latitude}|${item.longitude}`}
               type="button"
               role="option"
+              aria-selected={item.label === value}
               onClick={() => {
                 onSelectSuggestion(item);
                 closeDropdown();

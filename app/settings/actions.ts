@@ -29,7 +29,6 @@ import { prisma, withDatabaseRetry } from "@/lib/prisma";
 import {
   assertPriceListCompleteForDefault,
   copyPriceListItems,
-  getPriceListCompleteness,
 } from "@/lib/price-list-service";
 
 export type SettingsActionResult = {

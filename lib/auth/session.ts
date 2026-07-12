@@ -23,7 +23,7 @@ const SESSION_MAX_AGE_SECONDS = 60 * 60 * 8;
 const SESSION_SLIDE_THRESHOLD_SECONDS = SESSION_MAX_AGE_SECONDS - 60 * 15;
 
 /** Secure cookies are ignored by browsers on plain HTTP (LAN deploys). Set SESSION_COOKIE_SECURE=true only behind HTTPS. */
-function useSecureSessionCookie(): boolean {
+function shouldUseSecureSessionCookie(): boolean {
   const explicit = process.env.SESSION_COOKIE_SECURE?.trim().toLowerCase();
   if (explicit === "true") return true;
   if (explicit === "false") return false;
@@ -39,7 +39,7 @@ async function refreshSessionCookie(token: string, expiresAt: Date): Promise<voi
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: useSecureSessionCookie(),
+    secure: shouldUseSecureSessionCookie(),
     path: "/",
     expires: expiresAt,
   });

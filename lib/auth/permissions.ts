@@ -1,7 +1,6 @@
 import {
   AppPermission,
   type User,
-  UserRole,
 } from "@/app/generated/prisma/client";
 import { getRoleDefaults } from "@/lib/app-settings";
 import {

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { SettingsShell } from "@/components/settings/settings-shell";
 import { SectionCard } from "@/components/dashboard/section-card";

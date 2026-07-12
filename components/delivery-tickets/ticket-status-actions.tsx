@@ -14,7 +14,6 @@ type TicketStatusActionsProps = {
 export function TicketStatusActions({
   ticketId,
   status,
-  hasInvoice,
 }: TicketStatusActionsProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();

@@ -1,4 +1,4 @@
-import { Prisma, type Prisma as PrismaTypes } from "@/app/generated/prisma/client";
+import type { Prisma as PrismaTypes } from "@/app/generated/prisma/client";
 import {
   computeQuoteTotalsFromLines,
   mapLineItemForCreate,

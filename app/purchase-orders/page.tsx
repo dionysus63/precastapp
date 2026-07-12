@@ -99,24 +99,6 @@ export default async function PurchaseOrdersPage({
 
   const rows = purchaseOrders.map(mapPurchaseOrderListRow);
 
-  function filterHref(next: Record<string, string | null>) {
-    const query = new URLSearchParams();
-    const merged = {
-      q: search ?? "",
-      status: statusParam ?? "",
-      vendor: vendorParam ?? "",
-      category: categoryParam ?? "",
-      ...next,
-    };
-    for (const [key, value] of Object.entries(merged)) {
-      if (value) {
-        query.set(key, value);
-      }
-    }
-    const qs = query.toString();
-    return qs ? `/purchase-orders?${qs}` : "/purchase-orders";
-  }
-
   return (
     <DashboardShell
       title="Purchase Orders"

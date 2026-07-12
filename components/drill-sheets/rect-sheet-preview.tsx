@@ -447,8 +447,8 @@ function TopSlabView({ result }: { result: RectStructureResult }) {
             textAnchor="middle"
             fill={STROKE}
           >
-            {result.topSlabOpening?.lengthInches ?? "—"}" x{" "}
-            {result.topSlabOpening?.widthInches ?? "—"}"
+            {result.topSlabOpening?.lengthInches ?? "—"}&quot; x{" "}
+            {result.topSlabOpening?.widthInches ?? "—"}&quot;
           </text>
         </>
       ) : (

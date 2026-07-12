@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { QuoteDetailContent } from "@/components/quotes/quote-detail-content";

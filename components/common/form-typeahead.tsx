@@ -124,6 +124,7 @@ export function FormTypeahead<T>({
             <button
               type="button"
               role="option"
+              aria-selected={false}
               onClick={() => handleSelect(null)}
               className="block w-full px-3 py-1.5 text-left text-slate-500 hover:bg-slate-50"
             >
@@ -135,6 +136,7 @@ export function FormTypeahead<T>({
               key={itemKey(item)}
               type="button"
               role="option"
+              aria-selected={itemLabel(item) === selectedLabel}
               onClick={() => handleSelect(item)}
               className="block w-full px-3 py-1.5 text-left text-slate-900 hover:bg-slate-50"
             >

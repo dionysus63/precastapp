@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { parseCastingSupplierOrigin } from "@/lib/casting-utils";
-import { prisma, withDatabaseRetry } from "@/lib/prisma";
+import { withDatabaseRetry } from "@/lib/prisma";
 
 function revalidateCastingSupplierPaths() {
   revalidatePath("/settings/casting-suppliers");

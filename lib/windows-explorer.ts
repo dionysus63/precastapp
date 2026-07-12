@@ -175,7 +175,7 @@ async function execFileExplorer(args: string[]) {
 async function tryLaunchMethod(
   method: ExplorerLaunchMethod,
   context: LaunchContext,
-  options?: ExplorerLaunchOptions,
+  _options?: ExplorerLaunchOptions,
 ) {
   switch (method) {
     case "shell-vbs":

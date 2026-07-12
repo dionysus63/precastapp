@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { AppPermission, type PrismaClient } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
-import { prisma, withDatabaseRetry } from "@/lib/prisma";
+import { withDatabaseRetry } from "@/lib/prisma";
 import { PHYSICAL_PRODUCT_TYPES } from "@/lib/product-types";
 import {
   isDuplicateSubmission,
@@ -24,7 +24,6 @@ import {
   convertDeliveryTicketToInvoice,
   InvoiceAlreadyExistsError,
   maybeCreatePayNowInvoiceForTicket,
-  type BatchInvoiceConversionResult,
 } from "@/lib/invoicing-service";
 import { hasPermission } from "@/lib/auth/permissions";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   type EditableQuoteLineItem,
   type QuotePipeProductOption,
@@ -95,7 +95,15 @@ export function PipeModal({
     return map;
   }, [productsForType]);
 
-  useEffect(() => {
+  // Reset the modal whenever it opens or its product set changes while open.
+  // Done during render (guarded) instead of an effect; productsForType's
+  // identity also changes with pipeType.
+  const [prevReset, setPrevReset] = useState<{
+    open: boolean;
+    products: QuotePipeProductOption[];
+  } | null>(null);
+  if (prevReset?.open !== open || prevReset?.products !== productsForType) {
+    setPrevReset({ open, products: productsForType });
     if (open) {
       setMode("choose");
       setQuoteRows(
@@ -103,7 +111,7 @@ export function PipeModal({
       );
       setSelectedUnitPriceIds(new Set());
     }
-  }, [open, pipeType, productsForType]);
+  }
 
   function resetModal() {
     setMode("choose");

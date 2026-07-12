@@ -245,7 +245,7 @@ export function StructureWorkbook({
     [
       defaults,
       persistSession,
-      planSheet?.id,
+      planSheet,
       rows,
       scheduleMarkupSave,
       viewMode,
@@ -388,6 +388,9 @@ export function StructureWorkbook({
     setSelectedRowIds(new Set());
   };
 
+  // One-shot markup rekey after the session restore settles. It must observe
+  // the restored rows and the sessionStorage-backed plan sheet, so it cannot
+  // run during the initial render; the ref guard keeps it from ever repeating.
   useEffect(() => {
     if (didRekeyMarkup.current) {
       return;
@@ -396,6 +399,7 @@ export function StructureWorkbook({
       return;
     }
     didRekeyMarkup.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot rekey, see comment above the effect
     setMarkup((current) => {
       const rekeyed = rekeyPlanSheetMarkup(current, rows);
       if (planSheet?.id) {

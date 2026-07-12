@@ -70,8 +70,6 @@ export function StockProductPicker({
 
   useEffect(() => {
     if (!categoryId) {
-      setProducts([]);
-      setHasLoaded(false);
       return;
     }
 
@@ -97,6 +95,10 @@ export function StockProductPicker({
     setCategoryId(nextCategoryId);
     setSubcategoryId("All");
     setSearchQuery("");
+    if (!nextCategoryId) {
+      setProducts([]);
+      setHasLoaded(false);
+    }
   }
 
   function setQty(product: QuoteFormProductOption, qty: number) {

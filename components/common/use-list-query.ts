@@ -42,9 +42,13 @@ export function useDebouncedSearchParam(
   const { setParams } = useListQuery();
   const [search, setSearch] = useState(committedValue);
 
-  useEffect(() => {
+  // Adopt external URL changes (back/forward, filter links) during the render
+  // they arrive instead of one render later in an effect.
+  const [prevCommitted, setPrevCommitted] = useState(committedValue);
+  if (committedValue !== prevCommitted) {
+    setPrevCommitted(committedValue);
     setSearch(committedValue);
-  }, [committedValue]);
+  }
 
   useEffect(() => {
     if (search === committedValue) {

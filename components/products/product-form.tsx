@@ -794,7 +794,7 @@ export function ProductForm({
               >
                 {drainRingDiameterOptions.map((diameter) => (
                   <option key={diameter} value={diameter}>
-                    {diameter}'
+                    {diameter}&apos;
                   </option>
                 ))}
               </select>
@@ -846,8 +846,8 @@ export function ProductForm({
                 className={productInputClassName}
               />
               <p className="mt-2 text-xs text-slate-500">
-                Whole-foot heights for most diameters; 8' rings may use 6"
-                (0.5') increments.
+                Whole-foot heights for most diameters; 8&apos; rings may use 6&quot;
+                (0.5&apos;) increments.
               </p>
             </div>
           </div>

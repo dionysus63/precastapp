@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import {
   addJobBidder,
   awardJob,
@@ -109,11 +109,18 @@ export function JobBiddingPanel({
     Record<string, string>
   >(() => buildDefaultContactMap(bidders));
 
-  useEffect(() => {
+  // Reconcile local selections with refreshed server props during the render
+  // they change instead of one render later in an effect.
+  const [prevBidders, setPrevBidders] = useState(bidders);
+  if (bidders !== prevBidders) {
+    setPrevBidders(bidders);
     setContactByBidderId((current) => mergeContactSelections(bidders, current));
-  }, [bidders]);
+  }
 
-  useEffect(() => {
+  const [prevMasterQuoteOptions, setPrevMasterQuoteOptions] =
+    useState(masterQuoteOptions);
+  if (masterQuoteOptions !== prevMasterQuoteOptions) {
+    setPrevMasterQuoteOptions(masterQuoteOptions);
     setTemplateQuoteId((current) => {
       if (current && masterQuoteOptions.some((quote) => quote.id === current)) {
         return current;
@@ -121,7 +128,7 @@ export function JobBiddingPanel({
 
       return masterQuoteOptions[0]?.id ?? "";
     });
-  }, [masterQuoteOptions]);
+  }
 
   const existingCustomerIds = useMemo(
     () => new Set(bidders.map((bidder) => bidder.customerId)),

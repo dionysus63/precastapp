@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   type EditableQuoteLineItem,
   type QuoteFormProductOption,
@@ -145,11 +145,19 @@ export function RingBuilderModal({
 
   const otherProductKey = otherProducts.map((product) => product.id).join("\0");
 
-  useEffect(() => {
+  // Re-seed the "other products" inputs whenever the modal opens or the
+  // product set changes while open. Done during render (guarded) instead of
+  // an effect.
+  const [prevOtherReset, setPrevOtherReset] = useState<{
+    open: boolean;
+    key: string;
+  } | null>(null);
+  if (prevOtherReset?.open !== open || prevOtherReset?.key !== otherProductKey) {
+    setPrevOtherReset({ open, key: otherProductKey });
     if (open) {
       setOtherInputs(initOtherInputs(otherProducts));
     }
-  }, [open, otherProductKey, otherProducts]);
+  }
 
   function resetModal() {
     setDiameter("10");

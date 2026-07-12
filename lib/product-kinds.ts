@@ -491,20 +491,6 @@ export function resolveInventorySettings(
   return { trackInventory: true, currentStockQuantity };
 }
 
-function parseYesNoInventory(value: string): {
-  trackInventory: boolean;
-  error?: string;
-} {
-  const inventoryValue = value.trim().toLowerCase();
-  if (inventoryValue && inventoryValue !== "yes" && inventoryValue !== "no") {
-    return {
-      trackInventory: true,
-      error: 'Track inventory must be "Yes" or "No".',
-    };
-  }
-  return { trackInventory: inventoryValue !== "no" };
-}
-
 function parsePositiveNumber(
   raw: string,
   label: string,
