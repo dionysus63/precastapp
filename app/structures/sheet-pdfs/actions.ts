@@ -22,17 +22,23 @@ function parseBooleanField(value: FormDataEntryValue | null): boolean {
 
 function revalidate() {
   revalidatePath("/structures");
-  revalidatePath("/structures/rect-pdf-sets");
+  revalidatePath("/structures/sheet-pdfs");
 }
 
-export async function createRectPdfSetAction(name: string): Promise<void> {
+export async function createSheetPdfSetAction(
+  name: string,
+  shape: "CIRCULAR" | "RECTANGULAR",
+): Promise<void> {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
   const trimmed = name.trim();
   if (!trimmed) {
     throw new Error("Set name is required.");
   }
+  const normalizedShape = shape === "CIRCULAR" ? "CIRCULAR" : "RECTANGULAR";
   try {
-    await prisma.rectSheetPdfSet.create({ data: { name: trimmed } });
+    await prisma.rectSheetPdfSet.create({
+      data: { name: trimmed, shape: normalizedShape },
+    });
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -45,7 +51,7 @@ export async function createRectPdfSetAction(name: string): Promise<void> {
   revalidate();
 }
 
-export async function renameRectPdfSetAction(
+export async function renameSheetPdfSetAction(
   id: string,
   name: string,
 ): Promise<void> {
@@ -62,7 +68,7 @@ export async function renameRectPdfSetAction(
   revalidate();
 }
 
-export async function deleteRectPdfSetAction(id: string): Promise<void> {
+export async function deleteSheetPdfSetAction(id: string): Promise<void> {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
 
   const usedBy = await prisma.structureTemplate.count({
@@ -87,14 +93,12 @@ export async function deleteRectPdfSetAction(id: string): Promise<void> {
   revalidate();
 }
 
-export async function uploadRectPdfSetFileAction(
+export async function uploadSheetPdfSetFileAction(
   formData: FormData,
 ): Promise<{ coverage: TemplatePdfFieldCoverage }> {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
 
   const setId = String(formData.get("setId") ?? "").trim();
-  const hasTopSlab = parseBooleanField(formData.get("hasTopSlab"));
-  const hasBaseSlab = parseBooleanField(formData.get("hasBaseSlab"));
   const file = formData.get("file");
 
   if (!setId) {
@@ -103,6 +107,25 @@ export async function uploadRectPdfSetFileAction(
   if (!(file instanceof File)) {
     throw new Error("A PDF file is required.");
   }
+
+  const set = await prisma.rectSheetPdfSet.findUnique({
+    where: { id: setId },
+    select: { shape: true },
+  });
+  if (!set) {
+    throw new Error("PDF set not found.");
+  }
+
+  // Circular sets hold a single sheet (one PDF covers every riser/key
+  // combination), stored under the {false,false} slot; rectangular sets use
+  // the four slab-variant slots posted by the form.
+  const isCircular = set.shape === "CIRCULAR";
+  const hasTopSlab = isCircular
+    ? false
+    : parseBooleanField(formData.get("hasTopSlab"));
+  const hasBaseSlab = isCircular
+    ? false
+    : parseBooleanField(formData.get("hasBaseSlab"));
 
   const row = await saveRectPdfSetFile(
     prisma,
@@ -113,14 +136,16 @@ export async function uploadRectPdfSetFileAction(
   const bytes = await readRectPdfSetFileBytes(row);
   const coverage = await listTemplatePdfFields(
     bytes,
-    rectVariantExpectedFieldNames(hasTopSlab, hasBaseSlab),
+    isCircular
+      ? undefined // defaults to the circular sheet convention
+      : rectVariantExpectedFieldNames(hasTopSlab, hasBaseSlab),
   );
 
   revalidate();
   return { coverage };
 }
 
-export async function deleteRectPdfSetFileAction(id: string): Promise<void> {
+export async function deleteSheetPdfSetFileAction(id: string): Promise<void> {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
   await deleteRectPdfSetFile(prisma, id);
   revalidate();

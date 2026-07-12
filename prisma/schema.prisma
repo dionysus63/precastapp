@@ -544,17 +544,23 @@ model StructureTemplate {
   @@index([rectPdfSetId])
 }
 
-/// Named set of calibrated rect sheet PDFs (one per slab variant), shareable
-/// across rectangular structure templates.
+/// Named "Sheet PDF Set" shareable across structure templates of its shape.
+/// Rectangular sets hold the four slab-variant PDFs; circular sets hold a
+/// single PDF (one sheet covers every riser/key combination) stored with
+/// hasTopSlab/hasBaseSlab false. Model keeps its historical "Rect" name to
+/// avoid churn across consumers.
 model RectSheetPdfSet {
-  id        String   @id @default(cuid())
-  name      String   @unique
+  id        String         @id @default(cuid())
+  name      String         @unique
+  shape     StructureShape @default(RECTANGULAR)
   notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 
   files     RectSheetPdfSetFile[]
   templates StructureTemplate[]
+
+  @@index([shape])
 }
 
 /// One slab-variant PDF inside a set (top slab x base slab matrix).

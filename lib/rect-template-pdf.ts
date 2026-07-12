@@ -712,6 +712,14 @@ type ExplodedDrawInfo = {
   upFlapObstacles: PageRect[];
   /** Knockouts + fold-dimension extents on the Down flap. */
   downFlapObstacles: PageRect[];
+  /**
+   * Display up-fraction per section joint (aligned with
+   * sectionJointHeightsFeet). Aspect-true knockouts draw taller than scale,
+   * so a box that physically sits inside one piece can poke past its
+   * joint's true position; the drawn joint line slides clear (the chain and
+   * rail carry the true inches — the exploded view is not to scale).
+   */
+  jointDisplayFracs: number[];
 };
 
 /** True when the segment passes through the rect (inflated by pad). */
@@ -1103,10 +1111,68 @@ function drawOpeningsOnFlaps(
         ]
       : [];
   const downFlap = flaps.find((entry) => entry.wall === "DOWN") ?? null;
+
+  // Joint display positions: keep each joint's line clear of knockouts that
+  // physically belong to one piece but draw taller than scale. A joint only
+  // moves within the corridor left between the drawn boxes below and above
+  // it; when the corridor is empty (a box really crosses, already warned)
+  // it stays at the true position.
+  const jointDisplayFracs = sectionJointHeightsFeet(result).map((joint) => {
+    const trueFrac =
+      result.wallHeightFeet > EPSILON
+        ? joint.heightFromFloorFeet / result.wallHeightFeet
+        : 0;
+    if (result.floorElevation == null || result.wallHeightFeet <= EPSILON) {
+      return trueFrac;
+    }
+    let lo = 0.02;
+    let hi = 0.98;
+    for (const entry of planned) {
+      const opening = entry.opening;
+      if (
+        opening.bottomOfOpeningFeet == null ||
+        opening.topOfOpeningFeet == null
+      ) {
+        continue;
+      }
+      const upPtPerFrac = Math.max(
+        entry.flap.verticalWall ? entry.flap.height : entry.flap.width,
+        EPSILON,
+      );
+      const gapFrac = 3 / upPtPerFrac;
+      const bottomFrac =
+        (opening.bottomOfOpeningFeet - result.floorElevation) /
+        result.wallHeightFeet;
+      const drawnHeightFrac =
+        (entry.flap.verticalWall ? entry.rect.height : entry.rect.width) /
+        upPtPerFrac;
+      const physicalTop = opening.topOfOpeningFeet - result.floorElevation;
+      if (physicalTop <= joint.heightFromFloorFeet + EPSILON) {
+        // Physically below the joint: the drawn line must clear the box top.
+        lo = Math.max(lo, bottomFrac + drawnHeightFrac + gapFrac);
+      } else if (
+        opening.bottomOfOpeningFeet - result.floorElevation >=
+        joint.heightFromFloorFeet - EPSILON
+      ) {
+        // Physically above: bottoms are always drawn to scale.
+        hi = Math.min(hi, bottomFrac - gapFrac);
+      }
+    }
+    return lo <= hi ? Math.min(Math.max(trueFrac, lo), hi) : trueFrac;
+  });
+  // Preserve joint order when neighboring adjustments collide.
+  for (let i = 1; i < jointDisplayFracs.length; i += 1) {
+    jointDisplayFracs[i] = Math.max(
+      jointDisplayFracs[i],
+      jointDisplayFracs[i - 1] + 0.03,
+    );
+  }
+
   return {
     chainX,
     upFlapObstacles: obstaclesOn(upFlap, upKnockouts),
     downFlapObstacles: obstaclesOn(downFlap, rectsByWall.get("DOWN") ?? []),
+    jointDisplayFracs,
   };
 }
 
@@ -1233,11 +1299,16 @@ function drawJointsOnFlaps(
     return fit ? Math.max(fit.lo + 1, fit.hi - labelWidth - 1) : null;
   };
 
-  for (const joint of sectionJointHeightsFeet(result)) {
-    const upFrac = joint.heightFromFloorFeet / result.wallHeightFeet;
-    if (upFrac <= EPSILON || upFrac >= 1 - EPSILON) {
+  const joints = sectionJointHeightsFeet(result);
+  for (let jointIndex = 0; jointIndex < joints.length; jointIndex += 1) {
+    const joint = joints[jointIndex];
+    const trueFrac = joint.heightFromFloorFeet / result.wallHeightFeet;
+    if (trueFrac <= EPSILON || trueFrac >= 1 - EPSILON) {
       continue;
     }
+    // Lines draw at the display position (slid clear of taller-than-scale
+    // knockouts); the chain and rail carry the true inches.
+    const upFrac = drawInfo.jointDisplayFracs[jointIndex] ?? trueFrac;
     for (const flap of flaps) {
       page.drawLine({
         start: flap.point(0, upFrac),
@@ -1483,11 +1554,16 @@ function drawSectionDimsOnUpFlap(
   const insideStrip = (y: number) =>
     strip.some((rect) => y > rect.y - 2 && y < rect.y + rect.height + 2);
 
-  let cursorFeet = 0;
-  for (const section of result.sections) {
-    const y0 = flap.y + (cursorFeet / result.wallHeightFeet) * flap.height;
-    cursorFeet += section.heightFeet;
-    const y1 = flap.y + (cursorFeet / result.wallHeightFeet) * flap.height;
+  // Segment boundaries follow the DISPLAY joint positions so the chain
+  // arrows meet the dashed joint lines; the printed inches stay true.
+  const boundaryFracs = [
+    0,
+    ...drawInfo.jointDisplayFracs.slice(0, result.sections.length - 1),
+    1,
+  ];
+  for (const [index, section] of result.sections.entries()) {
+    const y0 = flap.y + (boundaryFracs[index] ?? 0) * flap.height;
+    const y1 = flap.y + (boundaryFracs[index + 1] ?? 1) * flap.height;
 
     // Split the segment at knockout edges and draw only the clear runs.
     const cuts = [y0, y1];

@@ -17,7 +17,7 @@ export const drillSheetDetailInclude = {
       name: true,
       agencyStandard: true,
       shape: true,
-      templatePdfs: true,
+      rectPdfSet: { include: { files: true } },
     },
   },
   calc: true,

@@ -14,6 +14,7 @@ import {
 } from "@/components/jobs/job-quick-edit";
 import { StructureManageLink } from "@/components/jobs/structure-manage-link";
 import { DrillSheetPdfLink } from "@/components/drill-sheets/drill-sheet-pdf-link";
+import { JobDrillSheetsPdfButtons } from "@/components/drill-sheets/job-drill-sheets-pdf-buttons";
 import { JobDeliveriesTable } from "@/components/jobs/job-deliveries-table";
 import {
   groupJobRelatedQuotes,
@@ -664,6 +665,9 @@ export function JobProductionSection({
       }`}
       action={
         <div className="flex flex-wrap items-center gap-2">
+          {structures.some((structure) => structure.drillSheetId) ? (
+            <JobDrillSheetsPdfButtons jobId={jobId} />
+          ) : null}
           {completeDrillSheetsHref ? (
             <Link
               href={completeDrillSheetsHref}

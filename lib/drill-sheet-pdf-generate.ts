@@ -8,10 +8,10 @@ import { appendDrillSheetFillablePage } from "@/lib/drill-sheet-pdf-fillable";
 import {
   buildDrillSheetFieldMap,
   fillDrillSheetTemplatePdf,
-  selectTemplateVariant,
   templateVariantKey,
 } from "@/lib/drill-sheet-template-pdf";
-import { readTemplatePdfBytes } from "@/lib/structure-template-pdf-service";
+import { readRectPdfSetFileBytes } from "@/lib/rect-pdf-set-service";
+import { rectTemplateVariantKey } from "@/lib/structure-template-pdf-service";
 import { renderPdfBytesFromHtml } from "@/lib/quote-pdf";
 
 /**
@@ -55,8 +55,6 @@ export type DrillSheetPdfBuildResult = {
   source: DrillSheetPdfSource;
   computedVariant: { hasRiser: boolean; hasKey: boolean; key: string };
   templateVariant: {
-    hasRiser: boolean;
-    hasKey: boolean;
     key: string;
     originalName: string;
   } | null;
@@ -80,11 +78,16 @@ export async function buildDrillSheetPdfBytes(
     key: templateVariantKey(hasRiser, hasKey),
   };
 
-  const templatePdfs = sheet.structureTemplate?.templatePdfs ?? [];
-  const templateVariant = selectTemplateVariant(templatePdfs, detail.result);
+  // Circular sets hold one file stored under the {false,false} slot; the app
+  // draws riser/key differences itself.
+  const setFiles = sheet.structureTemplate?.rectPdfSet?.files ?? [];
+  const setFile =
+    setFiles.find((file) => !file.hasTopSlab && !file.hasBaseSlab) ??
+    setFiles[0] ??
+    null;
 
-  if (templateVariant) {
-    const templateBytes = await readTemplatePdfBytes(templateVariant);
+  if (setFile) {
+    const templateBytes = await readRectPdfSetFileBytes(setFile);
     const fieldMap = buildDrillSheetFieldMap(detail.meta, detail.result);
     const filled = await fillDrillSheetTemplatePdf(
       templateBytes,
@@ -99,13 +102,8 @@ export async function buildDrillSheetPdfBytes(
       source: "template",
       computedVariant,
       templateVariant: {
-        hasRiser: templateVariant.hasRiser,
-        hasKey: templateVariant.hasKey,
-        key: templateVariantKey(
-          templateVariant.hasRiser,
-          templateVariant.hasKey,
-        ),
-        originalName: templateVariant.originalName,
+        key: rectTemplateVariantKey(setFile.hasTopSlab, setFile.hasBaseSlab),
+        originalName: setFile.originalName,
       },
     };
   }

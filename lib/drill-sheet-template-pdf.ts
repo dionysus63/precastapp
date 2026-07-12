@@ -186,16 +186,6 @@ export const DRILL_SHEET_TEMPLATE_FIELD_NAMES = [
   ),
 ] as const;
 
-export type StructureTemplatePdfRow = {
-  id: string;
-  templateId: string;
-  hasRiser: boolean;
-  hasKey: boolean;
-  filePath: string;
-  originalName: string;
-  fileSize: number | null;
-};
-
 export type TemplatePdfFieldCoverage = {
   pdfFields: string[];
   matched: string[];
@@ -987,44 +977,6 @@ function drawNoKeyNote(
     font,
     color: rgb(0.85, 0, 0),
   });
-}
-
-export function selectTemplateVariant(
-  templatePdfs: StructureTemplatePdfRow[],
-  result: DrillSheetResult,
-): StructureTemplatePdfRow | null {
-  if (templatePdfs.length === 0) {
-    return null;
-  }
-
-  const hasRiser = result.sections.some((section) => section.role === "RISER");
-  const hasKey = result.hasKey;
-
-  const find = (riser: boolean, key: boolean) =>
-    templatePdfs.find(
-      (row) => row.hasRiser === riser && row.hasKey === key,
-    ) ?? null;
-
-  const exact = find(hasRiser, hasKey);
-  if (exact) {
-    return exact;
-  }
-
-  const sameKeyAnyRiser = find(!hasRiser, hasKey);
-  if (sameKeyAnyRiser) {
-    return sameKeyAnyRiser;
-  }
-
-  const sameRiserAnyKey = find(hasRiser, !hasKey);
-  if (sameRiserAnyKey) {
-    return sameRiserAnyKey;
-  }
-
-  if (templatePdfs.length === 1) {
-    return templatePdfs[0]!;
-  }
-
-  return null;
 }
 
 export async function fillDrillSheetTemplatePdf(

@@ -12,7 +12,7 @@ export default async function NewStructureTemplatePage() {
     loadCastingProductOptions(),
     prisma.rectSheetPdfSet.findMany({
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, shape: true },
     }),
   ]);
 

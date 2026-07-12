@@ -17,6 +17,7 @@ import {
   resolveDrillSheetPdfDirectory,
   resolveDrillSheetPdfOutputPath,
 } from "@/lib/drill-sheet-pdf-path";
+import { buildJobDrillSheetsPdfBytes } from "@/lib/job-drill-sheets-pdf";
 import { registerJobFile } from "@/lib/job-files-service";
 import { launchWindowsFile } from "@/lib/windows-explorer";
 import { getJobsRoot } from "@/lib/app-settings";
@@ -26,6 +27,75 @@ import { withDatabaseRetry } from "@/lib/prisma";
 export type GenerateDrillSheetPdfResult =
   | { success: true; filePath: string }
   | { success: false; error: string };
+
+export type GenerateJobDrillSheetsPdfResult =
+  | { success: true; filePath: string; included: number; skipped: string[] }
+  | { success: false; error: string };
+
+/**
+ * Saves one combined PDF with every drill sheet on the job into the job
+ * folder's cut-sheets subfolder (fallback directory when the job has no
+ * folder), registering it with the job's files.
+ */
+export async function generateJobDrillSheetsPdf(
+  jobId: string,
+): Promise<GenerateJobDrillSheetsPdfResult> {
+  await requirePermission(AppPermission.STRUCTURES_MANAGE);
+  if (!jobId.trim()) {
+    return { success: false, error: "Job id is required." };
+  }
+
+  try {
+    const built = await buildJobDrillSheetsPdfBytes(jobId);
+    if (!built.ok) {
+      return { success: false, error: built.error };
+    }
+
+    const baseName = buildDrillSheetPdfBaseName(
+      "Drill Sheets",
+      built.jobNumber,
+    );
+    const outputDirectory = resolveDrillSheetPdfDirectory(built.jobFolderPath);
+    const outputPath = await resolveDrillSheetPdfOutputPath(
+      outputDirectory,
+      baseName,
+    );
+
+    if (built.jobFolderPath) {
+      assertPathUnderJobsRoot(await getJobsRoot(), outputPath);
+    }
+
+    await mkdir(path.dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, built.bytes);
+
+    if (built.jobFolderPath) {
+      await withDatabaseRetry((client) =>
+        registerJobFile(client, jobId, outputPath, DRILL_SHEET_PDF_JOB_SUBFOLDER),
+      );
+    }
+
+    try {
+      await launchWindowsFile(outputPath);
+    } catch {
+      // Ignore: the PDF was saved and its path is returned to the caller.
+    }
+
+    return {
+      success: true,
+      filePath: outputPath,
+      included: built.included.length,
+      skipped: built.skipped.map(
+        (entry) => `${entry.structureNumber} (${entry.reason})`,
+      ),
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Failed to generate the combined drill sheet PDF.";
+    return { success: false, error: message };
+  }
+}
 
 export async function generateDrillSheetPdf(
   drillSheetId: string,

@@ -58,7 +58,7 @@ export async function buildRectSheetPdfBytes(
     const wanted = rectTemplateVariantKey(result.hasTopSlab, result.hasBaseSlab);
     return {
       ok: false,
-      error: `The "${pdfSet.name}" PDF set has no ${wanted} variant. Upload it in Structures → Rect PDF Sets.`,
+      error: `The "${pdfSet.name}" PDF set has no ${wanted} variant. Upload it in Structures → Sheet PDF Sets.`,
     };
   }
 

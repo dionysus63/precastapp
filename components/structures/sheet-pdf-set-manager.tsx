@@ -1,19 +1,20 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
-  createRectPdfSetAction,
-  deleteRectPdfSetAction,
-  deleteRectPdfSetFileAction,
-  renameRectPdfSetAction,
-  uploadRectPdfSetFileAction,
-} from "@/app/structures/rect-pdf-sets/actions";
+  createSheetPdfSetAction,
+  deleteSheetPdfSetAction,
+  deleteSheetPdfSetFileAction,
+  renameSheetPdfSetAction,
+  uploadSheetPdfSetFileAction,
+} from "@/app/structures/sheet-pdfs/actions";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { structureInputClassName } from "@/components/structures/structure-utils";
-import { RECT_SHEET_TEMPLATE_FIELD_NAMES } from "@/lib/rect-template-pdf-fields";
 
-export type RectPdfSetSlotView = {
+export type SheetPdfSetShape = "CIRCULAR" | "RECTANGULAR";
+
+export type SheetPdfSetSlotView = {
   hasTopSlab: boolean;
   hasBaseSlab: boolean;
   label: string;
@@ -21,31 +22,134 @@ export type RectPdfSetSlotView = {
     id: string;
     originalName: string;
     uploadedAt: string;
-    matched: number;
-    /** Field names present in the PDF but not in the convention. */
-    unmatched: string[];
-    /** Convention field names this variant expects but the PDF lacks. */
-    missing: string[];
-    loadError: string | null;
   } | null;
 };
 
-export type RectPdfSetView = {
+export type SheetPdfSetView = {
   id: string;
   name: string;
+  shape: SheetPdfSetShape;
   usedByTemplates: string[];
-  slots: RectPdfSetSlotView[];
+  slots: SheetPdfSetSlotView[];
 };
 
-type RectPdfSetManagerProps = {
-  sets: RectPdfSetView[];
+type SlotCoverageState =
+  | { status: "loading" }
+  | { status: "error"; message: string }
+  | {
+      status: "ready";
+      matched: number;
+      /** Field names present in the PDF but not in the convention. */
+      unmatched: string[];
+      /** Convention field names this variant expects but the PDF lacks. */
+      missing: string[];
+    };
+
+/** Coverage is fetched lazily — computing it during the page render parses
+ * every uploaded PDF and made the page take ~25s to open. */
+function SlotCoverage({ fileId }: { fileId: string }) {
+  const [state, setState] = useState<SlotCoverageState>({ status: "loading" });
+
+  // Back to "loading" the render fileId changes (the effect refetches below).
+  const [prevFileId, setPrevFileId] = useState(fileId);
+  if (fileId !== prevFileId) {
+    setPrevFileId(fileId);
+    setState({ status: "loading" });
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/rect-pdf-set-files/${fileId}/coverage`)
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+        return response.json() as Promise<{
+          matched: number;
+          unmatched: string[];
+          missing: string[];
+        }>;
+      })
+      .then((data) => {
+        if (!cancelled) {
+          setState({ status: "ready", ...data });
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setState({
+            status: "error",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Could not read the uploaded PDF.",
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fileId]);
+
+  if (state.status === "loading") {
+    return <p className="text-slate-400">Checking fields…</p>;
+  }
+  if (state.status === "error") {
+    return <p className="text-rose-700">{state.message}</p>;
+  }
+  return (
+    <>
+      <p>
+        <span className="font-medium text-green-700">
+          {state.matched} matched
+        </span>
+        {" · "}
+        <span
+          className={
+            state.missing.length > 0
+              ? "font-medium text-amber-700"
+              : "font-medium text-slate-500"
+          }
+        >
+          {state.missing.length} missing
+        </span>
+        {" · "}
+        <span className="font-medium text-slate-500">
+          {state.unmatched.length} unmatched in PDF
+        </span>
+      </p>
+      {state.missing.length > 0 ? (
+        <p className="text-amber-700">Missing: {state.missing.join(", ")}</p>
+      ) : null}
+      {state.unmatched.length > 0 ? (
+        <p className="text-slate-500">
+          Unmatched PDF fields: {state.unmatched.join(", ")}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+type SheetPdfSetManagerProps = {
+  sets: SheetPdfSetView[];
+  /** Convention field names per shape (for the "expected fields" toggle). */
+  expectedFieldNames: Record<SheetPdfSetShape, string[]>;
 };
 
-export function RectPdfSetManager({ sets }: RectPdfSetManagerProps) {
+const SHAPE_LABELS: Record<SheetPdfSetShape, string> = {
+  CIRCULAR: "Circular",
+  RECTANGULAR: "Rectangular",
+};
+
+export function SheetPdfSetManager({
+  sets,
+  expectedFieldNames,
+}: SheetPdfSetManagerProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ error?: string; success?: string }>({});
   const [newName, setNewName] = useState("");
+  const [newShape, setNewShape] = useState<SheetPdfSetShape>("RECTANGULAR");
 
   function run(action: () => Promise<unknown>, success: string) {
     setMessage({});
@@ -61,6 +165,9 @@ export function RectPdfSetManager({ sets }: RectPdfSetManagerProps) {
       }
     });
   }
+
+  const circularSets = sets.filter((set) => set.shape === "CIRCULAR");
+  const rectSets = sets.filter((set) => set.shape !== "CIRCULAR");
 
   return (
     <div className="space-y-4">
@@ -89,12 +196,25 @@ export function RectPdfSetManager({ sets }: RectPdfSetManagerProps) {
               className={structureInputClassName}
             />
           </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-700">
+              Shape
+            </label>
+            <select
+              value={newShape}
+              onChange={(e) => setNewShape(e.target.value as SheetPdfSetShape)}
+              className={structureInputClassName}
+            >
+              <option value="RECTANGULAR">Rectangular (4 slab variants)</option>
+              <option value="CIRCULAR">Circular (one sheet)</option>
+            </select>
+          </div>
           <button
             type="button"
             disabled={pending || !newName.trim()}
             onClick={() =>
               run(async () => {
-                await createRectPdfSetAction(newName);
+                await createSheetPdfSetAction(newName, newShape);
                 setNewName("");
               }, "PDF set created.")
             }
@@ -105,21 +225,47 @@ export function RectPdfSetManager({ sets }: RectPdfSetManagerProps) {
         </div>
       </SectionCard>
 
-      {sets.map((set) => (
-        <RectPdfSetCard key={set.id} set={set} pending={pending} run={run} />
+      {(
+        [
+          ["CIRCULAR", circularSets],
+          ["RECTANGULAR", rectSets],
+        ] as const
+      ).map(([shape, group]) => (
+        <div key={shape} className="space-y-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            {SHAPE_LABELS[shape]} Sets ({group.length})
+          </h3>
+          {group.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-500">
+              No {SHAPE_LABELS[shape].toLowerCase()} sets yet.
+            </p>
+          ) : (
+            group.map((set) => (
+              <SheetPdfSetCard
+                key={set.id}
+                set={set}
+                pending={pending}
+                run={run}
+                expectedFields={expectedFieldNames[set.shape]}
+              />
+            ))
+          )}
+        </div>
       ))}
     </div>
   );
 }
 
-function RectPdfSetCard({
+function SheetPdfSetCard({
   set,
   pending,
   run,
+  expectedFields,
 }: {
-  set: RectPdfSetView;
+  set: SheetPdfSetView;
   pending: boolean;
   run: (action: () => Promise<unknown>, success: string) => void;
+  expectedFields: string[];
 }) {
   const [name, setName] = useState(set.name);
   const [showFields, setShowFields] = useState(false);
@@ -138,7 +284,7 @@ function RectPdfSetCard({
           disabled={pending}
           onClick={() => {
             if (window.confirm(`Delete PDF set "${set.name}" and its files?`)) {
-              run(() => deleteRectPdfSetAction(set.id), "PDF set deleted.");
+              run(() => deleteSheetPdfSetAction(set.id), "PDF set deleted.");
             }
           }}
           className="rounded-md border border-red-200 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
@@ -163,7 +309,7 @@ function RectPdfSetCard({
           type="button"
           disabled={pending || name.trim() === set.name || !name.trim()}
           onClick={() =>
-            run(() => renameRectPdfSetAction(set.id, name), "PDF set renamed.")
+            run(() => renameSheetPdfSetAction(set.id, name), "PDF set renamed.")
           }
           className="rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
         >
@@ -171,7 +317,11 @@ function RectPdfSetCard({
         </button>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div
+        className={
+          set.slots.length > 1 ? "grid gap-3 lg:grid-cols-2" : "grid gap-3"
+        }
+      >
         {set.slots.map((slot) => (
           <div
             key={`${slot.hasTopSlab}-${slot.hasBaseSlab}`}
@@ -187,41 +337,7 @@ function RectPdfSetCard({
                     <p>
                       {slot.file.originalName} · {slot.file.uploadedAt}
                     </p>
-                    {slot.file.loadError ? (
-                      <p className="text-rose-700">{slot.file.loadError}</p>
-                    ) : (
-                      <>
-                        <p>
-                          <span className="font-medium text-green-700">
-                            {slot.file.matched} matched
-                          </span>
-                          {" · "}
-                          <span
-                            className={
-                              slot.file.missing.length > 0
-                                ? "font-medium text-amber-700"
-                                : "font-medium text-slate-500"
-                            }
-                          >
-                            {slot.file.missing.length} missing
-                          </span>
-                          {" · "}
-                          <span className="font-medium text-slate-500">
-                            {slot.file.unmatched.length} unmatched in PDF
-                          </span>
-                        </p>
-                        {slot.file.missing.length > 0 ? (
-                          <p className="text-amber-700">
-                            Missing: {slot.file.missing.join(", ")}
-                          </p>
-                        ) : null}
-                        {slot.file.unmatched.length > 0 ? (
-                          <p className="text-slate-500">
-                            Unmatched PDF fields: {slot.file.unmatched.join(", ")}
-                          </p>
-                        ) : null}
-                      </>
-                    )}
+                    <SlotCoverage fileId={slot.file.id} />
                   </div>
                 ) : (
                   <p className="mt-0.5 text-[11px] text-slate-500">
@@ -235,7 +351,7 @@ function RectPdfSetCard({
                   disabled={pending}
                   onClick={() =>
                     run(
-                      () => deleteRectPdfSetFileAction(slot.file!.id),
+                      () => deleteSheetPdfSetFileAction(slot.file!.id),
                       "PDF deleted.",
                     )
                   }
@@ -249,7 +365,7 @@ function RectPdfSetCard({
             <form
               action={(formData) =>
                 run(
-                  () => uploadRectPdfSetFileAction(formData),
+                  () => uploadSheetPdfSetFileAction(formData),
                   "PDF uploaded.",
                 )
               }
@@ -292,11 +408,11 @@ function RectPdfSetCard({
         className="mt-3 text-[11px] font-medium text-slate-500 hover:text-slate-800"
       >
         {showFields ? "Hide" : "Show"} expected field names (
-        {RECT_SHEET_TEMPLATE_FIELD_NAMES.length})
+        {expectedFields.length})
       </button>
       {showFields ? (
         <pre className="mt-2 max-h-40 overflow-auto rounded bg-slate-50 p-2 text-[10px] text-slate-600">
-          {RECT_SHEET_TEMPLATE_FIELD_NAMES.join("\n")}
+          {expectedFields.join("\n")}
         </pre>
       ) : null}
     </SectionCard>

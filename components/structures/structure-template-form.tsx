@@ -60,6 +60,7 @@ export type StructureTemplateFormValue = {
 export type RectPdfSetOption = {
   id: string;
   name: string;
+  shape: "CIRCULAR" | "RECTANGULAR";
 };
 
 type StructureTemplateFormProps = {
@@ -171,6 +172,10 @@ export function StructureTemplateForm({
   );
 
   const isRect = shape === "RECTANGULAR";
+  // Sets are shape-specific: only offer the matching ones.
+  const shapePdfSetOptions = rectPdfSetOptions.filter(
+    (option) => option.shape === shape,
+  );
 
   const payloadJson = useMemo(() => {
     return JSON.stringify({
@@ -270,9 +275,23 @@ export function StructureTemplateForm({
               </label>
               <select
                 value={shape}
-                onChange={(e) =>
-                  setShape(e.target.value as "CIRCULAR" | "RECTANGULAR")
-                }
+                onChange={(e) => {
+                  const nextShape = e.target.value as
+                    | "CIRCULAR"
+                    | "RECTANGULAR";
+                  setShape(nextShape);
+                  // The selected set belongs to the previous shape.
+                  if (
+                    rectPdfSetId &&
+                    !rectPdfSetOptions.some(
+                      (option) =>
+                        option.id === rectPdfSetId &&
+                        option.shape === nextShape,
+                    )
+                  ) {
+                    setRectPdfSetId("");
+                  }
+                }}
                 className={structureInputClassName}
               >
                 <option value="CIRCULAR">Circular</option>
@@ -527,25 +546,31 @@ export function StructureTemplateForm({
                   className={structureInputClassName}
                 />
               </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-700">
-                  Sheet PDF Set
-                </label>
-                <select
-                  value={rectPdfSetId}
-                  onChange={(e) => setRectPdfSetId(e.target.value)}
-                  className={structureInputClassName}
-                >
-                  <option value="">— None —</option>
-                  {rectPdfSetOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
           ) : null}
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700">
+              Sheet PDF Set
+            </label>
+            <select
+              value={rectPdfSetId}
+              onChange={(e) => setRectPdfSetId(e.target.value)}
+              className={structureInputClassName}
+            >
+              <option value="">— None —</option>
+              {shapePdfSetOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-[11px] text-slate-400">
+              {isRect
+                ? "Four slab-variant sheet PDFs; manage sets under Structures → Sheet PDF Sets."
+                : "One sheet PDF covering every riser/key combination; manage sets under Structures → Sheet PDF Sets."}
+            </p>
+          </div>
 
           <div>
             <label className="block text-xs font-medium text-slate-700">

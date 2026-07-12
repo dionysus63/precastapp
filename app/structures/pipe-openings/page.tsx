@@ -36,12 +36,20 @@ export default async function PipeOpeningSizesPage() {
       title="Pipe Opening Sizes"
       subtitle="Global catalog: pipe material/type, size, and boot → hole diameter, pipe wall, boot model, and price."
     >
-      <Link
-        href="/structures"
-        className="text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        ← Back to Structures
-      </Link>
+      <div className="flex items-center justify-between">
+        <Link
+          href="/structures"
+          className="text-xs font-medium text-slate-500 hover:text-slate-900"
+        >
+          ← Back to Structures
+        </Link>
+        <Link
+          href="/structures/import"
+          className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+        >
+          Bulk Import
+        </Link>
+      </div>
 
       <div className="mt-4">
         <PipeOpeningSizesForm
