@@ -1,8 +1,8 @@
-import { app, BrowserWindow, dialog, session, shell } from "electron";
+import { app, BrowserWindow, dialog, Menu, session, shell } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
 import { loadConfig, validateServerUrl } from "./config.mjs";
-import { initAutoUpdater } from "./updater.mjs";
+import { checkForUpdatesManually, initAutoUpdater } from "./updater.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -113,6 +113,74 @@ function createWindow() {
   });
 }
 
+function showAboutDialog() {
+  let serverUrl = "(not configured)";
+  try {
+    serverUrl = getServerUrl();
+  } catch {
+    // keep placeholder
+  }
+
+  const target = mainWindow;
+  const details = [
+    `Version: ${app.getVersion()}`,
+    `Server: ${serverUrl}`,
+    `Electron: ${process.versions.electron}`,
+    `Chromium: ${process.versions.chrome}`,
+    `Installed at: ${app.getPath("exe")}`,
+  ].join("\n");
+
+  const options = {
+    type: /** @type {const} */ ("info"),
+    title: "About Precast Ops",
+    message: "Precast Ops desktop client",
+    detail: details,
+    buttons: ["OK"],
+  };
+  void (target ? dialog.showMessageBox(target, options) : dialog.showMessageBox(options));
+}
+
+function buildApplicationMenu() {
+  return Menu.buildFromTemplate([
+    {
+      label: "File",
+      submenu: [{ role: "quit", label: "Exit" }],
+    },
+    {
+      label: "View",
+      submenu: [
+        { role: "reload" },
+        { role: "forceReload", label: "Reload (clear cache)" },
+        { type: "separator" },
+        { role: "resetZoom" },
+        { role: "zoomIn" },
+        { role: "zoomOut" },
+        { type: "separator" },
+        { role: "togglefullscreen" },
+      ],
+    },
+    {
+      label: "Help",
+      submenu: [
+        { label: `Precast Ops v${app.getVersion()}`, enabled: false },
+        { type: "separator" },
+        {
+          label: "Check for Updates…",
+          click: () => {
+            void checkForUpdatesManually();
+          },
+        },
+        {
+          label: "About Precast Ops",
+          click: () => {
+            showAboutDialog();
+          },
+        },
+      ],
+    },
+  ]);
+}
+
 if (process.platform === "win32") {
   app.setAppUserModelId("com.li-precast.precastops");
 }
@@ -132,6 +200,8 @@ if (!gotLock) {
   });
 
   app.whenReady().then(() => {
+    Menu.setApplicationMenu(buildApplicationMenu());
+
     // Outlook draft downloads (.eml from Send Quote) open seamlessly: save
     // silently to temp and hand off to the default mail app — no save
     // prompt. Every other download keeps the normal save dialog.

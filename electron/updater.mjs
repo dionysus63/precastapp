@@ -85,3 +85,59 @@ export function initAutoUpdater(mainWindow, getServerUrl) {
   // Check again every 4 hours while the app is open.
   setInterval(check, 4 * 60 * 60 * 1000);
 }
+
+let manualCheckRunning = false;
+
+/**
+ * Menu-triggered check. Unlike the background check, this always answers:
+ * "up to date", "found one" (the update-available/downloaded dialogs take
+ * over from there), or a readable error.
+ */
+export async function checkForUpdatesManually() {
+  const win = getWindow();
+
+  if (!app.isPackaged) {
+    if (win) {
+      void dialog.showMessageBox(win, {
+        type: "info",
+        title: "Precast Ops update",
+        message: "Update checks are disabled in development builds.",
+        buttons: ["OK"],
+      });
+    }
+    return;
+  }
+
+  if (manualCheckRunning) {
+    return;
+  }
+  manualCheckRunning = true;
+
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    const latest = result?.updateInfo?.version ?? null;
+
+    if (win && (!latest || latest === app.getVersion())) {
+      void dialog.showMessageBox(win, {
+        type: "info",
+        title: "Precast Ops update",
+        message: `You're on the latest version (v${app.getVersion()}).`,
+        buttons: ["OK"],
+      });
+    }
+    // A newer version triggers the update-available / update-downloaded
+    // dialogs registered above; nothing more to do here.
+  } catch (error) {
+    if (win) {
+      void dialog.showMessageBox(win, {
+        type: "warning",
+        title: "Precast Ops update",
+        message: "Could not check for updates.",
+        detail: `${error instanceof Error ? error.message : String(error)}\n\nCheck that the office server is reachable.`,
+        buttons: ["OK"],
+      });
+    }
+  } finally {
+    manualCheckRunning = false;
+  }
+}
