@@ -78,12 +78,14 @@ function createDefaultHeightPoolRow(
   config: RingBuilderConfig,
   diameterFeet: number,
   topLevelStyle: DrainRingStyle,
+  priceListId: string | null,
 ): HeightPoolRow {
   const ringStyle = topLevelStyle === "SANITARY" ? "SANITARY" : "DRAIN";
   const defaultPrice = getRingDefaultPricePerFoot(
     config,
     diameterFeet,
     ringStyle,
+    priceListId,
   );
   return {
     id: createRowId("pool"),
@@ -99,6 +101,8 @@ type RingBuilderModalProps = {
   onClose: () => void;
   ringBuilderConfig: RingBuilderConfig;
   ringSlabProducts: QuoteFormProductOption[];
+  /** The quote's selected price list — rings seed from its $/ft override. */
+  priceListId?: string | null;
   lineCount: number;
   onAddItems: (items: EditableQuoteLineItem[]) => void;
   onError: (message: string) => void;
@@ -109,6 +113,7 @@ export function RingBuilderModal({
   onClose,
   ringBuilderConfig,
   ringSlabProducts,
+  priceListId = null,
   lineCount,
   onAddItems,
   onError,
@@ -116,7 +121,7 @@ export function RingBuilderModal({
   const [diameter, setDiameter] = useState("10");
   const [topLevelStyle, setTopLevelStyle] = useState<DrainRingStyle>("DRAIN");
   const [heightPoolRows, setHeightPoolRows] = useState<HeightPoolRow[]>(() => [
-    createDefaultHeightPoolRow(ringBuilderConfig, 10, "DRAIN"),
+    createDefaultHeightPoolRow(ringBuilderConfig, 10, "DRAIN", priceListId),
   ]);
   const [otherInputs, setOtherInputs] = useState<
     Record<string, OtherProductInput>
@@ -163,7 +168,7 @@ export function RingBuilderModal({
     setDiameter("10");
     setTopLevelStyle("DRAIN");
     setHeightPoolRows([
-      createDefaultHeightPoolRow(ringBuilderConfig, 10, "DRAIN"),
+      createDefaultHeightPoolRow(ringBuilderConfig, 10, "DRAIN", priceListId),
     ]);
     setOtherInputs({});
   }
@@ -180,7 +185,12 @@ export function RingBuilderModal({
     return rows.map((row) => ({
       ...row,
       pricePerFoot: formatRingBuilderUnitPrice(
-        getRingDefaultPricePerFoot(ringBuilderConfig, nextDiameter, row.ringStyle),
+        getRingDefaultPricePerFoot(
+          ringBuilderConfig,
+          nextDiameter,
+          row.ringStyle,
+          priceListId,
+        ),
       ),
     }));
   }
@@ -222,6 +232,7 @@ export function RingBuilderModal({
             ringBuilderConfig,
             diameterNumber,
             defaultRingStyle,
+            priceListId,
           ),
         ),
       })),
@@ -248,6 +259,7 @@ export function RingBuilderModal({
                 ringBuilderConfig,
                 diameterNumber,
                 ringStyle,
+                priceListId,
               ),
             ),
           };
@@ -451,6 +463,7 @@ export function RingBuilderModal({
                     ringBuilderConfig,
                     diameterNumber,
                     topLevelStyle,
+                    priceListId,
                   ),
                 ])
               }

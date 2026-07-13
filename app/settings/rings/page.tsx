@@ -6,6 +6,7 @@ import { SettingsShell } from "@/components/settings/settings-shell";
 import { updateRingBuilderSettingsFormAction } from "@/app/settings/actions";
 import { getAppSettings } from "@/lib/app-settings";
 import { listProductTaxonomy } from "@/lib/product-taxonomy.server";
+import { withDatabaseRetry } from "@/lib/prisma";
 
 type RingBuilderSettingsPageProps = {
   searchParams: Promise<{ success?: string; error?: string }>;
@@ -24,9 +25,15 @@ export default async function RingBuilderSettingsPage({
   searchParams,
 }: RingBuilderSettingsPageProps) {
   const params = await searchParams;
-  const [settings, taxonomy] = await Promise.all([
+  const [settings, taxonomy, priceLists] = await Promise.all([
     getAppSettings(),
     listProductTaxonomy(),
+    withDatabaseRetry((client) =>
+      client.priceList.findMany({
+        orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+        select: { id: true, name: true },
+      }),
+    ),
   ]);
   const subcategoryOptions = taxonomy.flatMap((category) =>
     category.subcategories.map((subcategory) => subcategory.name),
@@ -49,6 +56,7 @@ export default async function RingBuilderSettingsPage({
         <RingBuilderSettingsForm
           initialConfig={settings.ringBuilderConfig}
           subcategoryOptions={subcategoryOptions}
+          priceLists={priceLists}
           action={saveRingBuilderSettings}
         />
       </SectionCard>

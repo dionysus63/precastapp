@@ -24,12 +24,15 @@ import {
 type RingBuilderSettingsFormProps = {
   initialConfig: RingBuilderConfig;
   subcategoryOptions: string[];
+  priceLists: { id: string; name: string }[];
   action: (formData: FormData) => Promise<void>;
 };
 
-type EditableMapping = RingSlabMapping & {
+type EditableMapping = Omit<RingSlabMapping, "pricePerFootByPriceList"> & {
   id: string;
   extraOtherText: string;
+  /** Per-price-list $/ft as input strings; blank means "use the base rate". */
+  priceListOverrides: Record<string, string>;
 };
 
 function createMappingId() {
@@ -70,6 +73,11 @@ function buildEditableFromConfig(
       defaultPricePerFoot: mapping.defaultPricePerFoot,
       id: createMappingId(),
       extraOtherText: otherExtra.join("\n"),
+      priceListOverrides: Object.fromEntries(
+        Object.entries(mapping.pricePerFootByPriceList).map(
+          ([priceListId, price]) => [priceListId, String(price)],
+        ),
+      ),
     };
   });
 }
@@ -133,12 +141,33 @@ function SubcategoryPicker({
 export function RingBuilderSettingsForm({
   initialConfig,
   subcategoryOptions,
+  priceLists,
   action,
 }: RingBuilderSettingsFormProps) {
   const instances = useMemo(() => getAllRingBuilderInstances(), []);
   const [mappings, setMappings] = useState<EditableMapping[]>(() =>
     buildEditableFromConfig(initialConfig, subcategoryOptions),
   );
+
+  function updatePriceListOverride(
+    id: string,
+    priceListId: string,
+    value: string,
+  ) {
+    setMappings((current) =>
+      current.map((mapping) =>
+        mapping.id === id
+          ? {
+              ...mapping,
+              priceListOverrides: {
+                ...mapping.priceListOverrides,
+                [priceListId]: value,
+              },
+            }
+          : mapping,
+      ),
+    );
+  }
 
   function updateMapping(
     id: string,
@@ -178,17 +207,30 @@ export function RingBuilderSettingsForm({
   const serializedConfig = useMemo(
     () =>
       JSON.stringify(
-        mappings.map((mapping) => ({
-          diameterFeet: mapping.diameterFeet,
-          style: mapping.style,
-          otherSubcategories: isTopLevelRingStyle(mapping.style)
-            ? [
-                ...mapping.otherSubcategories,
-                ...parseExtraSubcategoriesText(mapping.extraOtherText),
-              ]
-            : [],
-          defaultPricePerFoot: mapping.defaultPricePerFoot,
-        })),
+        mappings.map((mapping) => {
+          const pricePerFootByPriceList: Record<string, number> = {};
+          for (const [priceListId, raw] of Object.entries(
+            mapping.priceListOverrides,
+          )) {
+            const trimmed = raw.trim();
+            const parsed = Number(trimmed);
+            if (trimmed && Number.isFinite(parsed) && parsed >= 0) {
+              pricePerFootByPriceList[priceListId] = parsed;
+            }
+          }
+          return {
+            diameterFeet: mapping.diameterFeet,
+            style: mapping.style,
+            otherSubcategories: isTopLevelRingStyle(mapping.style)
+              ? [
+                  ...mapping.otherSubcategories,
+                  ...parseExtraSubcategoriesText(mapping.extraOtherText),
+                ]
+              : [],
+            defaultPricePerFoot: mapping.defaultPricePerFoot,
+            pricePerFootByPriceList,
+          };
+        }),
       ),
     [mappings],
   );
@@ -196,10 +238,12 @@ export function RingBuilderSettingsForm({
   return (
     <form action={action} className="space-y-4">
       <p className="text-xs text-slate-600">
-        For each ring diameter and style, set a default price per foot and choose
+        For each ring diameter and style, set a base price per foot and choose
         which product subcategories assigned on the product&apos;s Subcategory
-        field appear as Other options in the quote builder. Other products are
-        configured per diameter and top-level style (Drain or Sanitary).
+        field appear as Other options in the quote builder. Each price list can
+        override the $/ft — a blank cell falls back to the base rate. Other
+        products are configured per diameter and top-level style (Drain or
+        Sanitary).
       </p>
 
       <div className={tableWrapperClassName}>
@@ -208,8 +252,16 @@ export function RingBuilderSettingsForm({
             <tr>
               <th className={tableHeaderCellClassName}>Diameter / Style</th>
               <th className={`${tableHeaderCellClassName} min-w-[120px]`}>
-                Default price/ft
+                Base price/ft
               </th>
+              {priceLists.map((list) => (
+                <th
+                  key={list.id}
+                  className={`${tableHeaderCellClassName} min-w-[120px]`}
+                >
+                  {list.name} $/ft
+                </th>
+              ))}
               <th className={`${tableHeaderCellClassName} min-w-[220px]`}>
                 Other products
               </th>
@@ -244,6 +296,26 @@ export function RingBuilderSettingsForm({
                       className={settingsInputClassName}
                     />
                   </td>
+                  {priceLists.map((list) => (
+                    <td key={list.id} className={tableCellClassName}>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={mapping.priceListOverrides[list.id] ?? ""}
+                        placeholder={String(mapping.defaultPricePerFoot)}
+                        onChange={(event) =>
+                          updatePriceListOverride(
+                            mapping.id,
+                            list.id,
+                            event.target.value,
+                          )
+                        }
+                        aria-label={`${list.name} price per foot`}
+                        className={settingsInputClassName}
+                      />
+                    </td>
+                  ))}
                   <td className={tableCellClassName}>
                     {showOtherPicker ? (
                       <SubcategoryPicker

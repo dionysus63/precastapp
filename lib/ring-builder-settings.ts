@@ -48,6 +48,12 @@ export type RingSlabMapping = {
   style: DrainRingStyle;
   otherSubcategories: string[];
   defaultPricePerFoot: number;
+  /**
+   * Per-price-list $/ft overrides keyed by PriceList id. A list without an
+   * entry falls back to defaultPricePerFoot. Keyed by id (not name) so
+   * renaming a price list keeps its ring rates.
+   */
+  pricePerFootByPriceList: Record<string, number>;
 };
 
 export type RingBuilderConfig = RingSlabMapping[];
@@ -87,6 +93,25 @@ function parseDefaultPricePerFoot(value: unknown): number {
     return 0;
   }
   return parsed;
+}
+
+function parsePricePerFootByPriceList(
+  value: unknown,
+): Record<string, number> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  const overrides: Record<string, number> = {};
+  for (const [priceListId, raw] of Object.entries(value)) {
+    const trimmedId = priceListId.trim();
+    const parsed = Number(raw);
+    if (!trimmedId || !Number.isFinite(parsed) || parsed < 0) {
+      continue;
+    }
+    overrides[trimmedId] = parsed;
+  }
+  return overrides;
 }
 
 function parseOtherSubcategoriesFromEntry(entry: object): string[] {
@@ -156,6 +181,11 @@ export function parseRingBuilderConfig(value: unknown): RingBuilderConfig {
       otherSubcategories: parseOtherSubcategoriesFromEntry(entry),
       defaultPricePerFoot: parseDefaultPricePerFoot(
         "defaultPricePerFoot" in entry ? entry.defaultPricePerFoot : 0,
+      ),
+      pricePerFootByPriceList: parsePricePerFootByPriceList(
+        "pricePerFootByPriceList" in entry
+          ? entry.pricePerFootByPriceList
+          : undefined,
       ),
     });
   }
@@ -236,13 +266,24 @@ export function getRingDefaultPricePerFoot(
   config: RingBuilderConfig,
   diameterFeet: number,
   ringStyle: DrainRingStyle,
+  priceListId?: string | null,
 ): number {
   const match = config.find(
     (entry) =>
       entry.diameterFeet === diameterFeet && entry.style === ringStyle,
   );
+  if (!match) {
+    return 0;
+  }
 
-  return match?.defaultPricePerFoot ?? 0;
+  if (priceListId) {
+    const override = match.pricePerFootByPriceList[priceListId];
+    if (override !== undefined) {
+      return override;
+    }
+  }
+
+  return match.defaultPricePerFoot;
 }
 
 export type RingBuilderInstance = {
@@ -287,6 +328,7 @@ export function mergeRingBuilderConfigWithDefaults(
         style: instance.style,
         otherSubcategories: [],
         defaultPricePerFoot: 0,
+        pricePerFootByPriceList: {},
       }
     );
   });

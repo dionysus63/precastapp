@@ -2990,6 +2990,7 @@ export function QuoteForm({
           onClose={() => setRingBuilderModalOpen(false)}
           ringBuilderConfig={ringBuilderConfig}
           ringSlabProducts={ringSlabProductsState}
+          priceListId={priceListId || null}
           lineCount={lineItems.length}
           onAddItems={handleAddRingBuilderItems}
           onError={(message) => showFlash("error", message)}

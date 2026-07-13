@@ -250,8 +250,8 @@
     "semantic_hash": ""
   },
   "components/quotes/quote-form.tsx": {
-    "mtime": 1783891945.5862756,
-    "ast_hash": "97d14990d857cadb362c0dac6309e516",
+    "mtime": 1783959716.5184557,
+    "ast_hash": "7ac9933df3cc24cfb26fd4ee3002d7f6",
     "semantic_hash": ""
   },
   "components/quotes/quote-preview-content.tsx": {
@@ -525,8 +525,8 @@
     "semantic_hash": ""
   },
   "app/settings/actions.ts": {
-    "mtime": 1783954684.1170456,
-    "ast_hash": "b8ccd67c1181fde40b10890962a551c1",
+    "mtime": 1783955117.8940246,
+    "ast_hash": "7b35f3f9beac5c3b7ee3d8c3cafa4fe2",
     "semantic_hash": ""
   },
   "app/settings/billing/page.tsx": {
@@ -555,8 +555,8 @@
     "semantic_hash": ""
   },
   "app/settings/price-lists/[id]/page.tsx": {
-    "mtime": 1783303735.4298446,
-    "ast_hash": "5827f85e1993ab8b0d9432568310672d",
+    "mtime": 1783955152.3456442,
+    "ast_hash": "65dd0480e42c2a46acfab4f79a8380e1",
     "semantic_hash": ""
   },
   "app/settings/price-lists/page.tsx": {
@@ -900,8 +900,8 @@
     "semantic_hash": "05e92444b39411cb2b5a0eead0c34fe2"
   },
   "lib/drain-ring-utils.ts": {
-    "mtime": 1782481804.2871432,
-    "ast_hash": "087ad1221c95a492825c38bd2ac95e34",
+    "mtime": 1783960230.9184844,
+    "ast_hash": "d56464c308c723f5232faaaffaa96597",
     "semantic_hash": ""
   },
   "prisma/migrations/20260620200000_drain_ring_support/migration.sql": {
@@ -1700,8 +1700,8 @@
     "semantic_hash": ""
   },
   "app/settings/rings/page.tsx": {
-    "mtime": 1783287348.2422018,
-    "ast_hash": "39e1d1215a2f230a5945cd81a365ca54",
+    "mtime": 1783959794.936329,
+    "ast_hash": "d3ad125b03ad01c027655ae89f019a7a",
     "semantic_hash": ""
   },
   "app/walk-ins/page.tsx": {
@@ -1725,8 +1725,8 @@
     "semantic_hash": ""
   },
   "components/quotes/ring-builder-modal.tsx": {
-    "mtime": 1783892540.0748374,
-    "ast_hash": "379fa4afb45d566b4c26268d5a875de6",
+    "mtime": 1783959695.4857955,
+    "ast_hash": "cc4ceb439afd9767b952cde71e20bd1b",
     "semantic_hash": ""
   },
   "components/quotes/send-quote-button.tsx": {
@@ -1735,8 +1735,8 @@
     "semantic_hash": ""
   },
   "components/settings/ring-builder-settings-form.tsx": {
-    "mtime": 1783303735.457845,
-    "ast_hash": "17277be89c9954956d85678855c2339e",
+    "mtime": 1783959763.7670045,
+    "ast_hash": "9fe846b79234a6727ae4b8fdf0be087c",
     "semantic_hash": ""
   },
   "components/ui/rich-text-content.tsx": {
@@ -1790,8 +1790,8 @@
     "semantic_hash": ""
   },
   "lib/ring-builder-settings.ts": {
-    "mtime": 1783287348.2412004,
-    "ast_hash": "1bad665945229ff4150d36aec5b6fc7e",
+    "mtime": 1783959627.9742315,
+    "ast_hash": "ac76421af1d031cd64f4aa29aaaa0a42",
     "semantic_hash": ""
   },
   "prisma/migrations/20260625202545_add_ring_builder_config/migration.sql": {
@@ -3247,6 +3247,16 @@
   "app/api/invoices/final-batch/pdf/route.ts": {
     "mtime": 1783948473.7993424,
     "ast_hash": "1d16fed19110724e024165e1afb54bbc",
+    "semantic_hash": ""
+  },
+  "components/settings/price-list-settings-form.tsx": {
+    "mtime": 1783955136.3017354,
+    "ast_hash": "fd34977fcc1ef509a5254bf548cf84f0",
+    "semantic_hash": ""
+  },
+  "tests/unit/ring-builder-pricing.test.ts": {
+    "mtime": 1783960253.709878,
+    "ast_hash": "9204b6ac84fbdedb3d50131b20c1f74c",
     "semantic_hash": ""
   }
 }

@@ -133,17 +133,26 @@ export function assertSanitaryDrainRingAllowed(
   }
 }
 
+/** 9 → 9'-0", 9.5 → 9'-6"; inches round to the nearest whole inch. */
+export function formatFeetAndInches(feet: number): string {
+  const totalInches = Math.round(feet * 12);
+  const wholeFeet = Math.floor(totalInches / 12);
+  const inches = totalInches % 12;
+  return `${wholeFeet}'-${inches}"`;
+}
+
+/** e.g. `10'Ø Storm Pool - 2 @ 9'-0" Deep` */
 export function formatDrainRingPoolDescription(input: {
   poolCount: number;
   poolHeight: number;
   diameter: number;
   style?: DrainRingStyle;
 }): string {
-  const styleSuffix =
+  const styleLabel =
     input.style === "SANITARY"
-      ? ", sanitary"
+      ? "Sanitary"
       : input.style === "SOLID"
-        ? ", solid"
-        : "";
-  return `${input.poolCount} pool${input.poolCount === 1 ? "" : "s"} @ ${input.poolHeight}' (${input.diameter}' dia${styleSuffix})`;
+        ? "Solid"
+        : "Storm";
+  return `${input.diameter}'Ø ${styleLabel} Pool - ${input.poolCount} @ ${formatFeetAndInches(input.poolHeight)} Deep`;
 }
