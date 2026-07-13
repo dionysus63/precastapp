@@ -369,6 +369,14 @@ function DraftReviewTab({
                               Edit
                             </Link>
                           ) : null}
+                          <a
+                            href={`/api/invoices/${row.id}/pdf`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-slate-700 underline hover:text-slate-900"
+                          >
+                            View PDF
+                          </a>
                           <button
                             type="button"
                             onClick={() =>
@@ -564,6 +572,14 @@ function FinalInvoicesTab({
                     </td>
                     <td className={tableCellClassName}>
                       <div className="flex flex-wrap gap-2">
+                        <a
+                          href={`/api/invoices/${row.id}/pdf`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-slate-700 underline hover:text-slate-900"
+                        >
+                          View PDF
+                        </a>
                         <button
                           type="button"
                           onClick={() =>

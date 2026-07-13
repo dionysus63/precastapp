@@ -160,8 +160,8 @@
     "semantic_hash": ""
   },
   "components/dashboard/dashboard-shell.tsx": {
-    "mtime": 1783458405.4360762,
-    "ast_hash": "64f0b34f8e9dffe8bcaea66cff72d12c",
+    "mtime": 1783906775.0123248,
+    "ast_hash": "00d3a55c7b980940fcb6266e6cee0802",
     "semantic_hash": ""
   },
   "components/dashboard/header.tsx": {
@@ -940,8 +940,8 @@
     "semantic_hash": ""
   },
   "app/login/actions.ts": {
-    "mtime": 1782741391.0247886,
-    "ast_hash": "ed3d18e7c6e4b0f378e09c90b2b21088",
+    "mtime": 1783906670.4131927,
+    "ast_hash": "73463a1d1040cec144b136a6f061a10f",
     "semantic_hash": ""
   },
   "app/login/page.tsx": {
@@ -950,8 +950,8 @@
     "semantic_hash": ""
   },
   "app/profile/page.tsx": {
-    "mtime": 1782741411.5680256,
-    "ast_hash": "b8233761ca4d4378ba14275b2028e6cb",
+    "mtime": 1783906725.979924,
+    "ast_hash": "b532c101bbe6c0a41e50d5d9fe4d5923",
     "semantic_hash": ""
   },
   "app/settings/products/page.tsx": {
@@ -965,8 +965,8 @@
     "semantic_hash": ""
   },
   "app/settings/users/actions.ts": {
-    "mtime": 1783814037.995084,
-    "ast_hash": "5f66843008c732c1d8c09584cb28f341",
+    "mtime": 1783906639.426159,
+    "ast_hash": "0d4fd6bd56622f7de047a4090a9515b3",
     "semantic_hash": ""
   },
   "app/settings/users/audit/page.tsx": {
@@ -1105,8 +1105,8 @@
     "semantic_hash": ""
   },
   "middleware.ts": {
-    "mtime": 1783519871.9331064,
-    "ast_hash": "d0e70037910c1b0f1d64354e2621ae7c",
+    "mtime": 1783906770.8059516,
+    "ast_hash": "efc9caa35853a34e317613acac607971",
     "semantic_hash": ""
   },
   "prisma/migrations/20260621100000_job_file_path_unique/migration.sql": {
@@ -1875,8 +1875,8 @@
     "semantic_hash": ""
   },
   "components/auth/login-form.tsx": {
-    "mtime": 1782741401.6192348,
-    "ast_hash": "c88a25fe116534c23ea3a8b6e52e478e",
+    "mtime": 1783906685.9290614,
+    "ast_hash": "e8a39eeb5ed1e8f58440a40ec5058ec9",
     "semantic_hash": ""
   },
   "components/drill-sheets/drill-sheet-pdf-canvas-preview.tsx": {
@@ -2190,8 +2190,8 @@
     "semantic_hash": ""
   },
   "app/invoices/actions.ts": {
-    "mtime": 1783901499.9622943,
-    "ast_hash": "7e1bd673870f0b49162f3db12ea5d9f6",
+    "mtime": 1783906826.8684833,
+    "ast_hash": "079f04c5fc1ec1a73ff185c5e27ae3aa",
     "semantic_hash": ""
   },
   "components/invoices/invoice-detail-actions.tsx": {
@@ -2215,8 +2215,8 @@
     "semantic_hash": ""
   },
   "lib/invoice-pdf-fill.ts": {
-    "mtime": 1783287348.2361999,
-    "ast_hash": "0eff1332cc84c4d57b659c547802c0ce",
+    "mtime": 1783903746.4936583,
+    "ast_hash": "db85ba2999527aad0292a996c05a2929",
     "semantic_hash": ""
   },
   "lib/invoice-pdf-line-items.ts": {
@@ -2230,8 +2230,8 @@
     "semantic_hash": ""
   },
   "assets/templates/invoice-template.pdf": {
-    "mtime": 1783037214.6378987,
-    "ast_hash": "ec108302a749d9bd67ad9a5c6279ee2e",
+    "mtime": 1783903705.2342026,
+    "ast_hash": "9342894a40b9bed7277ba9081c18baa3",
     "semantic_hash": ""
   },
   "components/production/approve-for-production-dialog.tsx": {
@@ -2290,8 +2290,8 @@
     "semantic_hash": ""
   },
   "components/settings/reset-password-button.tsx": {
-    "mtime": 1783287348.1921997,
-    "ast_hash": "2b2303becccd494c9f2bb14d6971f018",
+    "mtime": 1783906698.7106977,
+    "ast_hash": "3230aaf49fcd50235967e43c1ec6be57",
     "semantic_hash": ""
   },
   "components/ui/app-providers.tsx": {
@@ -2605,8 +2605,8 @@
     "semantic_hash": ""
   },
   "lib/purchase-order-service.ts": {
-    "mtime": 1783814040.9203115,
-    "ast_hash": "fec34266bc08f865ae89239b3d069bcc",
+    "mtime": 1783906872.6250489,
+    "ast_hash": "0cc9fc66267e5988902d81e4a35cfdba",
     "semantic_hash": ""
   },
   "lib/purchase-order-utils.ts": {
@@ -3202,6 +3202,26 @@
   "lib/structure-template-payload.ts": {
     "mtime": 1783875806.1705494,
     "ast_hash": "fa5b9cad3a3ad9dbaff4b110d2738495",
+    "semantic_hash": ""
+  },
+  "scripts/generate-invoice-templates.ts": {
+    "mtime": 1783903688.3573377,
+    "ast_hash": "81767cbe09a485ced71d669604c67686",
+    "semantic_hash": ""
+  },
+  "assets/templates/invoice-template-continuation.pdf": {
+    "mtime": 1783903705.2942047,
+    "ast_hash": "f2038483acd0eb71b1cd6535c5ce4431",
+    "semantic_hash": ""
+  },
+  "assets/templates/lip-header.png": {
+    "mtime": 1783903589.0631328,
+    "ast_hash": "9944caa0178f4119aea75692d3a72e0d",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260712210000_allow_negative_stock/migration.sql": {
+    "mtime": 1783906463.4295502,
+    "ast_hash": "e0a9976a019ded4a9ae837d6e5a41e2b",
     "semantic_hash": ""
   }
 }
