@@ -6,6 +6,7 @@ import {
   deletePriceListItemFormAction,
   upsertPriceListItemFormAction,
 } from "@/app/settings/actions";
+import { PriceListSettingsForm } from "@/components/settings/price-list-settings-form";
 import {
   getMissingProductsForPriceList,
   getPriceListCompleteness,
@@ -61,6 +62,9 @@ export default async function PriceListDetailPage({
     >
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
+          {priceList.isDefault ? (
+            <StatusBadge label="Default" variant="info" />
+          ) : null}
           {completeness.isComplete ? (
             <StatusBadge label="Complete" variant="success" />
           ) : (
@@ -74,6 +78,20 @@ export default async function PriceListDetailPage({
             active products priced
           </span>
         </div>
+
+        <SectionCard title="List settings">
+          <PriceListSettingsForm
+            priceList={{
+              id: priceList.id,
+              name: priceList.name,
+              effectiveDate: priceList.effectiveDate
+                ? priceList.effectiveDate.toISOString().slice(0, 10)
+                : "",
+              isDefault: priceList.isDefault,
+              notes: priceList.notes ?? "",
+            }}
+          />
+        </SectionCard>
 
         <SectionCard title="Add or update item">
           <form action={upsertPriceListItemFormAction} className="grid max-w-lg gap-3 sm:grid-cols-3">

@@ -7,7 +7,6 @@ import { AppPermission, Prisma } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { syncAllJobFilesFromDisk } from "@/lib/job-files-service";
 import {
-  formatLinesList,
   getAppSettings,
   invalidateAppSettingsCache,
   parseLinesList,
@@ -138,6 +137,76 @@ export async function createPriceList(formData: FormData) {
     return {
       error:
         error instanceof Error ? error.message : "Could not create price list.",
+    };
+  }
+}
+
+export async function updatePriceListSettings(
+  formData: FormData,
+): Promise<SettingsActionResult> {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
+  const id = String(formData.get("id") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  const effectiveDateRaw = String(formData.get("effectiveDate") ?? "").trim();
+  const isDefault = formData.get("isDefault") === "on";
+  const notes = String(formData.get("notes") ?? "").trim() || null;
+
+  if (!id) {
+    return { error: "Price list id is required." };
+  }
+  if (!name) {
+    return { error: "Name is required." };
+  }
+
+  const effectiveDate = effectiveDateRaw
+    ? new Date(`${effectiveDateRaw}T00:00:00`)
+    : null;
+
+  try {
+    await withDatabaseRetry((client) =>
+      client.$transaction(async (tx) => {
+        const current = await tx.priceList.findUnique({
+          where: { id },
+          select: { isDefault: true },
+        });
+        if (!current) {
+          throw new Error("Price list not found.");
+        }
+
+        // The app always needs a default list, so the default never turns
+        // off here — it moves when another list is made default.
+        if (current.isDefault && !isDefault) {
+          throw new Error(
+            "This is the default price list. Set another list as default to replace it.",
+          );
+        }
+
+        if (isDefault && !current.isDefault) {
+          await assertPriceListCompleteForDefault(id, tx);
+          await tx.priceList.updateMany({
+            data: { isDefault: false },
+            where: { isDefault: true },
+          });
+        }
+
+        await tx.priceList.update({
+          where: { id },
+          data: { name, effectiveDate, isDefault, notes },
+        });
+      }),
+    );
+
+    revalidatePath("/settings/price-lists");
+    revalidatePath(`/settings/price-lists/${id}`);
+    revalidatePath("/quotes/new");
+    return { success: "Price list settings saved." };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Could not save price list.";
+    return {
+      error: message.includes("Unique constraint")
+        ? "A price list with that name already exists."
+        : message,
     };
   }
 }
@@ -1181,5 +1250,3 @@ export async function clearAllDeliveryTicketsFormAction(
     success: `Deleted ${result.ticketsDeleted} delivery ticket${result.ticketsDeleted === 1 ? "" : "s"} and ${result.invoicesDeleted} invoice${result.invoicesDeleted === 1 ? "" : "s"}.${result.sequencesDeleted > 0 ? " Ticket and invoice numbering will start over." : ""}`,
   };
 }
-
-export { formatLinesList };

@@ -525,8 +525,8 @@
     "semantic_hash": ""
   },
   "app/settings/actions.ts": {
-    "mtime": 1783954684.1170456,
-    "ast_hash": "b8ccd67c1181fde40b10890962a551c1",
+    "mtime": 1783902329.9875495,
+    "ast_hash": "bda23b82f625b1ea042552a99d28bebc",
     "semantic_hash": ""
   },
   "app/settings/billing/page.tsx": {
@@ -1105,7 +1105,7 @@
     "semantic_hash": ""
   },
   "middleware.ts": {
-    "mtime": 1783954656.3862472,
+    "mtime": 1783906770.8059516,
     "ast_hash": "efc9caa35853a34e317613acac607971",
     "semantic_hash": ""
   },
@@ -2205,8 +2205,8 @@
     "semantic_hash": ""
   },
   "components/invoices/invoices-tabs.tsx": {
-    "mtime": 1783950604.3132322,
-    "ast_hash": "2e587ac13b65d647416217bd8580e42b",
+    "mtime": 1783901592.1682303,
+    "ast_hash": "f529fa879c57656317ed12eaf5dd74a4",
     "semantic_hash": ""
   },
   "lib/invoice-pdf-data.ts": {
@@ -3242,11 +3242,6 @@
   "tests/unit/route-permissions.test.ts": {
     "mtime": 1783907791.1463623,
     "ast_hash": "0da47ad3354c71475b3e3da551b9eab9",
-    "semantic_hash": ""
-  },
-  "app/api/invoices/final-batch/pdf/route.ts": {
-    "mtime": 1783948473.7993424,
-    "ast_hash": "1d16fed19110724e024165e1afb54bbc",
     "semantic_hash": ""
   }
 }
