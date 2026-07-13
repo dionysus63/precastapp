@@ -32,11 +32,11 @@ describe("canSendQuote", () => {
 });
 
 describe("canEditQuote", () => {
-  it("allows only draft and in-review", () => {
+  it("allows draft, in-review, and sent (sent edits sit behind a confirm dialog)", () => {
     const editable = ALL_STATUSES.filter((status) =>
       canEditQuote(status, null),
     );
-    expect(editable).toEqual(["DRAFT", "IN_REVIEW"]);
+    expect(editable).toEqual(["DRAFT", "IN_REVIEW", "SENT"]);
   });
 
   it("never allows editing a superseded quote", () => {

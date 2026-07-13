@@ -11,6 +11,7 @@ import { DrillSheetPdfLink } from "@/components/drill-sheets/drill-sheet-pdf-lin
 import { LinkStructuresButton } from "@/components/quotes/link-structures-button";
 import { MarkWonButton } from "@/components/quotes/mark-won-button";
 import { DeleteQuoteButton } from "@/components/quotes/delete-quote-button";
+import { EditSentQuoteButton } from "@/components/quotes/edit-sent-quote-button";
 import { ReviseQuoteButton } from "@/components/quotes/revise-quote-button";
 import { SendQuoteButton } from "@/components/quotes/send-quote-button";
 import { JobStructureSubmittalActions } from "@/components/jobs/job-structure-submittal-actions";
@@ -157,12 +158,19 @@ export function QuoteDetailContent({
 
           <div className="flex flex-wrap items-center gap-2">
             {quote.canEdit ? (
-              <Link
-                href={`/quotes/${quote.id}/edit`}
-                className={toolbarButtonClassName}
-              >
-                Edit Quote
-              </Link>
+              quote.status === "SENT" ? (
+                <EditSentQuoteButton
+                  quoteId={quote.id}
+                  className={toolbarButtonClassName}
+                />
+              ) : (
+                <Link
+                  href={`/quotes/${quote.id}/edit`}
+                  className={toolbarButtonClassName}
+                >
+                  Edit Quote
+                </Link>
+              )
             ) : (
               <button type="button" disabled className={toolbarDisabledClassName}>
                 Edit Quote
