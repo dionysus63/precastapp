@@ -7,6 +7,7 @@ import {
   openJobStructureSubmittalsFolder,
   uploadJobStructureDocumentAction,
 } from "@/app/jobs/actions";
+import { completeExplorerOpen } from "@/lib/open-on-client";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { CreateJobFolderButton } from "@/components/jobs/create-job-folder-button";
 import type { JobStructureDocumentRow } from "@/lib/job-structure-detail-mapper";
@@ -74,7 +75,7 @@ export function JobStructureDocumentsSection({
     startTransition(async () => {
       try {
         const result = await openJobStructureSubmittalsFolder(jobStructureId);
-        setMessage({ success: `Opened in Explorer: ${result.path}` });
+        setMessage(await completeExplorerOpen(result, result.path));
       } catch (error) {
         setMessage({
           error:
@@ -89,9 +90,10 @@ export function JobStructureDocumentsSection({
     startTransition(async () => {
       try {
         const result = await openJobStructureDocument(documentId);
+        const feedback = await completeExplorerOpen(result, result.documentName);
         setRowMessages((current) => ({
           ...current,
-          [documentId]: { success: `Opened: ${result.documentName}` },
+          [documentId]: feedback,
         }));
       } catch (error) {
         setRowMessages((current) => ({

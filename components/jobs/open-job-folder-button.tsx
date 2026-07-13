@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { openJobFolder } from "@/app/jobs/actions";
+import { completeExplorerOpen } from "@/lib/open-on-client";
 
 type OpenJobFolderButtonProps = {
   jobId: string;
@@ -23,7 +24,9 @@ export function OpenJobFolderButton({
 
     try {
       const result = await openJobFolder(jobId);
-      setSuccess(`Opened in Explorer: ${result.path}`);
+      const feedback = await completeExplorerOpen(result, result.path);
+      if (feedback.error) setError(feedback.error);
+      else setSuccess(feedback.success ?? null);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Could not open job folder.",

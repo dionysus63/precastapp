@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { generateDrillSheetPdf } from "@/app/drill-sheets/pdf-actions";
+import { openPathOnClient } from "@/lib/open-on-client";
 
 type DrillSheetPdfButtonProps = {
   drillSheetId: string;
@@ -21,6 +22,9 @@ export function DrillSheetPdfButton({ drillSheetId }: DrillSheetPdfButtonProps) 
           startTransition(async () => {
             const result = await generateDrillSheetPdf(drillSheetId);
             if (result.success) {
+              if (!result.launched) {
+                await openPathOnClient(result.filePath);
+              }
               setMessage(`Saved: ${result.filePath}`);
               return;
             }

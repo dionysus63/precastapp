@@ -1,4 +1,5 @@
-import { app, BrowserWindow, dialog, Menu, session, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, session, shell } from "electron";
+import { existsSync, statSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { loadConfig, validateServerUrl } from "./config.mjs";
@@ -67,6 +68,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
+      preload: path.join(__dirname, "preload.cjs"),
     },
   });
 
@@ -110,6 +112,40 @@ function createWindow() {
 
   mainWindow.on("closed", () => {
     mainWindow = null;
+  });
+}
+
+// File types the bridge opens with their default app; anything else is
+// selected in Explorer instead so a hostile path can never execute.
+const OPENABLE_FILE_EXTENSIONS = new Set([
+  ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".txt", ".csv",
+  ".doc", ".docx", ".xls", ".xlsx", ".eml", ".msg", ".dwg", ".dxf", ".zip",
+]);
+
+function registerDesktopBridge() {
+  ipcMain.handle("desktop:open-path", async (_event, targetPath) => {
+    if (typeof targetPath !== "string" || !targetPath.trim() || targetPath.length > 1024) {
+      return "Invalid path.";
+    }
+    const normalized = path.normalize(targetPath.trim());
+    if (!existsSync(normalized)) {
+      return `Path not found from this PC: ${normalized}`;
+    }
+
+    try {
+      const stats = statSync(normalized);
+      if (stats.isDirectory()) {
+        return await shell.openPath(normalized);
+      }
+      const extension = path.extname(normalized).toLowerCase();
+      if (OPENABLE_FILE_EXTENSIONS.has(extension)) {
+        return await shell.openPath(normalized);
+      }
+      shell.showItemInFolder(normalized);
+      return "";
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error);
+    }
   });
 }
 
@@ -201,6 +237,7 @@ if (!gotLock) {
 
   app.whenReady().then(() => {
     Menu.setApplicationMenu(buildApplicationMenu());
+    registerDesktopBridge();
 
     // Outlook draft downloads (.eml from Send Quote) open seamlessly: save
     // silently to temp and hand off to the default mail app — no save

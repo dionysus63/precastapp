@@ -1018,6 +1018,9 @@ export async function importProducts(
 export type ProductExplorerOpenResult = {
   success: true;
   path: string;
+  /** False when the browser is on another machine: the client opens `path`
+   * itself (desktop shell) or shows it (plain browser). */
+  launched: boolean;
 };
 
 function revalidateProductPaths(productId: string) {
@@ -1082,13 +1085,14 @@ export async function openProductDocument(
   }
 
   // Product documents live under the stock submittals root, not the jobs root.
-  await launchWindowsFile(document.filePath, {
+  const launch = await launchWindowsFile(document.filePath, {
     allowedRoot: await getStockSubmittalsRoot(),
   });
 
   return {
     success: true,
     path: document.filePath,
+    launched: launch.launched,
     documentName: document.documentName,
   };
 }
@@ -1116,9 +1120,9 @@ export async function openProductSubmittalsFolder(
     throw new Error("Opening folders is supported on Windows only.");
   }
 
-  await launchWindowsFolder(root, { allowedRoot: root });
+  const launch = await launchWindowsFolder(root, { allowedRoot: root });
 
-  return { success: true, path: root };
+  return { success: true, path: root, launched: launch.launched };
 }
 
 export async function deleteProductDocumentAction(documentId: string) {

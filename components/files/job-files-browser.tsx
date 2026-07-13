@@ -9,6 +9,7 @@ import {
   syncJobFilesAction,
   uploadJobFileAction,
 } from "@/app/files/actions";
+import { completeExplorerOpen } from "@/lib/open-on-client";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { FileUploadDropzone } from "@/components/files/file-upload-dropzone";
 import { OpenFileButton } from "@/components/files/open-file-button";
@@ -155,7 +156,12 @@ export function JobFilesBrowser({
     startTransition(async () => {
       try {
         const result = await openJobFolderCategory(jobId, category);
-        setOpenSuccess(`Opened in Explorer: ${result.path}`);
+        const feedback = await completeExplorerOpen(result, result.path);
+        if (feedback.error) {
+          setOpenError(feedback.error);
+        } else {
+          setOpenSuccess(feedback.success ?? null);
+        }
       } catch (err) {
         setOpenError(
           err instanceof Error ? err.message : "Could not open folder.",

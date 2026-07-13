@@ -25,11 +25,17 @@ import { assertPathUnderJobsRoot } from "@/lib/job-path-security";
 import { withDatabaseRetry } from "@/lib/prisma";
 
 export type GenerateDrillSheetPdfResult =
-  | { success: true; filePath: string }
+  | { success: true; filePath: string; launched: boolean }
   | { success: false; error: string };
 
 export type GenerateJobDrillSheetsPdfResult =
-  | { success: true; filePath: string; included: number; skipped: string[] }
+  | {
+      success: true;
+      filePath: string;
+      launched: boolean;
+      included: number;
+      skipped: string[];
+    }
   | { success: false; error: string };
 
 /**
@@ -74,8 +80,9 @@ export async function generateJobDrillSheetsPdf(
       );
     }
 
+    let launched = false;
     try {
-      await launchWindowsFile(outputPath);
+      launched = (await launchWindowsFile(outputPath)).launched;
     } catch {
       // Ignore: the PDF was saved and its path is returned to the caller.
     }
@@ -83,6 +90,7 @@ export async function generateJobDrillSheetsPdf(
     return {
       success: true,
       filePath: outputPath,
+      launched,
       included: built.included.length,
       skipped: built.skipped.map(
         (entry) => `${entry.structureNumber} (${entry.reason})`,
@@ -185,13 +193,14 @@ export async function generateDrillSheetPdf(
       );
     }
 
+    let launched = false;
     try {
-      await launchWindowsFile(outputPath);
+      launched = (await launchWindowsFile(outputPath)).launched;
     } catch {
       // Ignore: the PDF was saved and its path is returned to the caller.
     }
 
-    return { success: true, filePath: outputPath };
+    return { success: true, filePath: outputPath, launched };
   } catch (error) {
     const message =
       error instanceof Error
@@ -258,11 +267,12 @@ async function generateRectSheetPdf(
     );
   }
 
+  let launched = false;
   try {
-    await launchWindowsFile(outputPath);
+    launched = (await launchWindowsFile(outputPath)).launched;
   } catch {
     // Ignore: the PDF was saved and its path is returned to the caller.
   }
 
-  return { success: true, filePath: outputPath };
+  return { success: true, filePath: outputPath, launched };
 }

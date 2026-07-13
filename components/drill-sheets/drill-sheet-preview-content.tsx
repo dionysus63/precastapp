@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useState, useTransition } from "react";
 import { generateDrillSheetPdf } from "@/app/drill-sheets/pdf-actions";
+import { openPathOnClient } from "@/lib/open-on-client";
 import {
   DrillSheetPdfCanvasPreview,
   getDrillSheetPreviewPrintUrl,
@@ -56,6 +57,9 @@ export function DrillSheetPreviewContent({
     startTransition(async () => {
       const result = await generateDrillSheetPdf(drillSheetId);
       if (result.success) {
+        if (!result.launched) {
+          await openPathOnClient(result.filePath);
+        }
         setPdfResult({ type: "success", filePath: result.filePath });
         return;
       }

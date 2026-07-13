@@ -24,6 +24,9 @@ import { withDatabaseRetry } from "@/lib/prisma";
 export type ExplorerOpenResult = {
   success: true;
   path: string;
+  /** False when the browser is on another machine: the client opens `path`
+   * itself (desktop shell) or shows it (plain browser). */
+  launched: boolean;
 };
 
 function revalidateFilesPaths(jobId?: string) {
@@ -131,11 +134,12 @@ export async function openJobFile(fileId: string): Promise<
   );
 
   assertPathUnderJobFolder(file.job.folderPath!, file.filePath);
-  await launchWindowsFile(file.filePath);
+  const launch = await launchWindowsFile(file.filePath);
 
   return {
     success: true,
     path: file.filePath,
+    launched: launch.launched,
     fileName: file.fileName,
   };
 }
@@ -152,9 +156,9 @@ export async function openJobFolderCategory(
   const categoryPath = resolveCategoryPath(job.folderPath, category);
   assertPathUnderJobFolder(job.folderPath, categoryPath);
   await assertPathAccessible(categoryPath, "directory");
-  await launchWindowsFolder(categoryPath);
+  const launch = await launchWindowsFolder(categoryPath);
 
-  return { success: true, path: categoryPath };
+  return { success: true, path: categoryPath, launched: launch.launched };
 }
 
 export async function syncJobFilesAction(jobId: string) {

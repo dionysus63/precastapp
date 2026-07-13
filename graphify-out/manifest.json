@@ -35,8 +35,8 @@
     "semantic_hash": ""
   },
   "app/jobs/actions.ts": {
-    "mtime": 1783560277.9092824,
-    "ast_hash": "80f48832387be64e211e786c193ac454",
+    "mtime": 1783971268.8494322,
+    "ast_hash": "60c21ef51da5174655c8b9e7a7c5c4a6",
     "semantic_hash": ""
   },
   "app/jobs/new/page.tsx": {
@@ -70,8 +70,8 @@
     "semantic_hash": ""
   },
   "app/products/actions.ts": {
-    "mtime": 1783891709.0777416,
-    "ast_hash": "46b81e16b04e5f777b36db9c6fd32fb0",
+    "mtime": 1783971268.8554323,
+    "ast_hash": "32bb5499f514606ce4c86f1a5186e715",
     "semantic_hash": ""
   },
   "app/products/bulk/page.tsx": {
@@ -215,9 +215,9 @@
     "semantic_hash": ""
   },
   "components/jobs/open-job-folder-button.tsx": {
-    "mtime": 1781968468.54417,
-    "ast_hash": "9d03150d8618a1af9f9d9affee9477f1",
-    "semantic_hash": "9d03150d8618a1af9f9d9affee9477f1"
+    "mtime": 1783971394.93302,
+    "ast_hash": "422af69395e7c5b7e82ee2c57bc71455",
+    "semantic_hash": ""
   },
   "components/products/bulk-paste-form.tsx": {
     "mtime": 1783891794.1523466,
@@ -225,8 +225,8 @@
     "semantic_hash": ""
   },
   "components/products/product-documents-section.tsx": {
-    "mtime": 1783555560.808144,
-    "ast_hash": "045d50444444f19c508d3c499bfce141",
+    "mtime": 1783971460.1456397,
+    "ast_hash": "f3daa8c1545caf8d8e0ab1fe912c9048",
     "semantic_hash": ""
   },
   "components/products/product-form.tsx": {
@@ -465,8 +465,8 @@
     "semantic_hash": ""
   },
   "app/files/actions.ts": {
-    "mtime": 1782481804.249245,
-    "ast_hash": "385fdea5e291a6df81addc279b79152b",
+    "mtime": 1783971195.3249097,
+    "ast_hash": "a379282ee2e91338c50c1ffd0bd8507c",
     "semantic_hash": ""
   },
   "app/files/jobs/[jobId]/page.tsx": {
@@ -625,8 +625,8 @@
     "semantic_hash": ""
   },
   "components/files/job-files-browser.tsx": {
-    "mtime": 1783892530.6606927,
-    "ast_hash": "bcbab49774dd96ebcc606ab73e2a5618",
+    "mtime": 1783971413.0413303,
+    "ast_hash": "574ba3b4ec14e8c44ac284d1c550614c",
     "semantic_hash": ""
   },
   "components/files/job-files-preview.tsx": {
@@ -635,9 +635,9 @@
     "semantic_hash": "461d134bed2b94d77ef78d3fe619b131"
   },
   "components/files/open-file-button.tsx": {
-    "mtime": 1781968468.545167,
-    "ast_hash": "e4cad1606800a65a2923deb94a404629",
-    "semantic_hash": "e4cad1606800a65a2923deb94a404629"
+    "mtime": 1783971394.92802,
+    "ast_hash": "4c2f89092c646f82d4647e7bf24b6056",
+    "semantic_hash": ""
   },
   "components/inventory/adjust-form.tsx": {
     "mtime": 1783814037.995084,
@@ -785,8 +785,8 @@
     "semantic_hash": ""
   },
   "lib/windows-explorer.ts": {
-    "mtime": 1783891800.260971,
-    "ast_hash": "9e14ec70f6475c92815ee77b417b6424",
+    "mtime": 1783971085.9790769,
+    "ast_hash": "c43a3d8c9890850f08db7789fbf81078",
     "semantic_hash": ""
   },
   "prisma/migrations/20250617100000_baseline/migration.sql": {
@@ -1010,8 +1010,8 @@
     "semantic_hash": ""
   },
   "components/jobs/job-structure-documents-section.tsx": {
-    "mtime": 1783303393.7739007,
-    "ast_hash": "b8ebe86addcb585698fe73154e712d52",
+    "mtime": 1783971441.7835128,
+    "ast_hash": "83ea4012770e8440f6114cb86dd81e56",
     "semantic_hash": ""
   },
   "components/jobs/job-structure-submittal-actions.tsx": {
@@ -1230,8 +1230,8 @@
     "semantic_hash": ""
   },
   "app/drill-sheets/pdf-actions.ts": {
-    "mtime": 1783828495.821867,
-    "ast_hash": "fa1e29f5d9d58f0f078bea9dd44d474d",
+    "mtime": 1783971614.778884,
+    "ast_hash": "8c96cf9c301581cf95031ae732376014",
     "semantic_hash": ""
   },
   "app/inventory/receive/page.tsx": {
@@ -1285,13 +1285,13 @@
     "semantic_hash": ""
   },
   "components/drill-sheets/drill-sheet-pdf-button.tsx": {
-    "mtime": 1782164003.7016504,
-    "ast_hash": "a904bffc00f5a641ff23d25718e153e9",
+    "mtime": 1783971492.7590714,
+    "ast_hash": "5c32b9675e7084eff47fb48d90ae0bb5",
     "semantic_hash": ""
   },
   "components/drill-sheets/drill-sheet-preview-content.tsx": {
-    "mtime": 1782735964.3252163,
-    "ast_hash": "6a21c309eabbb8173c5fee1ff9dd836b",
+    "mtime": 1783971531.9742966,
+    "ast_hash": "9aa9f25e530a59ecb4c4ff2776d0950b",
     "semantic_hash": ""
   },
   "components/drill-sheets/drill-sheet-preview.tsx": {
@@ -1590,7 +1590,7 @@
     "semantic_hash": ""
   },
   "electron/config.default.json": {
-    "mtime": 1782567539.4994013,
+    "mtime": 1783967956.2495327,
     "ast_hash": "efcf05a50956ffed649db47bea63d75b",
     "semantic_hash": ""
   },
@@ -1600,13 +1600,13 @@
     "semantic_hash": ""
   },
   "electron/main.mjs": {
-    "mtime": 1783966708.2530818,
-    "ast_hash": "2ce3f43d1bbbebf7e17d4c6c4a73268d",
+    "mtime": 1783971142.8866384,
+    "ast_hash": "0036d5f27353a180956c83547d1f82e0",
     "semantic_hash": ""
   },
   "electron/package.json": {
-    "mtime": 1783966775.9968805,
-    "ast_hash": "7a9aaa347694408a9d34fbf138c3e64c",
+    "mtime": 1783971687.9868855,
+    "ast_hash": "1849628f23df68f4dc6b3a17ddb35733",
     "semantic_hash": ""
   },
   "scripts/deploy/build-electron-client.ps1": {
@@ -1915,8 +1915,8 @@
     "semantic_hash": ""
   },
   "electron/updater.mjs": {
-    "mtime": 1782565260.154384,
-    "ast_hash": "81b2f0f695c6e53ed0a6d595ad5bc491",
+    "mtime": 1783967458.4731028,
+    "ast_hash": "4479ec3435664a4290e2a10e9e9712df",
     "semantic_hash": ""
   },
   "lib/drill-sheet-pdf-fillable.ts": {
@@ -3140,8 +3140,8 @@
     "semantic_hash": ""
   },
   "components/drill-sheets/job-drill-sheets-pdf-buttons.tsx": {
-    "mtime": 1783828510.4916048,
-    "ast_hash": "4b561138f0178cca9cd380f961b5d36e",
+    "mtime": 1783971506.2116058,
+    "ast_hash": "6a8c00cc61245c0058afdd7f43564e14",
     "semantic_hash": ""
   },
   "lib/job-drill-sheets-pdf.ts": {
@@ -3277,6 +3277,16 @@
   "tests/integration/ticket-numbering.test.ts": {
     "mtime": 1783964673.7671149,
     "ast_hash": "2fd2096f82a314e783fd4ce6e8a69159",
+    "semantic_hash": ""
+  },
+  "app/updates/[...file]/route.ts": {
+    "mtime": 1783970893.3771434,
+    "ast_hash": "3faaca112136f2758bb39557b8fa0911",
+    "semantic_hash": ""
+  },
+  "lib/open-on-client.ts": {
+    "mtime": 1783971377.9610555,
+    "ast_hash": "d15355f8c89632edb129f052f251de4c",
     "semantic_hash": ""
   }
 }

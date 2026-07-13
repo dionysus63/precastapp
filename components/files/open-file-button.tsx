@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { openJobFile } from "@/app/files/actions";
+import { completeExplorerOpen } from "@/lib/open-on-client";
 
 type OpenFileButtonProps = {
   fileId: string;
@@ -20,7 +21,9 @@ export function OpenFileButton({ fileId, fileName }: OpenFileButtonProps) {
 
     try {
       const result = await openJobFile(fileId);
-      setSuccess(`Opened in Explorer: ${result.fileName}`);
+      const feedback = await completeExplorerOpen(result, result.fileName);
+      if (feedback.error) setError(feedback.error);
+      else setSuccess(feedback.success ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not open file.");
     } finally {

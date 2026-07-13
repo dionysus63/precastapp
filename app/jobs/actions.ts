@@ -427,15 +427,21 @@ export async function openJobFolder(jobId: string) {
     throw new Error("This job does not have a folder path yet.");
   }
 
+  let launched = true;
   try {
-    await launchWindowsFolder(folderPath);
+    launched = (await launchWindowsFolder(folderPath)).launched;
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown Explorer error.";
     throw new Error(`Could not open job folder: ${message}`);
   }
 
-  return { success: true as const, path: folderPath, jobNumber: job.jobNumber };
+  return {
+    success: true as const,
+    path: folderPath,
+    launched,
+    jobNumber: job.jobNumber,
+  };
 }
 
 export async function createJobFolder(jobId: string) {
@@ -490,6 +496,9 @@ export async function createJobFolder(jobId: string) {
 export type JobStructureExplorerOpenResult = {
   success: true;
   path: string;
+  /** False when the browser is on another machine: the client opens `path`
+   * itself (desktop shell) or shows it (plain browser). */
+  launched: boolean;
 };
 
 function revalidateJobStructurePaths(
@@ -548,11 +557,12 @@ export async function openJobStructureDocument(
     throw new Error("Opening files is supported on Windows only.");
   }
 
-  await launchWindowsFile(document.filePath);
+  const launch = await launchWindowsFile(document.filePath);
 
   return {
     success: true,
     path: document.filePath,
+    launched: launch.launched,
     documentName: document.documentName,
   };
 }
@@ -586,9 +596,9 @@ export async function openJobStructureSubmittalsFolder(
     throw new Error("Opening folders is supported on Windows only.");
   }
 
-  await launchFolder(folderPath, { allowedRoot: jobFolderPath });
+  const launch = await launchFolder(folderPath, { allowedRoot: jobFolderPath });
 
-  return { success: true, path: folderPath };
+  return { success: true, path: folderPath, launched: launch.launched };
 }
 
 export async function deleteJobStructureDocumentAction(documentId: string) {

@@ -8,6 +8,7 @@ import {
   scanProductDocumentsAction,
   uploadProductDocumentAction,
 } from "@/app/products/actions";
+import { completeExplorerOpen } from "@/lib/open-on-client";
 import { SectionCard } from "@/components/dashboard/section-card";
 
 import {
@@ -96,7 +97,7 @@ export function ProductDocumentsSection({
     startTransition(async () => {
       try {
         const result = await openProductSubmittalsFolder(productId);
-        setMessage({ success: `Opened in Explorer: ${result.path}` });
+        setMessage(await completeExplorerOpen(result, result.path));
       } catch (error) {
         setMessage({
           error:
@@ -111,9 +112,10 @@ export function ProductDocumentsSection({
     startTransition(async () => {
       try {
         const result = await openProductDocument(documentId);
+        const feedback = await completeExplorerOpen(result, result.documentName);
         setRowMessages((current) => ({
           ...current,
-          [documentId]: { success: `Opened: ${result.documentName}` },
+          [documentId]: feedback,
         }));
       } catch (error) {
         setRowMessages((current) => ({

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { generateJobDrillSheetsPdf } from "@/app/drill-sheets/pdf-actions";
+import { openPathOnClient } from "@/lib/open-on-client";
 
 /**
  * View/save the job's combined drill-sheet packet: "View All" opens the
@@ -31,6 +32,9 @@ export function JobDrillSheetsPdfButtons({ jobId }: { jobId: string }) {
             startTransition(async () => {
               const result = await generateJobDrillSheetsPdf(jobId);
               if (result.success) {
+                if (!result.launched) {
+                  await openPathOnClient(result.filePath);
+                }
                 setMessage(
                   `Saved ${result.included} sheet${result.included === 1 ? "" : "s"}: ${result.filePath}` +
                     (result.skipped.length > 0

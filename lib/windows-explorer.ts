@@ -223,13 +223,41 @@ async function launchExplorer(context: LaunchContext, options?: ExplorerLaunchOp
   throw new Error(`Could not open Explorer (${errors.join("; ")})`);
 }
 
+export type ExplorerLaunchResult =
+  | { launched: true }
+  | {
+      /** The request came from another machine: Explorer can't open there
+       * from this process, so the caller hands the validated path back to
+       * the client (desktop shell opens it; browsers show it). */
+      launched: false;
+      clientOpenPath: string;
+    };
+
+/**
+ * True when the request driving this server action came from a different
+ * machine than the one running this process. Scripts and local dev (no
+ * request context / localhost) count as local.
+ */
+async function isRemoteClientRequest(): Promise<boolean> {
+  try {
+    const { headers } = await import("next/headers");
+    const host = ((await headers()).get("host") ?? "").toLowerCase();
+    if (!host) {
+      return false;
+    }
+    return !host.startsWith("localhost") && !host.startsWith("127.0.0.1");
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Opens a local folder in Windows Explorer.
  */
 export async function launchWindowsFolder(
   folderPath: string,
   options?: ExplorerLaunchOptions,
-): Promise<void> {
+): Promise<ExplorerLaunchResult> {
   if (process.platform !== "win32") {
     throw new Error("Opening folders is supported on Windows only.");
   }
@@ -238,6 +266,11 @@ export async function launchWindowsFolder(
   const root = options?.allowedRoot ?? (await getJobsRoot());
   assertPathUnderRoot(root, normalizedPath);
   await assertDirectoryExists(normalizedPath);
+
+  if (await isRemoteClientRequest()) {
+    return { launched: false, clientOpenPath: normalizedPath };
+  }
+
   await launchExplorer(
     {
       kind: "folder",
@@ -247,6 +280,7 @@ export async function launchWindowsFolder(
     },
     options,
   );
+  return { launched: true };
 }
 
 /**
@@ -257,7 +291,7 @@ export async function launchWindowsFolder(
 export async function launchWindowsFile(
   filePath: string,
   options?: ExplorerLaunchOptions,
-): Promise<void> {
+): Promise<ExplorerLaunchResult> {
   if (process.platform !== "win32") {
     throw new Error("Opening files is supported on Windows only.");
   }
@@ -266,6 +300,11 @@ export async function launchWindowsFile(
   const root = options?.allowedRoot ?? (await getJobsRoot());
   assertPathUnderRoot(root, normalizedPath);
   await assertFileExists(normalizedPath);
+
+  if (await isRemoteClientRequest()) {
+    return { launched: false, clientOpenPath: normalizedPath };
+  }
+
   const selectArg = explorerSelectArg(normalizedPath);
   await launchExplorer(
     {
@@ -276,6 +315,7 @@ export async function launchWindowsFile(
     },
     options,
   );
+  return { launched: true };
 }
 
 /**
