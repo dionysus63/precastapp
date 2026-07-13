@@ -292,7 +292,7 @@ export function CustomerDetailContent({ customer }: CustomerDetailContentProps) 
       </CollapsibleSectionCard>
 
       <CollapsibleSectionCard
-        title="Delivery Tickets"
+        title="Tickets"
         summaryExtra={sectionCount(
           customer.stats.scheduledTickets,
           "scheduled",

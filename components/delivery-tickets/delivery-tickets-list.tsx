@@ -219,7 +219,7 @@ export function DeliveryTicketsList({
       </div>
 
       <SectionCard
-        title="All Delivery Tickets"
+        title="All Tickets"
         description={`${pageInfo.total.toLocaleString()} ticket${pageInfo.total === 1 ? "" : "s"} match`}
         noPadding
       >

@@ -573,7 +573,7 @@ export function JobDeliveriesSection({
 }) {
   return (
     <SectionCard
-      title="Delivery Tickets"
+      title="Tickets"
       description={`${deliveries.length} ticket${
         deliveries.length === 1 ? "" : "s"
       }`}

@@ -40,7 +40,7 @@ export default async function NewDeliveryTicketPage({
     ? "New Walk-In Ticket"
     : isPickup
       ? "New Pickup Ticket"
-      : "New Delivery Ticket";
+      : "New Ticket";
   const subtitle = isPickup || isWalkIn
     ? "Prepare a counter / pickup order ready for the front desk."
     : "Schedule and prepare products or structures for delivery.";

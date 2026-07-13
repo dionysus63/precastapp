@@ -84,6 +84,9 @@ export type AppSettingsView = {
   defaultTaxRate: number;
   quoteValidityDays: number;
   invoiceDueDays: number;
+  ticketNumberPrefix: string;
+  invoiceNumberPrefix: string;
+  ticketNumberStart: number;
   defaultLeadTime: string | null;
   paymentTerms: string[];
   estimators: string[];
@@ -118,6 +121,9 @@ export const DEFAULT_APP_SETTINGS_DATA = {
   defaultTaxRate: new Prisma.Decimal(8.625),
   quoteValidityDays: 30,
   invoiceDueDays: 30,
+  ticketNumberPrefix: "T",
+  invoiceNumberPrefix: "I",
+  ticketNumberStart: 10001,
   defaultLeadTime: null as string | null,
   paymentTerms: DEFAULT_PAYMENT_TERMS,
   estimators: DEFAULT_ESTIMATORS,
@@ -178,6 +184,9 @@ export function mapAppSettingsRow(row: AppSettings): AppSettingsView {
     defaultTaxRate: Number(row.defaultTaxRate),
     quoteValidityDays: row.quoteValidityDays,
     invoiceDueDays: row.invoiceDueDays,
+    ticketNumberPrefix: row.ticketNumberPrefix?.trim() || "T",
+    invoiceNumberPrefix: row.invoiceNumberPrefix?.trim() || "I",
+    ticketNumberStart: row.ticketNumberStart ?? 10001,
     defaultLeadTime: row.defaultLeadTime,
     paymentTerms: parseStringList(row.paymentTerms, DEFAULT_PAYMENT_TERMS),
     estimators: parseStringList(row.estimators, DEFAULT_ESTIMATORS),

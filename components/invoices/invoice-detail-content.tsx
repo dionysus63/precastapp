@@ -56,7 +56,7 @@ export function InvoiceDetailContent({
       detail: `Due ${invoice.dueDate}`,
     },
     {
-      label: "Delivery Ticket",
+      label: "Ticket",
       value: invoice.ticketNumber,
       detail: "Source ticket",
     },
@@ -76,7 +76,7 @@ export function InvoiceDetailContent({
             href={`/delivery-tickets/${ticketId}`}
             className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
           >
-            View Delivery Ticket
+            View Ticket
           </Link>
         ) : null}
         <InvoiceDetailActions
@@ -116,7 +116,7 @@ export function InvoiceDetailContent({
               />
               <DetailField label="Project" value={invoice.projectName} />
               <DetailField label="Job Number" value={invoice.jobNumber} />
-              <DetailField label="Delivery Ticket" value={invoice.ticketNumber} />
+              <DetailField label="Ticket" value={invoice.ticketNumber} />
               <DetailField label="Invoice Date" value={invoice.invoiceDate} />
               <DetailField label="Due Date" value={invoice.dueDate} />
               <DetailField label="Tax Rate" value={invoice.taxRate} />

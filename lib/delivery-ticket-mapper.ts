@@ -77,7 +77,7 @@ export function mapDbDeliveryTicketToDetailView(
   return {
     id: ticket.id,
     ticketNumber: ticket.ticketNumber,
-    title: `Delivery Ticket ${ticket.ticketNumber}`,
+    title: `Ticket ${ticket.ticketNumber}`,
     subtitle: `${ticket.projectName} — ${ticket.customerName}`,
     status: statusKey as DeliveryTicketDetailView["status"],
     statusLabel,

@@ -79,6 +79,43 @@ export default async function BillingSettingsPage({
               className={settingsInputClassName}
             />
           </SettingsField>
+          <SettingsField
+            label="Ticket number prefix"
+            hint="New tickets number as prefix + counter, e.g. T10001. Used for deliveries and pickups."
+          >
+            <input
+              name="ticketNumberPrefix"
+              defaultValue={settings.ticketNumberPrefix}
+              maxLength={5}
+              required
+              className={settingsInputClassName}
+            />
+          </SettingsField>
+          <SettingsField
+            label="Invoice number prefix"
+            hint="Invoices reuse the ticket's digits with this prefix: ticket T10024 invoices as I10024."
+          >
+            <input
+              name="invoiceNumberPrefix"
+              defaultValue={settings.invoiceNumberPrefix}
+              maxLength={5}
+              required
+              className={settingsInputClassName}
+            />
+          </SettingsField>
+          <SettingsField
+            label="Ticket numbering starts at"
+            hint="Raising this jumps the counter forward for the next ticket. Numbers are never reissued."
+          >
+            <input
+              name="ticketNumberStart"
+              type="number"
+              min="1"
+              defaultValue={settings.ticketNumberStart}
+              required
+              className={settingsInputClassName}
+            />
+          </SettingsField>
           <SettingsField label="Default lead time">
             <input
               name="defaultLeadTime"

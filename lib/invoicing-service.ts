@@ -3,6 +3,7 @@ import type { PrismaClient } from "@/app/generated/prisma/client";
 import { Prisma } from "@/app/generated/prisma/client";
 import { getDefaultPriceListId } from "@/lib/price-list-service";
 import { defaultInvoiceDueDate, getAppSettings } from "@/lib/app-settings";
+import { deriveInvoiceNumberFromTicket } from "@/lib/delivery-ticket-number";
 import { computeMoneyTotals } from "@/lib/money";
 import { computeDeliveryAmount } from "@/lib/quotes/money-rules";
 
@@ -495,7 +496,22 @@ export async function convertDeliveryTicketToInvoice(
       computed.lineTotals,
     );
 
-    const numbering = await nextInvoiceNumber(tx);
+    // Invoice number mirrors the ticket number (same digits, invoice
+    // prefix): T10024 -> I10024. Legacy ticket formats fall back to the
+    // year-based invoice sequence.
+    const derived = deriveInvoiceNumberFromTicket(
+      ticket.ticketNumber,
+      settings.invoiceNumberPrefix,
+    );
+    const invoiceYear = invoiceDate.getFullYear();
+    const numbering = derived
+      ? {
+          invoiceNumber: derived.invoiceNumber,
+          year: invoiceYear,
+          yearTwoDigit: invoiceYear % 100,
+          sequenceNumber: derived.sequenceNumber,
+        }
+      : await nextInvoiceNumber(tx);
     return tx.invoice.create({
       data: {
         invoiceNumber: numbering.invoiceNumber,

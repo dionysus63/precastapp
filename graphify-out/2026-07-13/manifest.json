@@ -115,8 +115,8 @@
     "semantic_hash": ""
   },
   "app/quotes/actions.ts": {
-    "mtime": 1783814040.9213128,
-    "ast_hash": "af8fb4045abf3764fc1ad649fea86f5b",
+    "mtime": 1783963318.8101647,
+    "ast_hash": "b6e390b1262e628b87a50f9f2948a0ca",
     "semantic_hash": ""
   },
   "app/quotes/new/page.tsx": {
@@ -245,13 +245,13 @@
     "semantic_hash": ""
   },
   "components/quotes/quote-detail-content.tsx": {
-    "mtime": 1783638651.1835558,
-    "ast_hash": "4c7e8ef39ec2ccebe2fcf25f3dbe465f",
+    "mtime": 1783963573.7938528,
+    "ast_hash": "5bac30df700fad4b51cadce1523913db",
     "semantic_hash": ""
   },
   "components/quotes/quote-form.tsx": {
-    "mtime": 1783959716.5184557,
-    "ast_hash": "7ac9933df3cc24cfb26fd4ee3002d7f6",
+    "mtime": 1783963405.7471387,
+    "ast_hash": "3d5aa1a846d5a0a588e3869ad0b81d57",
     "semantic_hash": ""
   },
   "components/quotes/quote-preview-content.tsx": {
@@ -315,8 +315,8 @@
     "semantic_hash": ""
   },
   "lib/quote-mapper.ts": {
-    "mtime": 1783638599.007084,
-    "ast_hash": "3dcfbd1d5fac32549bd3bab2a7e4692a",
+    "mtime": 1783963318.8221674,
+    "ast_hash": "02fc14493dddebdba24729f75342b9e6",
     "semantic_hash": ""
   },
   "lib/quote-pdf-html.ts": {
@@ -525,8 +525,8 @@
     "semantic_hash": ""
   },
   "app/settings/actions.ts": {
-    "mtime": 1783955117.8940246,
-    "ast_hash": "7b35f3f9beac5c3b7ee3d8c3cafa4fe2",
+    "mtime": 1783963421.131726,
+    "ast_hash": "828aec00d558a1614dc2e7b19c06a6ab",
     "semantic_hash": ""
   },
   "app/settings/billing/page.tsx": {
@@ -555,8 +555,8 @@
     "semantic_hash": ""
   },
   "app/settings/price-lists/[id]/page.tsx": {
-    "mtime": 1783955152.3456442,
-    "ast_hash": "65dd0480e42c2a46acfab4f79a8380e1",
+    "mtime": 1783963435.5153077,
+    "ast_hash": "8290415972a9fa6acd48ce83dfb5fc76",
     "semantic_hash": ""
   },
   "app/settings/price-lists/page.tsx": {
@@ -900,8 +900,8 @@
     "semantic_hash": "05e92444b39411cb2b5a0eead0c34fe2"
   },
   "lib/drain-ring-utils.ts": {
-    "mtime": 1783960230.9184844,
-    "ast_hash": "d56464c308c723f5232faaaffaa96597",
+    "mtime": 1783962409.5558703,
+    "ast_hash": "3e1c9ad76f61650b2e1c047aeea4247d",
     "semantic_hash": ""
   },
   "prisma/migrations/20260620200000_drain_ring_support/migration.sql": {
@@ -1425,8 +1425,8 @@
     "semantic_hash": ""
   },
   "lib/quotes/types.ts": {
-    "mtime": 1783638627.623532,
-    "ast_hash": "a9bf7d86aecfc4fcac1fcef5aabed1f4",
+    "mtime": 1783963565.0132463,
+    "ast_hash": "2439c00a3c2ee80bdbdc5ec1132bebd8",
     "semantic_hash": ""
   },
   "lib/server/form-data.ts": {
@@ -1555,13 +1555,13 @@
     "semantic_hash": ""
   },
   "public/pdf.worker.min.mjs": {
-    "mtime": 1782331382.7825012,
-    "ast_hash": "ea35de07db4af6b54f2d68cb8557aa95",
+    "mtime": 1782331382.7914762,
+    "ast_hash": "e31979fed4124d0fb6e893756c28e728",
     "semantic_hash": ""
   },
   "scripts/copy-pdf-worker.mjs": {
-    "mtime": 1782481804.2642045,
-    "ast_hash": "257bf85228a3370cf92b2e85f31ccfe2",
+    "mtime": 1783962001.3228786,
+    "ast_hash": "a2ccfda164a7f0354dcf428490627d10",
     "semantic_hash": ""
   },
   "scripts/list-delivery-ticket-pdf-fields.ts": {
@@ -1630,8 +1630,8 @@
     "semantic_hash": ""
   },
   "lib/quote-pdf-data.ts": {
-    "mtime": 1783638365.3188157,
-    "ast_hash": "61d257280bbe9f11b3496cc59ae18d31",
+    "mtime": 1783963318.8251665,
+    "ast_hash": "13bfaa32dd0fc8f6e50bcf69414a8b38",
     "semantic_hash": ""
   },
   "lib/quote-pdf-fill.ts": {
@@ -1680,8 +1680,8 @@
     "semantic_hash": ""
   },
   "lib/quote-revision.ts": {
-    "mtime": 1783891806.5594585,
-    "ast_hash": "c182ad09a1a35347e9dbb30a98251528",
+    "mtime": 1783963318.8241656,
+    "ast_hash": "73c38f779797f87afefd83e156137ba3",
     "semantic_hash": ""
   },
   "prisma/migrations/20260625182107_quote_revisions/migration.sql": {
@@ -1775,8 +1775,8 @@
     "semantic_hash": ""
   },
   "lib/quotes/edit-rules.ts": {
-    "mtime": 1782481804.260215,
-    "ast_hash": "80c5e1266b4dc98dc7b3edabe70d51d0",
+    "mtime": 1783962500.6145394,
+    "ast_hash": "c391a7ab896c9804b174be79b8fe2f3e",
     "semantic_hash": ""
   },
   "lib/quotes/send-rules.ts": {
@@ -2070,8 +2070,8 @@
     "semantic_hash": ""
   },
   "app/quotes/quote-form-data.ts": {
-    "mtime": 1783525592.6393547,
-    "ast_hash": "77e2de7f1d3e413ad9787f1a723cf169",
+    "mtime": 1783963318.7991648,
+    "ast_hash": "96104f11160b95fc5527d393e24ca99a",
     "semantic_hash": ""
   },
   "components/quotes/quote-form-typeahead.tsx": {
@@ -2935,8 +2935,8 @@
     "semantic_hash": ""
   },
   "tests/unit/quote-rules.test.ts": {
-    "mtime": 1783456674.9725556,
-    "ast_hash": "43bedc825441396693459e42bec8caa1",
+    "mtime": 1783962663.844746,
+    "ast_hash": "8f1f3c9c0b66f84f675cef7fef0703e0",
     "semantic_hash": ""
   },
   "vitest.config.ts": {
@@ -3250,13 +3250,23 @@
     "semantic_hash": ""
   },
   "components/settings/price-list-settings-form.tsx": {
-    "mtime": 1783955136.3017354,
-    "ast_hash": "fd34977fcc1ef509a5254bf548cf84f0",
+    "mtime": 1783963426.3198607,
+    "ast_hash": "35eb8c99491c370667128142e5432ec1",
     "semantic_hash": ""
   },
   "tests/unit/ring-builder-pricing.test.ts": {
-    "mtime": 1783960253.709878,
-    "ast_hash": "9204b6ac84fbdedb3d50131b20c1f74c",
+    "mtime": 1783962413.283821,
+    "ast_hash": "e4d4da3b71d982f84f490f6a5d1667f5",
+    "semantic_hash": ""
+  },
+  "components/quotes/edit-sent-quote-button.tsx": {
+    "mtime": 1783962504.7932098,
+    "ast_hash": "0b7677321fd0db1a66e10f20499b2d29",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260713220000_quote_fob/migration.sql": {
+    "mtime": 1783963218.373155,
+    "ast_hash": "ee48b896b4b88f4401580047791ba606",
     "semantic_hash": ""
   }
 }

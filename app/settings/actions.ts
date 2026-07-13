@@ -149,6 +149,7 @@ export async function updatePriceListSettings(
   const name = String(formData.get("name") ?? "").trim();
   const effectiveDateRaw = String(formData.get("effectiveDate") ?? "").trim();
   const isDefault = formData.get("isDefault") === "on";
+  const fobDefault = String(formData.get("fobDefault") ?? "").trim() || null;
   const notes = String(formData.get("notes") ?? "").trim() || null;
 
   if (!id) {
@@ -191,7 +192,7 @@ export async function updatePriceListSettings(
 
         await tx.priceList.update({
           where: { id },
-          data: { name, effectiveDate, isDefault, notes },
+          data: { name, effectiveDate, isDefault, fobDefault, notes },
         });
       }),
     );
@@ -393,6 +394,13 @@ export async function updateBillingSettingsFormAction(
   const paymentTerms = parseLinesList(
     String(formData.get("paymentTerms") ?? ""),
   );
+  const ticketNumberPrefix = String(formData.get("ticketNumberPrefix") ?? "")
+    .trim()
+    .toUpperCase();
+  const invoiceNumberPrefix = String(formData.get("invoiceNumberPrefix") ?? "")
+    .trim()
+    .toUpperCase();
+  const ticketNumberStart = Number(formData.get("ticketNumberStart"));
 
   if (!Number.isFinite(defaultTaxRate) || defaultTaxRate < 0) {
     return { error: "Default tax rate must be zero or greater." };
@@ -410,12 +418,35 @@ export async function updateBillingSettingsFormAction(
     return { error: "Add at least one payment term option." };
   }
 
+  const prefixPattern = /^[A-Z]{1,5}$/;
+  if (!prefixPattern.test(ticketNumberPrefix)) {
+    return { error: "Ticket number prefix must be 1-5 letters." };
+  }
+  if (!prefixPattern.test(invoiceNumberPrefix)) {
+    return { error: "Invoice number prefix must be 1-5 letters." };
+  }
+  if (ticketNumberPrefix === invoiceNumberPrefix) {
+    return {
+      error: "Ticket and invoice prefixes must differ so numbers stay distinguishable.",
+    };
+  }
+  if (
+    !Number.isInteger(ticketNumberStart) ||
+    ticketNumberStart < 1 ||
+    ticketNumberStart > 99_999_999
+  ) {
+    return { error: "Ticket starting number must be a whole number of 1 or more." };
+  }
+
   return updateAppSettings({
     defaultTaxRate: new Prisma.Decimal(defaultTaxRate),
     quoteValidityDays,
     invoiceDueDays,
     defaultLeadTime,
     paymentTerms,
+    ticketNumberPrefix,
+    invoiceNumberPrefix,
+    ticketNumberStart,
   });
 }
 

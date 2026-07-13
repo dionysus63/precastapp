@@ -994,6 +994,7 @@ model Quote {
   internalNotes      String?
   customerNotes      String?
   termsAndConditions String?
+  fob                String?
   leadTime           String?
   deliveryNotes      String?
   sentAt             DateTime?
@@ -1599,6 +1600,7 @@ model PriceList {
   name          String    @unique
   effectiveDate DateTime?
   isDefault     Boolean   @default(false)
+  fobDefault    String?
   notes         String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -1692,6 +1694,9 @@ model AppSettings {
   defaultTaxRate    Decimal @db.Decimal(6, 3)
   quoteValidityDays Int
   invoiceDueDays    Int
+  ticketNumberPrefix  String @default("T")
+  invoiceNumberPrefix String @default("I")
+  ticketNumberStart   Int    @default(10001)
   defaultLeadTime   String?
   paymentTerms      Json
   // operations

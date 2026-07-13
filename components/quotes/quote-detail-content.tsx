@@ -270,16 +270,16 @@ export function QuoteDetailContent({
                     href={`/delivery-tickets/new?jobId=${quote.jobId}`}
                     className="rounded-lg border border-slate-200 px-4 py-2 text-center text-xs font-semibold text-slate-700 hover:bg-slate-50"
                   >
-                    Create Delivery Ticket
+                    Create Ticket
                   </Link>
                 ) : (
                   <button
                     type="button"
                     disabled
-                    title="Link this quote to a job first — delivery tickets are created against the job."
+                    title="Link this quote to a job first — tickets are created against the job."
                     className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-400"
                   >
-                    Create Delivery Ticket
+                    Create Ticket
                   </button>
                 )}
                 <div className="border-t border-slate-100 pt-2">
@@ -399,7 +399,7 @@ export function QuoteDetailContent({
             />
             <RelatedChip label="Invoice" value={quote.relatedRecords.invoice} />
             <RelatedChip
-              label="Delivery Tickets"
+              label="Tickets"
               value={quote.relatedRecords.deliveryTickets}
             />
           </div>
@@ -777,6 +777,7 @@ export function QuoteDetailContent({
             <DetailField label="Delivery Notes" value={quote.deliveryNotes} />
             <div className="grid gap-5 sm:grid-cols-2">
               <DetailField label="Lead Time" value={quote.leadTime} />
+              <DetailField label="F.O.B." value={quote.fob} />
               <DetailField
                 label="Terms and Conditions"
                 value={quote.terms}

@@ -203,7 +203,7 @@ export default async function DeliveryTicketsPage({
             href="/delivery-tickets/new"
             className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
           >
-            New Delivery Ticket
+            New Ticket
           </Link>
         </div>
 
