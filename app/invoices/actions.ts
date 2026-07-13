@@ -118,20 +118,11 @@ export async function finalizeInvoices(
 
   try {
     const result = await withDatabaseRetry(async (client) => {
-      const drafts = await client.invoice.findMany({
-        where: {
-          id: { in: uniqueIds },
-          status: "DRAFT",
-        },
-        select: { id: true },
-      });
-
-      if (drafts.length === 0) {
-        throw new Error("No draft invoices found to finalize.");
-      }
-
-      await client.invoice.updateMany({
-        where: { id: { in: drafts.map((invoice) => invoice.id) } },
+      // Status stays in the WHERE clause: an invoice finalized (or voided)
+      // by a concurrent caller between any find and this update must not be
+      // stamped again.
+      const updated = await client.invoice.updateMany({
+        where: { id: { in: uniqueIds }, status: "DRAFT" },
         data: {
           status: "SENT",
           invoiceDate,
@@ -141,7 +132,11 @@ export async function finalizeInvoices(
         },
       });
 
-      return { finalized: drafts.length };
+      if (updated.count === 0) {
+        throw new Error("No draft invoices found to finalize.");
+      }
+
+      return { finalized: updated.count };
     });
 
     revalidatePath("/invoices");
@@ -174,15 +169,19 @@ export async function finalizeAllDraftInvoices(invoiceDateRaw?: string) {
 export async function markInvoicePaid(invoiceId: string) {
   await requirePermission(AppPermission.INVOICES_MANAGE);
   try {
-    await withDatabaseRetry((client) =>
-      client.invoice.update({
-        where: { id: invoiceId },
-        data: {
-          status: "PAID",
-          invoiceDate: new Date(),
-        },
+    // Only a finalized (SENT) invoice can be paid, and paying must not
+    // rewrite the invoice date — that's the billing date on the document.
+    const updated = await withDatabaseRetry((client) =>
+      client.invoice.updateMany({
+        where: { id: invoiceId, status: "SENT" },
+        data: { status: "PAID" },
       }),
     );
+    if (updated.count === 0) {
+      return {
+        error: "Only finalized invoices can be marked paid.",
+      };
+    }
     revalidatePath("/invoices");
     revalidatePath(`/invoices/${invoiceId}`);
     return { success: true };
@@ -197,12 +196,19 @@ export async function markInvoicePaid(invoiceId: string) {
 export async function voidInvoice(invoiceId: string) {
   await requirePermission(AppPermission.INVOICES_MANAGE);
   try {
-    await withDatabaseRetry((client) =>
-      client.invoice.update({
-        where: { id: invoiceId },
+    // SENT or PAID only: drafts should be edited or deleted instead, and
+    // re-voiding is a no-op that would hide the earlier state.
+    const updated = await withDatabaseRetry((client) =>
+      client.invoice.updateMany({
+        where: { id: invoiceId, status: { in: ["SENT", "PAID"] } },
         data: { status: "VOID" },
       }),
     );
+    if (updated.count === 0) {
+      return {
+        error: "Only finalized or paid invoices can be voided.",
+      };
+    }
     revalidatePath("/invoices");
     revalidatePath(`/invoices/${invoiceId}`);
     return { success: true };
@@ -241,68 +247,85 @@ export async function updateDraftInvoice(input: UpdateDraftInvoiceInput) {
   );
 
   try {
-    await withDatabaseRetry(async (client) => {
-      const invoice = await client.invoice.findUnique({
-        where: { id: input.invoiceId },
-        select: { status: true },
-      });
-      if (!invoice || invoice.status !== "DRAFT") {
-        throw new Error("Only draft invoices can be edited.");
-      }
-
-      if (input.deletedLineIds.length > 0) {
-        await client.invoiceLineItem.deleteMany({
-          where: {
-            id: { in: input.deletedLineIds },
-            invoiceId: input.invoiceId,
-          },
+    // One transaction: the draft check, line writes, and totals commit or
+    // roll back together, so a concurrent finalization can't interleave and
+    // a mid-save failure can't leave lines and totals disagreeing.
+    await withDatabaseRetry((client) =>
+      client.$transaction(async (tx) => {
+        const invoice = await tx.invoice.findUnique({
+          where: { id: input.invoiceId },
+          select: { status: true },
         });
-      }
+        if (!invoice || invoice.status !== "DRAFT") {
+          throw new Error("Only draft invoices can be edited.");
+        }
 
-      for (let index = 0; index < input.lines.length; index += 1) {
-        const line = input.lines[index]!;
-        const total = computed.lineTotals[index]!;
-        const data = {
-          lineNumber: line.lineNumber,
-          lineType: line.lineType,
-          itemCode: line.itemCode.trim(),
-          description: line.description.trim() || null,
-          quantity: new Prisma.Decimal(line.quantity),
-          unit: line.unit.trim() || "EA",
-          unitPrice: new Prisma.Decimal(line.unitPrice),
-          taxable: line.taxable,
-          total,
-          sortOrder: index,
-        };
-
-        if (line.id) {
-          await client.invoiceLineItem.update({
-            where: { id: line.id },
-            data,
-          });
-        } else {
-          await client.invoiceLineItem.create({
-            data: {
-              ...data,
+        if (input.deletedLineIds.length > 0) {
+          await tx.invoiceLineItem.deleteMany({
+            where: {
+              id: { in: input.deletedLineIds },
               invoiceId: input.invoiceId,
             },
           });
         }
-      }
 
-      await client.invoice.update({
-        where: { id: input.invoiceId },
-        data: {
-          subtotal: computed.subtotal,
-          discountAmount: new Prisma.Decimal(input.discountAmount),
-          deliveryAmount,
-          taxableAmount: computed.taxableAmount,
-          taxRate: new Prisma.Decimal(input.taxRate),
-          salesTax: computed.salesTax,
-          total: computed.total,
-        },
-      });
-    });
+        for (let index = 0; index < input.lines.length; index += 1) {
+          const line = input.lines[index]!;
+          const total = computed.lineTotals[index]!;
+          const data = {
+            lineNumber: line.lineNumber,
+            lineType: line.lineType,
+            itemCode: line.itemCode.trim(),
+            description: line.description.trim() || null,
+            quantity: new Prisma.Decimal(line.quantity),
+            unit: line.unit.trim() || "EA",
+            unitPrice: new Prisma.Decimal(line.unitPrice),
+            taxable: line.taxable,
+            total,
+            sortOrder: index,
+          };
+
+          if (line.id) {
+            // Scoped by invoiceId: a stale or crafted line id belonging to a
+            // different invoice must never be written through this edit.
+            const updated = await tx.invoiceLineItem.updateMany({
+              where: { id: line.id, invoiceId: input.invoiceId },
+              data,
+            });
+            if (updated.count === 0) {
+              throw new Error(
+                "A line on this invoice changed or was removed. Reload and try again.",
+              );
+            }
+          } else {
+            await tx.invoiceLineItem.create({
+              data: {
+                ...data,
+                invoiceId: input.invoiceId,
+              },
+            });
+          }
+        }
+
+        // Conditional on still being a draft, so a finalization that slipped
+        // in between statements can't be overwritten.
+        const updatedInvoice = await tx.invoice.updateMany({
+          where: { id: input.invoiceId, status: "DRAFT" },
+          data: {
+            subtotal: computed.subtotal,
+            discountAmount: new Prisma.Decimal(input.discountAmount),
+            deliveryAmount,
+            taxableAmount: computed.taxableAmount,
+            taxRate: new Prisma.Decimal(input.taxRate),
+            salesTax: computed.salesTax,
+            total: computed.total,
+          },
+        });
+        if (updatedInvoice.count === 0) {
+          throw new Error("Only draft invoices can be edited.");
+        }
+      }),
+    );
 
     revalidatePath("/invoices");
     revalidatePath(`/invoices/${input.invoiceId}`);

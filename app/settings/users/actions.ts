@@ -1,11 +1,14 @@
 "use server";
 
+import { randomInt } from "crypto";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   AppPermission,
   UserRole,
 } from "@/app/generated/prisma/client";
+import { SESSION_COOKIE_NAME } from "@/lib/auth/constants";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { hashPassword, validatePasswordStrength, verifyPassword } from "@/lib/auth/password";
 import { requireAuth, requirePermission } from "@/lib/auth/session";
@@ -252,7 +255,27 @@ export async function updateMyProfile(formData: FormData) {
   redirect("/profile");
 }
 
-export async function resetUserPassword(formData: FormData) {
+/** Unambiguous alphabet (no 0/O, 1/I/L) for read-aloud temp passwords. */
+const TEMP_PASSWORD_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+function generateTempPassword(): string {
+  const block = (length: number) =>
+    Array.from(
+      { length },
+      () => TEMP_PASSWORD_ALPHABET[randomInt(TEMP_PASSWORD_ALPHABET.length)],
+    ).join("");
+  return `LIP-${block(4)}-${block(4)}`;
+}
+
+/**
+ * Generates a temporary password the admin hands to the user out of band.
+ * The account is never left claimable: sign-in always requires a password,
+ * and `mustChangePassword` sends the user to their profile to pick a real
+ * one (verified against the temp password) after they authenticate.
+ */
+export async function resetUserPassword(
+  formData: FormData,
+): Promise<{ tempPassword: string }> {
   const actor = await requirePermission(AppPermission.USERS_MANAGE);
   const id = String(formData.get("id") ?? "").trim();
 
@@ -260,13 +283,16 @@ export async function resetUserPassword(formData: FormData) {
     throw new Error("User id is required.");
   }
 
+  const tempPassword = generateTempPassword();
+  const passwordHash = await hashPassword(tempPassword);
+
   // Reset and session revocation commit together (same reasoning as
   // deactivateUser): no window where the old sessions outlive the reset.
   const user = await prisma.$transaction(async (tx) => {
     const updated = await tx.user.update({
       where: { id },
       data: {
-        passwordHash: null,
+        passwordHash,
         mustChangePassword: true,
       },
     });
@@ -279,11 +305,12 @@ export async function resetUserPassword(formData: FormData) {
     action: "user.reset_password",
     entityType: "User",
     entityId: user.id,
-    summary: `Reset password for ${user.displayName}`,
+    summary: `Reset password for ${user.displayName} (temporary password issued)`,
   });
 
   revalidatePath("/settings/users");
   revalidatePath(`/settings/users/${user.id}`);
+  return { tempPassword };
 }
 
 export async function changeMyPassword(formData: FormData) {
@@ -317,12 +344,22 @@ export async function changeMyPassword(formData: FormData) {
 
   const passwordHash = await hashPassword(newPassword);
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      passwordHash,
-      mustChangePassword: false,
-    },
+  // Revoke every other session for this user: after a password change (e.g.
+  // rotating away from a temp password) only the current device stays in.
+  const cookieStore = await cookies();
+  const currentToken = cookieStore.get(SESSION_COOKIE_NAME)?.value ?? "";
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        mustChangePassword: false,
+      },
+    });
+    await tx.session.deleteMany({
+      where: { userId: user.id, token: { not: currentToken } },
+    });
   });
 
   await writeAuditLog({

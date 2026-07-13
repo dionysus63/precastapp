@@ -40,18 +40,12 @@ export async function DashboardShell({
 
   const permissions = await getUserPermissions(user);
   const headerList = await headers();
-  const pathname =
-    headerList.get("x-pathname") ??
-    headerList.get("next-url") ??
-    headerList.get("referer") ??
-    "/";
-
-  const normalizedPath = pathname.startsWith("http")
-    ? new URL(pathname).pathname
-    : pathname;
-
-  // Reuse the permissions computed above instead of re-deriving them.
-  if (!canAccessPathWithPermissions(permissions as PermissionKey[], normalizedPath)) {
+  // Only x-pathname is trusted: middleware overwrites it on every matched
+  // request, so it cannot be spoofed. No referer/next-url fallbacks — those
+  // are caller-controlled, and a missing header must fail closed rather
+  // than fall back to "/" (which has no permission requirement).
+  const pathname = headerList.get("x-pathname");
+  if (!pathname || !canAccessPathWithPermissions(permissions as PermissionKey[], pathname)) {
     redirect(getDefaultHome(user));
   }
 

@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { getDefaultHome } from "@/lib/auth/permissions";
-import { hashPassword, validatePasswordStrength, verifyPassword } from "@/lib/auth/password";
+import { verifyPassword } from "@/lib/auth/password";
 import {
   deleteCurrentSession,
   getCurrentUser,
@@ -11,14 +11,13 @@ import {
 } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 
+// Deliberately minimal: the unauthenticated picker must not leak roles or
+// password/reset state (a claimable-account beacon).
 export type LoginUserOption = {
   id: string;
   username: string;
   displayName: string;
   initials: string;
-  role: string;
-  hasPassword: boolean;
-  mustChangePassword: boolean;
 };
 
 export async function signOut() {
@@ -47,33 +46,21 @@ export async function getActiveLoginUsers(): Promise<LoginUserOption[]> {
       username: true,
       displayName: true,
       initials: true,
-      role: true,
-      passwordHash: true,
-      mustChangePassword: true,
     },
   });
 
-  return users.map((user) => ({
-    id: user.id,
-    username: user.username,
-    displayName: user.displayName,
-    initials: user.initials,
-    role: user.role,
-    hasPassword: Boolean(user.passwordHash),
-    mustChangePassword: user.mustChangePassword,
-  }));
+  return users;
 }
 
 function parsePasswordFields(formData: FormData) {
   const userId = String(formData.get("userId") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
   if (!userId) {
     throw new Error("User is required.");
   }
 
-  return { userId, password, confirmPassword };
+  return { userId, password };
 }
 
 async function getActiveUserForLogin(userId: string) {
@@ -98,7 +85,10 @@ export async function signInWithPassword(
   const user = await getActiveUserForLogin(userId);
 
   if (!user.passwordHash) {
-    return { error: "Create a password for this account first." };
+    return {
+      error:
+        "This account has no password yet. Ask an admin to issue a temporary password from Settings → Users.",
+    };
   }
 
   const isValid = await verifyPassword(password, user.passwordHash);
@@ -107,43 +97,12 @@ export async function signInWithPassword(
   }
 
   const signedInUser = await signInUser(user.id);
-  redirect(getDefaultHome(signedInUser));
-}
 
-export async function setInitialPassword(
-  formData: FormData,
-): Promise<{ error: string } | never> {
-  const { userId, password, confirmPassword } = parsePasswordFields(formData);
-
-  if (!password || !confirmPassword) {
-    return { error: "Enter and confirm your password." };
+  // Temp-password sign-in: authenticated, but must pick a real password
+  // (verified against the temp one) before anything else.
+  if (user.mustChangePassword) {
+    redirect("/profile");
   }
 
-  if (password !== confirmPassword) {
-    return { error: "Passwords do not match." };
-  }
-
-  const strengthError = validatePasswordStrength(password);
-  if (strengthError) {
-    return { error: strengthError };
-  }
-
-  const user = await getActiveUserForLogin(userId);
-
-  if (user.passwordHash && !user.mustChangePassword) {
-    return { error: "This account already has a password. Sign in instead." };
-  }
-
-  const passwordHash = await hashPassword(password);
-
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      passwordHash,
-      mustChangePassword: false,
-    },
-  });
-
-  const signedInUser = await signInUser(user.id);
   redirect(getDefaultHome(signedInUser));
 }

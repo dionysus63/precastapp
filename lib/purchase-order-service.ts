@@ -286,26 +286,50 @@ export async function applyReceiptToPurchaseOrder(
     openLinesByProduct.set(line.productId, bucket);
   }
 
+  // Quantities applied in this call, per PO line — the `po.lines` snapshot
+  // above goes stale as soon as we start incrementing.
+  const appliedByLineId = new Map<string, number>();
+
   for (const receiptLine of receiptLines) {
     const candidates = openLinesByProduct.get(receiptLine.productId);
     if (!candidates || candidates.length === 0) {
+      // Product isn't on this PO: the receipt still posts to inventory; it
+      // just doesn't advance PO progress.
       continue;
     }
 
+    // Fill each matching line up to its ordered quantity, in line order.
+    // Anything left after all lines are full is an over-receipt and lands on
+    // the last line, where it shows as e.g. 15/10 instead of inflating the
+    // first line while later lines sit untouched at 0.
     let remaining = receiptLine.quantityReceived;
-    for (const poLine of candidates) {
+    for (let index = 0; index < candidates.length; index += 1) {
       if (remaining <= 0) {
         break;
       }
+      const poLine = candidates[index]!;
+      const lineOpen =
+        Number(poLine.quantityOrdered) -
+        Number(poLine.quantityReceived) -
+        (appliedByLineId.get(poLine.id) ?? 0);
+      const isLastCandidate = index === candidates.length - 1;
+      const applied = isLastCandidate
+        ? remaining
+        : Math.min(remaining, Math.max(lineOpen, 0));
+      if (applied <= 0) {
+        continue;
+      }
+
       await tx.purchaseOrderLine.update({
         where: { id: poLine.id },
         data: {
           quantityReceived: {
-            increment: toDecimal(remaining),
+            increment: toDecimal(applied),
           },
         },
       });
-      remaining = 0;
+      appliedByLineId.set(poLine.id, (appliedByLineId.get(poLine.id) ?? 0) + applied);
+      remaining -= applied;
     }
   }
 

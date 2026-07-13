@@ -2,11 +2,9 @@
 
 import { useState, useTransition } from "react";
 import {
-  setInitialPassword,
   signInWithPassword,
   type LoginUserOption,
 } from "@/app/login/actions";
-import { ROLE_LABELS, type UserRoleKey } from "@/lib/auth/constants";
 
 type LoginFormProps = {
   users: LoginUserOption[];
@@ -16,10 +14,6 @@ export function LoginForm({ users }: LoginFormProps) {
   const [selectedUser, setSelectedUser] = useState<LoginUserOption | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-
-  const needsPasswordSetup =
-    selectedUser &&
-    (!selectedUser.hasPassword || selectedUser.mustChangePassword);
 
   function handleSelectUser(user: LoginUserOption) {
     setSelectedUser(user);
@@ -35,9 +29,7 @@ export function LoginForm({ users }: LoginFormProps) {
     setError(null);
 
     startTransition(async () => {
-      const result = needsPasswordSetup
-        ? await setInitialPassword(formData)
-        : await signInWithPassword(formData);
+      const result = await signInWithPassword(formData);
 
       if (result?.error) {
         setError(result.error);
@@ -72,9 +64,6 @@ export function LoginForm({ users }: LoginFormProps) {
                 {user.displayName}
               </p>
               <p className="text-xs text-slate-500">@{user.username}</p>
-              <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                {ROLE_LABELS[user.role as UserRoleKey]}
-              </p>
             </div>
           </button>
         ))}
@@ -108,66 +97,26 @@ export function LoginForm({ users }: LoginFormProps) {
         <form action={handleSubmit} className="mt-6 space-y-4">
           <input type="hidden" name="userId" value={selectedUser.id} />
 
-          {needsPasswordSetup ? (
-            <>
-              <p className="text-sm text-slate-600">
-                {selectedUser.mustChangePassword
-                  ? "Your password was reset. Create a new password to continue."
-                  : "Create a password for this account. You will stay signed in on this computer until you sign out."}
-              </p>
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-xs font-medium text-slate-700"
-                >
-                  New Password
-                </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  autoComplete="new-password"
-                  minLength={8}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="confirmPassword"
-                  className="block text-xs font-medium text-slate-700"
-                >
-                  Confirm Password
-                </label>
-                <input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  required
-                  autoComplete="new-password"
-                  minLength={8}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
-                />
-              </div>
-            </>
-          ) : (
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-xs font-medium text-slate-700"
-              >
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                autoComplete="current-password"
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
-              />
-            </div>
-          )}
+          <div>
+            <label
+              htmlFor="password"
+              className="block text-xs font-medium text-slate-700"
+            >
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              autoComplete="current-password"
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
+            />
+            <p className="mt-2 text-xs text-slate-500">
+              New account or forgot your password? Ask an admin for a
+              temporary password.
+            </p>
+          </div>
 
           {error ? (
             <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
@@ -180,11 +129,7 @@ export function LoginForm({ users }: LoginFormProps) {
             disabled={isPending}
             className="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isPending
-              ? "Signing in..."
-              : needsPasswordSetup
-                ? "Create Password & Sign In"
-                : "Sign In"}
+            {isPending ? "Signing in..." : "Sign In"}
           </button>
         </form>
       </div>

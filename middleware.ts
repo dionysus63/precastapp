@@ -23,9 +23,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  const response = NextResponse.next();
-  response.headers.set("x-pathname", pathname);
-  return response;
+  // Forward the pathname as a REQUEST header so server components can read
+  // it via headers(). Overwriting unconditionally also means a client can
+  // never spoof it. (Setting it on the response, as before, made it
+  // invisible to headers() — the permission check downstream fell back to
+  // "/" and passed vacuously.)
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", pathname);
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

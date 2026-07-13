@@ -7,15 +7,27 @@ import {
 } from "@/app/settings/users/actions";
 import { requireAuth } from "@/lib/auth/session";
 import { ROLE_LABELS } from "@/lib/auth/constants";
+import { prisma } from "@/lib/prisma";
 
 export default async function ProfilePage() {
   const user = await requireAuth();
+  const { mustChangePassword } = (await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { mustChangePassword: true },
+  })) ?? { mustChangePassword: false };
 
   return (
     <DashboardShell
       title="My Profile"
       subtitle="Update how your name appears across the app."
     >
+      {mustChangePassword ? (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          You signed in with a temporary password. Choose your own password
+          below (enter the temporary one as the current password).
+        </div>
+      ) : null}
+
       <SectionCard title="Profile Details">
         <form action={updateMyProfile} className="max-w-xl space-y-5">
           <div>
