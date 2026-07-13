@@ -154,9 +154,29 @@ export function SendQuoteButton({
         return;
       }
 
-      setSuccess(
-        `Outlook draft opened for ${result.to}. Review and hit Send in Outlook.`,
-      );
+      if (result.emlBase64 && result.emlFilename) {
+        // Server is on another machine: download the draft and let the
+        // user open it here, where Outlook actually runs.
+        const bytes = Uint8Array.from(atob(result.emlBase64), (char) =>
+          char.charCodeAt(0),
+        );
+        const blob = new Blob([bytes], { type: "message/rfc822" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = result.emlFilename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+        setSuccess(
+          `Draft for ${result.to} downloaded — open it to review and hit Send in Outlook.`,
+        );
+      } else {
+        setSuccess(
+          `Outlook draft opened for ${result.to}. Review and hit Send in Outlook.`,
+        );
+      }
       router.refresh();
       window.setTimeout(() => {
         setOpen(false);

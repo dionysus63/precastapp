@@ -1,6 +1,7 @@
 "use server";
 
 import { writeFile } from "fs/promises";
+import { headers } from "next/headers";
 import path from "path";
 import { revalidatePath } from "next/cache";
 import { AppPermission } from "@/app/generated/prisma/client";
@@ -284,7 +285,15 @@ export async function sendQuote(
 }
 
 export type OpenOutlookDraftResult =
-  | { success: true; to: string; draftPath: string }
+  | {
+      success: true;
+      to: string;
+      draftPath: string;
+      /** Set when the browser is on another machine than the server: the
+       * draft can't be launched there, so the client downloads it instead. */
+      emlBase64?: string;
+      emlFilename?: string;
+    }
   | { success: false; error: string };
 
 /**
@@ -405,12 +414,28 @@ export async function openQuoteInOutlook(
       const draftPath = persisted.outputPath.replace(/\.pdf$/i, "") + ".eml";
       await writeFile(draftPath, eml, "utf8");
 
-      // The draft path derives from our own PDF persist step (not user
-      // input), so scope the launch guard to its own directory — non-job
-      // quotes persist outside the jobs root.
-      await launchWindowsFileWithDefaultApp(draftPath, {
-        allowedRoot: path.dirname(draftPath),
-      });
+      // Launching opens the file on the machine running THIS process. That
+      // is only the user's machine in local development; on the office
+      // server the launch lands in an invisible service session, so remote
+      // clients get the draft back to download and open locally instead.
+      const requestHost = ((await headers()).get("host") ?? "").toLowerCase();
+      const isLocalClient =
+        requestHost.startsWith("localhost") ||
+        requestHost.startsWith("127.0.0.1");
+
+      let emlBase64: string | undefined;
+      let emlFilename: string | undefined;
+      if (isLocalClient) {
+        // The draft path derives from our own PDF persist step (not user
+        // input), so scope the launch guard to its own directory — non-job
+        // quotes persist outside the jobs root.
+        await launchWindowsFileWithDefaultApp(draftPath, {
+          allowedRoot: path.dirname(draftPath),
+        });
+      } else {
+        emlBase64 = Buffer.from(eml, "utf8").toString("base64");
+        emlFilename = persisted.attachmentFilename.replace(/\.pdf$/i, ".eml");
+      }
 
       await writeAuditLog({
         userId: user.id,
@@ -431,7 +456,7 @@ export async function openQuoteInOutlook(
       revalidatePath(`/quotes/${quoteId}`);
       revalidatePath(`/quotes/${quoteId}/preview`);
 
-      return { success: true, to, draftPath };
+      return { success: true, to, draftPath, emlBase64, emlFilename };
     } catch (error) {
       // Draft never opened — release the first-send claim (best effort).
       if (isFirstSend) {
