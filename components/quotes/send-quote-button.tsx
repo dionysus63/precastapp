@@ -169,8 +169,13 @@ export function SendQuoteButton({
         anchor.click();
         anchor.remove();
         window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+        // The desktop shell intercepts .eml downloads and opens them in
+        // Outlook itself; plain browsers leave the file in Downloads.
+        const inDesktopShell = navigator.userAgent.includes("Electron");
         setSuccess(
-          `Draft for ${result.to} downloaded — open it to review and hit Send in Outlook.`,
+          inDesktopShell
+            ? `Outlook draft opened for ${result.to}. Review and hit Send in Outlook.`
+            : `Draft for ${result.to} downloaded — open it to review and hit Send in Outlook.`,
         );
       } else {
         setSuccess(

@@ -1600,13 +1600,13 @@
     "semantic_hash": ""
   },
   "electron/main.mjs": {
-    "mtime": 1782565263.8265302,
-    "ast_hash": "db11be71717dcf44602cc68b9fb9c13f",
+    "mtime": 1783966708.2530818,
+    "ast_hash": "2ce3f43d1bbbebf7e17d4c6c4a73268d",
     "semantic_hash": ""
   },
   "electron/package.json": {
-    "mtime": 1782735964.321218,
-    "ast_hash": "996075fd238122f16dadcae2c4fb4317",
+    "mtime": 1783966775.9968805,
+    "ast_hash": "7a9aaa347694408a9d34fbf138c3e64c",
     "semantic_hash": ""
   },
   "scripts/deploy/build-electron-client.ps1": {
@@ -1730,8 +1730,8 @@
     "semantic_hash": ""
   },
   "components/quotes/send-quote-button.tsx": {
-    "mtime": 1783966228.5425017,
-    "ast_hash": "8dd7ece3e040a5228798b3e1df21001a",
+    "mtime": 1783966724.2945445,
+    "ast_hash": "460faba27b3860eb65ee976292204e53",
     "semantic_hash": ""
   },
   "components/settings/ring-builder-settings-form.tsx": {

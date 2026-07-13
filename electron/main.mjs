@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, shell } from "electron";
+import { app, BrowserWindow, dialog, session, shell } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
 import { loadConfig, validateServerUrl } from "./config.mjs";
@@ -123,6 +123,26 @@ if (!gotLock) {
   });
 
   app.whenReady().then(() => {
+    // Outlook draft downloads (.eml from Send Quote) open seamlessly: save
+    // silently to temp and hand off to the default mail app — no save
+    // prompt. Every other download keeps the normal save dialog.
+    session.defaultSession.on("will-download", (_event, item) => {
+      const filename = item.getFilename();
+      if (!filename.toLowerCase().endsWith(".eml")) {
+        return;
+      }
+      const target = path.join(
+        app.getPath("temp"),
+        `precastops-${Date.now()}-${filename}`,
+      );
+      item.setSavePath(target);
+      item.once("done", (_doneEvent, state) => {
+        if (state === "completed") {
+          void shell.openPath(target);
+        }
+      });
+    });
+
     createWindow();
 
     app.on("activate", () => {
