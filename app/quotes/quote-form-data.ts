@@ -371,7 +371,7 @@ export async function loadQuoteFormSharedData(
   const priceLists = await withDatabaseRetry((client) =>
     client.priceList.findMany({
       orderBy: [{ isDefault: "desc" }, { name: "asc" }],
-      select: { id: true, name: true, isDefault: true },
+      select: { id: true, name: true, isDefault: true, fobDefault: true },
     }),
   );
 

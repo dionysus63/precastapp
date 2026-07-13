@@ -431,6 +431,9 @@ export function QuoteForm({
   const [termsAndConditions, setTermsAndConditions] = useState(
     initialValues?.termsAndConditions || initialTerms,
   );
+  const fobDefaultForPriceList = (listId: string) =>
+    priceLists.find((list) => list.id === listId)?.fobDefault?.trim() ||
+    "Factory";
   const [priceListId, setPriceListId] = useState(
     () =>
       initialValues?.priceListId ||
@@ -438,6 +441,19 @@ export function QuoteForm({
       priceLists[0]?.id ||
       "",
   );
+  // F.O.B. seeds from the price list's default; switching lists re-seeds it
+  // unless the estimator typed something else.
+  const [fob, setFob] = useState(
+    () => initialValues?.fob || fobDefaultForPriceList(priceListId),
+  );
+
+  function handlePriceListChange(nextPriceListId: string) {
+    const previousDefault = fobDefaultForPriceList(priceListId);
+    setPriceListId(nextPriceListId);
+    if (!fob.trim() || fob === previousDefault) {
+      setFob(fobDefaultForPriceList(nextPriceListId));
+    }
+  }
   const [serviceOptionsState, setServiceOptionsState] = useState(serviceOptions);
   const [ringSlabProductsState, setRingSlabProductsState] =
     useState(ringSlabProducts);
@@ -662,6 +678,7 @@ export function QuoteForm({
       internalNotes: internalNotes.trim() || null,
       customerNotes: customerNotes.trim() || null,
       termsAndConditions: termsAndConditions.trim() || null,
+      fob: fob.trim() || null,
       leadTime: leadTime.trim() || null,
       deliveryNotes: deliveryNotes.trim() || null,
       expectedUpdatedAt,
@@ -2103,7 +2120,7 @@ export function QuoteForm({
                       id="priceList"
                       name="priceList"
                       value={priceListId}
-                      onChange={(event) => setPriceListId(event.target.value)}
+                      onChange={(event) => handlePriceListChange(event.target.value)}
                       className={quoteCompactInputClassName}
                       required
                     >
@@ -2307,6 +2324,23 @@ export function QuoteForm({
               </div>
 
               <div className="grid gap-5 sm:grid-cols-3">
+                <div>
+                  <label
+                    htmlFor="fob"
+                    className="block text-xs font-medium text-slate-700"
+                  >
+                    F.O.B.
+                  </label>
+                  <input
+                    id="fob"
+                    name="fob"
+                    type="text"
+                    value={fob}
+                    onChange={(event) => setFob(event.target.value)}
+                    placeholder="Factory"
+                    className={quoteInputClassName}
+                  />
+                </div>
                 <div>
                   <label
                     htmlFor="terms"

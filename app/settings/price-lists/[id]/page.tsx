@@ -88,6 +88,7 @@ export default async function PriceListDetailPage({
                 ? priceList.effectiveDate.toISOString().slice(0, 10)
                 : "",
               isDefault: priceList.isDefault,
+              fobDefault: priceList.fobDefault ?? "",
               notes: priceList.notes ?? "",
             }}
           />

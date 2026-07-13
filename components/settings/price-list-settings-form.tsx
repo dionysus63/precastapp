@@ -12,6 +12,8 @@ type PriceListSettingsFormProps = {
     /** YYYY-MM-DD or empty. */
     effectiveDate: string;
     isDefault: boolean;
+    /** Default F.O.B. wording for quotes on this list; blank means Factory. */
+    fobDefault: string;
     notes: string;
   };
 };
@@ -70,6 +72,25 @@ export function PriceListSettingsForm({ priceList }: PriceListSettingsFormProps)
           defaultValue={priceList.effectiveDate}
           className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
         />
+      </div>
+      <div>
+        <label
+          htmlFor="price-list-fob"
+          className="text-xs font-medium text-slate-700"
+        >
+          F.O.B. default
+        </label>
+        <input
+          id="price-list-fob"
+          name="fobDefault"
+          defaultValue={priceList.fobDefault}
+          placeholder="Factory"
+          className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
+        />
+        <p className="mt-1 text-[11px] text-slate-500">
+          New quotes on this list start with this F.O.B. (blank = Factory).
+          Editable per quote.
+        </p>
       </div>
       <label className="flex items-center gap-2 text-xs">
         <input

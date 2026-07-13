@@ -129,6 +129,7 @@ export type QuoteFormInitialValues = {
   leadTime: string;
   deliveryNotes: string;
   termsAndConditions: string;
+  fob: string;
   lineItems: EditableQuoteLineItem[];
 };
 
@@ -221,6 +222,8 @@ export type QuoteFormPriceListOption = {
   id: string;
   name: string;
   isDefault: boolean;
+  /** Default F.O.B. wording for quotes on this list; null means "Factory". */
+  fobDefault: string | null;
 };
 
 import type { RingBuilderConfig } from "@/lib/ring-builder-settings";
@@ -331,6 +334,7 @@ export type QuoteDetailView = {
   deliveryNotes: string;
   leadTime: string;
   terms: string;
+  fob: string;
   lineItems: QuoteDetailLineItem[];
   drillSheetReadyCount: number;
   summary: {

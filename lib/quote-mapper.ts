@@ -70,6 +70,7 @@ export type QuoteRecord = {
   internalNotes: string | null;
   customerNotes: string | null;
   termsAndConditions: string | null;
+  fob: string | null;
   leadTime: string | null;
   deliveryNotes: string | null;
   priceListId: string | null;
@@ -484,6 +485,7 @@ export function mapQuoteToDetailView(
     deliveryNotes: quote.deliveryNotes?.trim() || "—",
     leadTime: quote.leadTime?.trim() || "—",
     terms: quote.termsAndConditions?.trim() || "—",
+    fob: quote.fob?.trim() || "Factory",
     lineItems: quote.lineItems.map((line) => ({
       id: line.id,
       lineNumber: line.lineNumber,
@@ -606,6 +608,7 @@ export function mapQuoteToFormInitialValues(
     leadTime: quote.leadTime?.trim() ?? "",
     deliveryNotes: quote.deliveryNotes?.trim() ?? "",
     termsAndConditions: quote.termsAndConditions?.trim() ?? "",
+    fob: quote.fob?.trim() ?? "",
     lineItems: quote.lineItems.map((line) => ({
       id: line.id,
       lineNumber: line.lineNumber,

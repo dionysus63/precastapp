@@ -133,6 +133,7 @@ export async function reviseQuoteInTransaction(
       internalNotes: source.internalNotes,
       customerNotes: source.customerNotes,
       termsAndConditions: source.termsAndConditions,
+      fob: source.fob,
       leadTime: source.leadTime,
       deliveryNotes: source.deliveryNotes,
       lineItems: {

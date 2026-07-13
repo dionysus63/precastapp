@@ -105,6 +105,7 @@ export type CreateQuoteInput = {
   internalNotes: string | null;
   customerNotes: string | null;
   termsAndConditions: string | null;
+  fob: string | null;
   leadTime: string | null;
   deliveryNotes: string | null;
   /** ISO updatedAt from when the edit form loaded the quote. When provided,
@@ -406,6 +407,7 @@ export async function createQuote(
         internalNotes: input.internalNotes,
         customerNotes: input.customerNotes,
         termsAndConditions: input.termsAndConditions,
+        fob: input.fob,
         leadTime: input.leadTime,
         deliveryNotes: input.deliveryNotes,
         lineItems: {
@@ -672,6 +674,7 @@ export async function updateQuote(
             internalNotes: input.internalNotes,
             customerNotes: input.customerNotes,
             termsAndConditions: input.termsAndConditions,
+            fob: input.fob,
             leadTime: input.leadTime,
             deliveryNotes: input.deliveryNotes,
             lineItems: {

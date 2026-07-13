@@ -162,7 +162,7 @@ export function buildQuoteFormData(
     M_Date: formatDateForPdf(quote.quoteDate),
     M_Valid_Until: formatDateForPdf(quote.expirationDate),
     M_Terms: blankOr(quote.termsAndConditions),
-    M_FOB: "Factory",
+    M_FOB: quote.fob?.trim() || "Factory",
     M_Salesperson: blankOr(quote.estimator),
     M_Page: formatPageNumber(contentPage),
     "Quote to - Name": blankOr(quote.contactName),
