@@ -54,18 +54,27 @@ function createWindow() {
     return;
   }
 
+  const windowTitle = `Precast Ops — v${app.getVersion()}`;
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1024,
     minHeight: 700,
-    title: "Precast Ops",
+    title: windowTitle,
     icon: path.join(__dirname, "icon.png"),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
     },
+  });
+
+  // The loaded page would overwrite the window title with its own <title>;
+  // keep the shell version visible in the title bar instead.
+  mainWindow.on("page-title-updated", (event) => {
+    event.preventDefault();
+    mainWindow?.setTitle(windowTitle);
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
