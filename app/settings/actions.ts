@@ -702,6 +702,7 @@ export async function removeCompanyLogoFormAction(): Promise<SettingsActionResul
 
 export type DataResetStats = {
   productCount: number;
+  trackedProductCount: number;
   customerCount: number;
   jobCount: number;
   structureCount: number;
@@ -716,6 +717,7 @@ export async function getDataResetStats(): Promise<DataResetStats> {
 
   const [
     productCount,
+    trackedProductCount,
     customerCount,
     jobCount,
     structureCount,
@@ -724,6 +726,7 @@ export async function getDataResetStats(): Promise<DataResetStats> {
     invoiceCount,
   ] = await Promise.all([
     prisma.product.count(),
+    prisma.product.count({ where: { trackInventory: true } }),
     prisma.customer.count(),
     prisma.job.count(),
     prisma.jobStructure.count(),
@@ -734,6 +737,7 @@ export async function getDataResetStats(): Promise<DataResetStats> {
 
   return {
     productCount,
+    trackedProductCount,
     customerCount,
     jobCount,
     structureCount,
@@ -845,6 +849,81 @@ export async function clearAllProductsFormAction(
   revalidateAfterProductReset();
   return {
     success: `Deleted ${result.productsDeleted} product${result.productsDeleted === 1 ? "" : "s"}.`,
+  };
+}
+
+export async function setAllTrackedStockFormAction(
+  formData: FormData,
+): Promise<SettingsActionResult> {
+  const user = await requirePermission(AppPermission.SETTINGS_MANAGE);
+  const resetPassword = parseResetPassword(formData);
+
+  if (!verifySettingsResetPassword(resetPassword)) {
+    return resetPasswordError();
+  }
+
+  const stockLevelRaw = String(formData.get("stockLevel") ?? "").trim();
+  const stockLevel = Number(stockLevelRaw);
+  if (
+    !stockLevelRaw ||
+    !Number.isInteger(stockLevel) ||
+    stockLevel < 0 ||
+    stockLevel > 1_000_000
+  ) {
+    return { error: "Stock level must be a whole number between 0 and 1,000,000." };
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const products = await tx.product.findMany({
+      where: {
+        trackInventory: true,
+        currentStockQuantity: { not: stockLevel },
+      },
+      select: { id: true, currentStockQuantity: true },
+    });
+    if (products.length === 0) {
+      return { adjusted: 0 };
+    }
+
+    // Write matching ADJUSTMENT ledger rows so currentStockQuantity keeps
+    // reconciling to the sum of InventoryTransaction rows.
+    const transactionDate = new Date();
+    await tx.inventoryTransaction.createMany({
+      data: products.map((product) => ({
+        productId: product.id,
+        quantityChange: stockLevel - product.currentStockQuantity,
+        transactionType: "ADJUSTMENT" as const,
+        transactionDate,
+        notes: `Test stock level: set to ${stockLevel} from Settings → Data Reset`,
+        createdBy: user.displayName,
+      })),
+    });
+    await tx.product.updateMany({
+      where: { id: { in: products.map((product) => product.id) } },
+      data: { currentStockQuantity: stockLevel },
+    });
+    return { adjusted: products.length };
+  });
+
+  if (result.adjusted === 0) {
+    return {
+      success: `All tracked products are already at ${stockLevel}.`,
+    };
+  }
+
+  await writeAuditLog({
+    userId: user.id,
+    action: "settings.set_all_tracked_stock",
+    entityType: "Product",
+    summary: `${user.displayName} set stock to ${stockLevel} for ${result.adjusted} tracked product${result.adjusted === 1 ? "" : "s"} (test stock tool)`,
+    metadata: { stockLevel, adjustedCount: result.adjusted },
+  });
+
+  revalidatePath("/products");
+  revalidatePath("/inventory");
+  revalidatePath("/settings/data-reset");
+  return {
+    success: `Set stock to ${stockLevel} for ${result.adjusted} tracked product${result.adjusted === 1 ? "" : "s"}.`,
   };
 }
 

@@ -9,6 +9,7 @@ import {
   clearAllProductsFormAction,
   clearAllQuotesFormAction,
   clearAllStructuresFormAction,
+  setAllTrackedStockFormAction,
   type DataResetStats,
 } from "@/app/settings/actions";
 import { SettingsFeedback } from "@/components/settings/settings-form-fields";
@@ -97,6 +98,104 @@ function DataResetSection({
   );
 }
 
+function TestStockSection({
+  trackedProductCount,
+  disabled,
+}: {
+  trackedProductCount: number;
+  disabled: boolean;
+}) {
+  const router = useRouter();
+  const [stockLevel, setStockLevel] = useState("500");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState<{
+    error?: string;
+    success?: string;
+  }>({});
+  const [pending, startTransition] = useTransition();
+
+  function handleApply() {
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.set("resetPassword", password);
+      formData.set("stockLevel", stockLevel);
+      try {
+        const result = await setAllTrackedStockFormAction(formData);
+        setMessage(result);
+        if (result.success) {
+          setPassword("");
+          router.refresh();
+        }
+      } catch {
+        setMessage({ error: "An unexpected error occurred. Please try again." });
+      }
+    });
+  }
+
+  return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4">
+      <h3 className="text-sm font-semibold text-amber-900">
+        Set test stock levels
+      </h3>
+      <p className="mt-2 text-xs text-amber-800">
+        Sets every inventory-tracked product ({trackedProductCount} currently)
+        to the stock level below, writing an adjustment to the inventory
+        ledger for each change. Meant for testing — real counts are lost, so
+        note them first if you need them back.
+      </p>
+      <div className="mt-4 space-y-3">
+        <div>
+          <label
+            htmlFor="test-stock-level"
+            className="block text-xs font-medium text-slate-700"
+          >
+            Stock level
+          </label>
+          <input
+            id="test-stock-level"
+            type="number"
+            min={0}
+            max={1000000}
+            step={1}
+            value={stockLevel}
+            onChange={(event) => setStockLevel(event.target.value)}
+            disabled={disabled || pending}
+            className="mt-1 w-32 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm disabled:opacity-50"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="test-stock-password"
+            className="block text-xs font-medium text-slate-700"
+          >
+            Reset password
+          </label>
+          <input
+            id="test-stock-password"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            disabled={disabled || pending}
+            autoComplete="off"
+            className="mt-1 w-full max-w-sm rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm disabled:opacity-50"
+          />
+        </div>
+        <button
+          type="button"
+          disabled={disabled || pending || trackedProductCount === 0}
+          onClick={handleApply}
+          className="rounded-lg bg-amber-700 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-800 disabled:opacity-50"
+        >
+          {pending
+            ? "Setting…"
+            : `Set all tracked products to ${stockLevel || "…"}`}
+        </button>
+        <SettingsFeedback error={message.error} success={message.success} />
+      </div>
+    </div>
+  );
+}
+
 export function DataResetPanel({ stats }: DataResetPanelProps) {
   const actionsDisabled = !stats.resetConfigured;
 
@@ -109,6 +208,11 @@ export function DataResetPanel({ stats }: DataResetPanelProps) {
           <code className="font-mono">.env</code> and restart the app.
         </p>
       ) : null}
+
+      <TestStockSection
+        trackedProductCount={stats.trackedProductCount}
+        disabled={actionsDisabled}
+      />
 
       <DataResetSection
         title="Clear all products"
