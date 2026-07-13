@@ -489,6 +489,34 @@ function FinalInvoicesTab({
       : "ALL";
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  // Local date, not UTC — an evening print should default to today.
+  const [printDay, setPrintDay] = useState(
+    new Date().toLocaleDateString("en-CA"),
+  );
+  const [printPending, setPrintPending] = useState(false);
+
+  async function printAllForDay() {
+    if (!printDay || printPending) {
+      return;
+    }
+    setMessage(null);
+    setPrintPending(true);
+    try {
+      const url = `/api/invoices/final-batch/pdf?date=${printDay}`;
+      // Probe first so an empty day shows a message instead of printing an
+      // error page.
+      const response = await fetch(url);
+      if (!response.ok) {
+        setMessage(await response.text());
+        return;
+      }
+      printPdfUrl(url);
+    } catch {
+      setMessage("Could not generate the invoice batch PDF.");
+    } finally {
+      setPrintPending(false);
+    }
+  }
 
   const filtered = invoices;
 
@@ -509,6 +537,26 @@ function FinalInvoicesTab({
             {status === "ALL" ? "All" : status === "SENT" ? "Final" : status}
           </button>
         ))}
+        <div className="ml-auto flex flex-wrap items-center gap-2 text-xs text-slate-600">
+          <label htmlFor="print-day" className="font-medium">
+            Invoice date
+          </label>
+          <input
+            id="print-day"
+            type="date"
+            value={printDay}
+            onChange={(event) => setPrintDay(event.target.value)}
+            className="rounded border border-slate-200 px-2 py-1"
+          />
+          <button
+            type="button"
+            disabled={!printDay || printPending}
+            onClick={printAllForDay}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium hover:bg-slate-50 disabled:opacity-50"
+          >
+            {printPending ? "Preparing…" : "Print all for day"}
+          </button>
+        </div>
       </div>
 
       {message ? (
@@ -797,20 +845,20 @@ export function InvoicesTabs({
         <button
           type="button"
           onClick={() =>
-            setParams({ tab: "drafts", date: null, dateTo: null, all: null })
-          }
-          className={tabButtonClassName(tab === "drafts")}
-        >
-          Draft Review ({tabCounts.drafts})
-        </button>
-        <button
-          type="button"
-          onClick={() =>
             setParams({ tab: "reconcile", from: null, to: null, status: null })
           }
           className={tabButtonClassName(tab === "reconcile")}
         >
           Reconcile Day
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            setParams({ tab: "drafts", date: null, dateTo: null, all: null })
+          }
+          className={tabButtonClassName(tab === "drafts")}
+        >
+          Draft Review ({tabCounts.drafts})
         </button>
         <button
           type="button"
