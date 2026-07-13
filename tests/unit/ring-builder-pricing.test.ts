@@ -101,7 +101,7 @@ describe("ring pool line descriptions", () => {
         diameter: 10,
         style: "DRAIN",
       }),
-    ).toBe(`10'Ø Storm Pool - 2 @ 9'-0" Deep`);
+    ).toBe(`10'Ø Storm Pool - 2 Pools @ 9'-0" Deep`);
   });
 
   it("labels sanitary pools and fractional depths", () => {
@@ -112,7 +112,7 @@ describe("ring pool line descriptions", () => {
         diameter: 12,
         style: "SANITARY",
       }),
-    ).toBe(`12'Ø Sanitary Pool - 1 @ 9'-6" Deep`);
+    ).toBe(`12'Ø Sanitary Pool - 1 Pool @ 9'-6" Deep`);
   });
 
   it("converts decimal feet to feet and inches with carry", () => {

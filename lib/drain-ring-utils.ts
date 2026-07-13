@@ -141,7 +141,7 @@ export function formatFeetAndInches(feet: number): string {
   return `${wholeFeet}'-${inches}"`;
 }
 
-/** e.g. `10'Ø Storm Pool - 2 @ 9'-0" Deep` */
+/** e.g. `10'Ø Storm Pool - 2 Pools @ 9'-0" Deep` */
 export function formatDrainRingPoolDescription(input: {
   poolCount: number;
   poolHeight: number;
@@ -154,5 +154,6 @@ export function formatDrainRingPoolDescription(input: {
       : input.style === "SOLID"
         ? "Solid"
         : "Storm";
-  return `${input.diameter}'Ø ${styleLabel} Pool - ${input.poolCount} @ ${formatFeetAndInches(input.poolHeight)} Deep`;
+  const poolNoun = input.poolCount === 1 ? "Pool" : "Pools";
+  return `${input.diameter}'Ø ${styleLabel} Pool - ${input.poolCount} ${poolNoun} @ ${formatFeetAndInches(input.poolHeight)} Deep`;
 }
