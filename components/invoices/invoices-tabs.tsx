@@ -10,6 +10,10 @@ import {
   finalizeInvoices,
   type InvoiceListRow,
 } from "@/app/invoices/actions";
+import {
+  ReconcileDay,
+  type ReconcileTicket,
+} from "@/components/delivery-tickets/reconcile-day";
 import { printPdfUrl } from "@/lib/print-pdf-url";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { PageInfo } from "@/lib/list-params";
@@ -22,14 +26,36 @@ import {
   tableHeaderCellClassName,
   tableRowClassName,
 } from "@/lib/table-styles";
+
+export type ReconcileTabData = {
+  allowed: boolean;
+  mode: "day" | "range" | "all";
+  from: string;
+  to: string;
+  days: Array<{
+    date: string;
+    scheduledTickets: ReconcileTicket[];
+    deliveredOtherDayTickets: ReconcileTicket[];
+    reconciliation: {
+      confirmedBy: string | null;
+      confirmedAt: Date | null;
+      notes: string | null;
+    } | null;
+  }>;
+  truncated: boolean;
+};
+
 type InvoicesTabsProps = {
   invoices: InvoiceListRow[];
   paidWalkIns: InvoiceListRow[];
   pageInfo: PageInfo;
   tabCounts: { drafts: number; finals: number; paidWalkIns: number };
-  initialTab: "drafts" | "final";
+  initialTab: "drafts" | "final" | "reconcile";
   initialStatus: string;
   canManage: boolean;
+  draftFrom: string;
+  draftTo: string;
+  reconcile: ReconcileTabData | null;
 };
 
 function formatMoney(value: number): string {
@@ -94,13 +120,18 @@ function DraftReviewTab({
   paidWalkIns,
   pageInfo,
   canManage,
+  draftFrom,
+  draftTo,
 }: {
   drafts: InvoiceListRow[];
   paidWalkIns: InvoiceListRow[];
   pageInfo: PageInfo;
   canManage: boolean;
+  draftFrom: string;
+  draftTo: string;
 }) {
   const confirm = useConfirm();
+  const { setParams } = useListQuery();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
@@ -108,6 +139,9 @@ function DraftReviewTab({
   const [invoiceDate, setInvoiceDate] = useState(
     new Date().toISOString().slice(0, 10),
   );
+  const [fromInput, setFromInput] = useState(draftFrom);
+  const [toInput, setToInput] = useState(draftTo);
+  const isFiltered = Boolean(draftFrom || draftTo);
 
   const grouped = useMemo(() => groupByDeliveryDate(drafts), [drafts]);
   const selectedTotal = drafts
@@ -157,10 +191,56 @@ function DraftReviewTab({
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+        <span>Delivery date</span>
+        <input
+          type="date"
+          value={fromInput}
+          onChange={(event) => setFromInput(event.target.value)}
+          aria-label="Delivery date from"
+          className="rounded border border-slate-200 px-2 py-1"
+        />
+        <span>to</span>
+        <input
+          type="date"
+          value={toInput}
+          onChange={(event) => setToInput(event.target.value)}
+          aria-label="Delivery date to"
+          className="rounded border border-slate-200 px-2 py-1"
+        />
+        <button
+          type="button"
+          onClick={() =>
+            setParams({ from: fromInput || null, to: toInput || null })
+          }
+          className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium hover:bg-slate-50"
+        >
+          Apply
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setFromInput("");
+            setToInput("");
+            setParams({ from: null, to: null });
+          }}
+          className={`rounded-lg px-3 py-1.5 font-medium ${
+            isFiltered
+              ? "border border-slate-200 text-slate-700 hover:bg-slate-50"
+              : "bg-slate-900 text-white"
+          }`}
+        >
+          View all
+        </button>
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-slate-600">
           {pageInfo.total.toLocaleString()} draft invoice
-          {pageInfo.total === 1 ? "" : "s"} ready for review.
+          {pageInfo.total === 1 ? "" : "s"}
+          {isFiltered
+            ? ` with delivery date ${draftFrom || "…"} – ${draftTo || "…"}.`
+            : " ready for review."}
         </p>
         {canManage ? (
           <div className="flex flex-wrap items-center gap-2">
@@ -205,7 +285,9 @@ function DraftReviewTab({
 
       {drafts.length === 0 ? (
         <p className="text-sm text-slate-500">
-          No draft invoices. Reconcile a delivery day to create them.
+          {isFiltered
+            ? "No draft invoices with a delivery date in this range."
+            : "No draft invoices. Use the Reconcile Day tab to create them."}
         </p>
       ) : (
         [...grouped.entries()].map(([dateKey, rows]) => (
@@ -560,6 +642,119 @@ function FinalInvoicesTab({
   );
 }
 
+function ReconcileTab({
+  data,
+  canManageInvoices,
+}: {
+  data: ReconcileTabData;
+  canManageInvoices: boolean;
+}) {
+  const { setParams } = useListQuery();
+  const [fromInput, setFromInput] = useState(data.from);
+  const [toInput, setToInput] = useState(data.to);
+
+  if (!data.allowed) {
+    return (
+      <p className="text-sm text-slate-500">
+        You need delivery management permission to reconcile delivery days.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+        <span>Date</span>
+        <input
+          type="date"
+          value={fromInput}
+          onChange={(event) => setFromInput(event.target.value)}
+          aria-label="Reconcile date from"
+          className="rounded border border-slate-200 px-2 py-1"
+        />
+        <span>to</span>
+        <input
+          type="date"
+          value={toInput}
+          onChange={(event) => setToInput(event.target.value)}
+          aria-label="Reconcile date to"
+          className="rounded border border-slate-200 px-2 py-1"
+        />
+        <button
+          type="button"
+          onClick={() =>
+            setParams({
+              date: fromInput || null,
+              dateTo: toInput || null,
+              all: null,
+            })
+          }
+          className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium hover:bg-slate-50"
+        >
+          Go
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setFromInput("");
+            setToInput("");
+            setParams({ date: null, dateTo: null, all: null });
+          }}
+          className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium hover:bg-slate-50"
+        >
+          Today
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setFromInput("");
+            setToInput("");
+            setParams({ all: "1", date: null, dateTo: null });
+          }}
+          className={`rounded-lg px-3 py-1.5 font-medium ${
+            data.mode === "all"
+              ? "bg-slate-900 text-white"
+              : "border border-slate-200 text-slate-700 hover:bg-slate-50"
+          }`}
+        >
+          View all
+        </button>
+        {data.mode === "range" ? (
+          <span className="text-slate-500">
+            Showing {data.from} – {data.to}
+          </span>
+        ) : null}
+      </div>
+
+      {data.truncated ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          Showing the most recent days only — narrow the date range to see
+          older tickets.
+        </p>
+      ) : null}
+
+      {data.days.length === 0 ? (
+        <p className="text-sm text-slate-500">
+          {data.mode === "day"
+            ? "No delivery tickets for this date."
+            : "No delivery tickets in this range."}
+        </p>
+      ) : (
+        data.days.map((day) => (
+          <ReconcileDay
+            key={day.date}
+            date={day.date}
+            scheduledTickets={day.scheduledTickets}
+            deliveredOtherDayTickets={day.deliveredOtherDayTickets}
+            reconciliation={day.reconciliation}
+            canManageInvoices={canManageInvoices}
+          />
+        ))
+      )}
+    </div>
+  );
+}
+
 export function InvoicesTabs({
   invoices,
   paidWalkIns,
@@ -568,41 +763,56 @@ export function InvoicesTabs({
   initialTab,
   initialStatus,
   canManage,
+  draftFrom,
+  draftTo,
+  reconcile,
 }: InvoicesTabsProps) {
   const { setParams } = useListQuery();
   const tab = initialTab;
+
+  const tabButtonClassName = (active: boolean) =>
+    `rounded-lg px-3 py-1.5 text-xs font-medium ${
+      active ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"
+    }`;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-2">
         <button
           type="button"
-          onClick={() => setParams({ tab: "drafts" })}
-          className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
-            tab === "drafts"
-              ? "bg-slate-900 text-white"
-              : "text-slate-600 hover:bg-slate-50"
-          }`}
+          onClick={() =>
+            setParams({ tab: "drafts", date: null, dateTo: null, all: null })
+          }
+          className={tabButtonClassName(tab === "drafts")}
         >
           Draft Review ({tabCounts.drafts})
         </button>
         <button
           type="button"
-          onClick={() => setParams({ tab: "final", status: null })}
-          className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
-            tab === "final"
-              ? "bg-slate-900 text-white"
-              : "text-slate-600 hover:bg-slate-50"
-          }`}
+          onClick={() =>
+            setParams({ tab: "reconcile", from: null, to: null, status: null })
+          }
+          className={tabButtonClassName(tab === "reconcile")}
+        >
+          Reconcile Day
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            setParams({
+              tab: "final",
+              status: null,
+              from: null,
+              to: null,
+              date: null,
+              dateTo: null,
+              all: null,
+            })
+          }
+          className={tabButtonClassName(tab === "final")}
         >
           Invoices ({tabCounts.finals})
         </button>
-        <Link
-          href="/delivery-tickets/reconcile"
-          className="ml-auto text-xs text-sky-700 underline hover:text-sky-900"
-        >
-          Reconcile day →
-        </Link>
       </div>
 
       {tab === "drafts" ? (
@@ -611,7 +821,11 @@ export function InvoicesTabs({
           paidWalkIns={paidWalkIns}
           pageInfo={pageInfo}
           canManage={canManage}
+          draftFrom={draftFrom}
+          draftTo={draftTo}
         />
+      ) : tab === "reconcile" && reconcile ? (
+        <ReconcileTab data={reconcile} canManageInvoices={canManage} />
       ) : (
         <FinalInvoicesTab
           invoices={invoices}

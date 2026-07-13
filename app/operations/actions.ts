@@ -297,6 +297,7 @@ export async function updateTicketPaperVerification(
   );
 
   revalidatePath("/delivery-tickets/reconcile");
+  revalidatePath("/invoices");
 }
 
 export async function confirmDeliveryDayReconciliation(formData: FormData) {
@@ -527,6 +528,7 @@ export async function moveTicketDeliveryDate(
     revalidatePath("/delivery-tickets/reconcile");
     revalidatePath("/delivery-tickets");
     revalidatePath(`/delivery-tickets/${deliveryTicketId}`);
+    revalidatePath("/invoices");
     return { success: true };
   } catch (error) {
     return {
@@ -546,6 +548,7 @@ export async function cancelTicketFromReconcile(deliveryTicketId: string) {
     "CANCELLED",
   );
   revalidatePath("/delivery-tickets/reconcile");
+  revalidatePath("/invoices");
   return result;
 }
 
@@ -594,6 +597,112 @@ export async function listTicketsForReconciliation(date: string) {
       scheduledTickets: scheduledTickets.map(mapReconcileTicket),
       deliveredOtherDayTickets: deliveredOtherDayTickets.map(mapReconcileTicket),
       reconciliation,
+    };
+  });
+}
+
+/** Longest from→to span the reconcile range view will load. */
+const RECONCILE_RANGE_MAX_DAYS = 92;
+/** View-all mode loads at most this many tickets before cutting older days. */
+const RECONCILE_VIEW_ALL_TICKET_CAP = 500;
+
+function reconcileDayKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Tickets grouped per delivery day for the reconcile range / view-all modes.
+ * With `from`/`to` set it loads that span (capped at RECONCILE_RANGE_MAX_DAYS);
+ * with neither it loads the most recent days until the ticket cap is hit.
+ */
+export async function listTicketsForReconciliationRange(options: {
+  from?: string | null;
+  to?: string | null;
+}) {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+
+  let start = options.from ? parseReconciliationDate(options.from) : null;
+  let end = options.to ? parseReconciliationDate(options.to) : null;
+  if (start && end && end < start) {
+    [start, end] = [end, start];
+  }
+  if (start && !end) {
+    end = start;
+  }
+  let truncated = false;
+  if (start && end) {
+    const spanDays =
+      Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
+    if (spanDays > RECONCILE_RANGE_MAX_DAYS) {
+      end = new Date(start);
+      end.setDate(end.getDate() + RECONCILE_RANGE_MAX_DAYS - 1);
+      truncated = true;
+    }
+  }
+
+  return withDatabaseRetry(async (client) => {
+    let tickets;
+    if (start && end) {
+      const endOfDay = new Date(end);
+      endOfDay.setHours(23, 59, 59, 999);
+      tickets = await client.deliveryTicket.findMany({
+        where: { deliveryDate: { gte: start, lte: endOfDay } },
+        orderBy: [{ deliveryDate: "desc" }, { ticketNumber: "asc" }],
+        select: RECONCILE_TICKET_SELECT,
+      });
+    } else {
+      tickets = await client.deliveryTicket.findMany({
+        where: { deliveryDate: { not: null } },
+        orderBy: [{ deliveryDate: "desc" }, { ticketNumber: "asc" }],
+        take: RECONCILE_VIEW_ALL_TICKET_CAP + 1,
+        select: RECONCILE_TICKET_SELECT,
+      });
+      if (tickets.length > RECONCILE_VIEW_ALL_TICKET_CAP) {
+        truncated = true;
+        tickets = tickets.slice(0, RECONCILE_VIEW_ALL_TICKET_CAP);
+      }
+    }
+
+    const buckets = new Map<string, typeof tickets>();
+    for (const ticket of tickets) {
+      const key = reconcileDayKey(ticket.deliveryDate!);
+      const existing = buckets.get(key);
+      if (existing) {
+        existing.push(ticket);
+      } else {
+        buckets.set(key, [ticket]);
+      }
+    }
+    // The cap can leave the oldest day partially loaded; drop it rather than
+    // show (and let someone confirm) an incomplete day.
+    if (truncated && !start && buckets.size > 1) {
+      const keys = [...buckets.keys()];
+      buckets.delete(keys[keys.length - 1]!);
+    }
+
+    const dayDates = [...buckets.keys()]
+      .map((key) => parseReconciliationDate(key))
+      .filter((value): value is Date => value !== null);
+    const reconciliations =
+      dayDates.length > 0
+        ? await client.deliveryDayReconciliation.findMany({
+            where: { reconciliationDate: { in: dayDates } },
+          })
+        : [];
+    const reconciliationByKey = new Map(
+      reconciliations.map((record) => [
+        reconcileDayKey(record.reconciliationDate),
+        record,
+      ]),
+    );
+
+    return {
+      days: [...buckets.entries()].map(([date, dayTickets]) => ({
+        date,
+        scheduledTickets: dayTickets.map(mapReconcileTicket),
+        reconciliation: reconciliationByKey.get(date) ?? null,
+      })),
+      truncated,
     };
   });
 }

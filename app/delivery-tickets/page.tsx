@@ -200,12 +200,6 @@ export default async function DeliveryTicketsPage({
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-end gap-2">
           <Link
-            href="/delivery-tickets/reconcile"
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            Reconcile Day
-          </Link>
-          <Link
             href="/delivery-tickets/new"
             className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
           >

@@ -415,12 +415,32 @@ export async function listInvoicesForPage(options: {
   tab: "drafts" | "final";
   status?: string;
   page: number;
+  /** Drafts tab only: inclusive delivery-date range (YYYY-MM-DD). */
+  deliveryFrom?: string | null;
+  deliveryTo?: string | null;
 }) {
   await requirePermission(AppPermission.INVOICES_VIEW);
 
+  const deliveryFrom = parseInvoiceDate(options.deliveryFrom);
+  const deliveryToEnd = parseInvoiceDate(options.deliveryTo);
+  if (deliveryToEnd) {
+    deliveryToEnd.setHours(23, 59, 59, 999);
+  }
+  const deliveryDateFilter =
+    options.tab === "drafts" && (deliveryFrom || deliveryToEnd)
+      ? {
+          deliveryTicket: {
+            deliveryDate: {
+              ...(deliveryFrom ? { gte: deliveryFrom } : {}),
+              ...(deliveryToEnd ? { lte: deliveryToEnd } : {}),
+            },
+          },
+        }
+      : {};
+
   const where =
     options.tab === "drafts"
-      ? { status: "DRAFT" as const }
+      ? { status: "DRAFT" as const, ...deliveryDateFilter }
       : options.status && options.status !== "ALL"
         ? { status: options.status as InvoiceStatus }
         : { status: { in: ["SENT", "PAID", "VOID"] as InvoiceStatus[] } };
