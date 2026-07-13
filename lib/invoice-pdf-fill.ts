@@ -24,6 +24,15 @@ export function getInvoiceTemplatePath(): string {
   return path.join(process.cwd(), "assets", "templates", "invoice-template.pdf");
 }
 
+export function getInvoiceContinuationTemplatePath(): string {
+  return path.join(
+    process.cwd(),
+    "assets",
+    "templates",
+    "invoice-template-continuation.pdf",
+  );
+}
+
 async function templateExists(): Promise<boolean> {
   try {
     await access(getInvoiceTemplatePath());
@@ -105,6 +114,20 @@ export async function readInvoiceTemplateBytes(): Promise<Uint8Array> {
   return new Uint8Array(buffer);
 }
 
+/**
+ * Continuation template for non-final pages (no totals/remittance boxes, item
+ * table runs to the page bottom). Falls back to the main template when the
+ * continuation file is missing.
+ */
+export async function readInvoiceContinuationTemplateBytes(): Promise<Uint8Array> {
+  try {
+    const buffer = await readFile(getInvoiceContinuationTemplatePath());
+    return new Uint8Array(buffer);
+  } catch {
+    return readInvoiceTemplateBytes();
+  }
+}
+
 function fillAcroFormFields(
   doc: PDFDocument,
   data: Record<string, string>,
@@ -167,7 +190,10 @@ export async function generateInvoicePdfBytes(
   invoice: DbInvoiceForPdf,
 ): Promise<Uint8Array> {
   const settings = await getAppSettings();
-  const templateBytes = await readInvoiceTemplateBytes();
+  const [templateBytes, contTemplateBytes] = await Promise.all([
+    readInvoiceTemplateBytes(),
+    readInvoiceContinuationTemplateBytes(),
+  ]);
   const lineItems = mapInvoiceLineItemsForPdf(invoice.lineItems);
 
   const measureDoc = await PDFDocument.load(templateBytes);
@@ -196,7 +222,7 @@ export async function generateInvoicePdfBytes(
     );
 
     const pageBytes = await buildInvoicePageBytes(
-      templateBytes,
+      slice.isLastPage ? templateBytes : contTemplateBytes,
       formData,
       slice,
       showDraftWatermark,

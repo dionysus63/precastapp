@@ -450,8 +450,8 @@
     "semantic_hash": ""
   },
   "app/delivery-tickets/page.tsx": {
-    "mtime": 1783467366.9738593,
-    "ast_hash": "1e6854d82c48420050062a8362a6917d",
+    "mtime": 1783901612.4294033,
+    "ast_hash": "8832161447a4498f16a01ef89702b44e",
     "semantic_hash": ""
   },
   "app/delivery-tickets/pdf-actions.ts": {
@@ -460,8 +460,8 @@
     "semantic_hash": ""
   },
   "app/delivery-tickets/reconcile/page.tsx": {
-    "mtime": 1783287348.2412004,
-    "ast_hash": "fd8e061b4c03a8e1f0ff6c9c0a7d4d0b",
+    "mtime": 1783901600.9570785,
+    "ast_hash": "4b095b738711b4c3fe939177c94fb3ff",
     "semantic_hash": ""
   },
   "app/files/actions.ts": {
@@ -510,13 +510,13 @@
     "semantic_hash": ""
   },
   "app/invoices/page.tsx": {
-    "mtime": 1783287348.2142017,
-    "ast_hash": "69e355f56b78a7b5da043dfee84661a9",
+    "mtime": 1783901520.958095,
+    "ast_hash": "ba970ed5d4df828e57e748e4944e3230",
     "semantic_hash": ""
   },
   "app/operations/actions.ts": {
-    "mtime": 1783891707.416478,
-    "ast_hash": "6fd41b340bb17c2d2660ea9c4aaaf675",
+    "mtime": 1783901488.8334796,
+    "ast_hash": "ae447c2b4617666f9d31a6203163064a",
     "semantic_hash": ""
   },
   "app/production/page.tsx": {
@@ -525,8 +525,8 @@
     "semantic_hash": ""
   },
   "app/settings/actions.ts": {
-    "mtime": 1783891712.8508978,
-    "ast_hash": "9c31751abc1d6393ec6c214a2e53604e",
+    "mtime": 1783902329.9875495,
+    "ast_hash": "bda23b82f625b1ea042552a99d28bebc",
     "semantic_hash": ""
   },
   "app/settings/billing/page.tsx": {
@@ -1155,8 +1155,8 @@
     "semantic_hash": ""
   },
   "app/settings/data-reset/page.tsx": {
-    "mtime": 1783532586.902815,
-    "ast_hash": "83d545931688992b0b5f5f7952f6cbbd",
+    "mtime": 1783902373.1742961,
+    "ast_hash": "94c8481cd2178280b22c338259f696d8",
     "semantic_hash": ""
   },
   "components/jobs/job-bidding-panel.tsx": {
@@ -1165,8 +1165,8 @@
     "semantic_hash": ""
   },
   "components/settings/data-reset-panel.tsx": {
-    "mtime": 1783556110.9637923,
-    "ast_hash": "399949ae843c1635b82382420c7eeb12",
+    "mtime": 1783902353.4462786,
+    "ast_hash": "84c01df3ffcbe012f506aff0c043d8df",
     "semantic_hash": ""
   },
   "lib/quote-clone.ts": {
@@ -2190,8 +2190,8 @@
     "semantic_hash": ""
   },
   "app/invoices/actions.ts": {
-    "mtime": 1783287348.1881983,
-    "ast_hash": "43973603421ddeb935009d1ebcd3338b",
+    "mtime": 1783901499.9622943,
+    "ast_hash": "7e1bd673870f0b49162f3db12ea5d9f6",
     "semantic_hash": ""
   },
   "components/invoices/invoice-detail-actions.tsx": {
@@ -2205,8 +2205,8 @@
     "semantic_hash": ""
   },
   "components/invoices/invoices-tabs.tsx": {
-    "mtime": 1783303735.4508448,
-    "ast_hash": "cd637536f54734fa2546d335bd694cc5",
+    "mtime": 1783901592.1682303,
+    "ast_hash": "f529fa879c57656317ed12eaf5dd74a4",
     "semantic_hash": ""
   },
   "lib/invoice-pdf-data.ts": {
@@ -2215,8 +2215,8 @@
     "semantic_hash": ""
   },
   "lib/invoice-pdf-fill.ts": {
-    "mtime": 1783287348.2361999,
-    "ast_hash": "0eff1332cc84c4d57b659c547802c0ce",
+    "mtime": 1783903746.4936583,
+    "ast_hash": "db85ba2999527aad0292a996c05a2929",
     "semantic_hash": ""
   },
   "lib/invoice-pdf-line-items.ts": {
@@ -2230,8 +2230,8 @@
     "semantic_hash": ""
   },
   "assets/templates/invoice-template.pdf": {
-    "mtime": 1783037214.6378987,
-    "ast_hash": "ec108302a749d9bd67ad9a5c6279ee2e",
+    "mtime": 1783903705.2342026,
+    "ast_hash": "9342894a40b9bed7277ba9081c18baa3",
     "semantic_hash": ""
   },
   "components/production/approve-for-production-dialog.tsx": {
@@ -3202,6 +3202,21 @@
   "lib/structure-template-payload.ts": {
     "mtime": 1783875806.1705494,
     "ast_hash": "fa5b9cad3a3ad9dbaff4b110d2738495",
+    "semantic_hash": ""
+  },
+  "scripts/generate-invoice-templates.ts": {
+    "mtime": 1783903688.3573377,
+    "ast_hash": "81767cbe09a485ced71d669604c67686",
+    "semantic_hash": ""
+  },
+  "assets/templates/invoice-template-continuation.pdf": {
+    "mtime": 1783903705.2942047,
+    "ast_hash": "f2038483acd0eb71b1cd6535c5ce4431",
+    "semantic_hash": ""
+  },
+  "assets/templates/lip-header.png": {
+    "mtime": 1783903589.0631328,
+    "ast_hash": "9944caa0178f4119aea75692d3a72e0d",
     "semantic_hash": ""
   }
 }
