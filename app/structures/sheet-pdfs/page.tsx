@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import {
   SheetPdfSetManager,
@@ -9,6 +8,7 @@ import { DRILL_SHEET_TEMPLATE_FIELD_NAMES } from "@/lib/drill-sheet-template-pdf
 import { RECT_SHEET_TEMPLATE_FIELD_NAMES } from "@/lib/rect-template-pdf-fields";
 import { prisma } from "@/lib/prisma";
 
+import { BackButton } from "@/components/dashboard/back-button";
 const RECT_SLOT_DEFINITIONS = [
   { hasTopSlab: true, hasBaseSlab: true, label: "Top Slab + Base Slab" },
   { hasTopSlab: true, hasBaseSlab: false, label: "Top Slab, No Base (Open Bottom)" },
@@ -72,12 +72,7 @@ export default async function SheetPdfSetsPage() {
       title="Sheet PDF Sets"
       subtitle="Fillable drill-sheet PDFs shared across structure templates — circular sets hold one sheet, rectangular sets hold the four slab variants."
     >
-      <Link
-        href="/structures"
-        className="text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        ← Back to Structures
-      </Link>
+      <BackButton href="/structures" label="Back to Structures" />
 
       <div className="mt-4">
         <SheetPdfSetManager

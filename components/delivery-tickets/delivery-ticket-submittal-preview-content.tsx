@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useState } from "react";
+import { BackButton } from "@/components/dashboard/back-button";
 import {
   DeliveryTicketSubmittalPdfCanvasPreview,
   getDeliveryTicketSubmittalPreviewPrintUrl,
@@ -46,12 +46,10 @@ export function DeliveryTicketSubmittalPreviewContent({
     <div className="bg-neutral-100 text-neutral-900 print:bg-white [color-scheme:light]">
       <div className="print:hidden border-b border-neutral-200 bg-white">
         <div className="mx-auto flex max-w-[8.5in] flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <Link
+          <BackButton
             href={backHref ?? `/delivery-tickets/${ticketId}`}
-            className="text-sm font-medium text-neutral-600 hover:text-neutral-900"
-          >
-            ← {backLabel}
-          </Link>
+            label={backLabel}
+          />
           <button
             type="button"
             onClick={handlePrint}

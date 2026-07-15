@@ -13,6 +13,7 @@ import {
 import { withDatabaseRetry } from "@/lib/prisma";
 import type { Prisma } from "@/app/generated/prisma/client";
 
+import { BackButton } from "@/components/dashboard/back-button";
 type InventoryReceiptsPageProps = {
   searchParams: Promise<RawSearchParams>;
 };
@@ -66,12 +67,7 @@ export default async function InventoryReceiptsPage({
       subtitle="Past deliveries received from suppliers."
     >
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Link
-          href="/receiving"
-          className="text-xs font-medium text-slate-500 hover:text-slate-900"
-        >
-          ← Back to Receiving
-        </Link>
+        <BackButton href="/receiving" label="Back to Receiving" />
         <Link
           href="/inventory"
           className="text-xs font-medium text-slate-500 hover:text-slate-900"

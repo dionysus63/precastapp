@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { DrillSheetForm } from "@/components/drill-sheets/drill-sheet-form";
@@ -10,6 +9,7 @@ import {
 import { loadDrillSheetFormOptions } from "@/lib/drill-sheet-options";
 import { prisma } from "@/lib/prisma";
 
+import { BackButton } from "@/components/dashboard/back-button";
 type EditDrillSheetPageProps = {
   params: Promise<{ id: string }>;
 };
@@ -59,12 +59,7 @@ export default async function EditDrillSheetPage({
       title={`Edit Drill Sheet — ${sheet.structureNumber ?? "Untitled"}`}
       subtitle="Update rim, pipe data, and casting, then recompute the drill sheet."
     >
-      <Link
-        href={`/drill-sheets/${id}`}
-        className="text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        ← Back to Drill Sheet
-      </Link>
+      <BackButton href={`/drill-sheets/${id}`} label="Back to Drill Sheet" />
 
       <div className="mt-4">
         {templateOptions.length === 0 ? (

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { SectionCard } from "@/components/dashboard/section-card";
@@ -10,6 +9,7 @@ import { listJobFiles } from "@/lib/job-files-service";
 import { mapJobFileRecordToRow } from "@/lib/job-file-mapper";
 import { withDatabaseRetry } from "@/lib/prisma";
 
+import { BackButton } from "@/components/dashboard/back-button";
 type EditJobPageProps = {
   params: Promise<{ id: string }>;
 };
@@ -61,12 +61,7 @@ export default async function EditJobPage({ params }: EditJobPageProps) {
       subtitle={`${job.projectName} — update job details.`}
     >
       <div className="mx-auto max-w-3xl space-y-4">
-        <Link
-          href="/jobs"
-          className="text-xs font-medium text-slate-500 hover:text-slate-900"
-        >
-          ← Back to Jobs
-        </Link>
+        <BackButton href="/jobs" label="Back to Jobs" />
 
         <SectionCard
           title="Job Details"

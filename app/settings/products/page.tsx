@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { SettingsFeedback } from "@/components/settings/settings-form-fields";
@@ -29,6 +28,7 @@ import {
   tableHeaderCellClassName,
   tableRowClassName,
 } from "@/lib/table-styles";
+import { BackButton } from "@/components/dashboard/back-button";
 type ProductCatalogSettingsPageProps = {
   searchParams: Promise<{ success?: string; error?: string }>;
 };
@@ -365,12 +365,7 @@ export default async function ProductCatalogSettingsPage({
         </form>
       </SectionCard>
 
-      <Link
-        href="/settings"
-        className="inline-block text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        ← Back to Settings
-      </Link>
+      <BackButton href="/settings" label="Back to Settings" />
     </SettingsShell>
   );
 }

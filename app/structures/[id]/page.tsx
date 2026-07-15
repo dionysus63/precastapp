@@ -12,6 +12,7 @@ import {
 } from "@/app/structures/actions";
 import { prisma } from "@/lib/prisma";
 
+import { BackButton } from "@/components/dashboard/back-button";
 type EditStructureTemplatePageProps = {
   params: Promise<{ id: string }>;
 };
@@ -88,12 +89,7 @@ export default async function EditStructureTemplatePage({
       subtitle="Update template configuration and offered diameters."
     >
       <div className="flex items-center justify-between">
-        <Link
-          href="/structures"
-          className="text-xs font-medium text-slate-500 hover:text-slate-900"
-        >
-          ← Back to Structures
-        </Link>
+        <BackButton href="/structures" label="Back to Structures" />
         <DeleteStructureTemplateButton templateId={template.id} />
       </div>
 

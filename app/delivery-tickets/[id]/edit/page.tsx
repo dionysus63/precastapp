@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { DeliveryTicketEditor } from "@/components/delivery-tickets/delivery-ticket-editor";
@@ -8,6 +7,7 @@ import { getAppSettings } from "@/lib/app-settings";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { formatDateIso } from "@/lib/delivery-dispatch-utils";
 
+import { BackButton } from "@/components/dashboard/back-button";
 type EditDeliveryTicketPageProps = {
   params: Promise<{ id: string }>;
 };
@@ -69,12 +69,7 @@ export default async function EditDeliveryTicketPage({
       title={`Edit ${ticket.ticketNumber}`}
       subtitle="Update delivery ticket lines and schedule."
     >
-      <Link
-        href={`/delivery-tickets/${ticket.id}`}
-        className="text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        ← Back to ticket
-      </Link>
+      <BackButton href={`/delivery-tickets/${ticket.id}`} label="Back to ticket" />
 
       <div className="mt-4">
         <DeliveryTicketEditor

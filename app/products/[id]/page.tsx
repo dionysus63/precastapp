@@ -18,6 +18,7 @@ import {
 import { getDefaultPriceList } from "@/lib/price-list-service";
 import { prisma } from "@/lib/prisma";
 
+import { BackButton } from "@/components/dashboard/back-button";
 type ProductDetailPageProps = {
   params: Promise<{ id: string }>;
 };
@@ -110,12 +111,7 @@ export default async function ProductDetailPage({
     >
       <div className="mx-auto max-w-4xl space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Link
-            href="/products"
-            className="text-xs font-medium text-slate-500 hover:text-slate-900"
-          >
-            ← Back to Products
-          </Link>
+          <BackButton href="/products" label="Back to Products" />
           <Link
             href={`/products/${product.id}/edit`}
             className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"

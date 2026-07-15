@@ -44,8 +44,8 @@ export function Sidebar({
   }, "");
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-20 flex h-screen w-60 flex-col overflow-y-auto border-r border-slate-200/80 bg-gradient-to-b from-white to-slate-50">
-      <div className="border-b border-slate-100 px-4 py-4">
+    <aside className="fixed inset-y-0 left-0 z-20 flex h-screen w-60 flex-col border-r border-slate-200/80 bg-gradient-to-b from-white to-slate-50">
+      <div className="shrink-0 border-b border-slate-100 px-4 py-4">
         <Link
           href="/"
           aria-label="Dashboard"
@@ -66,7 +66,7 @@ export function Sidebar({
         </Link>
       </div>
 
-      <nav className="flex-1 px-3 py-4" aria-label="Main navigation">
+      <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Main navigation">
         {visibleSections.map((section, sectionIndex) => {
           const sectionItems = visibleItems.filter(
             (item) => item.section === section.id,
@@ -108,7 +108,7 @@ export function Sidebar({
         })}
       </nav>
 
-      <div className="flex items-center gap-2.5 border-t border-slate-200/80 px-4 py-3">
+      <div className="flex shrink-0 items-center gap-2.5 border-t border-slate-200/80 px-4 py-3">
         <div
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[11px] font-semibold text-slate-600"
           aria-hidden="true"

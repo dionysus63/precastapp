@@ -4,6 +4,7 @@ import { PurchaseReceiptForm } from "@/components/inventory/purchase-receipt-for
 import { loadCastingAssembliesWithBom } from "@/lib/casting-service";
 import { withDatabaseRetry } from "@/lib/prisma";
 
+import { BackButton } from "@/components/dashboard/back-button";
 export default async function ReceiveCastingsPage() {
   const [products, assemblies, suppliers] = await withDatabaseRetry((client) =>
     Promise.all([
@@ -44,12 +45,7 @@ export default async function ReceiveCastingsPage() {
       subtitle="Record purchased cast iron inventory received from suppliers."
     >
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Link
-          href="/inventory"
-          className="text-xs font-medium text-slate-500 hover:text-slate-900"
-        >
-          ← Back to Inventory
-        </Link>
+        <BackButton href="/inventory" label="Back to Inventory" />
         <Link
           href="/inventory/receipts"
           className="text-xs font-medium text-slate-700 underline hover:text-slate-900"

@@ -38,6 +38,7 @@ import {
   tableHeaderCellWrapClassName,
   tableRowClassName,
 } from "@/lib/table-styles";
+import { BackButton } from "@/components/dashboard/back-button";
 type JobDetailContentProps = {
   detail: JobDetailView;
   activeTab: JobDetailTab;
@@ -174,12 +175,7 @@ export function JobDetailContent({
     <div className="space-y-4">
       <section className="rounded-xl border border-slate-200/80 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-2.5">
-          <Link
-            href="/jobs"
-            className="text-xs font-medium text-slate-500 hover:text-slate-900"
-          >
-            ← Back to Jobs
-          </Link>
+          <BackButton href="/jobs" label="Back to Jobs" />
 
           <div className="flex flex-wrap items-center gap-2">
             <Link

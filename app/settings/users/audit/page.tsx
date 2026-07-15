@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { SettingsShell } from "@/components/settings/settings-shell";
 import { SectionCard } from "@/components/dashboard/section-card";
@@ -11,6 +10,7 @@ import {
   tableClassName,
   tableHeaderCellClassName,
 } from "@/lib/table-styles";
+import { BackButton } from "@/components/dashboard/back-button";
 export default async function SettingsUsersAuditPage() {
   await requirePermission(AppPermission.USERS_MANAGE);
 
@@ -33,12 +33,7 @@ export default async function SettingsUsersAuditPage() {
       subtitle="Recent sign-ins, user changes, and other tracked actions."
     >
       <div>
-        <Link
-          href="/settings/users"
-          className="text-xs font-medium text-slate-500 hover:text-slate-900"
-        >
-          ← Back to Users & Access
-        </Link>
+        <BackButton href="/settings/users" label="Back to Users & Access" />
       </div>
 
       <SectionCard title="Recent Activity" noPadding>

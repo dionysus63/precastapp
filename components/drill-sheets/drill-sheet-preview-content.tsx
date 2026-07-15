@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useState, useTransition } from "react";
 import { generateDrillSheetPdf } from "@/app/drill-sheets/pdf-actions";
 import { openPathOnClient } from "@/lib/open-on-client";
@@ -11,6 +10,7 @@ import {
 } from "@/components/drill-sheets/drill-sheet-pdf-canvas-preview";
 import { printPdfUrl } from "@/lib/print-pdf-url";
 
+import { BackButton } from "@/components/dashboard/back-button";
 type DrillSheetPreviewContentProps = {
   drillSheetId: string;
   manholeNumber: string;
@@ -71,12 +71,7 @@ export function DrillSheetPreviewContent({
     <>
       <div className="print:hidden border-b border-neutral-200 bg-white">
         <div className="mx-auto flex max-w-[8.5in] flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <Link
-            href={`/drill-sheets/${drillSheetId}`}
-            className="text-sm font-medium text-neutral-600 hover:text-neutral-900"
-          >
-            ← Back to Drill Sheet
-          </Link>
+          <BackButton href={`/drill-sheets/${drillSheetId}`} label="Back to Drill Sheet" />
           <div className="flex flex-wrap gap-2">
             <button
               type="button"

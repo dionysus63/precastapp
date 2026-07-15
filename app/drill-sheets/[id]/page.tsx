@@ -21,6 +21,7 @@ import {
 import { loadAndComputeRectSheet } from "@/lib/rect-sheet-persistence";
 import { prisma } from "@/lib/prisma";
 
+import { BackButton } from "@/components/dashboard/back-button";
 type DrillSheetDetailPageProps = {
   params: Promise<{ id: string }>;
 };
@@ -94,12 +95,7 @@ export default async function DrillSheetDetailPage({
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-4">
-          <Link
-            href="/drill-sheets"
-            className="text-xs font-medium text-slate-500 hover:text-slate-900"
-          >
-            ← Back to Workbook
-          </Link>
+          <BackButton href="/drill-sheets" label="Back to Workbook" />
           <DrillSheetJobNav entries={navEntries} currentId={sheet.id} />
         </div>
         <div className="flex items-center gap-2">
@@ -169,12 +165,7 @@ async function RectSheetDetail({ id }: { id: string }) {
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-4">
-          <Link
-            href="/drill-sheets"
-            className="text-xs font-medium text-slate-500 hover:text-slate-900"
-          >
-            ← Back to Workbook
-          </Link>
+          <BackButton href="/drill-sheets" label="Back to Workbook" />
           <DrillSheetJobNav entries={navEntries} currentId={sheet.id} />
         </div>
         <div className="flex items-center gap-2">

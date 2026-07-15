@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { QuoteForm } from "@/components/quotes/quote-form";
 import {
@@ -16,6 +15,7 @@ import { listProductTaxonomy } from "@/lib/product-taxonomy.server";
 import { requireAuth } from "@/lib/auth/session";
 import { withDatabaseRetry } from "@/lib/prisma";
 
+import { BackButton } from "@/components/dashboard/back-button";
 type NewQuotePageProps = {
   searchParams: Promise<{
     jobId?: string;
@@ -72,12 +72,7 @@ export default async function NewQuotePage({
       title="New Quote"
       subtitle="Create a quote using stock products, configurable structures, custom structures, and services."
     >
-      <Link
-        href="/quotes"
-        className="text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        ← Back to Quotes
-      </Link>
+      <BackButton href="/quotes" label="Back to Quotes" />
 
       <div className="mt-4">
         <QuoteForm

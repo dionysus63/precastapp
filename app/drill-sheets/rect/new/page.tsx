@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { BackButton } from "@/components/dashboard/back-button";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { RectSheetForm } from "@/components/drill-sheets/rect-sheet-form";
 import {
@@ -104,12 +105,10 @@ export default async function NewRectSheetPage({
           : "Enter rim, size, and pipe data to compute heights, sections, and pick weights for a rectangular structure."
       }
     >
-      <Link
+      <BackButton
         href={backHref}
-        className="text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        {placeholder?.jobId ? "← Back to Structure" : "← Back to Workbook"}
-      </Link>
+        label={placeholder?.jobId ? "Back to Structure" : "Back to Workbook"}
+      />
 
       <div className="mt-4 space-y-4">
         {isCircularConfig && placeholder?.quote ? (

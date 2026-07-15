@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { SectionCard } from "@/components/dashboard/section-card";
@@ -6,6 +5,7 @@ import { CustomerForm } from "@/components/customers/customer-form";
 import { updateCustomer } from "@/app/customers/actions";
 import { withDatabaseRetry } from "@/lib/prisma";
 
+import { BackButton } from "@/components/dashboard/back-button";
 type EditCustomerPageProps = {
   params: Promise<{ id: string }>;
 };
@@ -29,12 +29,7 @@ export default async function EditCustomerPage({ params }: EditCustomerPageProps
       subtitle="Update customer account details."
     >
       <div className="mx-auto max-w-3xl">
-        <Link
-          href={`/customers/${customer.id}`}
-          className="text-xs font-medium text-slate-500 hover:text-slate-900"
-        >
-          ← Back to Customer
-        </Link>
+        <BackButton href={`/customers/${customer.id}`} label="Back to Customer" />
 
         <div className="mt-4">
           <SectionCard

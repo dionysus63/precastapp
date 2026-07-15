@@ -13,6 +13,7 @@ import {
   type QuoteLineFulfillment,
 } from "@/lib/delivery-fulfillment";
 
+import { BackButton } from "@/components/dashboard/back-button";
 type CandidateDraft = {
   id: string;
   ticketNumber: string;
@@ -78,12 +79,11 @@ function EmptyState({ message, jobId }: { message: string; jobId?: string }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-600">
       <p>{message}</p>
-      <Link
+      <BackButton
         href={jobId ? `/jobs/${jobId}?tab=deliveries` : "/delivery-tickets"}
-        className="mt-3 inline-block text-xs font-medium text-sky-700 hover:text-sky-900"
-      >
-        {jobId ? "← Back to job deliveries" : "← Back to Delivery Hub"}
-      </Link>
+        label={jobId ? "Back to job deliveries" : "Back to Delivery Hub"}
+        className="mt-3"
+      />
     </div>
   );
 }
@@ -272,12 +272,7 @@ export default async function PlanLoadsPage({ searchParams }: PlanLoadsPageProps
       subtitle={`${job.projectName} · ${job.customerName}`}
     >
       <div className="flex flex-wrap items-center gap-3">
-        <Link
-          href={`/jobs/${job.id}?tab=deliveries`}
-          className="text-xs font-medium text-slate-500 hover:text-slate-900"
-        >
-          ← Back to job deliveries
-        </Link>
+        <BackButton href={`/jobs/${job.id}?tab=deliveries`} label="Back to job deliveries" />
         {wonQuotes.length > 1 ? (
           <div className="flex items-center gap-1.5 text-xs text-slate-500">
             <span>Quote:</span>

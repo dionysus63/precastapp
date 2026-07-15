@@ -1,5 +1,5 @@
-import Link from "next/link";
 
+import { BackButton } from "@/components/dashboard/back-button";
 export default function QuotePreviewNotFound() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-neutral-200 px-4">
@@ -8,12 +8,7 @@ export default function QuotePreviewNotFound() {
         <p className="mt-2 text-sm text-neutral-600">
           This quote may have been removed, or the link may be incorrect.
         </p>
-        <Link
-          href="/quotes"
-          className="mt-6 inline-flex rounded border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
-        >
-          ← Back to Quotes
-        </Link>
+        <BackButton href="/quotes" label="Back to Quotes" />
       </div>
     </div>
   );

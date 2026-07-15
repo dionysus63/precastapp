@@ -8,6 +8,7 @@ import {
   startStructureProduction,
   submitStructureForApproval,
 } from "@/app/operations/actions";
+import { BackButton } from "@/components/dashboard/back-button";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { DrillSheetPdfLink } from "@/components/drill-sheets/drill-sheet-pdf-link";
@@ -152,12 +153,10 @@ export function JobStructureDetailContent({
       </div>
 
       <div className="flex flex-wrap gap-2 text-xs">
-        <Link
+        <BackButton
           href={`/jobs/${detail.jobId}?tab=production`}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-50"
-        >
-          Back to job
-        </Link>
+          label="Back to job"
+        />
         <Link
           href="/production"
           className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-50"

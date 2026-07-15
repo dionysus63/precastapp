@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { JobForm } from "@/components/jobs/job-form";
 import { createJob } from "../actions";
 import { prisma } from "@/lib/prisma";
 
+import { BackButton } from "@/components/dashboard/back-button";
 export default async function NewJobPage() {
   const customers = await prisma.customer.findMany({
     orderBy: { name: "asc" },
@@ -19,12 +19,7 @@ export default async function NewJobPage() {
       subtitle="Create a new job record. A job number will be assigned automatically for the current year."
     >
       <div className="mx-auto max-w-3xl">
-        <Link
-          href="/jobs"
-          className="text-xs font-medium text-slate-500 hover:text-slate-900"
-        >
-          ← Back to Jobs
-        </Link>
+        <BackButton href="/jobs" label="Back to Jobs" />
 
         <div className="mt-4">
           <SectionCard

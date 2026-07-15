@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo } from "react";
 import type { PlanSheetRecord } from "@/app/quotes/plan-sheet-actions";
+import { BackButton } from "@/components/dashboard/back-button";
 import type { DrillSheetTemplateOption } from "@/components/drill-sheets/drill-sheet-form";
 import { StructureWorkbook } from "@/components/quotes/structure-workbook/structure-workbook";
 import type { EditableQuoteLineItem } from "@/lib/quotes/types";
@@ -45,12 +45,7 @@ export function StructureWorkbookPageClient({
 
   return (
     <>
-      <Link
-        href={effectiveReturnPath}
-        className="text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        ← Back to Quote
-      </Link>
+      <BackButton href={effectiveReturnPath} label="Back to Quote" />
       <div className="mt-4">
         <StructureWorkbook
           quoteId={quoteId}

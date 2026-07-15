@@ -11,6 +11,7 @@ import { formatDateIso } from "@/lib/delivery-dispatch-utils";
 import { deliveryTicketStatusVariant } from "@/lib/status-variants";
 import { formatQuantity } from "@/lib/format";
 
+import { BackButton } from "@/components/dashboard/back-button";
 type ScheduleLoadsPageProps = {
   searchParams: Promise<{ jobId?: string }>;
 };
@@ -21,12 +22,7 @@ function EmptyState({ message }: { message: string }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-600">
       <p>{message}</p>
-      <Link
-        href="/delivery-tickets"
-        className="mt-3 inline-block text-xs font-medium text-sky-700 hover:text-sky-900"
-      >
-        ← Back to Delivery Hub
-      </Link>
+      <BackButton href="/delivery-tickets" label="Back to Delivery Hub" />
     </div>
   );
 }
@@ -90,12 +86,7 @@ export default async function ScheduleLoadsPage({
       subtitle={`${job.projectName} · ${job.customerName}`}
     >
       <div className="flex flex-wrap items-center gap-3 text-xs font-medium">
-        <Link
-          href="/delivery-tickets"
-          className="text-slate-500 hover:text-slate-900"
-        >
-          ← Back to Delivery Hub
-        </Link>
+        <BackButton href="/delivery-tickets" label="Back to Delivery Hub" />
         <Link
           href={`/jobs/${job.id}?tab=deliveries`}
           className="text-slate-500 hover:text-slate-900"

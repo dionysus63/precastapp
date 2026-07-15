@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { QuoteForm } from "@/components/quotes/quote-form";
@@ -20,6 +19,7 @@ import { listProductTaxonomy } from "@/lib/product-taxonomy.server";
 import { withDatabaseRetry } from "@/lib/prisma";
 import type { QuoteStatus } from "@/app/generated/prisma/client";
 
+import { BackButton } from "@/components/dashboard/back-button";
 type EditQuotePageProps = {
   params: Promise<{ id: string }>;
 };
@@ -102,12 +102,7 @@ export default async function EditQuotePage({ params }: EditQuotePageProps) {
       title={`Edit Quote ${quote.quoteNumber}`}
       subtitle="Update quote details, line items, and pricing."
     >
-      <Link
-        href={`/quotes/${quote.id}`}
-        className="text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        ← Back to Quote
-      </Link>
+      <BackButton href={`/quotes/${quote.id}`} label="Back to Quote" />
 
       <div className="mt-4">
         <QuoteForm

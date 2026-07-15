@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { JobFilesBrowser } from "@/components/files/job-files-browser";
@@ -6,6 +5,7 @@ import { mapFilesForBrowser } from "@/lib/job-file-mapper";
 import { getJobFilesForBrowser } from "@/app/files/actions";
 import { withDatabaseRetry } from "@/lib/prisma";
 
+import { BackButton } from "@/components/dashboard/back-button";
 type JobFilesPageProps = {
   params: Promise<{ jobId: string }>;
   searchParams: Promise<{ category?: string }>;
@@ -54,12 +54,7 @@ export default async function JobFilesPage({
       title={`Files — ${jobRecord.jobNumber}`}
       subtitle={`${jobRecord.projectName} — ${jobRecord.customerName}`}
     >
-      <Link
-        href="/files"
-        className="text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        ← Back to Files
-      </Link>
+      <BackButton href="/files" label="Back to Files" />
 
       <div className="mt-4">
         <JobFilesBrowser

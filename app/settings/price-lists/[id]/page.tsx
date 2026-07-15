@@ -58,7 +58,7 @@ export default async function PriceListDetailPage({
       title={priceList.name}
       subtitle="Manage unit prices for products on this list."
       backHref="/settings/price-lists"
-      backLabel="← Back to Price Lists"
+      backLabel="Back to Price Lists"
     >
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">

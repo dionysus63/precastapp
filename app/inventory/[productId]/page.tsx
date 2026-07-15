@@ -12,6 +12,7 @@ import {
   tableFlushWrapperClassName,
   tableHeaderCellClassName,
 } from "@/lib/table-styles";
+import { BackButton } from "@/components/dashboard/back-button";
 type ProductInventoryPageProps = {
   params: Promise<{ productId: string }>;
 };
@@ -61,12 +62,7 @@ export default async function ProductInventoryPage({
       subtitle={product.name}
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <Link
-          href="/inventory"
-          className="text-xs font-medium text-slate-500 hover:text-slate-900"
-        >
-          ← Back to Inventory
-        </Link>
+        <BackButton href="/inventory" label="Back to Inventory" />
         <Link
           href={`/inventory/adjust?productId=${product.id}`}
           className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50"

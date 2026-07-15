@@ -15,6 +15,7 @@ import {
 } from "@/lib/receiving-utils";
 import { withDatabaseRetry } from "@/lib/prisma";
 
+import { BackButton } from "@/components/dashboard/back-button";
 type ReceivePageProps = {
   searchParams: Promise<{ category?: string; po?: string }>;
 };
@@ -111,12 +112,7 @@ export default async function ReceivePage({ searchParams }: ReceivePageProps) {
         title={`Record ${categoryLabel}`}
         subtitle="Enter products and quantities received on this delivery."
       >
-        <Link
-          href="/receiving"
-          className="mb-4 inline-block text-xs font-medium text-slate-500 hover:text-slate-900"
-        >
-          ← Back to Receiving
-        </Link>
+        <BackButton href="/receiving" label="Back to Receiving" />
 
         <PipeReceiptForm
           category={category}
@@ -180,12 +176,7 @@ export default async function ReceivePage({ searchParams }: ReceivePageProps) {
         subtitle="Record purchased cast iron inventory received from suppliers."
       >
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <Link
-            href="/receiving"
-            className="text-xs font-medium text-slate-500 hover:text-slate-900"
-          >
-            ← Back to Receiving
-          </Link>
+          <BackButton href="/receiving" label="Back to Receiving" />
           <Link
             href={`/inventory/receipts?category=${category}`}
             className="text-xs font-medium text-slate-700 underline hover:text-slate-900"

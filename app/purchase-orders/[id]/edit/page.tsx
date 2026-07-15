@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { PurchaseOrderEditor } from "@/components/purchase-orders/purchase-order-editor";
@@ -6,6 +5,7 @@ import { listVendorsForPurchaseOrderForm } from "@/app/purchase-orders/actions";
 import { canEditPurchaseOrder } from "@/lib/purchase-order-utils";
 import { withDatabaseRetry } from "@/lib/prisma";
 
+import { BackButton } from "@/components/dashboard/back-button";
 export default async function EditPurchaseOrderPage({
   params,
 }: {
@@ -38,12 +38,7 @@ export default async function EditPurchaseOrderPage({
       title={`Edit ${purchaseOrder.poNumber}`}
       subtitle="Update purchase order details and line items."
     >
-      <Link
-        href={`/purchase-orders/${id}`}
-        className="mb-4 inline-block text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        ← Back to PO
-      </Link>
+      <BackButton href={`/purchase-orders/${id}`} label="Back to PO" />
 
       <PurchaseOrderEditor
         mode="edit"

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { RectSheetForm } from "@/components/drill-sheets/rect-sheet-form";
@@ -10,6 +9,7 @@ import {
 } from "@/lib/rect-sheet-detail";
 import { prisma } from "@/lib/prisma";
 
+import { BackButton } from "@/components/dashboard/back-button";
 type EditRectSheetPageProps = {
   params: Promise<{ id: string }>;
 };
@@ -39,12 +39,7 @@ export default async function EditRectSheetPage({
       title={`Edit Rect Sheet — ${sheet.structureNumber ?? "Untitled"}`}
       subtitle={sheet.structureTemplate?.name ?? "Rectangular structure"}
     >
-      <Link
-        href={`/drill-sheets/${sheet.id}`}
-        className="text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        ← Back to Sheet
-      </Link>
+      <BackButton href={`/drill-sheets/${sheet.id}`} label="Back to Sheet" />
 
       <div className="mt-4">
         <RectSheetForm

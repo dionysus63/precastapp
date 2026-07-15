@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { BackButton } from "@/components/dashboard/back-button";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { DeliveryTicketEditor } from "@/components/delivery-tickets/delivery-ticket-editor";
 import {
@@ -47,12 +47,10 @@ export default async function NewDeliveryTicketPage({
 
   return (
     <DashboardShell title={heading} subtitle={subtitle}>
-      <Link
+      <BackButton
         href={isPickup || isWalkIn ? "/walk-ins" : "/delivery-tickets"}
-        className="text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        {isPickup || isWalkIn ? "← Back to Walk-Ins" : "← Back to Delivery Hub"}
-      </Link>
+        label={isPickup || isWalkIn ? "Back to Walk-Ins" : "Back to Delivery Hub"}
+      />
 
       <div className="mt-4">
         <DeliveryTicketEditor

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { PurchaseOrderDetailContent } from "@/components/purchase-orders/purchase-order-detail-content";
@@ -8,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { mapPurchaseOrderDetail } from "@/lib/purchase-order-mapper";
 import { withDatabaseRetry } from "@/lib/prisma";
 
+import { BackButton } from "@/components/dashboard/back-button";
 export default async function PurchaseOrderDetailPage({
   params,
 }: {
@@ -52,12 +52,7 @@ export default async function PurchaseOrderDetailPage({
       title={view.poNumber}
       subtitle={`${view.vendorName} · ${view.categoryLabel}`}
     >
-      <Link
-        href="/purchase-orders"
-        className="mb-4 inline-block text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        ← Back to Purchase Orders
-      </Link>
+      <BackButton href="/purchase-orders" label="Back to Purchase Orders" />
 
       <PurchaseOrderDetailContent purchaseOrder={view} canManage={canManage} />
     </DashboardShell>

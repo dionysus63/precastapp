@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { ProductForm } from "@/components/products/product-form";
@@ -12,6 +11,7 @@ import { getDefaultPriceListId, loadPriceListOptionsForForms } from "@/lib/price
 import { prisma } from "@/lib/prisma";
 import { createProduct } from "../actions";
 
+import { BackButton } from "@/components/dashboard/back-button";
 export default async function NewProductPage() {
   const [taxonomy, castingSuppliers, priceLists, defaultPriceListId] =
     await Promise.all([
@@ -30,12 +30,7 @@ export default async function NewProductPage() {
       subtitle="Add a product to your precast catalog."
     >
       <div className="mx-auto max-w-3xl">
-        <Link
-          href="/products"
-          className="text-xs font-medium text-slate-500 hover:text-slate-900"
-        >
-          ← Back to Products
-        </Link>
+        <BackButton href="/products" label="Back to Products" />
 
         <div className="mt-4">
           <SectionCard

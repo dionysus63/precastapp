@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StructureTemplateForm } from "@/components/structures/structure-template-form";
 import {
@@ -7,6 +6,7 @@ import {
 } from "@/app/structures/actions";
 import { prisma } from "@/lib/prisma";
 
+import { BackButton } from "@/components/dashboard/back-button";
 export default async function NewStructureTemplatePage() {
   const [castingOptions, rectPdfSets] = await Promise.all([
     loadCastingProductOptions(),
@@ -21,12 +21,7 @@ export default async function NewStructureTemplatePage() {
       title="New Structure Template"
       subtitle="Define thicknesses, casting, connection type, and offered diameters."
     >
-      <Link
-        href="/structures"
-        className="text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        ← Back to Structures
-      </Link>
+      <BackButton href="/structures" label="Back to Structures" />
 
       <div className="mt-4">
         <StructureTemplateForm

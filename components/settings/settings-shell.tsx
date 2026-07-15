@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { BackButton } from "@/components/dashboard/back-button";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { getAppSettings } from "@/lib/app-settings";
 
@@ -17,7 +17,7 @@ export async function SettingsShell({
   children,
   showBackLink = true,
   backHref = "/settings",
-  backLabel = "← Back to Settings",
+  backLabel = "Back to Settings",
 }: SettingsShellProps) {
   const settings = await getAppSettings();
 
@@ -28,14 +28,7 @@ export async function SettingsShell({
       appTitle={settings.appTitle}
       appSubtitle={settings.appSubtitle}
     >
-      {showBackLink ? (
-        <Link
-          href={backHref}
-          className="text-xs font-medium text-slate-500 hover:text-slate-900"
-        >
-          {backLabel}
-        </Link>
-      ) : null}
+      {showBackLink ? <BackButton href={backHref} label={backLabel} /> : null}
       <div className={showBackLink ? "mt-4 space-y-4" : "space-y-4"}>
         {children}
       </div>

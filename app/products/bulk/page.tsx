@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { BulkPasteForm } from "@/components/products/bulk-paste-form";
 import { listActiveCastingSuppliers } from "@/lib/casting-service";
@@ -6,6 +5,7 @@ import { loadPriceListOptionsForForms } from "@/lib/price-list-service";
 import { listProductTaxonomy } from "@/lib/product-taxonomy.server";
 import { prisma } from "@/lib/prisma";
 
+import { BackButton } from "@/components/dashboard/back-button";
 export default async function BulkProductsPage() {
   const [priceLists, taxonomy, castingSuppliers] = await Promise.all([
     loadPriceListOptionsForForms(),
@@ -19,12 +19,7 @@ export default async function BulkProductsPage() {
       subtitle="Paste product rows copied from Excel and preview them before import."
     >
       <div className="mx-auto max-w-6xl">
-        <Link
-          href="/products"
-          className="text-xs font-medium text-slate-500 hover:text-slate-900"
-        >
-          ← Back to Products
-        </Link>
+        <BackButton href="/products" label="Back to Products" />
 
         <div className="mt-4">
           <BulkPasteForm

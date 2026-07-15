@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { JobStructureForm } from "@/components/jobs/job-structure-form";
 import { withDatabaseRetry } from "@/lib/prisma";
 
+import { BackButton } from "@/components/dashboard/back-button";
 type NewJobStructurePageProps = {
   params: Promise<{ id: string }>;
 };
@@ -29,12 +29,7 @@ export default async function NewJobStructurePage({
       title={`New Structure — ${job.jobNumber}`}
       subtitle={`Add a structure to ${job.projectName}.`}
     >
-      <Link
-        href={`/jobs/${job.id}?tab=production`}
-        className="text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        ← Back to Job
-      </Link>
+      <BackButton href={`/jobs/${job.id}?tab=production`} label="Back to Job" />
 
       <div className="mt-4">
         <JobStructureForm jobId={job.id} jobNumber={job.jobNumber} />

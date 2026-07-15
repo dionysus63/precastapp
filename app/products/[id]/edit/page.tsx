@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { SectionCard } from "@/components/dashboard/section-card";
@@ -13,6 +12,7 @@ import { listProductTaxonomy } from "@/lib/product-taxonomy.server";
 import { getDefaultPriceListId, loadPriceListOptionsForForms } from "@/lib/price-list-service";
 import { prisma } from "@/lib/prisma";
 
+import { BackButton } from "@/components/dashboard/back-button";
 type EditProductPageProps = {
   params: Promise<{ id: string }>;
 };
@@ -71,12 +71,7 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
       subtitle="Update product catalog details."
     >
       <div className="mx-auto max-w-3xl">
-        <Link
-          href={`/products/${product.id}`}
-          className="text-xs font-medium text-slate-500 hover:text-slate-900"
-        >
-          ← Back to Product
-        </Link>
+        <BackButton href={`/products/${product.id}`} label="Back to Product" />
 
         <div className="mt-4">
           <SectionCard

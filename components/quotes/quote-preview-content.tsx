@@ -9,6 +9,7 @@ import {
 } from "@/components/quotes/quote-pdf-canvas-preview";
 import { SendQuoteButton } from "@/components/quotes/send-quote-button";
 
+import { BackButton } from "@/components/dashboard/back-button";
 type QuotePreviewContentProps = {
   quoteId: string;
   quoteNumber: string;
@@ -67,12 +68,7 @@ export function QuotePreviewContent({
     <div className="bg-neutral-100 text-neutral-900 print:bg-white [color-scheme:light]">
       <div className="print:hidden border-b border-neutral-200 bg-white">
         <div className="mx-auto flex max-w-[8.5in] flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <Link
-            href={`/quotes/${quoteId}`}
-            className="text-sm font-medium text-neutral-600 hover:text-neutral-900"
-          >
-            ← Back to Quote
-          </Link>
+          <BackButton href={`/quotes/${quoteId}`} label="Back to Quote" />
           <div className="flex flex-wrap gap-2">
             {canEdit ? (
               <Link

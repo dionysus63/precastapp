@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BackButton } from "@/components/dashboard/back-button";
 import { CollapsibleSectionCard } from "@/components/dashboard/collapsible-section-card";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
@@ -117,7 +118,7 @@ export function QuoteDetailContent({
   const backHref = quote.jobId
     ? `/jobs/${quote.jobId}?tab=quotes`
     : "/quotes";
-  const backLabel = quote.jobId ? "← Back to Job" : "← Back to Quotes";
+  const backLabel = quote.jobId ? "Back to Job" : "Back to Quotes";
 
   const drillSheetCreatedCount = quote.relatedStructures.filter(
     (structure) => structure.drillSheetId,
@@ -149,12 +150,7 @@ export function QuoteDetailContent({
     <div className="space-y-4">
       <section className="rounded-xl border border-slate-200/80 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-2.5">
-          <Link
-            href={backHref}
-            className="text-xs font-medium text-slate-500 hover:text-slate-900"
-          >
-            {backLabel}
-          </Link>
+          <BackButton href={backHref} label={backLabel} />
 
           <div className="flex flex-wrap items-center gap-2">
             {quote.canEdit ? (

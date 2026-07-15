@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import {
@@ -21,6 +20,7 @@ import {
   tableHeaderCellClassName,
   tableInlineInputClassName,
 } from "@/lib/table-styles";
+import { BackButton } from "@/components/dashboard/back-button";
 type EditorLine = DraftInvoiceLineInput & { clientKey: string };
 
 type InvoiceDraftEditorProps = {
@@ -169,12 +169,7 @@ export function InvoiceDraftEditor({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link
-          href={`/invoices/${invoiceId}`}
-          className="text-xs font-medium text-slate-500 hover:text-slate-900"
-        >
-          ← Back to invoice
-        </Link>
+        <BackButton href={`/invoices/${invoiceId}`} label="Back to invoice" />
         <div className="flex flex-wrap gap-2">
           <button
             type="button"

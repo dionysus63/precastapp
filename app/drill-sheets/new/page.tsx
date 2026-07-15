@@ -4,6 +4,7 @@ import { DrillSheetForm } from "@/components/drill-sheets/drill-sheet-form";
 import { createDrillSheet } from "@/app/drill-sheets/actions";
 import { loadDrillSheetFormOptions } from "@/lib/drill-sheet-options";
 
+import { BackButton } from "@/components/dashboard/back-button";
 export default async function NewDrillSheetPage() {
   const {
     templateOptions,
@@ -18,12 +19,7 @@ export default async function NewDrillSheetPage() {
       title="New Drill Sheet"
       subtitle="Enter rim and pipe data to compute wall height and build a drill sheet."
     >
-      <Link
-        href="/drill-sheets"
-        className="text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        ← Back to Workbook
-      </Link>
+      <BackButton href="/drill-sheets" label="Back to Workbook" />
 
       <div className="mt-4">
         {templateOptions.length === 0 ? (

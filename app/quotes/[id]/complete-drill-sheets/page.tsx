@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BackButton } from "@/components/dashboard/back-button";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import {
   CompleteDrillSheetsClient,
@@ -80,12 +81,7 @@ export default async function CompleteDrillSheetsPage({
       title="Complete Drill Sheets"
       subtitle={`Quote ${quote.quoteNumber} — fill in the drill-sheet detail for every quote-only structure at once.`}
     >
-      <Link
-        href={returnPath}
-        className="text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        ← Back
-      </Link>
+      <BackButton href={returnPath} label="Back" />
 
       <div className="mt-4 space-y-4">
         {skipped > 0 ? (

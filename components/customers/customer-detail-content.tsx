@@ -15,6 +15,7 @@ import {
   tableRowClassName,
 } from "@/lib/table-styles";
 
+import { BackButton } from "@/components/dashboard/back-button";
 function StatTile({
   label,
   value,
@@ -69,12 +70,7 @@ export function CustomerDetailContent({ customer }: CustomerDetailContentProps) 
     <div className="space-y-4">
       <section className="rounded-xl border border-slate-200/80 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-2.5">
-          <Link
-            href="/customers"
-            className="text-xs font-medium text-slate-500 hover:text-slate-900"
-          >
-            ← Back to Customers
-          </Link>
+          <BackButton href="/customers" label="Back to Customers" />
 
           <div className="flex flex-wrap items-center gap-2">
             <Link

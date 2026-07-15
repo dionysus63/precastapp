@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo } from "react";
+import { BackButton } from "@/components/dashboard/back-button";
 import type {
   RectSheetCastingOption,
   RectSheetOpeningSizeOption,
@@ -41,12 +41,7 @@ export function RectStructureWorkbookPageClient({
 
   return (
     <>
-      <Link
-        href={effectiveReturnPath}
-        className="text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        ← Back to Quote
-      </Link>
+      <BackButton href={effectiveReturnPath} label="Back to Quote" />
       <div className="mt-4">
         <RectStructureWorkbook
           quoteId={quoteId}

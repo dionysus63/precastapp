@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 
+import { BackButton } from "@/components/dashboard/back-button";
 export default function QuoteNotFound() {
   return (
     <DashboardShell
@@ -11,12 +11,7 @@ export default function QuoteNotFound() {
         <p className="text-sm text-slate-600">
           This quote may have been removed, or the link may be incorrect.
         </p>
-        <Link
-          href="/quotes"
-          className="mt-4 inline-flex rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-        >
-          ← Back to Quotes
-        </Link>
+        <BackButton href="/quotes" label="Back to Quotes" />
       </div>
     </DashboardShell>
   );

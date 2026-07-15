@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { FilesHub } from "@/components/files/files-hub";
 import { listJobsMissingFolders, listRecentFiles } from "@/app/files/actions";
 import { mapJobFileToListRow } from "@/lib/job-file-mapper";
 
+import { BackButton } from "@/components/dashboard/back-button";
 type FilesPageProps = {
   searchParams: Promise<{ q?: string; category?: string }>;
 };
@@ -29,12 +29,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
       title="Files"
       subtitle="Job project files indexed from Windows job folders."
     >
-      <Link
-        href="/jobs"
-        className="text-xs font-medium text-slate-500 hover:text-slate-900"
-      >
-        ← Browse jobs
-      </Link>
+      <BackButton href="/jobs" label="Browse jobs" />
 
       <div className="mt-4">
         <FilesHub

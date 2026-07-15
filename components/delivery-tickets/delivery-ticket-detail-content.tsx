@@ -17,6 +17,7 @@ import {
   tableRowClassName,
 } from "@/lib/table-styles";
 
+import { BackButton } from "@/components/dashboard/back-button";
 function isBlank(value: string | null | undefined): boolean {
   return !value || value.trim() === "" || value.trim() === "—";
 }
@@ -159,12 +160,7 @@ export function DeliveryTicketDetailContent({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link
-          href="/delivery-tickets"
-          className="text-xs font-medium text-slate-500 hover:text-slate-900"
-        >
-          ← Back to Delivery Hub
-        </Link>
+        <BackButton href="/delivery-tickets" label="Back to Delivery Hub" />
 
         <div className="flex flex-wrap gap-2">
           <Link

@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 
+import { BackButton } from "@/components/dashboard/back-button";
 export default function CustomerNotFound() {
   return (
     <DashboardShell
@@ -11,12 +11,7 @@ export default function CustomerNotFound() {
         <p className="text-sm text-slate-600">
           This customer may have been removed, or the link may be incorrect.
         </p>
-        <Link
-          href="/customers"
-          className="mt-4 inline-flex rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-        >
-          ← Back to Customers
-        </Link>
+        <BackButton href="/customers" label="Back to Customers" />
       </div>
     </DashboardShell>
   );
