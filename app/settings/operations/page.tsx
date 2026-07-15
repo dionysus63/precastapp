@@ -33,13 +33,20 @@ export default async function OperationsSettingsPage({
   // Printers installed on the machine running the app server. If enumeration
   // fails the dropdown still offers "not configured" plus the saved value.
   const serverPrinters = await listServerPrinters().catch(() => []);
-  const printerNames = serverPrinters.map((printer) => printer.name);
-  if (
+  const installedNames = serverPrinters.map((printer) => printer.name);
+  // Keep the saved printer selectable even when it's gone from the server,
+  // but label it so it can't be mistaken for an installed printer.
+  const savedMissing =
     settings.ticketPrinterName &&
-    !printerNames.includes(settings.ticketPrinterName)
-  ) {
-    printerNames.unshift(settings.ticketPrinterName);
-  }
+    !installedNames.includes(settings.ticketPrinterName)
+      ? settings.ticketPrinterName
+      : null;
+  const printerOptions = [
+    ...(savedMissing
+      ? [{ value: savedMissing, label: `${savedMissing} (not installed on server)` }]
+      : []),
+    ...installedNames.map((name) => ({ value: name, label: name })),
+  ];
 
   return (
     <SettingsShell
@@ -106,9 +113,9 @@ export default async function OperationsSettingsPage({
               className={settingsInputClassName}
             >
               <option value="">Not configured — use browser print dialog</option>
-              {printerNames.map((name) => (
-                <option key={name} value={name}>
-                  {name}
+              {printerOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </select>
