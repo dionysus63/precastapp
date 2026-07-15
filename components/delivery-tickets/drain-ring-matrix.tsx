@@ -31,6 +31,8 @@ type DrainRingMatrixRowsProps = {
     option: DrainRingOption,
     value: string,
   ) => void;
+  /** Feet per quote line already on other open (not yet shipped) tickets. */
+  onOpenLoads?: Record<string, number>;
 };
 
 type DrainRingStyleTableProps = {
@@ -38,6 +40,7 @@ type DrainRingStyleTableProps = {
   matrix: DrainRingStyleMatrix;
   separated: boolean;
   onQuantityChange: DrainRingMatrixRowsProps["onQuantityChange"];
+  onOpenLoads?: Record<string, number>;
 };
 
 function ringStockLabel(matrixOption: DrainRingMatrixOption): string {
@@ -76,6 +79,7 @@ function DrainRingStyleTable({
   matrix,
   separated,
   onQuantityChange,
+  onOpenLoads,
 }: DrainRingStyleTableProps) {
   const matrixComplete =
     matrix.rows.length > 0 && matrix.remainingLineCount === 0;
@@ -242,6 +246,17 @@ function DrainRingStyleTable({
                     <div className="mt-0.5 text-[10px] text-slate-500">
                       {row.line.shippedQty} of {row.line.quotedQty} LF shipped
                     </div>
+                    {(onOpenLoads?.[row.line.quoteLineItemId] ?? 0) > 0 ? (
+                      <div
+                        className="mt-0.5 text-[10px] font-medium text-amber-700"
+                        title="On open delivery tickets that have not shipped yet"
+                      >
+                        {Math.round(
+                          (onOpenLoads?.[row.line.quoteLineItemId] ?? 0) * 100,
+                        ) / 100}{" "}
+                        LF on other loads
+                      </div>
+                    ) : null}
                     {!completed &&
                     !row.line.eligible &&
                     row.line.eligibilityReason ? (
@@ -366,6 +381,7 @@ function DrainRingStyleTable({
 export function DrainRingMatrixRows({
   groups,
   onQuantityChange,
+  onOpenLoads,
 }: DrainRingMatrixRowsProps) {
   return (
     <>
@@ -389,6 +405,7 @@ export function DrainRingMatrixRows({
                   matrix={matrix}
                   separated={matrixIndex > 0}
                   onQuantityChange={onQuantityChange}
+                  onOpenLoads={onOpenLoads}
                 />
               ))}
             </section>

@@ -21,7 +21,7 @@ import {
   type DeliveryTicketJobSearchOption,
   type SaveDeliveryTicketInput,
 } from "@/app/delivery-tickets/actions";
-import { getQuoteFulfillmentForTicket } from "@/app/operations/actions";
+import { getQuoteFulfillmentWithOpenLoads } from "@/app/operations/actions";
 import { FormTypeahead } from "@/components/common/form-typeahead";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning";
@@ -306,6 +306,10 @@ export function DeliveryTicketEditor({
     defaultValues?.deliveryDate ?? todayDateInputValue(),
   );
   const [fulfillment, setFulfillment] = useState<QuoteLineFulfillment[]>([]);
+  // Quantity per quote line sitting on OTHER open tickets (scheduled/draft,
+  // not yet delivered). Same units as remainingQty: LF for rings, sets for
+  // castings, EA otherwise.
+  const [onOpenLoads, setOnOpenLoads] = useState<Record<string, number>>({});
   const [lines, setLines] = useState<EditorLine[]>(defaultValues?.lines ?? []);
   const [selectedLineIds, setSelectedLineIds] = useState<Set<string>>(
     () => new Set(defaultValues?.lines?.map((l) => l.key) ?? []),
@@ -355,6 +359,7 @@ export function DeliveryTicketEditor({
     setTicketType(next);
     if (next !== "JOB") {
       setFulfillment([]);
+      setOnOpenLoads({});
     }
   }
 
@@ -388,6 +393,7 @@ export function DeliveryTicketEditor({
     setLines([]);
     setSelectedLineIds(new Set());
     setFulfillment([]);
+    setOnOpenLoads({});
     setError(null);
   }
 
@@ -400,6 +406,7 @@ export function DeliveryTicketEditor({
     setLines([]);
     setSelectedLineIds(new Set());
     setFulfillment([]);
+    setOnOpenLoads({});
     setError(null);
   }
 
@@ -433,8 +440,10 @@ export function DeliveryTicketEditor({
     if (ticketType !== "JOB" || !quoteId) {
       return;
     }
-    void getQuoteFulfillmentForTicket(quoteId, ticketId).then((fetched) => {
+    void getQuoteFulfillmentWithOpenLoads(quoteId, ticketId).then((result) => {
+      const fetched = result.fulfillment;
       setFulfillment(fetched);
+      setOnOpenLoads(result.onOpenLoads);
       // Backfill fetched weights into lines restored from a saved ticket.
       // Lines selected after this point go through toggleLine, which merges
       // the fulfillment meta itself.
@@ -465,6 +474,11 @@ export function DeliveryTicketEditor({
     () => new Map(fulfillment.map((line) => [line.quoteLineItemId, line])),
     [fulfillment],
   );
+
+  function getOnOpenLoadsQty(line: QuoteLineFulfillment): number {
+    const qty = onOpenLoads[line.quoteLineItemId] ?? 0;
+    return qty > 0 ? Math.round(qty * 100) / 100 : 0;
+  }
 
   const linesByKey = useMemo(
     () => new Map(lines.map((line) => [line.key, line])),
@@ -759,7 +773,10 @@ export function DeliveryTicketEditor({
 
   function refreshFulfillment() {
     if (ticketType === "JOB" && quoteId) {
-      void getQuoteFulfillmentForTicket(quoteId, ticketId).then(setFulfillment);
+      void getQuoteFulfillmentWithOpenLoads(quoteId, ticketId).then((result) => {
+        setFulfillment(result.fulfillment);
+        setOnOpenLoads(result.onOpenLoads);
+      });
     }
   }
 
@@ -1508,6 +1525,7 @@ export function DeliveryTicketEditor({
                 <DrainRingMatrixRows
                   groups={drainRingDiameterGroups}
                   onQuantityChange={setDrainRingCount}
+                  onOpenLoads={onOpenLoads}
                 />
               </tbody>
             </table>
@@ -1605,6 +1623,14 @@ export function DeliveryTicketEditor({
                             <div className="text-slate-600">
                               {line.remainingQty} of {line.quotedQty} EA remaining ·{" "}
                               {line.shippedQty} shipped
+                              {getOnOpenLoadsQty(line) > 0 ? (
+                                <span
+                                  className="font-medium text-amber-700"
+                                  title="On open delivery tickets that have not shipped yet"
+                                >
+                                  {" "}· {getOnOpenLoadsQty(line)} on other loads
+                                </span>
+                              ) : null}
                             </div>
                           </div>
                           {shouldShowDeliveryLineDescription(line) ? (
@@ -1714,6 +1740,14 @@ export function DeliveryTicketEditor({
                             <div className="text-slate-600">
                               {line.remainingQty} of {line.quotedQty}{" "}
                               {line.unit} remaining · {line.shippedQty} shipped
+                              {getOnOpenLoadsQty(line) > 0 ? (
+                                <span
+                                  className="font-medium text-amber-700"
+                                  title="On open delivery tickets that have not shipped yet"
+                                >
+                                  {" "}· {getOnOpenLoadsQty(line)} on other loads
+                                </span>
+                              ) : null}
                             </div>
                           </div>
                           {shouldShowDeliveryLineDescription(line) ? (
@@ -2096,6 +2130,14 @@ export function DeliveryTicketEditor({
                       <td className={`${quoteLineTableCellClassName} align-top text-slate-700`}>
                         <div>{line.remainingQty} of {line.quotedQty}</div>
                         <div className="text-slate-500">{line.shippedQty} shipped</div>
+                        {getOnOpenLoadsQty(line) > 0 ? (
+                          <div
+                            className="font-medium text-amber-700"
+                            title="On open delivery tickets that have not shipped yet"
+                          >
+                            {getOnOpenLoadsQty(line)} on other loads
+                          </div>
+                        ) : null}
                       </td>
                       <td className={`${quoteLineTableCellClassName} align-top`}>
                         <input

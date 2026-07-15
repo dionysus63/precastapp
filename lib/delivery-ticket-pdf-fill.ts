@@ -28,13 +28,15 @@ const DEFAULT_COPY_COUNT = 3;
 const TERMS_FONT_SIZE = 9;
 const MIN_TERMS_FONT_SIZE = 4.5;
 const TERMS_FIELD_PADDING = 4;
-const DRIVER_LABEL_X = 166.4;
+const DRIVER_LABEL_X = 165.79;
 const DRIVER_LABEL_Y = 561.9;
 const DRIVER_LABEL_FONT_SIZE = 8;
 const DRIVER_LABEL_COVER_X = 153.5;
 const DRIVER_LABEL_COVER_Y = 559.75;
 const DRIVER_LABEL_COVER_WIDTH = 49;
 const DRIVER_LABEL_COVER_HEIGHT = 9.75;
+// Header-band fill sampled from the template ("0.851 0.851 0.851 rg")
+const HEADER_BAND_GREY = rgb(0.851, 0.851, 0.851);
 
 export function getDeliveryTicketTemplatePath(): string {
   return path.join(process.cwd(), "assets", "templates", "delivery-ticket-template.pdf");
@@ -116,21 +118,23 @@ function fillAcroFormFields(
 /**
  * The source template has a static "Driver/Truck" caption that is not part of
  * the form field. Cover that artwork after flattening and draw the ticket-only
- * "Driver" caption centered in the same header cell.
+ * "Driver" caption centered in the same header cell. The cover must match the
+ * grey header band and the caption must match the template's Helvetica-Bold
+ * 8pt captions, or the patch is visible.
  */
-function redrawDriverLabel(page: PDFPage, font: PDFFont): void {
+function redrawDriverLabel(page: PDFPage, boldFont: PDFFont): void {
   page.drawRectangle({
     x: DRIVER_LABEL_COVER_X,
     y: DRIVER_LABEL_COVER_Y,
     width: DRIVER_LABEL_COVER_WIDTH,
     height: DRIVER_LABEL_COVER_HEIGHT,
-    color: rgb(1, 1, 1),
+    color: HEADER_BAND_GREY,
   });
   page.drawText("Driver", {
     x: DRIVER_LABEL_X,
     y: DRIVER_LABEL_Y,
     size: DRIVER_LABEL_FONT_SIZE,
-    font,
+    font: boldFont,
     color: rgb(0, 0, 0),
   });
 }
@@ -143,10 +147,11 @@ async function buildContentPageBytes(
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.load(templateBytes);
   const font = await doc.embedFont(StandardFonts.Helvetica);
+  const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
   fillAcroFormFields(doc, formData, font);
 
   const page = doc.getPage(0);
-  redrawDriverLabel(page, font);
+  redrawDriverLabel(page, boldFont);
 
   drawLineItemsOnPage(page, font, slice, totalPieces);
 

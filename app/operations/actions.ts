@@ -403,6 +403,32 @@ export async function getQuoteFulfillmentForTicket(
   );
 }
 
+/**
+ * Fulfillment plus quantities sitting on OTHER open (not yet delivered)
+ * tickets, so the editor can flag scheduled-but-not-shipped items. Uses
+ * OPEN_TICKET_STATUSES to match what validateLines enforces on save.
+ */
+export async function getQuoteFulfillmentWithOpenLoads(
+  quoteId: string,
+  excludeTicketId?: string,
+): Promise<{
+  fulfillment: Awaited<ReturnType<typeof getQuoteFulfillmentForTicket>>;
+  onOpenLoads: Record<string, number>;
+}> {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+  const { getQuoteLineFulfillmentAndScheduled, OPEN_TICKET_STATUSES } =
+    await import("@/lib/delivery-fulfillment");
+  const { fulfillment, scheduled } = await withDatabaseRetry((client) =>
+    getQuoteLineFulfillmentAndScheduled(
+      client,
+      quoteId,
+      excludeTicketId,
+      OPEN_TICKET_STATUSES,
+    ),
+  );
+  return { fulfillment, onOpenLoads: Object.fromEntries(scheduled) };
+}
+
 export async function listProductionQueue() {
   await requirePermission(AppPermission.PRODUCTION_VIEW);
   return withDatabaseRetry((client) =>
