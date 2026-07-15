@@ -1684,6 +1684,10 @@ model AppSettings {
   deliveryTicketCopy2Title   String?
   deliveryTicketCopy3Title   String?
   deliveryTicketFooterText   String?
+  /// Silent ticket printing from the server host; null = browser print dialog.
+  ticketPrinterName          String?
+  /// "color" | "monochrome"; null = color.
+  ticketPrintColorMode       String?
   companyLogoPath   String?
   // paths
   jobsRoot            String

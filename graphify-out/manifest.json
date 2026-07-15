@@ -340,8 +340,8 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1783892603.805158,
-    "ast_hash": "89ae8a2fba3557e1cdea6cd07537950a",
+    "mtime": 1784138227.601813,
+    "ast_hash": "f6e8f829b9bfefb8e3bc9ce8aecbaba9",
     "semantic_hash": ""
   },
   "postcss.config.mjs": {
@@ -455,8 +455,8 @@
     "semantic_hash": ""
   },
   "app/delivery-tickets/pdf-actions.ts": {
-    "mtime": 1783435409.336708,
-    "ast_hash": "43cbbd4484f29ef2c0a6224550f506ce",
+    "mtime": 1784138459.438545,
+    "ast_hash": "da19285143bb0df8c8524541bcb9f483",
     "semantic_hash": ""
   },
   "app/delivery-tickets/reconcile/page.tsx": {
@@ -525,8 +525,8 @@
     "semantic_hash": ""
   },
   "app/settings/actions.ts": {
-    "mtime": 1784081576.782509,
-    "ast_hash": "c9b87743d5cb2f43ff35a247f1628d37",
+    "mtime": 1784138492.9548895,
+    "ast_hash": "242a2ebe33263bc3c0dea59e306f3c34",
     "semantic_hash": ""
   },
   "app/settings/billing/page.tsx": {
@@ -545,8 +545,8 @@
     "semantic_hash": "fb82f4b17619e0a7c19b41cbbbcb65b2"
   },
   "app/settings/operations/page.tsx": {
-    "mtime": 1784081574.4588492,
-    "ast_hash": "d63c3a4c8272ca0887256f127bc601e9",
+    "mtime": 1784138479.602371,
+    "ast_hash": "ebc9160fd146769811ae5a83b1f4224d",
     "semantic_hash": ""
   },
   "app/settings/page.tsx": {
@@ -690,8 +690,8 @@
     "semantic_hash": ""
   },
   "lib/app-settings.ts": {
-    "mtime": 1783964281.9452765,
-    "ast_hash": "11a9ff34d138349a5b8c92ba39ac19a8",
+    "mtime": 1784138417.1242511,
+    "ast_hash": "1267aa3686573ea3d8a20a640164b196",
     "semantic_hash": ""
   },
   "lib/company-logo.ts": {
@@ -870,13 +870,13 @@
     "semantic_hash": ""
   },
   "app/delivery-tickets/[id]/preview/page.tsx": {
-    "mtime": 1784137337.7478316,
-    "ast_hash": "9f881dbb84893b77189c6f18de58a401",
+    "mtime": 1784138506.1691916,
+    "ast_hash": "0aaa4e3b40b07739bb405551a88a9b6e",
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-ticket-preview-content.tsx": {
-    "mtime": 1783464380.1930728,
-    "ast_hash": "603e74906d49cffbd44e10adce9bb930",
+    "mtime": 1784138563.1593132,
+    "ast_hash": "fdc91cde7ac6462e6a0588c7f1f33520",
     "semantic_hash": ""
   },
   "components/delivery-tickets/dispatcher-week-calendar.tsx": {
@@ -3357,6 +3357,16 @@
   "tests/unit/delivery-dispatch-utils.test.ts": {
     "mtime": 1784137108.987257,
     "ast_hash": "6ab2aa64bb26aa269f07c82c42b16bce",
+    "semantic_hash": ""
+  },
+  "lib/ticket-printing.ts": {
+    "mtime": 1784138694.7876658,
+    "ast_hash": "ebe387841259ff46cf6f8d727940bb8c",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260715135929_add_ticket_printer_settings/migration.sql": {
+    "mtime": 1784138375.3856678,
+    "ast_hash": "6bf1a42189753c6f31ba405f443c5271",
     "semantic_hash": ""
   }
 }

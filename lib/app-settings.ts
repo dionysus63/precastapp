@@ -77,6 +77,9 @@ export type AppSettingsView = {
   deliveryTicketCopy2Title: string;
   deliveryTicketCopy3Title: string;
   deliveryTicketFooterText: string;
+  /** Printer on the server host for silent ticket printing; null = browser dialog. */
+  ticketPrinterName: string | null;
+  ticketPrintColorMode: "color" | "monochrome";
   jobsRoot: string;
   quotePdfFallbackDir: string;
   stockSubmittalsRoot: string;
@@ -177,6 +180,9 @@ export function mapAppSettingsRow(row: AppSettings): AppSettingsView {
       row.deliveryTicketCopy3Title?.trim() || DEFAULT_DELIVERY_TICKET_COPY3_TITLE,
     deliveryTicketFooterText:
       row.deliveryTicketFooterText?.trim() || DEFAULT_DELIVERY_TICKET_FOOTER_TEXT,
+    ticketPrinterName: row.ticketPrinterName?.trim() || null,
+    ticketPrintColorMode:
+      row.ticketPrintColorMode === "monochrome" ? "monochrome" : "color",
     jobsRoot: row.jobsRoot,
     quotePdfFallbackDir: row.quotePdfFallbackDir,
     stockSubmittalsRoot: row.stockSubmittalsRoot,

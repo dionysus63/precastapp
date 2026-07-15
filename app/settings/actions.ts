@@ -512,6 +512,12 @@ export async function updateOperationsSettingsFormAction(
   const estimators = parseLinesList(String(formData.get("estimators") ?? ""));
   const drivers = parseLinesList(String(formData.get("drivers") ?? ""));
   const trailers = parseLinesList(String(formData.get("trailers") ?? ""));
+  const ticketPrinterName =
+    String(formData.get("ticketPrinterName") ?? "").trim() || null;
+  const ticketPrintColorMode =
+    String(formData.get("ticketPrintColorMode") ?? "") === "monochrome"
+      ? "monochrome"
+      : "color";
 
   if (!loadCapacityLabel) {
     return { error: "Load capacity is required." };
@@ -530,6 +536,8 @@ export async function updateOperationsSettingsFormAction(
     estimators,
     drivers,
     trailers,
+    ticketPrinterName,
+    ticketPrintColorMode,
   });
 }
 

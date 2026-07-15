@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { DeliveryTicketPreviewContent } from "@/components/delivery-tickets/delivery-ticket-preview-content";
+import { getAppSettings } from "@/lib/app-settings";
 import { withDatabaseRetry } from "@/lib/prisma";
 
 type DeliveryTicketPreviewPageProps = {
@@ -16,12 +17,15 @@ export default async function DeliveryTicketPreviewPage({
   const fromWalkIns = from === "walk-ins";
   const fromHub = from === "hub";
 
-  const ticket = await withDatabaseRetry((prisma) =>
-    prisma.deliveryTicket.findUnique({
-      where: { id },
-      select: { id: true, ticketNumber: true, ticketType: true, status: true },
-    }),
-  );
+  const [ticket, settings] = await Promise.all([
+    withDatabaseRetry((prisma) =>
+      prisma.deliveryTicket.findUnique({
+        where: { id },
+        select: { id: true, ticketNumber: true, ticketType: true, status: true },
+      }),
+    ),
+    getAppSettings(),
+  ]);
 
   if (!ticket) {
     notFound();
@@ -41,6 +45,7 @@ export default async function DeliveryTicketPreviewPage({
       backHref={fromWalkIns ? "/walk-ins" : fromHub ? "/delivery-tickets" : undefined}
       backLabel={fromWalkIns ? "Back to Walk-Ins" : fromHub ? "Back to Delivery Hub" : undefined}
       completeOnPrint={completeOnPrint}
+      directPrintPrinter={settings.ticketPrinterName}
     />
   );
 }

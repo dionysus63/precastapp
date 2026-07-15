@@ -8,10 +8,12 @@ import { requirePermission } from "@/lib/auth/session";
 import { DELIVERY_TICKET_PDF_INCLUDE } from "@/lib/delivery-ticket-pdf-data";
 import { generateDeliveryTicketPdfBytes } from "@/lib/delivery-ticket-pdf-fill";
 import {
+  getAppSettings,
   getJobsRoot,
   getJobSubfolders,
   getQuotePdfFallbackDir,
 } from "@/lib/app-settings";
+import { printPdfBytesOnServer } from "@/lib/ticket-printing";
 import {
   assertPathUnderJobsRoot,
   assertPathUnderRoot,
@@ -30,6 +32,67 @@ import { sanitizeFilenamePart } from "@/lib/quote-pdf-path";
 export type GenerateDeliveryTicketPdfResult =
   | { success: true; filePath: string }
   | { success: false; error: string };
+
+export type PrintDeliveryTicketDirectResult =
+  | { success: true; printer: string }
+  | { success: false; error: string };
+
+/**
+ * Silent print of the full 3-copy ticket PDF on the server's configured
+ * ticket printer (Settings -> Fleet & Crew). The UI falls back to the
+ * browser print dialog when no printer is configured.
+ */
+export async function printDeliveryTicketDirect(
+  ticketId: string,
+): Promise<PrintDeliveryTicketDirectResult> {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+  if (!ticketId.trim()) {
+    return { success: false, error: "Ticket id is required." };
+  }
+
+  try {
+    const settings = await getAppSettings();
+    const printer = settings.ticketPrinterName;
+    if (!printer) {
+      return {
+        success: false,
+        error:
+          "No ticket printer is configured. Set one under Settings → Fleet & Crew.",
+      };
+    }
+
+    const ticket = await loadTicketForPdf(ticketId);
+    if (!ticket) {
+      return { success: false, error: "Delivery ticket not found." };
+    }
+
+    const pdfBytes = await generateDeliveryTicketPdfBytes(ticket);
+    await printPdfBytesOnServer(pdfBytes, {
+      printer,
+      monochrome: settings.ticketPrintColorMode === "monochrome",
+    });
+
+    // Best-effort flag, same as the save-to-folder path: a failed update
+    // should not report the print itself as failed.
+    try {
+      await withDatabaseRetry((client) =>
+        client.deliveryTicket.update({
+          where: { id: ticketId },
+          data: { paperTicketPrinted: true },
+        }),
+      );
+      revalidatePath(`/delivery-tickets/${ticketId}`);
+    } catch {
+      // Ignore; the paper copy is already printing.
+    }
+
+    return { success: true, printer };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to print the ticket.";
+    return { success: false, error: message };
+  }
+}
 
 export type DeliveryTicketPdfPreviewResult =
   | { success: true; base64: string }
