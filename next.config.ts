@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["nodemailer"],
+  // pdf-to-printer must stay external: it spawns a bundled SumatraPDF.exe
+  // resolved relative to its own node_modules folder.
+  serverExternalPackages: ["nodemailer", "pdf-to-printer"],
   experimental: {
     serverActions: {
       // Construction plans and submittals are often multi-MB PDFs/DWGs.
