@@ -19,6 +19,7 @@ export type DeliveryTicketRow = {
   deliveryDateIso: string | null;
   deliveryTime: string | null;
   driver: string;
+  trailer: string;
   status: DeliveryTicketStatus;
   statusVariant: "success" | "info" | "warning" | "neutral" | "default" | "danger";
   items: number;
@@ -140,6 +141,22 @@ export const deliveryTicketStatusLabels: Record<DeliveryTicketStatus, string> = 
   IN_TRANSIT: "In Transit",
   DELIVERED: "Delivered",
   CANCELLED: "Cancelled",
+};
+
+/**
+ * Allowed status transitions. updateDeliveryTicketStatus enforces this on the
+ * server; quick-change dropdowns use it to offer only reachable statuses.
+ */
+export const deliveryTicketStatusFlow: Record<
+  DeliveryTicketStatus,
+  DeliveryTicketStatus[]
+> = {
+  DRAFT: ["SCHEDULED", "CANCELLED"],
+  SCHEDULED: ["IN_TRANSIT", "DELIVERED", "CANCELLED"],
+  LOADING: ["IN_TRANSIT", "DELIVERED", "CANCELLED"],
+  IN_TRANSIT: ["DELIVERED", "CANCELLED"],
+  DELIVERED: [],
+  CANCELLED: [],
 };
 
 function parseDeliveryDate(value: string) {

@@ -31,8 +31,6 @@ type DrainRingMatrixRowsProps = {
     option: DrainRingOption,
     value: string,
   ) => void;
-  /** Feet per quote line already on other open (not yet shipped) tickets. */
-  onOpenLoads?: Record<string, number>;
 };
 
 type DrainRingStyleTableProps = {
@@ -40,7 +38,6 @@ type DrainRingStyleTableProps = {
   matrix: DrainRingStyleMatrix;
   separated: boolean;
   onQuantityChange: DrainRingMatrixRowsProps["onQuantityChange"];
-  onOpenLoads?: Record<string, number>;
 };
 
 function ringStockLabel(matrixOption: DrainRingMatrixOption): string {
@@ -79,7 +76,6 @@ function DrainRingStyleTable({
   matrix,
   separated,
   onQuantityChange,
-  onOpenLoads,
 }: DrainRingStyleTableProps) {
   const matrixComplete =
     matrix.rows.length > 0 && matrix.remainingLineCount === 0;
@@ -170,6 +166,7 @@ function DrainRingStyleTable({
           <tbody>
             {matrix.rows.map((row) => {
               const completed = row.state === "completed";
+              const fullyScheduled = row.state === "scheduled";
               const overLimit = row.overByFeet > 0;
               const completesOnLoad =
                 !completed &&
@@ -237,6 +234,13 @@ function DrainRingStyleTable({
                         <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-red-700">
                           Over remaining
                         </span>
+                      ) : fullyScheduled ? (
+                        <span
+                          className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-800"
+                          title="Every remaining foot is already on another open load"
+                        >
+                          Fully scheduled
+                        </span>
                       ) : completesOnLoad ? (
                         <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-700">
                           Completes on this load
@@ -246,15 +250,12 @@ function DrainRingStyleTable({
                     <div className="mt-0.5 text-[10px] text-slate-500">
                       {row.line.shippedQty} of {row.line.quotedQty} LF shipped
                     </div>
-                    {(onOpenLoads?.[row.line.quoteLineItemId] ?? 0) > 0 ? (
+                    {row.scheduledElsewhereFeet > 0 ? (
                       <div
                         className="mt-0.5 text-[10px] font-medium text-amber-700"
                         title="On open delivery tickets that have not shipped yet"
                       >
-                        {Math.round(
-                          (onOpenLoads?.[row.line.quoteLineItemId] ?? 0) * 100,
-                        ) / 100}{" "}
-                        LF on other loads
+                        {row.scheduledElsewhereFeet} LF on other loads
                       </div>
                     ) : null}
                     {!completed &&
@@ -286,7 +287,7 @@ function DrainRingStyleTable({
                     >
                       {completed
                         ? "Already shipped"
-                        : `${row.selectedFeet}/${row.line.remainingQty} LF`}
+                        : `${row.selectedFeet}/${row.availableFeet} LF`}
                     </span>
                   </td>
                   {matrix.options.map((matrixOption) => {
@@ -381,7 +382,6 @@ function DrainRingStyleTable({
 export function DrainRingMatrixRows({
   groups,
   onQuantityChange,
-  onOpenLoads,
 }: DrainRingMatrixRowsProps) {
   return (
     <>
@@ -405,7 +405,6 @@ export function DrainRingMatrixRows({
                   matrix={matrix}
                   separated={matrixIndex > 0}
                   onQuantityChange={onQuantityChange}
-                  onOpenLoads={onOpenLoads}
                 />
               ))}
             </section>

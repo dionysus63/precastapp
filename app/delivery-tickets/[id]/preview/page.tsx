@@ -14,6 +14,7 @@ export default async function DeliveryTicketPreviewPage({
   const { id } = await params;
   const { from } = await searchParams;
   const fromWalkIns = from === "walk-ins";
+  const fromHub = from === "hub";
 
   const ticket = await withDatabaseRetry((prisma) =>
     prisma.deliveryTicket.findUnique({
@@ -37,8 +38,8 @@ export default async function DeliveryTicketPreviewPage({
     <DeliveryTicketPreviewContent
       ticketId={ticket.id}
       ticketNumber={ticket.ticketNumber}
-      backHref={fromWalkIns ? "/walk-ins" : undefined}
-      backLabel={fromWalkIns ? "Back to Walk-Ins" : undefined}
+      backHref={fromWalkIns ? "/walk-ins" : fromHub ? "/delivery-tickets" : undefined}
+      backLabel={fromWalkIns ? "Back to Walk-Ins" : fromHub ? "Back to Delivery Hub" : undefined}
       completeOnPrint={completeOnPrint}
     />
   );

@@ -200,7 +200,10 @@ function mergeFulfillmentIntoLine(
   };
 }
 
-function mapFulfillmentToLine(meta: QuoteLineFulfillment): EditorLine {
+function mapFulfillmentToLine(
+  meta: QuoteLineFulfillment,
+  availableQty: number = meta.remainingQty,
+): EditorLine {
   return {
     key: meta.quoteLineItemId,
     quoteLineItemId: meta.quoteLineItemId,
@@ -209,7 +212,7 @@ function mapFulfillmentToLine(meta: QuoteLineFulfillment): EditorLine {
     lineType: meta.lineType as EditorLine["lineType"],
     itemCode: meta.itemCode,
     description: meta.description ?? "",
-    quantity: meta.eligible && meta.remainingQty > 0 ? String(meta.remainingQty) : "0",
+    quantity: meta.eligible && availableQty > 0 ? String(availableQty) : "0",
     unit: meta.unit,
     weightEach: meta.weightEach != null ? String(meta.weightEach) : "",
     yardLocation: "",
@@ -480,14 +483,20 @@ export function DeliveryTicketEditor({
     return qty > 0 ? Math.round(qty * 100) / 100 : 0;
   }
 
+  /** remainingQty net of what other open tickets already claim. */
+  function getAvailableQty(line: QuoteLineFulfillment): number {
+    const available = line.remainingQty - getOnOpenLoadsQty(line);
+    return available > 0 ? Math.round(available * 100) / 100 : 0;
+  }
+
   const linesByKey = useMemo(
     () => new Map(lines.map((line) => [line.key, line])),
     [lines],
   );
 
   const drainRingDiameterGroups = useMemo(
-    () => buildDrainRingDiameterGroups(fulfillment, linesByKey),
-    [fulfillment, linesByKey],
+    () => buildDrainRingDiameterGroups(fulfillment, linesByKey, onOpenLoads),
+    [fulfillment, linesByKey, onOpenLoads],
   );
 
   const totalWeight = useMemo(() => {
@@ -519,12 +528,12 @@ export function DeliveryTicketEditor({
                   ...mergeFulfillmentIntoLine(line, meta),
                   quantity: isPositiveDeliveryQuantity(line.quantity)
                     ? line.quantity
-                    : String(meta.remainingQty),
+                    : String(getAvailableQty(meta)),
                 }
               : line,
           );
         }
-        return [...current, mapFulfillmentToLine(meta)];
+        return [...current, mapFulfillmentToLine(meta, getAvailableQty(meta))];
       });
     } else {
       setSelectedLineIds((current) => {
@@ -1525,7 +1534,6 @@ export function DeliveryTicketEditor({
                 <DrainRingMatrixRows
                   groups={drainRingDiameterGroups}
                   onQuantityChange={setDrainRingCount}
-                  onOpenLoads={onOpenLoads}
                 />
               </tbody>
             </table>
@@ -1603,8 +1611,9 @@ export function DeliveryTicketEditor({
 
                   if (line.isCastingAssembly) {
                     const setsUsed = getCastingSetsUsed(line);
-                    const setsRemainingAfter = line.remainingQty - setsUsed;
-                    const overLimit = setsUsed > line.remainingQty + 0.001;
+                    const setsAvailable = getAvailableQty(line);
+                    const setsRemainingAfter = setsAvailable - setsUsed;
+                    const overLimit = setsUsed > setsAvailable + 0.001;
                     return (
                       <tr key={line.quoteLineItemId} className="bg-slate-50/40">
                         <td className={`${quoteLineTableCellClassName} align-top`} colSpan={8}>
@@ -1621,7 +1630,7 @@ export function DeliveryTicketEditor({
                               </span>
                             </div>
                             <div className="text-slate-600">
-                              {line.remainingQty} of {line.quotedQty} EA remaining ·{" "}
+                              {setsAvailable} of {line.quotedQty} EA remaining ·{" "}
                               {line.shippedQty} shipped
                               {getOnOpenLoadsQty(line) > 0 ? (
                                 <span
@@ -1719,9 +1728,10 @@ export function DeliveryTicketEditor({
 
                   if (line.isAdsPipe) {
                     const qtyUsed = getAdsPipeQtyUsed(line);
+                    const qtyAvailable = getAvailableQty(line);
                     const qtyRemainingAfter =
-                      Math.round((line.remainingQty - qtyUsed) * 100) / 100;
-                    const overLimit = qtyUsed > line.remainingQty + 0.001;
+                      Math.round((qtyAvailable - qtyUsed) * 100) / 100;
+                    const overLimit = qtyUsed > qtyAvailable + 0.001;
                     return (
                       <tr key={line.quoteLineItemId} className="bg-slate-50/40">
                         <td className={`${quoteLineTableCellClassName} align-top`} colSpan={8}>
@@ -1738,7 +1748,7 @@ export function DeliveryTicketEditor({
                               </span>
                             </div>
                             <div className="text-slate-600">
-                              {line.remainingQty} of {line.quotedQty}{" "}
+                              {qtyAvailable} of {line.quotedQty}{" "}
                               {line.unit} remaining · {line.shippedQty} shipped
                               {getOnOpenLoadsQty(line) > 0 ? (
                                 <span
@@ -2128,7 +2138,7 @@ export function DeliveryTicketEditor({
                         ) : null}
                       </td>
                       <td className={`${quoteLineTableCellClassName} align-top text-slate-700`}>
-                        <div>{line.remainingQty} of {line.quotedQty}</div>
+                        <div>{getAvailableQty(line)} of {line.quotedQty}</div>
                         <div className="text-slate-500">{line.shippedQty} shipped</div>
                         {getOnOpenLoadsQty(line) > 0 ? (
                           <div
@@ -2144,7 +2154,7 @@ export function DeliveryTicketEditor({
                           aria-label={`${linePrimaryLabel} quantity on load`}
                           type="number"
                           min="0"
-                          max={line.remainingQty}
+                          max={getAvailableQty(line)}
                           step="any"
                           value={editorLine?.quantity ?? ""}
                           placeholder="0"

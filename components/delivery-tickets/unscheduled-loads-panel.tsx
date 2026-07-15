@@ -59,11 +59,13 @@ export function UnscheduledLoadsPanel({ drafts }: UnscheduledLoadsPanelProps) {
   );
 
   return (
-    <SectionCard
-      title="Awaiting Scheduling"
-      description={`${jobGroups.length} job${jobGroups.length === 1 ? "" : "s"} with created loads that still need delivery dates.`}
-      noPadding
-    >
+    // w-fit: hug the table's natural width instead of stretching page-wide.
+    <div className="xl:w-fit xl:max-w-full">
+      <SectionCard
+        title="Awaiting Scheduling"
+        description={`${jobGroups.length} job${jobGroups.length === 1 ? "" : "s"} with created loads that still need delivery dates.`}
+        noPadding
+      >
       {jobGroups.length === 0 ? (
         <p className="px-4 py-8 text-center text-sm text-slate-500">
           No unscheduled loads — every created load has been scheduled.
@@ -93,10 +95,10 @@ export function UnscheduledLoadsPanel({ drafts }: UnscheduledLoadsPanelProps) {
                   <td className={`${tableCellClassName} text-slate-600`}>
                     {group.customerName}
                   </td>
-                  <td className={`${tableCellClassName} text-slate-600`}>
+                  <td className={`${tableCellClassName} whitespace-nowrap text-slate-600`}>
                     {group.loadCount} load{group.loadCount === 1 ? "" : "s"}
                   </td>
-                  <td className={`${tableCellClassName} font-medium text-slate-900`}>
+                  <td className={`${tableCellClassName} whitespace-nowrap font-medium text-slate-900`}>
                     {group.totalWeight > 0 ? formatWeightLb(group.totalWeight) : "—"}
                     {!group.weightComplete && group.totalWeight > 0 ? (
                       <span
@@ -121,6 +123,7 @@ export function UnscheduledLoadsPanel({ drafts }: UnscheduledLoadsPanelProps) {
           </table>
         </div>
       )}
-    </SectionCard>
+      </SectionCard>
+    </div>
   );
 }

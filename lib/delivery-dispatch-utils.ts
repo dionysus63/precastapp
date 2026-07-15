@@ -132,6 +132,11 @@ export function groupTicketsByDeliveryDate(
   return grouped;
 }
 
+/**
+ * Loads for the reference day: open dispatch tickets plus DELIVERED ones,
+ * so a finished load stays on the board (pinned on top) until the day rolls
+ * over instead of vanishing the moment it's marked delivered.
+ */
 export function getTodaysScheduledLoads(
   tickets: DeliveryTicketRow[],
   reference = new Date(),
@@ -140,9 +145,15 @@ export function getTodaysScheduledLoads(
   return tickets
     .filter(
       (ticket) =>
-        isDispatchTicket(ticket) && ticket.deliveryDateIso === todayIso,
+        ticket.deliveryDateIso === todayIso &&
+        (isDispatchTicket(ticket) || ticket.status === "DELIVERED"),
     )
     .sort((a, b) => {
+      const deliveredA = a.status === "DELIVERED" ? 0 : 1;
+      const deliveredB = b.status === "DELIVERED" ? 0 : 1;
+      if (deliveredA !== deliveredB) {
+        return deliveredA - deliveredB;
+      }
       const timeA = a.deliveryTime ?? "";
       const timeB = b.deliveryTime ?? "";
       if (timeA && timeB && timeA !== timeB) {

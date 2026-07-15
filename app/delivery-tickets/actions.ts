@@ -19,6 +19,7 @@ import {
   OPEN_TICKET_STATUSES,
 } from "@/lib/delivery-fulfillment";
 import { formatDrainRingStyleLabel } from "@/lib/drain-ring-utils";
+import { deliveryTicketStatusFlow } from "@/components/delivery-tickets/delivery-ticket-utils";
 import { generateSubmittalPackageForDeliveryTicket } from "@/lib/submittal-package";
 import { maybeCreatePayNowInvoiceForTicket } from "@/lib/invoicing-service";
 import { getDefaultPriceListId, getProductPricesForList } from "@/lib/price-list-service";
@@ -1056,15 +1057,6 @@ export async function generateDeliveryTicketSubmittalPackage(
   }
 }
 
-const STATUS_FLOW: Record<string, DeliveryTicketStatus[]> = {
-  DRAFT: ["SCHEDULED", "CANCELLED"],
-  SCHEDULED: ["IN_TRANSIT", "DELIVERED", "CANCELLED"],
-  LOADING: ["IN_TRANSIT", "DELIVERED", "CANCELLED"],
-  IN_TRANSIT: ["DELIVERED", "CANCELLED"],
-  DELIVERED: [],
-  CANCELLED: [],
-};
-
 export async function updateDeliveryTicketStatus(
   ticketId: string,
   status: DeliveryTicketStatus,
@@ -1082,7 +1074,7 @@ export async function updateDeliveryTicketStatus(
       return { error: "Delivery ticket not found." };
     }
 
-    const allowed = STATUS_FLOW[ticket.status] ?? [];
+    const allowed = deliveryTicketStatusFlow[ticket.status] ?? [];
     if (!allowed.includes(status) && ticket.status !== status) {
       return { error: `Cannot change status from ${ticket.status} to ${status}.` };
     }
@@ -1169,6 +1161,49 @@ export async function updateTicketDriver(
     return {
       error:
         error instanceof Error ? error.message : "Could not update the driver.",
+    };
+  }
+}
+
+/**
+ * Dispatch quick-assign: change only the trailer on an open ticket, e.g. from
+ * the Today's Loads panel. Full rescheduling stays in scheduleJobLoads.
+ */
+export async function updateTicketTrailer(
+  ticketId: string,
+  trailer: string | null,
+): Promise<UpdateTicketDriverResult> {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+  try {
+    const ticket = await withDatabaseRetry((client) =>
+      client.deliveryTicket.findUnique({
+        where: { id: ticketId },
+        select: { status: true, ticketNumber: true },
+      }),
+    );
+    if (!ticket) {
+      return { error: "Ticket not found. Refresh the page." };
+    }
+    if (ticket.status === "DELIVERED" || ticket.status === "CANCELLED") {
+      return {
+        error: `${ticket.ticketNumber} is ${ticket.status.toLowerCase()} and can't be reassigned.`,
+      };
+    }
+
+    await withDatabaseRetry((client) =>
+      client.deliveryTicket.update({
+        where: { id: ticketId },
+        data: { trailer: trailer?.trim() || null },
+      }),
+    );
+
+    revalidatePath("/delivery-tickets");
+    revalidatePath(`/delivery-tickets/${ticketId}`);
+    return { success: true };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "Could not update the trailer.",
     };
   }
 }

@@ -1,11 +1,8 @@
 import Link from "next/link";
 import { SectionCard } from "@/components/dashboard/section-card";
-import { StatusBadge } from "@/components/dashboard/status-badge";
-import { DriverSelect } from "@/components/delivery-tickets/driver-select";
-import {
-  deliveryTicketStatusLabels,
-  type DeliveryTicketRow,
-} from "@/components/delivery-tickets/delivery-ticket-utils";
+import { DriverSelect, TrailerSelect } from "@/components/delivery-tickets/fleet-select";
+import { StatusSelect } from "@/components/delivery-tickets/status-select";
+import { type DeliveryTicketRow } from "@/components/delivery-tickets/delivery-ticket-utils";
 import { getTodaysScheduledLoads } from "@/lib/delivery-dispatch-utils";
 
 import {
@@ -19,21 +16,44 @@ import {
 type TodaysLoadsPanelProps = {
   tickets: DeliveryTicketRow[];
   drivers: string[];
+  trailers: string[];
+  day?: "today" | "tomorrow";
 };
 
-// Server component shell; only the driver dropdowns hydrate on the client.
-export function TodaysLoadsPanel({ tickets, drivers }: TodaysLoadsPanelProps) {
-  const todaysLoads = getTodaysScheduledLoads(tickets);
+// Server component shell; only the assignment dropdowns hydrate on the client.
+export function TodaysLoadsPanel({
+  tickets,
+  drivers,
+  trailers,
+  day = "today",
+}: TodaysLoadsPanelProps) {
+  const reference = new Date();
+  if (day === "tomorrow") {
+    reference.setDate(reference.getDate() + 1);
+  }
+  const todaysLoads = getTodaysScheduledLoads(tickets, reference);
+  const dayLabel = reference.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "long",
+    day: "numeric",
+  });
+  const titlePrefix = day === "today" ? "Today's Loads" : "Tomorrow's Loads";
+  const deliveredCount = todaysLoads.filter(
+    (ticket) => ticket.status === "DELIVERED",
+  ).length;
+  const openCount = todaysLoads.length - deliveredCount;
 
   return (
     <SectionCard
-      title="Today's Loads"
-      description={`${todaysLoads.length} scheduled load${todaysLoads.length === 1 ? "" : "s"} for today.`}
+      title={`${titlePrefix} (${dayLabel})`}
+      description={`${openCount} scheduled load${openCount === 1 ? "" : "s"} for ${day}${
+        deliveredCount > 0 ? ` · ${deliveredCount} delivered` : ""
+      }.`}
       noPadding
     >
       {todaysLoads.length === 0 ? (
         <p className="px-4 py-8 text-center text-sm text-slate-500">
-          No deliveries scheduled for today.
+          No deliveries scheduled for {day}.
         </p>
       ) : (
         <div className={tableFlushWrapperClassName}>
@@ -45,14 +65,20 @@ export function TodaysLoadsPanel({ tickets, drivers }: TodaysLoadsPanelProps) {
                 <th className={tableHeaderCellClassName}>Customer</th>
                 <th className={tableHeaderCellClassName}>Project</th>
                 <th className={tableHeaderCellClassName}>Driver</th>
+                <th className={tableHeaderCellClassName}>Trailer</th>
                 <th className={tableHeaderCellClassName}>Weight</th>
                 <th className={tableHeaderCellClassName}>Status</th>
                 <th className={tableHeaderCellClassName}>Actions</th>
               </tr>
             </thead>
             <tbody className={tableBodyClassName}>
-              {todaysLoads.map((ticket) => (
-                <tr key={ticket.id} className={tableRowClassName}>
+              {todaysLoads.map((ticket) => {
+                const delivered = ticket.status === "DELIVERED";
+                return (
+                <tr
+                  key={ticket.id}
+                  className={`${tableRowClassName}${delivered ? " bg-emerald-50/40" : ""}`}
+                >
                   <td className={`${tableCellClassName} font-mono text-[11px] font-medium text-slate-900`}>
                     {ticket.ticketNumber}
                   </td>
@@ -65,21 +91,33 @@ export function TodaysLoadsPanel({ tickets, drivers }: TodaysLoadsPanelProps) {
                   <td className={`${tableCellClassName} text-slate-700`}>
                     {ticket.projectName}
                   </td>
-                  <td className={tableCellClassName}>
-                    <DriverSelect
-                      ticketId={ticket.id}
-                      driver={ticket.driver === "—" ? null : ticket.driver}
-                      drivers={drivers}
-                    />
+                  <td className={`${tableCellClassName}${delivered ? " text-slate-600" : ""}`}>
+                    {delivered ? (
+                      ticket.driver
+                    ) : (
+                      <DriverSelect
+                        ticketId={ticket.id}
+                        driver={ticket.driver === "—" ? null : ticket.driver}
+                        drivers={drivers}
+                      />
+                    )}
+                  </td>
+                  <td className={`${tableCellClassName}${delivered ? " text-slate-600" : ""}`}>
+                    {delivered ? (
+                      ticket.trailer
+                    ) : (
+                      <TrailerSelect
+                        ticketId={ticket.id}
+                        trailer={ticket.trailer === "—" ? null : ticket.trailer}
+                        trailers={trailers}
+                      />
+                    )}
                   </td>
                   <td className={`${tableCellClassName} font-medium text-slate-900`}>
                     {ticket.totalWeight}
                   </td>
                   <td className={tableCellClassName}>
-                    <StatusBadge
-                      label={deliveryTicketStatusLabels[ticket.status]}
-                      variant={ticket.statusVariant}
-                    />
+                    <StatusSelect ticketId={ticket.id} status={ticket.status} />
                   </td>
                   <td className={tableCellClassName}>
                     <div className="flex flex-wrap gap-1.5">
@@ -90,7 +128,7 @@ export function TodaysLoadsPanel({ tickets, drivers }: TodaysLoadsPanelProps) {
                         View
                       </Link>
                       <Link
-                        href={`/delivery-tickets/${ticket.id}/preview`}
+                        href={`/delivery-tickets/${ticket.id}/preview?from=hub`}
                         className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
                       >
                         Print
@@ -98,7 +136,8 @@ export function TodaysLoadsPanel({ tickets, drivers }: TodaysLoadsPanelProps) {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

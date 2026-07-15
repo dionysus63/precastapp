@@ -239,6 +239,72 @@ describe("buildDrainRingDiameterGroups", () => {
     });
   });
 
+  it("nets feet on other open loads out of availability", () => {
+    const option = ringOption("one", 1);
+    const fullyScheduled = fulfillmentLine({
+      quoteLineItemId: "booked",
+      lineNumber: 1,
+      remainingQty: 5,
+      drainRingOptions: [option],
+    });
+    const partiallyScheduled = fulfillmentLine({
+      quoteLineItemId: "partial",
+      lineNumber: 2,
+      remainingQty: 5,
+      drainRingOptions: [option],
+    });
+    const linesByKey = new Map([
+      [drainRingQuantityKey("partial", "one"), { quantity: "3" }],
+    ]);
+
+    const [group] = buildDrainRingDiameterGroups(
+      [fullyScheduled, partiallyScheduled],
+      linesByKey,
+      { booked: 5, partial: 1 },
+    );
+    const [bookedRow, partialRow] = group.matrices[0].rows;
+
+    expect(bookedRow).toMatchObject({
+      scheduledElsewhereFeet: 5,
+      availableFeet: 0,
+      remainingAfterSelected: 0,
+      overByFeet: 0,
+      state: "scheduled",
+    });
+    expect(partialRow).toMatchObject({
+      scheduledElsewhereFeet: 1,
+      availableFeet: 4,
+      selectedFeet: 3,
+      remainingAfterSelected: 1,
+      overByFeet: 0,
+      state: "remaining",
+    });
+    expect(group.matrices[0].remainingLineCount).toBe(1);
+    expect(group.matrices[0].completedLineCount).toBe(0);
+  });
+
+  it("flags selections that exceed the net availability as over limit", () => {
+    const option = ringOption("one", 1);
+    const line = fulfillmentLine({
+      quoteLineItemId: "line-1",
+      remainingQty: 5,
+      drainRingOptions: [option],
+    });
+    const linesByKey = new Map([
+      [drainRingQuantityKey("line-1", "one"), { quantity: "4" }],
+    ]);
+
+    const [group] = buildDrainRingDiameterGroups([line], linesByKey, {
+      "line-1": 2,
+    });
+    expect(group.matrices[0].rows[0]).toMatchObject({
+      availableFeet: 3,
+      selectedFeet: 4,
+      overByFeet: 1,
+      state: "remaining",
+    });
+  });
+
   it("uses the completion tolerance while keeping unavailable unfinished rows", () => {
     const option = ringOption("one", 1);
     const [group] = buildDrainRingDiameterGroups(

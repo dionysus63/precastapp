@@ -3,6 +3,25 @@ import type { DeliveryTicketRow } from "@/components/delivery-tickets/delivery-t
 import { deliveryTicketStatusLabels } from "@/components/delivery-tickets/delivery-ticket-utils";
 import { formatWeightLb } from "@/lib/format";
 import { deliveryTicketStatusVariant } from "@/lib/status-variants";
+import type { Prisma } from "@/app/generated/prisma/client";
+
+/** Columns needed by mapDbDeliveryTicketToListRow — shared by ticket list pages. */
+export const deliveryTicketListSelect = {
+  id: true,
+  ticketNumber: true,
+  jobId: true,
+  jobNumber: true,
+  projectName: true,
+  customerName: true,
+  deliveryDate: true,
+  deliveryTime: true,
+  driver: true,
+  trailer: true,
+  status: true,
+  totalItems: true,
+  totalWeight: true,
+  _count: { select: { lineItems: true } },
+} satisfies Prisma.DeliveryTicketSelect;
 
 type DbDeliveryTicket = {
   id: string;
@@ -168,6 +187,7 @@ export function mapDbDeliveryTicketToListRow(ticket: {
   deliveryDate: Date | null;
   deliveryTime: string | null;
   driver: string | null;
+  trailer?: string | null;
   status: string;
   totalItems: number | null;
   totalWeight: { toString(): string } | null;
@@ -189,6 +209,7 @@ export function mapDbDeliveryTicketToListRow(ticket: {
       : null,
     deliveryTime: ticket.deliveryTime,
     driver: ticket.driver ?? "—",
+    trailer: ticket.trailer ?? "—",
     status: ticket.status as DeliveryTicketRow["status"],
     statusVariant: deliveryTicketStatusVariant(ticket.status),
     items: itemCount,

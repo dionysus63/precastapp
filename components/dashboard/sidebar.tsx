@@ -35,6 +35,14 @@ export function Sidebar({
     visibleItems.some((item) => item.section === section.id),
   );
 
+  // Longest matching href wins so nested routes (e.g. /delivery-tickets/all)
+  // highlight their own entry instead of every prefix entry.
+  const activeHref = visibleItems.reduce((best, item) => {
+    const matches =
+      pathname === item.href || pathname.startsWith(`${item.href}/`);
+    return matches && item.href.length > best.length ? item.href : best;
+  }, "");
+
   return (
     <aside className="fixed inset-y-0 left-0 z-20 flex h-screen w-60 flex-col overflow-y-auto border-r border-slate-200/80 bg-gradient-to-b from-white to-slate-50">
       <div className="border-b border-slate-100 px-4 py-4">
@@ -74,7 +82,7 @@ export function Sidebar({
               </div>
               <div className="space-y-0.5">
                 {sectionItems.map((item) => {
-                  const isActive = pathname.startsWith(item.href);
+                  const isActive = item.href === activeHref;
 
                   return (
                     <Link

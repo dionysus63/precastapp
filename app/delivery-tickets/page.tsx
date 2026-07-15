@@ -1,43 +1,14 @@
 import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import { DeliveryTicketsList } from "@/components/delivery-tickets/delivery-tickets-list";
 import { DispatcherWeekCalendar } from "@/components/delivery-tickets/dispatcher-week-calendar";
 import { TodaysLoadsPanel } from "@/components/delivery-tickets/todays-loads-panel";
 import { UnscheduledLoadsPanel } from "@/components/delivery-tickets/unscheduled-loads-panel";
-import { mapDbDeliveryTicketToListRow } from "@/lib/delivery-ticket-mapper";
+import {
+  deliveryTicketListSelect,
+  mapDbDeliveryTicketToListRow,
+} from "@/lib/delivery-ticket-mapper";
 import { getAppSettings } from "@/lib/app-settings";
 import { withDatabaseRetry } from "@/lib/prisma";
-import {
-  buildDeliveryFilterOptions,
-  deliveryTicketStatusFormOptions,
-} from "@/components/delivery-tickets/delivery-ticket-utils";
-import {
-  buildPageInfo,
-  parsePageParam,
-  parseStringParam,
-  type RawSearchParams,
-} from "@/lib/list-params";
-import type { Prisma } from "@/app/generated/prisma/client";
-
-const DELIVERY_LIST_SELECT = {
-  id: true,
-  ticketNumber: true,
-  jobId: true,
-  jobNumber: true,
-  projectName: true,
-  customerName: true,
-  deliveryDate: true,
-  deliveryTime: true,
-  driver: true,
-  status: true,
-  totalItems: true,
-  totalWeight: true,
-  _count: { select: { lineItems: true } },
-} satisfies Prisma.DeliveryTicketSelect;
-
-const VALID_DELIVERY_STATUSES = new Set<string>(
-  deliveryTicketStatusFormOptions.map((option) => option.value),
-);
 
 // The dispatcher calendar / today panel only need recent + upcoming tickets.
 // Bounding by recency keeps these panels fast as historical tickets accumulate.
@@ -49,99 +20,22 @@ function startOfToday() {
   return today;
 }
 
-export default async function DeliveryTicketsPage({
-  searchParams,
-}: {
-  searchParams: Promise<RawSearchParams>;
-}) {
-  const params = await searchParams;
-  const search = parseStringParam(params.q);
-  const statusParam = parseStringParam(params.status);
-  const driverParam = parseStringParam(params.driver);
-  const jobParam = parseStringParam(params.job);
-  const dateParam = parseStringParam(params.date);
-  const requestedPage = parsePageParam(params.page);
-
-  // Walk-in counter sales live on the walk-ins board, never in the hub.
-  const and: Prisma.DeliveryTicketWhereInput[] = [
-    { ticketType: { not: "WALK_IN" } },
-  ];
-
-  if (search) {
-    and.push({
-      OR: [
-        { ticketNumber: { contains: search, mode: "insensitive" } },
-        { jobNumber: { contains: search, mode: "insensitive" } },
-        { customerName: { contains: search, mode: "insensitive" } },
-        { projectName: { contains: search, mode: "insensitive" } },
-        { driver: { contains: search, mode: "insensitive" } },
-      ],
-    });
-  }
-
-  if (statusParam && VALID_DELIVERY_STATUSES.has(statusParam)) {
-    and.push({
-      status: statusParam as Prisma.DeliveryTicketWhereInput["status"],
-    });
-  }
-
-  if (driverParam) {
-    and.push({ driver: driverParam });
-  }
-  if (jobParam) {
-    and.push({ jobNumber: jobParam });
-  }
-
-  if (dateParam && dateParam !== "All") {
-    const today = startOfToday();
-    if (dateParam === "Past Due") {
-      and.push({ deliveryDate: { lt: today } });
-    } else if (dateParam === "Today") {
-      const tomorrow = new Date(today);
-      tomorrow.setDate(today.getDate() + 1);
-      and.push({ deliveryDate: { gte: today, lt: tomorrow } });
-    } else if (dateParam === "This Week" || dateParam === "Next 7 Days") {
-      const weekEnd = new Date(today);
-      weekEnd.setDate(today.getDate() + 7);
-      and.push({ deliveryDate: { gte: today, lte: weekEnd } });
-    }
-  }
-
-  const where: Prisma.DeliveryTicketWhereInput = and.length ? { AND: and } : {};
-
+export default async function DeliveryTicketsPage() {
   const scheduleCutoff = startOfToday();
   scheduleCutoff.setDate(scheduleCutoff.getDate() - SCHEDULE_LOOKBACK_DAYS);
 
-  const total = await withDatabaseRetry((prisma) =>
-    prisma.deliveryTicket.count({ where }),
-  );
-  const pageInfo = buildPageInfo(total, requestedPage);
-
-  const [ticketRecords, scheduleRecords, settings, jobNumberRows, draftRecords] =
-    await withDatabaseRetry((prisma) =>
+  const [scheduleRecords, settings, draftRecords] = await withDatabaseRetry(
+    (prisma) =>
       Promise.all([
-        prisma.deliveryTicket.findMany({
-          where,
-          orderBy: [{ deliveryDate: "desc" }, { createdAt: "desc" }],
-          select: DELIVERY_LIST_SELECT,
-          skip: pageInfo.skip,
-          take: pageInfo.take,
-        }),
         prisma.deliveryTicket.findMany({
           where: {
             deliveryDate: { gte: scheduleCutoff },
             ticketType: { not: "WALK_IN" },
           },
           orderBy: [{ deliveryDate: "asc" }, { createdAt: "asc" }],
-          select: DELIVERY_LIST_SELECT,
+          select: deliveryTicketListSelect,
         }),
         getAppSettings(),
-        prisma.deliveryTicket.findMany({
-          distinct: ["jobNumber"],
-          where: { jobNumber: { not: "" } },
-          select: { jobNumber: true },
-          orderBy: { jobNumber: "desc" },
-        }),
         // Job delivery loads awaiting scheduling (walk-ins and pickups are
         // dispatched elsewhere). DRAFT = unscheduled regardless of date.
         prisma.deliveryTicket.findMany({
@@ -160,16 +54,8 @@ export default async function DeliveryTicketsPage({
           },
         }),
       ]),
-    );
+  );
 
-  const filterOptions = buildDeliveryFilterOptions({
-    drivers: settings.drivers,
-    jobNumbers: jobNumberRows
-      .map((row) => row.jobNumber)
-      .filter((jobNumber): jobNumber is string => Boolean(jobNumber)),
-  });
-
-  const rows = ticketRecords.map(mapDbDeliveryTicketToListRow);
   const scheduleRows = scheduleRecords.map(mapDbDeliveryTicketToListRow);
   const unscheduledDrafts = draftRecords
     .filter(
@@ -201,21 +87,18 @@ export default async function DeliveryTicketsPage({
         </div>
 
         <DispatcherWeekCalendar tickets={scheduleRows} />
-        <TodaysLoadsPanel tickets={scheduleRows} drivers={settings.drivers} />
-        <UnscheduledLoadsPanel drafts={unscheduledDrafts} />
-
-        <DeliveryTicketsList
-          tickets={rows}
-          pageInfo={pageInfo}
-          filterOptions={filterOptions}
-          filters={{
-            search,
-            status: statusParam,
-            driver: driverParam,
-            job: jobParam,
-            date: dateParam,
-          }}
+        <TodaysLoadsPanel
+          tickets={scheduleRows}
+          drivers={settings.drivers}
+          trailers={settings.trailers}
         />
+        <TodaysLoadsPanel
+          tickets={scheduleRows}
+          drivers={settings.drivers}
+          trailers={settings.trailers}
+          day="tomorrow"
+        />
+        <UnscheduledLoadsPanel drafts={unscheduledDrafts} />
       </div>
     </DashboardShell>
   );

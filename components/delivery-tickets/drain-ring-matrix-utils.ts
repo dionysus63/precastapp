@@ -22,9 +22,13 @@ export type DrainRingMatrixRow = {
   quantitiesByProductId: Record<string, DrainRingQuantityValue>;
   selectedCount: number;
   selectedFeet: number;
+  /** Feet already on other open (not yet delivered) tickets. */
+  scheduledElsewhereFeet: number;
+  /** remainingQty net of scheduledElsewhereFeet — what this load can still take. */
+  availableFeet: number;
   remainingAfterSelected: number;
   overByFeet: number;
-  state: "remaining" | "completed";
+  state: "remaining" | "completed" | "scheduled";
 };
 
 export type DrainRingOptionStockStatus =
@@ -178,6 +182,7 @@ function buildStyleMatrix(
   diameterGroupKey: string,
   pending: PendingStyleMatrix,
   linesByKey: ReadonlyMap<string, QuantityLine>,
+  onOpenLoads?: Record<string, number>,
 ): DrainRingStyleMatrix {
   const lines = [...pending.lines].sort(
     (left, right) =>
@@ -226,14 +231,20 @@ function buildStyleMatrix(
 
     selectedCount = roundQuantity(selectedCount);
     selectedFeet = roundQuantity(selectedFeet);
-    const remainingDifference = line.remainingQty - selectedFeet;
+    const scheduledElsewhereFeet = roundQuantity(
+      Math.max(0, onOpenLoads?.[line.quoteLineItemId] ?? 0),
+    );
+    const availableRaw = line.remainingQty - scheduledElsewhereFeet;
+    const availableFeet =
+      availableRaw <= COMPLETED_QUANTITY_EPSILON ? 0 : roundQuantity(availableRaw);
+    const remainingDifference = availableFeet - selectedFeet;
     const remainingAfterSelected =
       Math.abs(remainingDifference) <= COMPLETED_QUANTITY_EPSILON
         ? 0
         : roundQuantity(remainingDifference);
     const overByFeet =
-      selectedFeet > line.remainingQty + COMPLETED_QUANTITY_EPSILON
-        ? roundQuantity(selectedFeet - line.remainingQty)
+      selectedFeet > availableFeet + COMPLETED_QUANTITY_EPSILON
+        ? roundQuantity(selectedFeet - availableFeet)
         : 0;
 
     return {
@@ -241,12 +252,16 @@ function buildStyleMatrix(
       quantitiesByProductId,
       selectedCount,
       selectedFeet,
+      scheduledElsewhereFeet,
+      availableFeet,
       remainingAfterSelected,
       overByFeet,
       state:
         line.remainingQty <= COMPLETED_QUANTITY_EPSILON
           ? "completed"
-          : "remaining",
+          : availableFeet <= COMPLETED_QUANTITY_EPSILON
+            ? "scheduled"
+            : "remaining",
     };
   });
 
@@ -280,6 +295,7 @@ function buildStyleMatrix(
 export function buildDrainRingDiameterGroups(
   fulfillment: readonly QuoteLineFulfillment[],
   linesByKey: ReadonlyMap<string, QuantityLine>,
+  onOpenLoads?: Record<string, number>,
 ): DrainRingDiameterGroup[] {
   const pendingGroups = new Map<string, PendingDiameterGroup>();
 
@@ -325,7 +341,7 @@ export function buildDrainRingDiameterGroups(
             STYLE_SORT_ORDER[left.style] - STYLE_SORT_ORDER[right.style],
         )
         .map((matrix) =>
-          buildStyleMatrix(pendingGroup.key, matrix, linesByKey),
+          buildStyleMatrix(pendingGroup.key, matrix, linesByKey, onOpenLoads),
         );
 
       return {

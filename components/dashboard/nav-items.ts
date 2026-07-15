@@ -75,6 +75,13 @@ export const navItems: NavItem[] = [
     requiredPermission: "DELIVERY_VIEW",
   },
   {
+    label: "All Tickets",
+    href: "/delivery-tickets/all",
+    section: "dispatch",
+    icon: "clipboard",
+    requiredPermission: "DELIVERY_VIEW",
+  },
+  {
     label: "Production",
     href: "/production",
     section: "operations",

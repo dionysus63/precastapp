@@ -135,9 +135,9 @@ const TicketsTable = memo(function TicketsTable({
   );
 });
 
-// Renders a fragment: the actions row, dispatcher calendar, and today's loads
-// panel are rendered by app/delivery-tickets/page.tsx as siblings inside the
-// shared `space-y-4` wrapper, keeping this client boundary to filters + table.
+// Renders a fragment: the actions row is rendered by
+// app/delivery-tickets/all/page.tsx as a sibling inside the shared
+// `space-y-4` wrapper, keeping this client boundary to filters + table.
 export function DeliveryTicketsList({
   tickets,
   pageInfo,
