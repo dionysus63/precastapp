@@ -42,14 +42,9 @@ export type SendQuoteResult =
 
 async function findSupersededBy(quote: {
   id: string;
-  status: string;
   originalQuoteId: string | null;
   revisionNumber: number;
 }) {
-  if (quote.status !== "REVISED") {
-    return null;
-  }
-
   const rootId = quote.originalQuoteId ?? quote.id;
   return withDatabaseRetry((client) =>
     client.quote.findFirst({

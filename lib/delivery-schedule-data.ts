@@ -8,7 +8,6 @@ const SCHEDULE_TICKET_SELECT = {
   loadSequence: true,
   deliveryDate: true,
   deliveryTime: true,
-  truck: true,
   trailer: true,
   driver: true,
   totalItems: true,

@@ -228,13 +228,12 @@ export function DeliveryTicketDetailContent({
           detail={ticket.deliveryTime}
         />
         <StatItem
-          label="Truck / Trailer"
-          value={isBlank(ticket.truck) ? "—" : ticket.truck}
-          detail={isBlank(ticket.trailer) ? null : ticket.trailer}
-        />
-        <StatItem
           label="Driver"
           value={isBlank(ticket.driver) ? "—" : ticket.driver}
+        />
+        <StatItem
+          label="Trailer"
+          value={isBlank(ticket.trailer) ? "—" : ticket.trailer}
         />
         <StatItem
           label="Load"

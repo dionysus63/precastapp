@@ -513,6 +513,7 @@ export async function updateQuote(
         select: {
           id: true,
           status: true,
+          jobId: true,
           originalQuoteId: true,
           revisionNumber: true,
         },
@@ -567,28 +568,90 @@ export async function updateQuote(
 
     const { computed, lineTotals, totalWeight, totalYards, deliveryAmount } =
       computeQuoteFinancials(input);
+    let supersededWonQuoteIds: string[] = [];
 
     await withDatabaseRetry((client) =>
       client.$transaction(async (tx) => {
+        const {
+          assertRevisionKeepsOperationalJob,
+          lockQuoteForUpdate,
+          supersedeOtherWonQuotesInFamily,
+        } = await import("@/lib/quote-revision");
+        await lockQuoteForUpdate(tx, quoteId);
+
+        // The preflight read above gives fast feedback, but this locked read is
+        // authoritative. It serializes a normal edit with a simultaneous
+        // "Mark Won" handoff so neither can validate stale lines or status.
+        const lockedExisting = await tx.quote.findUnique({
+          where: { id: quoteId },
+          select: {
+            status: true,
+            jobId: true,
+            originalQuoteId: true,
+            revisionNumber: true,
+            updatedAt: true,
+          },
+        });
+        if (!lockedExisting) {
+          throw new Error("Quote was not found.");
+        }
+
+        let lockedSupersededBy: { id: string } | null = null;
+        if (lockedExisting.status === "REVISED") {
+          const rootId = lockedExisting.originalQuoteId ?? quoteId;
+          lockedSupersededBy = await tx.quote.findFirst({
+            where: {
+              OR: [{ id: rootId }, { originalQuoteId: rootId }],
+              revisionNumber: { gt: lockedExisting.revisionNumber },
+            },
+            orderBy: { revisionNumber: "asc" },
+            select: { id: true },
+          });
+        }
+        if (!canEditQuote(lockedExisting.status, lockedSupersededBy)) {
+          throw new Error(
+            "This quote can no longer be edited. Revise it to create a new revision instead.",
+          );
+        }
+
         if (input.expectedUpdatedAt) {
           // Lines are replaced wholesale below, so a stale save would silently
           // discard another estimator's edits. Compare millisecond timestamps
           // to detect a concurrent change since the form loaded.
-          const current = await tx.quote.findUnique({
-            where: { id: quoteId },
-            select: { updatedAt: true },
-          });
           const expected = new Date(input.expectedUpdatedAt);
           if (
-            !current ||
             Number.isNaN(expected.getTime()) ||
-            current.updatedAt.getTime() !== expected.getTime()
+            lockedExisting.updatedAt.getTime() !== expected.getTime()
           ) {
             throw new Error(
               "This quote was changed by someone else while you were editing. Refresh the page to load the latest version, then re-apply your changes.",
             );
           }
         }
+
+        if (input.status === "WON") {
+          const rootId = lockedExisting.originalQuoteId ?? quoteId;
+          const newer = await tx.quote.findFirst({
+            where: {
+              OR: [{ id: rootId }, { originalQuoteId: rootId }],
+              revisionNumber: { gt: lockedExisting.revisionNumber },
+            },
+            orderBy: { revisionNumber: "asc" },
+            select: { quoteNumber: true },
+          });
+          if (newer) {
+            throw new Error(
+              `This quote was revised — mark ${newer.quoteNumber} as won instead, or delete that revision first to fall back to this one.`,
+            );
+          }
+        }
+
+        await assertRevisionKeepsOperationalJob(
+          tx,
+          quoteId,
+          lockedExisting.originalQuoteId,
+          input.jobId,
+        );
 
         // Lines are deleted and recreated below, which would sever production
         // links (jobStructureId) and revision lineage (previousLineItemId).
@@ -733,6 +796,36 @@ export async function updateQuote(
             data: { quantity: line.quantity },
           });
         }
+
+        if (input.status === "WON") {
+          supersededWonQuoteIds = await supersedeOtherWonQuotesInFamily(
+            tx,
+            quoteId,
+            lockedExisting.originalQuoteId,
+          );
+
+          const { linkJobStructuresFromQuoteInTransaction } = await import(
+            "@/lib/job-structure-workflow"
+          );
+          await linkJobStructuresFromQuoteInTransaction(tx, quoteId);
+
+          if (input.jobId) {
+            await promoteJobStatus(tx, input.jobId, "QUOTE_WON");
+            if (input.customerId) {
+              await tx.job.updateMany({
+                where: {
+                  id: input.jobId,
+                  customerId: null,
+                  customerName: "Unassigned",
+                },
+                data: {
+                  customerId: input.customerId,
+                  customerName: input.customerName,
+                },
+              });
+            }
+          }
+        }
       }),
     );
 
@@ -742,6 +835,16 @@ export async function updateQuote(
     revalidatePath(`/quotes/${quoteId}`);
     revalidatePath(`/quotes/${quoteId}/preview`);
     revalidatePath(`/quotes/${quoteId}/edit`);
+    for (const supersededQuoteId of supersededWonQuoteIds) {
+      revalidatePath(`/quotes/${supersededQuoteId}`);
+    }
+    if (input.status === "WON") {
+      revalidatePath("/production");
+      revalidatePath("/jobs");
+      if (input.jobId) {
+        revalidatePath(`/jobs/${input.jobId}`);
+      }
+    }
     redirect(quoteSaveRedirectPath(quoteId, afterSave));
   } catch (error) {
     if (
@@ -766,21 +869,25 @@ const QUOTE_STATUS_VALUES = QUOTE_STATUSES;
 
 export async function updateQuoteStatus(quoteId: string, status: QuoteStatusValue) {
   await requirePermission(AppPermission.QUOTES_MANAGE);
-  if (!QUOTE_STATUS_VALUES.includes(status)) {
-    return { error: "Invalid quote status." };
+  if (!QUOTE_STATUS_VALUES.includes(status) || status !== "WON") {
+    return { error: "This action can only mark a quote as won." };
   }
 
   try {
     let jobId: string | null = null;
+    let supersededWonQuoteIds: string[] = [];
     await withDatabaseRetry(async (client) => {
       // Status flip and structure linking commit together: a failure while
       // creating structures must not leave the quote marked WON with a
       // partially linked line set.
       await client.$transaction(async (tx) => {
+        const { lockQuoteForUpdate, supersedeOtherWonQuotesInFamily } =
+          await import("@/lib/quote-revision");
+        await lockQuoteForUpdate(tx, quoteId);
+
         const existing = await tx.quote.findUnique({
           where: { id: quoteId },
           select: {
-            sentAt: true,
             jobId: true,
             customerId: true,
             customerName: true,
@@ -814,14 +921,21 @@ export async function updateQuoteStatus(quoteId: string, status: QuoteStatusValu
           }
         }
 
+        if (status === "WON") {
+          // A won source remains the job's operational quote while this
+          // revision is being prepared. Transfer that ownership only when the
+          // replacement itself wins, in the same transaction as structure
+          // relinking so a failed handoff rolls back both status changes.
+          supersededWonQuoteIds = await supersedeOtherWonQuotesInFamily(
+            tx,
+            quoteId,
+            existing.originalQuoteId,
+          );
+        }
+
         await tx.quote.update({
           where: { id: quoteId },
-          data: {
-            status,
-            ...(status === "SENT" && !existing.sentAt
-              ? { sentAt: new Date() }
-              : {}),
-          },
+          data: { status },
         });
 
         if (status === "WON") {
@@ -856,6 +970,9 @@ export async function updateQuoteStatus(quoteId: string, status: QuoteStatusValu
 
     revalidatePath("/quotes");
     revalidatePath(`/quotes/${quoteId}`);
+    for (const supersededQuoteId of supersededWonQuoteIds) {
+      revalidatePath(`/quotes/${supersededQuoteId}`);
+    }
     revalidatePath("/production");
     if (jobId) {
       revalidatePath("/jobs");

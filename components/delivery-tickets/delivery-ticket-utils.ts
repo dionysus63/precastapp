@@ -1,3 +1,5 @@
+import { richTextToPlainText } from "@/lib/rich-text";
+
 export type DeliveryTicketStatus =
   | "DRAFT"
   | "SCHEDULED"
@@ -16,7 +18,6 @@ export type DeliveryTicketRow = {
   deliveryDate: string;
   deliveryDateIso: string | null;
   deliveryTime: string | null;
-  truck: string;
   driver: string;
   status: DeliveryTicketStatus;
   statusVariant: "success" | "info" | "warning" | "neutral" | "default" | "danger";
@@ -44,14 +45,81 @@ export const deliveryDateFilterOptions = [
 
 export type DeliveryFilterOptions = {
   drivers: string[];
-  trucks: string[];
   jobs: string[];
 };
+
+function normalizeDeliveryLineText(value: string | null | undefined): string {
+  return richTextToPlainText(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+export function isPositiveDeliveryQuantity(value: string): boolean {
+  const numeric = Number(value);
+  return value.trim() !== "" && Number.isFinite(numeric) && numeric > 0;
+}
+
+export function getDeliveryLinePrimaryLabel(input: {
+  lineType: string;
+  displayName: string;
+  itemCode: string;
+}): string {
+  const structureName = input.itemCode.trim();
+  if (input.lineType === "CONFIGURABLE_STRUCTURE" && structureName) {
+    return structureName;
+  }
+  return input.displayName;
+}
+
+export function getDeliveryLineSecondaryLabel(input: {
+  lineType: string;
+  displayName: string;
+  itemCode: string;
+  description: string | null | undefined;
+}): string | null {
+  if (input.lineType !== "CONFIGURABLE_STRUCTURE") {
+    return null;
+  }
+
+  const displayName = input.displayName.trim();
+  if (
+    !displayName ||
+    normalizeDeliveryLineText(displayName) ===
+      normalizeDeliveryLineText(input.itemCode) ||
+    normalizeDeliveryLineText(displayName) ===
+      normalizeDeliveryLineText(input.description)
+  ) {
+    return null;
+  }
+  return displayName;
+}
+
+/** Avoid repeating a product name or item number as a second description. */
+export function shouldShowDeliveryLineDescription(input: {
+  description: string | null | undefined;
+  displayName: string;
+  itemCode: string;
+  lineType?: string;
+}): boolean {
+  if (input.lineType === "CONFIGURABLE_STRUCTURE") {
+    return false;
+  }
+
+  const description = normalizeDeliveryLineText(input.description);
+  if (!description) {
+    return false;
+  }
+
+  return (
+    description !== normalizeDeliveryLineText(input.displayName) &&
+    description !== normalizeDeliveryLineText(input.itemCode)
+  );
+}
 
 /** Build filter dropdown options from settings fleet lists and ticket job numbers. */
 export function buildDeliveryFilterOptions(input: {
   drivers: string[];
-  trucks: string[];
   jobNumbers: string[];
 }): DeliveryFilterOptions {
   const unique = (values: string[]) =>
@@ -61,7 +129,6 @@ export function buildDeliveryFilterOptions(input: {
 
   return {
     drivers: ["All", ...unique(input.drivers)],
-    trucks: ["All", ...unique(input.trucks)],
     jobs: ["All", ...unique(input.jobNumbers)],
   };
 }
@@ -171,7 +238,6 @@ export const placeholderDeliveryTicketFormItems: DeliveryTicketFormLineItem[] = 
 export const deliveryTicketWorkflowSteps = [
   { id: "created", label: "Ticket created", complete: true },
   { id: "confirmed", label: "Items confirmed", complete: false },
-  { id: "truck", label: "Truck assigned", complete: false },
   { id: "loaded", label: "Loaded", complete: false },
   { id: "delivered", label: "Delivered", complete: false },
   { id: "signed", label: "Signed ticket returned", complete: false },
@@ -180,7 +246,7 @@ export const deliveryTicketWorkflowSteps = [
 export const placeholderDeliveryTicketFormSummary = {
   totalItems: "3",
   totalWeight: "63,700 lb",
-  truckCapacity: "80,000 lb",
+  loadCapacity: "80,000 lb",
   deliveryDate: "02/20/2026",
   status: "Draft",
   jobNumber: "26-001",
@@ -199,13 +265,6 @@ export const deliveryTicketCustomerOptions = [
   { value: "abc", label: "ABC Construction" },
   { value: "brookhaven", label: "Town of Brookhaven" },
   { value: "lid", label: "Long Island Developers" },
-];
-
-export const deliveryTicketTruckOptions = [
-  { value: "", label: "Select truck..." },
-  { value: "truck-1", label: "Truck 1" },
-  { value: "truck-3", label: "Truck 3" },
-  { value: "lowboy", label: "Lowboy" },
 ];
 
 export const deliveryTicketDriverOptions = [
@@ -255,7 +314,6 @@ export type DeliveryTicketDetailView = {
   statusVariant: DeliveryTicketRow["statusVariant"];
   deliveryDate: string;
   deliveryTime: string;
-  truck: string;
   driver: string;
   totalWeight: string;
   jobNumber: string;
@@ -280,8 +338,6 @@ export type DeliveryTicketDetailView = {
   summary: {
     totalItems: string;
     totalWeight: string;
-    truckCapacity: string;
-    remainingCapacity: string;
     deliveryDate: string;
     status: string;
   };

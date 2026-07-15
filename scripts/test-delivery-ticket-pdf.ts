@@ -54,15 +54,24 @@ function buildMockTicket(
     jobNumber: "26-999",
     deliveryDate: new Date("2026-06-24"),
     driver: "Mike",
-    truck: "Truck 1",
     trailer: "Flatbed Trailer",
     customerNotes: null,
     siteInstructions: "Enter from south gate",
     totalItems: 5,
     totalWeight: null,
     customer: null,
+    job: {
+      projectAddress: "123 Main St",
+      city: "Patchogue",
+      state: "NY",
+      zip: "11772",
+    },
     quoteNumber: "Q-26-999-R0",
-    quote: { customerPO: "PO-12345", revisionNumber: 0 },
+    quote: {
+      customerPO: "PO-12345",
+      termsAndConditions: "Standard Precast Terms",
+      projectAddress: "123 Main St\nPatchogue, NY 11772",
+    },
     lineItems: baseLineItems,
     ...overrides,
   };
@@ -76,32 +85,19 @@ async function main() {
   }
 
   const originalTicket = buildMockTicket();
-  const revisedTicket = buildMockTicket({
-    ticketNumber: "DT99998",
-    quoteNumber: "Q-26-999-R1",
-    quote: { customerPO: "PO-12345", revisionNumber: 1 },
-  });
-
   const originalForm = buildDeliveryTicketFormData(originalTicket, 1, fillOptions);
-  const revisedForm = buildDeliveryTicketFormData(revisedTicket, 1, fillOptions);
-  console.log("\nOriginal quote revision field:", JSON.stringify(originalForm["Quote Number"]));
-  console.log("Revised quote revision field:", JSON.stringify(revisedForm["Quote Number"]));
+  console.log("\nDelivery address:", originalForm["Delivery Address 1"]);
+  console.log("Driver:", originalForm["Driver/Truck"]);
+  console.log("Terms:", originalForm.Terms);
 
   const copyBytes = await generateDeliveryTicketCopyPdfBytes(originalTicket, 1, fillOptions);
   writeFileSync("test-delivery-ticket-copy1.pdf", copyBytes);
-
-  const revisedCopyBytes = await generateDeliveryTicketCopyPdfBytes(
-    revisedTicket,
-    1,
-    fillOptions,
-  );
-  writeFileSync("test-delivery-ticket-rev1-copy1.pdf", revisedCopyBytes);
 
   const fullBytes = await generateDeliveryTicketPdfBytes(originalTicket, fillOptions);
   writeFileSync("test-delivery-ticket-full.pdf", fullBytes);
 
   console.log(
-    "\nWrote test-delivery-ticket-copy1.pdf, test-delivery-ticket-rev1-copy1.pdf, and test-delivery-ticket-full.pdf",
+    "\nWrote test-delivery-ticket-copy1.pdf and test-delivery-ticket-full.pdf",
   );
 }
 

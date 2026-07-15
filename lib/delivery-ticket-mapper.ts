@@ -22,7 +22,6 @@ type DbDeliveryTicket = {
   siteContactPhone: string | null;
   requestedBy: string | null;
   createdBy: string | null;
-  truck: string | null;
   trailer: string | null;
   driver: string | null;
   loadSequence: string | null;
@@ -84,7 +83,6 @@ export function mapDbDeliveryTicketToDetailView(
     statusVariant: deliveryTicketStatusVariant(ticket.status),
     deliveryDate: formatDate(ticket.deliveryDate),
     deliveryTime: ticket.deliveryTime ?? "—",
-    truck: ticket.truck ?? "—",
     trailer: ticket.trailer ?? "—",
     driver: ticket.driver ?? "—",
     totalWeight: formatWeightLb(ticket.totalWeight),
@@ -123,8 +121,6 @@ export function mapDbDeliveryTicketToDetailView(
     summary: {
       totalItems: String(ticket.totalItems ?? ticket.lineItems.length),
       totalWeight: formatWeightLb(ticket.totalWeight),
-      truckCapacity: "—",
-      remainingCapacity: "—",
       deliveryDate: formatDate(ticket.deliveryDate),
       status: statusLabel,
     },
@@ -171,7 +167,6 @@ export function mapDbDeliveryTicketToListRow(ticket: {
   customerName: string;
   deliveryDate: Date | null;
   deliveryTime: string | null;
-  truck: string | null;
   driver: string | null;
   status: string;
   totalItems: number | null;
@@ -193,7 +188,6 @@ export function mapDbDeliveryTicketToListRow(ticket: {
       ? formatDateIsoLocal(ticket.deliveryDate)
       : null,
     deliveryTime: ticket.deliveryTime,
-    truck: ticket.truck ?? "—",
     driver: ticket.driver ?? "—",
     status: ticket.status as DeliveryTicketRow["status"],
     statusVariant: deliveryTicketStatusVariant(ticket.status),

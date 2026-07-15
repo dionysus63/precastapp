@@ -263,7 +263,7 @@ export default async function PlanLoadsPage({ searchParams }: PlanLoadsPageProps
   const capacityDigits = Number(
     settings.truckCapacityLabel.replace(/[^0-9.]/g, ""),
   );
-  const truckCapacityLbs =
+  const loadCapacityLbs =
     Number.isFinite(capacityDigits) && capacityDigits > 0 ? capacityDigits : null;
 
   return (
@@ -316,8 +316,8 @@ export default async function PlanLoadsPage({ searchParams }: PlanLoadsPageProps
             totalWeight:
               ticket.totalWeight != null ? Number(ticket.totalWeight) : null,
           }))}
-          truckCapacityLabel={settings.truckCapacityLabel}
-          truckCapacityLbs={truckCapacityLbs}
+          loadCapacityLabel={settings.truckCapacityLabel}
+          loadCapacityLbs={loadCapacityLbs}
         />
       </div>
     </DashboardShell>

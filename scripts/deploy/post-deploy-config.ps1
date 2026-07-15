@@ -27,7 +27,7 @@ Write-Host @"
      - Quote PDF fallback directory
      - Click "Test write access" for each path
 
-  3. Settings -> Company / System — logo, tax rate, estimators, trucks
+  3. Settings -> Company / System — logo, tax rate, estimators, drivers
 
   4. Settings -> Users & Access — add all office staff
 

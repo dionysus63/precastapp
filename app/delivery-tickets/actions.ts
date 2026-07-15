@@ -85,7 +85,6 @@ export type SaveDeliveryTicketInput = {
   deliveryTime?: string | null;
   requestedBy?: string | null;
   createdBy?: string | null;
-  truck?: string | null;
   trailer?: string | null;
   driver?: string | null;
   loadSequence?: string | null;
@@ -401,7 +400,6 @@ function ticketData(input: SaveDeliveryTicketInput) {
     deliveryTime: input.deliveryTime ?? null,
     requestedBy: input.requestedBy ?? null,
     createdBy: input.createdBy ?? null,
-    truck: input.truck ?? null,
     trailer: input.trailer ?? null,
     driver: input.driver ?? null,
     loadSequence: input.loadSequence ?? null,
@@ -756,7 +754,6 @@ export type ScheduleLoadUpdate = {
   ticketId: string;
   deliveryDate: string | null;
   deliveryTime: string | null;
-  truck: string | null;
   trailer: string | null;
   driver: string | null;
   // ISO updatedAt as loaded by the schedule page; stale saves are rejected.
@@ -769,7 +766,7 @@ export type ScheduleJobLoadsResult =
 
 /**
  * Dispatch-side scheduling: updates only the schedule fields (date, time,
- * truck, trailer, driver) of a job's open tickets, promoting DRAFT tickets to
+ * trailer and driver) of a job's open tickets, promoting DRAFT tickets to
  * SCHEDULED when they receive a date. Lines are untouched, so no quota
  * re-validation is needed — DRAFT quantities already count as committed
  * (see OPEN_TICKET_STATUSES). All-or-nothing across the batch.
@@ -842,7 +839,6 @@ export async function scheduleJobLoads(
             data: {
               deliveryDate,
               deliveryTime,
-              truck: update.truck?.trim() || null,
               trailer: update.trailer?.trim() || null,
               driver: update.driver?.trim() || null,
               status,
@@ -1314,6 +1310,7 @@ export type DeliveryTicketJobSearchOption = {
   jobNumber: string;
   projectName: string;
   customerName: string;
+  quotes: { id: string; quoteNumber: string }[];
 };
 
 export async function searchJobsForDeliveryTicket(
@@ -1340,6 +1337,11 @@ export async function searchJobsForDeliveryTicket(
         jobNumber: true,
         projectName: true,
         customerName: true,
+        quotes: {
+          where: { status: "WON" },
+          orderBy: { revisionNumber: "desc" },
+          select: { id: true, quoteNumber: true },
+        },
       },
     }),
   );

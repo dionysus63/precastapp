@@ -4,6 +4,7 @@ import { richTextToPlainText } from "@/lib/rich-text";
 import {
   COL_DESC_WIDTH,
   COL_DESC_X,
+  COL_ITEM_NUM_WIDTH,
   COL_ITEM_NUM_X,
   COL_QTY_WIDTH,
   COL_QTY_X,
@@ -23,6 +24,7 @@ import {
 } from "@/lib/quote-pdf-layout";
 
 const CELL_INSET = 4.5;
+const ITEM_NUM_TEXT_WIDTH = COL_ITEM_NUM_WIDTH - CELL_INSET * 2;
 
 export type QuoteDrawLineItem = {
   item: string;
@@ -44,50 +46,54 @@ export function wrapText(
   fontSize: number,
   maxWidth: number,
 ): string[] {
-  const trimmed = text.trim();
-  if (!trimmed) {
+  const normalized = text.trim().replace(/\s+/g, " ");
+  if (!normalized) {
     return [];
   }
 
-  const words = trimmed.split(/\s+/);
   const lines: string[] = [];
-  let currentLine = "";
+  let remaining = normalized;
 
-  for (const word of words) {
-    const candidate = currentLine ? `${currentLine} ${word}` : word;
-    const width = font.widthOfTextAtSize(candidate, fontSize);
-
-    if (width <= maxWidth) {
-      currentLine = candidate;
-      continue;
+  while (remaining) {
+    if (font.widthOfTextAtSize(remaining, fontSize) <= maxWidth) {
+      lines.push(remaining);
+      break;
     }
 
-    if (currentLine) {
-      lines.push(currentLine);
+    let fitEnd = 0;
+    for (let end = 1; end <= remaining.length; end += 1) {
+      if (
+        font.widthOfTextAtSize(remaining.slice(0, end), fontSize) > maxWidth
+      ) {
+        break;
+      }
+      fitEnd = end;
     }
 
-    if (font.widthOfTextAtSize(word, fontSize) <= maxWidth) {
-      currentLine = word;
-      continue;
-    }
+    // maxWidth is always a real cell width, but force progress if a single
+    // glyph is somehow wider than the available space.
+    fitEnd = Math.max(1, fitEnd);
 
-    let chunk = "";
-    for (const char of word) {
-      const nextChunk = `${chunk}${char}`;
-      if (font.widthOfTextAtSize(nextChunk, fontSize) <= maxWidth) {
-        chunk = nextChunk;
-      } else {
-        if (chunk) {
-          lines.push(chunk);
-        }
-        chunk = char;
+    let naturalLineEnd = 0;
+    let naturalNextStart = 0;
+    for (let index = 0; index <= fitEnd && index < remaining.length; index += 1) {
+      const char = remaining[index];
+      if (char === " " && index > 0) {
+        // The space itself is not drawn, so it may sit immediately beyond the
+        // widest fitting prefix.
+        naturalLineEnd = index;
+        naturalNextStart = index + 1;
+      } else if (char === "-" && index + 1 <= fitEnd) {
+        // Keep a hyphen at the end of the preceding line.
+        naturalLineEnd = index + 1;
+        naturalNextStart = index + 1;
       }
     }
-    currentLine = chunk;
-  }
 
-  if (currentLine) {
-    lines.push(currentLine);
+    const lineEnd = naturalLineEnd || fitEnd;
+    const nextStart = naturalLineEnd ? naturalNextStart : fitEnd;
+    lines.push(remaining.slice(0, lineEnd).trimEnd());
+    remaining = remaining.slice(nextStart).trimStart();
   }
 
   return lines;
@@ -149,7 +155,13 @@ export function measureRowHeight(
     layout.fontSize,
     COL_DESC_WIDTH,
   );
-  const lineCount = Math.max(1, descLines.length);
+  const itemLines = wrapText(
+    item.item,
+    font,
+    layout.fontSize,
+    ITEM_NUM_TEXT_WIDTH,
+  );
+  const lineCount = Math.max(1, descLines.length, itemLines.length);
   return (
     lineCount * layout.lineHeight +
     layout.rowPadding +
@@ -380,19 +392,27 @@ export function drawLineItemRow(
     layout.fontSize,
     COL_DESC_WIDTH,
   );
-  const lineCount = Math.max(1, descLines.length);
+  const itemLines = wrapText(
+    item.item,
+    font,
+    layout.fontSize,
+    ITEM_NUM_TEXT_WIDTH,
+  );
+  const lineCount = Math.max(1, descLines.length, itemLines.length);
   const textHeight = lineCount * layout.lineHeight;
   const rowHeight = textHeight + layout.rowPadding + measureSeparatorHeight();
   const firstLineY = topY - layout.lineHeight;
 
-  drawTextAt(
-    page,
-    font,
-    item.item,
-    COL_ITEM_NUM_X,
-    firstLineY,
-    layout.fontSize,
-  );
+  for (let index = 0; index < itemLines.length; index += 1) {
+    drawTextAt(
+      page,
+      font,
+      itemLines[index]!,
+      COL_ITEM_NUM_X,
+      firstLineY - index * layout.lineHeight,
+      layout.fontSize,
+    );
+  }
   drawCenteredInColumn(
     page,
     font,

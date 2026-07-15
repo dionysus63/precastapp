@@ -51,11 +51,11 @@ export type BulkLoadPlannerProps = {
   scheduled: Record<string, number>;
   draftColumns: DraftLoadColumn[];
   existingTickets: ExistingTicketSummary[];
-  truckCapacityLabel: string;
-  truckCapacityLbs: number | null;
+  loadCapacityLabel: string;
+  loadCapacityLbs: number | null;
 };
 
-// Loads are anonymous columns until saved — dates, trucks, and drivers are
+// Loads are anonymous columns until saved — dates, drivers, and trailers are
 // assigned later on the scheduling page. Columns backed by an existing DRAFT
 // ticket carry its identity and concurrency token.
 type LoadDraft = {
@@ -481,8 +481,8 @@ export function BulkLoadPlanner({
   scheduled,
   draftColumns,
   existingTickets,
-  truckCapacityLabel,
-  truckCapacityLbs,
+  loadCapacityLabel,
+  loadCapacityLbs,
 }: BulkLoadPlannerProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -501,7 +501,7 @@ export function BulkLoadPlanner({
     [fulfillment, scheduled, seededRowKeys],
   );
 
-  // Job-level outlook: what's left to deliver and how many truckloads that is.
+  // Job-level outlook: what's left to deliver and how many loads that is.
   const remaining = useMemo(() => {
     let weight = 0;
     let pieces = 0;
@@ -516,7 +516,7 @@ export function BulkLoadPlanner({
       if (group.isDrainRing) {
         if (group.available > 0) hasRingFootage = true;
       } else {
-        // A casting set is several physical pieces on the truck.
+        // A casting set is several physical pieces on the load.
         pieces += group.available * (group.piecesPerSet ?? 1);
       }
     }
@@ -524,12 +524,12 @@ export function BulkLoadPlanner({
   }, [groups]);
 
   const expectedLoads =
-    truckCapacityLbs && truckCapacityLbs > 0 && remaining.weight > 0
-      ? Math.max(1, Math.ceil(remaining.weight / truckCapacityLbs))
+    loadCapacityLbs && loadCapacityLbs > 0 && remaining.weight > 0
+      ? Math.max(1, Math.ceil(remaining.weight / loadCapacityLbs))
       : null;
 
   // Existing drafts open as pre-filled columns; otherwise start with one
-  // column per expected truckload (capped so an unusually heavy job doesn't
+  // column per expected load (capped so an unusually heavy job doesn't
   // open with an unwieldy grid).
   const [loads, setLoads] = useState<LoadDraft[]>(() =>
     draftColumns.length > 0
@@ -1004,8 +1004,8 @@ export function BulkLoadPlanner({
   }
 
   const capacityPct = (weight: number) =>
-    truckCapacityLbs && truckCapacityLbs > 0
-      ? (weight / truckCapacityLbs) * 100
+    loadCapacityLbs && loadCapacityLbs > 0
+      ? (weight / loadCapacityLbs) * 100
       : null;
 
   const loadColumnHeaderClassName = `${tableHeaderCellClassName} w-24 min-w-[5rem] normal-case tracking-normal`;
@@ -1044,7 +1044,7 @@ export function BulkLoadPlanner({
                   {expectedLoads}
                 </p>
                 <p className="text-[11px] text-slate-500">
-                  @ {truckCapacityLabel} per truck · ≈{" "}
+                  Capacity {loadCapacityLabel} · ≈{" "}
                   {formatWeightLb(remaining.weight / expectedLoads)} per load
                 </p>
               </>
@@ -1439,7 +1439,7 @@ export function BulkLoadPlanner({
                   {totalPieces > 0 ? formatQuantity(totalPieces) : "—"}
                 </td>
               </tr>
-              {truckCapacityLbs ? (
+              {loadCapacityLbs ? (
                 <tr>
                   <td className={`${tableCellClassName} sticky left-0 z-[5] w-64 min-w-[16rem] max-w-[16rem] bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500`}>
                     Capacity
@@ -1459,7 +1459,7 @@ export function BulkLoadPlanner({
                         className={`${tableCellClassName} bg-slate-50 align-middle`}
                       >
                         {totals.pieces > 0 ? (
-                          <div title={`${Math.round(pct)}% of ${truckCapacityLabel}`}>
+                          <div title={`${Math.round(pct)}% of ${loadCapacityLabel}`}>
                             <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
                               <div
                                 className={`h-full rounded-full ${barColor}`}
@@ -1614,8 +1614,8 @@ export function BulkLoadPlanner({
             ))}
           </div>
           <p className="mt-2 text-[11px] text-slate-400">
-            Saved loads stay drafts — assign dates, trucks, and drivers on the
-            scheduling page. Existing tickets keep their schedule details.
+            Saved loads stay drafts — assign dates, drivers, and trailers on
+            the scheduling page. Existing tickets keep their schedule details.
           </p>
           <div className="mt-3 flex items-center gap-2">
             <button

@@ -22,7 +22,7 @@ export type ShippingLookupResult =
       point: { lat: number; lng: number };
       matchedAddress: string;
       distanceMiles: number | null;
-      /** Parsed from the truck capacity setting, for estimating load counts. */
+      /** Parsed from the load-capacity setting, for estimating load counts. */
       truckCapacityLbs: number | null;
       zone: {
         id: string;

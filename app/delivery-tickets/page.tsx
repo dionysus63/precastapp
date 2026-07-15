@@ -28,7 +28,6 @@ const DELIVERY_LIST_SELECT = {
   customerName: true,
   deliveryDate: true,
   deliveryTime: true,
-  truck: true,
   driver: true,
   status: true,
   totalItems: true,
@@ -59,7 +58,6 @@ export default async function DeliveryTicketsPage({
   const search = parseStringParam(params.q);
   const statusParam = parseStringParam(params.status);
   const driverParam = parseStringParam(params.driver);
-  const truckParam = parseStringParam(params.truck);
   const jobParam = parseStringParam(params.job);
   const dateParam = parseStringParam(params.date);
   const requestedPage = parsePageParam(params.page);
@@ -76,7 +74,6 @@ export default async function DeliveryTicketsPage({
         { jobNumber: { contains: search, mode: "insensitive" } },
         { customerName: { contains: search, mode: "insensitive" } },
         { projectName: { contains: search, mode: "insensitive" } },
-        { truck: { contains: search, mode: "insensitive" } },
         { driver: { contains: search, mode: "insensitive" } },
       ],
     });
@@ -90,9 +87,6 @@ export default async function DeliveryTicketsPage({
 
   if (driverParam) {
     and.push({ driver: driverParam });
-  }
-  if (truckParam) {
-    and.push({ truck: truckParam });
   }
   if (jobParam) {
     and.push({ jobNumber: jobParam });
@@ -170,7 +164,6 @@ export default async function DeliveryTicketsPage({
 
   const filterOptions = buildDeliveryFilterOptions({
     drivers: settings.drivers,
-    trucks: settings.trucks,
     jobNumbers: jobNumberRows
       .map((row) => row.jobNumber)
       .filter((jobNumber): jobNumber is string => Boolean(jobNumber)),
@@ -219,7 +212,6 @@ export default async function DeliveryTicketsPage({
             search,
             status: statusParam,
             driver: driverParam,
-            truck: truckParam,
             job: jobParam,
             date: dateParam,
           }}

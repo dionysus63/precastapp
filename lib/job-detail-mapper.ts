@@ -533,7 +533,10 @@ export function buildJobOverview(
   const plural = (count: number, noun: string) =>
     `${count} ${noun}${count === 1 ? "" : "s"}`;
 
-  const needSubmittal = structures.filter((s) => s.needsSubmittal).length;
+  const needSubmittal = structures.filter(
+    (structure) =>
+      structure.needsSubmittal && structure.status === "NOT_SUBMITTED",
+  ).length;
   if (needSubmittal > 0) {
     attentionItems.push({
       key: "submittals",

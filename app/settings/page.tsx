@@ -24,7 +24,7 @@ const settingSections = [
   {
     href: "/settings/operations",
     title: "Fleet & Crew",
-    description: "Estimators, trucks, drivers, trailers, and capacity defaults.",
+    description: "Estimators, drivers, trailers, and load-capacity defaults.",
   },
   {
     href: "/settings/system",

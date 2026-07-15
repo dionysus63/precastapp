@@ -1,6 +1,14 @@
 import { readFile } from "fs/promises";
 import path from "path";
-import { PDFDocument, PDFTextField, rgb, StandardFonts } from "pdf-lib";
+import {
+  PDFDocument,
+  PDFTextField,
+  rgb,
+  StandardFonts,
+  type PDFFont,
+  type PDFForm,
+  type PDFPage,
+} from "pdf-lib";
 import {
   buildDeliveryTicketFormData,
   computeTotalPieces,
@@ -15,14 +23,18 @@ import {
   paginateLineItems,
   type LineItemPageSlice,
 } from "@/lib/delivery-ticket-pdf-line-items";
-import {
-  REVISION_LABEL_FONT_SIZE,
-  REVISION_LABEL_X,
-  REVISION_LABEL_Y,
-  TEXT_COLOR,
-} from "@/lib/delivery-ticket-pdf-layout";
 
 const DEFAULT_COPY_COUNT = 3;
+const TERMS_FONT_SIZE = 9;
+const MIN_TERMS_FONT_SIZE = 4.5;
+const TERMS_FIELD_PADDING = 4;
+const DRIVER_LABEL_X = 166.4;
+const DRIVER_LABEL_Y = 561.9;
+const DRIVER_LABEL_FONT_SIZE = 8;
+const DRIVER_LABEL_COVER_X = 153.5;
+const DRIVER_LABEL_COVER_Y = 559.75;
+const DRIVER_LABEL_COVER_WIDTH = 49;
+const DRIVER_LABEL_COVER_HEIGHT = 9.75;
 
 export function getDeliveryTicketTemplatePath(): string {
   return path.join(process.cwd(), "assets", "templates", "delivery-ticket-template.pdf");
@@ -49,9 +61,37 @@ export async function listDeliveryTicketFormFields(): Promise<string[]> {
   return doc.getForm().getFields().map((field) => field.getName());
 }
 
+function fitTermsField(form: PDFForm, font: PDFFont): void {
+  let field: PDFTextField;
+  try {
+    field = form.getTextField("Terms");
+  } catch {
+    return;
+  }
+
+  const value = field.getText()?.trim();
+  const width = field.acroField.getWidgets()[0]?.getRectangle().width ?? 0;
+  const usableWidth = width - TERMS_FIELD_PADDING;
+  if (!value || usableWidth <= 0) {
+    return;
+  }
+
+  let size = TERMS_FONT_SIZE;
+  while (
+    size > MIN_TERMS_FONT_SIZE &&
+    font.widthOfTextAtSize(value, size) > usableWidth
+  ) {
+    size -= 0.5;
+  }
+  if (size !== TERMS_FONT_SIZE) {
+    field.setFontSize(size);
+  }
+}
+
 function fillAcroFormFields(
   doc: PDFDocument,
   data: Record<string, string>,
+  font: PDFFont,
 ): void {
   const form = doc.getForm();
 
@@ -69,7 +109,30 @@ function fillAcroFormFields(
     field.setText(value);
   }
 
+  fitTermsField(form, font);
   form.flatten();
+}
+
+/**
+ * The source template has a static "Driver/Truck" caption that is not part of
+ * the form field. Cover that artwork after flattening and draw the ticket-only
+ * "Driver" caption centered in the same header cell.
+ */
+function redrawDriverLabel(page: PDFPage, font: PDFFont): void {
+  page.drawRectangle({
+    x: DRIVER_LABEL_COVER_X,
+    y: DRIVER_LABEL_COVER_Y,
+    width: DRIVER_LABEL_COVER_WIDTH,
+    height: DRIVER_LABEL_COVER_HEIGHT,
+    color: rgb(1, 1, 1),
+  });
+  page.drawText("Driver", {
+    x: DRIVER_LABEL_X,
+    y: DRIVER_LABEL_Y,
+    size: DRIVER_LABEL_FONT_SIZE,
+    font,
+    color: rgb(0, 0, 0),
+  });
 }
 
 async function buildContentPageBytes(
@@ -79,21 +142,11 @@ async function buildContentPageBytes(
   totalPieces: string,
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.load(templateBytes);
-  fillAcroFormFields(doc, formData);
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  fillAcroFormFields(doc, formData, font);
 
   const page = doc.getPage(0);
-  const font = await doc.embedFont(StandardFonts.Helvetica);
-
-  const revisionLabel = formData["Quote Number"]?.trim();
-  if (revisionLabel) {
-    page.drawText(revisionLabel, {
-      x: REVISION_LABEL_X,
-      y: REVISION_LABEL_Y,
-      size: REVISION_LABEL_FONT_SIZE,
-      font,
-      color: rgb(TEXT_COLOR.r, TEXT_COLOR.g, TEXT_COLOR.b),
-    });
-  }
+  redrawDriverLabel(page, font);
 
   drawLineItemsOnPage(page, font, slice, totalPieces);
 

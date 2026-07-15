@@ -40,7 +40,7 @@ export default async function ScheduleLoadsPage({
     return (
       <DashboardShell
         title="Schedule Loads"
-        subtitle="Assign delivery dates and trucks to a job's created loads."
+        subtitle="Assign delivery dates, drivers, and trailers to a job's created loads."
       >
         <EmptyState message="Open this page from the Delivery Hub's unscheduled-loads panel or a job's Deliveries tab so it knows which job to schedule." />
       </DashboardShell>
@@ -56,7 +56,7 @@ export default async function ScheduleLoadsPage({
     return (
       <DashboardShell
         title="Schedule Loads"
-        subtitle="Assign delivery dates and trucks to a job's created loads."
+        subtitle="Assign delivery dates, drivers, and trailers to a job's created loads."
       >
         <EmptyState message="Job not found." />
       </DashboardShell>
@@ -78,7 +78,6 @@ export default async function ScheduleLoadsPage({
     totalWeight: ticket.totalWeight != null ? Number(ticket.totalWeight) : null,
     deliveryDate: ticket.deliveryDate ? formatDateIso(ticket.deliveryDate) : "",
     deliveryTime: ticket.deliveryTime ?? "",
-    truck: ticket.truck ?? "",
     trailer: ticket.trailer ?? "",
     driver: ticket.driver ?? "",
     editable: EDITABLE_STATUSES.has(ticket.status),
@@ -121,7 +120,6 @@ export default async function ScheduleLoadsPage({
             jobId={job.id}
             rows={rows}
             fleetOptions={{
-              trucks: settings.trucks,
               drivers: settings.drivers,
               trailers: settings.trailers,
             }}

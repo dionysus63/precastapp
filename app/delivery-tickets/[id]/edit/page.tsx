@@ -84,10 +84,9 @@ export default async function EditDeliveryTicketPage({
           jobs={jobs}
           products={products}
           fleetOptions={{
-            trucks: settings.trucks,
             drivers: settings.drivers,
             trailers: settings.trailers,
-            truckCapacityLabel: settings.truckCapacityLabel,
+            loadCapacityLabel: settings.truckCapacityLabel,
           }}
           defaultValues={{
             ticketType: ticket.ticketType,
@@ -105,7 +104,6 @@ export default async function EditDeliveryTicketPage({
               ? formatDateIso(ticket.deliveryDate)
               : null,
             deliveryTime: ticket.deliveryTime,
-            truck: ticket.truck,
             driver: ticket.driver,
             trailer: ticket.trailer,
             lines: defaultLines,

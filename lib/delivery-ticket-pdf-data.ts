@@ -19,8 +19,20 @@ export const DELIVERY_TICKET_PDF_INCLUDE = {
       zip: true,
     },
   },
+  job: {
+    select: {
+      projectAddress: true,
+      city: true,
+      state: true,
+      zip: true,
+    },
+  },
   quote: {
-    select: { customerPO: true, revisionNumber: true },
+    select: {
+      customerPO: true,
+      termsAndConditions: true,
+      projectAddress: true,
+    },
   },
 } as const;
 
@@ -44,7 +56,6 @@ export type DeliveryTicketPdfView = {
   siteContactPhone: string;
   deliveryDate: string;
   driver: string;
-  truck: string;
   trailer: string;
   customerPo: string;
   memo: string;
@@ -62,6 +73,13 @@ type DbCustomer = {
   zip: string | null;
 } | null;
 
+type DbJob = {
+  projectAddress: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+} | null;
+
 export type DbDeliveryTicketForPdf = {
   ticketNumber: string;
   customerName: string;
@@ -72,15 +90,19 @@ export type DbDeliveryTicketForPdf = {
   jobNumber: string | null;
   deliveryDate: Date | null;
   driver: string | null;
-  truck: string | null;
   trailer: string | null;
   customerNotes: string | null;
   siteInstructions: string | null;
   totalItems: number | null;
   totalWeight: { toString(): string } | null;
   customer: DbCustomer;
+  job: DbJob;
   quoteNumber: string | null;
-  quote: { customerPO: string | null; revisionNumber: number } | null;
+  quote: {
+    customerPO: string | null;
+    termsAndConditions: string | null;
+    projectAddress: string | null;
+  } | null;
   lineItems: {
     itemCode: string;
     description: string | null;
@@ -155,6 +177,27 @@ function splitMultilineAddress(value: string | null | undefined): string[] {
     .filter(Boolean);
 }
 
+function resolveDeliveryAddressLines(ticket: DbDeliveryTicketForPdf): string[] {
+  const ticketAddress = splitMultilineAddress(ticket.deliveryAddress);
+  if (ticketAddress.length > 0) {
+    return ticketAddress;
+  }
+
+  if (ticket.job) {
+    const jobAddress = formatPostalAddressLines(
+      ticket.job.projectAddress,
+      ticket.job.city,
+      ticket.job.state,
+      ticket.job.zip,
+    );
+    if (jobAddress.length > 0) {
+      return jobAddress;
+    }
+  }
+
+  return splitMultilineAddress(ticket.quote?.projectAddress);
+}
+
 function resolveStructure(line: DbDeliveryTicketForPdf["lineItems"][number]): string {
   const structureNumber = line.jobStructure?.structureNumber?.trim();
   if (structureNumber) {
@@ -176,15 +219,6 @@ function blankOr(value: string | null | undefined): string {
   return value?.trim() ?? "";
 }
 
-function joinDriverTruck(driver: string | null, truck: string | null): string {
-  const driverVal = driver?.trim() ?? "";
-  const truckVal = truck?.trim() ?? "";
-  if (driverVal && truckVal) {
-    return `${driverVal} / ${truckVal}`;
-  }
-  return driverVal || truckVal;
-}
-
 function formatQuantity(value: { toString(): string }): string {
   const amount = Number.parseFloat(value.toString());
   if (!Number.isFinite(amount)) {
@@ -196,16 +230,22 @@ function formatQuantity(value: { toString(): string }): string {
   return amount.toLocaleString("en-US", { maximumFractionDigits: 4 });
 }
 
+function removeTrailingRingHeightSuffix(value: string): string {
+  return value
+    .replace(/\s*\(\s*\d+(?:\.\d+)?\s*['’′]\s+ring\s*\)\s*$/i, "")
+    .trimEnd();
+}
+
 function resolveLineDescription(
   line: DbDeliveryTicketForPdf["lineItems"][number],
 ): string {
   const description = line.description?.trim();
   if (description) {
-    return description;
+    return removeTrailingRingHeightSuffix(description);
   }
   const structureDescription = line.jobStructure?.description?.trim();
   if (structureDescription) {
-    return structureDescription;
+    return removeTrailingRingHeightSuffix(structureDescription);
   }
   return "";
 }
@@ -263,42 +303,13 @@ function resolveCopyName(
   return options.copyTitles[copyIndex - 1]?.trim() ?? "";
 }
 
-export function formatDeliveryTicketRevisionLabel(
-  revisionNumber: number | null | undefined,
-): string {
-  if (revisionNumber == null || revisionNumber <= 0) {
-    return "";
-  }
-  return `Rev ${revisionNumber}`;
-}
-
-function parseRevisionFromQuoteNumber(quoteNumber: string | null | undefined): number | null {
-  const trimmed = quoteNumber?.trim();
-  if (!trimmed) {
-    return null;
-  }
-  const match = trimmed.match(/-R(\d+)(?:-\d+)?$/);
-  if (!match) {
-    return null;
-  }
-  const revision = Number.parseInt(match[1]!, 10);
-  return Number.isFinite(revision) ? revision : null;
-}
-
-function resolveDeliveryTicketRevisionLabel(ticket: DbDeliveryTicketForPdf): string {
-  if (ticket.quote != null) {
-    return formatDeliveryTicketRevisionLabel(ticket.quote.revisionNumber);
-  }
-  return formatDeliveryTicketRevisionLabel(parseRevisionFromQuoteNumber(ticket.quoteNumber));
-}
-
 export function buildDeliveryTicketFormData(
   ticket: DbDeliveryTicketForPdf,
   copyIndex: number,
   options: DeliveryTicketPdfFillOptions,
   contentPage: DeliveryTicketContentPage = { number: 1, count: 1 },
 ): Record<string, string> {
-  const deliveryAddressLines = splitMultilineAddress(ticket.deliveryAddress);
+  const deliveryAddressLines = resolveDeliveryAddressLines(ticket);
 
   return {
     "Delivery Ticket Number": blankOr(ticket.ticketNumber),
@@ -312,12 +323,13 @@ export function buildDeliveryTicketFormData(
     "Delivery Address 1": deliveryAddressLines[0] ?? "",
     "Delivery Address 2": deliveryAddressLines[1] ?? "",
     "Ship Date": formatDateForPdf(ticket.deliveryDate),
-    "Driver/Truck": joinDriverTruck(ticket.driver, ticket.truck),
+    // The template's internal AcroForm key remains "Driver/Truck" for
+    // compatibility, but delivery tickets display and populate Driver only.
+    "Driver/Truck": blankOr(ticket.driver),
     Trailer: blankOr(ticket.trailer),
     "Purchase Order Number": blankOr(ticket.quote?.customerPO),
-    "Quote Number": resolveDeliveryTicketRevisionLabel(ticket),
     Notes: blankOr(ticket.siteInstructions),
-    Terms: "",
+    Terms: blankOr(ticket.quote?.termsAndConditions),
   };
 }
 
@@ -333,7 +345,7 @@ export function mapDbDeliveryTicketToPdfView(
       )
     : [];
 
-  const deliveryAddressLines = splitMultilineAddress(ticket.deliveryAddress);
+  const deliveryAddressLines = resolveDeliveryAddressLines(ticket);
   const totalPieces = computeTotalPieces(ticket) || "—";
 
   return {
@@ -347,7 +359,6 @@ export function mapDbDeliveryTicketToPdfView(
     siteContactPhone: displayOrDash(ticket.siteContactPhone),
     deliveryDate: formatDate(ticket.deliveryDate),
     driver: displayOrDash(ticket.driver),
-    truck: displayOrDash(ticket.truck),
     trailer: displayOrDash(ticket.trailer),
     customerPo: ticket.quote?.customerPO?.trim() || "—",
     memo: ticket.customerNotes?.trim() || "—",

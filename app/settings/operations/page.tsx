@@ -51,15 +51,6 @@ export default async function OperationsSettingsPage({
               className={settingsTextareaClassName}
             />
           </SettingsField>
-          <SettingsField label="Trucks">
-            <textarea
-              name="trucks"
-              rows={4}
-              defaultValue={formatLinesList(settings.trucks)}
-              required
-              className={settingsTextareaClassName}
-            />
-          </SettingsField>
           <SettingsField label="Drivers">
             <textarea
               name="drivers"
@@ -78,9 +69,9 @@ export default async function OperationsSettingsPage({
               className={settingsTextareaClassName}
             />
           </SettingsField>
-          <SettingsField label="Default truck capacity label">
+          <SettingsField label="Default load capacity">
             <input
-              name="truckCapacityLabel"
+              name="loadCapacityLabel"
               defaultValue={settings.truckCapacityLabel}
               required
               className={settingsInputClassName}

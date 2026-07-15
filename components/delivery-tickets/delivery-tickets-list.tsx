@@ -31,7 +31,6 @@ type DeliveryTicketsListFilters = {
   search: string;
   status: string;
   driver: string;
-  truck: string;
   job: string;
   date: string;
 };
@@ -59,7 +58,6 @@ const TicketsTable = memo(function TicketsTable({
             <th className={tableHeaderCellClassName}>Customer</th>
             <th className={tableHeaderCellClassName}>Job</th>
             <th className={tableHeaderCellClassName}>Delivery Date</th>
-            <th className={tableHeaderCellClassName}>Truck</th>
             <th className={tableHeaderCellClassName}>Driver</th>
             <th className={tableHeaderCellClassName}>Status</th>
             <th className={tableHeaderCellClassName}>Items</th>
@@ -71,7 +69,7 @@ const TicketsTable = memo(function TicketsTable({
           {tickets.length === 0 ? (
             <tr>
               <td
-                colSpan={10}
+                colSpan={9}
                 className={`${tableCellBordersClassName} px-4 py-8 text-center text-sm text-slate-500`}
               >
                 No delivery tickets match your search or filters.
@@ -109,7 +107,6 @@ const TicketsTable = memo(function TicketsTable({
                 <td className={`${tableCellClassName} whitespace-nowrap text-slate-600`}>
                   {ticket.deliveryDate}
                 </td>
-                <td className={`${tableCellClassName} text-slate-600`}>{ticket.truck}</td>
                 <td className={`${tableCellClassName} text-slate-600`}>{ticket.driver}</td>
                 <td className={tableCellClassName}>
                   <StatusBadge
@@ -155,7 +152,7 @@ export function DeliveryTicketsList({
       <div className="flex flex-col gap-3 xl:flex-row xl:flex-wrap">
         <input
           type="search"
-          placeholder="Search ticket number, job number, customer, project, truck, or driver..."
+          placeholder="Search ticket number, job number, customer, project, or driver..."
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm placeholder:text-slate-400 xl:max-w-sm"
@@ -191,17 +188,6 @@ export function DeliveryTicketsList({
           {filterOptions.drivers.map((driver) => (
             <option key={driver} value={driver}>
               Driver: {driver}
-            </option>
-          ))}
-        </select>
-        <select
-          value={filters.truck || "All"}
-          onChange={(event) => setParams({ truck: event.target.value })}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
-        >
-          {filterOptions.trucks.map((truck) => (
-            <option key={truck} value={truck}>
-              Truck: {truck}
             </option>
           ))}
         </select>

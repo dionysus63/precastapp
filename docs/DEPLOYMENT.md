@@ -212,7 +212,7 @@ In the Precast Ops desktop app or a one-time browser session (admin user):
    - Quote PDF fallback directory (local on server if needed)
    - Click **Test write access** for each path
 
-2. **Settings → Company / System** — logo, tax rate, estimators, trucks, etc.
+2. **Settings → Company / System** — logo, tax rate, estimators, drivers, etc.
 
 3. **Settings → Users & Access** — add all staff with roles/permissions.
 

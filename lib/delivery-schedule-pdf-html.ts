@@ -127,9 +127,9 @@ export async function buildDeliverySchedulePdfHtml(
   );
 
   const internalHeaders = internal
-    ? `<th>Truck</th><th>Trailer</th><th>Driver</th><th>Status</th>`
+    ? `<th>Trailer</th><th>Driver</th><th>Status</th>`
     : "";
-  const scheduledColumnCount = internal ? 10 : 6;
+  const scheduledColumnCount = internal ? 9 : 6;
 
   const scheduledRows =
     dated.length === 0
@@ -139,7 +139,6 @@ export async function buildDeliverySchedulePdfHtml(
             const delivered = ticket.status === "DELIVERED";
             const internalCells = internal
               ? `
-          <td>${escapeHtml(ticket.truck ?? "—")}</td>
           <td>${escapeHtml(ticket.trailer ?? "—")}</td>
           <td>${escapeHtml(ticket.driver ?? "—")}</td>
           <td>${escapeHtml(deliveryTicketStatusLabels[ticket.status])}</td>
@@ -172,7 +171,7 @@ export async function buildDeliverySchedulePdfHtml(
       <tr class="totals-row">
         <td colspan="4">${scheduledTotals.loads} load${scheduledTotals.loads === 1 ? "" : "s"}</td>
         ${totalsCells(scheduledTotals)}
-        ${internal ? `<td colspan="4"></td>` : ""}
+        ${internal ? `<td colspan="3"></td>` : ""}
       </tr>
     </tfoot>
   `;

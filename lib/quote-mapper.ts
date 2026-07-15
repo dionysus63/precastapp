@@ -279,10 +279,6 @@ function deriveSupersededBy(
   quote: QuoteDetailRecord,
   family: QuoteRevisionSummary[],
 ) {
-  if (quote.status !== "REVISED") {
-    return null;
-  }
-
   const successor = family
     .filter((entry) => entry.revisionNumber > quote.revisionNumber)
     .sort((a, b) => a.revisionNumber - b.revisionNumber)[0];
@@ -549,7 +545,7 @@ export function mapQuoteToDetailView(
       totalYards: formatYards(quote.totalYards),
     },
     revisionHistory: mapRevisionHistory(quote, revisionFamily),
-    canRevise: status === "SENT" || status === "WON",
+    canRevise: (status === "SENT" || status === "WON") && !supersededBy,
     canEdit: canEditQuote(status, supersededBy),
     canSend: canSendQuote(status, supersededBy),
     // Won quotes anchor job structures/progress — revise or mark Lost instead.

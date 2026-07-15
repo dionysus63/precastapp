@@ -67,13 +67,6 @@ function renderDeliveryTicketPage(
   pageNumber: number,
   footerText: string,
 ): string {
-  const driverTruck =
-    ticket.driver !== "—" && ticket.truck !== "—"
-      ? `${ticket.driver} / ${ticket.truck}`
-      : ticket.driver !== "—"
-        ? ticket.driver
-        : ticket.truck;
-
   return `
     <section class="page${pageNumber < PAGE_COUNT ? " page-break" : ""}">
       <div class="page-body">
@@ -114,7 +107,7 @@ function renderDeliveryTicketPage(
         <thead>
           <tr>
             <th>Ship Date</th>
-            <th>Driver/Truck</th>
+            <th>Driver</th>
             <th>Trailer</th>
             <th>Page</th>
           </tr>
@@ -122,7 +115,7 @@ function renderDeliveryTicketPage(
         <tbody>
           <tr>
             <td>${escapeHtml(ticket.deliveryDate)}</td>
-            <td>${escapeHtml(driverTruck)}</td>
+            <td>${escapeHtml(ticket.driver)}</td>
             <td>${escapeHtml(ticket.trailer)}</td>
             <td>${pageNumber} of ${PAGE_COUNT}</td>
           </tr>

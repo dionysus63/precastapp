@@ -44,11 +44,6 @@ export const COL_DESC_WIDTH = TABLE_RIGHT_X - COL_DESC_X;
 
 export const TEXT_COLOR = { r: 0, g: 0, b: 0 } as const;
 
-/** Top-right revision label position (aligned with quote template M_Quote_No). */
-export const REVISION_LABEL_X = 434;
-export const REVISION_LABEL_Y = 673;
-export const REVISION_LABEL_FONT_SIZE = 10;
-
 export type DeliveryTicketTableLayout = {
   tableTopY: number;
   tableBottomY: number;

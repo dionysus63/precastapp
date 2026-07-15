@@ -1236,7 +1236,9 @@ async function buildFulfillmentFromContext(
         jobStructureId: line.jobStructureId,
         jobStructureStatus: null,
         productId: line.productId,
-        currentStock: line.product?.currentStockQuantity ?? null,
+        currentStock: line.product?.trackInventory
+          ? line.product.currentStockQuantity
+          : null,
         isDrainRing: false,
         ringDiameterFeet: null,
         poolHeightFeet: null,
@@ -1296,7 +1298,9 @@ async function buildFulfillmentFromContext(
       jobStructureId: line.jobStructureId,
       jobStructureStatus: line.jobStructure?.status ?? null,
       productId: line.productId,
-      currentStock: line.product?.currentStockQuantity ?? null,
+      currentStock: line.product?.trackInventory
+        ? line.product.currentStockQuantity
+        : null,
       isDrainRing: false,
       ringDiameterFeet: null,
       poolHeightFeet: null,

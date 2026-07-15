@@ -1,13 +1,26 @@
 const ALLOWED_TAGS = new Set(["b", "strong", "i", "em", "u", "br"]);
 
 function decodeHtmlEntities(value: string): string {
+  const decodeCodePoint = (match: string, encoded: string, radix: number) => {
+    const codePoint = Number.parseInt(encoded, radix);
+    return Number.isInteger(codePoint) && codePoint >= 0 && codePoint <= 0x10ffff
+      ? String.fromCodePoint(codePoint)
+      : match;
+  };
+
   return value
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'");
+    .replace(/&(apos|#39);/gi, "'")
+    .replace(/&#(\d+);/g, (match, decimal: string) =>
+      decodeCodePoint(match, decimal, 10),
+    )
+    .replace(/&#x([0-9a-f]+);/gi, (match, hex: string) =>
+      decodeCodePoint(match, hex, 16),
+    );
 }
 
 export function escapeHtml(value: string): string {
@@ -99,7 +112,9 @@ export function richTextToPlainText(value: string): string {
   }
 
   if (!isRichText(trimmed)) {
-    return trimmed.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    return decodeHtmlEntities(trimmed)
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n");
   }
 
   const withBreaks = trimmed

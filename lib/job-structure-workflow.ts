@@ -6,7 +6,7 @@ import type {
 } from "@/app/generated/prisma/client";
 import { structureNeedsDrillSheet } from "@/components/structures/structure-utils";
 
-const STRUCTURE_LINE_TYPES: QuoteLineType[] = [
+export const STRUCTURE_LINE_TYPES: QuoteLineType[] = [
   "CONFIGURABLE_STRUCTURE",
   "CUSTOM_STRUCTURE",
 ];
@@ -28,7 +28,7 @@ type StructureLinkClient = Pick<
  * looking for an ancestor line that still holds a job structure. Capped so a
  * corrupted lineage cycle can't spin forever.
  */
-async function findAncestorLineWithStructure(
+export async function findAncestorLineWithStructure(
   client: StructureLinkClient,
   previousLineItemId: string | null,
 ): Promise<{ lineId: string; jobStructureId: string } | null> {

@@ -37,7 +37,6 @@ export type ScheduleTicketRow = {
   totalWeight: number | null;
   deliveryDate: string;
   deliveryTime: string;
-  truck: string;
   trailer: string;
   driver: string;
   editable: boolean;
@@ -47,7 +46,6 @@ export type ScheduleTicketRow = {
 type ScheduleFields = {
   deliveryDate: string;
   deliveryTime: string;
-  truck: string;
   trailer: string;
   driver: string;
 };
@@ -56,7 +54,6 @@ type ScheduleLoadsEditorProps = {
   jobId: string;
   rows: ScheduleTicketRow[];
   fleetOptions: {
-    trucks: string[];
     drivers: string[];
     trailers: string[];
   };
@@ -65,7 +62,6 @@ type ScheduleLoadsEditorProps = {
 const SCHEDULE_FIELD_KEYS: (keyof ScheduleFields)[] = [
   "deliveryDate",
   "deliveryTime",
-  "truck",
   "trailer",
   "driver",
 ];
@@ -74,7 +70,6 @@ function pickFields(row: ScheduleTicketRow): ScheduleFields {
   return {
     deliveryDate: row.deliveryDate,
     deliveryTime: row.deliveryTime,
-    truck: row.truck,
     trailer: row.trailer,
     driver: row.driver,
   };
@@ -137,11 +132,11 @@ export function ScheduleLoadsEditor({
   }
 
   // Excel-style navigation over the editable schedule cells, same pattern as
-  // the app's other grids; columns 0-4 = date, time, truck, trailer, driver.
+  // the app's other grids; columns 0-3 = date, time, trailer, driver.
   const tableRef = useRef<HTMLTableElement>(null);
   const navRowCountRef = useRef(0);
   navRowCountRef.current = editableRows.length;
-  const NAV_COLUMN_COUNT = 5;
+  const NAV_COLUMN_COUNT = 4;
 
   const handleCellKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLElement>, rowIndex: number, colIndex: number) => {
@@ -257,7 +252,6 @@ export function ScheduleLoadsEditor({
         ticketId: id,
         deliveryDate: current.deliveryDate.trim() || null,
         deliveryTime: current.deliveryTime.trim() || null,
-        truck: current.truck.trim() || null,
         trailer: current.trailer.trim() || null,
         driver: current.driver.trim() || null,
         expectedUpdatedAt: row.expectedUpdatedAt,
@@ -314,7 +308,6 @@ export function ScheduleLoadsEditor({
               <th className={`${tableHeaderCellClassName} text-right`}>Weight</th>
               <th className={tableHeaderCellClassName}>Date</th>
               <th className={tableHeaderCellClassName}>Time</th>
-              <th className={tableHeaderCellClassName}>Truck</th>
               <th className={tableHeaderCellClassName}>Trailer</th>
               <th className={tableHeaderCellClassName}>Driver</th>
               <th className={tableHeaderCellClassName}>Status</th>
@@ -379,31 +372,10 @@ export function ScheduleLoadsEditor({
                       </td>
                       <td className={tableGridCellClassName}>
                         <select
-                          value={current.truck}
+                          value={current.trailer}
                           data-sched-row={navRow}
                           data-sched-col={2}
                           onKeyDown={(event) => handleCellKeyDown(event, navRow, 2)}
-                          onChange={(event) =>
-                            setField(row.id, "truck", event.target.value)
-                          }
-                          className={`${inputClassName} cursor-pointer`}
-                        >
-                          <option value="">—</option>
-                          {selectOptions(fleetOptions.trucks, current.truck).map(
-                            (truck) => (
-                              <option key={truck} value={truck}>
-                                {truck}
-                              </option>
-                            ),
-                          )}
-                        </select>
-                      </td>
-                      <td className={tableGridCellClassName}>
-                        <select
-                          value={current.trailer}
-                          data-sched-row={navRow}
-                          data-sched-col={3}
-                          onKeyDown={(event) => handleCellKeyDown(event, navRow, 3)}
                           onChange={(event) =>
                             setField(row.id, "trailer", event.target.value)
                           }
@@ -423,8 +395,8 @@ export function ScheduleLoadsEditor({
                         <select
                           value={current.driver}
                           data-sched-row={navRow}
-                          data-sched-col={4}
-                          onKeyDown={(event) => handleCellKeyDown(event, navRow, 4)}
+                          data-sched-col={3}
+                          onKeyDown={(event) => handleCellKeyDown(event, navRow, 3)}
                           onChange={(event) =>
                             setField(row.id, "driver", event.target.value)
                           }
@@ -448,9 +420,6 @@ export function ScheduleLoadsEditor({
                       </td>
                       <td className={`${tableCellClassName} text-slate-500`}>
                         {row.deliveryTime || "—"}
-                      </td>
-                      <td className={`${tableCellClassName} text-slate-500`}>
-                        {row.truck || "—"}
                       </td>
                       <td className={`${tableCellClassName} text-slate-500`}>
                         {row.trailer || "—"}

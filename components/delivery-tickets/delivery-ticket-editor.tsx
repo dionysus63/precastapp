@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useEffect, useMemo, useState, useTransition } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import {
   createDeliveryTicket,
   searchCustomersForWalkInTicket,
@@ -11,6 +18,7 @@ import {
   unsplitStructure,
   updateDeliveryTicket,
   type DeliveryTicketLineInput,
+  type DeliveryTicketJobSearchOption,
   type SaveDeliveryTicketInput,
 } from "@/app/delivery-tickets/actions";
 import { getQuoteFulfillmentForTicket } from "@/app/operations/actions";
@@ -18,31 +26,32 @@ import { FormTypeahead } from "@/components/common/form-typeahead";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning";
 import { RichTextContent } from "@/components/ui/rich-text-content";
-import { StatusBadge } from "@/components/dashboard/status-badge";
 import type { QuoteLineFulfillment } from "@/lib/delivery-fulfillment";
 import { formatUsd, formatWeightLb } from "@/lib/format";
+import {
+  getDeliveryLinePrimaryLabel,
+  getDeliveryLineSecondaryLabel,
+  isPositiveDeliveryQuantity,
+  shouldShowDeliveryLineDescription,
+} from "@/components/delivery-tickets/delivery-ticket-utils";
+import {
+  buildDrainRingDiameterGroups,
+  drainRingQuantityKey,
+} from "@/components/delivery-tickets/drain-ring-matrix-utils";
+import { DrainRingMatrixRows } from "@/components/delivery-tickets/drain-ring-matrix";
 import {
   castingAssemblyEditorKey,
   formatCastingPieceRoleLabel,
   type CastingPieceRole,
 } from "@/lib/casting-utils";
-import { formatDrainRingStyleLabel } from "@/lib/drain-ring-utils";
-
 import {
   tableBodyClassName,
   tableCellClassName,
   tableClassName,
-  tableFlushWrapperClassName,
   tableHeaderCellClassName,
   tableInlineInputClassName,
 } from "@/lib/table-styles";
-type JobOption = {
-  id: string;
-  jobNumber: string;
-  projectName: string;
-  customerName: string;
-  quotes: { id: string; quoteNumber: string }[];
-};
+type JobOption = DeliveryTicketJobSearchOption;
 
 type ProductOption = {
   id: string;
@@ -85,10 +94,9 @@ export type DeliveryTicketEditorProps = {
   jobs: JobOption[];
   products?: ProductOption[];
   fleetOptions?: {
-    trucks: string[];
     drivers: string[];
     trailers: string[];
-    truckCapacityLabel: string;
+    loadCapacityLabel: string;
   };
   defaultValues?: Partial<
     Omit<SaveDeliveryTicketInput, "lines">
@@ -100,9 +108,19 @@ export type DeliveryTicketEditorProps = {
 const inputClass =
   "mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm";
 
+const compactInputClass =
+  "block h-8 w-full rounded-md border border-slate-300 bg-white px-2 text-xs text-slate-900 shadow-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100";
+
+const compactLabelClass =
+  "mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500";
+
+const loadQuantityInputClass =
+  "h-8 rounded-md border border-slate-400 bg-white px-2 text-right text-xs font-semibold text-slate-900 shadow-sm outline-none placeholder:font-normal placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400";
+
 const inlineTableInputClass = tableInlineInputClassName;
 
 const WALK_IN_RESULT_LIMIT = 50;
+const DASHBOARD_HEADER_HEIGHT = 74;
 
 function todayDateInputValue(): string {
   const date = new Date();
@@ -242,6 +260,8 @@ export function DeliveryTicketEditor({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [stickyRegionHeight, setStickyRegionHeight] = useState(0);
+  const stickyRegionRef = useRef<HTMLDivElement>(null);
   useUnsavedChangesWarning(isDirty);
 
   function markDirty() {
@@ -278,6 +298,7 @@ export function DeliveryTicketEditor({
     null,
   );
   const [jobId, setJobId] = useState(defaultValues?.jobId ?? "");
+  const [searchedJob, setSearchedJob] = useState<JobOption | null>(null);
   const [quoteId, setQuoteId] = useState(() =>
     initialQuoteId(defaultValues?.jobId ?? "", defaultValues?.quoteId, jobs),
   );
@@ -289,27 +310,19 @@ export function DeliveryTicketEditor({
   const [selectedLineIds, setSelectedLineIds] = useState<Set<string>>(
     () => new Set(defaultValues?.lines?.map((l) => l.key) ?? []),
   );
-  const trucks = fleetOptions?.trucks ?? [];
   const drivers = fleetOptions?.drivers ?? [];
   const trailers = fleetOptions?.trailers ?? [];
-  const truckCapacityLabel = fleetOptions?.truckCapacityLabel ?? "80,000 lb";
+  const loadCapacityLabel = fleetOptions?.loadCapacityLabel ?? "80,000 lb";
 
-  const initialTruck = initialFleetSelect(defaultValues?.truck, trucks);
   const initialDriver = initialFleetSelect(defaultValues?.driver, drivers);
   const initialTrailer = initialFleetSelect(defaultValues?.trailer, trailers);
 
-  const [truck, setTruck] = useState(initialTruck.selected);
   const [driver, setDriver] = useState(initialDriver.selected);
   const [trailer, setTrailer] = useState(initialTrailer.selected);
-  const [truckOther, setTruckOther] = useState(initialTruck.other);
   const [driverOther, setDriverOther] = useState(initialDriver.other);
   const [trailerOther, setTrailerOther] = useState(initialTrailer.other);
 
-  function resolveFleetValue(
-    selected: string,
-    other: string,
-    _options: string[],
-  ) {
+  function resolveFleetValue(selected: string, other: string) {
     if (selected === "__other__") {
       return other.trim() || null;
     }
@@ -338,15 +351,39 @@ export function DeliveryTicketEditor({
   }
 
   function handleTicketTypeChange(next: "JOB" | "WALK_IN") {
+    markDirty();
     setTicketType(next);
     if (next !== "JOB") {
       setFulfillment([]);
     }
   }
 
-  function handleJobChange(nextJobId: string) {
+  function handleJobChange(nextJob: JobOption | null) {
+    const nextJobId = nextJob?.id ?? "";
+    setSearchedJob(nextJob);
+
+    if (nextJobId === jobId) {
+      if (nextJob) {
+        setQuoteId((current) => {
+          if (nextJob.quotes.some((entry) => entry.id === current)) {
+            return current;
+          }
+          if (
+            defaultValues?.quoteId &&
+            nextJob.quotes.some(
+              (entry) => entry.id === defaultValues.quoteId,
+            )
+          ) {
+            return defaultValues.quoteId;
+          }
+          return nextJob.quotes[0]?.id ?? "";
+        });
+      }
+      return;
+    }
+
+    markDirty();
     setJobId(nextJobId);
-    const nextJob = jobs.find((job) => job.id === nextJobId);
     setQuoteId(nextJob?.quotes[0]?.id ?? "");
     setLines([]);
     setSelectedLineIds(new Set());
@@ -358,6 +395,7 @@ export function DeliveryTicketEditor({
     if (nextQuoteId === quoteId) {
       return;
     }
+    markDirty();
     setQuoteId(nextQuoteId);
     setLines([]);
     setSelectedLineIds(new Set());
@@ -365,10 +403,31 @@ export function DeliveryTicketEditor({
     setError(null);
   }
 
-  const selectedJob = jobs.find((job) => job.id === jobId);
+  const selectedJob =
+    jobs.find((job) => job.id === jobId) ??
+    (searchedJob?.id === jobId ? searchedJob : undefined);
   const quote =
     selectedJob?.quotes.find((entry) => entry.id === quoteId) ??
     selectedJob?.quotes[0];
+
+  useEffect(() => {
+    const element = stickyRegionRef.current;
+    if (!element || ticketType !== "JOB") {
+      return;
+    }
+
+    const updateHeight = () => {
+      setStickyRegionHeight(Math.ceil(element.getBoundingClientRect().height));
+    };
+    const frame = window.requestAnimationFrame(updateHeight);
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(element);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [ticketType, quote]);
 
   useEffect(() => {
     if (ticketType !== "JOB" || !quoteId) {
@@ -412,6 +471,11 @@ export function DeliveryTicketEditor({
     [lines],
   );
 
+  const drainRingDiameterGroups = useMemo(
+    () => buildDrainRingDiameterGroups(fulfillment, linesByKey),
+    [fulfillment, linesByKey],
+  );
+
   const totalWeight = useMemo(() => {
     return lines
       .filter((line) => selectedLineIds.has(line.key))
@@ -437,7 +501,12 @@ export function DeliveryTicketEditor({
         if (existing) {
           return current.map((line) =>
             line.key === meta.quoteLineItemId
-              ? mergeFulfillmentIntoLine(line, meta)
+              ? {
+                  ...mergeFulfillmentIntoLine(line, meta),
+                  quantity: isPositiveDeliveryQuantity(line.quantity)
+                    ? line.quantity
+                    : String(meta.remainingQty),
+                }
               : line,
           );
         }
@@ -456,20 +525,48 @@ export function DeliveryTicketEditor({
     }
   }
 
-  function drainRingLineKey(quoteLineItemId: string, productId: string) {
-    return `${quoteLineItemId}::${productId}`;
-  }
+  function setStandardLineQuantity(
+    meta: QuoteLineFulfillment,
+    value: string,
+  ) {
+    const hasValue = value.trim() !== "";
+    const active = isPositiveDeliveryQuantity(value);
 
-  function getDrainRingCount(quoteLineItemId: string, productId: string): string {
-    const key = drainRingLineKey(quoteLineItemId, productId);
-    return linesByKey.get(key)?.quantity ?? "";
-  }
+    setLines((current) => {
+      const existing = current.find((line) => line.key === meta.quoteLineItemId);
+      if (!hasValue) {
+        return current.filter((line) => line.key !== meta.quoteLineItemId);
+      }
 
-  function getDrainRingFeetUsed(meta: QuoteLineFulfillment): number {
-    return meta.drainRingOptions.reduce((sum, option) => {
-      const count = Number(getDrainRingCount(meta.quoteLineItemId, option.productId)) || 0;
-      return sum + count * option.heightFeet;
-    }, 0);
+      if (existing) {
+        return current.map((line) =>
+          line.key === meta.quoteLineItemId
+            ? {
+                ...mergeFulfillmentIntoLine(line, meta),
+                quantity: value,
+              }
+            : line,
+        );
+      }
+
+      return [
+        ...current,
+        {
+          ...mapFulfillmentToLine(meta),
+          quantity: value,
+        },
+      ];
+    });
+
+    setSelectedLineIds((current) => {
+      const next = new Set(current);
+      if (active) {
+        next.add(meta.quoteLineItemId);
+      } else {
+        next.delete(meta.quoteLineItemId);
+      }
+      return next;
+    });
   }
 
   function setDrainRingCount(
@@ -477,7 +574,7 @@ export function DeliveryTicketEditor({
     option: QuoteLineFulfillment["drainRingOptions"][number],
     value: string,
   ) {
-    const key = drainRingLineKey(meta.quoteLineItemId, option.productId);
+    const key = drainRingQuantityKey(meta.quoteLineItemId, option.productId);
     const numeric = Number(value);
     const active = value.trim() !== "" && Number.isFinite(numeric) && numeric > 0;
 
@@ -521,7 +618,7 @@ export function DeliveryTicketEditor({
   }
 
   function getAdsPipeCount(quoteLineItemId: string, productId: string): string {
-    const key = drainRingLineKey(quoteLineItemId, productId);
+    const key = drainRingQuantityKey(quoteLineItemId, productId);
     return linesByKey.get(key)?.quantity ?? "";
   }
 
@@ -538,7 +635,7 @@ export function DeliveryTicketEditor({
     option: QuoteLineFulfillment["adsPipeOptions"][number],
     value: string,
   ) {
-    const key = drainRingLineKey(meta.quoteLineItemId, option.productId);
+    const key = drainRingQuantityKey(meta.quoteLineItemId, option.productId);
     const numeric = Number(value);
     const active = value.trim() !== "" && Number.isFinite(numeric) && numeric > 0;
 
@@ -1027,9 +1124,8 @@ export function DeliveryTicketEditor({
       deliveryAddress: defaultValues?.deliveryAddress ?? null,
       deliveryDate: deliveryDate.trim() || null,
       deliveryTime: null,
-      truck: resolveFleetValue(truck, truckOther, trucks),
-      driver: resolveFleetValue(driver, driverOther, drivers),
-      trailer: resolveFleetValue(trailer, trailerOther, trailers),
+      driver: resolveFleetValue(driver, driverOther),
+      trailer: resolveFleetValue(trailer, trailerOther),
       // Only meaningful in edit mode; lets the server reject stale saves.
       expectedUpdatedAt,
       lines: linePayload,
@@ -1062,83 +1158,236 @@ export function DeliveryTicketEditor({
     });
   }
 
+  const selectedLineCount = lines.filter((line) =>
+    selectedLineIds.has(line.key),
+  ).length;
+  const cancelHref =
+    mode === "edit" && ticketId
+      ? `/delivery-tickets/${ticketId}`
+      : ticketType === "WALK_IN"
+        ? "/walk-ins"
+        : "/delivery-tickets";
+  const ticketTypeButtons = (
+    <div
+      role="group"
+      aria-label="Ticket type"
+      className="inline-flex shrink-0 overflow-hidden rounded-md border border-slate-300 bg-white text-xs font-medium shadow-sm"
+    >
+      <button
+        type="button"
+        aria-pressed={ticketType === "JOB"}
+        onClick={() => handleTicketTypeChange("JOB")}
+        className={
+          ticketType === "JOB"
+            ? "bg-slate-900 px-3 py-1.5 text-white"
+            : "px-3 py-1.5 text-slate-600 hover:bg-slate-50"
+        }
+      >
+        Job ticket
+      </button>
+      <button
+        type="button"
+        aria-pressed={ticketType === "WALK_IN"}
+        onClick={() => handleTicketTypeChange("WALK_IN")}
+        className={
+          ticketType === "WALK_IN"
+            ? "bg-slate-900 px-3 py-1.5 text-white"
+            : "border-l border-slate-200 px-3 py-1.5 text-slate-600 hover:bg-slate-50"
+        }
+      >
+        Walk-in
+      </button>
+    </div>
+  );
+  const actionButtons = (
+    <div className="flex flex-wrap justify-end gap-1.5">
+      <Link
+        href={cancelHref}
+        className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+      >
+        Cancel
+      </Link>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() =>
+          submit("DRAFT", ticketType === "WALK_IN" ? "walkIns" : "detail")
+        }
+        className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+      >
+        {pending ? "Saving..." : "Save Draft"}
+      </button>
+      {ticketType === "WALK_IN" ? (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => submit("DRAFT", "preview")}
+          className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50"
+        >
+          {pending ? "Saving..." : "Save & Preview"}
+        </button>
+      ) : (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => submit("SCHEDULED")}
+          className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-50"
+        >
+          {pending
+            ? "Saving..."
+            : isPickup
+              ? "Schedule Pickup"
+              : "Schedule Delivery"}
+        </button>
+      )}
+    </div>
+  );
+  const quoteTableHeaderCellClassName = `${tableHeaderCellClassName} !z-[8] !px-1.5 !whitespace-normal`;
+  const quoteLineTableCellClassName = `${tableCellClassName} !px-1.5`;
+  const quoteTableHeaderStyle = {
+    top: `${DASHBOARD_HEADER_HEIGHT + stickyRegionHeight}px`,
+  };
+
   return (
     <div className="space-y-4" onChange={markDirty}>
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="inline-flex overflow-hidden rounded-lg border border-slate-200 bg-white text-xs font-medium shadow-sm">
-          <button
-            type="button"
-            onClick={() => handleTicketTypeChange("JOB")}
-            className={
-              ticketType === "JOB"
-                ? "bg-slate-900 px-4 py-2 text-white"
-                : "px-4 py-2 text-slate-600 hover:bg-slate-50"
-            }
-          >
-            Job ticket
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTicketTypeChange("WALK_IN")}
-            className={
-              ticketType === "WALK_IN"
-                ? "bg-slate-900 px-4 py-2 text-white"
-                : "px-4 py-2 text-slate-600 hover:bg-slate-50"
-            }
-          >
-            Walk-in
-          </button>
-        </div>
-        {ticketType === "WALK_IN" ? (
+      {ticketType === "WALK_IN" ? (
+        <div className="flex flex-wrap items-center gap-3">
+          {ticketTypeButtons}
           <span className="text-xs text-slate-500">
             Walk-in tickets are always customer pickups.
           </span>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       {ticketType === "JOB" ? (
-        <SectionCard title="Schedule & fulfillment">
-          <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
-            <div>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                Fulfillment
-              </p>
-              <div className="flex gap-4 text-xs">
-                <label
-                  className={`flex items-center gap-2 text-slate-700 ${
-                    fulfillmentMethod === "DELIVERY"
-                      ? "font-semibold text-slate-900"
-                      : ""
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    checked={fulfillmentMethod === "DELIVERY"}
-                    onChange={() => setFulfillmentMethod("DELIVERY")}
-                  />
-                  We deliver
-                </label>
-                <label
-                  className={`flex items-center gap-2 text-slate-700 ${
-                    fulfillmentMethod === "PICKUP"
-                      ? "font-semibold text-slate-900"
-                      : ""
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    checked={fulfillmentMethod === "PICKUP"}
-                    onChange={() => setFulfillmentMethod("PICKUP")}
-                  />
-                  Customer pickup
-                </label>
+        <div
+          ref={stickyRegionRef}
+          className={`sticky top-[74px] z-[9] border border-slate-300 bg-white/95 shadow-lg shadow-slate-900/5 backdrop-blur ${
+            quote ? "rounded-t-xl" : "rounded-xl"
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-1.5">
+            <div className="flex flex-wrap items-center gap-3">
+              {ticketTypeButtons}
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                <span className="rounded-full bg-slate-900 px-2 py-0.5 font-semibold text-white">
+                  {selectedLineCount} {selectedLineCount === 1 ? "line" : "lines"}
+                </span>
+                <span>
+                  {totalWeight > 0
+                    ? formatWeight(totalWeight)
+                    : "No load weight yet"}
+                </span>
+                {!isPickup ? (
+                  <span className="text-slate-400">
+                    Capacity {loadCapacityLabel}
+                  </span>
+                ) : null}
               </div>
             </div>
-            <div className="w-48">
-              <label
-                htmlFor="deliveryDate"
-                className="block text-xs font-medium text-slate-700"
+            {actionButtons}
+          </div>
+
+          <div className="flex flex-wrap items-end gap-x-2 gap-y-1.5 px-3 py-1.5">
+            <div className="w-64 max-w-full min-w-0 shrink-0">
+              <label htmlFor="deliveryJobId" className={compactLabelClass}>
+                Job
+              </label>
+              <FormTypeahead<JobOption>
+                inputId="deliveryJobId"
+                selectedLabel={
+                  selectedJob
+                    ? `${selectedJob.jobNumber} - ${selectedJob.projectName}`
+                    : ""
+                }
+                placeholder="Search job number, project, or customer..."
+                initialItems={selectedJob ? [selectedJob] : []}
+                searchItems={searchJobsForDeliveryTicket}
+                itemKey={(job) => job.id}
+                itemLabel={(job) => `${job.jobNumber} - ${job.projectName}`}
+                clearLabel="Clear job selection"
+                onSelect={handleJobChange}
+                inputClassName={`${compactInputClass} min-w-0`}
+                preventEnterSubmit={false}
+              />
+            </div>
+
+            <div className="w-44 max-w-full shrink-0">
+              <span className={compactLabelClass}>Contractor</span>
+              <div
+                title={selectedJob?.customerName}
+                className="flex h-8 items-center rounded-md border border-slate-200 bg-slate-50 px-2 text-xs font-medium text-slate-700"
               >
+                <span className="truncate">
+                  {selectedJob?.customerName ?? "—"}
+                </span>
+              </div>
+            </div>
+
+            <div className="w-32 max-w-full shrink-0">
+              <label htmlFor="quoteId" className={compactLabelClass}>
+                Won quote
+              </label>
+              <select
+                id="quoteId"
+                value={quoteId}
+                disabled={!selectedJob || selectedJob.quotes.length === 0}
+                onChange={(event) => handleQuoteChange(event.target.value)}
+                className={`${compactInputClass} disabled:bg-slate-100 disabled:text-slate-400`}
+              >
+                {!selectedJob || selectedJob.quotes.length === 0 ? (
+                  <option value="">No won quote</option>
+                ) : null}
+                {selectedJob?.quotes.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.quoteNumber}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="w-44 max-w-full shrink-0">
+              <span className={compactLabelClass}>Fulfillment</span>
+              <div
+                role="group"
+                aria-label="Fulfillment method"
+                className="grid h-8 grid-cols-2 overflow-hidden rounded-md border border-slate-300 bg-white text-xs shadow-sm"
+              >
+                <button
+                  type="button"
+                  aria-pressed={fulfillmentMethod === "DELIVERY"}
+                  onClick={() => {
+                    setFulfillmentMethod("DELIVERY");
+                    markDirty();
+                  }}
+                  className={
+                    fulfillmentMethod === "DELIVERY"
+                      ? "bg-slate-900 px-2 font-semibold text-white"
+                      : "px-2 text-slate-600 hover:bg-slate-50"
+                  }
+                >
+                  Delivery
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={fulfillmentMethod === "PICKUP"}
+                  onClick={() => {
+                    setFulfillmentMethod("PICKUP");
+                    markDirty();
+                  }}
+                  className={
+                    fulfillmentMethod === "PICKUP"
+                      ? "bg-slate-900 px-2 font-semibold text-white"
+                      : "border-l border-slate-200 px-2 text-slate-600 hover:bg-slate-50"
+                  }
+                >
+                  Pickup
+                </button>
+              </div>
+            </div>
+
+            <div className="w-32 max-w-full shrink-0">
+              <label htmlFor="deliveryDate" className={compactLabelClass}>
                 {isPickup ? "Pickup date" : "Delivery date"}
               </label>
               <input
@@ -1146,100 +1395,201 @@ export function DeliveryTicketEditor({
                 type="date"
                 value={deliveryDate}
                 onChange={(event) => setDeliveryDate(event.target.value)}
-                className={inputClass}
+                className={compactInputClass}
               />
             </div>
-          </div>
-        </SectionCard>
-      ) : null}
 
-      {ticketType === "JOB" ? (
-        <SectionCard title="Job and quote">
-          <FormTypeahead
-            inputId="deliveryJobId"
-            selectedLabel={
-              selectedJob
-                ? `${selectedJob.jobNumber} — ${selectedJob.projectName}`
-                : ""
-            }
-            placeholder="Search jobs by number, project, or customer…"
-            initialItems={
-              selectedJob
-                ? [
-                    {
-                      id: selectedJob.id,
-                      jobNumber: selectedJob.jobNumber,
-                      projectName: selectedJob.projectName,
-                      customerName: selectedJob.customerName,
-                    },
-                  ]
-                : []
-            }
-            searchItems={searchJobsForDeliveryTicket}
-            itemKey={(job) => job.id}
-            itemLabel={(job) => `${job.jobNumber} — ${job.projectName}`}
-            clearLabel="Clear job selection"
-            onSelect={(job) => handleJobChange(job?.id ?? "")}
-            inputClassName={inputClass}
-            preventEnterSubmit={false}
-          />
-          {selectedJob ? (
-            selectedJob.quotes.length > 0 ? (
-              <div className="mt-3">
-                <label
-                  htmlFor="quoteId"
-                  className="block text-xs font-medium text-slate-700"
-                >
-                  Won quote
+            {!isPickup && drivers.length > 0 ? (
+              <div
+                className={`max-w-full shrink-0 ${
+                  driver === "__other__" ? "w-72" : "w-36"
+                }`}
+              >
+                <label htmlFor="deliveryDriver" className={compactLabelClass}>
+                  Driver
                 </label>
-                <select
-                  id="quoteId"
-                  value={quoteId}
-                  onChange={(event) => handleQuoteChange(event.target.value)}
-                  className={inputClass}
-                >
-                  {selectedJob.quotes.map((entry) => (
-                    <option key={entry.id} value={entry.id}>
-                      {entry.quoteNumber}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex gap-1.5">
+                  <select
+                    id="deliveryDriver"
+                    value={driver}
+                    onChange={(event) => setDriver(event.target.value)}
+                    className={`${compactInputClass} min-w-0 flex-1`}
+                  >
+                    <option value="">Driver...</option>
+                    {drivers.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                    <option value="__other__">Other...</option>
+                  </select>
+                  {driver === "__other__" ? (
+                    <input
+                      aria-label="Other driver name"
+                      value={driverOther}
+                      onChange={(event) => setDriverOther(event.target.value)}
+                      placeholder="Driver name"
+                      className={`${compactInputClass} min-w-0 flex-1`}
+                    />
+                  ) : null}
+                </div>
               </div>
-            ) : (
-              <p className="mt-2 text-xs text-slate-500">No won quote on this job.</p>
-            )
+            ) : null}
+
+            {!isPickup && trailers.length > 0 ? (
+              <div
+                className={`max-w-full shrink-0 ${
+                  trailer === "__other__" ? "w-72" : "w-36"
+                }`}
+              >
+                <label htmlFor="deliveryTrailer" className={compactLabelClass}>
+                  Trailer
+                </label>
+                <div className="flex gap-1.5">
+                  <select
+                    id="deliveryTrailer"
+                    value={trailer}
+                    onChange={(event) => setTrailer(event.target.value)}
+                    className={`${compactInputClass} min-w-0 flex-1`}
+                  >
+                    <option value="">Trailer...</option>
+                    {trailers.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                    <option value="__other__">Other...</option>
+                  </select>
+                  {trailer === "__other__" ? (
+                    <input
+                      aria-label="Other trailer name"
+                      value={trailerOther}
+                      onChange={(event) => setTrailerOther(event.target.value)}
+                      placeholder="Trailer type"
+                      className={`${compactInputClass} min-w-0 flex-1`}
+                    />
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          {error ? (
+            <p
+              role="alert"
+              className="border-t border-red-200 bg-red-50 px-3 py-1.5 text-xs text-red-700"
+            >
+              {error}
+            </p>
           ) : null}
-        </SectionCard>
+
+          {quote ? (
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 border-t border-slate-200 bg-white px-3 py-1.5">
+              <h3 className="text-sm font-semibold text-slate-900">
+                Quote lines for this load
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                Enter a load quantity to select an item. All quote lines stay visible as
+                you scroll the page.
+              </p>
+            </div>
+          ) : null}
+        </div>
       ) : null}
 
       {ticketType === "JOB" && quote ? (
-        <SectionCard
-          title="Quote lines for this load"
-          description="Select items for this delivery and confirm quantities and weights."
-          noPadding
+        <section
+          style={{ marginTop: 0 }}
+          className="w-full max-w-full rounded-b-xl border-x border-b border-slate-200/80 bg-white shadow-sm xl:w-fit"
         >
-          <div className={tableFlushWrapperClassName}>
+          {drainRingDiameterGroups.length > 0 ? (
             <table className={tableClassName}>
+              <tbody className={tableBodyClassName}>
+                <DrainRingMatrixRows
+                  groups={drainRingDiameterGroups}
+                  onQuantityChange={setDrainRingCount}
+                />
+              </tbody>
+            </table>
+          ) : null}
+
+          <table className="w-full table-fixed border-separate border-spacing-0 text-left text-xs xl:w-[920px]">
+              <colgroup>
+                <col style={{ width: "4.5%" }} />
+                <col style={{ width: "28.5%" }} />
+                <col style={{ width: "10.5%" }} />
+                <col style={{ width: "10.5%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "10.5%" }} />
+                <col style={{ width: "13%" }} />
+                <col style={{ width: "10.5%" }} />
+              </colgroup>
               <thead>
                 <tr>
-                  <th className={tableHeaderCellClassName}>Pick</th>
-                  <th className={tableHeaderCellClassName}>Item</th>
-                  <th className={tableHeaderCellClassName}>Remaining</th>
-                  <th className={tableHeaderCellClassName}>Qty on load</th>
-                  <th className={tableHeaderCellClassName}>Weight each</th>
-                  <th className={tableHeaderCellClassName}>Line weight</th>
-                  <th className={tableHeaderCellClassName}>Status</th>
+                  <th
+                    className={quoteTableHeaderCellClassName}
+                    style={quoteTableHeaderStyle}
+                  >
+                    Pick
+                  </th>
+                  <th
+                    className={quoteTableHeaderCellClassName}
+                    style={quoteTableHeaderStyle}
+                  >
+                    Item
+                  </th>
+                  <th
+                    className={quoteTableHeaderCellClassName}
+                    style={quoteTableHeaderStyle}
+                  >
+                    Remaining
+                  </th>
+                  <th
+                    className={quoteTableHeaderCellClassName}
+                    style={quoteTableHeaderStyle}
+                  >
+                    Qty on load
+                  </th>
+                  <th
+                    className={quoteTableHeaderCellClassName}
+                    style={quoteTableHeaderStyle}
+                  >
+                    Weight each
+                  </th>
+                  <th
+                    className={quoteTableHeaderCellClassName}
+                    style={quoteTableHeaderStyle}
+                  >
+                    Line weight
+                  </th>
+                  <th
+                    className={quoteTableHeaderCellClassName}
+                    style={quoteTableHeaderStyle}
+                  >
+                    Status
+                  </th>
+                  <th
+                    className={`${quoteTableHeaderCellClassName} text-right`}
+                    style={quoteTableHeaderStyle}
+                  >
+                    On hand
+                  </th>
                 </tr>
               </thead>
               <tbody className={tableBodyClassName}>
-                {fulfillment.map((line) => {
+                {fulfillment.filter((line) => !line.isDrainRing).map((line) => {
+                  const isConfigurableStructure =
+                    line.lineType === "CONFIGURABLE_STRUCTURE";
+                  const linePrimaryLabel = getDeliveryLinePrimaryLabel(line);
+                  const lineSecondaryLabel = getDeliveryLineSecondaryLabel(line);
+
                   if (line.isCastingAssembly) {
                     const setsUsed = getCastingSetsUsed(line);
                     const setsRemainingAfter = line.remainingQty - setsUsed;
                     const overLimit = setsUsed > line.remainingQty + 0.001;
                     return (
                       <tr key={line.quoteLineItemId} className="bg-slate-50/40">
-                        <td className={`${tableCellClassName} align-top`} colSpan={7}>
+                        <td className={`${quoteLineTableCellClassName} align-top`} colSpan={8}>
                           <div className="flex flex-wrap items-baseline justify-between gap-2">
                             <div>
                               <span className="font-medium text-slate-900">
@@ -1257,9 +1607,9 @@ export function DeliveryTicketEditor({
                               {line.shippedQty} shipped
                             </div>
                           </div>
-                          {line.description ? (
+                          {shouldShowDeliveryLineDescription(line) ? (
                             <div className="mt-0.5 text-slate-500">
-                              <RichTextContent value={line.description} />
+                              <RichTextContent value={line.description ?? ""} />
                             </div>
                           ) : null}
 
@@ -1269,32 +1619,29 @@ export function DeliveryTicketEditor({
                                 "No BOM components linked to this casting."}
                             </p>
                           ) : (
-                            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            <div className="mt-2 grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
                               {line.castingComponentOptions.map((option) => (
                                 <div
                                   key={`${option.pieceRole}-${option.productId}`}
-                                  className="rounded-lg border border-slate-200 bg-white px-3 py-2"
+                                  className="grid grid-cols-[minmax(0,1fr)_5rem] items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1.5"
                                 >
-                                  <div className="flex items-center justify-between">
-                                    <span className="font-medium text-slate-800">
-                                      {formatCastingPieceRoleLabel(option.pieceRole)}
-                                    </span>
-                                    <span className="text-slate-400">
-                                      {option.productCode}
-                                    </span>
-                                  </div>
-                                  <div className="mt-1 text-slate-500">
-                                    {option.name}
-                                    {option.quantity > 1
-                                      ? ` · ${option.quantity} per set`
-                                      : ""}
-                                  </div>
-                                  <div className="text-slate-500">
-                                    {option.currentStock != null
-                                      ? `${option.currentStock} in stock`
-                                      : "Not tracked"}
+                                  <div className="min-w-0">
+                                    <div className="truncate font-medium text-slate-800">
+                                      {formatCastingPieceRoleLabel(option.pieceRole)} ·{" "}
+                                      {option.name}
+                                    </div>
+                                    <div className="truncate text-[10px] text-slate-500">
+                                      {option.productCode} ·{" "}
+                                      {option.currentStock != null
+                                        ? `${option.currentStock} on hand`
+                                        : "Not tracked"}
+                                      {option.quantity > 1
+                                        ? ` · ${option.quantity} per set`
+                                        : ""}
+                                    </div>
                                   </div>
                                   <input
+                                    aria-label={`${formatCastingPieceRoleLabel(option.pieceRole)} quantity on load`}
                                     type="number"
                                     min="0"
                                     step="1"
@@ -1303,7 +1650,7 @@ export function DeliveryTicketEditor({
                                       option.pieceRole,
                                     )}
                                     placeholder="0"
-                                    className={`mt-2 w-full ${inlineTableInputClass}`}
+                                    className={`w-full ${loadQuantityInputClass}`}
                                     onChange={(event) =>
                                       setCastingPieceCount(
                                         line,
@@ -1317,7 +1664,7 @@ export function DeliveryTicketEditor({
                             </div>
                           )}
 
-                          <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-slate-600">
+                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-600">
                             <span>
                               On load:{" "}
                               <span className="font-semibold text-slate-900">
@@ -1344,123 +1691,6 @@ export function DeliveryTicketEditor({
                     );
                   }
 
-                  if (line.isDrainRing) {
-                    const feetUsed = getDrainRingFeetUsed(line);
-                    const feetRemainingAfter =
-                      Math.round((line.remainingQty - feetUsed) * 100) / 100;
-                    const poolHeight = line.poolHeightFeet ?? 0;
-                    const poolsRemaining =
-                      poolHeight > 0
-                        ? Math.round((feetRemainingAfter / poolHeight) * 100) / 100
-                        : null;
-                    const overLimit = feetUsed > line.remainingQty + 0.001;
-                    return (
-                      <tr key={line.quoteLineItemId} className="bg-slate-50/40">
-                        <td className={`${tableCellClassName} align-top`} colSpan={7}>
-                          <div className="flex flex-wrap items-baseline justify-between gap-2">
-                            <div>
-                              <span className="font-medium text-slate-900">
-                                {line.displayName}
-                              </span>
-                              <span className="ml-2 text-slate-500">
-                                {line.itemCode}
-                              </span>
-                              {line.ringDiameterFeet ? (
-                                <span className="ml-2 text-slate-500">
-                                  {line.ringDiameterFeet}&apos; diameter ·{" "}
-                                  {formatDrainRingStyleLabel(line.drainRingStyle)}
-                                </span>
-                              ) : null}
-                            </div>
-                            <div className="text-slate-600">
-                              {line.remainingQty} of {line.quotedQty} LF remaining ·{" "}
-                              {line.shippedQty} shipped
-                            </div>
-                          </div>
-                          {line.description ? (
-                            <div className="mt-0.5 text-slate-500">
-                              <RichTextContent value={line.description} />
-                            </div>
-                          ) : null}
-
-                          {line.drainRingOptions.length === 0 ? (
-                            <p className="mt-2 text-slate-500">
-                              {line.eligibilityReason ??
-                                "No ring SKUs available for this diameter."}
-                            </p>
-                          ) : (
-                            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                              {line.drainRingOptions.map((option) => (
-                                <div
-                                  key={option.productId}
-                                  className="rounded-lg border border-slate-200 bg-white px-3 py-2"
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <span className="font-medium text-slate-800">
-                                      {option.heightFeet}&apos; ring
-                                    </span>
-                                    <span className="text-slate-400">
-                                      {option.productCode}
-                                    </span>
-                                  </div>
-                                  <div className="mt-1 text-slate-500">
-                                    {option.currentStock != null
-                                      ? `${option.currentStock} in stock`
-                                      : "Not tracked"}
-                                  </div>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    step="1"
-                                    value={getDrainRingCount(
-                                      line.quoteLineItemId,
-                                      option.productId,
-                                    )}
-                                    placeholder="0"
-                                    className={`mt-2 w-full ${inlineTableInputClass}`}
-                                    onChange={(event) =>
-                                      setDrainRingCount(
-                                        line,
-                                        option,
-                                        event.target.value,
-                                      )
-                                    }
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-slate-600">
-                            <span>
-                              On load:{" "}
-                              <span className="font-semibold text-slate-900">
-                                {feetUsed} LF
-                              </span>
-                            </span>
-                            <span
-                              className={
-                                overLimit
-                                  ? "font-semibold text-red-600"
-                                  : "text-slate-600"
-                              }
-                            >
-                              Remaining after load: {feetRemainingAfter} LF
-                              {poolsRemaining != null
-                                ? ` (~${poolsRemaining} pools)`
-                                : ""}
-                            </span>
-                            {overLimit ? (
-                              <span className="font-semibold text-red-600">
-                                Exceeds remaining feet
-                              </span>
-                            ) : null}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  }
-
                   if (line.isAdsPipe) {
                     const qtyUsed = getAdsPipeQtyUsed(line);
                     const qtyRemainingAfter =
@@ -1468,7 +1698,7 @@ export function DeliveryTicketEditor({
                     const overLimit = qtyUsed > line.remainingQty + 0.001;
                     return (
                       <tr key={line.quoteLineItemId} className="bg-slate-50/40">
-                        <td className={`${tableCellClassName} align-top`} colSpan={7}>
+                        <td className={`${quoteLineTableCellClassName} align-top`} colSpan={8}>
                           <div className="flex flex-wrap items-baseline justify-between gap-2">
                             <div>
                               <span className="font-medium text-slate-900">
@@ -1486,9 +1716,9 @@ export function DeliveryTicketEditor({
                               {line.unit} remaining · {line.shippedQty} shipped
                             </div>
                           </div>
-                          {line.description ? (
+                          {shouldShowDeliveryLineDescription(line) ? (
                             <div className="mt-0.5 text-slate-500">
-                              <RichTextContent value={line.description} />
+                              <RichTextContent value={line.description ?? ""} />
                             </div>
                           ) : null}
 
@@ -1498,31 +1728,36 @@ export function DeliveryTicketEditor({
                                 "No matching ADS pipe SKUs in catalog."}
                             </p>
                           ) : (
-                            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                            <div className="mt-2 grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
                               {line.adsPipeOptions.map((option) => (
                                 <div
                                   key={option.productId}
-                                  className="rounded-lg border border-slate-200 bg-white px-3 py-2"
+                                  className="grid grid-cols-[minmax(0,1fr)_5rem] items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1.5"
                                 >
-                                  <div className="flex items-center justify-between">
-                                    <span className="font-medium text-slate-800">
+                                  <div className="min-w-0">
+                                    <div className="truncate font-medium text-slate-800">
                                       {option.jointTypeLabel}
-                                    </span>
-                                    <span className="text-slate-400">
-                                      {option.productCode}
-                                    </span>
-                                  </div>
-                                  {option.isSubstitute ? (
-                                    <p className="mt-1 text-sm text-amber-700">
-                                      Substitute — billed at quoted ST price
-                                    </p>
-                                  ) : null}
-                                  <div className="mt-1 text-slate-500">
-                                    {option.currentStock != null
-                                      ? `${option.currentStock} in stock`
-                                      : "Not tracked"}
+                                      <span className="ml-1 font-normal text-slate-400">
+                                        {option.productCode}
+                                      </span>
+                                    </div>
+                                    <div
+                                      className={`truncate text-[10px] ${
+                                        option.isSubstitute
+                                          ? "text-amber-700"
+                                          : "text-slate-500"
+                                      }`}
+                                    >
+                                      {option.currentStock != null
+                                        ? `${option.currentStock} on hand`
+                                        : "Not tracked"}
+                                      {option.isSubstitute
+                                        ? " · Substitute at quoted ST price"
+                                        : ""}
+                                    </div>
                                   </div>
                                   <input
+                                    aria-label={`${option.jointTypeLabel} pipe quantity on load`}
                                     type="number"
                                     min="0"
                                     step="1"
@@ -1531,7 +1766,7 @@ export function DeliveryTicketEditor({
                                       option.productId,
                                     )}
                                     placeholder="0"
-                                    className={`mt-2 w-full ${inlineTableInputClass}`}
+                                    className={`w-full ${loadQuantityInputClass}`}
                                     onChange={(event) =>
                                       setAdsPipeCount(
                                         line,
@@ -1545,7 +1780,7 @@ export function DeliveryTicketEditor({
                             </div>
                           )}
 
-                          <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-slate-600">
+                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-600">
                             <span>
                               On load:{" "}
                               <span className="font-semibold text-slate-900">
@@ -1587,15 +1822,29 @@ export function DeliveryTicketEditor({
                       claimedElsewhere === 0 && selectedHere === 0;
                     return (
                       <tr key={line.quoteLineItemId} className="bg-slate-50/40">
-                        <td className={`${tableCellClassName} align-top`} colSpan={7}>
+                        <td className={`${quoteLineTableCellClassName} align-top`} colSpan={8}>
                           <div className="flex flex-wrap items-baseline justify-between gap-2">
                             <div>
-                              <span className="font-medium text-slate-900">
-                                {line.displayName}
+                              <span
+                                className={
+                                  isConfigurableStructure
+                                    ? "text-sm font-bold text-slate-950"
+                                    : "font-medium text-slate-900"
+                                }
+                              >
+                                {linePrimaryLabel}
                               </span>
-                              <span className="ml-2 text-slate-500">
-                                {line.itemCode}
-                              </span>
+                              {isConfigurableStructure ? (
+                                lineSecondaryLabel ? (
+                                  <span className="ml-2 text-slate-500">
+                                    {lineSecondaryLabel}
+                                  </span>
+                                ) : null
+                              ) : (
+                                <span className="ml-2 text-slate-500">
+                                  {line.itemCode}
+                                </span>
+                              )}
                               <span className="ml-2 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-sky-800">
                                 Split · {line.structurePieceOptions.length} pieces
                               </span>
@@ -1607,9 +1856,9 @@ export function DeliveryTicketEditor({
                               available
                             </div>
                           </div>
-                          {line.description ? (
+                          {shouldShowDeliveryLineDescription(line) ? (
                             <div className="mt-0.5 text-slate-500">
-                              <RichTextContent value={line.description} />
+                              <RichTextContent value={line.description ?? ""} />
                             </div>
                           ) : null}
 
@@ -1711,29 +1960,50 @@ export function DeliveryTicketEditor({
                       (line.weightEach != null ? String(line.weightEach) : "")
                     : "";
                   return (
-                    <tr key={line.quoteLineItemId}>
-                      <td className={`${tableCellClassName} align-top`}>
+                    <tr
+                      key={line.quoteLineItemId}
+                      className={checked ? "bg-sky-50/70" : "hover:bg-slate-50/70"}
+                    >
+                      <td className={`${quoteLineTableCellClassName} align-top`}>
                         <input
+                          aria-label={`Select ${linePrimaryLabel}`}
                           type="checkbox"
                           checked={checked}
                           disabled={!line.eligible}
                           onChange={(event) => toggleLine(line, event.target.checked)}
                         />
                       </td>
-                      <td className={`${tableCellClassName} align-top`}>
-                        <div className="font-medium text-slate-900">{line.displayName}</div>
-                        <div className="mt-0.5 text-slate-500">{line.itemCode}</div>
-                        {line.description ? (
+                      <td className={`${quoteLineTableCellClassName} align-top`}>
+                        <div
+                          className={
+                            isConfigurableStructure
+                              ? "text-sm font-bold leading-snug text-slate-950"
+                              : "font-medium text-slate-900"
+                          }
+                        >
+                          {linePrimaryLabel}
+                        </div>
+                        {isConfigurableStructure ? (
+                          lineSecondaryLabel ? (
+                            <div className="mt-0.5 text-slate-500">
+                              {lineSecondaryLabel}
+                            </div>
+                          ) : null
+                        ) : (
+                          <div className="mt-0.5 text-slate-500">
+                            {line.itemCode}
+                          </div>
+                        )}
+                        {shouldShowDeliveryLineDescription(line) ? (
                           <div className="mt-1 text-slate-500">
-                            <RichTextContent value={line.description} />
+                            <RichTextContent value={line.description ?? ""} />
                           </div>
                         ) : null}
-                        <div className="mt-1">
-                          <StatusBadge
-                            label={formatLineTypeLabel(line.lineType)}
-                            variant="neutral"
-                          />
-                        </div>
+                        {line.lineType !== "STOCK_PRODUCT" ? (
+                          <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                            {formatLineTypeLabel(line.lineType)}
+                          </div>
+                        ) : null}
                         {(line.lineType === "CONFIGURABLE_STRUCTURE" ||
                           line.lineType === "CUSTOM_STRUCTURE") &&
                         line.jobStructureId &&
@@ -1823,33 +2093,27 @@ export function DeliveryTicketEditor({
                           )
                         ) : null}
                       </td>
-                      <td className={`${tableCellClassName} align-top text-slate-700`}>
+                      <td className={`${quoteLineTableCellClassName} align-top text-slate-700`}>
                         <div>{line.remainingQty} of {line.quotedQty}</div>
                         <div className="text-slate-500">{line.shippedQty} shipped</div>
                       </td>
-                      <td className={`${tableCellClassName} align-top`}>
-                        {checked && editorLine ? (
-                          <input
-                            type="number"
-                            min="0"
-                            max={line.remainingQty}
-                            value={editorLine.quantity}
-                            className={`w-20 ${inlineTableInputClass}`}
-                            onChange={(event) =>
-                              setLines((current) =>
-                                current.map((row) =>
-                                  row.key === line.quoteLineItemId
-                                    ? { ...row, quantity: event.target.value }
-                                    : row,
-                                ),
-                              )
-                            }
-                          />
-                        ) : (
-                          "—"
-                        )}
+                      <td className={`${quoteLineTableCellClassName} align-top`}>
+                        <input
+                          aria-label={`${linePrimaryLabel} quantity on load`}
+                          type="number"
+                          min="0"
+                          max={line.remainingQty}
+                          step="any"
+                          value={editorLine?.quantity ?? ""}
+                          placeholder="0"
+                          disabled={!line.eligible}
+                          className={`w-full max-w-20 ${loadQuantityInputClass}`}
+                          onChange={(event) =>
+                            setStandardLineQuantity(line, event.target.value)
+                          }
+                        />
                       </td>
-                      <td className={`${tableCellClassName} align-top text-slate-700`}>
+                      <td className={`${quoteLineTableCellClassName} align-top text-slate-700`}>
                         {checked && editorLine ? (
                           <input
                             type="number"
@@ -1857,7 +2121,7 @@ export function DeliveryTicketEditor({
                             step="0.01"
                             value={weightInputValue}
                             placeholder="—"
-                            className={`w-24 ${inlineTableInputClass}`}
+                            className={`w-full max-w-24 ${inlineTableInputClass}`}
                             onChange={(event) =>
                               setLines((current) =>
                                 current.map((row) =>
@@ -1874,11 +2138,29 @@ export function DeliveryTicketEditor({
                           "—"
                         )}
                       </td>
-                      <td className={`${tableCellClassName} align-top font-medium text-slate-900`}>
+                      <td className={`${quoteLineTableCellClassName} align-top font-medium text-slate-900`}>
                         {checked && lineWeight > 0 ? formatWeight(lineWeight) : "—"}
                       </td>
-                      <td className={`${tableCellClassName} align-top text-slate-600`}>
-                        {line.eligible ? "Ready" : (line.eligibilityReason ?? "Not ready")}
+                      <td className={`${quoteLineTableCellClassName} align-top text-slate-600`}>
+                        {line.eligible
+                          ? (line.eligibilityReason ?? "Ready")
+                          : (line.eligibilityReason ?? "Not ready")}
+                      </td>
+                      <td
+                        className={`${quoteLineTableCellClassName} align-top text-right text-slate-700`}
+                      >
+                        {line.currentStock != null ? (
+                          <>
+                            <span className="font-semibold text-slate-900">
+                              {line.currentStock}
+                            </span>{" "}
+                            {line.unit}
+                          </>
+                        ) : line.lineType === "STOCK_PRODUCT" ? (
+                          <span className="text-slate-400">Not tracked</span>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -1886,20 +2168,22 @@ export function DeliveryTicketEditor({
               </tbody>
               <tfoot className="border-t border-slate-200 bg-slate-50/80">
                 <tr>
-                  <td colSpan={5} className={`${tableCellClassName} text-right font-medium text-slate-700`}>
+                  <td colSpan={5} className={`${quoteLineTableCellClassName} text-right font-medium text-slate-700`}>
                     Total load weight
                   </td>
-                  <td className={`${tableCellClassName} font-semibold text-slate-900`}>
+                  <td className={`${quoteLineTableCellClassName} font-semibold text-slate-900`}>
                     {totalWeight > 0 ? formatWeight(totalWeight) : "—"}
                   </td>
-                  <td className={`${tableCellClassName} text-slate-500`}>
-                    Capacity: {truckCapacityLabel}
+                  <td
+                    colSpan={2}
+                    className={`${quoteLineTableCellClassName} text-slate-500`}
+                  >
+                    Capacity: {loadCapacityLabel}
                   </td>
                 </tr>
               </tfoot>
-            </table>
-          </div>
-        </SectionCard>
+          </table>
+        </section>
       ) : null}
 
       {ticketType === "WALK_IN" ? (
@@ -2308,162 +2592,27 @@ export function DeliveryTicketEditor({
         </SectionCard>
       ) : null}
 
-      {!isPickup && (trucks.length > 0 || drivers.length > 0 || trailers.length > 0) ? (
-        <SectionCard
-          title="Fleet & crew"
-          description={`Capacity reference: ${truckCapacityLabel}`}
-        >
-          <div className="grid gap-4 sm:grid-cols-3">
-            {trucks.length > 0 ? (
-              <div>
-                <label className="block text-xs font-medium text-slate-700">
-                  Truck
-                </label>
-                <select
-                  value={truck}
-                  onChange={(event) => setTruck(event.target.value)}
-                  className={inputClass}
-                >
-                  <option value="">Select…</option>
-                  {trucks.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                  <option value="__other__">Other…</option>
-                </select>
-                {truck === "__other__" ? (
-                  <input
-                    value={truckOther}
-                    onChange={(event) => setTruckOther(event.target.value)}
-                    placeholder="Truck name"
-                    className={`${inputClass} mt-2`}
-                  />
-                ) : null}
-              </div>
-            ) : null}
-            {drivers.length > 0 ? (
-              <div>
-                <label className="block text-xs font-medium text-slate-700">
-                  Driver
-                </label>
-                <select
-                  value={driver}
-                  onChange={(event) => setDriver(event.target.value)}
-                  className={inputClass}
-                >
-                  <option value="">Select…</option>
-                  {drivers.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                  <option value="__other__">Other…</option>
-                </select>
-                {driver === "__other__" ? (
-                  <input
-                    value={driverOther}
-                    onChange={(event) => setDriverOther(event.target.value)}
-                    placeholder="Driver name"
-                    className={`${inputClass} mt-2`}
-                  />
-                ) : null}
-              </div>
-            ) : null}
-            {trailers.length > 0 ? (
-              <div>
-                <label className="block text-xs font-medium text-slate-700">
-                  Trailer
-                </label>
-                <select
-                  value={trailer}
-                  onChange={(event) => setTrailer(event.target.value)}
-                  className={inputClass}
-                >
-                  <option value="">Select…</option>
-                  {trailers.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                  <option value="__other__">Other…</option>
-                </select>
-                {trailer === "__other__" ? (
-                  <input
-                    value={trailerOther}
-                    onChange={(event) => setTrailerOther(event.target.value)}
-                    placeholder="Trailer type"
-                    className={`${inputClass} mt-2`}
-                  />
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        </SectionCard>
+      {ticketType === "WALK_IN" ? (
+        <>
+          <SectionCard title="Summary">
+            <p className="text-xs text-slate-600">
+              {selectedLineCount} line(s) selected
+              {totalWeight > 0
+                ? ` · ${formatWeight(totalWeight)} on this load`
+                : ""}
+              {deliveryDate ? ` · scheduled for ${deliveryDate}` : ""}
+            </p>
+          </SectionCard>
+
+          {error ? (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              {error}
+            </p>
+          ) : null}
+
+          {actionButtons}
+        </>
       ) : null}
-
-      <SectionCard title="Summary">
-        <p className="text-xs text-slate-600">
-          {lines.filter((line) => selectedLineIds.has(line.key)).length} line(s)
-          selected
-          {totalWeight > 0 ? ` · ${formatWeight(totalWeight)} on this load` : ""}
-          {deliveryDate ? ` · scheduled for ${deliveryDate}` : ""}
-        </p>
-      </SectionCard>
-
-      {error ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-          {error}
-        </p>
-      ) : null}
-
-      <div className="flex justify-end gap-2">
-        <Link
-          href={
-            mode === "edit" && ticketId
-              ? `/delivery-tickets/${ticketId}`
-              : ticketType === "WALK_IN"
-                ? "/walk-ins"
-                : "/delivery-tickets"
-          }
-          className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-medium hover:bg-slate-50"
-        >
-          Cancel
-        </Link>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() =>
-            submit("DRAFT", ticketType === "WALK_IN" ? "walkIns" : "detail")
-          }
-          className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-medium hover:bg-slate-50 disabled:opacity-50"
-        >
-          {pending ? "Saving…" : "Save Draft"}
-        </button>
-        {ticketType === "WALK_IN" ? (
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => submit("DRAFT", "preview")}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
-          >
-            {pending ? "Saving…" : "Save & Preview"}
-          </button>
-        ) : (
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => submit("SCHEDULED")}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
-          >
-            {pending
-              ? "Saving…"
-              : isPickup
-                ? "Schedule Pickup"
-                : "Schedule Delivery"}
-          </button>
-        )}
-      </div>
     </div>
   );
 }

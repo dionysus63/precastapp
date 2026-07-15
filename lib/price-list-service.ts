@@ -16,6 +16,18 @@ export type PriceListCompleteness = {
   isComplete: boolean;
 };
 
+/**
+ * The current default cannot be unset directly; it is replaced only when a
+ * different list is promoted. This also handles disabled HTML checkboxes,
+ * which are omitted from FormData when the current list's settings are saved.
+ */
+export function resolvePriceListIsDefault(
+  currentIsDefault: boolean,
+  requestedIsDefault: boolean,
+): boolean {
+  return currentIsDefault || requestedIsDefault;
+}
+
 export async function getDefaultPriceList(
   client: DbClient = prisma,
 ): Promise<PriceListOption | null> {

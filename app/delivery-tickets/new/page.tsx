@@ -61,10 +61,9 @@ export default async function NewDeliveryTicketPage({
           products={products}
           defaultValues={defaultValues}
           fleetOptions={{
-            trucks: settings.trucks,
             drivers: settings.drivers,
             trailers: settings.trailers,
-            truckCapacityLabel: settings.truckCapacityLabel,
+            loadCapacityLabel: settings.truckCapacityLabel,
           }}
         />
       </div>

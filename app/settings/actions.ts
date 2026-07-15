@@ -28,6 +28,7 @@ import { prisma, withDatabaseRetry } from "@/lib/prisma";
 import {
   assertPriceListCompleteForDefault,
   copyPriceListItems,
+  resolvePriceListIsDefault,
 } from "@/lib/price-list-service";
 
 export type SettingsActionResult = {
@@ -148,7 +149,7 @@ export async function updatePriceListSettings(
   const id = String(formData.get("id") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   const effectiveDateRaw = String(formData.get("effectiveDate") ?? "").trim();
-  const isDefault = formData.get("isDefault") === "on";
+  const requestedIsDefault = formData.get("isDefault") === "on";
   const fobDefault = String(formData.get("fobDefault") ?? "").trim() || null;
   const notes = String(formData.get("notes") ?? "").trim() || null;
 
@@ -174,13 +175,12 @@ export async function updatePriceListSettings(
           throw new Error("Price list not found.");
         }
 
-        // The app always needs a default list, so the default never turns
-        // off here — it moves when another list is made default.
-        if (current.isDefault && !isDefault) {
-          throw new Error(
-            "This is the default price list. Set another list as default to replace it.",
-          );
-        }
+        // Disabled checkboxes are omitted from FormData. Preserve an existing
+        // default while saving unrelated fields such as F.O.B. or notes.
+        const isDefault = resolvePriceListIsDefault(
+          current.isDefault,
+          requestedIsDefault,
+        );
 
         if (isDefault && !current.isDefault) {
           await assertPriceListCompleteForDefault(id, tx);
@@ -506,21 +506,19 @@ export async function updateOperationsSettingsFormAction(
   formData: FormData,
 ): Promise<SettingsActionResult> {
   await requirePermission(AppPermission.SETTINGS_MANAGE);
-  const truckCapacityLabel = String(
-    formData.get("truckCapacityLabel") ?? "",
+  const loadCapacityLabel = String(
+    formData.get("loadCapacityLabel") ?? "",
   ).trim();
   const estimators = parseLinesList(String(formData.get("estimators") ?? ""));
-  const trucks = parseLinesList(String(formData.get("trucks") ?? ""));
   const drivers = parseLinesList(String(formData.get("drivers") ?? ""));
   const trailers = parseLinesList(String(formData.get("trailers") ?? ""));
 
-  if (!truckCapacityLabel) {
-    return { error: "Truck capacity label is required." };
+  if (!loadCapacityLabel) {
+    return { error: "Load capacity is required." };
   }
 
   if (
     estimators.length === 0 ||
-    trucks.length === 0 ||
     drivers.length === 0 ||
     trailers.length === 0
   ) {
@@ -528,9 +526,8 @@ export async function updateOperationsSettingsFormAction(
   }
 
   return updateAppSettings({
-    truckCapacityLabel,
+    truckCapacityLabel: loadCapacityLabel,
     estimators,
-    trucks,
     drivers,
     trailers,
   });
