@@ -1340,8 +1340,8 @@
     "semantic_hash": ""
   },
   "lib/delivery-ticket-pdf-data.ts": {
-    "mtime": 1784118928.2921472,
-    "ast_hash": "517890c71ad32fe65f224f4397050e17",
+    "mtime": 1784206133.3106031,
+    "ast_hash": "47981c44a81a0f338f593e6966d8a402",
     "semantic_hash": ""
   },
   "lib/drill-sheet-detail.ts": {
@@ -1550,8 +1550,8 @@
     "semantic_hash": ""
   },
   "lib/delivery-ticket-pdf-fill.ts": {
-    "mtime": 1784121144.8298357,
-    "ast_hash": "fce6f82cb2c74cc32c1ecc80dc4dc151",
+    "mtime": 1784206111.856789,
+    "ast_hash": "b5a990e775b97f651d9aed3911c78fbe",
     "semantic_hash": ""
   },
   "public/pdf.worker.min.mjs": {
@@ -3310,8 +3310,8 @@
     "semantic_hash": ""
   },
   "tests/unit/delivery-ticket-pdf-data.test.ts": {
-    "mtime": 1784119001.6331172,
-    "ast_hash": "12ca8cf0c2ecb7a07c2cc2849832a49a",
+    "mtime": 1784206341.572435,
+    "ast_hash": "dd25d9fe37156c439f3e164c64bc8150",
     "semantic_hash": ""
   },
   "tests/unit/delivery-ticket-editor-utils.test.ts": {
@@ -3392,6 +3392,16 @@
   "lib/draft-invoice-cover-html.ts": {
     "mtime": 1784161369.9931993,
     "ast_hash": "92c8366beb127dfd244ba14d8ee163fb",
+    "semantic_hash": ""
+  },
+  "lib/delivery-ticket-pdf-pickup.ts": {
+    "mtime": 1784206233.2418337,
+    "ast_hash": "cd0ea38e4f87ce75648788cf1799d8f0",
+    "semantic_hash": ""
+  },
+  "scripts/test-pickup-ticket-pdf.ts": {
+    "mtime": 1784206151.298358,
+    "ast_hash": "ccb603457e42ba2849061fad54a677bb",
     "semantic_hash": ""
   }
 }

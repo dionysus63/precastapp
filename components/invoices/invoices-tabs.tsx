@@ -760,6 +760,21 @@ function ReconcileTab({
         <button
           type="button"
           onClick={() => {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            // Local date, not UTC — matches how the page resolves "today".
+            const date = yesterday.toLocaleDateString("en-CA");
+            setFromInput(date);
+            setToInput("");
+            setParams({ date, dateTo: null, all: null });
+          }}
+          className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium hover:bg-slate-50"
+        >
+          Yesterday
+        </button>
+        <button
+          type="button"
+          onClick={() => {
             setFromInput("");
             setToInput("");
             setParams({ date: null, dateTo: null, all: null });

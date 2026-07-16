@@ -2205,8 +2205,8 @@
     "semantic_hash": ""
   },
   "components/invoices/invoices-tabs.tsx": {
-    "mtime": 1783950604.3132322,
-    "ast_hash": "2e587ac13b65d647416217bd8580e42b",
+    "mtime": 1784207827.6645808,
+    "ast_hash": "89972de7f805c0f4155ca471c382c5dd",
     "semantic_hash": ""
   },
   "lib/invoice-pdf-data.ts": {
@@ -3402,6 +3402,11 @@
   "scripts/test-pickup-ticket-pdf.ts": {
     "mtime": 1784206151.298358,
     "ast_hash": "ccb603457e42ba2849061fad54a677bb",
+    "semantic_hash": ""
+  },
+  "delete-job-26-003.sql": {
+    "mtime": 1784207156.453724,
+    "ast_hash": "d016b60af50661e59c5b6ec72832fe1d",
     "semantic_hash": ""
   }
 }
