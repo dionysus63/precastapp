@@ -315,8 +315,8 @@
     "semantic_hash": ""
   },
   "lib/quote-mapper.ts": {
-    "mtime": 1784233387.8282597,
-    "ast_hash": "bba4477350d01f2ad172f89ae8379898",
+    "mtime": 1784234075.8186169,
+    "ast_hash": "d8575cd0c0357820038c2f39f29ccd55",
     "semantic_hash": ""
   },
   "lib/quote-pdf-html.ts": {
