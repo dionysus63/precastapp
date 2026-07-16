@@ -209,6 +209,34 @@ function allLineageIds(lineageMap: Map<string, string[]>): string[] {
   return [...new Set([...lineageMap.values()].flat())];
 }
 
+/**
+ * Every line id in the quote's revision lineage (ancestors included) mapped
+ * to the quote's CURRENT line id. Delivery tickets created before a quote
+ * revision still reference superseded line ids; callers resolve those
+ * references to the live lines through this map.
+ */
+export async function buildQuoteLineAliasMap(
+  client: DbClient,
+  quoteId: string,
+): Promise<Map<string, string>> {
+  const lines = await client.quoteLineItem.findMany({
+    where: { quoteId },
+    select: { id: true },
+  });
+  const lineageMap = await buildQuoteLineLineageMap(
+    client,
+    lines.map((line) => line.id),
+  );
+
+  const alias = new Map<string, string>();
+  for (const [currentId, chain] of lineageMap) {
+    for (const id of chain) {
+      alias.set(id, currentId);
+    }
+  }
+  return alias;
+}
+
 function rollUpDecimalTotals(
   lineageMap: Map<string, string[]>,
   rawTotals: Map<string, Prisma.Decimal>,

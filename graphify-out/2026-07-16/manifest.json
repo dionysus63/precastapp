@@ -5,8 +5,8 @@
     "semantic_hash": "3bbcf477e1c81b5f6411407b72c600c8"
   },
   "app/customers/[id]/edit/page.tsx": {
-    "mtime": 1784149912.7265017,
-    "ast_hash": "7d57dc120a18a256e6cca1bc299620f8",
+    "mtime": 1784234661.1755059,
+    "ast_hash": "5a0b2e46347c90248cef6bd30ba39a38",
     "semantic_hash": ""
   },
   "app/customers/[id]/page.tsx": {
@@ -15,8 +15,8 @@
     "semantic_hash": ""
   },
   "app/customers/actions.ts": {
-    "mtime": 1783891703.4397845,
-    "ast_hash": "52d782d33f41b3f9238c36bc1f2ec231",
+    "mtime": 1784234796.8207636,
+    "ast_hash": "ce33b5a1dc7bd6d0edb9dfbaf66919c4",
     "semantic_hash": ""
   },
   "app/customers/new/page.tsx": {
@@ -140,8 +140,8 @@
     "semantic_hash": ""
   },
   "components/customers/customer-form.tsx": {
-    "mtime": 1783892348.0318468,
-    "ast_hash": "a16f3bb44f2ef429a7eea83916207b97",
+    "mtime": 1784234659.9093504,
+    "ast_hash": "d45db3bce053e4c16179661f1e4f7e80",
     "semantic_hash": ""
   },
   "components/customers/customer-utils.ts": {
@@ -1770,8 +1770,8 @@
     "semantic_hash": ""
   },
   "lib/quote-pdf-persist.ts": {
-    "mtime": 1782481804.2841508,
-    "ast_hash": "e8ed8034baf6ba98aee153089853bf26",
+    "mtime": 1784234719.6970286,
+    "ast_hash": "ee64c355b5b77ccc91a6f001a70cd258",
     "semantic_hash": ""
   },
   "lib/quotes/edit-rules.ts": {
@@ -3422,6 +3422,16 @@
   "components/jobs/job-tax-exempt-cert-panel.tsx": {
     "mtime": 1784227232.4273367,
     "ast_hash": "a6d3269b8e5f52f2df8209d7095550ad",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260716210000_add_customer_nickname/migration.sql": {
+    "mtime": 1784234611.5637972,
+    "ast_hash": "b21fe4a4b77c3fc588d6e76133acfeb4",
+    "semantic_hash": ""
+  },
+  "tests/unit/quote-attachment-filename.test.ts": {
+    "mtime": 1784234937.9509828,
+    "ast_hash": "e0b5f100e8e51f5448a16ba08bf89f5a",
     "semantic_hash": ""
   }
 }

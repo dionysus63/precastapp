@@ -13,6 +13,7 @@ import { requirePermission } from "@/lib/auth/session";
 import { getDefaultContactForRole } from "@/lib/customer-contacts";
 import { allocateDeliveryTicketNumber } from "@/lib/delivery-ticket-number";
 import {
+  buildQuoteLineAliasMap,
   cancelDeliveredTicket,
   getQuoteLineFulfillmentAndScheduled,
   markDeliveryTicketDelivered,
@@ -166,6 +167,10 @@ async function validateLines(
         OPEN_TICKET_STATUSES,
       );
     const byId = new Map(fulfillment.map((line) => [line.quoteLineItemId, line]));
+    // Tickets created before a quote revision reference superseded line ids;
+    // resolve those to the current revision's lines (and adopt the current id
+    // below) instead of rejecting the ticket.
+    const aliasToCurrentId = await buildQuoteLineAliasMap(client, input.quoteId);
     const remainingFor = (line: (typeof fulfillment)[number]) =>
       Math.max(0, line.remainingQty - (scheduledByLine.get(line.quoteLineItemId) ?? 0));
     const drainRingFeetByLine = new Map<string, number>();
@@ -175,7 +180,17 @@ async function validateLines(
 
     for (const line of input.lines) {
       if (!line.quoteLineItemId) continue;
-      const meta = byId.get(line.quoteLineItemId);
+      let meta = byId.get(line.quoteLineItemId);
+      if (!meta) {
+        const currentId = aliasToCurrentId.get(line.quoteLineItemId);
+        const aliased = currentId ? byId.get(currentId) : undefined;
+        if (aliased) {
+          // Superseded revision's line — save the ticket line against the
+          // current revision's id so it points at live lines from here on.
+          line.quoteLineItemId = aliased.quoteLineItemId;
+          meta = aliased;
+        }
+      }
       if (!meta) {
         throw new Error(`Quote line ${line.itemCode} is not on this quote.`);
       }
