@@ -2260,8 +2260,8 @@
     "semantic_hash": ""
   },
   "app/error.tsx": {
-    "mtime": 1783287348.1891978,
-    "ast_hash": "53ab54f2cd6f01942658f10eea4bdf2e",
+    "mtime": 1784219410.4046702,
+    "ast_hash": "eaf66ddbc97b295edaba3da620c22c03",
     "semantic_hash": ""
   },
   "app/jobs/loading.tsx": {
