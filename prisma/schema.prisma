@@ -281,6 +281,8 @@ model ProductDocument {
 model Customer {
   id        String         @id @default(cuid())
   name      String
+  /// Short name for filenames and shorthand (e.g. sent-quote PDF names).
+  nickname  String?
   status    CustomerStatus @default(ACTIVE)
   /// Company main line; person-level phones live on contacts.
   phone     String?

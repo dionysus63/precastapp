@@ -205,8 +205,8 @@
     "semantic_hash": ""
   },
   "components/jobs/job-utils.ts": {
-    "mtime": 1783629756.4701695,
-    "ast_hash": "af09843f4ddf6c8953b8090080e94ac4",
+    "mtime": 1784227101.966567,
+    "ast_hash": "f99ceffcbb05bb7a7e69e13c96731c75",
     "semantic_hash": ""
   },
   "components/jobs/jobs-list.tsx": {
@@ -315,8 +315,8 @@
     "semantic_hash": ""
   },
   "lib/quote-mapper.ts": {
-    "mtime": 1784056170.901055,
-    "ast_hash": "5e56a167961049b6364c5f515162a379",
+    "mtime": 1784234075.8186169,
+    "ast_hash": "d8575cd0c0357820038c2f39f29ccd55",
     "semantic_hash": ""
   },
   "lib/quote-pdf-html.ts": {
@@ -740,14 +740,14 @@
     "semantic_hash": ""
   },
   "lib/job-files-service.ts": {
-    "mtime": 1782946507.6647036,
-    "ast_hash": "1864fc69d763b9c89221ff4ed8b9d85c",
+    "mtime": 1784227095.5487683,
+    "ast_hash": "42ad5fda6e3da90c9e3e8d05a056e0a2",
     "semantic_hash": ""
   },
   "lib/job-folder-constants.ts": {
-    "mtime": 1781968756.2416334,
-    "ast_hash": "8ed884388aff50623101eb74d951865b",
-    "semantic_hash": "8ed884388aff50623101eb74d951865b"
+    "mtime": 1784227147.882181,
+    "ast_hash": "8d6d2ca53dadca75f86910a882c81bbf",
+    "semantic_hash": ""
   },
   "lib/job-path-security.ts": {
     "mtime": 1781968800.678586,
@@ -840,13 +840,13 @@
     "semantic_hash": ""
   },
   "app/jobs/[id]/page.tsx": {
-    "mtime": 1783561946.9892533,
-    "ast_hash": "5fe55cd35051ae6eaa18e3aeb8bd00a9",
+    "mtime": 1784227102.5463068,
+    "ast_hash": "c66eea56fafa328fc8a8275b47736155",
     "semantic_hash": ""
   },
   "components/jobs/job-detail-content.tsx": {
-    "mtime": 1784149912.982403,
-    "ast_hash": "8c507fb76b14203b479bf3d44a97ad3b",
+    "mtime": 1784227104.0816228,
+    "ast_hash": "77ab86c38d72d3b9870e9bd05816dcc8",
     "semantic_hash": ""
   },
   "lib/job-detail-mapper.ts": {
@@ -2065,8 +2065,8 @@
     "semantic_hash": ""
   },
   "app/jobs/[id]/job-tab-content.tsx": {
-    "mtime": 1783631336.42902,
-    "ast_hash": "79fe30b488046cc4982819370a5cc5bd",
+    "mtime": 1784227198.5032234,
+    "ast_hash": "760ece3a7972cfd13ef4845f3993127f",
     "semantic_hash": ""
   },
   "app/quotes/quote-form-data.ts": {
@@ -3412,6 +3412,16 @@
   "lib/random-id.ts": {
     "mtime": 1784222395.7172332,
     "ast_hash": "e372c671b908abe5e3e45b110b65cc95",
+    "semantic_hash": ""
+  },
+  "app/api/job-files/[id]/content/route.ts": {
+    "mtime": 1784227131.0549078,
+    "ast_hash": "152b1d790adc3b90dd381837d99a1e65",
+    "semantic_hash": ""
+  },
+  "components/jobs/job-tax-exempt-cert-panel.tsx": {
+    "mtime": 1784227232.4273367,
+    "ast_hash": "a6d3269b8e5f52f2df8209d7095550ad",
     "semantic_hash": ""
   }
 }

@@ -18,6 +18,7 @@ import { customerStatusFormOptions } from "@/components/customers/customer-utils
 export type CustomerFormValues = {
   id?: string;
   name: string;
+  nickname: string;
   status: string;
   phone: string;
   address: string;
@@ -196,6 +197,26 @@ export function CustomerForm({
             ) : null}
           </div>
         ) : null}
+      </div>
+
+      <div>
+        <label
+          htmlFor="nickname"
+          className="block text-xs font-medium text-slate-700"
+        >
+          Nickname
+        </label>
+        <input
+          id="nickname"
+          name="nickname"
+          type="text"
+          defaultValue={defaultValues?.nickname ?? ""}
+          className={customerInputClassName}
+        />
+        <p className="mt-1 text-[11px] text-slate-500">
+          Short name used for sent-quote PDF filenames and other shorthand.
+          Falls back to the full customer name when blank.
+        </p>
       </div>
 
       <div>

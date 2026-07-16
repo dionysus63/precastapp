@@ -31,6 +31,7 @@ const CUSTOMER_STATUSES = Object.values(CustomerStatus);
 
 type CustomerRecordInput = {
   name: string;
+  nickname: string | null;
   status: CustomerStatus;
   phone: string | null;
   address: string | null;
@@ -42,6 +43,7 @@ type CustomerRecordInput = {
 
 function parseCustomerFormData(formData: FormData): CustomerRecordInput {
   const name = getRequiredString(formData, "name", "Customer name");
+  const nickname = getOptionalString(formData, "nickname");
   const status = getEnum(formData, "status", CUSTOMER_STATUSES, {
     label: "status",
   });
@@ -54,6 +56,7 @@ function parseCustomerFormData(formData: FormData): CustomerRecordInput {
 
   return {
     name,
+    nickname,
     status,
     phone,
     address,
@@ -249,6 +252,7 @@ function mapBulkImportRow(row: BulkImportRow, lineNumber: number): CustomerRecor
 
   return {
     name,
+    nickname: null,
     status: statusRaw as CustomerStatus,
     phone: String(row.phone ?? "").trim() || null,
     address: String(row.address ?? "").trim() || null,
