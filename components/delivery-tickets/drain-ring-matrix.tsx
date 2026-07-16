@@ -21,12 +21,6 @@ const RING_VALUE_COLUMN_WIDTH = 76;
 const FEET_STAT_COLUMN_WIDTH = 72;
 const FEET_STAT_COLUMNS = ["Feet scheduled", "Feet shipped", "Feet awarded"] as const;
 
-const metadataBadgeClass =
-  "inline-flex items-center whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ring-inset";
-const poolCountBadgeClass = `${metadataBadgeClass} bg-sky-50 text-sky-700 ring-sky-200`;
-const poolDepthBadgeClass = `${metadataBadgeClass} bg-amber-50 text-amber-800 ring-amber-200`;
-const diameterBadgeClass = `${metadataBadgeClass} bg-emerald-50 text-emerald-700 ring-emerald-200`;
-const completedMetadataBadgeClass = `${metadataBadgeClass} bg-slate-100 text-slate-600 ring-slate-200`;
 
 type DrainRingMatrixRowsProps = {
   groups: DrainRingDiameterGroup[];
@@ -130,21 +124,13 @@ function DrainRingStyleTable({
                 className="sticky left-0 z-[3] border-b-2 border-r border-slate-300 bg-slate-100 px-1.5 py-1.5 text-left"
               >
                 <span
-                  className={
-                    matrixComplete
-                      ? completedMetadataBadgeClass
-                      : diameterBadgeClass
-                  }
+                  className={`block text-sm font-bold ${
+                    matrixComplete ? "text-slate-500" : "text-slate-900"
+                  }`}
                 >
                   {diameterFeet != null
-                    ? `${diameterFeet}' diameter rings`
-                    : "Ring diameter not set"}
-                  <span className="sr-only">
-                    , {formatDrainRingStyleLabel(matrix.style)} style
-                  </span>
-                </span>
-                <span className="mt-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-600">
-                  Quoted pool group
+                    ? `${diameterFeet}'Ø ${formatDrainRingStyleLabel(matrix.style)} Rings`
+                    : `${formatDrainRingStyleLabel(matrix.style)} Rings — diameter not set`}
                 </span>
               </th>
               <th
@@ -221,36 +207,23 @@ function DrainRingStyleTable({
                     scope="row"
                     className={`sticky left-0 z-[2] border-b border-r border-slate-300 px-2 py-2 text-left align-top ${rowSurface}`}
                   >
-                    <div className="flex flex-wrap items-center gap-0.5">
+                    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5">
                       <span
-                        className={
-                          completed
-                            ? completedMetadataBadgeClass
-                            : poolCountBadgeClass
-                        }
+                        className={`text-xs font-semibold ${
+                          completed ? "text-slate-500" : "text-slate-900"
+                        }`}
                       >
                         {quotedGroupParts.poolCountLabel}
                       </span>
                       {quotedGroupParts.depthLabel ? (
                         <span
-                          className={
-                            completed
-                              ? completedMetadataBadgeClass
-                              : poolDepthBadgeClass
-                          }
+                          className={`text-xs ${
+                            completed ? "text-slate-400" : "text-slate-600"
+                          }`}
                         >
                           {quotedGroupParts.depthLabel}
                         </span>
                       ) : null}
-                      <span
-                        className={
-                          completed
-                            ? completedMetadataBadgeClass
-                            : diameterBadgeClass
-                        }
-                      >
-                        {diameterLabel}
-                      </span>
                       {completed ? (
                         <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-600">
                           Shipped complete

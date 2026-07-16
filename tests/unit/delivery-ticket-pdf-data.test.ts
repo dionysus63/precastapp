@@ -198,6 +198,65 @@ describe("delivery ticket PDF form data", () => {
     }
   });
 
+  it("combines the same ring SKU from multiple pool groups into one PDF row", () => {
+    const ring = (qty: string): DbDeliveryTicketForPdf["lineItems"][number] => ({
+      itemCode: "R10-D-1",
+      description: `10' Drain Ring 1'`,
+      quantity: { toString: () => qty },
+      unit: "EA",
+      totalWeight: null,
+      jobStructure: null,
+    });
+
+    const rows = mapLineItemsForPdf([
+      ring("2"),
+      {
+        itemCode: "VALVE-12",
+        description: "12 inch valve",
+        quantity: { toString: () => "1" },
+        unit: "EA",
+        totalWeight: null,
+        jobStructure: null,
+      },
+      ring("3"),
+    ]);
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({ productCode: "R10-D-1", qty: "5" });
+    expect(rows[1]).toMatchObject({ productCode: "VALVE-12", qty: "1" });
+  });
+
+  it("never merges structure lines, even with identical codes", () => {
+    const structure = (
+      structureNumber: string,
+    ): DbDeliveryTicketForPdf["lineItems"][number] => ({
+      itemCode: "CB-4X4",
+      description: null,
+      quantity: { toString: () => "1" },
+      unit: "EA",
+      totalWeight: null,
+      jobStructure: { structureNumber, description: "Catch basin" },
+    });
+
+    // Same code and same resolved description ("Catch basin") on both rows.
+    expect(mapLineItemsForPdf([structure("S-1"), structure("S-2")])).toHaveLength(2);
+  });
+
+  it("keeps rows with the same code but different descriptions separate", () => {
+    const line = (
+      description: string,
+    ): DbDeliveryTicketForPdf["lineItems"][number] => ({
+      itemCode: "MISC",
+      description,
+      quantity: { toString: () => "1" },
+      unit: "EA",
+      totalWeight: null,
+      jobStructure: null,
+    });
+
+    expect(mapLineItemsForPdf([line("Gasket kit"), line("Sealant")])).toHaveLength(2);
+  });
+
   it("removes a trailing ring-height suffix from PDF descriptions", () => {
     const ringLine: DbDeliveryTicketForPdf["lineItems"][number] = {
       itemCode: "R-3-DRAIN",

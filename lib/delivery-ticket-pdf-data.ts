@@ -270,12 +270,47 @@ export function computeTotalPieces(ticket: DbDeliveryTicketForPdf): string {
 export function mapLineItemsForPdf(
   lineItems: DbDeliveryTicketForPdf["lineItems"],
 ): DeliveryTicketDrawLineItem[] {
-  return lineItems.map((line) => ({
-    qty: formatQuantity(line.quantity),
-    unit: line.unit?.trim() || "EA",
-    productCode: line.itemCode.trim(),
-    description: resolveLineDescription(line),
-  }));
+  // Rings picked from multiple pool groups arrive as one DB row per quote
+  // line for the same SKU (fulfillment is tracked per pool group); print
+  // them as a single combined row. Applies to any identical non-structure
+  // rows — structure lines are never merged (each is a distinct piece).
+  const result: DeliveryTicketDrawLineItem[] = [];
+  const mergedIndexByKey = new Map<string, number>();
+  const mergedTotals = new Map<number, number>();
+
+  for (const line of lineItems) {
+    const item: DeliveryTicketDrawLineItem = {
+      qty: formatQuantity(line.quantity),
+      unit: line.unit?.trim() || "EA",
+      productCode: line.itemCode.trim(),
+      description: resolveLineDescription(line),
+    };
+
+    const qtyNumber = Number.parseFloat(line.quantity.toString());
+    const mergeKey =
+      !line.jobStructure && Number.isFinite(qtyNumber)
+        ? `${item.productCode}::${item.unit}::${item.description}`
+        : null;
+
+    if (mergeKey != null) {
+      const existingIndex = mergedIndexByKey.get(mergeKey);
+      if (existingIndex != null) {
+        const total = (mergedTotals.get(existingIndex) ?? 0) + qtyNumber;
+        mergedTotals.set(existingIndex, total);
+        result[existingIndex] = {
+          ...result[existingIndex]!,
+          qty: formatQuantity(total),
+        };
+        continue;
+      }
+      mergedIndexByKey.set(mergeKey, result.length);
+      mergedTotals.set(result.length, qtyNumber);
+    }
+
+    result.push(item);
+  }
+
+  return result;
 }
 
 /** AcroForm field names must match the PDF template exactly. */
