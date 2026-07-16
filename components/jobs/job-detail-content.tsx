@@ -56,6 +56,7 @@ const TAB_ORDER: JobDetailTab[] = [
   "production",
   "invoices",
   "construction-plans",
+  "tax-exempt-cert",
   "files",
 ];
 
@@ -68,6 +69,7 @@ const TAB_LABELS: Record<JobDetailTab, string> = {
   production: "Production",
   invoices: "Invoices",
   "construction-plans": "Construction Plans",
+  "tax-exempt-cert": "Tax Exempt Cert",
   files: "Files",
 };
 

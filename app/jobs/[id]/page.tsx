@@ -26,6 +26,7 @@ const VALID_TABS: JobDetailTab[] = [
   "production",
   "invoices",
   "construction-plans",
+  "tax-exempt-cert",
   "files",
 ];
 

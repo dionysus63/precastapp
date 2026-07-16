@@ -1,4 +1,4 @@
-import { access, readdir, stat, unlink, writeFile } from "fs/promises";
+import { access, mkdir, readdir, stat, unlink, writeFile } from "fs/promises";
 import path from "path";
 import type { PrismaClient } from "@/app/generated/prisma/client";
 import { JOB_SUBFOLDERS } from "@/lib/job-folder-constants";
@@ -392,8 +392,11 @@ export async function uploadJobFile(
   const job = await assertJobFolderPath(client, jobId);
   const categoryPath = resolveCategoryPath(job.folderPath, folderCategory);
 
+  // Older job folders may predate newer categories (e.g. 10 Tax Exempt
+  // Cert); create the subfolder on first upload instead of failing.
   if (!(await pathExists(categoryPath))) {
-    throw new Error(`Category folder not found: ${folderCategory}`);
+    assertPathUnderJobRoot(job.folderPath, categoryPath);
+    await mkdir(categoryPath, { recursive: true });
   }
 
   const safeName = sanitizeFileName(file.name);

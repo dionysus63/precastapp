@@ -1,4 +1,6 @@
 import { JobBiddingPanel } from "@/components/jobs/job-bidding-panel";
+import { JobTaxExemptCertPanel } from "@/components/jobs/job-tax-exempt-cert-panel";
+import { TAX_EXEMPT_CERT_CATEGORY } from "@/lib/job-folder-constants";
 import { JobProgressPanel } from "@/components/jobs/job-progress-panel";
 import { JobFilesBrowser } from "@/components/files/job-files-browser";
 import {
@@ -274,6 +276,39 @@ export async function JobTabContent({
         invoices={mapJobInvoices(invoices)}
         invoiceableDeliveries={mapJobInvoiceableDeliveries(invoiceableTickets)}
         canManageInvoices={canManageInvoices}
+      />
+    );
+  }
+
+  if (activeTab === "tax-exempt-cert") {
+    let cert: { id: string; fileName: string; updatedAt: string } | null = null;
+    if (detail.folderPath) {
+      const result = await getJobFilesForBrowser(
+        jobId,
+        TAX_EXEMPT_CERT_CATEGORY,
+      );
+      const newest = [...result.files].sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      )[0];
+      if (newest) {
+        const [mapped] = mapFilesForBrowser([newest]);
+        cert = mapped
+          ? {
+              id: mapped.id,
+              fileName: mapped.fileName,
+              updatedAt: mapped.updatedAt,
+            }
+          : null;
+      }
+    }
+
+    return (
+      <JobTaxExemptCertPanel
+        jobId={jobId}
+        jobNumber={detail.jobNumber}
+        folderPath={detail.folderPath}
+        cert={cert}
       />
     );
   }

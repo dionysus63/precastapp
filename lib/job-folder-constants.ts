@@ -12,5 +12,8 @@ export const JOB_SUBFOLDERS = [
   "07 Purchase Orders",
   "08 Production",
   "09 Cut Sheets",
+  "10 Tax Exempt Cert",
   "99 Misc",
 ] as const;
+
+export const TAX_EXEMPT_CERT_CATEGORY = "10 Tax Exempt Cert";

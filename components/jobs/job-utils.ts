@@ -69,6 +69,7 @@ export type JobDetailTab =
   | "production"
   | "invoices"
   | "construction-plans"
+  | "tax-exempt-cert"
   | "files";
 
 export type JobRelatedQuote = {
