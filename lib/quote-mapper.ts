@@ -669,13 +669,10 @@ export function mapProductToQuoteFormOption(
   // The description column is optional (bulk imports leave it empty), so the
   // product name is the fallback — never the subcategory, which turned rows
   // into "Traffic Rated" instead of "60x84 Utility Vault".
-  // One-piece castings get no tag — the name already says what they are.
   const baseDescription = product.description?.trim() || product.name;
-  const description = isCastingAssembly
-    ? `${baseDescription} [Casting assembly]`
-    : isCastingComponent
-      ? `${baseDescription} [Casting piece]`
-      : baseDescription;
+  const description = isCastingComponent
+    ? `${baseDescription} [Casting piece]`
+    : baseDescription;
   return {
     id: product.id,
     code: product.productCode,
