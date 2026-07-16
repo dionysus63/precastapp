@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { randomId } from "@/lib/random-id";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { savePurchaseReceipt } from "@/app/inventory/actions";
@@ -38,7 +39,7 @@ type ReceiptLineRow = {
 
 function createRow(productId = "", quantityReceived = ""): ReceiptLineRow {
   return {
-    id: crypto.randomUUID(),
+    id: randomId(),
     productId,
     quantityReceived,
   };
@@ -75,7 +76,7 @@ export function PipeReceiptForm({
   const [lines, setLines] = useState<ReceiptLineRow[]>(
     () => prefillRowsFromPurchaseOrder(lockedPurchaseOrder) ?? [createRow()],
   );
-  const [submissionKey] = useState(() => crypto.randomUUID());
+  const [submissionKey] = useState(() => randomId());
   const defaultSupplier = receivingCategoryDefaultSupplier[category] ?? "";
 
   // Prefill happens on the selection event (and lazily above for a locked PO)

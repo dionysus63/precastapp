@@ -1,3 +1,4 @@
+import { randomId } from "@/lib/random-id";
 import { tableInlineInputClassName } from "@/lib/table-styles";
 
 export type StructureType =
@@ -95,7 +96,7 @@ export type CastingRow = {
 
 export function createOpeningRow(openingNumber = ""): OpeningRow {
   return {
-    id: crypto.randomUUID(),
+    id: randomId(),
     openingNumber,
     wallLocation: "",
     clockPosition: "",
@@ -112,7 +113,7 @@ export function createOpeningRow(openingNumber = ""): OpeningRow {
 
 export function createCastingRow(): CastingRow {
   return {
-    id: crypto.randomUUID(),
+    id: randomId(),
     castingType: "",
     description: "",
     frameSize: "",

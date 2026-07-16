@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { randomId } from "@/lib/random-id";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { saveInventoryAdjustment, searchInventoryProducts } from "@/app/inventory/actions";
@@ -24,7 +25,7 @@ type AdjustFormProps = {
 export function AdjustForm({ products, defaultProductId }: AdjustFormProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [submissionKey] = useState(() => crypto.randomUUID());
+  const [submissionKey] = useState(() => randomId());
   const initialProduct =
     products.find((product) => product.id === defaultProductId) ?? null;
   const [productId, setProductId] = useState(defaultProductId ?? "");

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { randomId } from "@/lib/random-id";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import {
@@ -150,14 +151,8 @@ function roundQty(value: number): number {
   return Math.round(value * 10000) / 10000;
 }
 
-let loadCounter = 0;
 function makeLoad(): LoadDraft {
-  loadCounter += 1;
-  const key =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `load-${Date.now()}-${loadCounter}`;
-  return { key };
+  return { key: randomId() };
 }
 
 function buildRows(

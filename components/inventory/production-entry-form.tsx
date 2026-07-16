@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { randomId } from "@/lib/random-id";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { saveProductionEntry } from "@/app/operations/actions";
@@ -28,7 +29,7 @@ type ProductionEntryFormProps = {
 
 function createRow(): ProductionLineRow {
   return {
-    id: crypto.randomUUID(),
+    id: randomId(),
     productId: "",
     productLabel: "",
     quantityProduced: "",
@@ -42,7 +43,7 @@ export function ProductionEntryForm({ products }: ProductionEntryFormProps) {
   const [lines, setLines] = useState<ProductionLineRow[]>([createRow()]);
   // One key per form instance: a double-click or retry resubmits the same
   // key, and the server posts the entry only once.
-  const [submissionKey] = useState(() => crypto.randomUUID());
+  const [submissionKey] = useState(() => randomId());
 
   function addLine() {
     setLines((current) => [...current, createRow()]);

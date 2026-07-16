@@ -270,8 +270,8 @@
     "semantic_hash": ""
   },
   "components/structures/structure-utils.ts": {
-    "mtime": 1783629110.4611535,
-    "ast_hash": "81578c90e94bd683878b69223ca83182",
+    "mtime": 1784222273.688427,
+    "ast_hash": "4d084ecf4277c910c1f4781d44af9f8c",
     "semantic_hash": ""
   },
   "eslint.config.mjs": {
@@ -580,8 +580,8 @@
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-ticket-editor.tsx": {
-    "mtime": 1784218267.4514234,
-    "ast_hash": "68ce384da7015a89659adf8db1ae1720",
+    "mtime": 1784222353.4591105,
+    "ast_hash": "85f0883561285abfb860708a95c8e545",
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-ticket-utils.ts": {
@@ -640,8 +640,8 @@
     "semantic_hash": ""
   },
   "components/inventory/adjust-form.tsx": {
-    "mtime": 1783814037.995084,
-    "ast_hash": "c44cb05ebfd0885b7a550c9e3f73ee71",
+    "mtime": 1784222303.3850338,
+    "ast_hash": "905104b79527f7d27e1c6c9fe932d129",
     "semantic_hash": ""
   },
   "components/inventory/inventory-submittals-cell.tsx": {
@@ -650,8 +650,8 @@
     "semantic_hash": "a3ed56a1f52f067a90b9af26cd42ee02"
   },
   "components/inventory/production-entry-form.tsx": {
-    "mtime": 1783814037.9960845,
-    "ast_hash": "a433d281ac1c819b3d7e1d1f6081d7ee",
+    "mtime": 1784222301.0313804,
+    "ast_hash": "a7883de95582eb17b1a0808ea833863f",
     "semantic_hash": ""
   },
   "components/invoices/invoice-detail-content.tsx": {
@@ -1280,8 +1280,8 @@
     "semantic_hash": ""
   },
   "components/drill-sheets/drill-sheet-form.tsx": {
-    "mtime": 1783892529.2533143,
-    "ast_hash": "24450b52097b295cbc6a8cc9cbc035a1",
+    "mtime": 1784222281.2184289,
+    "ast_hash": "635310f9564eff2187013dafb573fccd",
     "semantic_hash": ""
   },
   "components/drill-sheets/drill-sheet-pdf-button.tsx": {
@@ -1300,8 +1300,8 @@
     "semantic_hash": ""
   },
   "components/inventory/purchase-receipt-form.tsx": {
-    "mtime": 1783892666.3703136,
-    "ast_hash": "5e6eea76209d1125d0fd576cfd01ba53",
+    "mtime": 1784222295.9005518,
+    "ast_hash": "848c4080fddd42e0d79bd76a4769a6cd",
     "semantic_hash": ""
   },
   "components/structures/delete-structure-template-button.tsx": {
@@ -1310,8 +1310,8 @@
     "semantic_hash": ""
   },
   "components/structures/structure-template-form.tsx": {
-    "mtime": 1783874956.8549438,
-    "ast_hash": "016b4fa00d6d4f458ac7020165ea081f",
+    "mtime": 1784222276.0417085,
+    "ast_hash": "6910bfec4ed1874523bd2f2eacb2ae80",
     "semantic_hash": ""
   },
   "lib/app-settings-defaults.ts": {
@@ -1905,13 +1905,13 @@
     "semantic_hash": ""
   },
   "components/settings/structure-diameter-config-form.tsx": {
-    "mtime": 1783891750.1492245,
-    "ast_hash": "18bf5a8d5587b4b0eea683e54c8f23cc",
+    "mtime": 1784222293.2051008,
+    "ast_hash": "56bca6642d05468d939935d342e958c7",
     "semantic_hash": ""
   },
   "components/structures/pipe-opening-sizes-form.tsx": {
-    "mtime": 1783891751.5568073,
-    "ast_hash": "1dbaecba9a04234b9c4e42f8c43c43fd",
+    "mtime": 1784222283.5366392,
+    "ast_hash": "a560bf74af8a0812b1a5f8a9a0b66f8e",
     "semantic_hash": ""
   },
   "electron/updater.mjs": {
@@ -2510,8 +2510,8 @@
     "semantic_hash": ""
   },
   "components/receiving/pipe-receipt-form.tsx": {
-    "mtime": 1783892545.9006324,
-    "ast_hash": "125db458e245ef5dc168bdf9e1e618c2",
+    "mtime": 1784222298.2075076,
+    "ast_hash": "2815e56dc6862c10f85525579b5d622c",
     "semantic_hash": ""
   },
   "components/receiving/receiving-category-card.tsx": {
@@ -2575,8 +2575,8 @@
     "semantic_hash": ""
   },
   "components/purchase-orders/purchase-order-editor.tsx": {
-    "mtime": 1783814040.9213128,
-    "ast_hash": "8f8e1b81fe2779daa8f8503b22fc4ed1",
+    "mtime": 1784222305.7027209,
+    "ast_hash": "fc0c892715e9309716a763e640f544ab",
     "semantic_hash": ""
   },
   "components/purchase-orders/vendor-quote-preview.tsx": {
@@ -2645,8 +2645,8 @@
     "semantic_hash": ""
   },
   "components/drill-sheets/rect-sheet-form.tsx": {
-    "mtime": 1783891437.926444,
-    "ast_hash": "558c5861ff95a2b94d7df181ed663ae0",
+    "mtime": 1784222270.8665037,
+    "ast_hash": "b24c7d7fd1e583c29b3e6fdab30f1faa",
     "semantic_hash": ""
   },
   "components/drill-sheets/rect-sheet-preview.tsx": {
@@ -2655,8 +2655,8 @@
     "semantic_hash": ""
   },
   "components/structures/rect-opening-sizes-form.tsx": {
-    "mtime": 1783348675.0290158,
-    "ast_hash": "3cd7f0b9c6315a4514ae53e5f7ec3c40",
+    "mtime": 1784222278.929259,
+    "ast_hash": "5958ea673e629418830de53367b5e2e7",
     "semantic_hash": ""
   },
   "lib/rect-sheet-detail.ts": {
@@ -2845,8 +2845,8 @@
     "semantic_hash": ""
   },
   "components/delivery-tickets/bulk-load-planner.tsx": {
-    "mtime": 1784081814.6363828,
-    "ast_hash": "67d6983e3c86aace269c2b2614ac62c0",
+    "mtime": 1784222352.4873269,
+    "ast_hash": "daf96fd5686e2220edb441b098e30e59",
     "semantic_hash": ""
   },
   "app/delivery-tickets/schedule/page.tsx": {
@@ -3407,6 +3407,11 @@
   "rename-waffle-catch-basin.sql": {
     "mtime": 1784215120.7873344,
     "ast_hash": "5072f5699b5e679dd971c34fe73de604",
+    "semantic_hash": ""
+  },
+  "lib/random-id.ts": {
+    "mtime": 1784222395.7172332,
+    "ast_hash": "e372c671b908abe5e3e45b110b65cc95",
     "semantic_hash": ""
   }
 }

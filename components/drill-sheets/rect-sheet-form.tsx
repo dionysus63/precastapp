@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { randomId } from "@/lib/random-id";
 import { useMemo, useState } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import {
@@ -124,7 +125,7 @@ type RectSheetFormProps = {
 const WALL_OPTIONS: RectWall[] = ["UP", "DOWN", "LEFT", "RIGHT"];
 
 function uid() {
-  return crypto.randomUUID();
+  return randomId();
 }
 
 function createOpening(): RectOpeningField {

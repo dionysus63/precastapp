@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { randomId } from "@/lib/random-id";
 import { useRouter } from "next/navigation";
 import {
   Fragment,
@@ -176,10 +177,7 @@ function getEffectiveWeightEach(
 }
 
 function generateLineKey(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `walkin-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return randomId();
 }
 
 function mergeFulfillmentIntoLine(

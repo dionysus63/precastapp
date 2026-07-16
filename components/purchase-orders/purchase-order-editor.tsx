@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { randomId } from "@/lib/random-id";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import {
@@ -63,7 +64,7 @@ type PurchaseOrderEditorProps = {
 
 function createLine(): EditorLine {
   return {
-    id: crypto.randomUUID(),
+    id: randomId(),
     productId: "",
     itemCode: "",
     description: "",
@@ -88,7 +89,7 @@ export function PurchaseOrderEditor({
   const [lines, setLines] = useState<EditorLine[]>(
     initial?.lines.length
       ? initial.lines.map((line) => ({
-          id: crypto.randomUUID(),
+          id: randomId(),
           productId: line.productId ?? "",
           itemCode: line.itemCode,
           description: line.description ?? "",
@@ -98,7 +99,7 @@ export function PurchaseOrderEditor({
         }))
       : [createLine()],
   );
-  const [submissionKey] = useState(() => crypto.randomUUID());
+  const [submissionKey] = useState(() => randomId());
 
   const selectedVendor = useMemo(
     () => vendors.find((vendor) => vendor.id === vendorId),

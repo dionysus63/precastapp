@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { randomId } from "@/lib/random-id";
 import { useMemo, useState } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { structureTableInputClassName } from "@/components/structures/structure-utils";
@@ -30,7 +31,7 @@ type PipeOpeningSizesFormProps = {
 };
 
 function uid() {
-  return crypto.randomUUID();
+  return randomId();
 }
 
 function createRow(): PipeOpeningRow {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { randomId } from "@/lib/random-id";
 import { structureTableInputClassName } from "@/components/structures/structure-utils";
 
 import {
@@ -25,7 +26,7 @@ type StructureDiameterConfigFormProps = {
 };
 
 function uid() {
-  return crypto.randomUUID();
+  return randomId();
 }
 
 function createRow(): DiameterConfigRow {
