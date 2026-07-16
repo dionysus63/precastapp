@@ -1614,7 +1614,7 @@ export function DeliveryTicketEditor({
               <thead>
                 <tr>
                   <th
-                    className={quoteTableHeaderCellClassName}
+                    className={`${quoteTableHeaderCellClassName} text-center`}
                     style={quoteTableHeaderStyle}
                   >
                     Pick
@@ -1625,60 +1625,25 @@ export function DeliveryTicketEditor({
                   >
                     Item
                   </th>
-                  <th
-                    className={quoteTableHeaderCellClassName}
-                    style={quoteTableHeaderStyle}
-                  >
-                    Remaining
-                  </th>
-                  <th
-                    className={quoteTableHeaderCellClassName}
-                    style={quoteTableHeaderStyle}
-                  >
-                    Qty on load
-                  </th>
-                  <th
-                    className={quoteTableHeaderCellClassName}
-                    style={quoteTableHeaderStyle}
-                  >
-                    Scheduled
-                  </th>
-                  <th
-                    className={quoteTableHeaderCellClassName}
-                    style={quoteTableHeaderStyle}
-                  >
-                    Shipped
-                  </th>
-                  <th
-                    className={quoteTableHeaderCellClassName}
-                    style={quoteTableHeaderStyle}
-                  >
-                    Awarded
-                  </th>
-                  <th
-                    className={quoteTableHeaderCellClassName}
-                    style={quoteTableHeaderStyle}
-                  >
-                    Weight each
-                  </th>
-                  <th
-                    className={quoteTableHeaderCellClassName}
-                    style={quoteTableHeaderStyle}
-                  >
-                    Line weight
-                  </th>
-                  <th
-                    className={quoteTableHeaderCellClassName}
-                    style={quoteTableHeaderStyle}
-                  >
-                    Status
-                  </th>
-                  <th
-                    className={`${quoteTableHeaderCellClassName} text-right`}
-                    style={quoteTableHeaderStyle}
-                  >
-                    On hand
-                  </th>
+                  {[
+                    "Remaining",
+                    "Qty on load",
+                    "Scheduled",
+                    "Shipped",
+                    "Awarded",
+                    "Weight each",
+                    "Line weight",
+                    "Status",
+                    "On hand",
+                  ].map((label) => (
+                    <th
+                      key={label}
+                      className={`${quoteTableHeaderCellClassName} text-center`}
+                      style={quoteTableHeaderStyle}
+                    >
+                      {label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className={tableBodyClassName}>
@@ -2074,7 +2039,7 @@ export function DeliveryTicketEditor({
                       key={line.quoteLineItemId}
                       className={checked ? "bg-sky-50/70" : "hover:bg-slate-50/70"}
                     >
-                      <td className={`${quoteLineTableCellClassName} align-top`}>
+                      <td className={`${quoteLineTableCellClassName} align-top text-center`}>
                         <input
                           aria-label={`Select ${linePrimaryLabel}`}
                           type="checkbox"
@@ -2203,10 +2168,10 @@ export function DeliveryTicketEditor({
                           )
                         ) : null}
                       </td>
-                      <td className={`${quoteLineTableCellClassName} align-top font-medium text-slate-900`}>
+                      <td className={`${quoteLineTableCellClassName} align-top text-center font-medium text-slate-900`}>
                         {getAvailableQty(line)}
                       </td>
-                      <td className={`${quoteLineTableCellClassName} align-top`}>
+                      <td className={`${quoteLineTableCellClassName} align-top text-center`}>
                         <input
                           aria-label={`${linePrimaryLabel} quantity on load`}
                           type="number"
@@ -2216,22 +2181,22 @@ export function DeliveryTicketEditor({
                           value={editorLine?.quantity ?? ""}
                           placeholder="0"
                           disabled={!line.eligible}
-                          className={`w-full max-w-20 ${loadQuantityInputClass}`}
+                          className={`mx-auto w-full max-w-20 ${loadQuantityInputClass}`}
                           onChange={(event) =>
                             setStandardLineQuantity(line, event.target.value)
                           }
                         />
                       </td>
-                      <td className={`${quoteLineTableCellClassName} align-top text-slate-600`}>
+                      <td className={`${quoteLineTableCellClassName} align-top text-center text-slate-600`}>
                         {getOnOpenLoadsQty(line)}
                       </td>
-                      <td className={`${quoteLineTableCellClassName} align-top text-slate-600`}>
+                      <td className={`${quoteLineTableCellClassName} align-top text-center text-slate-600`}>
                         {line.shippedQty}
                       </td>
-                      <td className={`${quoteLineTableCellClassName} align-top text-slate-600`}>
+                      <td className={`${quoteLineTableCellClassName} align-top text-center text-slate-600`}>
                         {line.quotedQty}
                       </td>
-                      <td className={`${quoteLineTableCellClassName} align-top text-slate-700`}>
+                      <td className={`${quoteLineTableCellClassName} align-top text-center text-slate-700`}>
                         {checked && editorLine ? (
                           <input
                             type="number"
@@ -2239,7 +2204,7 @@ export function DeliveryTicketEditor({
                             step="0.01"
                             value={weightInputValue}
                             placeholder="—"
-                            className={`w-full max-w-24 ${inlineTableInputClass}`}
+                            className={`mx-auto w-full max-w-24 ${inlineTableInputClass}`}
                             onChange={(event) =>
                               setLines((current) =>
                                 current.map((row) =>
@@ -2256,16 +2221,16 @@ export function DeliveryTicketEditor({
                           "—"
                         )}
                       </td>
-                      <td className={`${quoteLineTableCellClassName} align-top font-medium text-slate-900`}>
+                      <td className={`${quoteLineTableCellClassName} align-top text-center font-medium text-slate-900`}>
                         {checked && lineWeight > 0 ? formatWeight(lineWeight) : "—"}
                       </td>
-                      <td className={`${quoteLineTableCellClassName} align-top text-slate-600`}>
+                      <td className={`${quoteLineTableCellClassName} align-top text-center text-slate-600`}>
                         {line.eligible
                           ? (line.eligibilityReason ?? "Ready")
                           : (line.eligibilityReason ?? "Not ready")}
                       </td>
                       <td
-                        className={`${quoteLineTableCellClassName} align-top text-right text-slate-700`}
+                        className={`${quoteLineTableCellClassName} align-top text-center text-slate-700`}
                       >
                         {line.currentStock != null ? (
                           <>

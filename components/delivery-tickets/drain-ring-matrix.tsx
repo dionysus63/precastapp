@@ -12,7 +12,7 @@ import type {
 import { getDrainRingQuotedGroupParts } from "@/components/delivery-tickets/drain-ring-matrix-utils";
 
 const ringQuantityInputClass =
-  "h-8 w-full rounded-md border border-slate-400 bg-white px-1.5 text-right text-xs font-semibold text-slate-900 shadow-sm outline-none placeholder:font-normal placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400";
+  "h-8 w-full rounded-md border border-slate-400 bg-white px-1.5 text-center text-xs font-semibold text-slate-900 shadow-sm outline-none placeholder:font-normal placeholder:text-slate-400 focus:border-sky-500 focus:ring-2 focus:ring-sky-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400";
 
 const POOL_GROUP_COLUMN_WIDTH = 220;
 const FEET_LEFT_COLUMN_WIDTH = 72;
@@ -194,13 +194,13 @@ function DrainRingStyleTable({
               </th>
               <th
                 scope="col"
-                className="border-b-2 border-r border-slate-300 bg-slate-100 px-1 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wide text-slate-600"
+                className="border-b-2 border-r border-slate-300 bg-slate-100 px-1 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-600"
               >
                 Feet left
               </th>
               <th
                 scope="col"
-                className="border-b-2 border-r border-slate-300 bg-slate-100 px-1 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wide text-slate-600"
+                className="border-b-2 border-r border-slate-300 bg-slate-100 px-1 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-600"
               >
                 Feet on load
               </th>
@@ -226,7 +226,7 @@ function DrainRingStyleTable({
                 <th
                   key={label}
                   scope="col"
-                  className="border-b-2 border-r border-slate-300 bg-slate-100 px-1 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wide text-slate-600 last:border-r-0"
+                  className="border-b-2 border-r border-slate-300 bg-slate-100 px-1 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-600 last:border-r-0"
                 >
                   {label}
                 </th>
@@ -252,13 +252,13 @@ function DrainRingStyleTable({
                     </span>
                   ) : null}
                 </th>
-                <td className="border-b border-r border-slate-300 px-1.5 py-2 text-right align-top tabular-nums">
+                <td className="border-b border-r border-slate-300 px-1.5 py-2 text-center align-top tabular-nums">
                   <span className="block font-semibold text-slate-900">
                     {autoFeetLeft} LF
                   </span>
                 </td>
                 <td
-                  className={`border-b border-r border-slate-300 px-1.5 py-2 text-right align-top tabular-nums ${
+                  className={`border-b border-r border-slate-300 px-1.5 py-2 text-center align-top tabular-nums ${
                     matrix.selectedFeet > 0
                       ? "font-semibold text-slate-900"
                       : "text-slate-500"
@@ -309,7 +309,7 @@ function DrainRingStyleTable({
                 ].map((value, index) => (
                   <td
                     key={FEET_STAT_COLUMNS[index]}
-                    className="border-b border-r border-slate-300 px-1.5 py-2 text-right align-top tabular-nums text-slate-600 last:border-r-0"
+                    className="border-b border-r border-slate-300 px-1.5 py-2 text-center align-top tabular-nums text-slate-600 last:border-r-0"
                   >
                     {Math.round(value * 100) / 100}
                   </td>
@@ -394,7 +394,7 @@ function DrainRingStyleTable({
                       </div>
                     ) : null}
                   </th>
-                  <td className="border-b border-r border-slate-300 px-1.5 py-2 text-right align-top tabular-nums">
+                  <td className="border-b border-r border-slate-300 px-1.5 py-2 text-center align-top tabular-nums">
                     <span
                       className={`block font-semibold ${
                         overLimit
@@ -413,7 +413,7 @@ function DrainRingStyleTable({
                     ) : null}
                   </td>
                   <td
-                    className={`border-b border-r border-slate-300 px-1.5 py-2 text-right align-top tabular-nums ${
+                    className={`border-b border-r border-slate-300 px-1.5 py-2 text-center align-top tabular-nums ${
                       row.selectedFeet > 0
                         ? "font-semibold text-slate-900"
                         : "text-slate-500"
@@ -478,7 +478,7 @@ function DrainRingStyleTable({
                   ].map((value, index) => (
                     <td
                       key={FEET_STAT_COLUMNS[index]}
-                      className="border-b border-r border-slate-300 px-1.5 py-2 text-right align-top tabular-nums text-slate-600 last:border-r-0"
+                      className="border-b border-r border-slate-300 px-1.5 py-2 text-center align-top tabular-nums text-slate-600 last:border-r-0"
                     >
                       {Math.round(value * 100) / 100}
                     </td>
@@ -504,7 +504,7 @@ function DrainRingStyleTable({
                 Selected for this load
               </th>
               <td className="border-r border-slate-300 px-1.5 py-1.5" />
-              <td className="border-r border-slate-300 px-1.5 py-1.5 text-right font-semibold tabular-nums">
+              <td className="border-r border-slate-300 px-1.5 py-1.5 text-center font-semibold tabular-nums">
                 {matrix.selectedFeet} LF
               </td>
               {matrix.options.map((matrixOption) => (
