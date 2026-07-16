@@ -6,6 +6,7 @@ import {
   type DbDeliveryTicketForPdf,
 } from "@/lib/delivery-ticket-pdf-data";
 import { generateDeliveryTicketCopyPdfBytes } from "@/lib/delivery-ticket-pdf-fill";
+import { toPickupCopyTitles } from "@/lib/delivery-ticket-pdf-pickup";
 
 const fillOptions = {
   copyTitles: ["Customer Copy", "Office Copy", "Driver Copy"] as [
@@ -140,6 +141,61 @@ describe("delivery ticket PDF form data", () => {
 
     expect(data.Terms).toBe("");
     expect(data).not.toHaveProperty("Quote Number");
+  });
+
+  it("blanks site contact, driver, and trailer for pickup tickets", () => {
+    const data = buildDeliveryTicketFormData(
+      ticket({ fulfillmentMethod: "PICKUP" }),
+      1,
+      fillOptions,
+    );
+
+    expect(data["Site Contact"]).toBe("");
+    expect(data["Site Contact Phone"]).toBe("");
+    expect(data["Driver/Truck"]).toBe("");
+    expect(data.Trailer).toBe("");
+    // Everything else fills as usual.
+    expect(data["Contractor Name"]).toBe("Sample Contractor");
+    expect(data["Delivery Address 1"]).toBe("10 Ticket Lane");
+  });
+
+  it("swaps the driver copy title for the yard copy on pickups", () => {
+    expect(toPickupCopyTitles(fillOptions.copyTitles)).toEqual([
+      "Customer Copy",
+      "Office Copy",
+      "Yard Copy",
+    ]);
+  });
+
+  it("renders the pickup layout for pickup tickets", async () => {
+    const pdfBytes = await generateDeliveryTicketCopyPdfBytes(
+      ticket({ fulfillmentMethod: "PICKUP" }),
+      3,
+      fillOptions,
+    );
+    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const loadingTask = pdfjs.getDocument({ data: pdfBytes });
+    const pdf = await loadingTask.promise;
+
+    try {
+      const page = await pdf.getPage(1);
+      const text = await page.getTextContent();
+      const labels = text.items
+        .map((item) => ("str" in item ? item.str : ""))
+        .filter(Boolean);
+      const joined = labels.join(" ");
+
+      expect(labels).toContain("Pickup Ticket");
+      expect(labels).toContain("Pickup Date");
+      expect(labels).toContain("Yard Copy");
+      expect(joined).toContain("this pickup ticket by the customer");
+      // Values for the dropped fields never fill, even when set on the ticket.
+      expect(joined).not.toContain("Driver 1");
+      expect(joined).not.toContain("Trailer 1");
+      expect(joined).not.toContain("631-555-0100");
+    } finally {
+      await loadingTask.destroy();
+    }
   });
 
   it("removes a trailing ring-height suffix from PDF descriptions", () => {

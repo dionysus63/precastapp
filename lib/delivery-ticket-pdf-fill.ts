@@ -23,6 +23,13 @@ import {
   paginateLineItems,
   type LineItemPageSlice,
 } from "@/lib/delivery-ticket-pdf-line-items";
+import {
+  applyPickupTicketArtwork,
+  movePickupFieldWidgets,
+  PICKUP_TABLE_LAYOUT,
+  toPickupCopyTitles,
+} from "@/lib/delivery-ticket-pdf-pickup";
+import { DEFAULT_TABLE_LAYOUT } from "@/lib/delivery-ticket-pdf-layout";
 
 const DEFAULT_COPY_COUNT = 3;
 const TERMS_FONT_SIZE = 9;
@@ -144,18 +151,32 @@ async function buildContentPageBytes(
   formData: Record<string, string>,
   slice: LineItemPageSlice,
   totalPieces: string,
+  isPickup: boolean,
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.load(templateBytes);
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
-  fillAcroFormFields(doc, formData, font);
-
   const page = doc.getPage(0);
-  redrawDriverLabel(page, boldFont);
 
+  if (isPickup) {
+    // Artwork first, then fill: flatten paints values after (above) the
+    // pickup wipes, so relocated field values stay visible.
+    movePickupFieldWidgets(doc.getForm());
+    applyPickupTicketArtwork(page, boldFont, font);
+    fillAcroFormFields(doc, formData, font);
+    drawLineItemsOnPage(page, font, slice, totalPieces, PICKUP_TABLE_LAYOUT);
+    return doc.save();
+  }
+
+  fillAcroFormFields(doc, formData, font);
+  redrawDriverLabel(page, boldFont);
   drawLineItemsOnPage(page, font, slice, totalPieces);
 
   return doc.save();
+}
+
+function isPickupTicket(ticket: DbDeliveryTicketForPdf): boolean {
+  return ticket.fulfillmentMethod === "PICKUP";
 }
 
 async function buildCopyPdfBytes(
@@ -164,12 +185,18 @@ async function buildCopyPdfBytes(
   options: DeliveryTicketPdfFillOptions,
   templateBytes: Uint8Array,
 ): Promise<Uint8Array> {
+  const isPickup = isPickupTicket(ticket);
+  const fillOptions: DeliveryTicketPdfFillOptions = isPickup
+    ? { ...options, copyTitles: toPickupCopyTitles(options.copyTitles) }
+    : options;
+  const layout = isPickup ? PICKUP_TABLE_LAYOUT : DEFAULT_TABLE_LAYOUT;
+
   const lineItems = mapLineItemsForPdf(ticket.lineItems);
   const totalPieces = computeTotalPieces(ticket);
 
   const measureDoc = await PDFDocument.load(templateBytes);
   const measureFont = await measureDoc.embedFont(StandardFonts.Helvetica);
-  const slices = paginateLineItems(lineItems, measureFont);
+  const slices = paginateLineItems(lineItems, measureFont, layout);
   const contentPageCount = slices.length;
 
   const merged = await PDFDocument.create();
@@ -182,7 +209,7 @@ async function buildCopyPdfBytes(
     const formData = buildDeliveryTicketFormData(
       ticket,
       copyIndex,
-      options,
+      fillOptions,
       contentPage,
     );
     const pageBytes = await buildContentPageBytes(
@@ -190,6 +217,7 @@ async function buildCopyPdfBytes(
       formData,
       slices[pageIndex]!,
       totalPieces,
+      isPickup,
     );
     const pageDoc = await PDFDocument.load(pageBytes);
     const [copiedPage] = await merged.copyPages(pageDoc, [0]);

@@ -82,6 +82,8 @@ type DbJob = {
 
 export type DbDeliveryTicketForPdf = {
   ticketNumber: string;
+  /** "PICKUP" renders the pickup-ticket layout; anything else is delivery. */
+  fulfillmentMethod?: string | null;
   customerName: string;
   projectName: string;
   deliveryAddress: string | null;
@@ -310,6 +312,9 @@ export function buildDeliveryTicketFormData(
   contentPage: DeliveryTicketContentPage = { number: 1, count: 1 },
 ): Record<string, string> {
   const deliveryAddressLines = resolveDeliveryAddressLines(ticket);
+  // Pickup tickets drop Site Contact/Phone from the info box, and their
+  // Driver/Trailer band cells are intentionally blank.
+  const isPickup = ticket.fulfillmentMethod === "PICKUP";
 
   return {
     "Delivery Ticket Number": blankOr(ticket.ticketNumber),
@@ -318,15 +323,15 @@ export function buildDeliveryTicketFormData(
     "Contractor Name": blankOr(ticket.customerName),
     "Job Name": blankOr(ticket.projectName),
     "Job Number": blankOr(ticket.jobNumber),
-    "Site Contact": blankOr(ticket.siteContactName),
-    "Site Contact Phone": blankOr(ticket.siteContactPhone),
+    "Site Contact": isPickup ? "" : blankOr(ticket.siteContactName),
+    "Site Contact Phone": isPickup ? "" : blankOr(ticket.siteContactPhone),
     "Delivery Address 1": deliveryAddressLines[0] ?? "",
     "Delivery Address 2": deliveryAddressLines[1] ?? "",
     "Ship Date": formatDateForPdf(ticket.deliveryDate),
     // The template's internal AcroForm key remains "Driver/Truck" for
     // compatibility, but delivery tickets display and populate Driver only.
-    "Driver/Truck": blankOr(ticket.driver),
-    Trailer: blankOr(ticket.trailer),
+    "Driver/Truck": isPickup ? "" : blankOr(ticket.driver),
+    Trailer: isPickup ? "" : blankOr(ticket.trailer),
     "Purchase Order Number": blankOr(ticket.quote?.customerPO),
     Notes: blankOr(ticket.siteInstructions),
     Terms: blankOr(ticket.quote?.termsAndConditions),

@@ -2180,8 +2180,8 @@
     "semantic_hash": ""
   },
   "app/api/invoices/draft-batch/pdf/route.ts": {
-    "mtime": 1783294136.5845551,
-    "ast_hash": "14fa3561409b2a35836f0e307dbe7039",
+    "mtime": 1784161386.1800704,
+    "ast_hash": "1ad83febd37fac34ebae4945b8123d78",
     "semantic_hash": ""
   },
   "app/invoices/[id]/edit/page.tsx": {
@@ -2210,13 +2210,13 @@
     "semantic_hash": ""
   },
   "lib/invoice-pdf-data.ts": {
-    "mtime": 1783287348.2281997,
-    "ast_hash": "1d9ab54b3fe2a7c72472964950311f72",
+    "mtime": 1784161323.1623528,
+    "ast_hash": "4defcb96b37a05b8408253e707940c6a",
     "semantic_hash": ""
   },
   "lib/invoice-pdf-fill.ts": {
-    "mtime": 1783903746.4936583,
-    "ast_hash": "db85ba2999527aad0292a996c05a2929",
+    "mtime": 1784161379.919971,
+    "ast_hash": "b98b240b50f5f2a6d8060f126669e5b5",
     "semantic_hash": ""
   },
   "lib/invoice-pdf-line-items.ts": {
@@ -3387,6 +3387,11 @@
   "prisma/migrations/20260715190035_add_submittal_printer_settings/migration.sql": {
     "mtime": 1784156441.0044818,
     "ast_hash": "084cb60069f7af01bb6b1be1496c8fef",
+    "semantic_hash": ""
+  },
+  "lib/draft-invoice-cover-html.ts": {
+    "mtime": 1784161369.9931993,
+    "ast_hash": "92c8366beb127dfd244ba14d8ee163fb",
     "semantic_hash": ""
   }
 }
