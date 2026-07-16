@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import { buildDraftInvoiceCoverHtml } from "@/lib/draft-invoice-cover-html";
 import { generateDraftInvoicesBatchPdfBytes } from "@/lib/invoice-pdf-fill";
 import { INVOICE_PDF_INCLUDE } from "@/lib/invoice-pdf-data";
 import { withDatabaseRetry } from "@/lib/prisma";
+import { renderPdfBytesFromHtml } from "@/lib/quote-pdf";
 
 /** The whole batch is loaded with full includes and rendered into one PDF in
  * memory, so an unbounded draft backlog could exhaust RAM. A day's billing is
@@ -64,7 +66,12 @@ export async function GET(request: Request) {
       );
     }
 
-    const pdfBytes = await generateDraftInvoicesBatchPdfBytes(invoices);
+    const coverHtml = await buildDraftInvoiceCoverHtml(invoices);
+    const coverPdfBytes = await renderPdfBytesFromHtml(coverHtml);
+    const pdfBytes = await generateDraftInvoicesBatchPdfBytes(
+      invoices,
+      coverPdfBytes,
+    );
 
     return new NextResponse(Buffer.from(pdfBytes), {
       status: 200,

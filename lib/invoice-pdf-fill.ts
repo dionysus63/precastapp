@@ -237,8 +237,20 @@ export async function generateInvoicePdfBytes(
 
 export async function generateDraftInvoicesBatchPdfBytes(
   invoices: DbInvoiceForPdf[],
+  coverPdfBytes?: Uint8Array,
 ): Promise<Uint8Array> {
   const merged = await PDFDocument.create();
+
+  if (coverPdfBytes) {
+    const coverDoc = await PDFDocument.load(coverPdfBytes);
+    const coverPages = await merged.copyPages(
+      coverDoc,
+      coverDoc.getPageIndices(),
+    );
+    for (const page of coverPages) {
+      merged.addPage(page);
+    }
+  }
 
   for (const invoice of invoices) {
     const bytes = await generateInvoicePdfBytes(invoice);

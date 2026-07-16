@@ -22,6 +22,8 @@ export const INVOICE_PDF_INCLUDE = {
     select: {
       ticketNumber: true,
       deliveryAddress: true,
+      fulfillmentMethod: true,
+      deliveryDate: true,
     },
   },
 } as const satisfies Prisma.InvoiceInclude;
