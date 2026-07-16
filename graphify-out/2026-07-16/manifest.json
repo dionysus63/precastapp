@@ -580,8 +580,8 @@
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-ticket-editor.tsx": {
-    "mtime": 1784126296.1097772,
-    "ast_hash": "76421263f6206ba62b1ff5aacd3faa77",
+    "mtime": 1784210111.5121105,
+    "ast_hash": "655ae42d3842406924b83de6fe850ef8",
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-ticket-utils.ts": {
@@ -2205,8 +2205,8 @@
     "semantic_hash": ""
   },
   "components/invoices/invoices-tabs.tsx": {
-    "mtime": 1783950604.3132322,
-    "ast_hash": "2e587ac13b65d647416217bd8580e42b",
+    "mtime": 1784207827.6645808,
+    "ast_hash": "89972de7f805c0f4155ca471c382c5dd",
     "semantic_hash": ""
   },
   "lib/invoice-pdf-data.ts": {
@@ -3325,8 +3325,8 @@
     "semantic_hash": ""
   },
   "components/delivery-tickets/drain-ring-matrix.tsx": {
-    "mtime": 1784126235.7804022,
-    "ast_hash": "50cd237be57433f78a22dcf643307cf6",
+    "mtime": 1784210079.1877363,
+    "ast_hash": "92fabfe8268c1910e09ac3f5fe24c119",
     "semantic_hash": ""
   },
   "tests/unit/drain-ring-matrix-utils.test.ts": {
@@ -3402,6 +3402,11 @@
   "scripts/test-pickup-ticket-pdf.ts": {
     "mtime": 1784206151.298358,
     "ast_hash": "ccb603457e42ba2849061fad54a677bb",
+    "semantic_hash": ""
+  },
+  "delete-job-26-003.sql": {
+    "mtime": 1784207156.453724,
+    "ast_hash": "d016b60af50661e59c5b6ec72832fe1d",
     "semantic_hash": ""
   }
 }

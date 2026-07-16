@@ -15,7 +15,11 @@ const ringQuantityInputClass =
 
 const POOL_GROUP_COLUMN_WIDTH = 220;
 const FEET_LEFT_COLUMN_WIDTH = 72;
+const FEET_ON_LOAD_COLUMN_WIDTH = 72;
 const RING_VALUE_COLUMN_WIDTH = 76;
+/** Trailing read-only stats: Feet Scheduled / Feet Shipped / Feet Awarded. */
+const FEET_STAT_COLUMN_WIDTH = 72;
+const FEET_STAT_COLUMNS = ["Feet scheduled", "Feet shipped", "Feet awarded"] as const;
 
 const metadataBadgeClass =
   "inline-flex items-center whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ring-inset";
@@ -82,7 +86,9 @@ function DrainRingStyleTable({
   const matrixWidth =
     POOL_GROUP_COLUMN_WIDTH +
     FEET_LEFT_COLUMN_WIDTH +
-    RING_VALUE_COLUMN_WIDTH * matrix.options.length;
+    FEET_ON_LOAD_COLUMN_WIDTH +
+    RING_VALUE_COLUMN_WIDTH * matrix.options.length +
+    FEET_STAT_COLUMN_WIDTH * FEET_STAT_COLUMNS.length;
 
   return (
     <div className={separated ? "border-t border-slate-300" : undefined}>
@@ -106,11 +112,15 @@ function DrainRingStyleTable({
           <colgroup>
             <col style={{ width: POOL_GROUP_COLUMN_WIDTH }} />
             <col style={{ width: FEET_LEFT_COLUMN_WIDTH }} />
+            <col style={{ width: FEET_ON_LOAD_COLUMN_WIDTH }} />
             {matrix.options.map((matrixOption) => (
               <col
                 key={matrixOption.option.productId}
                 style={{ width: RING_VALUE_COLUMN_WIDTH }}
               />
+            ))}
+            {FEET_STAT_COLUMNS.map((label) => (
+              <col key={label} style={{ width: FEET_STAT_COLUMN_WIDTH }} />
             ))}
           </colgroup>
           <thead>
@@ -143,6 +153,12 @@ function DrainRingStyleTable({
               >
                 Feet left
               </th>
+              <th
+                scope="col"
+                className="border-b-2 border-r border-slate-300 bg-slate-100 px-1 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wide text-slate-600"
+              >
+                Feet on load
+              </th>
               {matrix.options.map((matrixOption) => (
                 <th
                   key={matrixOption.option.productId}
@@ -159,6 +175,15 @@ function DrainRingStyleTable({
                   >
                     {ringStockLabel(matrixOption)}
                   </span>
+                </th>
+              ))}
+              {FEET_STAT_COLUMNS.map((label) => (
+                <th
+                  key={label}
+                  scope="col"
+                  className="border-b-2 border-r border-slate-300 bg-slate-100 px-1 py-1.5 text-right text-[10px] font-semibold uppercase tracking-wide text-slate-600 last:border-r-0"
+                >
+                  {label}
                 </th>
               ))}
             </tr>
@@ -236,7 +261,7 @@ function DrainRingStyleTable({
                         </span>
                       ) : fullyScheduled ? (
                         <span
-                          className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-800"
+                          className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-600"
                           title="Every remaining foot is already on another open load"
                         >
                           Fully scheduled
@@ -247,17 +272,6 @@ function DrainRingStyleTable({
                         </span>
                       ) : null}
                     </div>
-                    <div className="mt-0.5 text-[10px] text-slate-500">
-                      {row.line.shippedQty} of {row.line.quotedQty} LF shipped
-                    </div>
-                    {row.scheduledElsewhereFeet > 0 ? (
-                      <div
-                        className="mt-0.5 text-[10px] font-medium text-amber-700"
-                        title="On open delivery tickets that have not shipped yet"
-                      >
-                        {row.scheduledElsewhereFeet} LF on other loads
-                      </div>
-                    ) : null}
                     {!completed &&
                     !row.line.eligible &&
                     row.line.eligibilityReason ? (
@@ -278,17 +292,20 @@ function DrainRingStyleTable({
                     >
                       {feetLeft} LF
                     </span>
-                    <span
-                      className={`block text-[10px] ${
-                        overLimit
-                          ? "font-medium text-red-700"
-                          : "text-slate-500"
-                      }`}
-                    >
-                      {completed
-                        ? "Already shipped"
-                        : `${row.selectedFeet}/${row.availableFeet} LF`}
-                    </span>
+                    {overLimit ? (
+                      <span className="block text-[10px] font-medium text-red-700">
+                        Over by {row.overByFeet} LF
+                      </span>
+                    ) : null}
+                  </td>
+                  <td
+                    className={`border-b border-r border-slate-300 px-1.5 py-2 text-right align-top tabular-nums ${
+                      row.selectedFeet > 0
+                        ? "font-semibold text-slate-900"
+                        : "text-slate-500"
+                    }`}
+                  >
+                    {row.selectedFeet} LF
                   </td>
                   {matrix.options.map((matrixOption) => {
                     const option = matrixOption.option;
@@ -340,6 +357,18 @@ function DrainRingStyleTable({
                       </td>
                     );
                   })}
+                  {[
+                    row.scheduledElsewhereFeet,
+                    row.line.shippedQty,
+                    row.line.quotedQty,
+                  ].map((value, index) => (
+                    <td
+                      key={FEET_STAT_COLUMNS[index]}
+                      className="border-b border-r border-slate-300 px-1.5 py-2 text-right align-top tabular-nums text-slate-600 last:border-r-0"
+                    >
+                      {Math.round(value * 100) / 100}
+                    </td>
+                  ))}
                 </tr>
               );
             })}
@@ -358,6 +387,7 @@ function DrainRingStyleTable({
               >
                 Selected for this load
               </th>
+              <td className="border-r border-slate-300 px-1.5 py-1.5" />
               <td className="border-r border-slate-300 px-1.5 py-1.5 text-right font-semibold tabular-nums">
                 {matrix.selectedFeet} LF
               </td>
@@ -370,6 +400,12 @@ function DrainRingStyleTable({
                 >
                   {matrixOption.selectedCount}
                 </td>
+              ))}
+              {FEET_STAT_COLUMNS.map((label) => (
+                <td
+                  key={label}
+                  className="border-r border-slate-300 px-1.5 py-1.5 last:border-r-0"
+                />
               ))}
             </tr>
           </tbody>

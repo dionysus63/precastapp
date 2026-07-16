@@ -1539,16 +1539,19 @@ export function DeliveryTicketEditor({
             </table>
           ) : null}
 
-          <table className="w-full table-fixed border-separate border-spacing-0 text-left text-xs xl:w-[920px]">
+          <table className="w-full table-fixed border-separate border-spacing-0 text-left text-xs xl:w-[1080px]">
               <colgroup>
-                <col style={{ width: "4.5%" }} />
-                <col style={{ width: "28.5%" }} />
-                <col style={{ width: "10.5%" }} />
-                <col style={{ width: "10.5%" }} />
-                <col style={{ width: "12%" }} />
-                <col style={{ width: "10.5%" }} />
-                <col style={{ width: "13%" }} />
-                <col style={{ width: "10.5%" }} />
+                <col style={{ width: "4%" }} />
+                <col style={{ width: "23%" }} />
+                <col style={{ width: "7.5%" }} />
+                <col style={{ width: "8.5%" }} />
+                <col style={{ width: "7.5%" }} />
+                <col style={{ width: "7.5%" }} />
+                <col style={{ width: "7.5%" }} />
+                <col style={{ width: "9%" }} />
+                <col style={{ width: "8.5%" }} />
+                <col style={{ width: "9.5%" }} />
+                <col style={{ width: "7.5%" }} />
               </colgroup>
               <thead>
                 <tr>
@@ -1575,6 +1578,24 @@ export function DeliveryTicketEditor({
                     style={quoteTableHeaderStyle}
                   >
                     Qty on load
+                  </th>
+                  <th
+                    className={quoteTableHeaderCellClassName}
+                    style={quoteTableHeaderStyle}
+                  >
+                    Scheduled
+                  </th>
+                  <th
+                    className={quoteTableHeaderCellClassName}
+                    style={quoteTableHeaderStyle}
+                  >
+                    Shipped
+                  </th>
+                  <th
+                    className={quoteTableHeaderCellClassName}
+                    style={quoteTableHeaderStyle}
+                  >
+                    Awarded
                   </th>
                   <th
                     className={quoteTableHeaderCellClassName}
@@ -1616,7 +1637,7 @@ export function DeliveryTicketEditor({
                     const overLimit = setsUsed > setsAvailable + 0.001;
                     return (
                       <tr key={line.quoteLineItemId} className="bg-slate-50/40">
-                        <td className={`${quoteLineTableCellClassName} align-top`} colSpan={8}>
+                        <td className={`${quoteLineTableCellClassName} align-top`} colSpan={11}>
                           <div className="flex flex-wrap items-baseline justify-between gap-2">
                             <div>
                               <span className="font-medium text-slate-900">
@@ -1631,15 +1652,8 @@ export function DeliveryTicketEditor({
                             </div>
                             <div className="text-slate-600">
                               {setsAvailable} of {line.quotedQty} EA remaining ·{" "}
+                              {getOnOpenLoadsQty(line)} scheduled ·{" "}
                               {line.shippedQty} shipped
-                              {getOnOpenLoadsQty(line) > 0 ? (
-                                <span
-                                  className="font-medium text-amber-700"
-                                  title="On open delivery tickets that have not shipped yet"
-                                >
-                                  {" "}· {getOnOpenLoadsQty(line)} on other loads
-                                </span>
-                              ) : null}
                             </div>
                           </div>
                           {shouldShowDeliveryLineDescription(line) ? (
@@ -1734,7 +1748,7 @@ export function DeliveryTicketEditor({
                     const overLimit = qtyUsed > qtyAvailable + 0.001;
                     return (
                       <tr key={line.quoteLineItemId} className="bg-slate-50/40">
-                        <td className={`${quoteLineTableCellClassName} align-top`} colSpan={8}>
+                        <td className={`${quoteLineTableCellClassName} align-top`} colSpan={11}>
                           <div className="flex flex-wrap items-baseline justify-between gap-2">
                             <div>
                               <span className="font-medium text-slate-900">
@@ -1749,15 +1763,9 @@ export function DeliveryTicketEditor({
                             </div>
                             <div className="text-slate-600">
                               {qtyAvailable} of {line.quotedQty}{" "}
-                              {line.unit} remaining · {line.shippedQty} shipped
-                              {getOnOpenLoadsQty(line) > 0 ? (
-                                <span
-                                  className="font-medium text-amber-700"
-                                  title="On open delivery tickets that have not shipped yet"
-                                >
-                                  {" "}· {getOnOpenLoadsQty(line)} on other loads
-                                </span>
-                              ) : null}
+                              {line.unit} remaining ·{" "}
+                              {getOnOpenLoadsQty(line)} scheduled ·{" "}
+                              {line.shippedQty} shipped
                             </div>
                           </div>
                           {shouldShowDeliveryLineDescription(line) ? (
@@ -1866,7 +1874,7 @@ export function DeliveryTicketEditor({
                       claimedElsewhere === 0 && selectedHere === 0;
                     return (
                       <tr key={line.quoteLineItemId} className="bg-slate-50/40">
-                        <td className={`${quoteLineTableCellClassName} align-top`} colSpan={8}>
+                        <td className={`${quoteLineTableCellClassName} align-top`} colSpan={11}>
                           <div className="flex flex-wrap items-baseline justify-between gap-2">
                             <div>
                               <span
@@ -2137,17 +2145,8 @@ export function DeliveryTicketEditor({
                           )
                         ) : null}
                       </td>
-                      <td className={`${quoteLineTableCellClassName} align-top text-slate-700`}>
-                        <div>{getAvailableQty(line)} of {line.quotedQty}</div>
-                        <div className="text-slate-500">{line.shippedQty} shipped</div>
-                        {getOnOpenLoadsQty(line) > 0 ? (
-                          <div
-                            className="font-medium text-amber-700"
-                            title="On open delivery tickets that have not shipped yet"
-                          >
-                            {getOnOpenLoadsQty(line)} on other loads
-                          </div>
-                        ) : null}
+                      <td className={`${quoteLineTableCellClassName} align-top font-medium text-slate-900`}>
+                        {getAvailableQty(line)}
                       </td>
                       <td className={`${quoteLineTableCellClassName} align-top`}>
                         <input
@@ -2164,6 +2163,15 @@ export function DeliveryTicketEditor({
                             setStandardLineQuantity(line, event.target.value)
                           }
                         />
+                      </td>
+                      <td className={`${quoteLineTableCellClassName} align-top text-slate-600`}>
+                        {getOnOpenLoadsQty(line)}
+                      </td>
+                      <td className={`${quoteLineTableCellClassName} align-top text-slate-600`}>
+                        {line.shippedQty}
+                      </td>
+                      <td className={`${quoteLineTableCellClassName} align-top text-slate-600`}>
+                        {line.quotedQty}
                       </td>
                       <td className={`${quoteLineTableCellClassName} align-top text-slate-700`}>
                         {checked && editorLine ? (
@@ -2220,7 +2228,7 @@ export function DeliveryTicketEditor({
               </tbody>
               <tfoot className="border-t border-slate-200 bg-slate-50/80">
                 <tr>
-                  <td colSpan={5} className={`${quoteLineTableCellClassName} text-right font-medium text-slate-700`}>
+                  <td colSpan={8} className={`${quoteLineTableCellClassName} text-right font-medium text-slate-700`}>
                     Total load weight
                   </td>
                   <td className={`${quoteLineTableCellClassName} font-semibold text-slate-900`}>
