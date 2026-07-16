@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const PAGE_ASPECT_RATIO = 8.5 / 11;
+const DEFAULT_PAGE_ASPECT_RATIO = 8.5 / 11;
 
 type DeliveryTicketSubmittalPdfCanvasPreviewProps = {
   ticketId: string;
@@ -19,6 +19,11 @@ export function DeliveryTicketSubmittalPdfCanvasPreview({
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRendering, setIsRendering] = useState(true);
+  // Submittal documents mix portrait and landscape pages; the frame follows
+  // the active page's own dimensions instead of assuming letter portrait.
+  const [pageAspectRatio, setPageAspectRatio] = useState(
+    DEFAULT_PAGE_ASPECT_RATIO,
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -57,6 +62,7 @@ export function DeliveryTicketSubmittalPdfCanvasPreview({
         const sheetIndex = Math.min(Math.max(activeSheet, 1), pdf.numPages);
         const page = await pdf.getPage(sheetIndex);
         const baseViewport = page.getViewport({ scale: 1 });
+        setPageAspectRatio(baseViewport.width / baseViewport.height);
         const containerWidth = container!.clientWidth || baseViewport.width;
         const scale = containerWidth / baseViewport.width;
         const viewport = page.getViewport({ scale });
@@ -105,7 +111,7 @@ export function DeliveryTicketSubmittalPdfCanvasPreview({
     <div
       ref={containerRef}
       className="relative w-full bg-white shadow-lg print:shadow-none"
-      style={{ aspectRatio: `${PAGE_ASPECT_RATIO}` }}
+      style={{ aspectRatio: `${pageAspectRatio}` }}
     >
       <canvas
         ref={canvasRef}

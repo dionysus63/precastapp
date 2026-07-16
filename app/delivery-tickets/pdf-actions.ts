@@ -94,6 +94,50 @@ export async function printDeliveryTicketDirect(
   }
 }
 
+/**
+ * Silent print of the ticket's submittal package on the server's configured
+ * submittal printer (Settings -> Printing).
+ */
+export async function printDeliveryTicketSubmittalsDirect(
+  ticketId: string,
+): Promise<PrintDeliveryTicketDirectResult> {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+  if (!ticketId.trim()) {
+    return { success: false, error: "Ticket id is required." };
+  }
+
+  try {
+    const settings = await getAppSettings();
+    const printer = settings.submittalPrinterName;
+    if (!printer) {
+      return {
+        success: false,
+        error:
+          "No submittal printer is configured. Set one under Settings → Printing.",
+      };
+    }
+
+    const { buildSubmittalPackagePdfBytesForDeliveryTicket } = await import(
+      "@/lib/submittal-package"
+    );
+    const { pdfBytes } = await withDatabaseRetry((client) =>
+      buildSubmittalPackagePdfBytesForDeliveryTicket(client, ticketId),
+    );
+    await printPdfBytesOnServer(pdfBytes, {
+      printer,
+      monochrome: settings.submittalPrintColorMode === "monochrome",
+    });
+
+    return { success: true, printer };
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Failed to print the submittal package.";
+    return { success: false, error: message };
+  }
+}
+
 export type DeliveryTicketPdfPreviewResult =
   | { success: true; base64: string }
   | { success: false; error: string };

@@ -1688,6 +1688,10 @@ model AppSettings {
   ticketPrinterName          String?
   /// "color" | "monochrome"; null = color.
   ticketPrintColorMode       String?
+  /// Silent submittal-package printing; null = browser print dialog.
+  submittalPrinterName       String?
+  /// "color" | "monochrome"; null = color.
+  submittalPrintColorMode    String?
   companyLogoPath   String?
   // paths
   jobsRoot            String

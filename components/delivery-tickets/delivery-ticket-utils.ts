@@ -12,6 +12,7 @@ export type DeliveryTicketRow = {
   id: string;
   ticketNumber: string;
   jobId: string | null;
+  customerId: string | null;
   jobNumber: string;
   projectName: string;
   customer: string;

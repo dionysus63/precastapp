@@ -7,6 +7,7 @@ function row(overrides: Partial<DeliveryTicketRow>): DeliveryTicketRow {
     id: "t1",
     ticketNumber: "DT1",
     jobId: null,
+    customerId: null,
     jobNumber: "26-001",
     projectName: "Project",
     customer: "Customer",

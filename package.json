@@ -16,6 +16,7 @@
     "deploy:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy/install-prerequisites.ps1",
     "deploy:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy/deploy-app.ps1",
     "deploy:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy/start-production.ps1",
+    "deploy:update": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy/update-production.ps1",
     "electron:dev": "electron .",
     "electron:build": "electron-builder --win --x64",
     "electron:publish": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy/publish-electron-update.ps1",

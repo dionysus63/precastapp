@@ -10,6 +10,7 @@ export const deliveryTicketListSelect = {
   id: true,
   ticketNumber: true,
   jobId: true,
+  customerId: true,
   jobNumber: true,
   projectName: true,
   customerName: true,
@@ -181,6 +182,7 @@ export function mapDbDeliveryTicketToListRow(ticket: {
   id: string;
   ticketNumber: string;
   jobId?: string | null;
+  customerId?: string | null;
   jobNumber: string | null;
   projectName: string;
   customerName: string;
@@ -200,6 +202,7 @@ export function mapDbDeliveryTicketToListRow(ticket: {
     id: ticket.id,
     ticketNumber: ticket.ticketNumber,
     jobId: ticket.jobId ?? null,
+    customerId: ticket.customerId ?? null,
     jobNumber: ticket.jobNumber ?? "—",
     projectName: ticket.projectName,
     customer: ticket.customerName,

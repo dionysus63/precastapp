@@ -275,41 +275,70 @@ export async function convertTicketToInvoice(deliveryTicketId: string) {
   }
 }
 
-export async function updateTicketPaperVerification(
-  deliveryTicketId: string,
-  formData: FormData,
-) {
-  await requirePermission(AppPermission.DELIVERY_MANAGE);
-  const paperTicketPrinted = formData.get("paperTicketPrinted") === "on";
-  const paperTicketVerified = formData.get("paperTicketVerified") === "on";
-  const verifiedBy = String(formData.get("verifiedBy") ?? "").trim() || null;
+/**
+ * Reconcile helper: mark every still-open ticket on a day as delivered in one
+ * click. The dispatcher won't reliably mark loads delivered in the app, so
+ * the bookkeeper counts paper tickets against the screen and closes the day.
+ */
+export type DeliverAllTicketsResult =
+  | { error: string }
+  | {
+      success: true;
+      delivered: number;
+      failed: { ticketNumber: string; error: string }[];
+      warnings: string[];
+    };
 
-  await withDatabaseRetry((client) =>
-    client.deliveryTicket.update({
-      where: { id: deliveryTicketId },
-      data: {
-        paperTicketPrinted,
-        paperTicketVerified,
-        verifiedBy: paperTicketVerified ? verifiedBy : null,
-        verifiedAt: paperTicketVerified ? new Date() : null,
+export async function deliverAllTicketsForDay(
+  dateRaw: string,
+): Promise<DeliverAllTicketsResult> {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+  const reconciliationDate = parseReconciliationDate(dateRaw);
+  if (!reconciliationDate) {
+    return { error: "Invalid date." };
+  }
+
+  const start = reconciliationDate;
+  const end = new Date(start);
+  end.setHours(23, 59, 59, 999);
+
+  const openTickets = await withDatabaseRetry((client) =>
+    client.deliveryTicket.findMany({
+      where: {
+        deliveryDate: { gte: start, lte: end },
+        status: { notIn: ["DELIVERED", "CANCELLED"] },
       },
+      orderBy: { ticketNumber: "asc" },
+      select: { id: true, ticketNumber: true },
     }),
   );
 
+  let delivered = 0;
+  const failed: { ticketNumber: string; error: string }[] = [];
+  const warnings: string[] = [];
+
+  for (const ticket of openTickets) {
+    // Same path as the single-ticket "Mark delivered" button, one at a time so
+    // one bad ticket (e.g. negative stock) doesn't block the rest of the day.
+    const result = await deliverTicket(ticket.id);
+    if ("error" in result && result.error) {
+      failed.push({ ticketNumber: ticket.ticketNumber, error: result.error });
+      continue;
+    }
+    delivered += 1;
+    if ("warning" in result && result.warning) {
+      warnings.push(`${ticket.ticketNumber}: ${result.warning}`);
+    }
+  }
+
   revalidatePath("/delivery-tickets/reconcile");
+  revalidatePath("/delivery-tickets");
   revalidatePath("/invoices");
+  return { success: true as const, delivered, failed, warnings };
 }
 
-export async function confirmDeliveryDayReconciliation(formData: FormData) {
+export async function confirmDeliveryDayReconciliation(dateRaw: string) {
   const user = await requirePermission(AppPermission.DELIVERY_MANAGE);
-  const dateRaw = String(formData.get("reconciliationDate") ?? "").trim();
-  const confirmedBy = String(formData.get("confirmedBy") ?? "").trim();
-  const notes = String(formData.get("notes") ?? "").trim() || null;
-  const createInvoices = formData.get("createInvoices") === "on";
-
-  if (!dateRaw || !confirmedBy) {
-    return { error: "Date and confirmed-by are required." };
-  }
 
   const reconciliationDate = parseReconciliationDate(dateRaw);
   if (!reconciliationDate) {
@@ -321,22 +350,22 @@ export async function confirmDeliveryDayReconciliation(formData: FormData) {
   end.setHours(23, 59, 59, 999);
 
   const conversionResult = await withDatabaseRetry(async (client) => {
+    // Confirmation is stamped with the signed-in user; the old free-text
+    // confirmed-by/notes inputs are gone.
     await client.deliveryDayReconciliation.upsert({
       where: { reconciliationDate: start },
       create: {
         reconciliationDate: start,
-        confirmedBy,
+        confirmedBy: user.displayName,
         confirmedAt: new Date(),
-        notes,
       },
       update: {
-        confirmedBy,
+        confirmedBy: user.displayName,
         confirmedAt: new Date(),
-        notes,
       },
     });
 
-    if (createInvoices && (await hasPermission(user, AppPermission.INVOICES_MANAGE))) {
+    if (await hasPermission(user, AppPermission.INVOICES_MANAGE)) {
       const [scheduledTickets, deliveredOtherDayTickets] = await Promise.all([
         client.deliveryTicket.findMany({
           where: { deliveryDate: { gte: start, lte: end } },
@@ -492,8 +521,6 @@ const RECONCILE_TICKET_SELECT = {
   paymentMethod: true,
   paymentReceived: true,
   paperTicketPrinted: true,
-  paperTicketVerified: true,
-  verifiedBy: true,
   invoice: { select: { id: true } },
 } as const;
 
@@ -510,8 +537,6 @@ function mapReconcileTicket(
     paymentMethod: string | null;
     paymentReceived: boolean;
     paperTicketPrinted: boolean;
-    paperTicketVerified: boolean;
-    verifiedBy: string | null;
     invoice: { id: string } | null;
   },
 ) {

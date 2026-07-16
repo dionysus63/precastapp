@@ -8,9 +8,9 @@ import { StatusBadge } from "@/components/dashboard/status-badge";
 import {
   cancelTicketFromReconcile,
   confirmDeliveryDayReconciliation,
+  deliverAllTicketsForDay,
   deliverTicket,
   moveTicketDeliveryDate,
-  updateTicketPaperVerification,
 } from "@/app/operations/actions";
 
 import {
@@ -32,8 +32,6 @@ export type ReconcileTicket = {
   paymentMethod: string | null;
   paymentReceived: boolean;
   paperTicketPrinted: boolean;
-  paperTicketVerified: boolean;
-  verifiedBy: string | null;
   hasInvoice: boolean;
 };
 
@@ -67,9 +65,6 @@ function getMismatchFlags(ticket: ReconcileTicket): string[] {
   ) {
     flags.push("Printed but not delivered");
   }
-  if (ticket.status === "DELIVERED" && !ticket.paperTicketVerified) {
-    flags.push("Not verified");
-  }
   if (
     ticket.ticketType === "WALK_IN" &&
     ticket.paymentMethod === "PAY_NOW" &&
@@ -78,52 +73,6 @@ function getMismatchFlags(ticket: ReconcileTicket): string[] {
     flags.push("Payment expected at pickup — not received");
   }
   return flags;
-}
-
-function TicketVerificationForm({ ticket }: { ticket: ReconcileTicket }) {
-  const [pending, startTransition] = useTransition();
-
-  return (
-    <form
-      action={(formData) => {
-        startTransition(() => {
-          void updateTicketPaperVerification(ticket.id, formData);
-        });
-      }}
-      className="flex flex-wrap items-center gap-3"
-    >
-      <label className="flex items-center gap-1.5 text-[11px]">
-        <input
-          type="checkbox"
-          name="paperTicketPrinted"
-          defaultChecked={ticket.paperTicketPrinted}
-        />
-        Printed
-      </label>
-      <label className="flex items-center gap-1.5 text-[11px]">
-        <input
-          type="checkbox"
-          name="paperTicketVerified"
-          defaultChecked={ticket.paperTicketVerified}
-        />
-        Verified
-      </label>
-      <input
-        type="text"
-        name="verifiedBy"
-        placeholder="Verified by"
-        defaultValue={ticket.verifiedBy ?? ""}
-        className="w-24 rounded border border-slate-200 px-1.5 py-0.5 text-[11px]"
-      />
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded border border-slate-200 px-2 py-0.5 text-[11px] hover:bg-slate-50 disabled:opacity-50"
-      >
-        Save
-      </button>
-    </form>
-  );
 }
 
 function TicketQuickActions({
@@ -252,7 +201,6 @@ function TicketTable({
               <th className={tableHeaderCellClassName}>Scheduled</th>
             ) : null}
             <th className={tableHeaderCellClassName}>Flags</th>
-            <th className={tableHeaderCellClassName}>Paper verification</th>
             <th className={tableHeaderCellClassName}>Actions</th>
           </tr>
         </thead>
@@ -303,9 +251,6 @@ function TicketTable({
                   )}
                 </td>
                 <td className={tableCellClassName}>
-                  <TicketVerificationForm ticket={ticket} />
-                </td>
-                <td className={tableCellClassName}>
                   <TicketQuickActions
                     ticket={ticket}
                     reconcileDate={reconcileDate}
@@ -327,8 +272,13 @@ export function ReconcileDay({
   reconciliation,
   canManageInvoices,
 }: ReconcileDayProps) {
+  const confirmDialog = useConfirm();
   const [pending, startTransition] = useTransition();
   const [resultMessage, setResultMessage] = useState<string | null>(null);
+  const [deliverAllPending, startDeliverAllTransition] = useTransition();
+  const [deliverAllMessage, setDeliverAllMessage] = useState<string | null>(
+    null,
+  );
 
   const allTickets = [...scheduledTickets, ...deliveredOtherDayTickets];
   const warningFlags = allTickets.flatMap(getMismatchFlags);
@@ -336,10 +286,76 @@ export function ReconcileDay({
   const deliveredUninvoiced = allTickets.filter(
     (ticket) => ticket.status === "DELIVERED" && !ticket.hasInvoice,
   ).length;
+  // The bookkeeper counts paper tickets against these numbers.
+  const deliveredCount = allTickets.filter(
+    (ticket) => ticket.status === "DELIVERED",
+  ).length;
+  const openTickets = scheduledTickets.filter(
+    (ticket) => ticket.status !== "DELIVERED" && ticket.status !== "CANCELLED",
+  );
+
+  function handleDeliverAll() {
+    void (async () => {
+      if (
+        !(await confirmDialog({
+          title: "Mark all delivered?",
+          message: `Mark ${openTickets.length} open ticket${
+            openTickets.length === 1 ? "" : "s"
+          } on ${date} as delivered? Stock is deducted and structures are marked shipped.`,
+          confirmLabel: "Mark all delivered",
+        }))
+      ) {
+        return;
+      }
+      setDeliverAllMessage(null);
+      startDeliverAllTransition(async () => {
+        const result = await deliverAllTicketsForDay(date);
+        if (!("success" in result)) {
+          setDeliverAllMessage(result.error ?? "Could not mark the day delivered.");
+          return;
+        }
+        const parts = [
+          `${result.delivered} ticket${result.delivered === 1 ? "" : "s"} marked delivered.`,
+        ];
+        if (result.failed.length > 0) {
+          parts.push(
+            `${result.failed.length} failed: ${result.failed
+              .map((item) => `${item.ticketNumber} (${item.error})`)
+              .join("; ")}`,
+          );
+        }
+        parts.push(...result.warnings);
+        setDeliverAllMessage(parts.join(" "));
+      });
+    })();
+  }
 
   return (
     <div className="space-y-5">
-      <SectionCard title={`Scheduled for ${date}`} noPadding>
+      <SectionCard
+        title={`Scheduled for ${date}`}
+        description={`${allTickets.length} ticket${allTickets.length === 1 ? "" : "s"} on this day · ${deliveredCount} delivered — the paper folder should match.`}
+        action={
+          openTickets.length > 0 ? (
+            <button
+              type="button"
+              disabled={deliverAllPending}
+              onClick={handleDeliverAll}
+              className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+            >
+              {deliverAllPending
+                ? "Marking…"
+                : `Mark all ${openTickets.length} delivered`}
+            </button>
+          ) : undefined
+        }
+        noPadding
+      >
+        {deliverAllMessage ? (
+          <p className="border-b border-slate-100 px-4 py-2 text-xs text-slate-700">
+            {deliverAllMessage}
+          </p>
+        ) : null}
         <TicketTable
           tickets={scheduledTickets}
           reconcileDate={date}
@@ -394,76 +410,12 @@ export function ReconcileDay({
           </div>
         ) : null}
 
-        <form
-          action={(formData) => {
-            startTransition(async () => {
-              const result = await confirmDeliveryDayReconciliation(formData);
-              if (result.error) {
-                setResultMessage(result.error);
-                return;
-              }
-              const parts: string[] = ["Day confirmed."];
-              if (result.conversionResult) {
-                const { created, skipped, alreadyInvoiced } =
-                  result.conversionResult;
-                parts.push(
-                  `${created} draft invoice${created === 1 ? "" : "s"} created.`,
-                );
-                if (alreadyInvoiced > 0) {
-                  parts.push(`${alreadyInvoiced} already invoiced.`);
-                }
-                if (skipped.length > 0) {
-                  parts.push(
-                    `${skipped.length} skipped: ${skipped
-                      .map(
-                        (item: { ticketNumber: string; reason: string }) =>
-                          `${item.ticketNumber} (${item.reason})`,
-                      )
-                      .join("; ")}`,
-                  );
-                }
-              } else if (canManageInvoices) {
-                parts.push("No new draft invoices were created.");
-              }
-              setResultMessage(parts.join(" "));
-            });
-          }}
-          className="grid max-w-md gap-3"
-        >
-          <input type="hidden" name="reconciliationDate" value={date} />
-          <div>
-            <label htmlFor="confirmedBy" className="text-xs font-medium text-slate-700">
-              Confirmed by
-            </label>
-            <input
-              id="confirmedBy"
-              name="confirmedBy"
-              required
-              defaultValue={reconciliation?.confirmedBy ?? ""}
-              className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
-            />
-          </div>
-          <div>
-            <label htmlFor="notes" className="text-xs font-medium text-slate-700">
-              Notes
-            </label>
-            <input
-              id="notes"
-              name="notes"
-              defaultValue={reconciliation?.notes ?? ""}
-              className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
-            />
-          </div>
+        <div className="grid max-w-md gap-3">
           {canManageInvoices ? (
-            <label className="flex items-center gap-2 text-xs text-slate-700">
-              <input
-                type="checkbox"
-                name="createInvoices"
-                defaultChecked
-              />
-              Create draft invoices for delivered tickets (
-              {deliveredUninvoiced} ready)
-            </label>
+            <p className="text-xs text-slate-600">
+              Confirming stamps the day with your name and creates draft
+              invoices for delivered tickets ({deliveredUninvoiced} ready).
+            </p>
           ) : (
             <p className="text-xs text-slate-500">
               You need invoice permissions to create draft invoices from this
@@ -472,11 +424,44 @@ export function ReconcileDay({
           )}
           <div className="flex flex-wrap items-center gap-3">
             <button
-              type="submit"
+              type="button"
               disabled={pending || allTickets.length === 0}
+              onClick={() => {
+                startTransition(async () => {
+                  const result = await confirmDeliveryDayReconciliation(date);
+                  if (result.error) {
+                    setResultMessage(result.error);
+                    return;
+                  }
+                  const parts: string[] = ["Day confirmed."];
+                  if (result.conversionResult) {
+                    const { created, skipped, alreadyInvoiced } =
+                      result.conversionResult;
+                    parts.push(
+                      `${created} draft invoice${created === 1 ? "" : "s"} created.`,
+                    );
+                    if (alreadyInvoiced > 0) {
+                      parts.push(`${alreadyInvoiced} already invoiced.`);
+                    }
+                    if (skipped.length > 0) {
+                      parts.push(
+                        `${skipped.length} skipped: ${skipped
+                          .map(
+                            (item: { ticketNumber: string; reason: string }) =>
+                              `${item.ticketNumber} (${item.reason})`,
+                          )
+                          .join("; ")}`,
+                      );
+                    }
+                  } else if (canManageInvoices) {
+                    parts.push("No new draft invoices were created.");
+                  }
+                  setResultMessage(parts.join(" "));
+                });
+              }}
               className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
             >
-              Confirm day &amp; create draft invoices
+              {pending ? "Confirming…" : "Confirm day & create draft invoices"}
             </button>
             {resultMessage ? (
               <Link
@@ -487,7 +472,7 @@ export function ReconcileDay({
               </Link>
             ) : null}
           </div>
-        </form>
+        </div>
       </SectionCard>
     </div>
   );

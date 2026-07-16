@@ -83,13 +83,40 @@ export function TodaysLoadsPanel({
                     {ticket.ticketNumber}
                   </td>
                   <td className={`${tableCellClassName} font-mono text-[11px] text-slate-700`}>
-                    {ticket.jobNumber}
+                    {ticket.jobId ? (
+                      <Link
+                        href={`/jobs/${ticket.jobId}`}
+                        className="font-medium text-sky-700 hover:underline"
+                      >
+                        {ticket.jobNumber}
+                      </Link>
+                    ) : (
+                      ticket.jobNumber
+                    )}
                   </td>
                   <td className={`${tableCellClassName} font-medium text-slate-900`}>
-                    {ticket.customer}
+                    {ticket.customerId ? (
+                      <Link
+                        href={`/customers/${ticket.customerId}`}
+                        className="text-sky-700 hover:underline"
+                      >
+                        {ticket.customer}
+                      </Link>
+                    ) : (
+                      ticket.customer
+                    )}
                   </td>
                   <td className={`${tableCellClassName} text-slate-700`}>
-                    {ticket.projectName}
+                    {ticket.jobId ? (
+                      <Link
+                        href={`/jobs/${ticket.jobId}`}
+                        className="text-sky-700 hover:underline"
+                      >
+                        {ticket.projectName}
+                      </Link>
+                    ) : (
+                      ticket.projectName
+                    )}
                   </td>
                   <td className={`${tableCellClassName}${delivered ? " text-slate-600" : ""}`}>
                     {delivered ? (
@@ -132,6 +159,12 @@ export function TodaysLoadsPanel({
                         className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
                       >
                         Print
+                      </Link>
+                      <Link
+                        href={`/delivery-tickets/${ticket.id}/submittals/preview?from=hub`}
+                        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        Submittals
                       </Link>
                     </div>
                   </td>

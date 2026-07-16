@@ -512,12 +512,6 @@ export async function updateOperationsSettingsFormAction(
   const estimators = parseLinesList(String(formData.get("estimators") ?? ""));
   const drivers = parseLinesList(String(formData.get("drivers") ?? ""));
   const trailers = parseLinesList(String(formData.get("trailers") ?? ""));
-  const ticketPrinterName =
-    String(formData.get("ticketPrinterName") ?? "").trim() || null;
-  const ticketPrintColorMode =
-    String(formData.get("ticketPrintColorMode") ?? "") === "monochrome"
-      ? "monochrome"
-      : "color";
 
   if (!loadCapacityLabel) {
     return { error: "Load capacity is required." };
@@ -536,8 +530,29 @@ export async function updateOperationsSettingsFormAction(
     estimators,
     drivers,
     trailers,
-    ticketPrinterName,
-    ticketPrintColorMode,
+  });
+}
+
+/**
+ * Direct-printing defaults (Settings -> Printing): server-host printer and
+ * color mode for delivery tickets and submittal packages.
+ */
+export async function updatePrintingSettingsFormAction(
+  formData: FormData,
+): Promise<SettingsActionResult> {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
+  const parseColorMode = (value: FormDataEntryValue | null) =>
+    String(value ?? "") === "monochrome" ? "monochrome" : "color";
+
+  return updateAppSettings({
+    ticketPrinterName:
+      String(formData.get("ticketPrinterName") ?? "").trim() || null,
+    ticketPrintColorMode: parseColorMode(formData.get("ticketPrintColorMode")),
+    submittalPrinterName:
+      String(formData.get("submittalPrinterName") ?? "").trim() || null,
+    submittalPrintColorMode: parseColorMode(
+      formData.get("submittalPrintColorMode"),
+    ),
   });
 }
 

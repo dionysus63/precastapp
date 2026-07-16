@@ -242,6 +242,16 @@ Uses [NSSM](https://nssm.cc/) to run `scripts/deploy/start-production.ps1` as a 
 
 ### Updates
 
+One command (stops the service, pulls, runs the full deploy build, restarts,
+health-checks, and restores the previous build if the new one fails):
+
+```powershell
+cd C:\Apps\precastapp
+npm run deploy:update
+```
+
+Equivalent manual steps, if you ever need them individually:
+
 ```powershell
 Stop-Service PrecastApp
 cd C:\Apps\precastapp
@@ -405,7 +415,7 @@ Register a Windows Scheduled Task to run that script nightly.
 
 | Task | Where | Action |
 |------|-------|--------|
-| Server app updates | **Server** | `git pull` → `deploy-app.ps1` → restart `PrecastApp` |
+| Server app updates | **Server** | `npm run deploy:update` (stop → pull → build → start + rollback) |
 | Push code to server | **Dev PC** then **Server** | Dev: `git push` → Server: `git pull` |
 | Desktop shell updates | **Dev PC** → **Server** | Dev: bump `electron/package.json` version → `publish-electron-update.ps1 -CopyTo \\SERVER\...` → Staff restart when prompted |
 | Server URL change only | **Staff PCs** | Edit `%APPDATA%\Precast Ops\config.json` |

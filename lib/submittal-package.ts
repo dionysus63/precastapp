@@ -339,60 +339,37 @@ async function appendImageFile(merged: PDFDocument, filePath: string) {
   throw new Error(`Unsupported image type: ${path.basename(filePath)}`);
 }
 
+/**
+ * Delivery-ticket submittal packages are just the documents themselves —
+ * no cover sheet (dispatch hands these to the driver/site as-is). Quote
+ * packages keep their cover; see generateSubmittalPackageForQuote.
+ */
 async function mergeSubmittalPdfBytes(input: {
-  ticketNumber: string;
-  customerName: string;
-  projectName: string;
-  deliveryDate: Date | null;
-  products: SubmittalCoverProduct[];
   missing: string[];
   files: { productCode: string; documentName: string; filePath: string }[];
 }): Promise<{ pdfBytes: Uint8Array; missing: string[]; skipped: string[] }> {
-  const coverHtml = await buildSubmittalCoverHtml({
-    quoteNumber: input.ticketNumber,
-    customerName: input.customerName,
-    projectName: input.projectName,
-    quoteDate: input.deliveryDate
-      ? new Intl.DateTimeFormat("en-US").format(input.deliveryDate)
-      : "—",
-    products: input.products,
-    missingProducts: input.missing,
-  });
-
-  const tempCoverPath = path.join(
-    os.tmpdir(),
-    `precast-submittal-cover-${randomUUID()}.pdf`,
-  );
-
   const merged = await PDFDocument.create();
   const skipped: string[] = [];
   const stockSubmittalsRoot = await getStockSubmittalsRoot();
 
-  try {
-    await writeQuotePdfFromHtml(coverHtml, tempCoverPath);
-    await appendPdfFile(merged, tempCoverPath);
-
-    for (const file of input.files) {
-      const ext = path.extname(file.filePath).toLowerCase();
-      try {
-        assertPathUnderStockSubmittalsRoot(stockSubmittalsRoot, file.filePath);
-        if (ext === ".pdf") {
-          await appendPdfFile(merged, file.filePath);
-        } else if (ext === ".png" || ext === ".jpg" || ext === ".jpeg") {
-          await appendImageFile(merged, file.filePath);
-        } else {
-          skipped.push(`${file.productCode}: ${file.documentName}`);
-        }
-      } catch {
+  for (const file of input.files) {
+    const ext = path.extname(file.filePath).toLowerCase();
+    try {
+      assertPathUnderStockSubmittalsRoot(stockSubmittalsRoot, file.filePath);
+      if (ext === ".pdf") {
+        await appendPdfFile(merged, file.filePath);
+      } else if (ext === ".png" || ext === ".jpg" || ext === ".jpeg") {
+        await appendImageFile(merged, file.filePath);
+      } else {
         skipped.push(`${file.productCode}: ${file.documentName}`);
       }
+    } catch {
+      skipped.push(`${file.productCode}: ${file.documentName}`);
     }
-
-    const pdfBytes = await merged.save();
-    return { pdfBytes, missing: input.missing, skipped };
-  } finally {
-    await unlink(tempCoverPath).catch(() => undefined);
   }
+
+  const pdfBytes = await merged.save();
+  return { pdfBytes, missing: input.missing, skipped };
 }
 
 export async function buildSubmittalPackagePdfBytesForDeliveryTicket(
@@ -409,17 +386,9 @@ export async function buildSubmittalPackagePdfBytesForDeliveryTicket(
     throw new Error("Delivery ticket not found.");
   }
 
-  const { products, missing, files } = collectSubmittalSources(ticket);
+  const { missing, files } = collectSubmittalSources(ticket);
   const { pdfBytes, missing: missingProducts, skipped } =
-    await mergeSubmittalPdfBytes({
-      ticketNumber: ticket.ticketNumber,
-      customerName: ticket.customerName,
-      projectName: ticket.projectName,
-      deliveryDate: ticket.deliveryDate,
-      products,
-      missing,
-      files,
-    });
+    await mergeSubmittalPdfBytes({ missing, files });
 
   return {
     pdfBytes,
@@ -438,7 +407,7 @@ export async function generateSubmittalPackageForDeliveryTicket(
     throw new Error("Delivery ticket not found.");
   }
 
-  const { products, missing, files } = collectSubmittalSources(ticket);
+  const { missing, files } = collectSubmittalSources(ticket);
 
   let jobFolderPath: string | null = null;
   if (ticket.jobId) {
@@ -449,15 +418,7 @@ export async function generateSubmittalPackageForDeliveryTicket(
     jobFolderPath = job?.folderPath ?? null;
   }
 
-  const { pdfBytes, skipped } = await mergeSubmittalPdfBytes({
-    ticketNumber: ticket.ticketNumber,
-    customerName: ticket.customerName,
-    projectName: ticket.projectName,
-    deliveryDate: ticket.deliveryDate,
-    products,
-    missing,
-    files,
-  });
+  const { pdfBytes, skipped } = await mergeSubmittalPdfBytes({ missing, files });
 
   const outputDirectory = await resolveSubmittalPackageDirectory(jobFolderPath);
   const baseName = buildSubmittalPackageBaseName(

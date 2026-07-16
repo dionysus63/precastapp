@@ -194,6 +194,7 @@ Full step-by-step guide: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**
 | `.\scripts\deploy\install-prerequisites.ps1`   | Check Node, PostgreSQL, Git, browser              |
 | `.\scripts\deploy\verify-unc-access.ps1`       | Test read/write on jobs/submittals paths          |
 | `.\scripts\deploy\deploy-app.ps1`              | `npm ci`, migrate, build                          |
+| `.\scripts\deploy\update-production.ps1`       | **One-command update**: stop service, pull, deploy-app, start, health check (rolls back the build on failure). Also `npm run deploy:update` |
 | `.\scripts\deploy\start-production.ps1`        | Run production server (loads `.env`)              |
 | `.\scripts\deploy\configure-firewall.ps1`      | LAN firewall rule for port 3000                   |
 | `.\scripts\deploy\install-windows-service.ps1` | NSSM Windows service                              |

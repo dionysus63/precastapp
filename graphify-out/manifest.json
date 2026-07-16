@@ -340,8 +340,8 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1784138227.601813,
-    "ast_hash": "f6e8f829b9bfefb8e3bc9ce8aecbaba9",
+    "mtime": 1784154756.3402123,
+    "ast_hash": "98b35bb0360602a7614dfc2c7ee5e1f9",
     "semantic_hash": ""
   },
   "postcss.config.mjs": {
@@ -385,8 +385,8 @@
     "semantic_hash": ""
   },
   "COMMANDS.md": {
-    "mtime": 1783456911.2452471,
-    "ast_hash": "edd483118afaaf6cff8eec2a71d71950",
+    "mtime": 1784154859.2892354,
+    "ast_hash": "8f0651f161786c07a78a7edda2457a54",
     "semantic_hash": ""
   },
   "README.md": {
@@ -455,8 +455,8 @@
     "semantic_hash": ""
   },
   "app/delivery-tickets/pdf-actions.ts": {
-    "mtime": 1784138459.438545,
-    "ast_hash": "da19285143bb0df8c8524541bcb9f483",
+    "mtime": 1784156557.6284811,
+    "ast_hash": "93b20c7ed14042bf8336c7bbf4ecccf3",
     "semantic_hash": ""
   },
   "app/delivery-tickets/reconcile/page.tsx": {
@@ -515,8 +515,8 @@
     "semantic_hash": ""
   },
   "app/operations/actions.ts": {
-    "mtime": 1784122510.3873065,
-    "ast_hash": "9f850bb5652e23621652263e67bf9e2b",
+    "mtime": 1784160514.4274611,
+    "ast_hash": "786e3ac6637731bd3dff41c381ac209e",
     "semantic_hash": ""
   },
   "app/production/page.tsx": {
@@ -525,8 +525,8 @@
     "semantic_hash": ""
   },
   "app/settings/actions.ts": {
-    "mtime": 1784138492.9548895,
-    "ast_hash": "242a2ebe33263bc3c0dea59e306f3c34",
+    "mtime": 1784156515.1213987,
+    "ast_hash": "3bed5232c272b523288b7513f2a499bd",
     "semantic_hash": ""
   },
   "app/settings/billing/page.tsx": {
@@ -545,13 +545,13 @@
     "semantic_hash": "fb82f4b17619e0a7c19b41cbbbcb65b2"
   },
   "app/settings/operations/page.tsx": {
-    "mtime": 1784148291.9688644,
-    "ast_hash": "ff4a79898fc42790763ddc2e67275293",
+    "mtime": 1784156507.64698,
+    "ast_hash": "d63c3a4c8272ca0887256f127bc601e9",
     "semantic_hash": ""
   },
   "app/settings/page.tsx": {
-    "mtime": 1784081579.1125634,
-    "ast_hash": "641b89fd36f51e933945ae5f23b74bff",
+    "mtime": 1784156545.1911008,
+    "ast_hash": "6152692c49144b6f48f4840ad8c6b2e4",
     "semantic_hash": ""
   },
   "app/settings/price-lists/[id]/page.tsx": {
@@ -585,8 +585,8 @@
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-ticket-utils.ts": {
-    "mtime": 1784128823.557025,
-    "ast_hash": "d844bedff43328b7f2ab30912ab91f31",
+    "mtime": 1784155204.5478685,
+    "ast_hash": "09dc2778228187fdb697304cdbb37583",
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-tickets-list.tsx": {
@@ -600,8 +600,8 @@
     "semantic_hash": ""
   },
   "components/delivery-tickets/reconcile-day.tsx": {
-    "mtime": 1783303735.442007,
-    "ast_hash": "b83fe78c14034b19e2f8d8ba58f7405d",
+    "mtime": 1784160463.2765834,
+    "ast_hash": "54ee4261c2a03c55e1bc42843f89011d",
     "semantic_hash": ""
   },
   "components/delivery-tickets/ticket-operations-panel.tsx": {
@@ -690,8 +690,8 @@
     "semantic_hash": ""
   },
   "lib/app-settings.ts": {
-    "mtime": 1784138417.1242511,
-    "ast_hash": "1267aa3686573ea3d8a20a640164b196",
+    "mtime": 1784156487.0939863,
+    "ast_hash": "17c3ebf59ff5fe32f63f7d422000d41f",
     "semantic_hash": ""
   },
   "lib/company-logo.ts": {
@@ -705,8 +705,8 @@
     "semantic_hash": ""
   },
   "lib/delivery-ticket-mapper.ts": {
-    "mtime": 1784128821.6912074,
-    "ast_hash": "dff15172f53692343b883fc01ae7ebce",
+    "mtime": 1784155202.7040994,
+    "ast_hash": "b21f932903571162726fceec817ecf6f",
     "semantic_hash": ""
   },
   "lib/delivery-ticket-number.ts": {
@@ -780,8 +780,8 @@
     "semantic_hash": "82eb12d615372a86da80df799e2ac411"
   },
   "lib/submittal-package.ts": {
-    "mtime": 1783891798.3856814,
-    "ast_hash": "e46be4b902a53bef68e57be6b9e685a1",
+    "mtime": 1784155791.1084898,
+    "ast_hash": "f756aac991bb5ee7fe172b1fee3c4837",
     "semantic_hash": ""
   },
   "lib/windows-explorer.ts": {
@@ -885,8 +885,8 @@
     "semantic_hash": ""
   },
   "components/delivery-tickets/todays-loads-panel.tsx": {
-    "mtime": 1784137340.3268492,
-    "ast_hash": "9669125068c64bddbfe42a3d197cb9b8",
+    "mtime": 1784155222.5730996,
+    "ast_hash": "6a3015bfc13221f11abd443a0d1cad70",
     "semantic_hash": ""
   },
   "lib/delivery-dispatch-utils.ts": {
@@ -1520,8 +1520,8 @@
     "semantic_hash": ""
   },
   "docs/DEPLOYMENT.md": {
-    "mtime": 1784081612.9753976,
-    "ast_hash": "889a77e4f887c300e68623c17b105669",
+    "mtime": 1784154877.8490636,
+    "ast_hash": "3b1efcf270fcb491d611732b2fd20e30",
     "semantic_hash": ""
   },
   "docs/deployment-server-info.md": {
@@ -1810,18 +1810,18 @@
     "semantic_hash": ""
   },
   "app/delivery-tickets/[id]/submittals/preview/page.tsx": {
-    "mtime": 1782481804.2552283,
-    "ast_hash": "fbc2dc5d886e94d1e6328ce2a10b8db3",
+    "mtime": 1784156609.9076488,
+    "ast_hash": "d94f3b5255c334d169c23ec6857b6c68",
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-ticket-submittal-pdf-canvas-preview.tsx": {
-    "mtime": 1782481804.2642045,
-    "ast_hash": "c0aeccb34dc8f146c5730aceaf3e3254",
+    "mtime": 1784155809.901176,
+    "ast_hash": "3cb256ae09caf069d32b068f1d2d974f",
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-ticket-submittal-preview-content.tsx": {
-    "mtime": 1784149971.6256952,
-    "ast_hash": "17970777c1850525ad56b570c197187b",
+    "mtime": 1784156595.9143116,
+    "ast_hash": "bc42533a6fbf1eb0a8df171403a7a83d",
     "semantic_hash": ""
   },
   "components/walk-ins/mark-picked-up-control.tsx": {
@@ -3355,8 +3355,8 @@
     "semantic_hash": ""
   },
   "tests/unit/delivery-dispatch-utils.test.ts": {
-    "mtime": 1784137108.987257,
-    "ast_hash": "6ab2aa64bb26aa269f07c82c42b16bce",
+    "mtime": 1784155224.1904333,
+    "ast_hash": "d1a5128b938d2929e3ba2115e95e891c",
     "semantic_hash": ""
   },
   "lib/ticket-printing.ts": {
@@ -3372,6 +3372,21 @@
   "components/dashboard/back-button.tsx": {
     "mtime": 1784149870.48372,
     "ast_hash": "a32dc79e607f2755a04ab4867479f3af",
+    "semantic_hash": ""
+  },
+  "scripts/deploy/update-production.ps1": {
+    "mtime": 1784154748.2115877,
+    "ast_hash": "27eed58abbd884602d19647fadaf0dce",
+    "semantic_hash": ""
+  },
+  "app/settings/printing/page.tsx": {
+    "mtime": 1784156537.769458,
+    "ast_hash": "da3653830e328ba02c5f1fadad32d022",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260715190035_add_submittal_printer_settings/migration.sql": {
+    "mtime": 1784156441.0044818,
+    "ast_hash": "084cb60069f7af01bb6b1be1496c8fef",
     "semantic_hash": ""
   }
 }

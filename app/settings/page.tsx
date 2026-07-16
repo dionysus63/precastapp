@@ -27,6 +27,11 @@ const settingSections = [
     description: "Estimators, drivers, trailers, and load-capacity defaults.",
   },
   {
+    href: "/settings/printing",
+    title: "Printing",
+    description: "Direct-print defaults for delivery tickets and submittal packages.",
+  },
+  {
     href: "/settings/system",
     title: "System & Maintenance",
     description: "Document numbering preview, file sync, and sequence setup.",

@@ -80,6 +80,9 @@ export type AppSettingsView = {
   /** Printer on the server host for silent ticket printing; null = browser dialog. */
   ticketPrinterName: string | null;
   ticketPrintColorMode: "color" | "monochrome";
+  /** Printer on the server host for silent submittal printing; null = browser dialog. */
+  submittalPrinterName: string | null;
+  submittalPrintColorMode: "color" | "monochrome";
   jobsRoot: string;
   quotePdfFallbackDir: string;
   stockSubmittalsRoot: string;
@@ -183,6 +186,9 @@ export function mapAppSettingsRow(row: AppSettings): AppSettingsView {
     ticketPrinterName: row.ticketPrinterName?.trim() || null,
     ticketPrintColorMode:
       row.ticketPrintColorMode === "monochrome" ? "monochrome" : "color",
+    submittalPrinterName: row.submittalPrinterName?.trim() || null,
+    submittalPrintColorMode:
+      row.submittalPrintColorMode === "monochrome" ? "monochrome" : "color",
     jobsRoot: row.jobsRoot,
     quotePdfFallbackDir: row.quotePdfFallbackDir,
     stockSubmittalsRoot: row.stockSubmittalsRoot,
