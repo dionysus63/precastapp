@@ -292,6 +292,106 @@ function buildStyleMatrix(
   };
 }
 
+export type RingAutoAssignment = {
+  line: QuoteLineFulfillment;
+  option: DrainRingOption;
+  count: number;
+};
+
+export type RingAutoAssignResult =
+  | { ok: true; assignments: RingAutoAssignment[] }
+  | { ok: false; reason: string };
+
+/**
+ * Distribute ring counts across a matrix's pool groups automatically.
+ *
+ * Allocation always re-solves from scratch for the full desired counts —
+ * never incrementally on top of a previous pick — so an earlier ring that
+ * happened to land in one pool can never block a combination that fits when
+ * arranged differently. Rings are placed tallest-first into the pool with
+ * the least remaining feet that still fits (best-fit decreasing), which
+ * keeps large pools open for large rings.
+ */
+export function allocateRingsAcrossPools(
+  matrix: DrainRingStyleMatrix,
+  desiredCounts: Record<string, number>,
+): RingAutoAssignResult {
+  type Bin = {
+    line: QuoteLineFulfillment;
+    capacity: number;
+    used: number;
+    optionsById: Map<string, DrainRingOption>;
+    counts: Map<string, number>;
+  };
+
+  const bins: Bin[] = matrix.rows
+    .filter((row) => row.state !== "completed" && row.line.eligible)
+    .map((row) => ({
+      line: row.line,
+      capacity: row.availableFeet,
+      used: 0,
+      optionsById: new Map(
+        row.line.drainRingOptions.map((option) => [option.productId, option]),
+      ),
+      counts: new Map(),
+    }));
+
+  const rings: { productId: string; heightFeet: number }[] = [];
+  let desiredFeet = 0;
+  for (const matrixOption of matrix.options) {
+    const { productId, heightFeet } = matrixOption.option;
+    const count = Math.max(0, Math.floor(desiredCounts[productId] ?? 0));
+    for (let i = 0; i < count; i += 1) {
+      rings.push({ productId, heightFeet });
+      desiredFeet += heightFeet;
+    }
+  }
+  rings.sort((a, b) => b.heightFeet - a.heightFeet);
+
+  const totalCapacity = roundQuantity(
+    bins.reduce((sum, bin) => sum + bin.capacity, 0),
+  );
+
+  for (const ring of rings) {
+    let best: Bin | null = null;
+    for (const bin of bins) {
+      if (!bin.optionsById.has(ring.productId)) {
+        continue;
+      }
+      const remaining = bin.capacity - bin.used;
+      if (remaining + COMPLETED_QUANTITY_EPSILON < ring.heightFeet) {
+        continue;
+      }
+      if (!best || remaining < best.capacity - best.used) {
+        best = bin;
+      }
+    }
+    if (!best) {
+      return {
+        ok: false,
+        reason:
+          desiredFeet > totalCapacity + COMPLETED_QUANTITY_EPSILON
+            ? `Only ${totalCapacity} LF left across these pools.`
+            : "Those ring heights can't be split across the remaining pool feet — assign by pool instead.",
+      };
+    }
+    best.used += ring.heightFeet;
+    best.counts.set(ring.productId, (best.counts.get(ring.productId) ?? 0) + 1);
+  }
+
+  const assignments: RingAutoAssignment[] = [];
+  for (const bin of bins) {
+    for (const [productId, count] of bin.counts) {
+      assignments.push({
+        line: bin.line,
+        option: bin.optionsById.get(productId)!,
+        count,
+      });
+    }
+  }
+  return { ok: true, assignments };
+}
+
 export function buildDrainRingDiameterGroups(
   fulfillment: readonly QuoteLineFulfillment[],
   linesByKey: ReadonlyMap<string, QuantityLine>,

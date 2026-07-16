@@ -580,8 +580,8 @@
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-ticket-editor.tsx": {
-    "mtime": 1784213166.1306498,
-    "ast_hash": "f7207d405dfdcac03de0317350b38e9d",
+    "mtime": 1784216590.738827,
+    "ast_hash": "8a6f53b576eb410539e3c6a19b2bdaf8",
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-ticket-utils.ts": {
@@ -3320,18 +3320,18 @@
     "semantic_hash": ""
   },
   "components/delivery-tickets/drain-ring-matrix-utils.ts": {
-    "mtime": 1784126197.7328575,
-    "ast_hash": "b5a788e19e4c797be57b8c668b32f3c2",
+    "mtime": 1784216540.648619,
+    "ast_hash": "8a35b0c4a960ace415665161699446dd",
     "semantic_hash": ""
   },
   "components/delivery-tickets/drain-ring-matrix.tsx": {
-    "mtime": 1784214931.972265,
-    "ast_hash": "5c28b687eb535d2e2f5ad048ceba4577",
+    "mtime": 1784216714.9362838,
+    "ast_hash": "07662efd15e6c949d2ae483037347573",
     "semantic_hash": ""
   },
   "tests/unit/drain-ring-matrix-utils.test.ts": {
-    "mtime": 1784126312.3484564,
-    "ast_hash": "0df26be12ae87855b2ba8bea2eef3021",
+    "mtime": 1784216823.5290437,
+    "ast_hash": "d75458cb5acc896918b830753554ed01",
     "semantic_hash": ""
   },
   "tests/unit/delivery-schedule-pdf-html.test.ts": {
@@ -3402,6 +3402,11 @@
   "scripts/test-pickup-ticket-pdf.ts": {
     "mtime": 1784206151.298358,
     "ast_hash": "ccb603457e42ba2849061fad54a677bb",
+    "semantic_hash": ""
+  },
+  "rename-waffle-catch-basin.sql": {
+    "mtime": 1784215120.7873344,
+    "ast_hash": "5072f5699b5e679dd971c34fe73de604",
     "semantic_hash": ""
   }
 }

@@ -35,8 +35,10 @@ import {
   shouldShowDeliveryLineDescription,
 } from "@/components/delivery-tickets/delivery-ticket-utils";
 import {
+  allocateRingsAcrossPools,
   buildDrainRingDiameterGroups,
   drainRingQuantityKey,
+  type DrainRingStyleMatrix,
 } from "@/components/delivery-tickets/drain-ring-matrix-utils";
 import { DrainRingMatrixRows } from "@/components/delivery-tickets/drain-ring-matrix";
 import {
@@ -638,6 +640,61 @@ export function DeliveryTicketEditor({
       }
       return next;
     });
+  }
+
+  /**
+   * Auto-assign mode: replace every ring line in the matrix with a fresh
+   * allocation of the desired totals. Returns an error message when the
+   * counts can't be distributed, leaving the current selection untouched.
+   */
+  function applyAutoRingAssignment(
+    matrix: DrainRingStyleMatrix,
+    desiredCounts: Record<string, number>,
+  ): string | null {
+    const result = allocateRingsAcrossPools(matrix, desiredCounts);
+    if (!result.ok) {
+      return result.reason;
+    }
+
+    const matrixLineIds = new Set(
+      matrix.rows.map((row) => row.line.quoteLineItemId),
+    );
+    const nextLines = result.assignments.map(({ line, option, count }) => ({
+      key: drainRingQuantityKey(line.quoteLineItemId, option.productId),
+      quoteLineItemId: line.quoteLineItemId,
+      productId: option.productId,
+      jobStructureId: null,
+      lineType: "STOCK_PRODUCT" as const,
+      itemCode: option.productCode,
+      description: `${option.name} (${option.heightFeet}' ring)`,
+      quantity: String(count),
+      unit: "EA",
+      weightEach: option.weightEach != null ? String(option.weightEach) : "",
+      yardLocation: "",
+    }));
+
+    const isMatrixRingKey = (line: EditorLine) =>
+      isCompositeEditorKey(line.key) &&
+      line.quoteLineItemId != null &&
+      matrixLineIds.has(line.quoteLineItemId);
+
+    setLines((current) => [
+      ...current.filter((line) => !isMatrixRingKey(line)),
+      ...nextLines,
+    ]);
+    setSelectedLineIds((current) => {
+      const next = new Set(
+        [...current].filter((key) => {
+          const line = linesByKey.get(key);
+          return !(line && isMatrixRingKey(line));
+        }),
+      );
+      for (const line of nextLines) {
+        next.add(line.key);
+      }
+      return next;
+    });
+    return null;
   }
 
   function getAdsPipeCount(quoteLineItemId: string, productId: string): string {
@@ -1534,6 +1591,7 @@ export function DeliveryTicketEditor({
                 <DrainRingMatrixRows
                   groups={drainRingDiameterGroups}
                   onQuantityChange={setDrainRingCount}
+                  onAutoAssign={applyAutoRingAssignment}
                 />
               </tbody>
             </table>

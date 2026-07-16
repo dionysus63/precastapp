@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type {
   DrainRingOption,
   QuoteLineFulfillment,
@@ -29,6 +30,15 @@ type DrainRingMatrixRowsProps = {
     option: DrainRingOption,
     value: string,
   ) => void;
+  /**
+   * Auto-assign mode: distribute the desired ring totals across the matrix's
+   * pool groups. Returns an error message when they can't fit, null on
+   * success.
+   */
+  onAutoAssign: (
+    matrix: DrainRingStyleMatrix,
+    desiredCounts: Record<string, number>,
+  ) => string | null;
 };
 
 type DrainRingStyleTableProps = {
@@ -36,6 +46,7 @@ type DrainRingStyleTableProps = {
   matrix: DrainRingStyleMatrix;
   separated: boolean;
   onQuantityChange: DrainRingMatrixRowsProps["onQuantityChange"];
+  onAutoAssign: DrainRingMatrixRowsProps["onAutoAssign"];
 };
 
 function ringStockLabel(matrixOption: DrainRingMatrixOption): string {
@@ -74,9 +85,45 @@ function DrainRingStyleTable({
   matrix,
   separated,
   onQuantityChange,
+  onAutoAssign,
 }: DrainRingStyleTableProps) {
+  const [mode, setMode] = useState<"pool" | "auto">("auto");
+  const [autoError, setAutoError] = useState<string | null>(null);
+
   const matrixComplete =
     matrix.rows.length > 0 && matrix.remainingLineCount === 0;
+  const assignableRows = matrix.rows.filter(
+    (row) => row.state !== "completed" && row.line.eligible,
+  );
+  const autoAvailableFeet =
+    Math.round(
+      assignableRows.reduce((sum, row) => sum + row.availableFeet, 0) * 100,
+    ) / 100;
+  const autoFeetLeft = Math.max(
+    0,
+    Math.round((autoAvailableFeet - matrix.selectedFeet) * 100) / 100,
+  );
+  const matrixTotals = matrix.rows.reduce(
+    (acc, row) => ({
+      scheduled: acc.scheduled + row.scheduledElsewhereFeet,
+      shipped: acc.shipped + row.line.shippedQty,
+      awarded: acc.awarded + row.line.quotedQty,
+    }),
+    { scheduled: 0, shipped: 0, awarded: 0 },
+  );
+
+  function handleAutoCountChange(productId: string, value: string) {
+    const desired: Record<string, number> = {};
+    for (const matrixOption of matrix.options) {
+      desired[matrixOption.option.productId] = matrixOption.selectedCount;
+    }
+    const numeric = Number(value);
+    desired[productId] =
+      value.trim() !== "" && Number.isFinite(numeric) && numeric > 0
+        ? Math.floor(numeric)
+        : 0;
+    setAutoError(onAutoAssign(matrix, desired));
+  }
   const matrixWidth =
     POOL_GROUP_COLUMN_WIDTH +
     FEET_LEFT_COLUMN_WIDTH +
@@ -123,15 +170,27 @@ function DrainRingStyleTable({
                 scope="col"
                 className="sticky left-0 z-[3] border-b-2 border-r border-slate-300 bg-slate-100 px-1.5 py-1.5 text-left"
               >
-                <span
-                  className={`block text-sm font-bold ${
-                    matrixComplete ? "text-slate-500" : "text-slate-900"
-                  }`}
-                >
-                  {diameterFeet != null
-                    ? `${diameterFeet}'Ø ${formatDrainRingStyleLabel(matrix.style)} Rings`
-                    : `${formatDrainRingStyleLabel(matrix.style)} Rings — diameter not set`}
-                </span>
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className={`text-sm font-bold ${
+                      matrixComplete ? "text-slate-500" : "text-slate-900"
+                    }`}
+                  >
+                    {diameterFeet != null
+                      ? `${diameterFeet}'Ø ${formatDrainRingStyleLabel(matrix.style)} Rings`
+                      : `${formatDrainRingStyleLabel(matrix.style)} Rings — diameter not set`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode((current) => (current === "pool" ? "auto" : "pool"));
+                      setAutoError(null);
+                    }}
+                    className="shrink-0 rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-slate-600 hover:bg-slate-50"
+                  >
+                    {mode === "pool" ? "Auto-assign" : "Assign by pool"}
+                  </button>
+                </div>
               </th>
               <th
                 scope="col"
@@ -175,7 +234,89 @@ function DrainRingStyleTable({
             </tr>
           </thead>
           <tbody>
-            {matrix.rows.map((row) => {
+            {mode === "auto" ? (
+              <tr className="bg-white">
+                <th
+                  scope="row"
+                  className="sticky left-0 z-[2] border-b border-r border-slate-300 bg-white px-2 py-2 text-left align-top"
+                >
+                  <span className="text-xs font-semibold text-slate-900">
+                    All pools
+                  </span>
+                  <span className="block text-[10px] text-slate-500">
+                    Rings are split across pool groups automatically
+                  </span>
+                  {autoError ? (
+                    <span className="mt-1 block text-[10px] font-medium text-red-700">
+                      {autoError}
+                    </span>
+                  ) : null}
+                </th>
+                <td className="border-b border-r border-slate-300 px-1.5 py-2 text-right align-top tabular-nums">
+                  <span className="block font-semibold text-slate-900">
+                    {autoFeetLeft} LF
+                  </span>
+                </td>
+                <td
+                  className={`border-b border-r border-slate-300 px-1.5 py-2 text-right align-top tabular-nums ${
+                    matrix.selectedFeet > 0
+                      ? "font-semibold text-slate-900"
+                      : "text-slate-500"
+                  }`}
+                >
+                  {matrix.selectedFeet} LF
+                </td>
+                {matrix.options.map((matrixOption) => {
+                  const option = matrixOption.option;
+                  const inputId = `ring-auto-${matrix.key}-${option.productId}`;
+                  return (
+                    <td
+                      key={option.productId}
+                      className="border-b border-r border-slate-300 px-1 py-1.5 text-center last:border-r-0"
+                    >
+                      <label htmlFor={inputId} className="sr-only">
+                        {option.heightFeet} foot ring quantity on load,
+                        assigned across pool groups automatically
+                      </label>
+                      <input
+                        id={inputId}
+                        type="number"
+                        inputMode="numeric"
+                        min="0"
+                        step="1"
+                        disabled={assignableRows.length === 0}
+                        value={
+                          matrixOption.selectedCount > 0
+                            ? String(matrixOption.selectedCount)
+                            : ""
+                        }
+                        placeholder="0"
+                        className={ringQuantityInputClass}
+                        onChange={(event) =>
+                          handleAutoCountChange(
+                            option.productId,
+                            event.target.value,
+                          )
+                        }
+                      />
+                    </td>
+                  );
+                })}
+                {[
+                  matrixTotals.scheduled,
+                  matrixTotals.shipped,
+                  matrixTotals.awarded,
+                ].map((value, index) => (
+                  <td
+                    key={FEET_STAT_COLUMNS[index]}
+                    className="border-b border-r border-slate-300 px-1.5 py-2 text-right align-top tabular-nums text-slate-600 last:border-r-0"
+                  >
+                    {Math.round(value * 100) / 100}
+                  </td>
+                ))}
+              </tr>
+            ) : (
+              matrix.rows.map((row) => {
               const completed = row.state === "completed";
               const fullyScheduled = row.state === "scheduled";
               const overLimit = row.overByFeet > 0;
@@ -344,7 +485,9 @@ function DrainRingStyleTable({
                   ))}
                 </tr>
               );
-            })}
+              })
+            )}
+            {mode === "pool" ? (
             <tr
               className={
                 matrixComplete
@@ -381,6 +524,7 @@ function DrainRingStyleTable({
                 />
               ))}
             </tr>
+            ) : null}
           </tbody>
         </table>
       </div>
@@ -391,6 +535,7 @@ function DrainRingStyleTable({
 export function DrainRingMatrixRows({
   groups,
   onQuantityChange,
+  onAutoAssign,
 }: DrainRingMatrixRowsProps) {
   return (
     <>
@@ -414,6 +559,7 @@ export function DrainRingMatrixRows({
                   matrix={matrix}
                   separated={matrixIndex > 0}
                   onQuantityChange={onQuantityChange}
+                  onAutoAssign={onAutoAssign}
                 />
               ))}
             </section>
