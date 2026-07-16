@@ -79,8 +79,13 @@ export function TodaysLoadsPanel({
                   key={ticket.id}
                   className={`${tableRowClassName}${delivered ? " bg-emerald-50/40" : ""}`}
                 >
-                  <td className={`${tableCellClassName} font-mono text-[11px] font-medium text-slate-900`}>
-                    {ticket.ticketNumber}
+                  <td className={`${tableCellClassName} font-mono text-[11px] font-medium`}>
+                    <Link
+                      href={`/delivery-tickets/${ticket.id}`}
+                      className="text-slate-900 hover:text-sky-700 hover:underline"
+                    >
+                      {ticket.ticketNumber}
+                    </Link>
                   </td>
                   <td className={`${tableCellClassName} font-mono text-[11px] text-slate-700`}>
                     {ticket.jobId ? (
@@ -148,12 +153,6 @@ export function TodaysLoadsPanel({
                   </td>
                   <td className={tableCellClassName}>
                     <div className="flex flex-wrap gap-1.5">
-                      <Link
-                        href={`/delivery-tickets/${ticket.id}`}
-                        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
-                      >
-                        View
-                      </Link>
                       <Link
                         href={`/delivery-tickets/${ticket.id}/preview?from=hub`}
                         className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"

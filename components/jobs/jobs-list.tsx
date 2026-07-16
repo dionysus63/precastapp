@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useMemo } from "react";
+import { memo, useCallback, useMemo } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { PaginationControls } from "@/components/common/pagination-controls";
@@ -32,6 +32,62 @@ type JobsListFilters = {
   customer: string;
 };
 
+type SortColumn =
+  | "jobNumber"
+  | "projectName"
+  | "customer"
+  | "projectAddress"
+  | "status"
+  | "bidDate"
+  | "awardedDate"
+  | "lastActivity";
+
+type SortDirection = "asc" | "desc";
+
+const sortableHeaderClassName = `${tableHeaderCellWrapClassName} cursor-pointer select-none transition-colors hover:bg-slate-200/60 hover:text-slate-700`;
+
+type SortableHeaderProps = {
+  column: SortColumn;
+  label: string;
+  sortColumn: SortColumn;
+  sortDirection: SortDirection;
+  onSort: (column: SortColumn) => void;
+};
+
+function SortableHeader({
+  column,
+  label,
+  sortColumn,
+  sortDirection,
+  onSort,
+}: SortableHeaderProps) {
+  const isActive = sortColumn === column;
+
+  return (
+    <th
+      scope="col"
+      className={sortableHeaderClassName}
+      onClick={() => onSort(column)}
+      aria-sort={
+        isActive
+          ? sortDirection === "asc"
+            ? "ascending"
+            : "descending"
+          : "none"
+      }
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {isActive ? (
+          <span className="text-slate-400" aria-hidden="true">
+            {sortDirection === "asc" ? "↑" : "↓"}
+          </span>
+        ) : null}
+      </span>
+    </th>
+  );
+}
+
 type JobTabCounts = {
   open: number;
   complete: number;
@@ -48,6 +104,7 @@ type JobsListProps = {
   tabCounts: JobTabCounts;
   yearOptions: string[];
   customerOptions: string[];
+  sort: { column: SortColumn; direction: SortDirection };
 };
 
 // Memoized so per-keystroke search-input state updates in JobsList don't
@@ -108,11 +165,28 @@ const JobsTable = memo(function JobsTable({
   jobs,
   favoriteIdSet,
   total,
+  sortColumn,
+  sortDirection,
+  onSort,
 }: {
   jobs: JobRow[];
   favoriteIdSet: Set<string>;
   total: number;
+  sortColumn: SortColumn;
+  sortDirection: SortDirection;
+  onSort: (column: SortColumn) => void;
 }) {
+  const sortableHeaders: Array<{ column: SortColumn; label: string }> = [
+    { column: "jobNumber", label: "Job Number" },
+    { column: "projectName", label: "Project Name" },
+    { column: "customer", label: "Customer" },
+    { column: "projectAddress", label: "Project Address" },
+    { column: "status", label: "Status" },
+    { column: "bidDate", label: "Bid Date" },
+    { column: "awardedDate", label: "Awarded Date" },
+    { column: "lastActivity", label: "Last Activity" },
+  ];
+
   return (
     <div className={tableFlushWrapperClassName}>
       <table className={tableClassName}>
@@ -121,14 +195,16 @@ const JobsTable = memo(function JobsTable({
             <th className={tableHeaderCellWrapClassName}>
               <span className="sr-only">Favorite</span>
             </th>
-            <th className={tableHeaderCellWrapClassName}>Job Number</th>
-            <th className={tableHeaderCellWrapClassName}>Project Name</th>
-            <th className={tableHeaderCellWrapClassName}>Customer</th>
-            <th className={tableHeaderCellWrapClassName}>Project Address</th>
-            <th className={tableHeaderCellWrapClassName}>Status</th>
-            <th className={tableHeaderCellWrapClassName}>Bid Date</th>
-            <th className={tableHeaderCellWrapClassName}>Awarded Date</th>
-            <th className={tableHeaderCellWrapClassName}>Last Activity</th>
+            {sortableHeaders.map((header) => (
+              <SortableHeader
+                key={header.column}
+                column={header.column}
+                label={header.label}
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={onSort}
+              />
+            ))}
           </tr>
         </thead>
         <tbody className={tableBodyClassName}>
@@ -203,9 +279,27 @@ export function JobsList({
   tabCounts,
   yearOptions,
   customerOptions,
+  sort,
 }: JobsListProps) {
   const { setParams } = useListQuery();
   const { search, setSearch } = useDebouncedSearchParam("q", filters.search);
+
+  const handleSort = useCallback(
+    (column: SortColumn) => {
+      // First click on a column sorts ascending, except job number where
+      // newest-first is the natural order (and the page default).
+      const initialDirection: SortDirection =
+        column === "jobNumber" ? "desc" : "asc";
+      const nextDirection: SortDirection =
+        sort.column === column
+          ? sort.direction === "asc"
+            ? "desc"
+            : "asc"
+          : initialDirection;
+      setParams({ sort: column, dir: nextDirection });
+    },
+    [sort.column, sort.direction, setParams],
+  );
 
   const favoriteIdSet = useMemo(
     () => new Set(favoriteJobIds),
@@ -337,6 +431,9 @@ export function JobsList({
           jobs={jobs}
           favoriteIdSet={favoriteIdSet}
           total={pageInfo.total}
+          sortColumn={sort.column}
+          sortDirection={sort.direction}
+          onSort={handleSort}
         />
         <PaginationControls
           page={pageInfo.page}

@@ -23,7 +23,14 @@ import {
   tableRowClassName,
 } from "@/lib/table-styles";
 
-type SortColumn = "name" | "phone" | "town" | "status" | "lastActivity";
+type SortColumn =
+  | "name"
+  | "phone"
+  | "town"
+  | "status"
+  | "openQuotes"
+  | "balance"
+  | "lastActivity";
 
 type SortDirection = "asc" | "desc";
 
@@ -50,6 +57,7 @@ type SortableHeaderProps = {
   sortColumn: SortColumn;
   sortDirection: SortDirection;
   onSort: (column: SortColumn) => void;
+  numeric?: boolean;
 };
 
 function SortableHeader({
@@ -58,13 +66,14 @@ function SortableHeader({
   sortColumn,
   sortDirection,
   onSort,
+  numeric = false,
 }: SortableHeaderProps) {
   const isActive = sortColumn === column;
 
   return (
     <th
       scope="col"
-      className={sortableHeaderClassName}
+      className={`${sortableHeaderClassName}${numeric ? " text-right" : ""}`}
       onClick={() => onSort(column)}
       aria-sort={
         isActive
@@ -134,12 +143,22 @@ const CustomersTable = memo(function CustomersTable({
               sortDirection={sortDirection}
               onSort={onSort}
             />
-            <th className={`${tableHeaderCellWrapClassName} text-right`}>
-              Open Quotes
-            </th>
-            <th className={`${tableHeaderCellWrapClassName} text-right`}>
-              Balance
-            </th>
+            <SortableHeader
+              column="openQuotes"
+              label="Open Quotes"
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={onSort}
+              numeric
+            />
+            <SortableHeader
+              column="balance"
+              label="Balance"
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSort={onSort}
+              numeric
+            />
             <SortableHeader
               column="lastActivity"
               label="Last Activity"
@@ -220,8 +239,15 @@ export function CustomersList({
 
   const handleSort = useCallback(
     (column: SortColumn) => {
+      // Numeric aggregates start highest-first; everything else ascending.
+      const initialDirection: SortDirection =
+        column === "openQuotes" || column === "balance" ? "desc" : "asc";
       const nextDirection: SortDirection =
-        sort.column === column && sort.direction === "asc" ? "desc" : "asc";
+        sort.column === column
+          ? sort.direction === "asc"
+            ? "desc"
+            : "asc"
+          : initialDirection;
       setParams({ sort: column, dir: nextDirection });
     },
     [sort.column, sort.direction, setParams],

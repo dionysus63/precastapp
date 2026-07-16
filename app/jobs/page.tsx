@@ -33,6 +33,39 @@ const JOB_LIST_SELECT = {
   updatedAt: true,
 } satisfies Prisma.JobSelect;
 
+/** Sortable columns; jobNumber sorts by (year, sequenceNumber), not the string. */
+const JOB_SORT_FIELDS = {
+  jobNumber: "jobNumber",
+  projectName: "projectName",
+  customer: "customerName",
+  projectAddress: "projectAddress",
+  status: "status",
+  bidDate: "bidDate",
+  awardedDate: "awardedDate",
+  lastActivity: "updatedAt",
+} as const;
+
+type JobSortColumn = keyof typeof JOB_SORT_FIELDS;
+
+const NULLABLE_JOB_SORT_FIELDS = new Set(["projectAddress", "bidDate", "awardedDate"]);
+
+function buildJobOrderBy(
+  column: JobSortColumn,
+  direction: "asc" | "desc",
+): Prisma.JobOrderByWithRelationInput[] {
+  if (column === "jobNumber") {
+    return [{ year: direction }, { sequenceNumber: direction }];
+  }
+
+  const field = JOB_SORT_FIELDS[column];
+  const primary: Prisma.JobOrderByWithRelationInput =
+    NULLABLE_JOB_SORT_FIELDS.has(field)
+      ? { [field]: { sort: direction, nulls: "last" } }
+      : { [field]: direction };
+
+  return [primary, { year: "desc" }, { sequenceNumber: "desc" }];
+}
+
 export default async function JobsPage({
   searchParams,
 }: {
@@ -48,7 +81,19 @@ export default async function JobsPage({
   const statusParam = parseStringParam(params.status);
   const yearParam = parseStringParam(params.year);
   const customerParam = parseStringParam(params.customer);
+  const sortParam = parseStringParam(params.sort);
+  const dirParam = parseStringParam(params.dir);
   const requestedPage = parsePageParam(params.page);
+
+  // Default matches the historical order: newest job number first.
+  const sortColumn: JobSortColumn =
+    sortParam in JOB_SORT_FIELDS ? (sortParam as JobSortColumn) : "jobNumber";
+  const sortDirection: "asc" | "desc" =
+    dirParam === "asc" || dirParam === "desc"
+      ? dirParam
+      : sortColumn === "jobNumber"
+        ? "desc"
+        : "asc";
 
   // The status param accepts pseudo-values for the pipeline tabs (OPEN,
   // CLOSED, ALL) alongside single statuses (e.g. the dashboard's
@@ -98,7 +143,7 @@ export default async function JobsPage({
       Promise.all([
         prisma.job.findMany({
           where,
-          orderBy: [{ year: "desc" }, { sequenceNumber: "desc" }],
+          orderBy: buildJobOrderBy(sortColumn, sortDirection),
           select: JOB_LIST_SELECT,
           skip: pageInfo.skip,
           take: pageInfo.take,
@@ -172,6 +217,7 @@ export default async function JobsPage({
         }}
         yearOptions={yearOptions}
         customerOptions={customerOptions}
+        sort={{ column: sortColumn, direction: sortDirection }}
       />
     </DashboardShell>
   );

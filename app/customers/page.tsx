@@ -21,7 +21,58 @@ const CUSTOMER_SORT_FIELDS = {
   lastActivity: "updatedAt",
 } as const;
 
-type CustomerSortColumn = keyof typeof CUSTOMER_SORT_FIELDS;
+/** Computed columns: sorted by aggregating over every matching customer. */
+const AGGREGATE_SORT_COLUMNS = ["openQuotes", "balance"] as const;
+
+type CustomerSortColumn =
+  | keyof typeof CUSTOMER_SORT_FIELDS
+  | (typeof AGGREGATE_SORT_COLUMNS)[number];
+
+function isAggregateSortColumn(
+  column: CustomerSortColumn,
+): column is (typeof AGGREGATE_SORT_COLUMNS)[number] {
+  return (AGGREGATE_SORT_COLUMNS as readonly string[]).includes(column);
+}
+
+async function loadCustomerAggregates(customerIds: string[]) {
+  const [openQuoteCounts, invoiceBalances] =
+    customerIds.length === 0
+      ? [[], []]
+      : await withDatabaseRetry((prisma) =>
+          Promise.all([
+            prisma.quote.groupBy({
+              by: ["customerId"],
+              where: {
+                customerId: { in: customerIds },
+                status: { in: OPEN_STATUSES },
+              },
+              _count: { _all: true },
+            }),
+            prisma.invoice.groupBy({
+              by: ["customerId"],
+              where: {
+                customerId: { in: customerIds },
+                status: "SENT",
+              },
+              _sum: { total: true },
+            }),
+          ]),
+        );
+
+  const openQuotesByCustomerId = new Map<string, number>();
+  for (const row of openQuoteCounts) {
+    if (row.customerId) {
+      openQuotesByCustomerId.set(row.customerId, row._count._all);
+    }
+  }
+  const balanceByCustomerId = new Map<string, number>();
+  for (const row of invoiceBalances) {
+    if (row.customerId) {
+      balanceByCustomerId.set(row.customerId, Number(row._sum.total ?? 0));
+    }
+  }
+  return { openQuotesByCustomerId, balanceByCustomerId };
+}
 
 const VALID_CUSTOMER_STATUSES = new Set<string>(
   customerStatusFormOptions.map((option) => option.value),
@@ -43,11 +94,11 @@ export default async function CustomersPage({
     Number.isFinite(importedCount) && importedCount > 0 ? importedCount : 0;
 
   const sortColumn: CustomerSortColumn =
-    sortParam in CUSTOMER_SORT_FIELDS
+    sortParam in CUSTOMER_SORT_FIELDS ||
+    (AGGREGATE_SORT_COLUMNS as readonly string[]).includes(sortParam)
       ? (sortParam as CustomerSortColumn)
       : "name";
   const sortDirection: "asc" | "desc" = dirParam === "desc" ? "desc" : "asc";
-  const sortField = CUSTOMER_SORT_FIELDS[sortColumn];
 
   // The status param accepts single statuses plus ALL; bare /customers
   // defaults to active customers — prospects/inactive live behind tabs.
@@ -88,11 +139,6 @@ export default async function CustomersPage({
       }
     : baseWhere;
 
-  const orderBy: Prisma.CustomerOrderByWithRelationInput[] =
-    sortField === "name"
-      ? [{ name: sortDirection }]
-      : [{ [sortField]: sortDirection }, { name: "asc" }];
-
   const [total, statusGroups] = await withDatabaseRetry((prisma) =>
     Promise.all([
       prisma.customer.count({ where }),
@@ -115,50 +161,63 @@ export default async function CustomersPage({
     all: statusGroups.reduce((acc, group) => acc + group._count._all, 0),
   };
 
-  const customers = await withDatabaseRetry((prisma) =>
-    prisma.customer.findMany({
-      where,
-      orderBy,
-      skip: pageInfo.skip,
-      take: pageInfo.take,
-    }),
-  );
+  let customers: Prisma.CustomerGetPayload<object>[];
+  let openQuotesByCustomerId: Map<string, number>;
+  let balanceByCustomerId: Map<string, number>;
 
-  const customerIds = customers.map((customer) => customer.id);
+  if (isAggregateSortColumn(sortColumn)) {
+    // Open quotes / balance are computed, not columns: aggregate over every
+    // matching customer, sort in memory, then fetch just the page.
+    const matching = await withDatabaseRetry((prisma) =>
+      prisma.customer.findMany({ where, select: { id: true, name: true } }),
+    );
+    const aggregates = await loadCustomerAggregates(
+      matching.map((customer) => customer.id),
+    );
+    openQuotesByCustomerId = aggregates.openQuotesByCustomerId;
+    balanceByCustomerId = aggregates.balanceByCustomerId;
 
-  const [openQuoteCounts, invoiceBalances] =
-    customerIds.length === 0
-      ? [[], []]
-      : await withDatabaseRetry((prisma) =>
-          Promise.all([
-            prisma.quote.groupBy({
-              by: ["customerId"],
-              where: {
-                customerId: { in: customerIds },
-                status: { in: OPEN_STATUSES },
-              },
-              _count: { _all: true },
-            }),
-            prisma.invoice.groupBy({
-              by: ["customerId"],
-              where: {
-                customerId: { in: customerIds },
-                status: "SENT",
-              },
-              _sum: { total: true },
-            }),
-          ]),
-        );
+    const valueById =
+      sortColumn === "openQuotes" ? openQuotesByCustomerId : balanceByCustomerId;
+    const directionSign = sortDirection === "asc" ? 1 : -1;
+    const pageIds = [...matching]
+      .sort(
+        (a, b) =>
+          ((valueById.get(a.id) ?? 0) - (valueById.get(b.id) ?? 0)) *
+            directionSign || a.name.localeCompare(b.name),
+      )
+      .slice(pageInfo.skip, pageInfo.skip + pageInfo.take)
+      .map((customer) => customer.id);
 
-  const openQuotesByCustomerId = new Map(
-    openQuoteCounts.map((row) => [row.customerId, row._count._all]),
-  );
-  const balanceByCustomerId = new Map(
-    invoiceBalances.map((row) => [
-      row.customerId,
-      Number(row._sum.total ?? 0),
-    ]),
-  );
+    const records = await withDatabaseRetry((prisma) =>
+      prisma.customer.findMany({ where: { id: { in: pageIds } } }),
+    );
+    const recordById = new Map(records.map((record) => [record.id, record]));
+    customers = pageIds
+      .map((id) => recordById.get(id))
+      .filter((record): record is (typeof records)[number] => record != null);
+  } else {
+    const sortField = CUSTOMER_SORT_FIELDS[sortColumn];
+    const orderBy: Prisma.CustomerOrderByWithRelationInput[] =
+      sortField === "name"
+        ? [{ name: sortDirection }]
+        : [{ [sortField]: sortDirection }, { name: "asc" }];
+
+    customers = await withDatabaseRetry((prisma) =>
+      prisma.customer.findMany({
+        where,
+        orderBy,
+        skip: pageInfo.skip,
+        take: pageInfo.take,
+      }),
+    );
+
+    const aggregates = await loadCustomerAggregates(
+      customers.map((customer) => customer.id),
+    );
+    openQuotesByCustomerId = aggregates.openQuotesByCustomerId;
+    balanceByCustomerId = aggregates.balanceByCustomerId;
+  }
 
   const rows = customers.map((customer) =>
     mapCustomerToRow(customer, {
