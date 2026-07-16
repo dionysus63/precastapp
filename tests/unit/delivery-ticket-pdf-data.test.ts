@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildDeliveryTicketFormData,
+  computeTotalPieces,
   mapDbDeliveryTicketToPdfView,
   mapLineItemsForPdf,
   type DbDeliveryTicketForPdf,
@@ -255,6 +256,71 @@ describe("delivery ticket PDF form data", () => {
     });
 
     expect(mapLineItemsForPdf([line("Gasket kit"), line("Sealant")])).toHaveLength(2);
+  });
+
+  it("counts LF pipe as sticks in the total pieces", () => {
+    const lines: DbDeliveryTicketForPdf["lineItems"] = [
+      {
+        itemCode: "ADS-15-20-ST",
+        description: "15in ADS 20ft",
+        quantity: { toString: () => "160" },
+        unit: "LF",
+        totalWeight: null,
+        jobStructure: null,
+        product: { pipeLengthFeet: { toString: () => "20" } },
+      },
+      {
+        itemCode: "MH-48",
+        description: "Manhole",
+        quantity: { toString: () => "2" },
+        unit: "EA",
+        totalWeight: null,
+        jobStructure: null,
+      },
+    ];
+
+    // 160 LF of 20' sticks = 8 pieces, plus 2 manholes.
+    expect(computeTotalPieces(ticket({ lineItems: lines }))).toBe("10");
+  });
+
+  it("rounds partial pipe sticks up and leaves non-LF pipe lines alone", () => {
+    const partial: DbDeliveryTicketForPdf["lineItems"][number] = {
+      itemCode: "ADS-15-20-ST",
+      description: "15in ADS 20ft",
+      quantity: { toString: () => "150" },
+      unit: "LF",
+      totalWeight: null,
+      jobStructure: null,
+      product: { pipeLengthFeet: { toString: () => "20" } },
+    };
+    expect(computeTotalPieces(ticket({ lineItems: [partial] }))).toBe("8");
+
+    const eaLine = { ...partial, unit: "EA", quantity: { toString: () => "3" } };
+    expect(computeTotalPieces(ticket({ lineItems: [eaLine] }))).toBe("3");
+  });
+
+  it("strips the ADS joint-type suffix from printed descriptions", () => {
+    const line = (
+      description: string,
+    ): DbDeliveryTicketForPdf["lineItems"][number] => ({
+      itemCode: "ADS-15-20-ST",
+      description,
+      quantity: { toString: () => "20" },
+      unit: "LF",
+      totalWeight: null,
+      jobStructure: null,
+    });
+
+    expect(
+      mapLineItemsForPdf([line(`15" ADS 20' (Soiltight (ST))`)])[0]?.description,
+    ).toBe(`15" ADS 20'`);
+    expect(
+      mapLineItemsForPdf([line(`15" ADS 20' (Watertight (WT)) — substitute`)])[0]
+        ?.description,
+    ).toBe(`15" ADS 20' — substitute`);
+    expect(
+      mapLineItemsForPdf([line("Soiltight fittings kit")])[0]?.description,
+    ).toBe("Soiltight fittings kit");
   });
 
   it("removes a trailing ring-height suffix from PDF descriptions", () => {

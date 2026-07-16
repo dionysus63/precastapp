@@ -266,18 +266,30 @@ export function drawLineItemRow(
   const rowHeight = textHeight + layout.rowPadding + measureSeparatorHeight();
   const firstLineY = topY - layout.lineHeight;
 
+  // Long item codes (e.g. ADS-15-20-ST) shrink to stay inside their column
+  // instead of bleeding into the quantity.
+  const itemNumWidth = COL_QTY_X - COL_ITEM_NUM_X - 2;
+  let codeFontSize = layout.fontSize;
+  while (
+    codeFontSize > 6 &&
+    font.widthOfTextAtSize(item.productCode, codeFontSize) > itemNumWidth
+  ) {
+    codeFontSize -= 0.5;
+  }
   drawTextAt(
     page,
     font,
     item.productCode,
     COL_ITEM_NUM_X,
     firstLineY,
-    layout.fontSize,
+    codeFontSize,
   );
+  // Quantities print with their unit ("3 ea", "160 lf") so the yard doesn't
+  // have to guess whether a number is pieces or footage.
   drawCenteredInColumn(
     page,
     font,
-    item.qty,
+    `${item.qty} ${item.unit.trim().toLowerCase() || "ea"}`,
     COL_QTY_X,
     COL_QTY_WIDTH,
     firstLineY,

@@ -737,8 +737,8 @@ export function DeliveryTicketEditor({
           lineType: "STOCK_PRODUCT",
           itemCode: option.productCode,
           description: option.isSubstitute
-            ? `${option.name} (${option.jointTypeLabel}) — substitute`
-            : `${option.name} (${option.jointTypeLabel})`,
+            ? `${option.name} — substitute`
+            : option.name,
           quantity: value,
           unit: meta.unit,
           weightEach: option.weightEach != null ? String(option.weightEach) : "",

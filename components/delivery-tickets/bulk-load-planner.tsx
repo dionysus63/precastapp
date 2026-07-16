@@ -320,8 +320,8 @@ function buildRows(
           jobStructureId: null,
           lineType: "STOCK_PRODUCT",
           description: option.isSubstitute
-            ? `${option.name} (${option.jointTypeLabel}) — substitute`
-            : `${option.name} (${option.jointTypeLabel})`,
+            ? `${option.name} — substitute`
+            : option.name,
         });
       }
       continue;

@@ -580,8 +580,8 @@
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-ticket-editor.tsx": {
-    "mtime": 1784222353.4591105,
-    "ast_hash": "85f0883561285abfb860708a95c8e545",
+    "mtime": 1784238296.0070896,
+    "ast_hash": "9fbf91b0f385176f04babd85159537b2",
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-ticket-utils.ts": {
@@ -1340,8 +1340,8 @@
     "semantic_hash": ""
   },
   "lib/delivery-ticket-pdf-data.ts": {
-    "mtime": 1784214591.7031627,
-    "ast_hash": "32f1b9ea4303143aa0be7ca362e68ef2",
+    "mtime": 1784238335.573361,
+    "ast_hash": "374e3e26f71ffafda4596da8bbb6caf8",
     "semantic_hash": ""
   },
   "lib/drill-sheet-detail.ts": {
@@ -1580,13 +1580,13 @@
     "semantic_hash": ""
   },
   "lib/delivery-ticket-pdf-line-items.ts": {
-    "mtime": 1783891761.2105923,
-    "ast_hash": "2c9f4f162c2a2f2f3217fb16ae041655",
+    "mtime": 1784238521.8675377,
+    "ast_hash": "421c588820cf12409670d0c034062832",
     "semantic_hash": ""
   },
   "scripts/test-delivery-ticket-pdf.ts": {
-    "mtime": 1784081644.8305466,
-    "ast_hash": "fd5332ff677f06b41808828508a3e04c",
+    "mtime": 1784238432.618191,
+    "ast_hash": "c5ac5be9582c791527fe93f8528ffd4d",
     "semantic_hash": ""
   },
   "electron/config.default.json": {
@@ -2845,8 +2845,8 @@
     "semantic_hash": ""
   },
   "components/delivery-tickets/bulk-load-planner.tsx": {
-    "mtime": 1784222352.4873269,
-    "ast_hash": "daf96fd5686e2220edb441b098e30e59",
+    "mtime": 1784238296.0450933,
+    "ast_hash": "5816551d28a0e7166043039cc96fafed",
     "semantic_hash": ""
   },
   "app/delivery-tickets/schedule/page.tsx": {
@@ -3310,8 +3310,8 @@
     "semantic_hash": ""
   },
   "tests/unit/delivery-ticket-pdf-data.test.ts": {
-    "mtime": 1784214608.1624835,
-    "ast_hash": "009c34c27e265d152f04ad91c6d541b6",
+    "mtime": 1784238363.207874,
+    "ast_hash": "1bfa964fc1e8b2fad6ca8f8720067277",
     "semantic_hash": ""
   },
   "tests/unit/delivery-ticket-editor-utils.test.ts": {
@@ -3437,6 +3437,11 @@
   "tests/unit/quote-line-alias-map.test.ts": {
     "mtime": 1784235635.4871526,
     "ast_hash": "e2254716f456e378d0aef5561f6b0c74",
+    "semantic_hash": ""
+  },
+  "delete-26-001-delivered-and-reset-numbering.sql": {
+    "mtime": 1784237567.5607066,
+    "ast_hash": "9136c164aecabca621fdad58ee69a67d",
     "semantic_hash": ""
   }
 }

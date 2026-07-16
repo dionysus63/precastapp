@@ -39,6 +39,15 @@ const baseLineItems: DbDeliveryTicketForPdf["lineItems"] = [
     totalWeight: null,
     jobStructure: null,
   },
+  {
+    itemCode: "ADS-15-20-ST",
+    description: `15" ADS 20' (Soiltight (ST))`,
+    quantity: { toString: () => "160" },
+    unit: "LF",
+    totalWeight: null,
+    jobStructure: null,
+    product: { pipeLengthFeet: { toString: () => "20" } },
+  },
 ];
 
 function buildMockTicket(

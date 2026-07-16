@@ -8,6 +8,11 @@ export const DELIVERY_TICKET_PDF_INCLUDE = {
       jobStructure: {
         select: { structureNumber: true, description: true },
       },
+      // Pipe ships in fixed stick lengths (ADS 20', RCP 8'); the ticket's
+      // total piece count converts LF quantities to sticks.
+      product: {
+        select: { pipeLengthFeet: true },
+      },
     },
   },
   customer: {
@@ -114,6 +119,10 @@ export type DbDeliveryTicketForPdf = {
     jobStructure: {
       structureNumber: string | null;
       description: string | null;
+    } | null;
+    /** Optional: lets the total piece count convert LF of pipe to sticks. */
+    product?: {
+      pipeLengthFeet: { toString(): string } | null;
     } | null;
   }[];
 };
@@ -238,12 +247,24 @@ function removeTrailingRingHeightSuffix(value: string): string {
     .trimEnd();
 }
 
+/**
+ * Older ADS pipe ticket lines carry "(Soiltight (ST))" / "(Watertight (WT))"
+ * appended by the editor; the joint type now lives in the item code and
+ * product name, so strip it from printed descriptions.
+ */
+function removeAdsJointTypeSuffix(value: string): string {
+  return value
+    .replace(/\s*\(\s*(?:Soiltight\s*\(ST\)|Watertight\s*\(WT\))\s*\)/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function resolveLineDescription(
   line: DbDeliveryTicketForPdf["lineItems"][number],
 ): string {
   const description = line.description?.trim();
   if (description) {
-    return removeTrailingRingHeightSuffix(description);
+    return removeAdsJointTypeSuffix(removeTrailingRingHeightSuffix(description));
   }
   const structureDescription = line.jobStructure?.description?.trim();
   if (structureDescription) {
@@ -255,7 +276,21 @@ function resolveLineDescription(
 export function computeTotalPieces(ticket: DbDeliveryTicketForPdf): string {
   const totalPiecesFromLines = ticket.lineItems.reduce((sum, line) => {
     const qty = Number.parseFloat(line.quantity.toString());
-    return sum + (Number.isFinite(qty) ? qty : 0);
+    if (!Number.isFinite(qty)) {
+      return sum;
+    }
+
+    // Pipe is quoted and shipped in LF but comes in fixed stick lengths
+    // (ADS 20', RCP 8'): 160 LF of ADS is 8 pieces on the truck. Partial
+    // sticks round up — a cut length still occupies a whole stick.
+    const stickLength = line.product?.pipeLengthFeet
+      ? Number.parseFloat(line.product.pipeLengthFeet.toString())
+      : 0;
+    if (stickLength > 0 && line.unit?.trim().toUpperCase() === "LF") {
+      return sum + Math.ceil(qty / stickLength);
+    }
+
+    return sum + qty;
   }, 0);
 
   if (totalPiecesFromLines > 0) {
