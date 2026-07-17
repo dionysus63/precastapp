@@ -204,6 +204,11 @@ export function buildDrillSheetDetail(
     baseSlabThicknessFeet: num(calc.baseSlabThicknessFeet),
     sections,
     openings,
+    // Saved sheets show the persisted total; per-piece weights are a
+    // live-calc detail (they rebuild when the sheet is edited).
+    sectionWeightsLb: null,
+    topSlabWeightLb: null,
+    totalWeightLb: sheet.weight != null ? Number(sheet.weight) : null,
     wallPrice: num(calc.wallPrice) ?? 0,
     bootsPrice: num(calc.bootsPrice) ?? 0,
     totalPrice: num(calc.totalPrice) ?? 0,

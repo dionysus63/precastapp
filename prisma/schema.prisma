@@ -677,10 +677,17 @@ model RectOpeningSize {
   @@index([pipeMaterial])
 }
 
-/// Global per-diameter mold limits and pricing (Settings).
+/// Global mold registry (Settings → Structure Molds): one row per physical
+/// circular mold, keyed by inside diameter. Wall thickness and max pour
+/// heights are properties of the mold, not the template.
 model StructureDiameterConfig {
   id                 String   @id @default(cuid())
+  /// Mold name shown in settings and template pickers (e.g. "8' OD Grease Trap").
+  label              String?
   insideDiameterFeet Decimal  @unique @db.Decimal(6, 2)
+  /// Mold wall thickness; outside Ø = inside Ø + 2 × wall. Null falls back
+  /// to the template's wall thickness (legacy rows).
+  wallThicknessInches Decimal? @db.Decimal(6, 2)
   maxBaseHeightFeet  Decimal  @db.Decimal(6, 2)
   maxRiserHeightFeet Decimal  @db.Decimal(6, 2)
   keyHeightFeet      Decimal  @db.Decimal(6, 4)

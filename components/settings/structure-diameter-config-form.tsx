@@ -12,7 +12,9 @@ import {
 } from "@/lib/table-styles";
 export type DiameterConfigRow = {
   id: string;
+  label: string;
   insideDiameterFeet: string;
+  wallThicknessInches: string;
   maxBaseHeightFeet: string;
   maxRiserHeightFeet: string;
   keyHeightFeet: string;
@@ -32,13 +34,32 @@ function uid() {
 function createRow(): DiameterConfigRow {
   return {
     id: uid(),
+    label: "",
     insideDiameterFeet: "",
+    wallThicknessInches: "",
     maxBaseHeightFeet: "",
     maxRiserHeightFeet: "",
     keyHeightFeet: "",
     wallPricePerFoot: "",
     basePrice: "",
   };
+}
+
+/** Outside Ø display: inside Ø + 2 × wall, e.g. sanity-check that a 7.33'
+ * ID grease trap mold with 4" walls really is the 8' OD mold. */
+function outsideDiameterLabel(row: DiameterConfigRow): string {
+  const inside = Number(row.insideDiameterFeet);
+  const wall = Number(row.wallThicknessInches);
+  if (
+    !Number.isFinite(inside) ||
+    inside <= 0 ||
+    !Number.isFinite(wall) ||
+    wall <= 0
+  ) {
+    return "—";
+  }
+  const outside = inside + (2 * wall) / 12;
+  return `${(Math.round(outside * 100) / 100).toFixed(2)}'`;
 }
 
 export function StructureDiameterConfigForm({
@@ -53,7 +74,9 @@ export function StructureDiameterConfigForm({
     () =>
       JSON.stringify(
         rows.map((row) => ({
+          label: row.label,
           insideDiameterFeet: row.insideDiameterFeet,
+          wallThicknessInches: row.wallThicknessInches,
           maxBaseHeightFeet: row.maxBaseHeightFeet,
           maxRiserHeightFeet: row.maxRiserHeightFeet,
           keyHeightFeet: row.keyHeightFeet,
@@ -92,7 +115,10 @@ export function StructureDiameterConfigForm({
         <table className={tableClassName}>
           <thead>
             <tr>
+              <th className={tableHeaderCellClassName}>Mold</th>
               <th className={tableHeaderCellClassName}>Inside Ø (ft)</th>
+              <th className={tableHeaderCellClassName}>Wall (in)</th>
+              <th className={tableHeaderCellClassName}>Outside Ø</th>
               <th className={tableHeaderCellClassName}>Max Base (ft)</th>
               <th className={tableHeaderCellClassName}>Max Riser (ft)</th>
               <th className={tableHeaderCellClassName}>Key Height (ft)</th>
@@ -106,6 +132,15 @@ export function StructureDiameterConfigForm({
               <tr key={row.id}>
                 <td className={tableCellClassName}>
                   <input
+                    type="text"
+                    value={row.label}
+                    onChange={(e) => updateRow(row.id, "label", e.target.value)}
+                    placeholder={`e.g. C478 Manhole, 8' OD Grease Trap`}
+                    className={`${structureTableInputClassName} min-w-[160px]`}
+                  />
+                </td>
+                <td className={tableCellClassName}>
+                  <input
                     type="number"
                     min="0"
                     step="0.01"
@@ -115,6 +150,23 @@ export function StructureDiameterConfigForm({
                     }
                     className={structureTableInputClassName}
                   />
+                </td>
+                <td className={tableCellClassName}>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={row.wallThicknessInches}
+                    onChange={(e) =>
+                      updateRow(row.id, "wallThicknessInches", e.target.value)
+                    }
+                    className={structureTableInputClassName}
+                  />
+                </td>
+                <td
+                  className={`${tableCellClassName} whitespace-nowrap tabular-nums text-slate-500`}
+                >
+                  {outsideDiameterLabel(row)}
                 </td>
                 <td className={tableCellClassName}>
                   <input
@@ -197,12 +249,21 @@ export function StructureDiameterConfigForm({
         </table>
       </div>
 
+      <p className="text-[11px] text-slate-500">
+        Wall thickness belongs to the mold — templates and drill sheets pick
+        it up per diameter. ASTM C478 minimum wall is inside Ø ÷ 12 (4&apos; →
+        4&quot;, 5&apos; → 5&quot;, 6&apos; → 6&quot;). For molds sized by
+        outside diameter, enter inside Ø = OD − 2 × wall (an 8&apos; OD mold
+        with 4&quot; walls is 7.33&apos; inside) and check the Outside Ø
+        column.
+      </p>
+
       <div className="flex justify-end">
         <button
           type="submit"
           className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
         >
-          Save Diameter Settings
+          Save Molds
         </button>
       </div>
     </form>

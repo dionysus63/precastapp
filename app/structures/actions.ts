@@ -39,10 +39,40 @@ function handlePrismaError(error: unknown): never {
   throw translatePrismaError(error);
 }
 
+/**
+ * Circular templates can only offer diameters with a registered mold — the
+ * mold carries the wall thickness and pour limits, so an unregistered
+ * diameter would be a structure the shop can't actually make.
+ */
+async function assertDiametersHaveMolds(payload: TemplatePayload) {
+  if (payload.shape !== "CIRCULAR") {
+    return;
+  }
+  const molds = await prisma.structureDiameterConfig.findMany({
+    select: { insideDiameterFeet: true },
+  });
+  const moldDiameters = molds.map((mold) => Number(mold.insideDiameterFeet));
+  const missing = payload.diameters.filter(
+    (diameter) =>
+      !moldDiameters.some(
+        (moldDiameter) =>
+          Math.abs(moldDiameter - diameter.insideDiameterFeet) < 1e-6,
+      ),
+  );
+  if (missing.length > 0) {
+    throw new Error(
+      `No mold registered for ${missing
+        .map((diameter) => `${diameter.insideDiameterFeet}'`)
+        .join(", ")} inside diameter. Add the mold in Settings → Structure Molds first.`,
+    );
+  }
+}
+
 export async function createStructureTemplate(formData: FormData) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
   const payload = parseTemplatePayload(formData);
   await assertPdfSetMatchesShape(payload);
+  await assertDiametersHaveMolds(payload);
 
   try {
     await prisma.structureTemplate.create({
@@ -63,6 +93,7 @@ export async function updateStructureTemplate(
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
   const payload = parseTemplatePayload(formData);
   await assertPdfSetMatchesShape(payload);
+  await assertDiametersHaveMolds(payload);
   const expectedUpdatedAtRaw = String(
     formData.get("expectedUpdatedAt") ?? "",
   ).trim();

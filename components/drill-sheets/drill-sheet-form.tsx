@@ -67,7 +67,9 @@ type PipeOpeningSizeOption = {
 };
 
 type DiameterConfigOption = {
+  label: string | null;
   insideDiameterFeet: number;
+  wallThicknessInches: number | null;
   maxBaseHeightFeet: number;
   maxRiserHeightFeet: number;
   keyHeightFeet: number;
@@ -553,9 +555,18 @@ export function DrillSheetForm({
             </select>
             {!diameterConfig ? (
               <p className="mt-1 text-[11px] text-amber-700">
-                No diameter config in Settings for this size.
+                No mold configured in Settings for this size.
               </p>
-            ) : null}
+            ) : (
+              <p className="mt-1 text-[11px] text-slate-500">
+                {diameterConfig.label ? `${diameterConfig.label} · ` : "Mold: "}
+                {diameterConfig.wallThicknessInches != null
+                  ? `${diameterConfig.wallThicknessInches}" wall · `
+                  : ""}
+                max base {diameterConfig.maxBaseHeightFeet}&apos; · max riser{" "}
+                {diameterConfig.maxRiserHeightFeet}&apos;
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-700">

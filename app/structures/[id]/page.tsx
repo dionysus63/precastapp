@@ -26,7 +26,7 @@ export default async function EditStructureTemplatePage({
 }: EditStructureTemplatePageProps) {
   const { id } = await params;
 
-  const [template, castingOptions, pdfSets] = await Promise.all([
+  const [template, castingOptions, pdfSets, molds] = await Promise.all([
     prisma.structureTemplate.findUnique({
       where: { id },
       include: {
@@ -39,11 +39,25 @@ export default async function EditStructureTemplatePage({
       orderBy: { name: "asc" },
       select: { id: true, name: true, shape: true },
     }),
+    prisma.structureDiameterConfig.findMany({
+      orderBy: { sortOrder: "asc" },
+    }),
   ]);
 
   if (!template) {
     notFound();
   }
+
+  const moldOptions = molds.map((mold) => ({
+    label: mold.label,
+    insideDiameterFeet: Number(mold.insideDiameterFeet),
+    wallThicknessInches:
+      mold.wallThicknessInches != null
+        ? Number(mold.wallThicknessInches)
+        : null,
+    maxBaseHeightFeet: Number(mold.maxBaseHeightFeet),
+    maxRiserHeightFeet: Number(mold.maxRiserHeightFeet),
+  }));
 
   const defaultValue: StructureTemplateFormValue = {
     name: template.name,
@@ -102,6 +116,7 @@ export default async function EditStructureTemplatePage({
           expectedUpdatedAt={template.updatedAt.toISOString()}
           castingOptions={castingOptions}
           rectPdfSetOptions={pdfSets}
+          moldOptions={moldOptions}
         />
       </div>
 

@@ -7,7 +7,9 @@ import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 
 type DiameterConfigPayload = {
+  label: string | null;
   insideDiameterFeet: number;
+  wallThicknessInches: number | null;
   maxBaseHeightFeet: number;
   maxRiserHeightFeet: number;
   keyHeightFeet: number;
@@ -37,7 +39,10 @@ function parseDiameterConfigPayload(formData: FormData): DiameterConfigPayload[]
 
   for (const item of rows) {
     const row = item as Record<string, unknown>;
+    const label = String(row.label ?? "").trim() || null;
     const insideDiameterFeet = Number(row.insideDiameterFeet);
+    const wallRaw = String(row.wallThicknessInches ?? "").trim();
+    const wallThicknessInches = wallRaw === "" ? null : Number(wallRaw);
     const maxBaseHeightFeet = Number(row.maxBaseHeightFeet);
     const maxRiserHeightFeet = Number(row.maxRiserHeightFeet);
     const keyHeightFeet = Number(row.keyHeightFeet);
@@ -57,8 +62,19 @@ function parseDiameterConfigPayload(formData: FormData): DiameterConfigPayload[]
       continue;
     }
 
+    if (
+      wallThicknessInches != null &&
+      (!Number.isFinite(wallThicknessInches) || wallThicknessInches <= 0)
+    ) {
+      throw new Error(
+        `Wall thickness for ${insideDiameterFeet}' must be a positive number of inches (or blank).`,
+      );
+    }
+
     result.push({
+      label,
       insideDiameterFeet,
+      wallThicknessInches,
       maxBaseHeightFeet,
       maxRiserHeightFeet,
       keyHeightFeet,
@@ -87,7 +103,12 @@ export async function saveStructureDiameterConfigs(formData: FormData) {
     if (entries.length > 0) {
       await tx.structureDiameterConfig.createMany({
         data: entries.map((entry, index) => ({
+          label: entry.label,
           insideDiameterFeet: decimal(entry.insideDiameterFeet),
+          wallThicknessInches:
+            entry.wallThicknessInches != null
+              ? decimal(entry.wallThicknessInches)
+              : null,
           maxBaseHeightFeet: decimal(entry.maxBaseHeightFeet),
           maxRiserHeightFeet: decimal(entry.maxRiserHeightFeet),
           keyHeightFeet: decimal(entry.keyHeightFeet),

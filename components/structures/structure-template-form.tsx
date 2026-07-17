@@ -64,6 +64,15 @@ export type RectPdfSetOption = {
   shape: "CIRCULAR" | "RECTANGULAR";
 };
 
+/** A registered circular mold (Settings → Structure Molds). */
+export type TemplateMoldOption = {
+  label: string | null;
+  insideDiameterFeet: number;
+  wallThicknessInches: number | null;
+  maxBaseHeightFeet: number;
+  maxRiserHeightFeet: number;
+};
+
 type StructureTemplateFormProps = {
   action: (formData: FormData) => Promise<void>;
   cancelHref: string;
@@ -74,6 +83,8 @@ type StructureTemplateFormProps = {
   expectedUpdatedAt?: string;
   castingOptions: CastingOption[];
   rectPdfSetOptions?: RectPdfSetOption[];
+  /** Circular templates can only offer diameters with a registered mold. */
+  moldOptions?: TemplateMoldOption[];
 };
 
 function uid() {
@@ -82,6 +93,18 @@ function uid() {
 
 function createDiameter(): DiameterField {
   return { id: uid(), insideDiameterFeet: "" };
+}
+
+function moldOptionLabel(mold: TemplateMoldOption): string {
+  const parts = [
+    `${mold.insideDiameterFeet}' ID`,
+    mold.wallThicknessInches != null
+      ? `${mold.wallThicknessInches}" wall`
+      : null,
+    `base ≤ ${mold.maxBaseHeightFeet}'`,
+    `riser ≤ ${mold.maxRiserHeightFeet}'`,
+  ].filter(Boolean);
+  return `${mold.label ? `${mold.label} — ` : ""}${parts.join(" · ")}`;
 }
 
 function createRectSize(): RectSizeField {
@@ -121,6 +144,7 @@ export function StructureTemplateForm({
   expectedUpdatedAt,
   castingOptions,
   rectPdfSetOptions = [],
+  moldOptions = [],
 }: StructureTemplateFormProps) {
   const initial = defaultValue ?? defaultFormValue;
   const [name, setName] = useState(initial.name);
@@ -356,19 +380,31 @@ export function StructureTemplateForm({
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-700">
-                Wall Thickness (in)
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={wallThicknessInches}
-                onChange={(e) => setWallThicknessInches(e.target.value)}
-                className={structureInputClassName}
-              />
-            </div>
+            {isRect ? (
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Wall Thickness (in)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={wallThicknessInches}
+                  onChange={(e) => setWallThicknessInches(e.target.value)}
+                  className={structureInputClassName}
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Wall Thickness
+                </label>
+                <p className="mt-2 text-[11px] text-slate-500">
+                  Comes from each mold — set per diameter in Settings →
+                  Structure Molds.
+                </p>
+              </div>
+            )}
             <div>
               <label className="block text-xs font-medium text-slate-700">
                 Base Slab Thickness (in)
@@ -680,7 +716,7 @@ export function StructureTemplateForm({
       ) : (
       <SectionCard
         title="Offered Diameters"
-        description="Inside diameters available for this template. Mold limits and pricing are configured in Settings → Structure Diameters."
+        description="Pick from the mold registry — wall thickness and max pour heights are constants of each mold (Settings → Structure Molds)."
         action={
           <button
             type="button"
@@ -692,23 +728,37 @@ export function StructureTemplateForm({
         }
         noPadding
       >
+        {moldOptions.length === 0 ? (
+          <p className="border-b border-slate-100 px-4 py-2 text-[11px] text-amber-700">
+            No molds configured yet — add them in Settings → Structure Molds
+            before offering diameters here.
+          </p>
+        ) : null}
         <div className={tableFlushWrapperClassName}>
           <table className={tableClassName}>
             <thead>
               <tr>
-                <th className={tableHeaderCellClassName}>Inside Diameter (ft)</th>
+                <th className={tableHeaderCellClassName}>Mold</th>
                 <th className={tableHeaderCellClassName}></th>
               </tr>
             </thead>
             <tbody className={tableBodyClassName}>
-              {diameters.map((diameter, index) => (
+              {diameters.map((diameter, index) => {
+                const value = diameter.insideDiameterFeet;
+                const matchesMold = moldOptions.some(
+                  (mold) =>
+                    Math.abs(mold.insideDiameterFeet - Number(value)) < 1e-6,
+                );
+                const takenElsewhere = new Set(
+                  diameters
+                    .filter((row) => row.id !== diameter.id)
+                    .map((row) => row.insideDiameterFeet),
+                );
+                return (
                 <tr key={diameter.id}>
                   <td className={tableCellClassName}>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={diameter.insideDiameterFeet}
+                    <select
+                      value={value}
                       onChange={(e) =>
                         setDiameters((rows) =>
                           rows.map((row) =>
@@ -718,9 +768,32 @@ export function StructureTemplateForm({
                           ),
                         )
                       }
-                      placeholder="4.5"
-                      className={structureTableInputClassName}
-                    />
+                      className={`${structureTableInputClassName} min-w-[280px]`}
+                    >
+                      <option value="">— Select mold —</option>
+                      {moldOptions.map((mold) => (
+                        <option
+                          key={mold.insideDiameterFeet}
+                          value={String(mold.insideDiameterFeet)}
+                          disabled={takenElsewhere.has(
+                            String(mold.insideDiameterFeet),
+                          )}
+                        >
+                          {moldOptionLabel(mold)}
+                        </option>
+                      ))}
+                      {value !== "" && !matchesMold ? (
+                        <option value={value}>
+                          {value}&apos; ID — no mold configured
+                        </option>
+                      ) : null}
+                    </select>
+                    {value !== "" && !matchesMold ? (
+                      <p className="mt-1 text-[11px] text-amber-700">
+                        No mold registered for {value}&apos; — add it in
+                        Settings → Structure Molds or pick another size.
+                      </p>
+                    ) : null}
                   </td>
                   <td className={`${tableCellClassName} py-1.5 text-right`}>
                     {diameters.length > 1 ? (
@@ -742,7 +815,8 @@ export function StructureTemplateForm({
                     )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

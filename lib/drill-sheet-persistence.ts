@@ -155,7 +155,7 @@ export async function loadAndComputeDrillSheet(
   );
   if (!diameterConfig) {
     throw new Error(
-      `No diameter configuration found for ${insideDiameterFeet}'. Add it in Settings → Structure Diameters.`,
+      `No mold configured for ${insideDiameterFeet}'. Add it in Settings → Structure Molds.`,
     );
   }
 
@@ -187,6 +187,10 @@ export async function loadAndComputeDrillSheet(
       keyHeightFeet: Number(diameterConfig.keyHeightFeet),
       wallPricePerFoot: Number(diameterConfig.wallPricePerFoot),
       basePrice: Number(diameterConfig.basePrice),
+      wallThicknessInches:
+        diameterConfig.wallThicknessInches != null
+          ? Number(diameterConfig.wallThicknessInches)
+          : null,
     },
     template: {
       wallThicknessInches: Number(template.wallThicknessInches),
@@ -355,6 +359,10 @@ export async function createJobStructureFromPayload(
       description: `${insideDiameterFeet}' ${template.name}`,
       quantity: new Prisma.Decimal(String(options.quantity ?? 1)),
       unit: "EA",
+      weight:
+        result.totalWeightLb != null
+          ? new Prisma.Decimal(String(result.totalWeightLb))
+          : undefined,
       calc: {
         create: buildCalcData(payload, result, insideDiameterFeet, pricing),
       },
@@ -394,6 +402,12 @@ export async function upgradeJobStructureFromPayload(
     data: {
       structureTemplateId: template.id,
       description: `${insideDiameterFeet}' ${template.name}`,
+      // Keep an existing (possibly hand-entered) weight when the mold has
+      // no wall thickness to compute one from.
+      weight:
+        result.totalWeightLb != null
+          ? new Prisma.Decimal(String(result.totalWeightLb))
+          : undefined,
       calc: existing.calc ? { update: calcData } : { create: calcData },
       openings: { deleteMany: {}, create: buildOpeningsCreate(result) },
       sections: { deleteMany: {}, create: buildSectionsCreate(result) },

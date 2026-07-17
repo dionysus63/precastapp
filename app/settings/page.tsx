@@ -58,8 +58,9 @@ const settingSections = [
   },
   {
     href: "/settings/diameters",
-    title: "Structure Diameters",
-    description: "Mold limits, key heights, and wall pricing per inside diameter.",
+    title: "Structure Molds",
+    description:
+      "Wall thickness, max pour heights, key heights, and pricing per mold.",
   },
   {
     href: "/settings/casting-suppliers",

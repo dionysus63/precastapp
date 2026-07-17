@@ -25,7 +25,9 @@ export type DrillSheetFormOptions = {
     pricePerBoot: number | null;
   }[];
   diameterConfigs: {
+    label: string | null;
     insideDiameterFeet: number;
+    wallThicknessInches: number | null;
     maxBaseHeightFeet: number;
     maxRiserHeightFeet: number;
     keyHeightFeet: number;
@@ -114,7 +116,12 @@ export async function loadDrillSheetFormOptions(): Promise<DrillSheetFormOptions
         entry.pricePerBoot != null ? Number(entry.pricePerBoot) : null,
     })),
     diameterConfigs: diameterConfigs.map((config) => ({
+      label: config.label,
       insideDiameterFeet: Number(config.insideDiameterFeet),
+      wallThicknessInches:
+        config.wallThicknessInches != null
+          ? Number(config.wallThicknessInches)
+          : null,
       maxBaseHeightFeet: Number(config.maxBaseHeightFeet),
       maxRiserHeightFeet: Number(config.maxRiserHeightFeet),
       keyHeightFeet: Number(config.keyHeightFeet),

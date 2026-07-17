@@ -64,6 +64,8 @@ export type QuoteStructureConfig = {
   penetrations?: QuoteStructurePenetration[];
   openings?: QuoteStructureOpening[];
   wallHeightFeet?: number;
+  /** Computed structure weight (lb) from the mold geometry, when available. */
+  totalWeightLb?: number | null;
   wallPrice?: number;
   bootsPrice?: number;
   totalPrice?: number;
@@ -970,6 +972,7 @@ export function computeWorkbookRowPrice(
       quotePenetrations.length > 0 ? quotePenetrations : undefined,
     openings: quoteOpenings,
     wallHeightFeet: result.wallHeightFeet,
+    totalWeightLb: result.totalWeightLb,
     wallPrice: result.wallPrice,
     bootsPrice,
     totalPrice,
@@ -1051,7 +1054,10 @@ export function workbookRowToLineItem(
     qty: row.qty.trim() || "1",
     unit: "EA",
     unitPrice: row.unitPrice.toFixed(2),
-    weight: "",
+    weight:
+      row.structureConfig.totalWeightLb != null
+        ? String(row.structureConfig.totalWeightLb)
+        : "",
     yards: "",
     taxable: true,
     statusNote:

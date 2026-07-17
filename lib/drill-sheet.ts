@@ -33,6 +33,9 @@ export type DiameterConfig = {
   keyHeightFeet: number;
   wallPricePerFoot: number;
   basePrice: number;
+  /** Mold registry extras (display/enforcement; the calc doesn't use them). */
+  label?: string | null;
+  wallThicknessInches?: number | null;
 };
 
 export type TemplateConfig = {
@@ -111,6 +114,13 @@ export type DrillSheetResult = {
   baseSlabThicknessFeet: number | null;
   sections: ComputedSection[];
   openings: ComputedOpening[];
+  /**
+   * Piece weights in lb, parallel to `sections` (the base piece includes the
+   * monolithic floor slab). Null when the mold has no wall thickness.
+   */
+  sectionWeightsLb: number[] | null;
+  topSlabWeightLb: number | null;
+  totalWeightLb: number | null;
   wallPrice: number;
   bootsPrice: number;
   totalPrice: number;
@@ -322,6 +332,104 @@ export function annotateOpeningSections(
       ),
     };
   });
+}
+
+/** Standard reinforced precast concrete unit weight. */
+export const CONCRETE_DENSITY_LB_PER_CUFT = 150;
+
+export type ComputedWeights = {
+  sectionWeightsLb: number[] | null;
+  topSlabWeightLb: number | null;
+  totalWeightLb: number | null;
+};
+
+const NO_WEIGHTS: ComputedWeights = {
+  sectionWeightsLb: null,
+  topSlabWeightLb: null,
+  totalWeightLb: null,
+};
+
+/**
+ * Piece weights from the mold geometry: rings for wall sections (the base
+ * piece adds the monolithic floor slab disc), a disc for the top slab, and
+ * each opening deducted from its containing piece as a flat-wall core
+ * (π/4 × holeØ² × wall). Simplifications, all small: the top slab counts as
+ * a full disc (no casting-access deduction), joint keys and sump are
+ * ignored, and the brick course is masonry so it never counts.
+ */
+export function computeWeights(
+  sections: ComputedSection[],
+  openings: ComputedOpening[],
+  diameter: DiameterConfig,
+  template: TemplateConfig,
+  topSlabThicknessFeet: number,
+  floorElevation: number | null,
+): ComputedWeights {
+  const wallInches = diameter.wallThicknessInches;
+  if (wallInches == null || wallInches <= 0 || sections.length === 0) {
+    return NO_WEIGHTS;
+  }
+
+  const wallFeet = wallInches / 12;
+  const insideDiameter = diameter.insideDiameterFeet;
+  const outsideDiameter = insideDiameter + 2 * wallFeet;
+  const ringAreaSqFt =
+    (Math.PI / 4) * (outsideDiameter ** 2 - insideDiameter ** 2);
+  const discAreaSqFt = (Math.PI / 4) * outsideDiameter ** 2;
+  const baseSlabFeet = inchesToFeet(template.baseSlabThicknessInches);
+
+  const sectionWeights = sections.map((section) => {
+    let volume = ringAreaSqFt * section.heightFeet;
+    if (section.role === "BASE") {
+      volume += discAreaSqFt * baseSlabFeet;
+    }
+    return volume * CONCRETE_DENSITY_LB_PER_CUFT;
+  });
+
+  // Same elevation bands annotateOpeningSections uses, but by index so a
+  // hole comes out of the right piece. Unlocatable holes come out of the
+  // base piece — the total stays right either way.
+  const bounds: { lo: number; hi: number }[] = [];
+  let cursor = floorElevation ?? 0;
+  for (const section of sections) {
+    bounds.push({ lo: cursor, hi: round4(cursor + section.heightFeet) });
+    cursor = round4(cursor + section.heightFeet);
+  }
+  for (const opening of openings) {
+    if (opening.holeDiameterInches == null) {
+      continue;
+    }
+    const holeFeet = opening.holeDiameterInches / 12;
+    const deductionLb =
+      (Math.PI / 4) * holeFeet ** 2 * wallFeet * CONCRETE_DENSITY_LB_PER_CUFT;
+    let index = 0;
+    if (floorElevation != null && opening.bottomOfOpeningFeet != null) {
+      const bottom = opening.bottomOfOpeningFeet;
+      const top = opening.topOfOpeningFeet ?? bottom;
+      const exact = bounds.findIndex(
+        (b) => bottom >= b.lo - EPSILON && top <= b.hi + EPSILON,
+      );
+      const partial = bounds.findIndex(
+        (b) => bottom >= b.lo - EPSILON && bottom < b.hi - EPSILON,
+      );
+      index = exact >= 0 ? exact : partial >= 0 ? partial : 0;
+    }
+    sectionWeights[index] -= deductionLb;
+  }
+
+  const sectionWeightsLb = sectionWeights.map((weight) =>
+    Math.max(0, Math.round(weight)),
+  );
+  const topSlabWeightLb = Math.round(
+    discAreaSqFt * topSlabThicknessFeet * CONCRETE_DENSITY_LB_PER_CUFT,
+  );
+  return {
+    sectionWeightsLb,
+    topSlabWeightLb,
+    totalWeightLb:
+      sectionWeightsLb.reduce((sum, weight) => sum + weight, 0) +
+      topSlabWeightLb,
+  };
 }
 
 export function getTopOfBottomSlabElevation(
@@ -1069,6 +1177,25 @@ export function computeDrillSheet(input: DrillSheetInput): DrillSheetResult {
 
   const pricing = computePricing(heights.wallHeightFeet, diameter, openings);
 
+  const weights = computeWeights(
+    sections,
+    openings,
+    diameter,
+    template,
+    heights.topSlabThicknessFeet,
+    floorElevation,
+  );
+  if (
+    weights.totalWeightLb == null &&
+    sections.length > 0 &&
+    (diameter.wallThicknessInches == null ||
+      diameter.wallThicknessInches <= 0)
+  ) {
+    warnings.push(
+      "No wall thickness on this mold — weights unavailable. Set it in Settings → Structure Molds.",
+    );
+  }
+
   const baseSlabThicknessFeet = round4(
     inchesToFeet(template.baseSlabThicknessInches),
   );
@@ -1099,6 +1226,9 @@ export function computeDrillSheet(input: DrillSheetInput): DrillSheetResult {
     baseSlabThicknessFeet,
     sections,
     openings,
+    sectionWeightsLb: weights.sectionWeightsLb,
+    topSlabWeightLb: weights.topSlabWeightLb,
+    totalWeightLb: weights.totalWeightLb,
     wallPrice: pricing.wallPrice,
     bootsPrice: pricing.bootsPrice,
     totalPrice: pricing.totalPrice,

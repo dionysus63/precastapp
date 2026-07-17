@@ -335,11 +335,32 @@ export function DrillSheetPreview({ meta, result }: DrillSheetPreviewProps) {
                     <span className="tabular-nums">
                       {formatFeetInches(section.heightFeet)} (
                       {section.heightFeet.toFixed(2)}&apos;)
+                      {result.sectionWeightsLb?.[index] != null
+                        ? ` · ${result.sectionWeightsLb[index].toLocaleString()} lb`
+                        : ""}
                     </span>
                   </li>
                 ))}
               </ul>
             )}
+            {result.totalWeightLb != null ? (
+              <div className="mt-1 space-y-0.5 border-t border-slate-100 pt-1">
+                {result.topSlabWeightLb != null ? (
+                  <div className="flex justify-between text-[10px] text-slate-700">
+                    <span>Top Slab</span>
+                    <span className="tabular-nums">
+                      {result.topSlabWeightLb.toLocaleString()} lb
+                    </span>
+                  </div>
+                ) : null}
+                <div className="flex justify-between text-[10px] font-semibold text-slate-900">
+                  <span>Total Weight</span>
+                  <span className="tabular-nums">
+                    {result.totalWeightLb.toLocaleString()} lb
+                  </span>
+                </div>
+              </div>
+            ) : null}
             <p className="mt-1 text-[9px] text-slate-500">
               Top slab is always separate.
             </p>

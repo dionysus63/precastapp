@@ -22,7 +22,12 @@ export default async function StructureDiametersSettingsPage({
 
   const defaultRows: DiameterConfigRow[] = configs.map((config) => ({
     id: config.id,
+    label: config.label ?? "",
     insideDiameterFeet: String(config.insideDiameterFeet),
+    wallThicknessInches:
+      config.wallThicknessInches != null
+        ? String(config.wallThicknessInches)
+        : "",
     maxBaseHeightFeet: String(config.maxBaseHeightFeet),
     maxRiserHeightFeet: String(config.maxRiserHeightFeet),
     keyHeightFeet: String(config.keyHeightFeet),
@@ -32,8 +37,8 @@ export default async function StructureDiametersSettingsPage({
 
   return (
     <SettingsShell
-      title="Structure Diameters"
-      subtitle="Global mold limits, key heights, and pricing per inside diameter."
+      title="Structure Molds"
+      subtitle="One row per circular mold: wall thickness, max pour heights, key height, and pricing per inside diameter."
     >
       <SettingsFeedback
         error={params.error ? decodeURIComponent(params.error) : null}
@@ -41,8 +46,8 @@ export default async function StructureDiametersSettingsPage({
       />
 
       <SectionCard
-        title="Per-Diameter Configuration"
-        description="Maximum base and riser pour heights, key height (subtracted from top slab when key is removed), and pricing for drill sheet quotes."
+        title="Mold Registry"
+        description="Wall thickness and maximum base/riser pour heights are constants of each mold. Circular templates can only offer diameters that exist here, and drill sheets inherit the mold's limits."
       >
         <StructureDiameterConfigForm
           action={saveStructureDiameterConfigs}
