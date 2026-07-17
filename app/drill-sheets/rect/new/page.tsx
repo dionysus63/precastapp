@@ -17,7 +17,7 @@ import {
 } from "@/lib/rect-sheet-detail";
 
 type NewRectSheetPageProps = {
-  searchParams: Promise<{ structureId?: string }>;
+  searchParams: Promise<{ structureId?: string; jobId?: string }>;
 };
 
 /** Placeholder structure being completed, or null for a blank new sheet. */
@@ -60,7 +60,7 @@ async function loadPlaceholder(structureId: string | undefined) {
 export default async function NewRectSheetPage({
   searchParams,
 }: NewRectSheetPageProps) {
-  const { structureId } = await searchParams;
+  const { structureId, jobId } = await searchParams;
   const [{ templateOptions, castingOptions, jobOptions, openingSizes }, placeholder] =
     await Promise.all([loadRectSheetFormOptions(), loadPlaceholder(structureId)]);
 
@@ -151,6 +151,7 @@ export default async function NewRectSheetPage({
               jobs={jobOptions}
               openingSizes={openingSizes}
               defaultValues={defaultValues}
+              defaultJobId={jobId}
               expectedUpdatedAt={placeholder?.updatedAt.toISOString()}
               submitLabel={placeholder ? "Create Drill Sheet" : "Create Sheet"}
             />

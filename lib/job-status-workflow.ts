@@ -18,8 +18,8 @@ const TRIGGER_TRANSITIONS: Record<
   JobStatusTrigger,
   { from: JobStatus[]; to: JobStatus }
 > = {
-  QUOTE_WON: { from: ["QUOTING"], to: "AWARDED" },
-  DELIVERY_DELIVERED: { from: ["QUOTING", "AWARDED"], to: "ACTIVE" },
+  QUOTE_WON: { from: ["QUOTING", "DETAILING"], to: "AWARDED" },
+  DELIVERY_DELIVERED: { from: ["QUOTING", "DETAILING", "AWARDED"], to: "ACTIVE" },
 };
 
 /**

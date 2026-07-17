@@ -1900,8 +1900,8 @@
     "semantic_hash": ""
   },
   "components/quotes/structure-workbook/structure-workbook.tsx": {
-    "mtime": 1784299285.5605416,
-    "ast_hash": "6e0c2c6d2a4045678a1d9ff1cadb8ddf",
+    "mtime": 1784310328.775996,
+    "ast_hash": "7ece550f35c2d4e9e1709950580d8ef7",
     "semantic_hash": ""
   },
   "components/settings/structure-diameter-config-form.tsx": {
@@ -2820,8 +2820,8 @@
     "semantic_hash": ""
   },
   "components/quotes/rect-structure-workbook/rect-structure-workbook.tsx": {
-    "mtime": 1784306060.3017073,
-    "ast_hash": "36783ea1c85d60904acea9a17e2adc87",
+    "mtime": 1784310355.7289267,
+    "ast_hash": "37fbdd4975d5e0b37596acfa28a7453e",
     "semantic_hash": ""
   },
   "lib/quotes/rect-structure-workbook.ts": {
@@ -3457,6 +3457,46 @@
   "tests/unit/drill-sheet-weights.test.ts": {
     "mtime": 1784301117.4507458,
     "ast_hash": "54fcceb23b4d951bdf053e3d2caaab0f",
+    "semantic_hash": ""
+  },
+  "components/quotes/rect-structure-workbook/rect-import-dialog.tsx": {
+    "mtime": 1784310348.7818184,
+    "ast_hash": "95830756d7156ad44eb6540c229357b1",
+    "semantic_hash": ""
+  },
+  "lib/quotes/rect-structure-import.ts": {
+    "mtime": 1784309072.3604157,
+    "ast_hash": "a56387ba74b2bfe0f12bd6bd6a8267c8",
+    "semantic_hash": ""
+  },
+  "scripts/generate-rect-import-template.mjs": {
+    "mtime": 1784308989.167209,
+    "ast_hash": "b4c3ccedaf5556e3632be68d4d2cbd97",
+    "semantic_hash": ""
+  },
+  "tests/unit/rect-structure-import.test.ts": {
+    "mtime": 1784309302.159764,
+    "ast_hash": "7653499aa4e6e1edaf4e5a4195155db0",
+    "semantic_hash": ""
+  },
+  "components/quotes/structure-workbook/circular-import-dialog.tsx": {
+    "mtime": 1784310322.7791708,
+    "ast_hash": "b49c5726ce149528794a5a1c288b057f",
+    "semantic_hash": ""
+  },
+  "lib/quotes/circular-structure-import.ts": {
+    "mtime": 1784310079.35666,
+    "ast_hash": "e761a3bee4e31a9bd06bf223e04f0ec7",
+    "semantic_hash": ""
+  },
+  "scripts/generate-circular-import-template.mjs": {
+    "mtime": 1784310025.5634723,
+    "ast_hash": "cc94b99d1feeb2aaef0b118c9ae9bba4",
+    "semantic_hash": ""
+  },
+  "tests/unit/circular-structure-import.test.ts": {
+    "mtime": 1784310191.399737,
+    "ast_hash": "646cff1f2ba4f81b09c025f257ae9f27",
     "semantic_hash": ""
   }
 }

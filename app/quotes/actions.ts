@@ -987,6 +987,43 @@ export async function updateQuoteStatus(quoteId: string, status: QuoteStatusValu
   }
 }
 
+/**
+ * Set the customer PO number on a quote at any status. The PO typically
+ * arrives after the quote is won and locked, so this deliberately bypasses
+ * the full-edit lock while touching nothing but the PO field.
+ */
+export async function updateQuoteCustomerPo(
+  quoteId: string,
+  customerPo: string,
+): Promise<{ success: true } | { error: string }> {
+  await requirePermission(AppPermission.QUOTES_MANAGE);
+  const trimmed = customerPo.trim();
+  if (trimmed.length > 100) {
+    return { error: "PO number is too long." };
+  }
+
+  try {
+    const quote = await withDatabaseRetry((client) =>
+      client.quote.update({
+        where: { id: quoteId },
+        data: { customerPO: trimmed || null },
+        select: { id: true, jobId: true },
+      }),
+    );
+    revalidatePath(`/quotes/${quoteId}`);
+    revalidatePath("/quotes");
+    if (quote.jobId) {
+      revalidatePath(`/jobs/${quote.jobId}`);
+    }
+    return { success: true };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "Could not save the PO.",
+    };
+  }
+}
+
 export type DeleteQuoteResult = { success: true } | { error: string };
 
 export async function deleteQuote(quoteId: string): Promise<DeleteQuoteResult> {

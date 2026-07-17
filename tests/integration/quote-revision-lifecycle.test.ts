@@ -310,6 +310,76 @@ describe("won quote revision lifecycle", () => {
     );
   });
 
+  it("adopts an unlinked job structure with a matching item code on link", async () => {
+    // Detailing flow: the drill sheet was built straight on the job before
+    // any quote existed; winning the quote must adopt it, not duplicate it.
+    const job = await prisma.job.findUniqueOrThrow({
+      where: { id: fixture.jobId },
+    });
+    const preBuilt = await prisma.jobStructure.create({
+      data: {
+        jobId: job.id,
+        structureType: "CONFIGURABLE_PRODUCT",
+        structureNumber: "MH-77",
+        description: "4' SC Sewer",
+        quantity: 1,
+        unit: "EA",
+        status: "SUBMITTED",
+      },
+    });
+
+    const quote = await prisma.quote.create({
+      data: {
+        quoteNumber: `${fixture.sourceQuoteNumber}-ADOPT`,
+        jobId: job.id,
+        jobNumber: job.jobNumber,
+        customerName: job.customerName,
+        projectName: job.projectName,
+        status: "WON",
+        subtotal: 900,
+        total: 900,
+        lineItems: {
+          create: {
+            lineNumber: 1,
+            lineType: "CONFIGURABLE_STRUCTURE",
+            // Case-insensitive match against the pre-built MH-77.
+            itemCode: "mh-77",
+            description: "4' SC Sewer",
+            quantity: 2,
+            unit: "EA",
+            unitPrice: 450,
+            taxable: false,
+            total: 900,
+          },
+        },
+      },
+    });
+
+    await prisma.$transaction((tx) =>
+      linkJobStructuresFromQuoteInTransaction(tx, quote.id),
+    );
+
+    const line = await prisma.quoteLineItem.findFirstOrThrow({
+      where: { quoteId: quote.id },
+      select: { jobStructureId: true },
+    });
+    expect(line.jobStructureId).toBe(preBuilt.id);
+
+    const structure = await prisma.jobStructure.findUniqueOrThrow({
+      where: { id: preBuilt.id },
+    });
+    expect(structure.quoteId).toBe(quote.id);
+    expect(Number(structure.quantity)).toBe(2);
+    // Status and description survive — the drill sheet is untouched.
+    expect(structure.status).toBe("SUBMITTED");
+    expect(structure.description).toBe("4' SC Sewer");
+
+    const matching = await prisma.jobStructure.count({
+      where: { jobId: job.id, structureNumber: "MH-77" },
+    });
+    expect(matching).toBe(1);
+  });
+
   it("serializes concurrent attempts to revise the same won quote", async () => {
     const results = await Promise.allSettled([
       createDraftRevision(),

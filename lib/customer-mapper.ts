@@ -50,6 +50,7 @@ function jobStatusVariant(status: string): CustomerRelatedJob["statusVariant"] {
     case "COMPLETE":
       return "success";
     case "QUOTING":
+    case "DETAILING":
       return "info";
     case "ON_HOLD":
       return "warning";

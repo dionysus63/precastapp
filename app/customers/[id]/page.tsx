@@ -104,6 +104,7 @@ export default async function CustomerDetailPage({
 
   const OPEN_JOB_STATUSES = new Set([
     "QUOTING",
+    "DETAILING",
     "AWARDED",
     "ACTIVE",
     "ON_HOLD",

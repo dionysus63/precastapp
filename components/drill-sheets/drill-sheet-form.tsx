@@ -113,6 +113,8 @@ type DrillSheetFormProps = {
   pipeOpeningSizes: PipeOpeningSizeOption[];
   diameterConfigs: DiameterConfigOption[];
   initialValues?: DrillSheetFormValues;
+  /** Preselect the job (e.g. arriving from a job's Production tab). */
+  defaultJobId?: string;
   /** ISO updatedAt of the sheet when the edit page loaded it — rejects
    * stale saves (optimistic concurrency). */
   expectedUpdatedAt?: string;
@@ -219,6 +221,7 @@ export function DrillSheetForm({
   pipeOpeningSizes,
   diameterConfigs,
   initialValues,
+  defaultJobId,
   expectedUpdatedAt,
   cancelHref = "/drill-sheets",
   submitLabel = "Save Drill Sheet",
@@ -236,7 +239,9 @@ export function DrillSheetForm({
       selectedTemplate?.defaultCastingProductId ??
       "",
   );
-  const [jobId, setJobId] = useState(initialValues?.jobId ?? "");
+  const [jobId, setJobId] = useState(
+    initialValues?.jobId ?? defaultJobId ?? "",
+  );
   const [manholeNumber, setManholeNumber] = useState(
     initialValues?.manholeNumber ?? "",
   );

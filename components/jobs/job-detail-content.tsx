@@ -682,6 +682,18 @@ export function JobProductionSection({
           >
             Production queue
           </Link>
+          <Link
+            href={`/drill-sheets/new?jobId=${jobId}`}
+            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            New Drill Sheet
+          </Link>
+          <Link
+            href={`/drill-sheets/rect/new?jobId=${jobId}`}
+            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            New Rect Sheet
+          </Link>
           <NewRecordLink
             href={`/jobs/${jobId}/structures/new`}
             label="New Structure"

@@ -20,6 +20,9 @@ enum CustomerStatus {
 
 enum JobStatus {
   QUOTING
+  /// Job is ours on a handshake; producing drill sheets/shop drawings
+  /// before any quote goes out.
+  DETAILING
   AWARDED
   ACTIVE
   ON_HOLD

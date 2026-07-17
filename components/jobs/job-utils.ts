@@ -3,6 +3,7 @@ import type { QuoteStatus } from "@/components/quotes/quote-utils";
 /** Jobs still alive — the default view on the jobs list. */
 export const OPEN_JOB_STATUSES = [
   "QUOTING",
+  "DETAILING",
   "AWARDED",
   "ACTIVE",
   "ON_HOLD",
@@ -286,6 +287,7 @@ export type JobDetailView = {
 
 export const jobStatusLabels: Record<string, string> = {
   QUOTING: "Quoting",
+  DETAILING: "Detailing",
   AWARDED: "Awarded",
   ACTIVE: "Active",
   ON_HOLD: "On Hold",
@@ -299,6 +301,7 @@ export const jobInputClassName =
 export const jobStatusFilterOptions = [
   "All",
   "Quoting",
+  "Detailing",
   "Awarded",
   "Active",
   "On Hold",
@@ -308,6 +311,7 @@ export const jobStatusFilterOptions = [
 
 export const jobStatusFormOptions = [
   { value: "QUOTING", label: "Quoting" },
+  { value: "DETAILING", label: "Detailing" },
   { value: "AWARDED", label: "Awarded" },
   { value: "ACTIVE", label: "Active" },
   { value: "ON_HOLD", label: "On Hold" },

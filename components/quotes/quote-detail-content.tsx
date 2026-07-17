@@ -16,6 +16,7 @@ import { EditSentQuoteButton } from "@/components/quotes/edit-sent-quote-button"
 import { ReviseQuoteButton } from "@/components/quotes/revise-quote-button";
 import { SendQuoteButton } from "@/components/quotes/send-quote-button";
 import { QuotePdfDragChip } from "@/components/quotes/quote-pdf-drag-chip";
+import { QuotePoInline } from "@/components/quotes/quote-po-inline";
 import { JobStructureSubmittalActions } from "@/components/jobs/job-structure-submittal-actions";
 import { StructureManageLink } from "@/components/jobs/structure-manage-link";
 import { RichTextContent } from "@/components/ui/rich-text-content";
@@ -133,7 +134,6 @@ export function QuoteDetailContent({
   const contextLine = [
     quote.jobNumber !== "—" ? quote.jobNumber : null,
     quote.customer,
-    quote.customerPo !== "—" ? `PO ${quote.customerPo}` : null,
   ].filter(Boolean);
 
   const noteBadges = [
@@ -349,6 +349,11 @@ export function QuoteDetailContent({
               {quote.projectName}
             </span>
             {contextLine.length > 0 ? ` · ${contextLine.join(" · ")}` : ""}
+            {" · "}
+            <QuotePoInline
+              quoteId={quote.id}
+              customerPo={quote.customerPo === "—" ? "" : quote.customerPo}
+            />
           </p>
 
           <div className="flex flex-wrap divide-x divide-slate-200 rounded-lg border border-slate-200/80 bg-slate-50/60">

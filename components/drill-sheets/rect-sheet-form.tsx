@@ -118,6 +118,8 @@ type RectSheetFormProps = {
   jobs: DrillSheetJobOption[];
   openingSizes: RectSheetOpeningSizeOption[];
   defaultValues?: RectSheetFormValues;
+  /** Preselect the job (e.g. arriving from a job's Production tab). */
+  defaultJobId?: string;
   expectedUpdatedAt?: string;
   submitLabel?: string;
 };
@@ -162,6 +164,7 @@ export function RectSheetForm({
   jobs,
   openingSizes,
   defaultValues,
+  defaultJobId,
   expectedUpdatedAt,
   submitLabel = "Save Sheet",
 }: RectSheetFormProps) {
@@ -175,7 +178,9 @@ export function RectSheetForm({
       initialTemplate?.defaultCastingProductId ??
       "",
   );
-  const [jobId, setJobId] = useState(defaultValues?.jobId ?? "");
+  const [jobId, setJobId] = useState(
+    defaultValues?.jobId ?? defaultJobId ?? "",
+  );
   const [structureNumber, setStructureNumber] = useState(
     defaultValues?.structureNumber ?? "",
   );

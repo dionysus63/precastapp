@@ -5,7 +5,12 @@ import { createDrillSheet } from "@/app/drill-sheets/actions";
 import { loadDrillSheetFormOptions } from "@/lib/drill-sheet-options";
 
 import { BackButton } from "@/components/dashboard/back-button";
-export default async function NewDrillSheetPage() {
+export default async function NewDrillSheetPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ jobId?: string }>;
+}) {
+  const { jobId } = await searchParams;
   const {
     templateOptions,
     castingOptions,
@@ -46,6 +51,7 @@ export default async function NewDrillSheetPage() {
             jobs={jobOptions}
             pipeOpeningSizes={pipeOpeningSizes}
             diameterConfigs={diameterConfigs}
+            defaultJobId={jobId}
           />
         )}
       </div>

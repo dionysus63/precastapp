@@ -33,6 +33,7 @@ export function jobStatusVariant(status: string): StatusVariant {
     case "COMPLETE":
       return "success";
     case "QUOTING":
+    case "DETAILING":
       return "info";
     case "ON_HOLD":
       return "warning";

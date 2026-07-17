@@ -1,16 +1,16 @@
 # Graph Report - precastapp  (2026-07-17)
 
 ## Corpus Check
-- 664 files · ~404,611 words
+- 670 files · ~408,724 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 7934 nodes · 20089 edges · 448 communities (221 shown, 227 thin omitted)
+- 7968 nodes · 20149 edges · 434 communities (213 shown, 221 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 316 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `19181b66`
+- Built from commit: `f509ac6d`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -412,30 +412,15 @@
 - [[_COMMUNITY_Community 420|Community 420]]
 - [[_COMMUNITY_Community 421|Community 421]]
 - [[_COMMUNITY_Community 422|Community 422]]
-- [[_COMMUNITY_Community 423|Community 423]]
-- [[_COMMUNITY_Community 424|Community 424]]
-- [[_COMMUNITY_Community 429|Community 429]]
-- [[_COMMUNITY_Community 434|Community 434]]
 - [[_COMMUNITY_Community 436|Community 436]]
 - [[_COMMUNITY_Community 439|Community 439]]
-- [[_COMMUNITY_Community 440|Community 440]]
-- [[_COMMUNITY_Community 449|Community 449]]
-- [[_COMMUNITY_Community 451|Community 451]]
 - [[_COMMUNITY_Community 453|Community 453]]
-- [[_COMMUNITY_Community 454|Community 454]]
-- [[_COMMUNITY_Community 455|Community 455]]
-- [[_COMMUNITY_Community 471|Community 471]]
-- [[_COMMUNITY_Community 476|Community 476]]
-- [[_COMMUNITY_Community 483|Community 483]]
-- [[_COMMUNITY_Community 495|Community 495]]
-- [[_COMMUNITY_Community 496|Community 496]]
-- [[_COMMUNITY_Community 497|Community 497]]
 - [[_COMMUNITY_Community 507|Community 507]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `_` - 1177 edges
-2. `withDatabaseRetry()` - 321 edges
-3. `requirePermission()` - 296 edges
+2. `withDatabaseRetry()` - 322 edges
+3. `requirePermission()` - 297 edges
 4. `warn()` - 160 edges
 5. `ConfigNamespace` - 141 edges
 6. `TemplateNamespace` - 115 edges
@@ -447,32 +432,32 @@
 ## Surprising Connections (you probably didn't know these)
 - `ProductionPage()` --calls--> `withDatabaseRetry()`  [INFERRED]
   app/production/page.tsx → lib/prisma.ts
+- `FileSettingsPage()` --calls--> `getAppSettings`  [INFERRED]
+  app/settings/files/page.tsx → lib/app-settings.ts
+- `GET()` --calls--> `Stat()`  [INFERRED]
+  app/api/brand/logo/route.ts → components/drill-sheets/rect-sheet-detail-view.tsx
 - `GET()` --calls--> `requirePermission()`  [INFERRED]
   app/api/delivery-tickets/[id]/preview/route.ts → lib/auth/session.ts
-- `GET()` --calls--> `withDatabaseRetry()`  [INFERRED]
-  app/api/delivery-tickets/[id]/preview/route.ts → lib/prisma.ts
-- `GET()` --calls--> `withDatabaseRetry()`  [INFERRED]
-  app/api/delivery-tickets/[id]/submittals/preview/route.ts → lib/prisma.ts
-- `GET()` --calls--> `requirePermission()`  [INFERRED]
-  app/api/drill-sheets/[id]/preview/route.ts → lib/auth/session.ts
+- `GET()` --calls--> `generateDeliveryTicketCopyPdfBytes()`  [INFERRED]
+  app/api/delivery-tickets/[id]/preview/route.ts → lib/delivery-ticket-pdf-fill.ts
 
 ## Import Cycles
 - 1-file cycle: `electron/updater.mjs -> electron/updater.mjs`
 - 3-file cycle: `lib/quotes/constants.ts -> lib/quotes/types.ts -> lib/ring-builder-settings.ts -> lib/quotes/constants.ts`
 
-## Communities (448 total, 227 thin omitted)
+## Communities (434 total, 221 thin omitted)
 
 ### Community 0 - "Community 0"
-Cohesion: 0.06
-Nodes (51): diameterSupportsSanitaryDrainRing(), getDrainRingStyleOptionsForDiameter(), formatYards(), ProductForm(), isCategoryLineItem(), quoteDueDateFilterOptions, quoteEstimatorFormOptions, quoteLineItemTypeOptions (+43 more)
+Cohesion: 0.16
+Nodes (18): invalidateAppSettingsCache(), DEFAULT_CENTER, ShippingZonesManager(), ShippingZonesManagerProps, ZoneFormState, ZoneListItem, ZoneMap, createShippingZone() (+10 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.09
-Nodes (9): MurmurHash3_64, parseMarkedContentProps(), _parseVisibilityExpression(), Ref, RefSet, RefSetCache, StructElementNode, validateCSSFont() (+1 more)
+Cohesion: 0.06
+Nodes (11): 7642(), 9835(), GlobalColorSpaceCache, MurmurHash3_64, objectSize(), parseMarkedContentProps(), _parseVisibilityExpression(), Ref (+3 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.00
-Nodes (332): _, 4576(), 616(), 8745(), 9504(), 9565(), aa, Acrobat (+324 more)
+Nodes (331): _, 4576(), aa, AbortException, Acrobat7, ADBE_JSConsole, ADBE_JSDebugger, AddSilentPrint (+323 more)
 
 ### Community 4 - "Community 4"
 Cohesion: 0.05
@@ -480,91 +465,83 @@ Nodes (60): bug:C1, bug:C2, bug:H1, bug:H2, bug:H3, bug:L1, bug:L2, bug:L3 (+52 
 
 ### Community 5 - "Community 5"
 Cohesion: 0.01
-Nodes (81): AppearanceFilter, Arc, Barcode, BatchOutput, Bind, Break, BreakAfter, BreakBefore (+73 more)
+Nodes (85): AppearanceFilter, Arc, Barcode, BatchOutput, Bind, Break, BreakAfter, BreakBefore (+77 more)
 
 ### Community 6 - "Community 6"
-Cohesion: 0.05
-Nodes (6): arrayBuffersToBytes(), ChunkedStreamManager, isArrayEqual(), NetworkPdfManager, ObjectLoader, Page
+Cohesion: 0.08
+Nodes (4): adjustMapping(), ChunkedStream, ChunkedStreamManager, FontFinder
 
 ### Community 7 - "Community 7"
-Cohesion: 0.06
-Nodes (15): Annotation, AnnotationBorderStyle, buildPostScriptWasmFunction(), collectActions(), _collectJS(), FileSpec, getInheritableProperty(), getPdfColorArray() (+7 more)
+Cohesion: 0.04
+Nodes (15): Annotation, AnnotationBorderStyle, getPdfColorArray(), getQuadPoints(), getRgbColor(), getTransformMatrix(), HighlightAnnotation, lookupNormalRect() (+7 more)
 
 ### Community 8 - "Community 8"
 Cohesion: 0.16
 Nodes (29): "public"."AppSettings", "public"."Contact", "public"."Customer", "public"."DailyProductionEntry", "public"."DailyProductionLine", "public"."DeliveryDayReconciliation", "public"."DeliveryTicket", "public"."DeliveryTicketLineItem" (+21 more)
 
-### Community 9 - "Community 9"
-Cohesion: 0.04
-Nodes (11): adjustMapping(), Binder, createDataNode(), createText(), decodeString(), parseExpression(), parseXFAPath(), searchNode() (+3 more)
-
 ### Community 11 - "Community 11"
 Cohesion: 0.06
-Nodes (63): RectSheetDetailView(), RectSheetDetailViewProps, wholeInches(), ElevationView(), fmtElevation(), PlanView(), RectSheetPreview(), RectSheetPreviewMeta (+55 more)
+Nodes (59): RectSheetDetailView(), RectSheetDetailViewProps, wholeInches(), ElevationView(), fmtElevation(), PlanView(), RectSheetPreview(), RectSheetPreviewMeta (+51 more)
 
 ### Community 12 - "Community 12"
 Cohesion: 0.03
 Nodes (158): 1072(), 1108(), 1148(), 116(), 1291(), 1385(), 1548(), 1625() (+150 more)
 
-### Community 13 - "Community 13"
-Cohesion: 0.10
-Nodes (29): productKindBadgeVariant(), analyzeTaxonomyByNames(), buildCategoryFilterOptions(), buildSubcategoryFilterOptions(), collectMissingTaxonomyForImport(), getCategoriesForProductType(), getSubcategoriesForCategoryId(), MissingTaxonomyForImport (+21 more)
-
 ### Community 14 - "Community 14"
-Cohesion: 0.04
-Nodes (13): ao, AppearanceStreamEvaluator, Catalog, createValidAbsoluteUrl(), EvaluatorPreprocessor, FeatureTest, fetchDest(), fetchRemoteDest() (+5 more)
+Cohesion: 0.05
+Nodes (15): ao, AppearanceStreamEvaluator, Catalog, createValidAbsoluteUrl(), FeatureTest, fetchDest(), fetchRemoteDest(), info() (+7 more)
 
 ### Community 15 - "Community 15"
 Cohesion: 0.11
 Nodes (37): DrillSheetPreview(), DrillSheetPreviewProps, feet(), PlanDiagram(), angleToClockPosition(), BootSymbol, DiagramLayout, ElevationBand (+29 more)
 
 ### Community 16 - "Community 16"
-Cohesion: 0.06
-Nodes (59): DrillSheetPreviewMeta, ComputedOpening, DrillSheetResult, appendDrillSheetFillablePage(), BORDER, drawField(), feet(), FieldContext (+51 more)
+Cohesion: 0.07
+Nodes (49): DrillSheetPreviewMeta, ComputedOpening, DrillSheetResult, DrillSheetPdfBuildResult, DrillSheetPdfSource, flattenPdfForms(), applyTemplateFieldFonts(), baseSectionHeightFeet() (+41 more)
 
 ### Community 17 - "Community 17"
-Cohesion: 0.14
-Nodes (3): CFFCompiler, CFFOffsetTracker, CFFStrings
+Cohesion: 0.08
+Nodes (7): CFFCompiler, CFFDict, CFFOffsetTracker, CFFPrivateDict, CFFStrings, CFFTopDict, parseIndex()
 
 ### Community 18 - "Community 18"
-Cohesion: 0.05
-Nodes (21): Border, ChoiceWidgetAnnotation, encodeToXmlString(), ErrorFont, escapePDFName(), escapeString(), FakeUnicodeFont, generateFont() (+13 more)
+Cohesion: 0.04
+Nodes (31): Border, ButtonWidgetAnnotation, ChoiceWidgetAnnotation, collectActions(), computeIDs(), encodeToXmlString(), ErrorFont, escapePDFName() (+23 more)
 
 ### Community 19 - "Community 19"
-Cohesion: 0.03
-Nodes (126): GET(), RouteContext, SettingsUsersAuditPage(), writeAuditLog(), requirePermission(), BillingSettingsPage(), BillingSettingsPageProps, saveBillingSettings() (+118 more)
+Cohesion: 0.04
+Nodes (106): GET(), RouteContext, GET(), GET(), RouteContext, writeAuditLog(), requirePermission(), BillingSettingsPage() (+98 more)
 
 ### Community 20 - "Community 20"
-Cohesion: 0.04
-Nodes (90): DrillSheetTemplateOption, normalizeDegrees(), lookupPipeOpeningSize(), PipeOpeningSizeEntry, PlanSheetRecord, EMPTY_PLAN_SHEET_MARKUP, findStructureMarker(), PlanSheetMarkup (+82 more)
+Cohesion: 0.18
+Nodes (17): CMapFactory, createBuiltInCMap(), expectInt(), expectString(), extendCMap(), FontRendererFactory, isCmd(), parseBfChar() (+9 more)
 
 ### Community 21 - "Community 21"
-Cohesion: 0.09
-Nodes (26): AWARDABLE_QUOTE_STATUSES, isAwardableQuoteStatus(), REMOVABLE_BIDDER_QUOTE_STATUSES, bidDueUrgencyFor(), deriveOriginalQuoteNumber(), deriveSupersededBy(), formatQuoteDate(), formatQuoteDateLong() (+18 more)
+Cohesion: 0.12
+Nodes (21): bidDueUrgencyFor(), deriveOriginalQuoteNumber(), deriveSupersededBy(), formatQuoteDate(), formatQuoteDateLong(), formatQuoteLineTypeLabel(), mapLineTypeLabel(), mapQuoteToDetailView() (+13 more)
 
 ### Community 22 - "Community 22"
 Cohesion: 0.10
 Nodes (19): compilerOptions, allowJs, esModuleInterop, incremental, isolatedModules, jsx, lib, module (+11 more)
 
 ### Community 23 - "Community 23"
-Cohesion: 0.03
-Nodes (100): AuditLogInput, auditLogRetentionDays(), pruneOldAuditLogs(), ALL_PERMISSION_KEYS, canAccessPathWithPermissions(), DEFAULT_ROLE_PERMISSIONS, formatPermissionLabel(), getDefaultHomeForRole() (+92 more)
+Cohesion: 0.06
+Nodes (60): AuditLogInput, auditLogRetentionDays(), pruneOldAuditLogs(), AuthUser, canAccessPath(), filterNavItems(), getDefaultHome(), getEffectivePermissions() (+52 more)
 
 ### Community 24 - "Community 24"
-Cohesion: 0.15
-Nodes (23): GET(), RouteContext, DbDeliveryTicketForPdf, DELIVERY_TICKET_PDF_INCLUDE, fillAcroFormFields(), fitTermsField(), generateDeliveryTicketCopyPdfBytes(), generateDeliveryTicketPdfBytes() (+15 more)
+Cohesion: 0.19
+Nodes (15): DeliveryTicketContentPage, DeliveryTicketPdfFillOptions, buildContentPageBytes(), buildCopyPdfBytes(), fillAcroFormFields(), fitTermsField(), getDeliveryTicketTemplatePath(), HEADER_BAND_GREY (+7 more)
 
 ### Community 25 - "Community 25"
-Cohesion: 0.11
-Nodes (34): computeWallHeightFeet(), annotateRectOpeningSections(), ComputedRectSection, computeHorizontalGeometry(), computeRectDefaultSumpFeet(), computeRectPricing(), computeRectStructure(), computeRectWallHeightFeet() (+26 more)
+Cohesion: 0.10
+Nodes (34): SumpMode, annotateRectOpeningSections(), ComputedRectSection, computeHorizontalGeometry(), computeRectDefaultSumpFeet(), computeRectPricing(), computeRectStructure(), computeRectWallHeightFeet() (+26 more)
 
 ### Community 26 - "Community 26"
-Cohesion: 0.09
-Nodes (26): DrillSheetPdfButton(), DrillSheetPdfButtonProps, JobDrillSheetsPdfButtons(), listJobFilesAction(), openJobFile(), formatFolderCategoryLabel(), JobFilesBrowser(), JobFilesBrowserProps (+18 more)
+Cohesion: 0.06
+Nodes (40): DrillSheetPdfButton(), DrillSheetPdfButtonProps, JobDrillSheetsPdfButtons(), listJobFilesAction(), openJobFile(), revalidateFilesPaths(), syncAllFiles(), syncJobFilesAction() (+32 more)
 
 ### Community 27 - "Community 27"
-Cohesion: 0.10
-Nodes (42): GET(), RouteContext, DeliveryTicketPdfPreviewResult, generateDeliveryTicketPdf(), GenerateDeliveryTicketPdfResult, getDeliveryTicketPdfPreviewBase64(), loadTicketForPdf(), printDeliveryTicketDirect() (+34 more)
+Cohesion: 0.06
+Nodes (54): GET(), RouteContext, geistMono, geistSans, generateMetadata(), CompanySettingsPage(), DeliveryTicketSubmittalPdfCanvasPreview(), DeliveryTicketSubmittalPdfCanvasPreviewProps (+46 more)
 
 ### Community 28 - "Community 28"
 Cohesion: 0.36
@@ -572,51 +549,51 @@ Nodes (11): compactCustomerName(), compactSimilarity(), CustomerNameCandidate, g
 
 ### Community 29 - "Community 29"
 Cohesion: 0.13
-Nodes (22): GET(), parseVariant(), RouteContext, getCompanyLogoDataUri(), DeliveryScheduleTicket, JobDeliverySchedule, buildDeliverySchedulePdfHtml(), DeliveryScheduleVariant (+14 more)
+Nodes (21): GET(), parseVariant(), RouteContext, BulkLoadPlanner(), parseLoadSequence(), DeliveryScheduleTicket, JobDeliverySchedule, SCHEDULE_TICKET_SELECT (+13 more)
 
 ### Community 30 - "Community 30"
-Cohesion: 0.09
-Nodes (4): ButtonWidgetAnnotation, StructTreePage, StructTreeRoot, XRefWrapper
+Cohesion: 0.06
+Nodes (67): lookupPipeOpeningSize(), EMPTY_PLAN_SHEET_MARKUP, PlanSheetMarkup, PlanSheetPipeLine, PlanSheetStructureMarker, PlanSheetViewModel, pruneMarkupForRows(), rekeyPlanSheetMarkup() (+59 more)
 
 ### Community 31 - "Community 31"
-Cohesion: 0.07
-Nodes (35): DrainRingMatrixRows(), DrainRingMatrixRowsProps, DrainRingStyleTable(), DrainRingStyleTableProps, FEET_STAT_COLUMNS, allocateRingsAcrossPools(), allocateRingsForLoads(), allocateRingsToBins() (+27 more)
+Cohesion: 0.06
+Nodes (38): DrainRingMatrixRows(), DrainRingMatrixRowsProps, DrainRingStyleTable(), DrainRingStyleTableProps, FEET_STAT_COLUMNS, allocateRingsAcrossPools(), allocateRingsForLoads(), allocateRingsToBins() (+30 more)
 
 ### Community 32 - "Community 32"
 Cohesion: 0.06
 Nodes (9): BooleanElement, DateElement, DateTime, Decimal, Float, Integer, Text, Time (+1 more)
 
 ### Community 33 - "Community 33"
-Cohesion: 0.07
-Nodes (42): invalidateAppSettingsCache(), lookupShippingRate(), lookupShippingRateAtPoint(), resolveShippingRateForPoint(), ShippingLookupResult, ShippingLookupSuccess, suggestShippingAddresses(), AddressAutocomplete() (+34 more)
+Cohesion: 0.10
+Nodes (25): lookupShippingRate(), lookupShippingRateAtPoint(), resolveShippingRateForPoint(), ShippingLookupResult, ShippingLookupSuccess, AddressAutocomplete(), AddressAutocompleteProps, AddressSuggestion (+17 more)
 
 ### Community 34 - "Community 34"
-Cohesion: 0.12
-Nodes (31): ExplorerOpenResult, revalidateFilesPaths(), SyncAllFilesResult, syncJobFilesAction(), uploadJobFileAction(), decodeApiKey(), PrismaDevPayload, resolveDatabaseUrl() (+23 more)
+Cohesion: 0.10
+Nodes (39): ExplorerOpenResult, openJobFolderCategory(), SyncAllFilesResult, GET(), RouteContext, pathExists(), resolveUniqueFilePath(), sanitizeFileName() (+31 more)
 
 ### Community 35 - "Community 35"
-Cohesion: 0.21
-Nodes (23): InventorySubmittalsCell(), InventorySubmittalsCellProps, getStockSubmittalsRoot(), assertPathUnderStockSubmittalsRoot(), assertProductExists(), collectSubmittalFilesForCode(), deleteProductDocument(), getProductDocumentForOpen() (+15 more)
+Cohesion: 0.15
+Nodes (31): getStockSubmittalsRoot(), assertPathUnderStockSubmittalsRoot(), assertProductExists(), collectSubmittalFilesForCode(), deleteProductDocument(), getProductDocumentForOpen(), getProductSubmittalDir(), listRootEntries() (+23 more)
 
 ### Community 36 - "Community 36"
-Cohesion: 0.14
-Nodes (18): buildCommittedPreview(), CommittedOpeningNumbers, CommittedPreviewNumbers, connectionOptions, createOpening(), DiameterConfigOption, DrillSheetCastingOption, DrillSheetForm() (+10 more)
+Cohesion: 0.13
+Nodes (18): buildCommittedPreview(), CommittedOpeningNumbers, CommittedPreviewNumbers, connectionOptions, createOpening(), DiameterConfigOption, DrillSheetCastingOption, DrillSheetFormProps (+10 more)
 
 ### Community 37 - "Community 37"
-Cohesion: 0.23
-Nodes (10): InvoiceDetailPage(), InvoiceDetailPageProps, InvoiceDetailActions(), InvoiceDetailContent(), InvoiceDetailContentProps, formatDate(), formatMoney(), InvoiceDetailView (+2 more)
+Cohesion: 0.18
+Nodes (11): ALL_PERMISSION_KEYS, canAccessPathWithPermissions(), DEFAULT_ROLE_PERMISSIONS, getDefaultHomeForRole(), getRequiredPermissionForPath(), ROUTE_PERMISSION_RULES, UserRoleKey, VIEW_PERMISSIONS (+3 more)
 
 ### Community 38 - "Community 38"
 Cohesion: 0.12
 Nodes (16): devDependencies, electron, electron-builder, eslint, eslint-config-next, tailwindcss, @tailwindcss/postcss, tsx (+8 more)
 
 ### Community 39 - "Community 39"
-Cohesion: 0.11
-Nodes (18): dependencies, leaflet, next, nodemailer, pdf-lib, @pdf-lib/fontkit, pdf-to-printer, pdfjs-dist (+10 more)
+Cohesion: 0.12
+Nodes (17): dependencies, leaflet, next, nodemailer, pdf-lib, @pdf-lib/fontkit, pdf-to-printer, pdfjs-dist (+9 more)
 
 ### Community 40 - "Community 40"
 Cohesion: 0.07
-Nodes (5): getTransformMatrix(), objectSize(), recoverSigned16BitBBox(), TranslatedFont, Util
+Nodes (35): SummaryCard(), SummaryCardProps, AWARDABLE_QUOTE_STATUSES, isAwardableQuoteStatus(), REMOVABLE_BIDDER_QUOTE_STATUSES, quoteDueDateFilterOptions, quoteLineItemTypeOptions, quotePriceListFormOptions (+27 more)
 
 ### Community 41 - "Community 41"
 Cohesion: 0.11
@@ -627,112 +604,112 @@ Cohesion: 0.07
 Nodes (35): annotateOpeningSections(), buildSolverHoles(), computeBaseTopToOpeningBottomInches(), computeDefaultSumpFeet(), computeDrillSheet(), ComputedSection, ComputedWeights, computeInvertToTopFeet() (+27 more)
 
 ### Community 43 - "Community 43"
-Cohesion: 0.10
-Nodes (21): toggleJobFavorite(), JobFavoriteStar(), JobFavoriteStarProps, buildJobCustomerFilterOptions(), buildJobYearFilterOptions(), JobRow, jobStatusFilterOptions, jobStatusLabels (+13 more)
+Cohesion: 0.05
+Nodes (48): CategoryChip, CategoryChipBar(), CategoryChipBarProps, useDebouncedSearchParam(), useListQuery(), customerStatusFilterOptions, CustomersList(), CustomersListProps (+40 more)
 
 ### Community 44 - "Community 44"
 Cohesion: 0.12
 Nodes (23): buildPipeUnitPricesDescription(), computePipeLineWeightLb(), filterPipeProductsByType(), formatPipeDiameterLabel(), formatPipeQuoteLabel(), formatPipeQuoteLineDescription(), formatPipeStickRoundUpSummary(), formatPipeUnitPrice() (+15 more)
 
 ### Community 45 - "Community 45"
-Cohesion: 0.10
-Nodes (7): Dict, FreeTextAnnotation, getModificationDate(), HighlightAnnotation, PopupAnnotation, stringToAsciiOrUTF16BE(), stringToUTF16String()
+Cohesion: 0.21
+Nodes (15): rectTemplateVariantKey(), BLACK, dumpVariant(), ELEVATION_WALLS_X, enrichVariant(), main(), markersForVariant(), Rect (+7 more)
 
 ### Community 46 - "Community 46"
-Cohesion: 0.15
-Nodes (24): EditQuotePage(), EditQuotePageProps, defaultQuoteExpirationDate(), getProductPricesForList(), mapProductToQuoteFormOption(), NewQuotePage(), NewQuotePageProps, getCustomerForQuoteForm() (+16 more)
+Cohesion: 0.05
+Nodes (66): EditQuotePage(), EditQuotePageProps, Fixture, defaultQuoteExpirationDate(), getProductPricesForList(), ensureTaxonomyForBulkImport(), fetchActiveProductTaxonomy(), listProductTaxonomy (+58 more)
 
 ### Community 48 - "Community 48"
-Cohesion: 0.09
-Nodes (24): addHex(), BinaryCMapReader, CMapFactory, createBuiltInCMap(), expectInt(), expectString(), extendCMap(), FontRendererFactory (+16 more)
+Cohesion: 0.04
+Nodes (21): Binder, calculateMD5(), CFF, CipherTransformFactory, CmykICCBasedCS, createDataNode(), createText(), decodeString() (+13 more)
 
 ### Community 49 - "Community 49"
 Cohesion: 0.14
 Nodes (15): AGENTS.md, BraveBrowser, CLAUDE.md, COMMANDS.md, GoogleChrome, Next.js, PrismaClient, PrismaSchema (+7 more)
 
 ### Community 51 - "Community 51"
-Cohesion: 0.12
-Nodes (29): GET(), AdsPipeJointType, adsPipeJointTypeFormOptions, adsPipeJointTypeLabels, formatAdsPipeJointTypeLabel(), normalizeAdsPipeJointType(), formatCastingRoleLabel(), buildCustomersExportBuffer() (+21 more)
+Cohesion: 0.07
+Nodes (40): buildRows(), AdsPipeJointType, adsPipeJointTypeFormOptions, adsPipeJointTypeLabels, formatAdsPipeJointTypeLabel(), normalizeAdsPipeJointType(), buildCastingBomFromProductCodes(), CastingAssemblyBomImportRow (+32 more)
 
 ### Community 52 - "Community 52"
-Cohesion: 0.15
-Nodes (13): generateDeliveryTicketSubmittalPackage(), DeliveryTicketDetailContent(), DeliveryTicketDetailContentProps, isBlank(), OptionalField(), paymentMethodLabel(), PickupInfo, RELATED_PLACEHOLDERS (+5 more)
+Cohesion: 0.11
+Nodes (18): generateDeliveryTicketSubmittalPackage(), DeliveryTicketDetailContent(), DeliveryTicketDetailContentProps, isBlank(), OptionalField(), paymentMethodLabel(), PickupInfo, RELATED_PLACEHOLDERS (+10 more)
 
 ### Community 53 - "Community 53"
-Cohesion: 0.10
-Nodes (32): GET(), RouteContext, pathExists(), resolveUniqueFilePath(), sanitizeFileName(), assertJobStructureWithFolder(), deleteJobStructureDocument(), DOCUMENT_TYPE_LABELS (+24 more)
+Cohesion: 0.18
+Nodes (19): assertPathUnderJobFolder(), assertPathUnderRoot(), normalizePath(), pathsEqual(), pathStartsWith(), assertJobStructureWithFolder(), countJobSpecificSubmittals(), deleteJobStructureDocument() (+11 more)
 
 ### Community 57 - "Community 57"
-Cohesion: 0.04
-Nodes (18): CFF, CmykICCBasedCS, Commands, compileCharString(), CompiledFont, compileGlyf(), fetchSync(), IccColorSpace (+10 more)
+Cohesion: 0.09
+Nodes (7): Commands, compileCharString(), CompiledFont, compileGlyf(), EvaluatorPreprocessor, lookupCmap(), StateManager
 
 ### Community 64 - "Community 64"
-Cohesion: 0.11
-Nodes (4): BaseShading, BaseStream, RadialAxialShading, unreachable()
+Cohesion: 0.10
+Nodes (5): BasePDFStreamRangeReader, BaseShading, BaseStream, RadialAxialShading, unreachable()
 
 ### Community 65 - "Community 65"
-Cohesion: 0.06
-Nodes (51): BulkProductsPage(), createCastingSupplierFormAction(), listCastingSuppliersForForm(), revalidateCastingSupplierPaths(), updateCastingSupplierFormAction(), CastingSuppliersPage(), CastingSuppliersPageProps, BulkPasteForm() (+43 more)
+Cohesion: 0.07
+Nodes (42): BulkProductsPage(), listCastingSuppliersForForm(), ImportFeedbackBanner(), ImportFeedbackBannerProps, createDeliveryTicket(), savePlannedLoads(), EditProductPage(), EditProductPageProps (+34 more)
 
 ### Community 66 - "Community 66"
 Cohesion: 0.15
 Nodes (13): App (Next.js), Browse data, Daily workflow, Database backups, Electron desktop client, Git / GitHub (optional), Handy Commands — Precast App, Office deployment (Windows server) (+5 more)
 
 ### Community 67 - "Community 67"
-Cohesion: 0.16
+Cohesion: 0.17
 Nodes (3): CompositeGlyph, GlyfTable, Glyph
 
 ### Community 68 - "Community 68"
-Cohesion: 0.09
-Nodes (44): getTransport(), isEmailConfigured(), isValidEmail(), parseEmailList(), readSmtpConfig(), sendMail(), SendMailInput, buildDefaultQuoteEmailMessage() (+36 more)
+Cohesion: 0.06
+Nodes (59): getTransport(), isEmailConfigured(), isValidEmail(), parseEmailList(), readSmtpConfig(), sendMail(), SendMailInput, base64Lines() (+51 more)
 
 ### Community 69 - "Community 69"
-Cohesion: 0.13
-Nodes (22): createDraftRevision(), Fixture, findAncestorLineWithStructure(), STRUCTURE_LINE_TYPES, abbreviateContractor(), abbreviateScope(), buildQuoteNumberBase(), DbClient (+14 more)
+Cohesion: 0.06
+Nodes (61): createDraftRevision(), createWonQuoteFixture(), computeInvoiceFinancials(), computePreviewTotals(), assignMissingRoleDefaults(), ContactSnapshot, contactToSnapshot(), DbClient (+53 more)
 
 ### Community 70 - "Community 70"
 Cohesion: 0.13
 Nodes (8): encodeASCIIString(), _nodesEqual(), PsJsCompiler, PSStackToTree, PsWasmCompiler, section(), unsignedLEB128(), vec()
 
 ### Community 72 - "Community 72"
-Cohesion: 0.10
-Nodes (17): DrillSheetPdfLink(), FileUploadDropzone(), FileUploadDropzoneProps, JobDropFile, JobFileDropPanel(), JobFileDropPanelProps, StructureManageLink(), StructureManageLinkProps (+9 more)
+Cohesion: 0.06
+Nodes (35): ReconcileDayProps, ReconcileTicket, TicketQuickActions(), DrillSheetPdfLink(), JobStructureDetailContent(), JobStructureDetailContentProps, JobStructureDetailView, approveStructureForProduction() (+27 more)
 
 ### Community 73 - "Community 73"
-Cohesion: 0.04
-Nodes (58): updateDeliveryTicketStatus(), ReconcileDay(), ReconcileDayProps, ReconcileTicket, TicketQuickActions(), InventoryProductSearchOption, resolveReceivingCategory(), saveInventoryAdjustment() (+50 more)
+Cohesion: 0.08
+Nodes (37): deleteCustomer(), addCustomerContact(), BulkContactDbState, BulkContactImportRow, CONTACT_ROLES, CustomerContactInput, deleteCustomerContact(), ImportContactsResult (+29 more)
 
 ### Community 74 - "Community 74"
 Cohesion: 0.28
 Nodes (15): "Contact", "Customer", "Job", "JobFile", "JobSequence", "JobStructure", "JobStructureCasting", "JobStructureDimension" (+7 more)
 
 ### Community 75 - "Community 75"
-Cohesion: 0.11
-Nodes (22): Puppeteer, acquirePageSlot(), getSharedBrowser(), getWindowsBrowserPaths(), globalForBrowser, launchBrowser(), pageWaiters, pathExists() (+14 more)
+Cohesion: 0.15
+Nodes (17): GET(), parseDateParam(), buildDraftInvoiceCoverHtml(), escapeHtml(), money(), DbInvoiceForPdf, acquirePageSlot(), getSharedBrowser() (+9 more)
 
 ### Community 76 - "Community 76"
 Cohesion: 0.24
 Nodes (12): "DailyProductionEntry", "DailyProductionLine", "DeliveryDayReconciliation", "DeliveryTicket", "DeliveryTicketLineItem", "DeliveryTicketSequence", "InventoryTransaction", "Invoice" (+4 more)
 
 ### Community 77 - "Community 77"
-Cohesion: 0.42
-Nodes (6): buildHuffmanTable(), decodeScan(), findNextFileMarker(), prepareComponents(), readDataBlock(), skipData()
+Cohesion: 0.07
+Nodes (11): AlternateCS, buildHuffmanTable(), decodeScan(), DeviceRgbaCS, findNextFileMarker(), IndexedCS, JpegImage, prepareComponents() (+3 more)
 
 ### Community 78 - "Community 78"
-Cohesion: 0.10
-Nodes (15): CollapsibleSectionCard(), CollapsibleSectionCardProps, reviseQuote(), updateQuoteStatus(), CreateDrillSheetsButton(), CreateDrillSheetsButtonProps, StructureDrillSheetBadge(), DeleteQuoteButton() (+7 more)
+Cohesion: 0.07
+Nodes (24): CollapsibleSectionCard(), CollapsibleSectionCardProps, StructureManageLink(), StructureManageLinkProps, CompanyProfile, CreateDrillSheetsButton(), CreateDrillSheetsButtonProps, StructureDrillSheetBadge() (+16 more)
 
 ### Community 79 - "Community 79"
-Cohesion: 0.10
-Nodes (25): listStockProductsForTicket(), DeliveryTicketRow, DispatcherWeekCalendar, DispatcherWeekCalendarProps, TodaysLoadsPanel(), TodaysLoadsPanelProps, EditDeliveryTicketPage(), EditDeliveryTicketPageProps (+17 more)
+Cohesion: 0.19
+Nodes (9): DiameterConfigPayload, parseDiameterConfigPayload(), saveStructureDiameterConfigs(), StructureDiametersSettingsPageProps, createRow(), DiameterConfigRow, StructureDiameterConfigForm(), StructureDiameterConfigFormProps (+1 more)
 
 ### Community 80 - "Community 80"
 Cohesion: 0.13
-Nodes (38): validateLines(), loadCastingComponentOptionsByAssembly(), loadCastingComponentOptionsForAssembly(), AdsPipeOption, allLineageIds(), buildFulfillmentFromContext(), buildQuoteLineAliasMap(), buildQuoteLineLineageMap() (+30 more)
+Nodes (39): validateLines(), loadCastingComponentOptionsByAssembly(), loadCastingComponentOptionsForAssembly(), AdsPipeOption, allLineageIds(), buildFulfillmentFromContext(), buildQuoteLineAliasMap(), buildQuoteLineLineageMap() (+31 more)
 
 ### Community 81 - "Community 81"
-Cohesion: 0.13
-Nodes (20): assertSanitaryDrainRingAllowed(), createQuote(), CreateQuoteLineItemInput, DeleteQuoteResult, isQuoteNumberConflict(), parseOptionalDate(), QUOTE_LINE_TYPES, QUOTE_STATUSES (+12 more)
+Cohesion: 0.12
+Nodes (17): normalizeDegrees(), PipeOpeningSizeEntry, findStructureMarker(), relativeAngleFromOutlet(), snapBearingDegrees(), StructureWorkbookOpeningRow, pipeSizesForMaterial(), uniquePipeMaterials() (+9 more)
 
 ### Community 82 - "Community 82"
 Cohesion: 0.33
@@ -747,72 +724,72 @@ Cohesion: 0.38
 Nodes (4): Codebase exploration: use graphify first, Prisma / Database Rules, Project context, This is NOT the Next.js you know
 
 ### Community 89 - "Community 89"
-Cohesion: 0.08
-Nodes (30): deliveryDateFilterOptions, DeliveryFilterOptions, deliveryTicketCustomerOptions, DeliveryTicketDetailLineItem, deliveryTicketDriverOptions, DeliveryTicketFormLineItem, deliveryTicketJobOptions, DeliveryTicketLineItemType (+22 more)
+Cohesion: 0.06
+Nodes (49): deliveryDateFilterOptions, DeliveryFilterOptions, deliveryTicketCustomerOptions, DeliveryTicketDetailLineItem, DeliveryTicketDetailView, deliveryTicketDriverOptions, DeliveryTicketFormLineItem, deliveryTicketJobOptions (+41 more)
 
 ### Community 102 - "Community 102"
-Cohesion: 0.12
-Nodes (4): CCITTFaxStream, fetchBinaryData(), JBig2CCITTFaxImage, JpxImage
+Cohesion: 0.21
+Nodes (6): compileFontInfo(), convertCidString(), Font, gn(), ta(), xn
 
 ### Community 104 - "Community 104"
-Cohesion: 0.19
-Nodes (23): getSubmittalsJobSubfolder(), buildSubmittalPackageBaseName(), isSubmittalDocumentType(), writeQuotePdfFromHtml(), appendImageFile(), appendPdfFile(), buildSubmittalPackagePdfBytesForDeliveryTicket(), collectSubmittalSources() (+15 more)
+Cohesion: 0.11
+Nodes (46): generateDrillSheetPdf(), GenerateDrillSheetPdfResult, generateJobDrillSheetsPdf(), GenerateJobDrillSheetsPdfResult, generateRectSheetPdf(), buildQuotePdfAttachmentFilename(), getJobsRoot(), getQuotePdfJobSubfolder() (+38 more)
 
 ### Community 105 - "Community 105"
 Cohesion: 0.18
 Nodes (20): CONT_TABLE_LAYOUT, MAIN_TABLE_LAYOUT, QuoteTableLayout, ROW_SEPARATOR_COLOR, TEXT_COLOR, availableHeight(), drawCenteredInColumn(), drawLineItemRow() (+12 more)
 
 ### Community 106 - "Community 106"
-Cohesion: 0.21
-Nodes (15): rectTemplateVariantKey(), BLACK, dumpVariant(), ELEVATION_WALLS_X, enrichVariant(), main(), markersForVariant(), Rect (+7 more)
+Cohesion: 0.16
+Nodes (16): Cell, cellText(), circularGridFromTsv(), CircularImportIssue, CircularImportResult, CircularImportStructure, findHeaderRow(), OpeningColumnGroup (+8 more)
 
 ### Community 107 - "Community 107"
-Cohesion: 0.11
-Nodes (25): CustomStructureCostBreakdown(), CustomStructureCostBreakdownProps, CustomStructureDetailBreakdown(), CustomStructurePricingFooter(), CustomStructurePricingFooterProps, createCostItemId(), createDefaultCostItem(), CUSTOM_STRUCTURE_CONFIG_KIND (+17 more)
+Cohesion: 0.06
+Nodes (55): formatYards(), QuoteSaveDestination, isCategoryLineItem(), quoteEstimatorFormOptions, quoteTermsFormOptions, quoteTypeFormOptions, quoteWorkflowSteps, resolveQuoteLineQuantityForStorage() (+47 more)
 
 ### Community 108 - "Community 108"
-Cohesion: 0.07
-Nodes (39): applyAssist(), ariaLabel(), calculateSHA512(), Caption, ch(), checkDimensions(), computeBbox(), createWrapper() (+31 more)
+Cohesion: 0.06
+Nodes (47): applyAssist(), ariaLabel(), calculateSHA512(), Caption, ch(), checkDimensions(), computeBbox(), createWrapper() (+39 more)
 
 ### Community 110 - "Community 110"
-Cohesion: 0.10
-Nodes (24): buildBiddingSummary(), defaultContactIdForBidder(), deliveryItemStatusVariant(), deliveryStatusVariant(), DeliveryTicketLineItemSummary, formatDate(), formatProjectAddress(), IN_FLIGHT_TICKET_STATUSES (+16 more)
+Cohesion: 0.07
+Nodes (48): Home(), JobTabContent(), JobTabContentProps, JobDetailPage(), JobDetailPageProps, resolveTab(), VALID_TABS, listCustomersForBidList() (+40 more)
 
 ### Community 111 - "Community 111"
-Cohesion: 0.10
-Nodes (6): B, FontSelector, _i, layoutText(), P, TextMeasure
+Cohesion: 0.08
+Nodes (7): B, FontSelector, _i, layoutText(), P, TextMeasure, XhtmlObject
 
 ### Community 112 - "Community 112"
-Cohesion: 0.09
-Nodes (9): calculateMD5(), CipherTransformFactory, computeIDs(), getIndexes(), incrementalUpdate(), stringToBytes(), writeObject(), writeString() (+1 more)
+Cohesion: 0.16
+Nodes (18): createOpening(), createSection(), parseNum(), RectOpeningField, RectSectionField, RectSheetForm(), RectSheetFormProps, RectSheetFormValues (+10 more)
 
 ### Community 114 - "Community 114"
-Cohesion: 0.12
-Nodes (6): assert(), convertBlackAndWhiteToRGBA(), convertToRGBA(), ImageResizer, PDFImage, toRomanNumerals()
+Cohesion: 0.10
+Nodes (9): assert(), buildPostScriptWasmFunction(), createImage(), createImageDict(), MathClamp(), parsePostScriptFunction(), PDFFunction, PDFImage (+1 more)
 
 ### Community 115 - "Community 115"
-Cohesion: 0.04
-Nodes (81): createOpening(), createSection(), parseNum(), RectOpeningField, RectSectionField, RectSheetCastingOption, RectSheetForm(), RectSheetFormProps (+73 more)
+Cohesion: 0.06
+Nodes (63): Cell, cellText(), findHeaderRow(), gridFromTsv(), OpeningColumnGroup, parseNumberCell(), parseRectStructureImport(), RectImportIssue (+55 more)
 
 ### Community 117 - "Community 117"
-Cohesion: 0.09
-Nodes (37): BulkImportRow, checkBulkCustomerDbDuplicates(), createCustomer(), CUSTOMER_STATUSES, CustomerRecordInput, deleteCustomer(), findSimilarCustomers(), importCustomers() (+29 more)
+Cohesion: 0.07
+Nodes (50): BulkImportRow, createCustomer(), CUSTOMER_STATUSES, CustomerRecordInput, findSimilarCustomers(), ImportCustomersResult, loadSimilarCustomerMatches(), parseCustomerFormData() (+42 more)
 
 ### Community 118 - "Community 118"
-Cohesion: 0.13
-Nodes (33): openJobFolderCategory(), assertPathUnderJobFolder(), assertPathUnderRoot(), normalizePath(), pathsEqual(), pathStartsWith(), assertDirectoryExists(), assertFileExists() (+25 more)
+Cohesion: 0.12
+Nodes (32): Stat(), CONTENT_TYPES, GET(), RouteContext, UPDATES_DIR, assertDirectoryExists(), assertFileExists(), assertPathAccessible() (+24 more)
 
 ### Community 119 - "Community 119"
-Cohesion: 0.15
-Nodes (23): getJobFilesForBrowser(), JobTabContent(), JobTabContentProps, JobDetailPage(), JobDetailPageProps, resolveTab(), VALID_TABS, listCustomersForBidList() (+15 more)
+Cohesion: 0.24
+Nodes (10): formatPermissionLabel(), getEffectivePermissionsForUser(), getRolePermissions(), USER_ROLE_OPTIONS, ALL_APP_PERMISSIONS, getRolePermissionsForRole(), toAllowedSet(), UserPermissionsForm() (+2 more)
 
 ### Community 120 - "Community 120"
-Cohesion: 0.06
-Nodes (57): createDrillSheet(), createRectSheet(), deleteDrillSheet(), updateDrillSheet(), updateRectSheet(), upgradeRectSheetFromPlaceholder(), DeleteDrillSheetButton(), DeleteDrillSheetButtonProps (+49 more)
+Cohesion: 0.08
+Nodes (47): createDrillSheet(), createRectSheet(), deleteDrillSheet(), updateDrillSheet(), updateRectSheet(), upgradeRectSheetFromPlaceholder(), DeleteDrillSheetButton(), DeleteDrillSheetButtonProps (+39 more)
 
 ### Community 121 - "Community 121"
-Cohesion: 0.10
-Nodes (27): GET(), RouteContext, DrillSheetPdfCanvasPreview(), DrillSheetPdfCanvasPreviewProps, DrillSheetPdfPreviewInfo, getDrillSheetPreviewPrintUrl(), LoadedPdf, DrillSheetPreviewContent() (+19 more)
+Cohesion: 0.15
+Nodes (22): GET(), RouteContext, GET(), RouteContext, buildDrillSheetDetail(), buildDrillSheetPdfBytes(), templateVariantKey(), buildJobDrillSheetsPdfBytes() (+14 more)
 
 ### Community 122 - "Community 122"
 Cohesion: 0.11
@@ -827,36 +804,32 @@ Cohesion: 0.20
 Nodes (18): DEFAULT_TABLE_LAYOUT, DeliveryTicketTableLayout, ROW_SEPARATOR_COLOR, TEXT_COLOR, DeliveryTicketDrawLineItem, drawCenteredInColumn(), drawLineItemRow(), drawLineItemsOnPage() (+10 more)
 
 ### Community 125 - "Community 125"
-Cohesion: 0.12
-Nodes (29): assignMissingRoleDefaults(), ContactSnapshot, contactToSnapshot(), DbClient, getDefaultContactForRole(), getPrimaryContactForCustomer(), promoteRoleDefaultsAfterDelete(), DecimalInstance (+21 more)
+Cohesion: 0.19
+Nodes (10): PERMISSION_GROUPS, USER_ROLE_KEYS, isUserRoleKey(), parseRolePermissionsFromStorage(), PERMISSION_KEY_SET, RolePermissionsMap, USER_ROLE_KEY_SET, EDITABLE_ROLES (+2 more)
 
 ### Community 126 - "Community 126"
-Cohesion: 0.10
-Nodes (6): CFFDict, CFFParser, CFFPrivateDict, CFFTopDict, ColorSpaceUtils, parseIndex()
+Cohesion: 0.26
+Nodes (9): PermissionKey, NavIcon(), NavIconId, NavItem, navItems, NavSection, NavSectionId, navSections (+1 more)
 
 ### Community 127 - "Community 127"
-Cohesion: 0.15
+Cohesion: 0.17
 Nodes (3): BasePDFStream, PDFWorkerStreamRangeReader, PDFWorkerStreamReader
 
-### Community 128 - "Community 128"
-Cohesion: 0.13
-Nodes (23): addCustomerContact(), BulkContactDbState, BulkContactImportRow, checkBulkContactDbState(), CONTACT_ROLES, CustomerContactInput, deleteCustomerContact(), importContacts() (+15 more)
-
 ### Community 130 - "Community 130"
-Cohesion: 0.09
-Nodes (38): geistMono, geistSans, generateMetadata(), CompanySettingsPage(), CompanySettingsPageProps, removeCompanyLogo(), saveCompanySettings(), uploadCompanyLogo() (+30 more)
+Cohesion: 0.25
+Nodes (16): getCompanyLogoPath(), hasCompanyLogo(), pathExists(), convertPdfToPng(), IMAGE_MIME_TYPES, pathExists(), pathToLocalFileUrl(), rasterizeImageBufferToPng() (+8 more)
 
 ### Community 131 - "Community 131"
-Cohesion: 0.11
-Nodes (22): formatProductKindBadgeLabel(), categoryVariant(), formatDecimal(), formatYesNo(), mapProductToDetail(), mapProductToRow(), ProductDetailView, ProductDocumentRecord (+14 more)
+Cohesion: 0.17
+Nodes (15): formatProductKindBadgeLabel(), categoryVariant(), formatDecimal(), formatYesNo(), mapProductToDetail(), mapProductToRow(), ProductDetailView, ProductDocumentRecord (+7 more)
 
 ### Community 132 - "Community 132"
 Cohesion: 0.36
 Nodes (8): "JobStructure", "JobStructureManholeDetail", "JobStructureSection", "Product", "StructureTemplate", "StructureTemplateBootSize", "StructureTemplateDiameter", "StructureTemplateSection"
 
 ### Community 133 - "Community 133"
-Cohesion: 0.19
-Nodes (18): buildCastingResolver(), CastingResolution, importPipeOpenings(), importRectOpenings(), ImportRowInput, ImportRowMessage, importStructureTemplates(), importTemplates() (+10 more)
+Cohesion: 0.18
+Nodes (6): buildToFontChar(), CFFFont, getEncoding(), getUnicodeForGlyph(), recoverGlyphName(), type1FontGlyphMapping()
 
 ### Community 134 - "Community 134"
 Cohesion: 0.22
@@ -867,52 +840,56 @@ Cohesion: 0.67
 Nodes (5): "CastingSupplier", "Product", "ProductCastingComponent", "PurchaseReceiptEntry", "PurchaseReceiptLine"
 
 ### Community 136 - "Community 136"
-Cohesion: 0.08
-Nodes (33): CustomerDetailContent(), CustomerDetailContentProps, sectionCount(), DeleteCustomerButton(), DeleteCustomerButtonProps, listAllProductTaxonomyForSettings, parseCategoryDefaultProductKind(), parseCategoryProductType() (+25 more)
+Cohesion: 0.12
+Nodes (17): InvoiceDetailActions(), DraftReviewTab(), FinalInvoicesTab(), formatMoney(), EditSentQuoteButton(), EditSentQuoteButtonProps, DeleteProductCategoryButton(), DeleteProductCategoryButtonProps (+9 more)
 
 ### Community 137 - "Community 137"
 Cohesion: 0.33
 Nodes (6): `P1001` — Can't reach database server, Password authentication failed, Port 3000 already in use, Prisma Studio — "Could not load schema metadata", Quote PDF — "Could not find Chrome" / browser not found, Troubleshooting
 
 ### Community 138 - "Community 138"
-Cohesion: 0.13
-Nodes (16): castingPieceRoleFormOptions, PriceListOption, productKindFormOptions, defaultKindForType(), isCastingProductType(), PhysicalProductType, productKindsForType(), productTypeForPreset() (+8 more)
+Cohesion: 0.06
+Nodes (47): PriceListOption, productKindBadgeVariant(), productKindFormOptions, analyzeTaxonomyByNames(), buildCategoryFilterOptions(), buildSubcategoryFilterOptions(), collectMissingTaxonomyForImport(), getCategoriesForProductType() (+39 more)
 
 ### Community 139 - "Community 139"
 Cohesion: 0.12
 Nodes (22): addTextField(), BLACK, BOTTOM_BOX, buildTemplate(), Ctx, drawBox(), drawLine(), drawMainBottom() (+14 more)
 
 ### Community 140 - "Community 140"
-Cohesion: 0.24
-Nodes (11): DeliveryTicketPreviewContent(), DbDeliveryTicket, formatDate(), formatDateIsoLocal(), mapDbDeliveryTicketToDetailView(), mapDbDeliveryTicketToListRow(), getDeliveryTicketCopyTitles(), formatWeightLb() (+3 more)
+Cohesion: 0.29
+Nodes (8): generateDeliveryTicketCopyPdfBytes(), baseLineItems, buildMockTicket(), fillOptions, main(), buildMockPickupTicket(), fillOptions, main()
 
 ### Community 141 - "Community 141"
 Cohesion: 0.40
 Nodes (5): Desktop shell (optional), Local development, Office deployment, Precast Ops, Project docs
 
 ### Community 142 - "Community 142"
-Cohesion: 0.07
-Nodes (27): BASE_SLAB_ONLY_FIELDS, RECT_OPENING_ROWS, TOP_SLAB_ONLY_FIELDS, Align, ALIGNMENTS, BLACK, calibrateVariant(), EXPLODED_SPECS (+19 more)
+Cohesion: 0.08
+Nodes (25): RECT_OPENING_ROWS, Align, ALIGNMENTS, BLACK, calibrateVariant(), EXPLODED_SPECS, extractTextItems(), HEADER_SPECS (+17 more)
 
 ### Community 155 - "Community 155"
-Cohesion: 0.18
-Nodes (14): defaultInvoiceDueDate(), allocateDeliveryTicketNumber(), deriveInvoiceNumberFromTicket(), formatTicketNumber(), batchConvertDeliveredTicketsToInvoices(), BatchInvoiceConversionResult, convertDeliveryTicketToInvoice(), InvoiceAlreadyExistsError (+6 more)
+Cohesion: 0.06
+Nodes (36): buildLineCreates(), buildLinesPayload(), DeliveryTicketActionResult, GenerateTicketSubmittalResult, parseDate(), SavePlannedLoadsResult, ScheduleJobLoadsResult, splitStructureForShipping() (+28 more)
 
 ### Community 158 - "Community 158"
-Cohesion: 0.06
-Nodes (49): DRAIN_RING_SANITARY_DIAMETERS, DrainRingStyle, drainRingStyleFormOptions, formatDrainRingPoolDescription(), formatFeetAndInches(), formatRingQuoteItemCode(), formatSanitaryDrainRingDiametersLabel(), formatQuoteLineDescription() (+41 more)
+Cohesion: 0.07
+Nodes (52): assertSanitaryDrainRingAllowed(), diameterSupportsSanitaryDrainRing(), DRAIN_RING_SANITARY_DIAMETERS, DrainRingStyle, drainRingStyleFormOptions, formatDrainRingPoolDescription(), formatFeetAndInches(), formatRingQuoteItemCode() (+44 more)
 
 ### Community 159 - "Community 159"
-Cohesion: 0.08
-Nodes (37): mapBulkImportRow(), BulkContactPasteForm(), parseBulkContactPaste(), parseBulkPaste(), bulkContactColumnHeaders, BulkContactPasteRow, bulkContactRowKey(), BulkCustomerPasteRow (+29 more)
+Cohesion: 0.07
+Nodes (41): mapBulkImportRow(), BulkContactPasteForm(), parseBulkContactPaste(), parseBulkPaste(), checkBulkContactDbState(), importContacts(), bulkContactColumnHeaders, BulkContactPasteRow (+33 more)
+
+### Community 160 - "Community 160"
+Cohesion: 0.29
+Nodes (8): appendDrillSheetFillablePage(), BORDER, drawField(), feet(), FieldContext, LABEL_COLOR, TITLE_COLOR, main()
 
 ### Community 161 - "Community 161"
-Cohesion: 0.07
-Nodes (28): DeliveryTicketLineInput, PlannedLoadInput, SavePlannedLoadsInput, scheduleJobLoads(), ScheduleLoadUpdate, BulkLoadPlanner(), BulkLoadPlannerProps, CategoryRow (+20 more)
+Cohesion: 0.09
+Nodes (19): DeliveryTicketLineInput, PlannedLoadInput, SavePlannedLoadsInput, BulkLoadPlannerProps, CategoryRow, cellKey(), DeletedTicket, DraftLoadColumn (+11 more)
 
 ### Community 162 - "Community 162"
-Cohesion: 0.13
-Nodes (3): CalGrayCS, DeviceCmykCS, LabCS
+Cohesion: 0.08
+Nodes (4): CalGrayCS, CalRGBCS, DeviceCmykCS, LabCS
 
 ### Community 163 - "Community 163"
 Cohesion: 0.25
@@ -920,122 +897,110 @@ Nodes (8): "JobStructureCalc", "JobStructureDimension", "JobStructureOpening", "
 
 ### Community 164 - "Community 164"
 Cohesion: 0.03
-Nodes (94): NotFound(), CompleteDrillSheetsPage(), CompleteDrillSheetsPageProps, CustomerForm(), CustomerFormProps, CustomerFormValues, customerStatusFormOptions, BackButton() (+86 more)
+Nodes (113): NotFound(), CompleteDrillSheetsPage(), CompleteDrillSheetsPageProps, CustomerForm(), BackButton(), BackButtonProps, DashboardShell(), DashboardShellProps (+105 more)
 
 ### Community 165 - "Community 165"
 Cohesion: 0.09
 Nodes (28): __dirname, getUserConfigPath(), loadConfig(), readJsonFile(), validateServerUrl(), buildApplicationMenu(), createWindow(), __dirname (+20 more)
 
 ### Community 166 - "Community 166"
-Cohesion: 0.23
-Nodes (15): GET(), mapInvoiceLineItemsForPdf(), buildInvoicePageBytes(), drawDraftWatermark(), ensureInvoiceTemplateExists(), fillAcroFormFields(), generateInvoicePdfBytes(), getInvoiceContinuationTemplatePath() (+7 more)
+Cohesion: 0.15
+Nodes (24): GET(), parseDateParam(), blankOr(), buildInvoiceFormData(), formatCustomerAddress(), formatDateForPdf(), formatMoneyForPdf(), formatPageNumber() (+16 more)
 
 ### Community 167 - "Community 167"
 Cohesion: 0.20
 Nodes (14): ALLOWED_TAGS, containsHtmlEntity(), decodeHtmlEntities(), escapeHtml(), isRichText(), normalizeNbsp(), plainTextToRichText(), richTextHasContent() (+6 more)
 
 ### Community 168 - "Community 168"
-Cohesion: 0.38
-Nodes (5): DeliveryTicketSubmittalPdfCanvasPreview(), DeliveryTicketSubmittalPdfCanvasPreviewProps, getDeliveryTicketSubmittalPreviewPrintUrl(), DeliveryTicketSubmittalPreviewContent(), DeliveryTicketSubmittalPreviewContentProps
-
-### Community 169 - "Community 169"
-Cohesion: 0.09
-Nodes (38): isRecognizedBulkRingStyle(), parseBulkRingStyle(), BulkImportPreset, bulkImportPresetLabels, bulkImportPresets, bulkPasteAdsPipeBaseHeaders, bulkPasteBaseHeaders, bulkPasteCastingBaseHeaders (+30 more)
+Cohesion: 0.17
+Nodes (14): cancelDeliveredTicket(), markDeliveryTicketDelivered(), adjustInventory(), applyInboundStockChanges(), applyStockChange(), DbClient, deductInventoryForDeliveredTicket(), InboundStockChange (+6 more)
 
 ### Community 170 - "Community 170"
-Cohesion: 0.16
-Nodes (11): createJobFolder(), openJobStructureDocument(), openJobStructureSubmittalsFolder(), CreateJobFolderButton(), CreateJobFolderButtonProps, documentTypeOptions, JobStructureDocumentsSection(), JobStructureDocumentsSectionProps (+3 more)
+Cohesion: 0.44
+Nodes (8): getDeliveryTicketCopyTitles(), addressBlockHtml(), buildDeliveryTicketPdfHtml(), escapeHtml(), optionalNote(), renderDeliveryTicketPage(), renderFooterParagraphs(), renderLineRows()
 
 ### Community 171 - "Community 171"
-Cohesion: 0.09
-Nodes (23): buildLineCreates(), buildLinesPayload(), DeliveryTicketActionResult, GenerateTicketSubmittalResult, parseDate(), SavePlannedLoadsResult, ScheduleJobLoadsResult, splitStructureForShipping() (+15 more)
+Cohesion: 0.33
+Nodes (8): buildDrillSheetFormValues(), decimalToInput(), DrillSheetDetail, DrillSheetFormOpening, DrillSheetFormValues, DrillSheetWithDetail, num(), toDateInputValue()
 
 ### Community 172 - "Community 172"
-Cohesion: 0.12
-Nodes (26): blankOr(), buildDeliveryTicketFormData(), computeTotalPieces(), DbCustomer, DbJob, DeliveryTicketContentPage, DeliveryTicketPdfFillOptions, DeliveryTicketPdfLineItem (+18 more)
+Cohesion: 0.14
+Nodes (22): blankOr(), buildDeliveryTicketFormData(), computeTotalPieces(), DbCustomer, DbDeliveryTicketForPdf, DbJob, DeliveryTicketPdfLineItem, displayOrDash() (+14 more)
 
 ### Community 173 - "Community 173"
-Cohesion: 0.03
-Nodes (23): addHTML(), Area, CheckButton, ContentArea, createLine(), Edge, ExclGroup, Field (+15 more)
+Cohesion: 0.11
+Nodes (6): addHTML(), createLine(), ExclGroup, flushHTML(), getAvailableSpace(), Subform
 
 ### Community 174 - "Community 174"
-Cohesion: 0.05
-Nodes (60): BadgeVariant, StatusBadge(), StatusBadgeProps, variantStyles, AssemblyOption, createRow(), prefillRowsFromPurchaseOrder(), ProductOption (+52 more)
+Cohesion: 0.04
+Nodes (93): makeLoad(), generateLineKey(), PurchaseOrderDetailPage(), InventoryProductSearchOption, resolveReceivingCategory(), saveInventoryAdjustment(), savePurchaseReceipt(), searchInventoryProducts() (+85 more)
 
 ### Community 177 - "Community 177"
-Cohesion: 0.11
-Nodes (27): allocatePurchaseOrderNumber(), formatPurchaseOrderNumber(), resolvePurchaseOrderDirectory(), resolveVendorQuotePath(), applyReceiptToPurchaseOrder(), computePurchaseOrderTotals(), createPurchaseOrderRecord(), DbClient (+19 more)
+Cohesion: 0.10
+Nodes (30): allocatePurchaseOrderNumber(), formatPurchaseOrderNumber(), resolvePurchaseOrderDirectory(), resolveVendorQuotePath(), applyReceiptToPurchaseOrder(), computePurchaseOrderTotals(), createPurchaseOrderRecord(), DbClient (+22 more)
 
 ### Community 179 - "Community 179"
 Cohesion: 0.11
 Nodes (18): build, appId, directories, extraResources, icon, nsis, productName, publish (+10 more)
 
 ### Community 180 - "Community 180"
-Cohesion: 0.19
-Nodes (15): DeliveryTicketPdfCanvasPreview(), DeliveryTicketPdfCanvasPreviewProps, getDeliveryTicketPreviewPrintUrl(), DeliveryTicketPreviewContentProps, DeliveryTicketDetailView, CompanyProfile, DeliveryTicketCopySettings, DeliveryTicketPdfView (+7 more)
+Cohesion: 0.28
+Nodes (7): DeliveryTicketPdfCanvasPreview(), DeliveryTicketPdfCanvasPreviewProps, getDeliveryTicketPreviewPrintUrl(), DeliveryTicketPreviewContent(), DeliveryTicketPreviewContentProps, DeliveryTicketCopySettings, DeliveryTicketPdfView
 
 ### Community 181 - "Community 181"
 Cohesion: 0.50
 Nodes (3): "DailyProductionLine", "InventoryTransaction", "PurchaseReceiptLine"
 
 ### Community 182 - "Community 182"
-Cohesion: 0.24
-Nodes (16): CONNECTION_ALIASES, isBlank(), numberIssue(), parseConnectionCell(), parseDiametersCell(), parseSizesCell(), parseStatusCell(), parseSumpModeCell() (+8 more)
+Cohesion: 0.29
+Nodes (7): ACTIVE_PICKUP_STATUSES, formatDate(), toRow(), WalkInRecord, WalkInsPage(), WalkInRow, WalkInsBoard()
 
 ### Community 185 - "Community 185"
 Cohesion: 0.70
 Nodes (4): "AppSettings", "Product", "ProductCategory", "ProductSubcategory"
 
 ### Community 186 - "Community 186"
-Cohesion: 0.14
-Nodes (8): JobProgressLine, JobProgressSummary, JobProgressView, buildSummary(), DbClient, EMPTY_PROGRESS, structureStatusLabels, SUBMITTAL_DOCUMENT_TYPES
+Cohesion: 0.10
+Nodes (17): JobProgressLine, JobProgressSummary, JobProgressView, formatDateShort(), buildSummary(), DbClient, EMPTY_PROGRESS, structureStatusLabels (+9 more)
 
 ### Community 187 - "Community 187"
-Cohesion: 0.10
-Nodes (28): BulkAttachPage(), JobStructureForm(), JobStructureFormProps, buildWorkflowSteps(), deriveNeedsDrillSheet(), formatDate(), formatQuantity(), JobStructureDetailView (+20 more)
+Cohesion: 0.07
+Nodes (37): BulkAttachPage(), JobStructureForm(), JobStructureFormProps, JobStructureSubmittalActions(), JobStructureSubmittalActionsProps, buildWorkflowSteps(), deriveNeedsDrillSheet(), formatDate() (+29 more)
 
 ### Community 188 - "Community 188"
-Cohesion: 0.14
-Nodes (23): TemplatePdfFieldCoverage, assertPdfSetMatchesShape(), buildNestedCreate(), decimal(), DiameterPayload, optionalNonNegativeNumber(), parseTemplateData(), PipeConnectionType (+15 more)
+Cohesion: 0.08
+Nodes (47): buildCastingResolver(), CastingResolution, importPipeOpenings(), importRectOpenings(), ImportRowInput, ImportRowMessage, importStructureTemplates(), importTemplates() (+39 more)
 
 ### Community 189 - "Community 189"
 Cohesion: 0.20
 Nodes (9): "JobStructureCalc", "JobStructureManholeDetail", "JobStructureOpening", "PipeOpeningSize", "StructureDiameterConfig", "StructureTemplate", "StructureTemplateBootSize", "StructureTemplateDiameter" (+1 more)
 
-### Community 190 - "Community 190"
-Cohesion: 0.24
-Nodes (13): createWonQuoteFixture(), countJobSpecificSubmittals(), ApproveForProductionOptions, approveJobStructureForProduction(), linkJobStructuresFromQuote(), linkJobStructuresFromQuoteInTransaction(), mapLineTypeToStructureType(), markJobStructureMade() (+5 more)
-
 ### Community 191 - "Community 191"
+Cohesion: 0.07
+Nodes (27): FormTypeahead(), FormTypeaheadProps, DeliveryTicketJobSearchOption, SaveDeliveryTicketInput, scheduleJobLoads(), ScheduleLoadUpdate, searchCustomersForWalkInTicket(), searchJobsForDeliveryTicket() (+19 more)
+
+### Community 193 - "Community 193"
+Cohesion: 0.22
+Nodes (3): convertBlackAndWhiteToRGBA(), convertToRGBA(), ImageResizer
+
+### Community 194 - "Community 194"
 Cohesion: 0.10
-Nodes (19): FormTypeahead(), FormTypeaheadProps, DeliveryTicketJobSearchOption, SaveDeliveryTicketInput, searchCustomersForWalkInTicket(), searchJobsForDeliveryTicket(), updateDeliveryTicket(), DeliveryTicketEditor() (+11 more)
-
-### Community 192 - "Community 192"
-Cohesion: 0.17
-Nodes (16): buildRows(), buildCastingBomFromProductCodes(), CastingAssemblyBomImportRow, castingAssemblyEditorKey(), CastingBomRowInput, CastingComponentLookup, CastingComponentOption, castingRoleFormOptions (+8 more)
-
-### Community 196 - "Community 196"
-Cohesion: 0.17
-Nodes (3): CFFFont, findBlock(), Type1Font
+Nodes (7): addHex(), BinaryCMapReader, BinaryCMapStream, hexToInt(), hexToStr(), IdentityCMap, incHex()
 
 ### Community 197 - "Community 197"
 Cohesion: 0.27
 Nodes (9): calculate_sha256_ch(), calculate_sha256_littleSigma(), calculate_sha256_littleSigmaPrime(), calculate_sha256_maj(), calculate_sha256_sigma(), calculate_sha256_sigmaPrime(), calculateSHA256(), PDF17 (+1 more)
 
 ### Community 199 - "Community 199"
-Cohesion: 0.18
-Nodes (14): buildContentPageBytes(), redrawDriverLabel(), applyPickupTicketArtwork(), BAND_CAPTIONS, BAND_COLS, BLACK, centered(), HEADER_BAND_GREY (+6 more)
+Cohesion: 0.21
+Nodes (12): applyPickupTicketArtwork(), BAND_CAPTIONS, BAND_COLS, BLACK, centered(), HEADER_BAND_GREY, hline(), movePickupFieldWidgets() (+4 more)
 
 ### Community 201 - "Community 201"
-Cohesion: 0.05
-Nodes (12): 7642(), 9835(), AnnotationFactory, clearGlobalCaches(), createImage(), createImageDict(), getXfaFontDict(), getXfaFontName() (+4 more)
-
-### Community 204 - "Community 204"
-Cohesion: 0.17
-Nodes (10): colWidths, EXAMPLE_ROWS, exampleSheet, HEADERS, INSTRUCTIONS, instructionsSheet, outDir, outPath (+2 more)
+Cohesion: 0.04
+Nodes (13): AnnotationFactory, clearGlobalCaches(), getXfaFontDict(), getXfaFontName(), isArrayEqual(), isDict(), isRefsEqual(), NetworkPdfManager (+5 more)
 
 ### Community 205 - "Community 205"
-Cohesion: 0.15
+Cohesion: 0.17
 Nodes (13): createCmapTable(), createNameTable(), createOS2Table(), createPostscriptName(), createPostTable(), DataBuilder, getUnicodeRangeFor(), int16() (+5 more)
 
 ### Community 208 - "Community 208"
@@ -1043,8 +1008,8 @@ Cohesion: 0.83
 Nodes (3): "CastingSellArea", "Product", "ProductCastingSellArea"
 
 ### Community 209 - "Community 209"
-Cohesion: 0.25
-Nodes (8): listJobsMissingFolders(), listRecentFiles(), syncAllFiles(), FilesHub(), FilesHubProps, FilesPage(), FilesPageProps, JOB_SUBFOLDERS
+Cohesion: 0.17
+Nodes (10): colWidths, EXAMPLE_ROWS, exampleSheet, HEADERS, INSTRUCTIONS, instructionsSheet, outDir, outPath (+2 more)
 
 ### Community 216 - "Community 216"
 Cohesion: 0.29
@@ -1055,36 +1020,40 @@ Cohesion: 0.40
 Nodes (4): projectRoot, scriptDir, workerSource, workerTarget
 
 ### Community 221 - "Community 221"
-Cohesion: 0.05
-Nodes (44): searchCustomersForJobForm(), updateJobStatusAction(), JobDeliveriesTable(), JobDeliveriesTableProps, attentionToneClassName, JobDeliveriesSection(), JobDetailContentProps, JobInvoicesSection() (+36 more)
+Cohesion: 0.04
+Nodes (57): searchCustomersForJobForm(), updateJobStatusAction(), addJobBidder(), awardJob(), generateQuotesFromMaster(), removeJobBidder(), buildDefaultContactMap(), JobBiddingPanel() (+49 more)
 
 ### Community 222 - "Community 222"
-Cohesion: 0.14
-Nodes (7): Ascii85Stream, bytesToString(), FlateStream, getFontFileType(), isTrueTypeCollectionFile(), isWhiteSpace(), Parser
+Cohesion: 0.40
+Nodes (4): ROLE_LABELS, LoginForm(), LoginFormProps, LoginUserOption
+
+### Community 227 - "Community 227"
+Cohesion: 0.23
+Nodes (4): calculateSHA384(), NullCipher, PDF20, PDFBase
 
 ### Community 248 - "Community 248"
-Cohesion: 0.29
-Nodes (7): BadgeVariant, dateLine(), itemsPaymentLine(), jobNameLine(), paymentLabel(), PickupCardBody(), statusVariant()
+Cohesion: 0.22
+Nodes (9): MarkPickedUpControl(), MarkPickedUpControlProps, BadgeVariant, dateLine(), itemsPaymentLine(), jobNameLine(), paymentLabel(), PickupCardBody() (+1 more)
 
 ### Community 249 - "Community 249"
-Cohesion: 0.06
-Nodes (32): adjustWidths(), amendFallbackToUnicode(), applyStandardFontGlyphMap(), buildToFontChar(), compileFontInfo(), convertCidString(), dn, Font (+24 more)
+Cohesion: 0.12
+Nodes (20): adjustWidths(), applyStandardFontGlyphMap(), dn, ga, getStandardFontName(), getSubroutineBias(), isKnownFontName(), ja (+12 more)
 
 ### Community 256 - "Community 256"
-Cohesion: 0.22
-Nodes (6): Button(), ButtonLink(), ButtonLinkProps, ButtonProps, ButtonVariant, variantClassNames
+Cohesion: 0.15
+Nodes (10): ResetPasswordButton(), ResetPasswordButtonProps, Button(), ButtonLink(), ButtonLinkProps, ButtonProps, ButtonVariant, variantClassNames (+2 more)
 
 ### Community 257 - "Community 257"
-Cohesion: 0.17
-Nodes (6): decrypt(), isHexDigit(), isSpecial(), Lexer, toHexDigit(), Type1Parser
+Cohesion: 0.29
+Nodes (5): decrypt(), findBlock(), isHexDigit(), isSpecial(), Type1Parser
 
 ### Community 260 - "Community 260"
-Cohesion: 0.03
-Nodes (137): InventoryAdjustPage(), AllDeliveryTicketsPage(), startOfToday(), VALID_DELIVERY_STATUSES, Home(), CategoryChip, CategoryChipBar(), CategoryChipBarProps (+129 more)
+Cohesion: 0.05
+Nodes (79): InventoryAdjustPage(), AllDeliveryTicketsPage(), startOfToday(), VALID_DELIVERY_STATUSES, PaginationControls(), PaginationControlsProps, AGGREGATE_SORT_COLUMNS, CUSTOMER_SORT_FIELDS (+71 more)
 
 ### Community 261 - "Community 261"
-Cohesion: 0.12
-Nodes (25): QuoteLineItemRecord, QuoteRecord, blankOr(), buildQuoteFormData(), DbQuoteForPdf, formatDateForPdf(), formatMoneyForPdf(), formatPageNumber() (+17 more)
+Cohesion: 0.13
+Nodes (26): QuoteLineItemRecord, QuoteRecord, blankOr(), buildQuoteFormData(), DbQuoteForPdf, formatDateForPdf(), formatMoneyForPdf(), formatPageNumber() (+18 more)
 
 ### Community 264 - "Community 264"
 Cohesion: 0.29
@@ -1095,44 +1064,32 @@ Cohesion: 0.40
 Nodes (4): Precast Ops desktop updates, Publish a desktop update (from the dev PC), Verify (from any office PC), Which machine does what
 
 ### Community 266 - "Community 266"
-Cohesion: 0.05
-Nodes (43): makeLoad(), generateLineKey(), DiameterConfigPayload, parseDiameterConfigPayload(), saveStructureDiameterConfigs(), StructureDiametersSettingsPageProps, JobProgressPanelProps, randomId() (+35 more)
+Cohesion: 0.04
+Nodes (58): SettingsUsersAuditPage(), createCastingSupplierFormAction(), revalidateCastingSupplierPaths(), updateCastingSupplierFormAction(), CastingSuppliersPage(), CastingSuppliersPageProps, checkBulkCustomerDbDuplicates(), importCustomers() (+50 more)
 
 ### Community 268 - "Community 268"
 Cohesion: 0.22
 Nodes (8): main, name, postcss, overrides, @hono/node-server, next, private, version
 
-### Community 271 - "Community 271"
-Cohesion: 0.24
-Nodes (10): GET(), parseDateParam(), GET(), parseDateParam(), buildDraftInvoiceCoverHtml(), escapeHtml(), money(), DbInvoiceForPdf (+2 more)
-
 ### Community 274 - "Community 274"
 Cohesion: 0.29
 Nodes (4): a, Button, fixURL(), recoverJsURL()
-
-### Community 284 - "Community 284"
-Cohesion: 0.16
-Nodes (13): addJobBidder(), awardJob(), generateQuotesFromMaster(), removeJobBidder(), buildDefaultContactMap(), JobBiddingPanel(), JobBiddingPanelProps, mergeContactSelections() (+5 more)
 
 ### Community 285 - "Community 285"
 Cohesion: 0.50
 Nodes (3): "DailyProductionEntry", "InventoryTransaction", "PurchaseReceiptEntry"
 
 ### Community 289 - "Community 289"
-Cohesion: 0.09
-Nodes (40): parseAdsPipeJointType(), parseCastingRole(), getPriceListsMissingProducts(), upsertProductPriceListItem(), parseAndValidateProductProfile(), parseBulkImportPreset(), parseProductKind(), presetCastingSoldAsUnit() (+32 more)
+Cohesion: 0.06
+Nodes (77): parseAdsPipeJointType(), parseCastingPieceRole(), parseCastingRole(), isRecognizedBulkRingStyle(), parseBulkRingStyle(), getPriceListsMissingProducts(), upsertProductPriceListItem(), BulkImportPreset (+69 more)
 
 ### Community 292 - "Community 292"
 Cohesion: 0.57
 Nodes (4): globalSetup(), url, assertIsTestDatabaseUrl(), getTestDatabaseUrl()
 
-### Community 296 - "Community 296"
-Cohesion: 0.36
-Nodes (7): base64Lines(), buildQuoteDraftEml(), encodeHeaderText(), QuoteDraftEmlInput, sanitizeFilename(), buildSample(), fakePdf
-
 ### Community 300 - "Community 300"
-Cohesion: 0.05
-Nodes (10): AsciiHexStream, BrotliStream, DecodeStream, DecryptStream, ea, Jbig2Stream, JpxStream, PredictorStream (+2 more)
+Cohesion: 0.03
+Nodes (19): AsciiHexStream, bytesToString(), CCITTFaxStream, CipherTransform, DecodeStream, DecryptStream, FlateStream, getFontFileType() (+11 more)
 
 ### Community 311 - "Community 311"
 Cohesion: 0.25
@@ -1146,61 +1103,49 @@ Nodes (3): "RectSheetPdfSet", "RectSheetPdfSetFile", "StructureTemplate"
 Cohesion: 0.53
 Nodes (5): "PurchaseOrder", "PurchaseOrderLine", "PurchaseOrderSequence", "PurchaseReceiptEntry", "Vendor"
 
-### Community 315 - "Community 315"
-Cohesion: 0.25
-Nodes (8): uploadStructureSubmittalFile(), BulkAttachBoard(), BulkAttachJobGroup, BulkAttachMode, BulkAttachTarget, IDLE_TILE, MODES, TileState
-
 ### Community 316 - "Community 316"
 Cohesion: 0.29
 Nodes (3): MessageHandler, WorkerMessageHandler, wrapReason()
 
 ### Community 319 - "Community 319"
-Cohesion: 0.40
-Nodes (8): assertPathUnderRoot(), deleteTemplatePdf(), getStructureTemplatePdfsRoot(), readTemplatePdfBytes(), StructureTemplatePdfRecord, TemplatePdfVariant, main(), uniqueSetName()
+Cohesion: 0.24
+Nodes (10): DEFAULT_APP_SETTINGS_DATA, decodeApiKey(), PrismaDevPayload, resolveDatabaseUrl(), resolvePrismaDevPayload(), resolveShadowDatabaseUrl(), databaseUrl, shadowDatabaseUrl (+2 more)
 
 ### Community 320 - "Community 320"
 Cohesion: 0.14
-Nodes (23): listTemplatePdfFields(), assertPathUnderRoot(), deleteRectPdfSetFile(), getRectPdfSetsRoot(), PDF_EXTENSIONS, readRectPdfSetFileBytes(), RectSheetPdfSetFileRecord, saveRectPdfSetFile() (+15 more)
-
-### Community 321 - "Community 321"
-Cohesion: 0.24
-Nodes (9): deleteProductDocumentAction(), openProductDocument(), revalidateProductPaths(), scanProductDocumentsAction(), uploadProductDocumentAction(), documentTypeOptions, ProductDocumentRow, ProductDocumentsSection() (+1 more)
+Nodes (22): TemplatePdfFieldCoverage, assertPathUnderRoot(), deleteRectPdfSetFile(), getRectPdfSetsRoot(), PDF_EXTENSIONS, readRectPdfSetFileBytes(), RectSheetPdfSetFileRecord, saveRectPdfSetFile() (+14 more)
 
 ### Community 322 - "Community 322"
 Cohesion: 0.40
 Nodes (4): DbClient, JobStatusTrigger, promoteJobStatus(), TRIGGER_TRANSITIONS
 
-### Community 324 - "Community 324"
-Cohesion: 0.29
-Nodes (4): JobQuoteSelectorProps, QuoteFulfillmentPickerProps, QuoteLineFulfillment, getQuoteFulfillmentForTicket()
+### Community 325 - "Community 325"
+Cohesion: 0.22
+Nodes (10): DrillSheetPdfCanvasPreview(), DrillSheetPdfCanvasPreviewProps, DrillSheetPdfPreviewInfo, getDrillSheetPreviewPrintUrl(), LoadedPdf, DrillSheetPreviewContent(), DrillSheetPreviewContentProps, formatVariantLabel() (+2 more)
 
 ### Community 326 - "Community 326"
 Cohesion: 0.29
 Nodes (7): AuthLayer, Customers, Jobs, Products, Quotes, ServerActions, middleware.ts
 
 ### Community 328 - "Community 328"
-Cohesion: 0.33
-Nodes (3): calculateSHA384(), PDF20, PDFBase
-
-### Community 331 - "Community 331"
-Cohesion: 0.36
-Nodes (8): blankOr(), buildInvoiceFormData(), formatCustomerAddress(), formatDateForPdf(), formatMoneyForPdf(), formatPageNumber(), INVOICE_TEMPLATE_FIELD_NAMES, InvoiceContentPage
+Cohesion: 0.22
+Nodes (7): 616(), 8745(), 9504(), 9565(), An, oa(), ya
 
 ### Community 333 - "Community 333"
 Cohesion: 0.67
 Nodes (3): Authentication today, Authorization, Security posture: internal, trusted-network tool
 
 ### Community 334 - "Community 334"
-Cohesion: 0.05
-Nodes (13): 7416(), addCachedImageOps(), getNewAnnotationsMap(), getTilingPatternIR(), isPDFFunction(), ka, ln, lookupMatrix() (+5 more)
+Cohesion: 0.03
+Nodes (18): addCachedImageOps(), BrotliStream, ea, fetchBinaryData(), getNewAnnotationsMap(), getTilingPatternIR(), GlobalImageCache, IccColorSpace (+10 more)
 
-### Community 336 - "Community 336"
-Cohesion: 0.46
-Nodes (7): buildJobFolderBaseName(), createJobFoldersForJob(), createJobFolderStructure(), isFolderPathTakenByAnotherJob(), pathExists(), resolveJobFolderPath(), sanitizeFolderName()
+### Community 337 - "Community 337"
+Cohesion: 0.15
+Nodes (13): Puppeteer, puppeteer, findBrowser(), HTML_PATH, main(), EXAMPLES, findBrowser(), HTML() (+5 more)
 
 ### Community 339 - "Community 339"
-Cohesion: 0.32
-Nodes (6): getQuotePreviewPrintUrl(), QuotePdfCanvasPreview(), QuotePdfCanvasPreviewProps, QuotePreviewContent(), QuotePreviewContentProps, QuoteDetailView
+Cohesion: 0.73
+Nodes (5): getCompanyLogoDataUri(), buildQuotePdfHtml(), escapeHtml(), fieldBlock(), notesBlock()
 
 ### Community 346 - "Community 346"
 Cohesion: 0.25
@@ -1212,31 +1157,35 @@ Nodes (3): "Contact", "Customer", "CustomerContactRoleDefault"
 
 ### Community 386 - "Community 386"
 Cohesion: 0.04
-Nodes (13): 1181(), addChildren(), ChunkedStream, deepCompare(), find(), FontFinder, FontInfo, GlobalColorSpaceCache (+5 more)
+Nodes (16): 1181(), 7416(), addChildren(), _collectJS(), deepCompare(), Dict, FileSpec, find() (+8 more)
+
+### Community 389 - "Community 389"
+Cohesion: 0.14
+Nodes (4): locale_set_LocaleSet, Oid, Producer, XRefEntryException
 
 ### Community 507 - "Community 507"
-Cohesion: 0.18
+Cohesion: 0.20
 Nodes (4): getB(), LZWStream, MeshShading, MeshStreamReader
 
 ## Knowledge Gaps
-- **1237 isolated node(s):** `RouteContext`, `RouteContext`, `RouteContext`, `RouteContext`, `RouteContext` (+1232 more)
+- **1254 isolated node(s):** `RouteContext`, `RouteContext`, `RouteContext`, `RouteContext`, `RouteContext` (+1249 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **227 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **221 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `_` connect `Community 2` to `Community 1`, `Community 3`, `Community 5`, `Community 6`, `Community 7`, `Community 9`, `Community 10`, `Community 12`, `Community 14`, `Community 17`, `Community 18`, `Community 30`, `Community 32`, `Community 40`, `Community 45`, `Community 47`, `Community 48`, `Community 50`, `Community 57`, `Community 64`, `Community 67`, `Community 70`, `Community 77`, `Community 102`, `Community 108`, `Community 109`, `Community 111`, `Community 112`, `Community 114`, `Community 126`, `Community 127`, `Community 129`, `Community 157`, `Community 160`, `Community 162`, `Community 173`, `Community 175`, `Community 183`, `Community 184`, `Community 193`, `Community 194`, `Community 195`, `Community 196`, `Community 197`, `Community 198`, `Community 201`, `Community 202`, `Community 203`, `Community 205`, `Community 206`, `Community 207`, `Community 210`, `Community 213`, `Community 214`, `Community 219`, `Community 220`, `Community 222`, `Community 223`, `Community 224`, `Community 225`, `Community 226`, `Community 227`, `Community 228`, `Community 229`, `Community 230`, `Community 232`, `Community 233`, `Community 234`, `Community 235`, `Community 236`, `Community 237`, `Community 238`, `Community 239`, `Community 240`, `Community 241`, `Community 242`, `Community 243`, `Community 244`, `Community 245`, `Community 246`, `Community 247`, `Community 249`, `Community 250`, `Community 251`, `Community 252`, `Community 253`, `Community 254`, `Community 255`, `Community 257`, `Community 267`, `Community 269`, `Community 270`, `Community 272`, `Community 274`, `Community 281`, `Community 286`, `Community 290`, `Community 291`, `Community 297`, `Community 300`, `Community 302`, `Community 308`, `Community 316`, `Community 317`, `Community 323`, `Community 325`, `Community 328`, `Community 330`, `Community 332`, `Community 334`, `Community 337`, `Community 341`, `Community 342`, `Community 343`, `Community 344`, `Community 345`, `Community 347`, `Community 348`, `Community 350`, `Community 351`, `Community 352`, `Community 353`, `Community 354`, `Community 355`, `Community 356`, `Community 357`, `Community 359`, `Community 360`, `Community 361`, `Community 363`, `Community 364`, `Community 365`, `Community 366`, `Community 367`, `Community 368`, `Community 369`, `Community 370`, `Community 371`, `Community 372`, `Community 373`, `Community 374`, `Community 375`, `Community 376`, `Community 377`, `Community 378`, `Community 379`, `Community 380`, `Community 382`, `Community 383`, `Community 384`, `Community 385`, `Community 386`, `Community 387`, `Community 388`, `Community 389`, `Community 390`, `Community 391`, `Community 392`, `Community 393`, `Community 394`, `Community 395`, `Community 396`, `Community 397`, `Community 399`, `Community 400`, `Community 401`, `Community 402`, `Community 403`, `Community 404`, `Community 405`, `Community 406`, `Community 407`, `Community 408`, `Community 409`, `Community 411`, `Community 412`, `Community 413`, `Community 414`, `Community 415`, `Community 416`, `Community 419`, `Community 420`, `Community 421`, `Community 422`, `Community 423`, `Community 424`, `Community 429`, `Community 434`, `Community 436`, `Community 439`, `Community 440`, `Community 449`, `Community 451`, `Community 453`, `Community 454`, `Community 455`, `Community 471`, `Community 476`, `Community 483`, `Community 495`, `Community 496`, `Community 497`, `Community 507`?**
-  _High betweenness centrality (0.478) - this node is a cross-community bridge._
-- **Why does `StatusSelect()` connect `Community 89` to `Community 140`, `Community 30`, `Community 79`?**
-  _High betweenness centrality (0.168) - this node is a cross-community bridge._
-- **Why does `shadow()` connect `Community 14` to `Community 2`, `Community 6`, `Community 9`, `Community 16`, `Community 17`, `Community 272`, `Community 30`, `Community 162`, `Community 40`, `Community 300`, `Community 45`, `Community 57`, `Community 64`, `Community 201`, `Community 341`, `Community 222`, `Community 102`, `Community 108`, `Community 112`, `Community 114`, `Community 249`, `Community 126`?**
-  _High betweenness centrality (0.149) - this node is a cross-community bridge._
+- **Why does `_` connect `Community 2` to `Community 1`, `Community 3`, `Community 5`, `Community 6`, `Community 7`, `Community 9`, `Community 10`, `Community 12`, `Community 13`, `Community 14`, `Community 17`, `Community 18`, `Community 20`, `Community 32`, `Community 47`, `Community 48`, `Community 50`, `Community 57`, `Community 64`, `Community 67`, `Community 70`, `Community 77`, `Community 102`, `Community 108`, `Community 109`, `Community 111`, `Community 114`, `Community 127`, `Community 128`, `Community 129`, `Community 133`, `Community 157`, `Community 162`, `Community 169`, `Community 173`, `Community 175`, `Community 183`, `Community 184`, `Community 190`, `Community 192`, `Community 193`, `Community 194`, `Community 195`, `Community 196`, `Community 197`, `Community 198`, `Community 201`, `Community 202`, `Community 203`, `Community 204`, `Community 205`, `Community 206`, `Community 207`, `Community 210`, `Community 213`, `Community 214`, `Community 219`, `Community 220`, `Community 223`, `Community 224`, `Community 225`, `Community 226`, `Community 227`, `Community 228`, `Community 229`, `Community 230`, `Community 232`, `Community 233`, `Community 234`, `Community 235`, `Community 236`, `Community 237`, `Community 238`, `Community 239`, `Community 240`, `Community 241`, `Community 242`, `Community 243`, `Community 244`, `Community 245`, `Community 246`, `Community 247`, `Community 249`, `Community 250`, `Community 251`, `Community 252`, `Community 253`, `Community 254`, `Community 255`, `Community 257`, `Community 267`, `Community 269`, `Community 270`, `Community 271`, `Community 272`, `Community 274`, `Community 281`, `Community 284`, `Community 286`, `Community 290`, `Community 291`, `Community 296`, `Community 297`, `Community 300`, `Community 302`, `Community 308`, `Community 315`, `Community 316`, `Community 317`, `Community 321`, `Community 323`, `Community 324`, `Community 328`, `Community 330`, `Community 331`, `Community 332`, `Community 334`, `Community 336`, `Community 341`, `Community 342`, `Community 343`, `Community 344`, `Community 345`, `Community 347`, `Community 348`, `Community 350`, `Community 351`, `Community 352`, `Community 353`, `Community 354`, `Community 355`, `Community 356`, `Community 357`, `Community 359`, `Community 360`, `Community 361`, `Community 363`, `Community 364`, `Community 365`, `Community 366`, `Community 367`, `Community 368`, `Community 369`, `Community 370`, `Community 371`, `Community 372`, `Community 373`, `Community 374`, `Community 375`, `Community 376`, `Community 377`, `Community 378`, `Community 379`, `Community 380`, `Community 382`, `Community 383`, `Community 384`, `Community 385`, `Community 386`, `Community 387`, `Community 388`, `Community 389`, `Community 390`, `Community 391`, `Community 392`, `Community 393`, `Community 394`, `Community 395`, `Community 396`, `Community 397`, `Community 399`, `Community 400`, `Community 401`, `Community 402`, `Community 403`, `Community 404`, `Community 405`, `Community 406`, `Community 407`, `Community 408`, `Community 409`, `Community 411`, `Community 412`, `Community 413`, `Community 414`, `Community 415`, `Community 416`, `Community 419`, `Community 420`, `Community 421`, `Community 422`, `Community 436`, `Community 439`, `Community 453`, `Community 507`?**
+  _High betweenness centrality (0.445) - this node is a cross-community bridge._
+- **Why does `shadow()` connect `Community 14` to `Community 1`, `Community 2`, `Community 386`, `Community 6`, `Community 9`, `Community 13`, `Community 16`, `Community 17`, `Community 18`, `Community 162`, `Community 300`, `Community 48`, `Community 57`, `Community 190`, `Community 64`, `Community 193`, `Community 201`, `Community 334`, `Community 102`, `Community 108`?**
+  _High betweenness centrality (0.164) - this node is a cross-community bridge._
+- **Why does `StatusSelect()` connect `Community 89` to `Community 386`, `Community 266`?**
+  _High betweenness centrality (0.161) - this node is a cross-community bridge._
 - **Are the 39 inferred relationships involving `withDatabaseRetry()` (e.g. with `GET()` and `GET()`) actually correct?**
   _`withDatabaseRetry()` has 39 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 21 inferred relationships involving `requirePermission()` (e.g. with `GET()` and `GET()`) actually correct?**
   _`requirePermission()` has 21 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `RouteContext`, `RouteContext`, `RouteContext` to the rest of the system?**
-  _1237 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `Community 0` be split into smaller, more focused modules?**
-  _Cohesion score 0.060496067755595885 - nodes in this community are weakly interconnected._
+  _1254 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `Community 1` be split into smaller, more focused modules?**
+  _Cohesion score 0.06060606060606061 - nodes in this community are weakly interconnected._

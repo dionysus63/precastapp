@@ -103,6 +103,34 @@ export async function linkJobStructuresFromQuoteInTransaction(
       continue;
     }
 
+    // Detailing flow: drill sheets built straight on the job before any
+    // quote exist as unlinked structures. A structure line whose item code
+    // matches one adopts it — keeping its drill sheet, documents, and
+    // status — instead of creating a duplicate placeholder.
+    const itemCode = line.itemCode.trim();
+    if (quote.jobId && itemCode) {
+      const existing = await client.jobStructure.findFirst({
+        where: {
+          jobId: quote.jobId,
+          quoteId: null,
+          structureNumber: { equals: itemCode, mode: "insensitive" },
+          quoteLineItems: { none: {} },
+        },
+        select: { id: true },
+      });
+      if (existing) {
+        await client.jobStructure.update({
+          where: { id: existing.id },
+          data: { quoteId: quote.id, quantity: line.quantity },
+        });
+        await client.quoteLineItem.update({
+          where: { id: line.id },
+          data: { jobStructureId: existing.id },
+        });
+        continue;
+      }
+    }
+
     const structure = await client.jobStructure.create({
       data: {
         jobId: quote.jobId,
