@@ -515,8 +515,8 @@
     "semantic_hash": ""
   },
   "app/operations/actions.ts": {
-    "mtime": 1784295753.8282921,
-    "ast_hash": "303dffb7bc002ac266499b20a07a0e35",
+    "mtime": 1784322711.087744,
+    "ast_hash": "e052043dc4b67167ca5567eb6e72e4a3",
     "semantic_hash": ""
   },
   "app/production/page.tsx": {
@@ -845,8 +845,8 @@
     "semantic_hash": ""
   },
   "components/jobs/job-detail-content.tsx": {
-    "mtime": 1784312806.6023974,
-    "ast_hash": "6c2cf7062f595e251115533bab37ad86",
+    "mtime": 1784322735.72831,
+    "ast_hash": "fc47c34c4e8f208ee4d6a9a6f6cce6ae",
     "semantic_hash": ""
   },
   "lib/job-detail-mapper.ts": {
@@ -1900,8 +1900,8 @@
     "semantic_hash": ""
   },
   "components/quotes/structure-workbook/structure-workbook.tsx": {
-    "mtime": 1784310328.775996,
-    "ast_hash": "7ece550f35c2d4e9e1709950580d8ef7",
+    "mtime": 1784322929.3476772,
+    "ast_hash": "9d9de7d19c9f879f79b3ef64fda8b2ba",
     "semantic_hash": ""
   },
   "components/settings/structure-diameter-config-form.tsx": {
@@ -2805,8 +2805,8 @@
     "semantic_hash": ""
   },
   "app/quotes/[id]/edit/rect-structures/page.tsx": {
-    "mtime": 1783365963.088445,
-    "ast_hash": "638d091782c02d5d324d4631f37591ab",
+    "mtime": 1784322886.6539674,
+    "ast_hash": "f8b22e3a366f6fbd60d595aadf9643ca",
     "semantic_hash": ""
   },
   "app/quotes/new/rect-structures/page.tsx": {
@@ -2815,13 +2815,13 @@
     "semantic_hash": ""
   },
   "components/quotes/rect-structure-workbook/rect-structure-workbook-page-client.tsx": {
-    "mtime": 1784150104.4251163,
-    "ast_hash": "062e89caff451e812c27ce616a6dafbe",
+    "mtime": 1784322885.176204,
+    "ast_hash": "5580cd77e790f62ae99c1efc8e94f79f",
     "semantic_hash": ""
   },
   "components/quotes/rect-structure-workbook/rect-structure-workbook.tsx": {
-    "mtime": 1784310355.7289267,
-    "ast_hash": "37fbdd4975d5e0b37596acfa28a7453e",
+    "mtime": 1784322875.0874307,
+    "ast_hash": "4d7acbfc39bef276602377fea702a909",
     "semantic_hash": ""
   },
   "lib/quotes/rect-structure-workbook.ts": {
@@ -3527,6 +3527,31 @@
   "prisma/migrations/20260718100000_add_pipe_wall_thickness_to_rect_openings/migration.sql": {
     "mtime": 1784317310.9815168,
     "ast_hash": "ccacd3c17baf54e6b0308f9bd777f054",
+    "semantic_hash": ""
+  },
+  "app/quotes/job-sheet-import-actions.ts": {
+    "mtime": 1784322808.0410523,
+    "ast_hash": "a6aa07ebe4836d24dfb602cabe67047e",
+    "semantic_hash": ""
+  },
+  "components/drill-sheets/mark-all-submitted-button.tsx": {
+    "mtime": 1784322722.5008905,
+    "ast_hash": "c76c415a4bdcedd2bb8803f8b95c8631",
+    "semantic_hash": ""
+  },
+  "components/quotes/job-sheet-import-dialog.tsx": {
+    "mtime": 1784322833.9093173,
+    "ast_hash": "718369d8eb5fe9d2d059ed11030b5b56",
+    "semantic_hash": ""
+  },
+  "lib/quotes/job-sheet-import.ts": {
+    "mtime": 1784322964.456748,
+    "ast_hash": "81ddc8c51dad8a5b3df395e112ff7987",
+    "semantic_hash": ""
+  },
+  "tests/unit/job-sheet-import.test.ts": {
+    "mtime": 1784323030.332076,
+    "ast_hash": "cc72c884f36d011f014f81d4f2ea90c3",
     "semantic_hash": ""
   }
 }

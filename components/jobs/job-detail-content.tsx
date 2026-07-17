@@ -16,6 +16,7 @@ import {
 import { StructureManageLink } from "@/components/jobs/structure-manage-link";
 import { DrillSheetPdfLink } from "@/components/drill-sheets/drill-sheet-pdf-link";
 import { JobDrillSheetsPdfButtons } from "@/components/drill-sheets/job-drill-sheets-pdf-buttons";
+import { MarkAllSubmittedButton } from "@/components/drill-sheets/mark-all-submitted-button";
 import { JobDeliveriesTable } from "@/components/jobs/job-deliveries-table";
 import {
   groupJobRelatedQuotes,
@@ -669,6 +670,16 @@ export function JobProductionSection({
           {structures.some((structure) => structure.drillSheetId) ? (
             <JobDrillSheetsPdfButtons jobId={jobId} />
           ) : null}
+          <MarkAllSubmittedButton
+            jobId={jobId}
+            count={
+              structures.filter(
+                (structure) =>
+                  structure.drillSheetId &&
+                  structure.status === "NOT_SUBMITTED",
+              ).length
+            }
+          />
           {completeDrillSheetsHref ? (
             <Link
               href={completeDrillSheetsHref}

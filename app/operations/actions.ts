@@ -60,6 +60,49 @@ export async function linkStructuresForWonQuote(quoteId: string) {
   });
 }
 
+/**
+ * Detailing flow: after the drill-sheet packet is sent to the contractor,
+ * mark every still-NOT_SUBMITTED structure with a sheet on the job as
+ * submitted in one click. Structures that require an uploaded job-specific
+ * submittal and have none are skipped and reported, not failed.
+ */
+export async function markAllJobStructuresSubmitted(jobId: string) {
+  await requirePermission(AppPermission.PRODUCTION_MANAGE);
+  try {
+    let submitted = 0;
+    const skipped: string[] = [];
+    await withDatabaseRetry(async (client) => {
+      const structures = await client.jobStructure.findMany({
+        where: { jobId, status: "NOT_SUBMITTED", calc: { isNot: null } },
+        select: { id: true, structureNumber: true },
+        orderBy: { createdAt: "asc" },
+      });
+      for (const structure of structures) {
+        try {
+          await submitJobStructureForApproval(client, structure.id);
+          submitted += 1;
+        } catch (error) {
+          skipped.push(
+            `${structure.structureNumber ?? "Structure"}: ${
+              error instanceof Error ? error.message : "could not submit."
+            }`,
+          );
+        }
+      }
+      revalidatePath("/production");
+      revalidatePath(`/jobs/${jobId}`);
+    });
+    return { success: true as const, submitted, skipped };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not mark the structures as submitted.",
+    };
+  }
+}
+
 export async function submitStructureForApproval(jobStructureId: string) {
   await requirePermission(AppPermission.PRODUCTION_MANAGE);
   try {

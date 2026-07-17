@@ -13,6 +13,7 @@ import type { EditableQuoteLineItem } from "@/lib/quotes/types";
 
 type RectStructureWorkbookPageClientProps = {
   quoteId?: string;
+  jobId?: string | null;
   returnPath: string;
   serverLineItems?: EditableQuoteLineItem[];
   templates: RectSheetTemplateOption[];
@@ -22,6 +23,7 @@ type RectStructureWorkbookPageClientProps = {
 
 export function RectStructureWorkbookPageClient({
   quoteId,
+  jobId,
   returnPath,
   serverLineItems = [],
   templates,
@@ -45,6 +47,7 @@ export function RectStructureWorkbookPageClient({
       <div className="mt-4">
         <RectStructureWorkbook
           quoteId={quoteId}
+          jobId={jobId ?? readWorkbookSession(quoteId)?.pendingFormState?.jobId}
           returnPath={effectiveReturnPath}
           initialLineItems={initialLineItems}
           templates={templates}

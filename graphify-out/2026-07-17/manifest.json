@@ -2680,8 +2680,8 @@
     "semantic_hash": ""
   },
   "lib/rect-structure.ts": {
-    "mtime": 1784317387.5831833,
-    "ast_hash": "d520877e9a8894b64d748c20bf741225",
+    "mtime": 1784319245.1358044,
+    "ast_hash": "02a9602ec3b7d0740afdd85584bcfddb",
     "semantic_hash": ""
   },
   "lib/rect-template-pdf-fields.ts": {
@@ -2690,8 +2690,8 @@
     "semantic_hash": ""
   },
   "lib/rect-template-pdf.ts": {
-    "mtime": 1784317509.705982,
-    "ast_hash": "4f403044daa5fe8677be6c0692b09fbd",
+    "mtime": 1784319290.2438295,
+    "ast_hash": "950795b6ab8625a2a81b0b6ca168e814",
     "semantic_hash": ""
   },
   "prisma/migrations/20260706100000_rect_structures/migration.sql": {
@@ -3520,8 +3520,8 @@
     "semantic_hash": ""
   },
   "tests/unit/rect-structure-opening-heights.test.ts": {
-    "mtime": 1784317646.599237,
-    "ast_hash": "ffd4294fab36d451623f347cf9a3bd5f",
+    "mtime": 1784319316.9077396,
+    "ast_hash": "0a3f48af0636abeddfacb9382784569f",
     "semantic_hash": ""
   },
   "prisma/migrations/20260718100000_add_pipe_wall_thickness_to_rect_openings/migration.sql": {

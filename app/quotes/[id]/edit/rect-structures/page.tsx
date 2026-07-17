@@ -63,6 +63,7 @@ export default async function EditQuoteRectStructuresPage({
     >
       <RectStructureWorkbookPageClient
         quoteId={id}
+        jobId={quote.jobId}
         returnPath={`/quotes/${id}/edit`}
         serverLineItems={formValues.lineItems}
         templates={templateOptions}

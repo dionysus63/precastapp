@@ -8,6 +8,8 @@ import { savePlanSheetMarkup } from "@/app/quotes/plan-sheet-actions";
 import { SectionCard } from "@/components/dashboard/section-card";
 import type { DrillSheetTemplateOption } from "@/components/drill-sheets/drill-sheet-form";
 import { CircularImportDialog } from "@/components/quotes/structure-workbook/circular-import-dialog";
+import { JobSheetImportDialog } from "@/components/quotes/job-sheet-import-dialog";
+import { loadJobSheetImportCandidates } from "@/app/quotes/job-sheet-import-actions";
 import { StructureWorkbookDefaultsPanel } from "@/components/quotes/structure-workbook/structure-workbook-defaults";
 import { StructureWorkbookPlanPicker } from "@/components/quotes/structure-workbook/structure-workbook-plan-picker";
 import { StructureWorkbookPlanTakeoff } from "@/components/quotes/structure-workbook/structure-workbook-plan-takeoff";
@@ -171,11 +173,16 @@ export function StructureWorkbook({
     return sourceLineItems.filter((line) => line.rectStructureConfig != null);
   });
   const [importOpen, setImportOpen] = useState(false);
+  const [jobSheetImportOpen, setJobSheetImportOpen] = useState(false);
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(
     () => new Set(),
   );
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Detailing flow: the quote's job may already carry built drill sheets.
+  const effectiveJobId =
+    jobId ?? readWorkbookSession(quoteId)?.pendingFormState?.jobId ?? null;
 
   // Re-price previously entered rows whenever fresh pricing data arrives
   // (options identity changes after a server refresh). Adjusting state during
@@ -705,6 +712,15 @@ export function StructureWorkbook({
           >
             Import from Excel
           </button>
+          {effectiveJobId ? (
+            <button
+              type="button"
+              onClick={() => setJobSheetImportOpen(true)}
+              className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-700 hover:bg-sky-100"
+            >
+              Import from Job Drill Sheets
+            </button>
+          ) : null}
         </div>
 
         <StructureWorkbookGrid
@@ -757,6 +773,24 @@ export function StructureWorkbook({
           quoteModeActive={workbookMode === "QUOTE"}
           onImport={importRows}
           onClose={() => setImportOpen(false)}
+        />
+      ) : null}
+
+      {jobSheetImportOpen && effectiveJobId ? (
+        <JobSheetImportDialog<StructureWorkbookRow>
+          loadCandidates={async () =>
+            (await loadJobSheetImportCandidates(effectiveJobId)).circular
+          }
+          existingNumbers={
+            new Set(
+              rows
+                .map((row) => row.structureNumber.trim().toLowerCase())
+                .filter(Boolean),
+            )
+          }
+          shapeLabel="Circular"
+          onImport={importRows}
+          onClose={() => setJobSheetImportOpen(false)}
         />
       ) : null}
     </div>
