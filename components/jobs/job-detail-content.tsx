@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/dashboard/status-badge";
 import { CreateJobFolderButton } from "@/components/jobs/create-job-folder-button";
 import { OpenJobFolderButton } from "@/components/jobs/open-job-folder-button";
 import { JobInvoiceActions } from "@/components/jobs/job-invoice-actions";
+import { JobStructureImportButton } from "@/components/jobs/job-structure-import-dialog";
 import { JobStructureSubmittalActions } from "@/components/jobs/job-structure-submittal-actions";
 import { JobFavoriteStar } from "@/components/jobs/job-favorite-star";
 import {
@@ -682,6 +683,7 @@ export function JobProductionSection({
           >
             Production queue
           </Link>
+          <JobStructureImportButton jobId={jobId} />
           <Link
             href={`/drill-sheets/new?jobId=${jobId}`}
             className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
