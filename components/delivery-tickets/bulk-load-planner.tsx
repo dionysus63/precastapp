@@ -29,7 +29,6 @@ import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warnin
 import {
   tableBodyClassName,
   tableCellClassName,
-  tableClassName,
   tableGridCellClassName,
   tableHeaderCellClassName,
   tableNumericCellClassName,
@@ -484,6 +483,23 @@ function buildRows(
 
   const editableRows = rows.filter((row): row is ItemRow => row.kind === "item");
   return { rows, groups, editableRows, excludedCastings };
+}
+
+// The grid hugs its content instead of stretching to the page: with only a
+// few load columns the table (and its card) stay tight, and with many the
+// wrapper caps at full width and scrolls exactly as before.
+const plannerTableWrapperClassName = `${tableWrapperClassName} w-fit max-w-full bg-white`;
+const plannerTableClassName =
+  "w-auto border-separate border-spacing-0 text-left text-xs";
+
+/**
+ * Hint text spanning the load columns must not widen them (colSpan content
+ * feeds column sizing in auto table layout): w-0 keeps the cell out of the
+ * width calculation while min-w-full lets the text fill — and wrap to — the
+ * space the load columns actually have.
+ */
+function SpanHint({ children }: { children: React.ReactNode }) {
+  return <div className="w-0 min-w-full">{children}</div>;
 }
 
 // Pinned columns: Item at left 0, Available beside it, Assigned/Left on the
@@ -1264,12 +1280,14 @@ export function BulkLoadPlanner({
             error ? "font-medium text-red-700" : "text-slate-400"
           }`}
         >
-          {error ??
-            (mode === "auto"
-              ? `Ring counts are split across ${group.lines.length} pool group${
-                  group.lines.length === 1 ? "" : "s"
-                } automatically.`
-              : "Assigning rings by pool group below.")}
+          <SpanHint>
+            {error ??
+              (mode === "auto"
+                ? `Ring counts are split across ${group.lines.length} pool group${
+                    group.lines.length === 1 ? "" : "s"
+                  } automatically.`
+                : "Assigning rings by pool group below.")}
+          </SpanHint>
         </td>
         <td
           className={`${stickyAssignedCellClassName} font-medium ${
@@ -1514,8 +1532,8 @@ export function BulkLoadPlanner({
           editor.
         </div>
       ) : (
-        <div className={tableWrapperClassName}>
-          <table ref={tableRef} className={tableClassName} onPaste={handlePaste}>
+        <div className={plannerTableWrapperClassName}>
+          <table ref={tableRef} className={plannerTableClassName} onPaste={handlePaste}>
             <thead>
               <tr>
                 <th
@@ -1628,7 +1646,7 @@ export function BulkLoadPlanner({
                         colSpan={loads.length}
                         className={`${tableCellClassName} italic`}
                       >
-                        {row.reason}
+                        <SpanHint>{row.reason}</SpanHint>
                       </td>
                       <td className={`${stickyAssignedCellClassName} text-slate-300`}>—</td>
                     </tr>
@@ -1657,11 +1675,13 @@ export function BulkLoadPlanner({
                         {formatQuantity(group.available)} {group.unitLabel}
                       </td>
                       <td colSpan={loads.length} className={`${tableCellClassName} text-[11px] text-slate-400`}>
-                        {group.isCastingAssembly
-                          ? "Assign piece counts below — a set is complete only when every piece ships."
-                          : group.isDrainRing
-                            ? "Assign ring counts below — feet are tallied against the quote line."
-                            : "Assign quantities below — options share this line's total."}
+                        <SpanHint>
+                          {group.isCastingAssembly
+                            ? "Assign piece counts below — a set is complete only when every piece ships."
+                            : group.isDrainRing
+                              ? "Assign ring counts below — feet are tallied against the quote line."
+                              : "Assign quantities below — options share this line's total."}
+                        </SpanHint>
                       </td>
                       <td
                         className={`${stickyAssignedCellClassName} font-medium ${
