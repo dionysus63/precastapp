@@ -50,6 +50,8 @@ export type RectOpeningSizeEntry = {
   pipeSizeInches: number;
   openingWidthInches: number;
   openingHeightInches: number;
+  /** Pipe wall thickness (null when not recorded): invert + pipe size + wall = top of pipe. */
+  pipeWallThicknessInches: number | null;
   pricePerOpening: number | null;
 };
 
@@ -123,6 +125,16 @@ export type ComputedRectOpening = RectOpeningInput & {
   openingHeightInches: number | null;
   /** Catalog width before any manual skew override. */
   catalogWidthInches: number | null;
+  /** Catalog height before any extend-to-top adjustment. */
+  catalogHeightInches: number | null;
+  /** Pipe wall thickness from the catalog (null when not recorded). */
+  pipeWallThicknessInches: number | null;
+  /**
+   * The block-out runs to the top of the walls (open-top). Set whenever the
+   * opening's natural top lands within 3" of the wall top — a 3"-or-less
+   * concrete strip over an opening cracks in shipping — or above it.
+   */
+  extendsToTop: boolean;
   pricePerOpening: number | null;
   isLowInvert: boolean;
   bottomOfOpeningFeet: number | null;
@@ -195,6 +207,12 @@ export type RectStructureResult = {
   minPricingApplied: boolean;
   errorMessage: string | null;
   warnings: string[];
+  /**
+   * Hard pipe-fit failures: the pipe itself (invert + size + catalog wall
+   * thickness) tops out above the walls even with the brick at zero. Printed
+   * in red on the drill sheet.
+   */
+  pipeErrors: string[];
 };
 
 const EPSILON = 1e-6;
@@ -294,8 +312,11 @@ function resolveOpenings(
     return {
       ...opening,
       catalogWidthInches: catalogWidth,
+      catalogHeightInches: match?.openingHeightInches ?? null,
       openingWidthInches: opening.widthOverrideInches ?? catalogWidth,
       openingHeightInches: match?.openingHeightInches ?? null,
+      pipeWallThicknessInches: match?.pipeWallThicknessInches ?? null,
+      extendsToTop: false,
       pricePerOpening: match?.pricePerOpening ?? null,
       isLowInvert:
         opening.invertElevation != null &&
@@ -736,12 +757,6 @@ export function computeRectStructure(
         warnings.push(
           `Brick removed and the sump increased to ${Math.round(sumpFeet * 12)}" so the walls clear the highest opening.`,
         );
-        const wallTop = round4(lowInvertElevation - sumpFeet + wallHeightFeet);
-        if (maxOpeningTopFeet > wallTop + EPSILON) {
-          warnings.push(
-            `The highest opening still extends ${Math.round((maxOpeningTopFeet - wallTop) * 12)}" above the top of the walls even with no brick — raise the rim or use a smaller opening.`,
-          );
-        }
       }
     }
   }
@@ -760,6 +775,89 @@ export function computeRectStructure(
       warnings,
     ),
   );
+
+  // Openings whose top lands within 3" of the top of the walls (or above it)
+  // become open-top block-outs that run all the way up: a 3"-or-less concrete
+  // strip over an opening span almost always cracks in shipping, and a
+  // block-out can never rise past the walls themselves.
+  const MIN_TOP_COVER_FEET = 0.25;
+  const wallTopFeet =
+    floorElevation != null && wallHeightFeet > EPSILON
+      ? round4(floorElevation + wallHeightFeet)
+      : null;
+  if (wallTopFeet != null) {
+    openings = openings.map((opening, index) => {
+      if (
+        opening.bottomOfOpeningFeet == null ||
+        opening.topOfOpeningFeet == null ||
+        opening.openingHeightInches == null
+      ) {
+        return opening;
+      }
+      const coverFeet = round4(wallTopFeet - opening.topOfOpeningFeet);
+      if (coverFeet > MIN_TOP_COVER_FEET + EPSILON) {
+        return opening;
+      }
+      const label = opening.label?.trim() || String.fromCharCode(65 + index);
+      const extendedHeightInches = Math.round(
+        (wallTopFeet - opening.bottomOfOpeningFeet) * 12,
+      );
+      if (extendedHeightInches <= 0) {
+        return opening;
+      }
+      const width = opening.openingWidthInches ?? "?";
+      if (coverFeet < -EPSILON) {
+        warnings.push(
+          `Opening ${label} reached past the top of the walls — cut off at the wall top (${width}"x${extendedHeightInches}" open-top block-out).`,
+        );
+      } else if (coverFeet > EPSILON) {
+        warnings.push(
+          `Opening ${label} extended to the top of the walls (${width}"x${extendedHeightInches}" open-top block-out) — ${Math.round(coverFeet * 12)}" of concrete over an opening cracks in shipping.`,
+        );
+      } else {
+        warnings.push(
+          `Opening ${label} runs to the top of the walls (${width}"x${extendedHeightInches}" open-top block-out).`,
+        );
+      }
+      return {
+        ...opening,
+        openingHeightInches: extendedHeightInches,
+        topOfOpeningFeet: wallTopFeet,
+        extendsToTop: true,
+      };
+    });
+  }
+
+  // Hard pipe-fit check: the pipe itself (invert + size + catalog wall
+  // thickness) must stay under the top of the walls. The guard above already
+  // spent all the brick, so failing here means the structure cannot work.
+  const pipeErrors: string[] = [];
+  if (wallTopFeet != null) {
+    openings.forEach((opening, index) => {
+      if (
+        opening.invertElevation == null ||
+        opening.pipeSizeInches == null ||
+        opening.pipeSizeInches <= 0
+      ) {
+        return;
+      }
+      const pipeTopFeet = round4(
+        opening.invertElevation +
+          inchesToFeet(
+            opening.pipeSizeInches + (opening.pipeWallThicknessInches ?? 0),
+          ),
+      );
+      if (pipeTopFeet > wallTopFeet + EPSILON) {
+        const label = opening.label?.trim() || String.fromCharCode(65 + index);
+        const overInches = ((pipeTopFeet - wallTopFeet) * 12).toFixed(1);
+        pipeErrors.push(
+          `${opening.pipeSizeInches}" ${opening.pipeMaterial?.trim() || "pipe"} (${label}) tops out at ${pipeTopFeet.toFixed(2)} — ${overInches}" above the top of the walls (${wallTopFeet.toFixed(2)})${
+            brickFeet <= EPSILON ? " even with no brick" : ""
+          }. Raise the rim or lower the pipe.`,
+        );
+      }
+    });
+  }
 
   // The printed openings table only has rows A-E; extra openings still draw
   // on the exploded view but never get an invert/size row.
@@ -967,6 +1065,7 @@ export function computeRectStructure(
     minPricingApplied: pricing.minPricingApplied,
     errorMessage,
     warnings,
+    pipeErrors,
   };
 }
 

@@ -12,6 +12,7 @@ type RectOpeningPayload = {
   pipeSizeInches: number;
   openingWidthInches: number;
   openingHeightInches: number;
+  pipeWallThicknessInches: number;
   pricePerOpening: number | null;
 };
 
@@ -60,11 +61,16 @@ function parseRectOpeningsPayload(formData: FormData): RectOpeningPayload[] {
         ? null
         : Number(priceRaw);
 
+    const wallRaw = Number(row.pipeWallThicknessInches);
+    const pipeWallThicknessInches =
+      Number.isFinite(wallRaw) && wallRaw > 0 ? wallRaw : 0;
+
     result.push({
       pipeMaterial,
       pipeSizeInches,
       openingWidthInches,
       openingHeightInches,
+      pipeWallThicknessInches,
       pricePerOpening:
         pricePerOpening != null && Number.isFinite(pricePerOpening)
           ? pricePerOpening
@@ -99,6 +105,7 @@ export async function saveRectOpeningSizes(formData: FormData) {
           pipeSizeInches: decimal(entry.pipeSizeInches),
           openingWidthInches: decimal(entry.openingWidthInches),
           openingHeightInches: decimal(entry.openingHeightInches),
+          pipeWallThicknessInches: decimal(entry.pipeWallThicknessInches),
           pricePerOpening:
             entry.pricePerOpening === null
               ? null

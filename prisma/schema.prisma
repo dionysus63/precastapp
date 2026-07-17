@@ -666,12 +666,13 @@ model PipeOpeningSize {
 /// opening width x height (inches). Skewed pipes have no formula; the sheet
 /// form lets the user override the width manually (height stays the same).
 model RectOpeningSize {
-  id                  String   @id @default(cuid())
-  pipeMaterial        String
-  pipeSizeInches      Decimal  @db.Decimal(6, 2)
-  openingWidthInches  Decimal  @db.Decimal(6, 2)
-  openingHeightInches Decimal  @db.Decimal(6, 2)
-  pricePerOpening     Decimal? @db.Decimal(12, 2)
+  id                      String   @id @default(cuid())
+  pipeMaterial            String
+  pipeSizeInches          Decimal  @db.Decimal(6, 2)
+  openingWidthInches      Decimal  @db.Decimal(6, 2)
+  openingHeightInches     Decimal  @db.Decimal(6, 2)
+  pipeWallThicknessInches Decimal  @default(0) @db.Decimal(6, 2)
+  pricePerOpening         Decimal? @db.Decimal(12, 2)
   sortOrder           Int      @default(0)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

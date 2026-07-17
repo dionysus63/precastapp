@@ -426,6 +426,12 @@ function openingRectOnFlap(
     upHi = Math.max(upHi, upLo + gapFrac);
   }
 
+  // Open-top block-outs run to the top of the walls: the drawn box must
+  // visibly TOUCH the flap's outer edge, aspect ratio notwithstanding.
+  if (opening.extendsToTop) {
+    upHi = 1;
+  }
+
   const p1 = flap.point(span.startFraction, upLo);
   const p2 = flap.point(span.endFraction, upHi);
   return {
@@ -436,28 +442,95 @@ function openingRectOnFlap(
   };
 }
 
-/** Knockout symbol: the opening rectangle with an X through it. */
-function drawOpeningKnockout(page: PDFPage, rect: PageRect): void {
-  page.drawRectangle({
-    x: rect.x,
-    y: rect.y,
-    width: rect.width,
-    height: rect.height,
-    borderColor: BLACK,
-    borderWidth: OPENING_LINE_WIDTH_PT,
-  });
+/**
+ * Knockout symbol: the opening rectangle with an X through it. An open-top
+ * block-out (extends to the top of the walls) omits the edge on the wall's
+ * top side — the notch is open there, and drawing it open is what makes the
+ * condition legible on the sheet.
+ */
+type OpenEdge = "top" | "bottom" | "left" | "right" | null;
+
+function drawOpeningKnockout(
+  page: PDFPage,
+  rect: PageRect,
+  openEdge: OpenEdge = null,
+): void {
+  const x0 = rect.x;
+  const x1 = rect.x + rect.width;
+  const y0 = rect.y;
+  const y1 = rect.y + rect.height;
+  if (openEdge == null) {
+    page.drawRectangle({
+      x: rect.x,
+      y: rect.y,
+      width: rect.width,
+      height: rect.height,
+      borderColor: BLACK,
+      borderWidth: OPENING_LINE_WIDTH_PT,
+    });
+  } else {
+    const edges: Record<
+      Exclude<OpenEdge, null>,
+      [{ x: number; y: number }, { x: number; y: number }]
+    > = {
+      top: [
+        { x: x0, y: y1 },
+        { x: x1, y: y1 },
+      ],
+      bottom: [
+        { x: x0, y: y0 },
+        { x: x1, y: y0 },
+      ],
+      left: [
+        { x: x0, y: y0 },
+        { x: x0, y: y1 },
+      ],
+      right: [
+        { x: x1, y: y0 },
+        { x: x1, y: y1 },
+      ],
+    };
+    for (const [edge, [start, end]] of Object.entries(edges) as [
+      Exclude<OpenEdge, null>,
+      [{ x: number; y: number }, { x: number; y: number }],
+    ][]) {
+      if (edge === openEdge) {
+        continue;
+      }
+      page.drawLine({
+        start,
+        end,
+        thickness: OPENING_LINE_WIDTH_PT,
+        color: BLACK,
+      });
+    }
+  }
   page.drawLine({
-    start: { x: rect.x, y: rect.y },
-    end: { x: rect.x + rect.width, y: rect.y + rect.height },
+    start: { x: x0, y: y0 },
+    end: { x: x1, y: y1 },
     thickness: LINE_WIDTH_PT,
     color: BLACK,
   });
   page.drawLine({
-    start: { x: rect.x, y: rect.y + rect.height },
-    end: { x: rect.x + rect.width, y: rect.y },
+    start: { x: x0, y: y1 },
+    end: { x: x1, y: y0 },
     thickness: LINE_WIDTH_PT,
     color: BLACK,
   });
+}
+
+/** Page-side of the flap's OUTER edge (top of the wall) for open-top boxes. */
+function flapOuterEdge(wall: RectWall): Exclude<OpenEdge, null> {
+  switch (wall) {
+    case "UP":
+      return "top";
+    case "DOWN":
+      return "bottom";
+    case "RIGHT":
+      return "right";
+    case "LEFT":
+      return "left";
+  }
 }
 
 /** CAD-style filled arrowhead with its apex at (tipX, tipY). */
@@ -793,7 +866,12 @@ function calloutLayout(entry: PlannedOpening, font: PDFFont): CalloutLayout {
       ? `${opening.openingWidthInches}"x${opening.openingHeightInches}"`
       : letter;
   const offsetText = baseOffsetText(opening);
-  const location = locationText(opening);
+  const location = [
+    locationText(opening),
+    opening.extendsToTop ? "OPEN TO TOP" : null,
+  ]
+    .filter(Boolean)
+    .join(" — ");
   const textDrop =
     CALLOUT_FONT_SIZE_PT +
     (offsetText ? CALLOUT_LINE_GAP_PT : 0) +
@@ -945,7 +1023,11 @@ function drawOpeningsOnFlaps(
     };
   };
   for (const entry of planned) {
-    drawOpeningKnockout(page, entry.rect);
+    drawOpeningKnockout(
+      page,
+      entry.rect,
+      entry.opening.extendsToTop ? flapOuterEdge(entry.flap.wall) : null,
+    );
     const offsetInches = entry.opening.floorToOpeningBottomInches;
     if (offsetInches != null && offsetInches > 0) {
       const others = (rectsByWall.get(entry.flap.wall) ?? []).filter(
@@ -1716,14 +1798,14 @@ function drawTopSlabOpening(
  */
 const CALC_BLOCK_X_PT = 300;
 const CALC_BLOCK_TOP_PT = 148;
-const CALC_BLOCK_VALUE_RIGHT_PT = 448;
+const CALC_BLOCK_VALUE_RIGHT_PT = 377;
 const CALC_LINE_STEP_PT = 10.5;
 
 function drawHeightCalcBlock(
   page: PDFPage,
   result: RectStructureResult,
   font: PDFFont,
-): void {
+): number {
   const rows: [string, number | null][] = [
     ["Rim Elevation", result.rimElevation],
     ["Low Invert", result.lowInvertElevation],
@@ -1738,7 +1820,6 @@ function drawHeightCalcBlock(
     ["Sump (+)", result.sumpFeet],
     ["Brick (-)", result.brickFeet],
     ["Wall Height", result.wallHeightFeet],
-    ["Total Height", result.totalHeightFeet],
   ];
 
   let y = CALC_BLOCK_TOP_PT;
@@ -1781,6 +1862,60 @@ function drawHeightCalcBlock(
       color: BLACK,
     });
     y -= CALC_LINE_STEP_PT;
+  }
+  return y;
+}
+
+/**
+ * Pipe-fit errors printed IN RED under the height-calculation block: the
+ * pipe physically tops out above the walls, so the sheet cannot be built as
+ * drawn. Wrapped to the same blank strip the calc block lives in.
+ */
+const ERROR_COLOR = rgb(0.8, 0, 0);
+const ERROR_FONT_SIZE_PT = 7.5;
+const ERROR_LINE_STEP_PT = 9.5;
+const ERROR_WRAP_WIDTH_PT = 190;
+
+function drawPipeErrors(
+  page: PDFPage,
+  errors: string[],
+  font: PDFFont,
+  startY: number,
+): void {
+  if (errors.length === 0) {
+    return;
+  }
+  let y = startY - 3;
+  for (const error of errors) {
+    const words = `ERROR: ${error}`.split(/\s+/);
+    let line = "";
+    const flush = () => {
+      if (!line) {
+        return;
+      }
+      page.drawText(line, {
+        x: CALC_BLOCK_X_PT,
+        y,
+        size: ERROR_FONT_SIZE_PT,
+        font,
+        color: ERROR_COLOR,
+      });
+      y -= ERROR_LINE_STEP_PT;
+      line = "";
+    };
+    for (const word of words) {
+      const candidate = line ? `${line} ${word}` : word;
+      if (
+        font.widthOfTextAtSize(candidate, ERROR_FONT_SIZE_PT) >
+        ERROR_WRAP_WIDTH_PT
+      ) {
+        flush();
+        line = word;
+      } else {
+        line = candidate;
+      }
+    }
+    flush();
   }
 }
 
@@ -1890,7 +2025,11 @@ export async function fillRectSheetTemplatePdf(
     }
   }
 
-  drawHeightCalcBlock(doc.getPage(0), result, font);
+  const calcEndY = drawHeightCalcBlock(doc.getPage(0), result, font);
+  if (result.pipeErrors.length > 0) {
+    const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
+    drawPipeErrors(doc.getPage(0), result.pipeErrors, boldFont, calcEndY);
+  }
 
   return doc.save();
 }

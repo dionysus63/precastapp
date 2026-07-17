@@ -114,6 +114,13 @@ export function RectSheetDetailView({
           {result.errorMessage}
         </p>
       ) : null}
+      {result.pipeErrors.length > 0 ? (
+        <ul className="space-y-1 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+          {result.pipeErrors.map((error, index) => (
+            <li key={index}>{error}</li>
+          ))}
+        </ul>
+      ) : null}
       {result.warnings.length > 0 ? (
         <ul className="space-y-1 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
           {result.warnings.map((warning, index) => (

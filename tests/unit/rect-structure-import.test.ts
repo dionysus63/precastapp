@@ -56,6 +56,7 @@ const options: RectWorkbookOptions = {
       pipeSizeInches: 15,
       openingWidthInches: 22,
       openingHeightInches: 22,
+      pipeWallThicknessInches: null,
       pricePerOpening: 50,
     },
   ],

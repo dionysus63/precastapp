@@ -13,6 +13,7 @@ const OPENING_SIZES = [
     pipeSizeInches: 18,
     openingWidthInches: 28,
     openingHeightInches: 28,
+    pipeWallThicknessInches: 2.5,
     pricePerOpening: null,
   },
   {
@@ -20,6 +21,7 @@ const OPENING_SIZES = [
     pipeSizeInches: 12,
     openingWidthInches: 20,
     openingHeightInches: 20,
+    pipeWallThicknessInches: 2,
     pricePerOpening: null,
   },
 ];
@@ -86,13 +88,19 @@ describe("computeRectStructure opening-height guard", () => {
         warning.includes("Brick removed and the sump increased"),
       ),
     ).toBe(true);
-    // Even with no brick the 28" opening still pokes ~3" above wallTop
-    // (163.28 vs opening top 163.54) — that residual must be called out.
-    expect(
-      result.warnings.some((warning) =>
-        warning.includes("still extends") && warning.includes("raise the rim"),
-      ),
-    ).toBe(true);
+    // The 28" opening would top out above the walls (163.54 vs 163.28), so
+    // it becomes an open-top block-out cut off at the wall top: 25" tall.
+    const opening = result.openings[0];
+    expect(opening.extendsToTop).toBe(true);
+    expect(opening.openingHeightInches).toBe(25);
+    expect(opening.catalogHeightInches).toBe(28);
+    expect(opening.topOfOpeningFeet).toBeCloseTo(163.28, 2);
+    // And the PIPE itself (18" + 2.5" wall = top 163.33) clears nothing:
+    // 0.6" above the max wall top even with no brick — hard red error.
+    expect(result.pipeErrors).toHaveLength(1);
+    expect(result.pipeErrors[0]).toContain('18" RCP');
+    expect(result.pipeErrors[0]).toContain("even with no brick");
+    expect(result.pipeErrors[0]).toContain("Raise the rim or lower the pipe");
   });
 
   it("raises the walls out of the brick when the available height allows it", () => {
@@ -112,12 +120,18 @@ describe("computeRectStructure opening-height guard", () => {
     const openingTop = result.openings[0].topOfOpeningFeet ?? 0;
     expect(wallTop + 1e-6).toBeGreaterThanOrEqual(openingTop);
     expect(
-      result.warnings.some(
-        (warning) =>
-          warning.includes("still extends") ||
-          warning.includes("Brick removed"),
-      ),
+      result.warnings.some((warning) => warning.includes("Brick removed")),
     ).toBe(false);
+    // Only 2" of concrete would sit over the opening — that strip cracks in
+    // shipping, so the block-out extends to the top of the walls instead.
+    expect(result.openings[0].extendsToTop).toBe(true);
+    expect(
+      result.warnings.some((warning) =>
+        warning.includes("extended to the top of the walls"),
+      ),
+    ).toBe(true);
+    // The pipe itself fits (top 164.71 vs walls 165.08): no red error.
+    expect(result.pipeErrors).toHaveLength(0);
   });
 
   it("leaves structures alone when the opening already fits in the walls", () => {
@@ -139,6 +153,49 @@ describe("computeRectStructure opening-height guard", () => {
           warning.includes("Walls raised") || warning.includes("Brick removed"),
       ),
     ).toBe(false);
+    // Plenty of cover (22") above the opening: no extension, no pipe error.
+    expect(result.openings[0].extendsToTop).toBe(false);
+    expect(result.pipeErrors).toHaveLength(0);
+  });
+
+  it("cuts an opening off at the wall top when it pokes past 30\" walls", () => {
+    // Field report: 30"-tall box, 28"x28" opening @ +3" — the opening tops
+    // out at 31", 1" past the walls. Fixed 8" sump puts the block-out bottom
+    // 3" above the floor; raw lands exactly on 2.5' so nothing can grow.
+    const result = computeRectStructure(
+      input({
+        rimElevation: 163.4533,
+        castingHeightFeet: 0,
+        template: {
+          wallThicknessInches: 8,
+          baseSlabThicknessInches: 8,
+          topSlabThicknessInches: 0,
+          minimumBrickInches: 4,
+          sumpMode: "FIXED",
+          sumpFixedInches: 8,
+          wallPricePerFoot: 0,
+          minPricingHeightFeet: 0,
+          topSlabPrice: 0,
+          baseSlabPrice: 0,
+        },
+      }),
+    );
+
+    expect(result.wallHeightFeet).toBe(2.5);
+    expect(result.brickFeet).toBe(0);
+    const opening = result.openings[0];
+    expect(opening.floorToOpeningBottomInches).toBe(3);
+    // 28"x28" @ +3" becomes a 28"x27" open-top block-out ending at the top.
+    expect(opening.extendsToTop).toBe(true);
+    expect(opening.openingHeightInches).toBe(27);
+    expect(opening.topOfOpeningFeet).toBeCloseTo(163.4533, 3);
+    expect(
+      result.warnings.some((warning) =>
+        warning.includes("cut off at the wall top"),
+      ),
+    ).toBe(true);
+    // The pipe itself (top 163.33) stays under the walls: no red error.
+    expect(result.pipeErrors).toHaveLength(0);
   });
 
   it("keeps sections consistent with the grown wall height", () => {

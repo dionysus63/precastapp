@@ -21,6 +21,7 @@ export type RectOpeningRow = {
   pipeSizeInches: string;
   openingWidthInches: string;
   openingHeightInches: string;
+  pipeWallThicknessInches: string;
   pricePerOpening: string;
 };
 
@@ -40,6 +41,7 @@ function createRow(): RectOpeningRow {
     pipeSizeInches: "",
     openingWidthInches: "",
     openingHeightInches: "",
+    pipeWallThicknessInches: "",
     pricePerOpening: "",
   };
 }
@@ -60,6 +62,7 @@ export function RectOpeningSizesForm({
           pipeSizeInches: row.pipeSizeInches,
           openingWidthInches: row.openingWidthInches,
           openingHeightInches: row.openingHeightInches,
+          pipeWallThicknessInches: row.pipeWallThicknessInches || null,
           pricePerOpening: row.pricePerOpening || null,
         })),
       ),
@@ -102,6 +105,7 @@ export function RectOpeningSizesForm({
                 <th className={tableHeaderCellClassName}>Pipe Size (in)</th>
                 <th className={tableHeaderCellClassName}>Opening Width (in)</th>
                 <th className={tableHeaderCellClassName}>Opening Height (in)</th>
+                <th className={tableHeaderCellClassName}>Pipe Wall Thk (in)</th>
                 <th className={tableHeaderCellClassName}>Price/Opening</th>
                 <th className={tableHeaderCellClassName}></th>
               </tr>
@@ -160,6 +164,23 @@ export function RectOpeningSizesForm({
                         updateRow(row.id, "openingHeightInches", e.target.value)
                       }
                       placeholder="16"
+                      className={structureTableInputClassName}
+                    />
+                  </td>
+                  <td className={tableCellClassName}>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.05"
+                      value={row.pipeWallThicknessInches}
+                      onChange={(e) =>
+                        updateRow(
+                          row.id,
+                          "pipeWallThicknessInches",
+                          e.target.value,
+                        )
+                      }
+                      placeholder="2.5"
                       className={structureTableInputClassName}
                     />
                   </td>

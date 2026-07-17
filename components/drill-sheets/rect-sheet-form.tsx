@@ -64,6 +64,7 @@ export type RectSheetOpeningSizeOption = {
   pipeSizeInches: number;
   openingWidthInches: number;
   openingHeightInches: number;
+  pipeWallThicknessInches: number | null;
   pricePerOpening: number | null;
 };
 

@@ -223,7 +223,7 @@ export async function importRectOpenings(
 
   for (const row of rows) {
     try {
-      const [material, size, width, height, price] = row.cells;
+      const [material, size, width, height, wallThk, price] = row.cells;
       const pipeMaterial = (material ?? "").trim();
       if (!pipeMaterial) {
         throw new Error("Material is required.");
@@ -231,6 +231,9 @@ export async function importRectOpenings(
       const data = {
         openingWidthInches: String(Number(width)),
         openingHeightInches: String(Number(height)),
+        pipeWallThicknessInches: (wallThk ?? "").trim()
+          ? String(Number(wallThk))
+          : "0",
         pricePerOpening: (price ?? "").trim() ? String(Number(price)) : null,
       };
       const where = {

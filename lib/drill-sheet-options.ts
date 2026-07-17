@@ -221,6 +221,10 @@ export async function loadRectSheetFormOptions(): Promise<RectSheetFormOptions> 
       pipeSizeInches: Number(entry.pipeSizeInches),
       openingWidthInches: Number(entry.openingWidthInches),
       openingHeightInches: Number(entry.openingHeightInches),
+      pipeWallThicknessInches:
+        Number(entry.pipeWallThicknessInches) > 0
+          ? Number(entry.pipeWallThicknessInches)
+          : null,
       pricePerOpening:
         entry.pricePerOpening != null ? Number(entry.pricePerOpening) : null,
     })),

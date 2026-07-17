@@ -195,9 +195,12 @@ export const STRUCTURE_IMPORT_TYPES: StructureImportTypeDefinition[] = [
       "Pipe Size (in)",
       "Opening W (in)",
       "Opening H (in)",
+      "Pipe Wall Thk (in)",
       "Price",
     ],
-    example: ["PVC\t12\t16\t16\t45", "RCP\t15\t22\t22\t55"].join("\n"),
+    example: ["PVC\t12\t16\t16\t0.36\t45", "RCP\t15\t22\t22\t2.25\t55"].join(
+      "\n",
+    ),
   },
   {
     type: "pipe-openings",
@@ -330,7 +333,8 @@ function validateRectOpeningRow(cells: string[]): string[] {
     numberIssue(cells[1], "Pipe size", { required: true, allowZero: false }),
     numberIssue(cells[2], "Opening width", { required: true, allowZero: false }),
     numberIssue(cells[3], "Opening height", { required: true, allowZero: false }),
-    numberIssue(cells[4], "Price"),
+    numberIssue(cells[4], "Pipe wall thickness"),
+    numberIssue(cells[5], "Price"),
   ]) {
     if (issue) issues.push(issue);
   }

@@ -1355,8 +1355,8 @@
     "semantic_hash": ""
   },
   "lib/drill-sheet-options.ts": {
-    "mtime": 1784299301.8394606,
-    "ast_hash": "02b28503e8c8fb5c5e2d9fbbbacec504",
+    "mtime": 1784317397.5740106,
+    "ast_hash": "80982be2c16377ee1fe560ae51f0b9ed",
     "semantic_hash": ""
   },
   "lib/drill-sheet-pdf-html.ts": {
@@ -2635,28 +2635,28 @@
     "semantic_hash": ""
   },
   "app/structures/rect-openings/actions.ts": {
-    "mtime": 1783348691.3558726,
-    "ast_hash": "b97adc0f04e392b9ea26330de8e4a877",
+    "mtime": 1784317429.1677096,
+    "ast_hash": "fbaa8765a143ea5692615cd24a196114",
     "semantic_hash": ""
   },
   "app/structures/rect-openings/page.tsx": {
-    "mtime": 1784149912.8791745,
-    "ast_hash": "a71da645f752d27ee860bdb0f46e432c",
+    "mtime": 1784317420.5604634,
+    "ast_hash": "12c761ff1bc9fbfeb0a1f46ccb5c0ba8",
     "semantic_hash": ""
   },
   "components/drill-sheets/rect-sheet-form.tsx": {
-    "mtime": 1784311343.665501,
-    "ast_hash": "5bc0dc4a7a1b2efde25039e06ee971f5",
+    "mtime": 1784317564.4910212,
+    "ast_hash": "184063677aec86c8fa89427250119188",
     "semantic_hash": ""
   },
   "components/drill-sheets/rect-sheet-preview.tsx": {
-    "mtime": 1783891439.6155832,
-    "ast_hash": "be7fc723f60813cd32ff6d375641f7e5",
+    "mtime": 1784317516.064889,
+    "ast_hash": "17483b79542f7c5f9758976189865971",
     "semantic_hash": ""
   },
   "components/structures/rect-opening-sizes-form.tsx": {
-    "mtime": 1784222278.929259,
-    "ast_hash": "5958ea673e629418830de53367b5e2e7",
+    "mtime": 1784317415.7376952,
+    "ast_hash": "c8ccf7c56b987406ff027a9d468068dc",
     "semantic_hash": ""
   },
   "lib/rect-sheet-detail.ts": {
@@ -2670,8 +2670,8 @@
     "semantic_hash": ""
   },
   "lib/rect-sheet-persistence.ts": {
-    "mtime": 1783369895.296658,
-    "ast_hash": "429aa91bed92ebd1a099844de7313969",
+    "mtime": 1784317401.0020857,
+    "ast_hash": "e22ca2b44a58b72c98b4545b1eaf83eb",
     "semantic_hash": ""
   },
   "lib/rect-structure-diagram.ts": {
@@ -2680,8 +2680,8 @@
     "semantic_hash": ""
   },
   "lib/rect-structure.ts": {
-    "mtime": 1784314958.4203308,
-    "ast_hash": "c4b2dd90637b817ca12841e23b62c2e4",
+    "mtime": 1784317387.5831833,
+    "ast_hash": "d520877e9a8894b64d748c20bf741225",
     "semantic_hash": ""
   },
   "lib/rect-template-pdf-fields.ts": {
@@ -2690,8 +2690,8 @@
     "semantic_hash": ""
   },
   "lib/rect-template-pdf.ts": {
-    "mtime": 1784315003.5403044,
-    "ast_hash": "37293203a6f34e39653a237c7f2054b8",
+    "mtime": 1784317509.705982,
+    "ast_hash": "4f403044daa5fe8677be6c0692b09fbd",
     "semantic_hash": ""
   },
   "prisma/migrations/20260706100000_rect_structures/migration.sql": {
@@ -3125,8 +3125,8 @@
     "semantic_hash": ""
   },
   "components/drill-sheets/rect-sheet-detail-view.tsx": {
-    "mtime": 1783808015.3248107,
-    "ast_hash": "ab141b0beda8f8929836d98ac990a863",
+    "mtime": 1784317524.5152328,
+    "ast_hash": "e6b9d2b0034fefac18f93e0d814a8573",
     "semantic_hash": ""
   },
   "app/api/jobs/[jobId]/drill-sheets/route.ts": {
@@ -3175,8 +3175,8 @@
     "semantic_hash": ""
   },
   "app/structures/import/actions.ts": {
-    "mtime": 1783876519.3326921,
-    "ast_hash": "0fdc765a8a3b304856b648eca8c2204a",
+    "mtime": 1784317437.9157662,
+    "ast_hash": "e5cc69011408fc8145e0d01eaf5c761b",
     "semantic_hash": ""
   },
   "app/structures/import/page.tsx": {
@@ -3190,8 +3190,8 @@
     "semantic_hash": ""
   },
   "lib/structure-import.ts": {
-    "mtime": 1783876169.1708217,
-    "ast_hash": "5eecb3049803569c190103aaf55fd536",
+    "mtime": 1784317451.988172,
+    "ast_hash": "f686d38488b61f607779f52f57a0158c",
     "semantic_hash": ""
   },
   "lib/structure-template-payload.ts": {
@@ -3475,8 +3475,8 @@
     "semantic_hash": ""
   },
   "tests/unit/rect-structure-import.test.ts": {
-    "mtime": 1784309302.159764,
-    "ast_hash": "7653499aa4e6e1edaf4e5a4195155db0",
+    "mtime": 1784317680.3486836,
+    "ast_hash": "8e52f79fa652589457bca74a500163cb",
     "semantic_hash": ""
   },
   "components/quotes/structure-workbook/circular-import-dialog.tsx": {
@@ -3520,8 +3520,13 @@
     "semantic_hash": ""
   },
   "tests/unit/rect-structure-opening-heights.test.ts": {
-    "mtime": 1784315079.0803516,
-    "ast_hash": "2b1a16ab3934f64fad08235c6234d8b6",
+    "mtime": 1784317646.599237,
+    "ast_hash": "ffd4294fab36d451623f347cf9a3bd5f",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260718100000_add_pipe_wall_thickness_to_rect_openings/migration.sql": {
+    "mtime": 1784317310.9815168,
+    "ast_hash": "ccacd3c17baf54e6b0308f9bd777f054",
     "semantic_hash": ""
   }
 }

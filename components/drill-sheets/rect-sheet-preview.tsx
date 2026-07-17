@@ -531,6 +531,13 @@ function SummaryPanel({
           {result.errorMessage}
         </p>
       ) : null}
+      {result.pipeErrors.length > 0 ? (
+        <ul className="mt-3 space-y-1 rounded-lg bg-rose-50 px-3 py-2 font-medium text-rose-700">
+          {result.pipeErrors.map((error, index) => (
+            <li key={index}>{error}</li>
+          ))}
+        </ul>
+      ) : null}
       {result.warnings.length > 0 ? (
         <ul className="mt-3 space-y-1 rounded-lg bg-amber-50 px-3 py-2 text-amber-800">
           {result.warnings.map((warning, index) => (

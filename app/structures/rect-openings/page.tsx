@@ -19,6 +19,10 @@ export default async function RectOpeningSizesPage() {
     pipeSizeInches: String(entry.pipeSizeInches),
     openingWidthInches: String(entry.openingWidthInches),
     openingHeightInches: String(entry.openingHeightInches),
+    pipeWallThicknessInches:
+      Number(entry.pipeWallThicknessInches) > 0
+        ? String(entry.pipeWallThicknessInches)
+        : "",
     pricePerOpening:
       entry.pricePerOpening != null ? String(entry.pricePerOpening) : "",
   }));
