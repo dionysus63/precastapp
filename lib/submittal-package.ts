@@ -3,6 +3,7 @@ import os from "os";
 import path from "path";
 import { randomUUID } from "crypto";
 import { PDFDocument } from "pdf-lib";
+import { dedupeSharedPdfObjects } from "@/lib/pdf-dedupe";
 import type { PrismaClient } from "@/app/generated/prisma/client";
 import {
   getJobsRoot,
@@ -368,6 +369,7 @@ async function mergeSubmittalPdfBytes(input: {
     }
   }
 
+  dedupeSharedPdfObjects(merged);
   const pdfBytes = await merged.save();
   return { pdfBytes, missing: input.missing, skipped };
 }
@@ -520,6 +522,7 @@ export async function generateSubmittalPackageForQuote(
       assertPathUnderJobsRoot(await getJobsRoot(), outputPath);
     }
 
+    dedupeSharedPdfObjects(merged);
     const pdfBytes = await merged.save();
     await writeFile(outputPath, pdfBytes);
 

@@ -780,8 +780,8 @@
     "semantic_hash": "82eb12d615372a86da80df799e2ac411"
   },
   "lib/submittal-package.ts": {
-    "mtime": 1784155791.1084898,
-    "ast_hash": "f756aac991bb5ee7fe172b1fee3c4837",
+    "mtime": 1784324230.0937645,
+    "ast_hash": "bbd91820a2f42224783ae139dfccd393",
     "semantic_hash": ""
   },
   "lib/windows-explorer.ts": {
@@ -3140,8 +3140,8 @@
     "semantic_hash": ""
   },
   "lib/job-drill-sheets-pdf.ts": {
-    "mtime": 1783828462.155064,
-    "ast_hash": "c1e86b4700d79b0671be184c93de79ae",
+    "mtime": 1784324187.4163723,
+    "ast_hash": "43bcab98b93fd785021955543740b2ba",
     "semantic_hash": ""
   },
   "app/structures/sheet-pdfs/actions.ts": {
@@ -3552,6 +3552,16 @@
   "tests/unit/job-sheet-import.test.ts": {
     "mtime": 1784323030.332076,
     "ast_hash": "cc72c884f36d011f014f81d4f2ea90c3",
+    "semantic_hash": ""
+  },
+  "lib/pdf-dedupe.ts": {
+    "mtime": 1784324178.0588796,
+    "ast_hash": "8acadb7b91ee8128709c0226bdf14306",
+    "semantic_hash": ""
+  },
+  "tests/unit/pdf-dedupe.test.ts": {
+    "mtime": 1784324261.7208357,
+    "ast_hash": "69ce8736f6e91e8e61c6a42b9191ec0f",
     "semantic_hash": ""
   }
 }

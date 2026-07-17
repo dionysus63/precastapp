@@ -8,6 +8,7 @@ import {
   buildDrillSheetDetail,
   drillSheetDetailInclude,
 } from "@/lib/drill-sheet-detail";
+import { dedupeSharedPdfObjects } from "@/lib/pdf-dedupe";
 import { buildDrillSheetPdfBytes } from "@/lib/drill-sheet-pdf-generate";
 import { rectSheetDetailInclude } from "@/lib/rect-sheet-detail";
 import { buildRectSheetPdfBytes } from "@/lib/rect-sheet-pdf-generate";
@@ -127,6 +128,9 @@ export async function buildJobDrillSheetsPdfBytes(
   }
 
   merged.setTitle(`Drill Sheets — ${job.jobNumber}`);
+  // Every sheet carries a full copy of its template's fonts/logo; collapse
+  // the identical resources so the packet stays a few MB instead of tens.
+  dedupeSharedPdfObjects(merged);
   return {
     ok: true,
     bytes: await merged.save(),
