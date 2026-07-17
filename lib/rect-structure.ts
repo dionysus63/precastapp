@@ -779,13 +779,16 @@ export function computeRectStructure(
   // Openings whose top lands within 3" of the top of the walls (or above it)
   // become open-top block-outs that run all the way up: a 3"-or-less concrete
   // strip over an opening span almost always cracks in shipping, and a
-  // block-out can never rise past the walls themselves.
+  // block-out can never rise past the walls themselves. An opening that pokes
+  // ABOVE the walls keeps its full catalog size and slides DOWN instead (the
+  // pipe rides high in the hole) — it only shrinks when it is taller than the
+  // walls outright.
   const MIN_TOP_COVER_FEET = 0.25;
   const wallTopFeet =
     floorElevation != null && wallHeightFeet > EPSILON
       ? round4(floorElevation + wallHeightFeet)
       : null;
-  if (wallTopFeet != null) {
+  if (wallTopFeet != null && floorElevation != null) {
     openings = openings.map((opening, index) => {
       if (
         opening.bottomOfOpeningFeet == null ||
@@ -794,23 +797,56 @@ export function computeRectStructure(
       ) {
         return opening;
       }
+      const label = opening.label?.trim() || String.fromCharCode(65 + index);
+      const width = opening.openingWidthInches ?? "?";
+
+      if (opening.topOfOpeningFeet > wallTopFeet + EPSILON) {
+        const newBottom = round4(
+          wallTopFeet - inchesToFeet(opening.openingHeightInches),
+        );
+        if (newBottom >= floorElevation - EPSILON) {
+          warnings.push(
+            `Opening ${label} slid down ${Math.round((opening.topOfOpeningFeet - wallTopFeet) * 12)}" to keep the full ${width}"x${opening.openingHeightInches}" block-out under the top of the walls.`,
+          );
+          return {
+            ...opening,
+            bottomOfOpeningFeet: newBottom,
+            topOfOpeningFeet: wallTopFeet,
+            floorToOpeningBottomInches: Math.round(
+              (newBottom - floorElevation) * 12,
+            ),
+            extendsToTop: true,
+          };
+        }
+        // Taller than the walls themselves: floor-to-top is all there is.
+        const cutHeightInches = Math.round((wallTopFeet - floorElevation) * 12);
+        if (cutHeightInches <= 0) {
+          return opening;
+        }
+        warnings.push(
+          `Opening ${label} is taller than the walls — cut off at the wall top (${width}"x${cutHeightInches}" open-top block-out).`,
+        );
+        return {
+          ...opening,
+          bottomOfOpeningFeet: floorElevation,
+          topOfOpeningFeet: wallTopFeet,
+          openingHeightInches: cutHeightInches,
+          floorToOpeningBottomInches: 0,
+          extendsToTop: true,
+        };
+      }
+
       const coverFeet = round4(wallTopFeet - opening.topOfOpeningFeet);
       if (coverFeet > MIN_TOP_COVER_FEET + EPSILON) {
         return opening;
       }
-      const label = opening.label?.trim() || String.fromCharCode(65 + index);
       const extendedHeightInches = Math.round(
         (wallTopFeet - opening.bottomOfOpeningFeet) * 12,
       );
       if (extendedHeightInches <= 0) {
         return opening;
       }
-      const width = opening.openingWidthInches ?? "?";
-      if (coverFeet < -EPSILON) {
-        warnings.push(
-          `Opening ${label} reached past the top of the walls — cut off at the wall top (${width}"x${extendedHeightInches}" open-top block-out).`,
-        );
-      } else if (coverFeet > EPSILON) {
+      if (coverFeet > EPSILON) {
         warnings.push(
           `Opening ${label} extended to the top of the walls (${width}"x${extendedHeightInches}" open-top block-out) — ${Math.round(coverFeet * 12)}" of concrete over an opening cracks in shipping.`,
         );

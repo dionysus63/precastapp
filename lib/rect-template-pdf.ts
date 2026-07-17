@@ -371,11 +371,26 @@ function openingRectOnFlap(
   if (!span) {
     return null;
   }
-  const upLo = Math.max(
+  const upPtPerFrac = Math.max(
+    flap.verticalWall ? flap.height : flap.width,
+    EPSILON,
+  );
+  let upLo = Math.max(
     (opening.bottomOfOpeningFeet - result.floorElevation) /
       result.wallHeightFeet,
     0,
   );
+  // A tight but nonzero floor offset (e.g. +2") leaves no room for the fold
+  // dimension's arrowheads. The exploded view is not to scale, so lift the
+  // drawn bottom edge until the dimension has room to read; the printed
+  // inches stay true.
+  if (
+    (opening.floorToOpeningBottomInches ?? 0) > 0 &&
+    upLo > EPSILON &&
+    upLo * upPtPerFrac < MIN_FOLD_DIM_PT
+  ) {
+    upLo = Math.min(MIN_FOLD_DIM_PT / upPtPerFrac, 0.35);
+  }
   let upHi = Math.min(
     (opening.topOfOpeningFeet - result.floorElevation) / result.wallHeightFeet,
     1,
@@ -386,10 +401,6 @@ function openingRectOnFlap(
     opening.openingHeightInches != null
   ) {
     const alongPtPerFrac = flap.verticalWall ? flap.width : flap.height;
-    const upPtPerFrac = Math.max(
-      flap.verticalWall ? flap.height : flap.width,
-      EPSILON,
-    );
     const alongPt =
       (span.endFraction - span.startFraction) * alongPtPerFrac;
     const heightPt =
@@ -536,6 +547,8 @@ function flapOuterEdge(wall: RectWall): Exclude<OpenEdge, null> {
 /** CAD-style filled arrowhead with its apex at (tipX, tipY). */
 const ARROW_LENGTH_PT = 7;
 const ARROW_HALF_WIDTH_PT = 2.6;
+/** Minimum drawn fold-dimension gap: room for both arrowheads plus a hair. */
+const MIN_FOLD_DIM_PT = 22;
 
 function drawArrowhead(
   page: PDFPage,
@@ -866,12 +879,7 @@ function calloutLayout(entry: PlannedOpening, font: PDFFont): CalloutLayout {
       ? `${opening.openingWidthInches}"x${opening.openingHeightInches}"`
       : letter;
   const offsetText = baseOffsetText(opening);
-  const location = [
-    locationText(opening),
-    opening.extendsToTop ? "OPEN TO TOP" : null,
-  ]
-    .filter(Boolean)
-    .join(" — ");
+  const location = locationText(opening);
   const textDrop =
     CALLOUT_FONT_SIZE_PT +
     (offsetText ? CALLOUT_LINE_GAP_PT : 0) +
@@ -1797,18 +1805,26 @@ function drawTopSlabOpening(
  * ladder: rim down to wall height in decimal feet.
  */
 const CALC_BLOCK_X_PT = 300;
-const CALC_BLOCK_TOP_PT = 148;
-const CALC_BLOCK_VALUE_RIGHT_PT = 377;
-const CALC_LINE_STEP_PT = 10.5;
+const CALC_BLOCK_TOP_PT = 158;
+/** Values print centered on a shared axis just right of the labels. */
+const CALC_BLOCK_VALUE_CENTER_PT = 368;
+const CALC_LINE_STEP_PT = 11.5;
+const CALC_FONT_SIZE_PT = 8;
+const CALC_TITLE_FONT_SIZE_PT = 9;
+/** Half-width of the sum lines drawn under Low Invert and Brick (-). */
+const CALC_SUM_LINE_HALF_PT = 17;
 
 function drawHeightCalcBlock(
   page: PDFPage,
   result: RectStructureResult,
   font: PDFFont,
 ): number {
-  const rows: [string, number | null][] = [
+  // The third element marks the worksheet-style sum line drawn under the
+  // value: Rim - Low Invert => Invert to Top, and the run down through
+  // Brick (-) => Wall Height.
+  const rows: [string, number | null, boolean?][] = [
     ["Rim Elevation", result.rimElevation],
-    ["Low Invert", result.lowInvertElevation],
+    ["Low Invert", result.lowInvertElevation, true],
     ["Invert to Top", result.invertToTopFeet],
     ["Casting (-)", result.castingHeightFeet],
     ...(result.hasTopSlab
@@ -1818,7 +1834,7 @@ function drawHeightCalcBlock(
         ][])
       : []),
     ["Sump (+)", result.sumpFeet],
-    ["Brick (-)", result.brickFeet],
+    ["Brick (-)", result.brickFeet, true],
     ["Wall Height", result.wallHeightFeet],
   ];
 
@@ -1827,14 +1843,15 @@ function drawHeightCalcBlock(
   page.drawText(title, {
     x: CALC_BLOCK_X_PT,
     y,
-    size: LABEL_FONT_SIZE_PT,
+    size: CALC_TITLE_FONT_SIZE_PT,
     font,
     color: BLACK,
   });
   page.drawLine({
     start: { x: CALC_BLOCK_X_PT, y: y - 2 },
     end: {
-      x: CALC_BLOCK_X_PT + font.widthOfTextAtSize(title, LABEL_FONT_SIZE_PT),
+      x:
+        CALC_BLOCK_X_PT + font.widthOfTextAtSize(title, CALC_TITLE_FONT_SIZE_PT),
       y: y - 2,
     },
     thickness: 0.6,
@@ -1842,25 +1859,35 @@ function drawHeightCalcBlock(
   });
   y -= CALC_LINE_STEP_PT + 2;
 
-  for (const [label, value] of rows) {
+  for (const [label, value, sumLine] of rows) {
     if (value == null) {
       continue;
     }
     page.drawText(label, {
       x: CALC_BLOCK_X_PT,
       y,
-      size: 7,
+      size: CALC_FONT_SIZE_PT,
       font,
       color: BLACK,
     });
     const text = value.toFixed(2);
     page.drawText(text, {
-      x: CALC_BLOCK_VALUE_RIGHT_PT - font.widthOfTextAtSize(text, 7),
+      x:
+        CALC_BLOCK_VALUE_CENTER_PT -
+        font.widthOfTextAtSize(text, CALC_FONT_SIZE_PT) / 2,
       y,
-      size: 7,
+      size: CALC_FONT_SIZE_PT,
       font,
       color: BLACK,
     });
+    if (sumLine) {
+      page.drawLine({
+        start: { x: CALC_BLOCK_VALUE_CENTER_PT - CALC_SUM_LINE_HALF_PT, y: y - 2.5 },
+        end: { x: CALC_BLOCK_VALUE_CENTER_PT + CALC_SUM_LINE_HALF_PT, y: y - 2.5 },
+        thickness: 0.6,
+        color: BLACK,
+      });
+    }
     y -= CALC_LINE_STEP_PT;
   }
   return y;
