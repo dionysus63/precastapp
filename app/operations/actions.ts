@@ -109,10 +109,16 @@ export async function approveStructureForProduction(formData: FormData) {
  * Bulk attach board: upload one job-specific submittal file for a structure.
  * Unlike the jobs-page upload action this returns errors instead of throwing,
  * so one bad tile doesn't blow up a whole drag-and-drop batch.
+ *
+ * With markSubmitted, a still-NOT_SUBMITTED structure is also marked as
+ * submitted — the queue steps ("needs submittal" → "awaiting approval") are
+ * status-driven, and the bulk board exists so nobody has to open every
+ * structure just to click "Mark as submitted" after uploading.
  */
 export async function uploadStructureSubmittalFile(formData: FormData) {
   await requirePermission(AppPermission.PRODUCTION_MANAGE);
   const jobStructureId = String(formData.get("jobStructureId") ?? "").trim();
+  const markSubmitted = formData.get("markSubmitted") === "true";
   const file = formData.get("file");
 
   if (!jobStructureId) {
@@ -123,6 +129,7 @@ export async function uploadStructureSubmittalFile(formData: FormData) {
   }
 
   try {
+    let submitted = false;
     await withDatabaseRetry(async (client) => {
       const { uploadJobStructureDocument } = await import(
         "@/lib/job-structure-documents-service"
@@ -133,9 +140,19 @@ export async function uploadStructureSubmittalFile(formData: FormData) {
         "JOB_SPECIFIC_SUBMITTAL",
         file,
       );
+      if (markSubmitted) {
+        const structure = await client.jobStructure.findUnique({
+          where: { id: jobStructureId },
+          select: { status: true },
+        });
+        if (structure?.status === "NOT_SUBMITTED") {
+          await submitJobStructureForApproval(client, jobStructureId);
+          submitted = true;
+        }
+      }
       await revalidateStructurePaths(client, jobStructureId);
     });
-    return { success: true };
+    return { success: true, submitted };
   } catch (error) {
     return {
       error:

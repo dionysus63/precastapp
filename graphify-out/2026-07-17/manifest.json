@@ -100,8 +100,8 @@
     "semantic_hash": ""
   },
   "app/quotes/[id]/page.tsx": {
-    "mtime": 1783891711.084365,
-    "ast_hash": "4f978fe39ac25436deb08716bf008a3b",
+    "mtime": 1784292151.2818437,
+    "ast_hash": "6d55b22fcbbd11866ca658f35dc25d18",
     "semantic_hash": ""
   },
   "app/quotes/[id]/preview/not-found.tsx": {
@@ -245,8 +245,8 @@
     "semantic_hash": ""
   },
   "components/quotes/quote-detail-content.tsx": {
-    "mtime": 1784150045.84503,
-    "ast_hash": "ddc2f159e028357b599b716744c23c87",
+    "mtime": 1784292137.469408,
+    "ast_hash": "292c4605fdbfbabeed5af02dfb681290",
     "semantic_hash": ""
   },
   "components/quotes/quote-form.tsx": {
@@ -1600,13 +1600,13 @@
     "semantic_hash": ""
   },
   "electron/main.mjs": {
-    "mtime": 1783971142.8866384,
-    "ast_hash": "0036d5f27353a180956c83547d1f82e0",
+    "mtime": 1784292190.7472699,
+    "ast_hash": "acd3d52ecc47eb6dfd80593f266efbf9",
     "semantic_hash": ""
   },
   "electron/package.json": {
-    "mtime": 1783971687.9868855,
-    "ast_hash": "1849628f23df68f4dc6b3a17ddb35733",
+    "mtime": 1784292195.7182052,
+    "ast_hash": "677e91f1c71a9f1e07fcde6ae30666d8",
     "semantic_hash": ""
   },
   "scripts/deploy/build-electron-client.ps1": {
@@ -1620,8 +1620,8 @@
     "semantic_hash": ""
   },
   "app/api/quotes/[id]/preview/route.ts": {
-    "mtime": 1782482206.7364762,
-    "ast_hash": "9359af3df68a5e8cdda83eac667076ef",
+    "mtime": 1784292057.9539547,
+    "ast_hash": "f816ed598ef96d82419cbe6834049de4",
     "semantic_hash": ""
   },
   "components/quotes/quote-pdf-canvas-preview.tsx": {
@@ -3280,8 +3280,8 @@
     "semantic_hash": ""
   },
   "lib/open-on-client.ts": {
-    "mtime": 1783971377.9610555,
-    "ast_hash": "d15355f8c89632edb129f052f251de4c",
+    "mtime": 1784292068.5361044,
+    "ast_hash": "9a536f0d14cf3141dae1959540650e37",
     "semantic_hash": ""
   },
   "tests/unit/quote-pdf-line-items.test.ts": {
@@ -3442,6 +3442,11 @@
   "components/production/bulk-attach-board.tsx": {
     "mtime": 1784290541.410707,
     "ast_hash": "8da3502f2efb0a8e35bf2e6909e0d9b4",
+    "semantic_hash": ""
+  },
+  "components/quotes/quote-pdf-drag-chip.tsx": {
+    "mtime": 1784292084.0524416,
+    "ast_hash": "5c7bff66432f3ef426bfe6af7d0a98a3",
     "semantic_hash": ""
   }
 }

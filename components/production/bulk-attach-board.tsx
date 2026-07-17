@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import {
   approveStructureForProduction,
@@ -74,7 +75,11 @@ export function BulkAttachBoard({
   groups: BulkAttachJobGroup[];
   initialMode: BulkAttachMode;
 }) {
+  const router = useRouter();
   const [mode, setMode] = useState<BulkAttachMode>(initialMode);
+  // Uploading is rarely the whole job — the queues are status-driven, so by
+  // default an upload also marks the structure submitted (Awaiting approval).
+  const [markSubmitted, setMarkSubmitted] = useState(true);
   // Tile state is keyed `${mode}:${structureId}` so switching modes never
   // shows a stale "done" from the other mode's action.
   const [tiles, setTiles] = useState<Record<string, TileState>>({});
@@ -155,6 +160,7 @@ export function BulkAttachBoard({
     }
 
     const uploaded = [...current.uploaded];
+    let submitted = false;
     for (const [index, file] of files.entries()) {
       setTile(target.id, {
         status: "busy",
@@ -167,6 +173,11 @@ export function BulkAttachBoard({
       const formData = new FormData();
       formData.set("jobStructureId", target.id);
       formData.set("file", file);
+      // Only the batch's last file flips the status, so a multi-file drop
+      // lands every submittal before the structure moves queues.
+      if (markSubmitted && index === files.length - 1) {
+        formData.set("markSubmitted", "true");
+      }
       const result = await uploadStructureSubmittalFile(formData);
       if (result?.error) {
         setTile(target.id, {
@@ -177,12 +188,22 @@ export function BulkAttachBoard({
         return;
       }
       uploaded.push(file.name);
+      if ("submitted" in result && result.submitted) {
+        submitted = true;
+      }
     }
     setTile(target.id, {
       status: "done",
-      message: null,
+      message: submitted
+        ? `Uploaded ${uploaded.length} file${uploaded.length === 1 ? "" : "s"} · marked submitted`
+        : null,
       uploaded,
     });
+    if (submitted) {
+      // The structure just became approval-eligible; refresh so the
+      // Approvals tab picks it up without a manual reload.
+      router.refresh();
+    }
   }
 
   function renderTile(group: BulkAttachJobGroup, target: BulkAttachTarget) {
@@ -353,6 +374,27 @@ export function BulkAttachBoard({
       </div>
 
       <p className="text-xs text-slate-500">{activeMode.description}</p>
+
+      {mode === "submittals" ? (
+        <label className="flex w-fit cursor-pointer items-start gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700">
+          <input
+            type="checkbox"
+            checked={markSubmitted}
+            onChange={(event) => setMarkSubmitted(event.target.checked)}
+            className="mt-0.5 rounded border-slate-300"
+          />
+          <span>
+            <span className="font-medium text-slate-900">
+              Mark structures as submitted after upload
+            </span>
+            <span className="mt-0.5 block text-slate-500">
+              Moves them from “Needs submittal” to “Awaiting approval” on the
+              production board. Uncheck if the submittal still has to go out
+              to the contractor.
+            </span>
+          </span>
+        </label>
+      ) : null}
 
       {visibleGroups.length === 0 ? (
         <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-600">
