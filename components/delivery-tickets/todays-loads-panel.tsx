@@ -91,7 +91,7 @@ export function TodaysLoadsPanel({
                     {ticket.jobId ? (
                       <Link
                         href={`/jobs/${ticket.jobId}`}
-                        className="font-medium text-sky-700 hover:underline"
+                        className="font-medium text-slate-700 hover:text-sky-700 hover:underline"
                       >
                         {ticket.jobNumber}
                       </Link>
@@ -103,7 +103,7 @@ export function TodaysLoadsPanel({
                     {ticket.customerId ? (
                       <Link
                         href={`/customers/${ticket.customerId}`}
-                        className="text-sky-700 hover:underline"
+                        className="text-slate-900 hover:text-sky-700 hover:underline"
                       >
                         {ticket.customer}
                       </Link>
@@ -115,7 +115,7 @@ export function TodaysLoadsPanel({
                     {ticket.jobId ? (
                       <Link
                         href={`/jobs/${ticket.jobId}`}
-                        className="text-sky-700 hover:underline"
+                        className="text-slate-700 hover:text-sky-700 hover:underline"
                       >
                         {ticket.projectName}
                       </Link>
