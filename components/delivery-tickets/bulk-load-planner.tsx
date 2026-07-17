@@ -3,15 +3,27 @@
 import Link from "next/link";
 import { randomId } from "@/lib/random-id";
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useRef, useState, useTransition } from "react";
+import {
+  Fragment,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import {
   savePlannedLoads,
   type DeliveryTicketLineInput,
   type PlannedLoadInput,
   type SavePlannedLoadsInput,
 } from "@/app/delivery-tickets/actions";
+import { allocateRingsForLoads } from "@/components/delivery-tickets/drain-ring-matrix-utils";
 import { formatCastingPieceRoleLabel } from "@/lib/casting-utils";
-import type { QuoteLineFulfillment } from "@/lib/delivery-fulfillment";
+import type {
+  DrainRingOption,
+  QuoteLineFulfillment,
+} from "@/lib/delivery-fulfillment";
+import { formatDrainRingStyleLabel } from "@/lib/drain-ring-utils";
 import { formatQuantity, formatWeightLb } from "@/lib/format";
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning";
 import {
@@ -136,6 +148,31 @@ type Group = {
 };
 
 type ExcludedLine = { itemCode: string; displayName: string };
+
+type RingMode = "pool" | "auto";
+
+/**
+ * Every drain-ring quote line of one diameter+style, viewed as a single
+ * assignable unit for auto mode. The per-pool cells stay the source of
+ * truth — auto inputs show sums and every edit re-solves the split across
+ * pools (for all load columns, in order) and writes the result back.
+ */
+type RingStyleGroup = {
+  key: string;
+  title: string;
+  lines: QuoteLineFulfillment[];
+  /** Every ring height offered across the group's pool lines, shortest first. */
+  options: DrainRingOption[];
+  /** LF each pool line can still take (remaining net of open tickets). */
+  availableByLineId: Map<string, number>;
+  totalAvailableFeet: number;
+  /** First planner row belonging to this group — where the section renders. */
+  anchorRowKey: string | null;
+  /** Keyboard-nav row index reused by the auto input for each ring height. */
+  navRowByProductId: Map<string, number>;
+  /** Row keys of the group's per-pool item rows (the cells auto mode writes). */
+  itemRowKeys: Set<string>;
+};
 
 function cellKey(rowKey: string, loadKey: string): string {
   return `${rowKey}|${loadKey}`;
@@ -496,6 +533,186 @@ export function BulkLoadPlanner({
     [fulfillment, scheduled, seededRowKeys],
   );
 
+  // Drain rings grouped by diameter+style for the auto/pool assignment
+  // toggle, mirroring the single-ticket editor's ring matrix.
+  const ringStyleGroups = useMemo(() => {
+    const byKey = new Map<string, RingStyleGroup>();
+    const keyByLineId = new Map<string, string>();
+
+    for (const meta of fulfillment) {
+      if (!meta.isDrainRing) continue;
+      const key = `${meta.ringDiameterFeet ?? "unknown"}:${meta.drainRingStyle}`;
+      keyByLineId.set(meta.quoteLineItemId, key);
+      let group = byKey.get(key);
+      if (!group) {
+        group = {
+          key,
+          title:
+            meta.ringDiameterFeet != null
+              ? `${meta.ringDiameterFeet}'Ø ${formatDrainRingStyleLabel(meta.drainRingStyle)} Rings`
+              : `${formatDrainRingStyleLabel(meta.drainRingStyle)} Rings`,
+          lines: [],
+          options: [],
+          availableByLineId: new Map(),
+          totalAvailableFeet: 0,
+          anchorRowKey: null,
+          navRowByProductId: new Map(),
+          itemRowKeys: new Set(),
+        };
+        byKey.set(key, group);
+      }
+      group.lines.push(meta);
+      const available = Math.max(
+        0,
+        roundQty(meta.remainingQty - (scheduled[meta.quoteLineItemId] ?? 0)),
+      );
+      group.availableByLineId.set(meta.quoteLineItemId, available);
+      group.totalAvailableFeet = roundQty(group.totalAvailableFeet + available);
+    }
+
+    for (const group of byKey.values()) {
+      group.lines.sort(
+        (left, right) =>
+          left.lineNumber - right.lineNumber ||
+          left.quoteLineItemId.localeCompare(right.quoteLineItemId),
+      );
+      const optionById = new Map<string, DrainRingOption>();
+      for (const line of group.lines) {
+        for (const option of line.drainRingOptions) {
+          if (!optionById.has(option.productId)) {
+            optionById.set(option.productId, option);
+          }
+        }
+      }
+      group.options = [...optionById.values()].sort(
+        (left, right) =>
+          left.heightFeet - right.heightFeet ||
+          left.productCode.localeCompare(right.productCode) ||
+          left.productId.localeCompare(right.productId),
+      );
+    }
+
+    for (const row of rows) {
+      const lineId =
+        row.kind === "group"
+          ? row.groupKey
+          : row.kind === "item"
+            ? row.quoteLineItemId
+            : row.kind === "ineligible"
+              ? row.key
+              : null;
+      if (!lineId) continue;
+      const key = keyByLineId.get(lineId);
+      if (!key) continue;
+      const group = byKey.get(key)!;
+      if (group.anchorRowKey == null) {
+        group.anchorRowKey = row.key;
+      }
+      if (row.kind === "item" && row.productId) {
+        group.itemRowKeys.add(row.key);
+        if (!group.navRowByProductId.has(row.productId)) {
+          group.navRowByProductId.set(row.productId, row.navRow);
+        }
+      }
+    }
+
+    return { byKey, keyByLineId };
+  }, [fulfillment, scheduled, rows]);
+
+  // Auto-assign is the default, matching the single-ticket editor.
+  const [ringModes, setRingModes] = useState<Record<string, RingMode>>({});
+  const [autoRingErrors, setAutoRingErrors] = useState<
+    Record<string, string | null>
+  >({});
+
+  function getRingMode(key: string): RingMode {
+    return ringModes[key] ?? "auto";
+  }
+
+  function toggleRingMode(key: string) {
+    setRingModes((current) => ({
+      ...current,
+      [key]: (current[key] ?? "auto") === "auto" ? "pool" : "auto",
+    }));
+    setAutoRingErrors((current) => ({ ...current, [key]: null }));
+  }
+
+  /** What the auto input shows: this ring height's count summed across pools. */
+  function autoRingCount(
+    group: RingStyleGroup,
+    productId: string,
+    loadKey: string,
+  ): number {
+    let total = 0;
+    for (const line of group.lines) {
+      total += parseQty(
+        cells[cellKey(`${line.quoteLineItemId}::${productId}`, loadKey)],
+      );
+    }
+    return roundQty(total);
+  }
+
+  /**
+   * Auto-mode edit: re-solve the pool split from scratch for every load
+   * column in order (earlier loads consume pool feet before later ones), so
+   * an earlier ring that landed in one pool can never block a combination
+   * that fits when arranged differently. On success the per-pool cells for
+   * the whole group are rewritten; on failure nothing changes and the error
+   * names the load that can't fit.
+   */
+  function handleAutoRingChange(
+    group: RingStyleGroup,
+    productId: string,
+    loadKey: string,
+    rawValue: string,
+  ) {
+    const numeric = Number(rawValue);
+    const editedCount =
+      rawValue.trim() !== "" && Number.isFinite(numeric) && numeric > 0
+        ? Math.floor(numeric)
+        : 0;
+
+    const desiredByLoad = loads.map((load) => {
+      const desired: Record<string, number> = {};
+      for (const option of group.options) {
+        desired[option.productId] =
+          load.key === loadKey && option.productId === productId
+            ? editedCount
+            : autoRingCount(group, option.productId, load.key);
+      }
+      return desired;
+    });
+
+    const result = allocateRingsForLoads(
+      group.lines,
+      group.availableByLineId,
+      group.options,
+      desiredByLoad,
+    );
+    if (!result.ok) {
+      const failedLoad = loads[result.loadIndex];
+      const label =
+        failedLoad?.ticketNumber ?? `Load ${result.loadIndex + 1}`;
+      setAutoRingErrors((current) => ({
+        ...current,
+        [group.key]: `${label}: ${result.reason}`,
+      }));
+      return;
+    }
+
+    setAutoRingErrors((current) => ({ ...current, [group.key]: null }));
+    setCells((current) => {
+      const next = { ...current };
+      loads.forEach((load, index) => {
+        for (const rowKey of group.itemRowKeys) {
+          const count = result.countsByLoad[index].get(rowKey) ?? 0;
+          next[cellKey(rowKey, load.key)] = count > 0 ? String(count) : "";
+        }
+      });
+      return next;
+    });
+  }
+
   // Job-level outlook: what's left to deliver and how many loads that is.
   const remaining = useMemo(() => {
     let weight = 0;
@@ -790,6 +1007,11 @@ export function BulkLoadPlanner({
       return;
     }
     const active = document.activeElement;
+    if (active instanceof HTMLElement && active.hasAttribute("data-plan-auto")) {
+      // Auto ring inputs re-solve the pool split on change — grid paste
+      // would bypass that, so let the input take the paste normally.
+      return;
+    }
     const rowAttr = active instanceof HTMLElement ? active.getAttribute("data-plan-row") : null;
     const colAttr = active instanceof HTMLElement ? active.getAttribute("data-plan-col") : null;
     if (rowAttr == null || colAttr == null) {
@@ -995,6 +1217,156 @@ export function BulkLoadPlanner({
       setSaved(true);
       router.push(`/delivery-tickets/schedule?jobId=${jobId}`);
       router.refresh();
+    });
+  }
+
+  /** Title row with the auto/pool toggle; carries the group totals in auto mode. */
+  function renderRingStyleHeader(group: RingStyleGroup, mode: RingMode) {
+    const assignedFeet = roundQty(
+      group.lines.reduce(
+        (sum, line) => sum + (groupAssigned.get(line.quoteLineItemId) ?? 0),
+        0,
+      ),
+    );
+    const leftFeet = roundQty(group.totalAvailableFeet - assignedFeet);
+    const over = group.lines.some((line) =>
+      overAssignedGroups.has(line.quoteLineItemId),
+    );
+    const error = autoRingErrors[group.key];
+
+    return (
+      <tr className="bg-slate-50/70">
+        <td className={`${stickyItemCellClassName} !bg-slate-50`}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-semibold text-slate-800">{group.title}</span>
+            <button
+              type="button"
+              onClick={() => toggleRingMode(group.key)}
+              className="shrink-0 rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              {mode === "pool" ? "Auto-assign" : "Assign by pool"}
+            </button>
+          </div>
+        </td>
+        <td
+          className={`${stickyAvailableCellClassName} !bg-slate-50 font-medium`}
+        >
+          {mode === "auto" ? (
+            <>
+              {formatQuantity(group.totalAvailableFeet)}{" "}
+              <span className="text-slate-400">LF</span>
+            </>
+          ) : null}
+        </td>
+        <td
+          colSpan={loads.length}
+          className={`${tableCellClassName} text-[11px] ${
+            error ? "font-medium text-red-700" : "text-slate-400"
+          }`}
+        >
+          {error ??
+            (mode === "auto"
+              ? `Ring counts are split across ${group.lines.length} pool group${
+                  group.lines.length === 1 ? "" : "s"
+                } automatically.`
+              : "Assigning rings by pool group below.")}
+        </td>
+        <td
+          className={`${stickyAssignedCellClassName} font-medium ${
+            over
+              ? "!bg-red-50 text-red-700"
+              : mode !== "auto"
+                ? "!bg-slate-50"
+                : leftFeet > 0.001
+                  ? "!bg-slate-50 text-amber-600"
+                  : "!bg-slate-50 text-emerald-700"
+          }`}
+        >
+          {mode === "auto" ? (
+            <>
+              {formatQuantity(assignedFeet)} / {formatQuantity(leftFeet)} LF
+            </>
+          ) : null}
+        </td>
+      </tr>
+    );
+  }
+
+  /** Auto mode: one editable row per ring height, summed across all pools. */
+  function renderAutoRingRows(group: RingStyleGroup) {
+    return group.options.map((option) => {
+      const navRow = group.navRowByProductId.get(option.productId);
+      const totalCount = roundQty(
+        loads.reduce(
+          (sum, load) =>
+            sum + autoRingCount(group, option.productId, load.key),
+          0,
+        ),
+      );
+      const noStock =
+        option.trackInventory &&
+        option.currentStock != null &&
+        option.currentStock <= 0;
+      return (
+        <tr
+          key={`ring-auto-${group.key}-${option.productId}`}
+          className={tableRowClassName}
+        >
+          <td className={stickyItemCellClassName}>
+            <div className="pl-5">
+              <span className="font-medium text-slate-800">
+                {option.productCode}
+              </span>{" "}
+              <span className="text-slate-600">{option.name}</span>
+              <span className="ml-1 text-[11px] text-slate-400">
+                {option.heightFeet}&apos; ring
+              </span>
+              {noStock ? (
+                <span className="ml-1 text-[11px] text-amber-600">
+                  (No stock)
+                </span>
+              ) : null}
+            </div>
+          </td>
+          <td className={stickyAvailableCellClassName}>
+            <span className="text-slate-300">·</span>
+          </td>
+          {loads.map((load, loadIndex) => {
+            const count = autoRingCount(group, option.productId, load.key);
+            return (
+              <td key={load.key} className={tableGridCellClassName}>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={count > 0 ? String(count) : ""}
+                  data-plan-auto="1"
+                  {...(navRow != null
+                    ? { "data-plan-row": navRow, "data-plan-col": loadIndex }
+                    : {})}
+                  onKeyDown={
+                    navRow != null
+                      ? (event) => handleCellKeyDown(event, navRow, loadIndex)
+                      : undefined
+                  }
+                  onChange={(event) =>
+                    handleAutoRingChange(
+                      group,
+                      option.productId,
+                      load.key,
+                      event.target.value,
+                    )
+                  }
+                  className={tableNumericCellInputClassName}
+                  placeholder=""
+                />
+              </td>
+            );
+          })}
+          <td className={`${stickyAssignedCellClassName} text-slate-500`}>
+            {totalCount > 0 ? formatQuantity(totalCount) : ""}
+          </td>
+        </tr>
+      );
     });
   }
 
@@ -1230,6 +1602,7 @@ export function BulkLoadPlanner({
             </thead>
             <tbody className={tableBodyClassName}>
               {rows.map((row) => {
+                const renderPlannerRow = () => {
                 if (row.kind === "category") {
                   return (
                     <tr key={row.key}>
@@ -1413,6 +1786,40 @@ export function BulkLoadPlanner({
                     </td>
                   </tr>
                 );
+                };
+
+                // Drain rings render as one combined section in auto mode
+                // (all pools, one row per ring height) or with a toggle row
+                // above the per-pool groups in pool mode.
+                const ringLineId =
+                  row.kind === "group" || row.kind === "item"
+                    ? row.groupKey
+                    : row.kind === "ineligible"
+                      ? row.key
+                      : null;
+                const ringKey =
+                  ringLineId != null
+                    ? ringStyleGroups.keyByLineId.get(ringLineId)
+                    : undefined;
+                const ringGroup =
+                  ringKey != null
+                    ? ringStyleGroups.byKey.get(ringKey)
+                    : undefined;
+                if (ringGroup) {
+                  const mode = getRingMode(ringGroup.key);
+                  if (row.key !== ringGroup.anchorRowKey) {
+                    return mode === "auto" ? null : renderPlannerRow();
+                  }
+                  return (
+                    <Fragment key={`ring-style-${ringGroup.key}`}>
+                      {renderRingStyleHeader(ringGroup, mode)}
+                      {mode === "auto"
+                        ? renderAutoRingRows(ringGroup)
+                        : renderPlannerRow()}
+                    </Fragment>
+                  );
+                }
+                return renderPlannerRow();
               })}
             </tbody>
             <tfoot>

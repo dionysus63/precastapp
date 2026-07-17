@@ -302,8 +302,15 @@ export type RingAutoAssignResult =
   | { ok: true; assignments: RingAutoAssignment[] }
   | { ok: false; reason: string };
 
+/** A pool group that auto-assignment can place rings into. */
+export type RingAllocationBin = {
+  line: QuoteLineFulfillment;
+  /** Feet this pool group can still take (net of anything already placed). */
+  capacityFeet: number;
+};
+
 /**
- * Distribute ring counts across a matrix's pool groups automatically.
+ * Distribute ring counts across pool-group bins automatically.
  *
  * Allocation always re-solves from scratch for the full desired counts —
  * never incrementally on top of a previous pick — so an earlier ring that
@@ -312,8 +319,9 @@ export type RingAutoAssignResult =
  * the least remaining feet that still fits (best-fit decreasing), which
  * keeps large pools open for large rings.
  */
-export function allocateRingsAcrossPools(
-  matrix: DrainRingStyleMatrix,
+export function allocateRingsToBins(
+  allocationBins: readonly RingAllocationBin[],
+  ringOptions: readonly DrainRingOption[],
   desiredCounts: Record<string, number>,
 ): RingAutoAssignResult {
   type Bin = {
@@ -324,22 +332,20 @@ export function allocateRingsAcrossPools(
     counts: Map<string, number>;
   };
 
-  const bins: Bin[] = matrix.rows
-    .filter((row) => row.state !== "completed" && row.line.eligible)
-    .map((row) => ({
-      line: row.line,
-      capacity: row.availableFeet,
-      used: 0,
-      optionsById: new Map(
-        row.line.drainRingOptions.map((option) => [option.productId, option]),
-      ),
-      counts: new Map(),
-    }));
+  const bins: Bin[] = allocationBins.map((bin) => ({
+    line: bin.line,
+    capacity: bin.capacityFeet,
+    used: 0,
+    optionsById: new Map(
+      bin.line.drainRingOptions.map((option) => [option.productId, option]),
+    ),
+    counts: new Map(),
+  }));
 
   const rings: { productId: string; heightFeet: number }[] = [];
   let desiredFeet = 0;
-  for (const matrixOption of matrix.options) {
-    const { productId, heightFeet } = matrixOption.option;
+  for (const option of ringOptions) {
+    const { productId, heightFeet } = option;
     const count = Math.max(0, Math.floor(desiredCounts[productId] ?? 0));
     for (let i = 0; i < count; i += 1) {
       rings.push({ productId, heightFeet });
@@ -390,6 +396,82 @@ export function allocateRingsAcrossPools(
     }
   }
   return { ok: true, assignments };
+}
+
+/** Auto-assign against a single-ticket style matrix (the ticket editor). */
+export function allocateRingsAcrossPools(
+  matrix: DrainRingStyleMatrix,
+  desiredCounts: Record<string, number>,
+): RingAutoAssignResult {
+  return allocateRingsToBins(
+    matrix.rows
+      .filter((row) => row.state !== "completed" && row.line.eligible)
+      .map((row) => ({ line: row.line, capacityFeet: row.availableFeet })),
+    matrix.options.map((matrixOption) => matrixOption.option),
+    desiredCounts,
+  );
+}
+
+export type RingLoadAllocationResult =
+  | {
+      ok: true;
+      /** Per load (input order): `${quoteLineItemId}::${productId}` → count. */
+      countsByLoad: Map<string, number>[];
+    }
+  | { ok: false; loadIndex: number; reason: string };
+
+/**
+ * Auto-assign ring counts for a sequence of loads sharing the same pool
+ * groups (the bulk load planner). Every call re-solves all loads from
+ * scratch: each load's rings are packed against what the earlier loads in
+ * the sequence left behind, so a ring that landed in one pool on load 1 can
+ * never block a combination that fits when arranged differently.
+ */
+export function allocateRingsForLoads(
+  lines: readonly QuoteLineFulfillment[],
+  availableFeetByLineId: ReadonlyMap<string, number>,
+  ringOptions: readonly DrainRingOption[],
+  desiredCountsByLoad: readonly Record<string, number>[],
+): RingLoadAllocationResult {
+  const capacity = new Map(availableFeetByLineId);
+  const assignableLines = lines.filter(
+    (line) =>
+      line.eligible && line.remainingQty > COMPLETED_QUANTITY_EPSILON,
+  );
+  const countsByLoad: Map<string, number>[] = [];
+
+  for (let loadIndex = 0; loadIndex < desiredCountsByLoad.length; loadIndex += 1) {
+    const bins: RingAllocationBin[] = assignableLines.map((line) => ({
+      line,
+      capacityFeet: capacity.get(line.quoteLineItemId) ?? 0,
+    }));
+    const result = allocateRingsToBins(
+      bins,
+      ringOptions,
+      desiredCountsByLoad[loadIndex],
+    );
+    if (!result.ok) {
+      return { ok: false, loadIndex, reason: result.reason };
+    }
+    const loadCounts = new Map<string, number>();
+    for (const assignment of result.assignments) {
+      const lineId = assignment.line.quoteLineItemId;
+      capacity.set(
+        lineId,
+        roundQuantity(
+          (capacity.get(lineId) ?? 0) -
+            assignment.count * assignment.option.heightFeet,
+        ),
+      );
+      loadCounts.set(
+        drainRingQuantityKey(lineId, assignment.option.productId),
+        assignment.count,
+      );
+    }
+    countsByLoad.push(loadCounts);
+  }
+
+  return { ok: true, countsByLoad };
 }
 
 export function buildDrainRingDiameterGroups(

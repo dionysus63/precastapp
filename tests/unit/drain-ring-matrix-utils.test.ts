@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   allocateRingsAcrossPools,
+  allocateRingsForLoads,
   buildDrainRingDiameterGroups,
   drainRingQuantityKey,
   getDrainRingQuotedGroupLabel,
@@ -515,6 +516,141 @@ describe("allocateRingsAcrossPools", () => {
       expect(result.assignments[0]!.line.quoteLineItemId).toBe("open");
     }
     expect(allocateRingsAcrossPools(matrix, { one: 3 }).ok).toBe(false);
+  });
+});
+
+describe("allocateRingsForLoads", () => {
+  const three = ringOption("three", 3);
+  const four = ringOption("four", 4);
+
+  function counts(result: ReturnType<typeof allocateRingsForLoads>) {
+    if (!result.ok) throw new Error("expected ok");
+    return result.countsByLoad.map((load) =>
+      Object.fromEntries([...load.entries()].sort()),
+    );
+  }
+
+  it("earlier loads consume pool feet before later loads allocate", () => {
+    const poolA = fulfillmentLine({
+      quoteLineItemId: "pool-a",
+      lineNumber: 1,
+      remainingQty: 4,
+      drainRingOptions: [three, four],
+    });
+    const poolB = fulfillmentLine({
+      quoteLineItemId: "pool-b",
+      lineNumber: 2,
+      remainingQty: 3,
+      drainRingOptions: [three, four],
+    });
+    const available = new Map([
+      ["pool-a", 4],
+      ["pool-b", 3],
+    ]);
+
+    // Load 1 takes a 4' ring (only fits pool-a); load 2's 3' ring must then
+    // land in pool-b because pool-a is spent.
+    const result = allocateRingsForLoads(
+      [poolA, poolB],
+      available,
+      [three, four],
+      [{ four: 1 }, { three: 1 }],
+    );
+    expect(result.ok).toBe(true);
+    expect(counts(result)).toEqual([
+      { "pool-a::four": 1 },
+      { "pool-b::three": 1 },
+    ]);
+  });
+
+  it("re-solves every load from scratch so heights land where they fit", () => {
+    const poolA = fulfillmentLine({
+      quoteLineItemId: "pool-a",
+      lineNumber: 1,
+      remainingQty: 4,
+      drainRingOptions: [three, four],
+    });
+    const poolB = fulfillmentLine({
+      quoteLineItemId: "pool-b",
+      lineNumber: 2,
+      remainingQty: 3,
+      drainRingOptions: [three, four],
+    });
+    const available = new Map([
+      ["pool-a", 4],
+      ["pool-b", 3],
+    ]);
+
+    // Within one load a naive first-fit could drop the 3' ring into pool-a
+    // and strand the 4' ring; the solver must arrange 4'→pool-a, 3'→pool-b.
+    const result = allocateRingsForLoads(
+      [poolA, poolB],
+      available,
+      [three, four],
+      [{ three: 1, four: 1 }],
+    );
+    expect(result.ok).toBe(true);
+    expect(counts(result)).toEqual([
+      { "pool-a::four": 1, "pool-b::three": 1 },
+    ]);
+  });
+
+  it("names the load that cannot fit, with capacity net of earlier loads", () => {
+    const pool = fulfillmentLine({
+      quoteLineItemId: "pool",
+      remainingQty: 7,
+      drainRingOptions: [three, four],
+    });
+    const available = new Map([["pool", 7]]);
+
+    const result = allocateRingsForLoads(
+      [pool],
+      available,
+      [three, four],
+      [{ four: 1 }, { four: 1 }],
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      loadIndex: 1,
+      reason: "Only 3 LF left across these pools.",
+    });
+  });
+
+  it("skips completed and ineligible pool lines entirely", () => {
+    const done = fulfillmentLine({
+      quoteLineItemId: "done",
+      lineNumber: 1,
+      remainingQty: 0,
+      drainRingOptions: [three],
+    });
+    const blocked = fulfillmentLine({
+      quoteLineItemId: "blocked",
+      lineNumber: 2,
+      remainingQty: 9,
+      eligible: false,
+      eligibilityReason: "Structure status: PENDING",
+      drainRingOptions: [three],
+    });
+    const open = fulfillmentLine({
+      quoteLineItemId: "open",
+      lineNumber: 3,
+      remainingQty: 3,
+      drainRingOptions: [three],
+    });
+    const available = new Map([
+      ["done", 0],
+      ["blocked", 9],
+      ["open", 3],
+    ]);
+
+    const result = allocateRingsForLoads(
+      [done, blocked, open],
+      available,
+      [three],
+      [{ three: 1 }],
+    );
+    expect(result.ok).toBe(true);
+    expect(counts(result)).toEqual([{ "open::three": 1 }]);
   });
 });
 
