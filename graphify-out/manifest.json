@@ -2680,8 +2680,8 @@
     "semantic_hash": ""
   },
   "lib/rect-structure.ts": {
-    "mtime": 1783698739.3644032,
-    "ast_hash": "5ab8085ac3c8be4a8abfe48224b9599e",
+    "mtime": 1784314958.4203308,
+    "ast_hash": "c4b2dd90637b817ca12841e23b62c2e4",
     "semantic_hash": ""
   },
   "lib/rect-template-pdf-fields.ts": {
@@ -2690,8 +2690,8 @@
     "semantic_hash": ""
   },
   "lib/rect-template-pdf.ts": {
-    "mtime": 1783827148.5456908,
-    "ast_hash": "e34a1094889b80f72c01fb43a7609267",
+    "mtime": 1784315003.5403044,
+    "ast_hash": "37293203a6f34e39653a237c7f2054b8",
     "semantic_hash": ""
   },
   "prisma/migrations/20260706100000_rect_structures/migration.sql": {
@@ -3517,6 +3517,11 @@
   "components/jobs/job-structure-import-dialog.tsx": {
     "mtime": 1784312791.7779443,
     "ast_hash": "28f655d8d9a8d807d61d6ead10884d2f",
+    "semantic_hash": ""
+  },
+  "tests/unit/rect-structure-opening-heights.test.ts": {
+    "mtime": 1784315079.0803516,
+    "ast_hash": "2b1a16ab3934f64fad08235c6234d8b6",
     "semantic_hash": ""
   }
 }

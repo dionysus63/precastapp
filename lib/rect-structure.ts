@@ -679,6 +679,73 @@ export function computeRectStructure(
     brickFeet = rounded.brickFeet;
   }
 
+  // Openings are cut through the walls, never the brick course — the walls
+  // must reach at least the top of the highest opening. Grow the walls by
+  // consuming brick (all the way to 0, warning below the minimum); when even
+  // that is short, deepen the sump so the wall still lands on a 6" increment.
+  let maxOpeningTopFeet: number | null = null;
+  for (const opening of openings) {
+    if (
+      opening.invertElevation == null ||
+      opening.openingHeightInches == null
+    ) {
+      continue;
+    }
+    const center =
+      opening.invertElevation +
+      inchesToFeet((opening.pipeSizeInches ?? 0) / 2);
+    const top = round4(center + inchesToFeet(opening.openingHeightInches / 2));
+    if (maxOpeningTopFeet == null || top > maxOpeningTopFeet) {
+      maxOpeningTopFeet = top;
+    }
+  }
+
+  if (
+    maxOpeningTopFeet != null &&
+    lowInvertElevation != null &&
+    rawAvailableFeet != null
+  ) {
+    const preliminaryFloor = round4(lowInvertElevation - sumpFeet);
+    const requiredWallFeet = round4(maxOpeningTopFeet - preliminaryFloor);
+    if (requiredWallFeet > wallHeightFeet + EPSILON) {
+      const minBrickFeet = inchesToFeet(template.minimumBrickInches);
+      const requiredRounded = round4(
+        Math.ceil(requiredWallFeet / 0.5 - EPSILON) * 0.5,
+      );
+      if (requiredRounded <= rawAvailableFeet + EPSILON) {
+        wallHeightFeet = requiredRounded;
+        brickFeet = round4(Math.max(0, rawAvailableFeet - requiredRounded));
+        warnings.push(
+          `Walls raised to ${requiredRounded.toFixed(2)}' so the highest opening stays out of the brick${
+            brickFeet < minBrickFeet - EPSILON
+              ? ` — brick (${Math.round(brickFeet * 12)}") is below the ${template.minimumBrickInches}" minimum`
+              : ""
+          }.`,
+        );
+      } else {
+        // Even zero brick is short: take the next 6" increment and deepen
+        // the sump by the difference so the increments still work out.
+        const grownWall = round4(
+          Math.ceil(rawAvailableFeet / 0.5 - EPSILON) * 0.5,
+        );
+        const deficit = round4(grownWall - rawAvailableFeet);
+        sumpFeet = round4(sumpFeet + deficit);
+        rawAvailableFeet = grownWall;
+        wallHeightFeet = grownWall;
+        brickFeet = 0;
+        warnings.push(
+          `Brick removed and the sump increased to ${Math.round(sumpFeet * 12)}" so the walls clear the highest opening.`,
+        );
+        const wallTop = round4(lowInvertElevation - sumpFeet + wallHeightFeet);
+        if (maxOpeningTopFeet > wallTop + EPSILON) {
+          warnings.push(
+            `The highest opening still extends ${Math.round((maxOpeningTopFeet - wallTop) * 12)}" above the top of the walls even with no brick — raise the rim or use a smaller opening.`,
+          );
+        }
+      }
+    }
+  }
+
   const floorElevation =
     lowInvertElevation != null ? round4(lowInvertElevation - sumpFeet) : null;
 

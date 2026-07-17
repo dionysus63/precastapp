@@ -1708,6 +1708,82 @@ function drawTopSlabOpening(
   });
 }
 
+/**
+ * Height-calculation block, drawn (not a template field — the rect template
+ * PDFs never carried calc fields) in the blank strip between the openings
+ * table and the customer-approval line. Mirrors the circular sheets' calc
+ * ladder: rim down to wall height in decimal feet.
+ */
+const CALC_BLOCK_X_PT = 300;
+const CALC_BLOCK_TOP_PT = 148;
+const CALC_BLOCK_VALUE_RIGHT_PT = 448;
+const CALC_LINE_STEP_PT = 10.5;
+
+function drawHeightCalcBlock(
+  page: PDFPage,
+  result: RectStructureResult,
+  font: PDFFont,
+): void {
+  const rows: [string, number | null][] = [
+    ["Rim Elevation", result.rimElevation],
+    ["Low Invert", result.lowInvertElevation],
+    ["Invert to Top", result.invertToTopFeet],
+    ["Casting (-)", result.castingHeightFeet],
+    ...(result.hasTopSlab
+      ? ([["Top Slab (-)", result.topSlabThicknessFeet]] as [
+          string,
+          number | null,
+        ][])
+      : []),
+    ["Sump (+)", result.sumpFeet],
+    ["Brick (-)", result.brickFeet],
+    ["Wall Height", result.wallHeightFeet],
+    ["Total Height", result.totalHeightFeet],
+  ];
+
+  let y = CALC_BLOCK_TOP_PT;
+  const title = "HEIGHT CALCULATION";
+  page.drawText(title, {
+    x: CALC_BLOCK_X_PT,
+    y,
+    size: LABEL_FONT_SIZE_PT,
+    font,
+    color: BLACK,
+  });
+  page.drawLine({
+    start: { x: CALC_BLOCK_X_PT, y: y - 2 },
+    end: {
+      x: CALC_BLOCK_X_PT + font.widthOfTextAtSize(title, LABEL_FONT_SIZE_PT),
+      y: y - 2,
+    },
+    thickness: 0.6,
+    color: BLACK,
+  });
+  y -= CALC_LINE_STEP_PT + 2;
+
+  for (const [label, value] of rows) {
+    if (value == null) {
+      continue;
+    }
+    page.drawText(label, {
+      x: CALC_BLOCK_X_PT,
+      y,
+      size: 7,
+      font,
+      color: BLACK,
+    });
+    const text = value.toFixed(2);
+    page.drawText(text, {
+      x: CALC_BLOCK_VALUE_RIGHT_PT - font.widthOfTextAtSize(text, 7),
+      y,
+      size: 7,
+      font,
+      color: BLACK,
+    });
+    y -= CALC_LINE_STEP_PT;
+  }
+}
+
 function fixedFontSizeFor(fieldName: string): number {
   if (fieldName.startsWith("weight_")) {
     return 7;
@@ -1813,6 +1889,8 @@ export async function fillRectSheetTemplatePdf(
       drawTopSlabOpening(topSlabBox, result, font);
     }
   }
+
+  drawHeightCalcBlock(doc.getPage(0), result, font);
 
   return doc.save();
 }

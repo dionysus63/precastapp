@@ -845,8 +845,8 @@
     "semantic_hash": ""
   },
   "components/jobs/job-detail-content.tsx": {
-    "mtime": 1784311404.6481445,
-    "ast_hash": "630ad146e3f0134052856e643ea4c567",
+    "mtime": 1784312806.6023974,
+    "ast_hash": "6c2cf7062f595e251115533bab37ad86",
     "semantic_hash": ""
   },
   "lib/job-detail-mapper.ts": {
@@ -3507,6 +3507,16 @@
   "prisma/migrations/20260717200000_add_detailing_job_status/migration.sql": {
     "mtime": 1784311064.7792609,
     "ast_hash": "3008c8a882c92f146bb98aebd52fe1ef",
+    "semantic_hash": ""
+  },
+  "app/jobs/structure-import-actions.ts": {
+    "mtime": 1784312737.3930328,
+    "ast_hash": "4eeb7809f8b12dae52fa573b280b5604",
+    "semantic_hash": ""
+  },
+  "components/jobs/job-structure-import-dialog.tsx": {
+    "mtime": 1784312791.7779443,
+    "ast_hash": "28f655d8d9a8d807d61d6ead10884d2f",
     "semantic_hash": ""
   }
 }
