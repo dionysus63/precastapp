@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { QuoteDetailContent } from "@/components/quotes/quote-detail-content";
 import { mapQuoteToDetailView } from "@/lib/quote-mapper";
+import { buildQuoteAttachmentFilename } from "@/lib/quote-pdf-persist";
 import { submittalProductInclude } from "@/lib/submittal-package";
 import { withDatabaseRetry } from "@/lib/prisma";
 
@@ -95,9 +96,18 @@ export default async function QuoteDetailPage({
     siblingQuotes,
   );
 
+  // Same contractor-facing name the emailed attachment uses.
+  const pdfFileName = await withDatabaseRetry((prisma) =>
+    buildQuoteAttachmentFilename(quote, `quote-${quote.quoteNumber}`, prisma),
+  );
+
   return (
     <DashboardShell title={detail.title} subtitle={detail.subtitle}>
-      <QuoteDetailContent quote={detail} autoOpenSend={send === "1"} />
+      <QuoteDetailContent
+        quote={detail}
+        pdfFileName={pdfFileName}
+        autoOpenSend={send === "1"}
+      />
     </DashboardShell>
   );
 }

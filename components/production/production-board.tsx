@@ -457,15 +457,32 @@ export function ProductionBoard({
         description={tab.description}
         noPadding
         action={
-          groups.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => setAllExpanded(!allExpanded)}
-              className="text-xs font-medium text-slate-500 hover:text-slate-900"
-            >
-              {allExpanded ? "Collapse all" : "Expand all"}
-            </button>
-          ) : undefined
+          <div className="flex items-center gap-3">
+            {tab.id === "needs-submittal" ? (
+              <Link
+                href="/production/attach?mode=submittals"
+                className="text-xs font-medium text-sky-700 hover:text-sky-900"
+              >
+                Bulk add submittals →
+              </Link>
+            ) : tab.id === "awaiting-approval" ? (
+              <Link
+                href="/production/attach?mode=approvals"
+                className="text-xs font-medium text-sky-700 hover:text-sky-900"
+              >
+                Bulk approve with signed files →
+              </Link>
+            ) : null}
+            {groups.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => setAllExpanded(!allExpanded)}
+                className="text-xs font-medium text-slate-500 hover:text-slate-900"
+              >
+                {allExpanded ? "Collapse all" : "Expand all"}
+              </button>
+            ) : null}
+          </div>
         }
       >
         {actionError ? (

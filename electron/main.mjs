@@ -1,5 +1,6 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, session, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, net, session, shell } from "electron";
 import { existsSync, statSync } from "fs";
+import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
 import { loadConfig, validateServerUrl } from "./config.mjs";
@@ -122,7 +123,108 @@ const OPENABLE_FILE_EXTENSIONS = new Set([
   ".doc", ".docx", ".xls", ".xlsx", ".eml", ".msg", ".dwg", ".dxf", ".zip",
 ]);
 
+/**
+ * Native drag-out of server files (quote PDFs): the page can't hand Windows
+ * a real file, so the shell downloads the file to temp (with the session's
+ * cookies) and starts an OS drag. Cached briefly so a hover-prefetch makes
+ * the drag attach instantly.
+ */
+/** @type {Map<string, { promise: Promise<string>, fetchedAt: number }>} */
+const dragFileCache = new Map();
+const DRAG_CACHE_TTL_MS = 60_000;
+
+function sanitizeDragFileName(fileName) {
+  const cleaned = String(fileName ?? "")
+    .replace(/[\\/:*?"<>|\r\n]/g, "_")
+    .trim()
+    .slice(0, 150);
+  return cleaned || "document.pdf";
+}
+
+function fetchServerFile(ses, url) {
+  return new Promise((resolve, reject) => {
+    const request = net.request({ url, session: ses, useSessionCookies: true });
+    request.on("response", (response) => {
+      if (response.statusCode !== 200) {
+        reject(new Error(`Download failed (${response.statusCode}).`));
+        response.on("data", () => {});
+        response.on("error", () => {});
+        return;
+      }
+      /** @type {Buffer[]} */
+      const chunks = [];
+      response.on("data", (chunk) => chunks.push(chunk));
+      response.on("end", () => resolve(Buffer.concat(chunks)));
+      response.on("error", reject);
+    });
+    request.on("error", reject);
+    request.end();
+  });
+}
+
+function prepareDragFile(sender, url, fileName) {
+  const serverOrigin = getServerOrigin();
+  const parsed = new URL(url);
+  if (parsed.origin !== serverOrigin) {
+    throw new Error("Only files from the office server can be dragged out.");
+  }
+
+  const cached = dragFileCache.get(url);
+  if (cached && Date.now() - cached.fetchedAt < DRAG_CACHE_TTL_MS) {
+    return cached.promise;
+  }
+
+  const promise = (async () => {
+    const buffer = await fetchServerFile(sender.session, url);
+    const dir = path.join(
+      app.getPath("temp"),
+      "precastops-drag",
+      String(Date.now()),
+    );
+    await mkdir(dir, { recursive: true });
+    const target = path.join(dir, sanitizeDragFileName(fileName));
+    await writeFile(target, buffer);
+    return target;
+  })();
+
+  dragFileCache.set(url, { promise, fetchedAt: Date.now() });
+  promise.catch(() => dragFileCache.delete(url));
+  return promise;
+}
+
 function registerDesktopBridge() {
+  ipcMain.handle("desktop:prepare-drag-file", async (event, url, fileName) => {
+    if (typeof url !== "string" || typeof fileName !== "string") {
+      return "Invalid drag request.";
+    }
+    try {
+      await prepareDragFile(event.sender, url, fileName);
+      return "";
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error);
+    }
+  });
+
+  ipcMain.on("desktop:start-drag-file", (event, url, fileName) => {
+    if (typeof url !== "string" || typeof fileName !== "string") {
+      return;
+    }
+    void (async () => {
+      try {
+        const filePath = await prepareDragFile(event.sender, url, fileName);
+        event.sender.startDrag({
+          file: filePath,
+          icon: path.join(__dirname, "icon.png"),
+        });
+      } catch (error) {
+        console.error(
+          "[Precast Ops drag]",
+          error instanceof Error ? error.message : error,
+        );
+      }
+    })();
+  });
+
   ipcMain.handle("desktop:open-path", async (_event, targetPath) => {
     if (typeof targetPath !== "string" || !targetPath.trim() || targetPath.length > 1024) {
       return "Invalid path.";

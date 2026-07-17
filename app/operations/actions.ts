@@ -105,6 +105,45 @@ export async function approveStructureForProduction(formData: FormData) {
   }
 }
 
+/**
+ * Bulk attach board: upload one job-specific submittal file for a structure.
+ * Unlike the jobs-page upload action this returns errors instead of throwing,
+ * so one bad tile doesn't blow up a whole drag-and-drop batch.
+ */
+export async function uploadStructureSubmittalFile(formData: FormData) {
+  await requirePermission(AppPermission.PRODUCTION_MANAGE);
+  const jobStructureId = String(formData.get("jobStructureId") ?? "").trim();
+  const file = formData.get("file");
+
+  if (!jobStructureId) {
+    return { error: "Structure is required." };
+  }
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Choose a file to upload." };
+  }
+
+  try {
+    await withDatabaseRetry(async (client) => {
+      const { uploadJobStructureDocument } = await import(
+        "@/lib/job-structure-documents-service"
+      );
+      await uploadJobStructureDocument(
+        client,
+        jobStructureId,
+        "JOB_SPECIFIC_SUBMITTAL",
+        file,
+      );
+      await revalidateStructurePaths(client, jobStructureId);
+    });
+    return { success: true };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "Could not upload the file.",
+    };
+  }
+}
+
 export async function startStructureProduction(jobStructureId: string) {
   await requirePermission(AppPermission.PRODUCTION_MANAGE);
   try {

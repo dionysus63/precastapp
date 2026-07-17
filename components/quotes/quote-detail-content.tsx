@@ -15,6 +15,7 @@ import { DeleteQuoteButton } from "@/components/quotes/delete-quote-button";
 import { EditSentQuoteButton } from "@/components/quotes/edit-sent-quote-button";
 import { ReviseQuoteButton } from "@/components/quotes/revise-quote-button";
 import { SendQuoteButton } from "@/components/quotes/send-quote-button";
+import { QuotePdfDragChip } from "@/components/quotes/quote-pdf-drag-chip";
 import { JobStructureSubmittalActions } from "@/components/jobs/job-structure-submittal-actions";
 import { StructureManageLink } from "@/components/jobs/structure-manage-link";
 import { RichTextContent } from "@/components/ui/rich-text-content";
@@ -107,12 +108,15 @@ const toolbarDisabledClassName =
 
 type QuoteDetailContentProps = {
   quote: QuoteDetailView;
+  /** Contractor-facing PDF filename for the drag-out chip and downloads. */
+  pdfFileName: string;
   /** Auto-open the send dialog (form's save-then-send flow via ?send=1). */
   autoOpenSend?: boolean;
 };
 
 export function QuoteDetailContent({
   quote,
+  pdfFileName,
   autoOpenSend = false,
 }: QuoteDetailContentProps) {
   const backHref = quote.jobId
@@ -185,6 +189,11 @@ export function QuoteDetailContent({
             >
               Preview PDF
             </Link>
+            <QuotePdfDragChip
+              quoteId={quote.id}
+              fileName={pdfFileName}
+              className={toolbarButtonClassName}
+            />
             <SendQuoteButton
               quoteId={quote.id}
               quoteNumber={quote.quoteNumber}

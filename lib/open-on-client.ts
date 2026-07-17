@@ -10,6 +10,17 @@ declare global {
     precastOpsDesktop?: {
       /** Resolves to "" on success or a readable error message. */
       openPath: (targetPath: string) => Promise<string>;
+      /**
+       * Shell ≥ 0.1.4: warm the native-drag cache by downloading a server
+       * file to a local temp path. Resolves "" or a readable error.
+       */
+      prepareFileDrag?: (url: string, fileName: string) => Promise<string>;
+      /**
+       * Shell ≥ 0.1.4: begin a native OS file drag for a server file. Call
+       * from a dragstart handler (after preventDefault) — the shell attaches
+       * a real file to the cursor, so Outlook and Explorer both accept it.
+       */
+      startFileDrag?: (url: string, fileName: string) => void;
     };
   }
 }
