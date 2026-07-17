@@ -7,6 +7,7 @@ import type { PlanSheetRecord } from "@/app/quotes/plan-sheet-actions";
 import { savePlanSheetMarkup } from "@/app/quotes/plan-sheet-actions";
 import { SectionCard } from "@/components/dashboard/section-card";
 import type { DrillSheetTemplateOption } from "@/components/drill-sheets/drill-sheet-form";
+import { CircularImportDialog } from "@/components/quotes/structure-workbook/circular-import-dialog";
 import { StructureWorkbookDefaultsPanel } from "@/components/quotes/structure-workbook/structure-workbook-defaults";
 import { StructureWorkbookPlanPicker } from "@/components/quotes/structure-workbook/structure-workbook-plan-picker";
 import { StructureWorkbookPlanTakeoff } from "@/components/quotes/structure-workbook/structure-workbook-plan-takeoff";
@@ -169,6 +170,7 @@ export function StructureWorkbook({
       : initialLineItems;
     return sourceLineItems.filter((line) => line.rectStructureConfig != null);
   });
+  const [importOpen, setImportOpen] = useState(false);
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -326,6 +328,15 @@ export function StructureWorkbook({
       createDefaultWorkbookRow(templates, rows, defaults),
     );
     handleRowsChange([...rows, ...additions]);
+  };
+
+  const importRows = (imported: StructureWorkbookRow[]) => {
+    const computed = commitAllWorkbookRowPrices(
+      imported,
+      options,
+      workbookMode,
+    );
+    handleRowsChange([...rows, ...computed]);
   };
 
   const duplicateSelected = () => {
@@ -687,6 +698,13 @@ export function StructureWorkbook({
           >
             Remove empty rows
           </button>
+          <button
+            type="button"
+            onClick={() => setImportOpen(true)}
+            className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-700 hover:bg-sky-100"
+          >
+            Import from Excel
+          </button>
         </div>
 
         <StructureWorkbookGrid
@@ -732,6 +750,15 @@ export function StructureWorkbook({
           Cancel
         </button>
       </div>
+
+      {importOpen ? (
+        <CircularImportDialog
+          options={options}
+          quoteModeActive={workbookMode === "QUOTE"}
+          onImport={importRows}
+          onClose={() => setImportOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

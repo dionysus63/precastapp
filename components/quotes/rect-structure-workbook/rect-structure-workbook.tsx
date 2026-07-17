@@ -569,6 +569,7 @@ export function RectStructureWorkbook({
       {importOpen ? (
         <RectImportDialog
           options={options}
+          quoteModeActive={workbookMode === "QUOTE"}
           onImport={importRows}
           onClose={() => setImportOpen(false)}
         />

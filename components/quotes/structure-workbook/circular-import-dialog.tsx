@@ -2,35 +2,35 @@
 
 import { useState } from "react";
 import {
-  gridFromTsv,
-  parseRectStructureImport,
-  type RectImportResult,
-} from "@/lib/quotes/rect-structure-import";
+  circularGridFromTsv,
+  parseCircularStructureImport,
+  type CircularImportResult,
+} from "@/lib/quotes/circular-structure-import";
 import type {
-  RectWorkbookOptions,
-  RectWorkbookRow,
-} from "@/lib/quotes/rect-structure-workbook";
+  StructureWorkbookOptions,
+  StructureWorkbookRow,
+} from "@/lib/quotes/structure-workbook";
 
-type RectImportDialogProps = {
-  options: RectWorkbookOptions;
+type CircularImportDialogProps = {
+  options: StructureWorkbookOptions;
   /** True while the workbook is in quote-only entry mode. */
   quoteModeActive: boolean;
-  onImport: (rows: RectWorkbookRow[]) => void;
+  onImport: (rows: StructureWorkbookRow[]) => void;
   onClose: () => void;
 };
 
 /**
- * Bulk import for the rect workbook: upload the filled-in template
+ * Bulk import for the circular workbook: upload the filled-in template
  * spreadsheet (or paste its cells) and preview every structure before any
  * rows are added. Nothing touches the quote until the workbook is applied.
  */
-export function RectImportDialog({
+export function CircularImportDialog({
   options,
   quoteModeActive,
   onImport,
   onClose,
-}: RectImportDialogProps) {
-  const [result, setResult] = useState<RectImportResult | null>(null);
+}: CircularImportDialogProps) {
+  const [result, setResult] = useState<CircularImportResult | null>(null);
   const [sourceName, setSourceName] = useState<string | null>(null);
   const [readError, setReadError] = useState<string | null>(null);
   const [pasteText, setPasteText] = useState("");
@@ -55,7 +55,7 @@ export function RectImportDialog({
         { header: 1, defval: "" },
       );
       setSourceName(file.name);
-      setResult(parseRectStructureImport(grid, options));
+      setResult(parseCircularStructureImport(grid, options));
     } catch (error) {
       setReadError(
         error instanceof Error ? error.message : "Could not read the file.",
@@ -69,7 +69,7 @@ export function RectImportDialog({
     }
     setReadError(null);
     setSourceName("pasted cells");
-    setResult(parseRectStructureImport(gridFromTsv(pasteText), options));
+    setResult(parseCircularStructureImport(circularGridFromTsv(pasteText), options));
   }
 
   const importable = result?.structures ?? [];
@@ -80,17 +80,20 @@ export function RectImportDialog({
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby="rect-import-title"
+        aria-labelledby="circular-import-title"
         className="flex max-h-[85vh] w-full max-w-3xl flex-col rounded-xl border border-slate-200 bg-white shadow-xl"
       >
         <div className="border-b border-slate-100 px-5 py-4">
-          <h3 id="rect-import-title" className="text-sm font-semibold text-slate-900">
+          <h3
+            id="circular-import-title"
+            className="text-sm font-semibold text-slate-900"
+          >
             Import structures from Excel
           </h3>
           <p className="mt-0.5 text-xs text-slate-500">
             One structure per row — quote-only or full drill-sheet detail.{" "}
             <a
-              href="/templates/rect-structure-import.xlsx"
+              href="/templates/circular-structure-import.xlsx"
               download
               className="font-medium text-sky-700 hover:text-sky-900"
             >
@@ -173,6 +176,7 @@ export function RectImportDialog({
                 <tr className="border-b border-slate-200 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                   <th className="py-1 pr-3">Structure</th>
                   <th className="py-1 pr-3">Template</th>
+                  <th className="py-1 pr-3">Ø</th>
                   <th className="py-1 pr-3">Detail</th>
                   <th className="py-1 pr-3">Pipes</th>
                   <th className="py-1">Notes</th>
@@ -186,6 +190,9 @@ export function RectImportDialog({
                     </td>
                     <td className="py-1 pr-3 text-slate-600">
                       {structure.templateName}
+                    </td>
+                    <td className="py-1 pr-3 tabular-nums text-slate-600">
+                      {structure.diameterFeet}&apos;
                     </td>
                     <td className="py-1 pr-3">
                       {structure.detailLevel === "FULL" ? (
