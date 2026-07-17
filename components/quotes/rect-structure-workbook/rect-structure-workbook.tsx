@@ -23,6 +23,7 @@ import {
   readWorkbookSession,
   writeWorkbookApplyPayload,
 } from "@/lib/quotes/structure-workbook";
+import { RectImportDialog } from "@/components/quotes/rect-structure-workbook/rect-import-dialog";
 import {
   applyRectTsvToRows,
   buildRectApplyLineItems,
@@ -232,6 +233,7 @@ export function RectStructureWorkbook({
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [importOpen, setImportOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -292,6 +294,13 @@ export function RectStructureWorkbook({
       );
     }
     handleRowsChange([...rows, ...additions]);
+  }
+
+  function importRows(imported: RectWorkbookRow[]) {
+    const computed = imported.map((row) =>
+      computeRectWorkbookRow(row, options, workbookMode),
+    );
+    handleRowsChange([...rows, ...computed]);
   }
 
   function duplicateSelected() {
@@ -504,6 +513,13 @@ export function RectStructureWorkbook({
           >
             Remove empty rows
           </button>
+          <button
+            type="button"
+            onClick={() => setImportOpen(true)}
+            className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-700 hover:bg-sky-100"
+          >
+            Import from Excel
+          </button>
         </div>
 
         <RectWorkbookGrid
@@ -549,6 +565,14 @@ export function RectStructureWorkbook({
           Cancel
         </button>
       </div>
+
+      {importOpen ? (
+        <RectImportDialog
+          options={options}
+          onImport={importRows}
+          onClose={() => setImportOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
