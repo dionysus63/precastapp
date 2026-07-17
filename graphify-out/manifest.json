@@ -205,8 +205,8 @@
     "semantic_hash": ""
   },
   "components/jobs/job-utils.ts": {
-    "mtime": 1784227101.966567,
-    "ast_hash": "f99ceffcbb05bb7a7e69e13c96731c75",
+    "mtime": 1784297523.5930948,
+    "ast_hash": "6b7ac44bd78882d6c9cbfd62e8e79116",
     "semantic_hash": ""
   },
   "components/jobs/jobs-list.tsx": {
@@ -745,8 +745,8 @@
     "semantic_hash": ""
   },
   "lib/job-folder-constants.ts": {
-    "mtime": 1784227147.882181,
-    "ast_hash": "8d6d2ca53dadca75f86910a882c81bbf",
+    "mtime": 1784297519.1935606,
+    "ast_hash": "42d5770899ecb36020af5135b0ffa598",
     "semantic_hash": ""
   },
   "lib/job-path-security.ts": {
@@ -840,13 +840,13 @@
     "semantic_hash": ""
   },
   "app/jobs/[id]/page.tsx": {
-    "mtime": 1784227102.5463068,
-    "ast_hash": "c66eea56fafa328fc8a8275b47736155",
+    "mtime": 1784297528.7383358,
+    "ast_hash": "6dd009e239446f52faeb620cb7c6e2a7",
     "semantic_hash": ""
   },
   "components/jobs/job-detail-content.tsx": {
-    "mtime": 1784227104.0816228,
-    "ast_hash": "77ab86c38d72d3b9870e9bd05816dcc8",
+    "mtime": 1784297535.9404328,
+    "ast_hash": "3b0ea20cb08834ea7b018a0e5c2d15c1",
     "semantic_hash": ""
   },
   "lib/job-detail-mapper.ts": {
@@ -2065,8 +2065,8 @@
     "semantic_hash": ""
   },
   "app/jobs/[id]/job-tab-content.tsx": {
-    "mtime": 1784227198.5032234,
-    "ast_hash": "760ece3a7972cfd13ef4845f3993127f",
+    "mtime": 1784297558.1249895,
+    "ast_hash": "79871ab6c5a65a836c1208ac44de9ca1",
     "semantic_hash": ""
   },
   "app/quotes/quote-form-data.ts": {
@@ -3414,11 +3414,6 @@
     "ast_hash": "152b1d790adc3b90dd381837d99a1e65",
     "semantic_hash": ""
   },
-  "components/jobs/job-tax-exempt-cert-panel.tsx": {
-    "mtime": 1784227232.4273367,
-    "ast_hash": "a6d3269b8e5f52f2df8209d7095550ad",
-    "semantic_hash": ""
-  },
   "prisma/migrations/20260716210000_add_customer_nickname/migration.sql": {
     "mtime": 1784234611.5637972,
     "ast_hash": "b21fe4a4b77c3fc588d6e76133acfeb4",
@@ -3447,6 +3442,11 @@
   "components/quotes/quote-pdf-drag-chip.tsx": {
     "mtime": 1784292084.0524416,
     "ast_hash": "5c7bff66432f3ef426bfe6af7d0a98a3",
+    "semantic_hash": ""
+  },
+  "components/jobs/job-file-drop-panel.tsx": {
+    "mtime": 1784297513.1075282,
+    "ast_hash": "0ad70db9547ae0ef920063afeafb5d5a",
     "semantic_hash": ""
   }
 }

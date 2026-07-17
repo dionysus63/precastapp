@@ -17,3 +17,4 @@ export const JOB_SUBFOLDERS = [
 ] as const;
 
 export const TAX_EXEMPT_CERT_CATEGORY = "10 Tax Exempt Cert";
+export const PURCHASE_ORDERS_CATEGORY = "07 Purchase Orders";

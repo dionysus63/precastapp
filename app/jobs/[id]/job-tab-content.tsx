@@ -1,6 +1,12 @@
 import { JobBiddingPanel } from "@/components/jobs/job-bidding-panel";
-import { JobTaxExemptCertPanel } from "@/components/jobs/job-tax-exempt-cert-panel";
-import { TAX_EXEMPT_CERT_CATEGORY } from "@/lib/job-folder-constants";
+import {
+  JobFileDropPanel,
+  type JobDropFile,
+} from "@/components/jobs/job-file-drop-panel";
+import {
+  PURCHASE_ORDERS_CATEGORY,
+  TAX_EXEMPT_CERT_CATEGORY,
+} from "@/lib/job-folder-constants";
 import { JobProgressPanel } from "@/components/jobs/job-progress-panel";
 import { JobFilesBrowser } from "@/components/files/job-files-browser";
 import {
@@ -280,20 +286,32 @@ export async function JobTabContent({
     );
   }
 
-  if (activeTab === "tax-exempt-cert") {
-    let cert: { id: string; fileName: string; updatedAt: string } | null = null;
+  if (activeTab === "tax-exempt-cert" || activeTab === "purchase-orders") {
+    const panel =
+      activeTab === "tax-exempt-cert"
+        ? {
+            category: TAX_EXEMPT_CERT_CATEGORY,
+            title: "Tax Exempt Certificate",
+            noun: "tax exempt certificate",
+            inputIdPrefix: "tax-exempt-cert",
+          }
+        : {
+            category: PURCHASE_ORDERS_CATEGORY,
+            title: "Purchase Order",
+            noun: "purchase order",
+            inputIdPrefix: "purchase-order",
+          };
+
+    let file: JobDropFile | null = null;
     if (detail.folderPath) {
-      const result = await getJobFilesForBrowser(
-        jobId,
-        TAX_EXEMPT_CERT_CATEGORY,
-      );
+      const result = await getJobFilesForBrowser(jobId, panel.category);
       const newest = [...result.files].sort(
         (a, b) =>
           new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
       )[0];
       if (newest) {
         const [mapped] = mapFilesForBrowser([newest]);
-        cert = mapped
+        file = mapped
           ? {
               id: mapped.id,
               fileName: mapped.fileName,
@@ -304,11 +322,15 @@ export async function JobTabContent({
     }
 
     return (
-      <JobTaxExemptCertPanel
+      <JobFileDropPanel
         jobId={jobId}
         jobNumber={detail.jobNumber}
         folderPath={detail.folderPath}
-        cert={cert}
+        file={file}
+        folderCategory={panel.category}
+        title={panel.title}
+        noun={panel.noun}
+        inputIdPrefix={panel.inputIdPrefix}
       />
     );
   }

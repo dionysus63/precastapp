@@ -69,6 +69,7 @@ export type JobDetailTab =
   | "production"
   | "invoices"
   | "construction-plans"
+  | "purchase-orders"
   | "tax-exempt-cert"
   | "files";
 
