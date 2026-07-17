@@ -107,9 +107,6 @@ function moldOptionLabel(mold: TemplateMoldOption): string {
   return `${mold.label ? `${mold.label} — ` : ""}${parts.join(" · ")}`;
 }
 
-function createRectSize(): RectSizeField {
-  return { id: uid(), insideLengthFeet: "", insideWidthFeet: "" };
-}
 
 const defaultFormValue: StructureTemplateFormValue = {
   name: "",
@@ -133,7 +130,7 @@ const defaultFormValue: StructureTemplateFormValue = {
   status: "ACTIVE",
   notes: "",
   diameters: [createDiameter()],
-  rectSizes: [createRectSize()],
+  rectSizes: [],
 };
 
 export function StructureTemplateForm({
@@ -192,8 +189,13 @@ export function StructureTemplateForm({
   const [diameters, setDiameters] = useState<DiameterField[]>(
     initial.diameters.length > 0 ? initial.diameters : [createDiameter()],
   );
-  const [rectSizes, setRectSizes] = useState<RectSizeField[]>(
-    initial.rectSizes.length > 0 ? initial.rectSizes : [createRectSize()],
+  // A rectangular template is one mold/form: exactly one inside footprint.
+  // Legacy templates with several preset rows seed from the first.
+  const [rectLengthFeet, setRectLengthFeet] = useState(
+    initial.rectSizes[0]?.insideLengthFeet ?? "",
+  );
+  const [rectWidthFeet, setRectWidthFeet] = useState(
+    initial.rectSizes[0]?.insideWidthFeet ?? "",
   );
 
   const isRect = shape === "RECTANGULAR";
@@ -227,10 +229,12 @@ export function StructureTemplateForm({
       diameters: diameters.map((d) => ({
         insideDiameterFeet: d.insideDiameterFeet,
       })),
-      rectSizes: rectSizes.map((s) => ({
-        insideLengthFeet: s.insideLengthFeet,
-        insideWidthFeet: s.insideWidthFeet,
-      })),
+      rectSizes: [
+        {
+          insideLengthFeet: rectLengthFeet,
+          insideWidthFeet: rectWidthFeet,
+        },
+      ],
     });
   }, [
     name,
@@ -254,7 +258,8 @@ export function StructureTemplateForm({
     status,
     notes,
     diameters,
-    rectSizes,
+    rectLengthFeet,
+    rectWidthFeet,
   ]);
 
   return (
@@ -265,8 +270,8 @@ export function StructureTemplateForm({
       ) : null}
 
       <SectionCard title="Template Details">
-        <div className="space-y-5">
-          <div className="grid gap-5 sm:grid-cols-2">
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-medium text-slate-700">
                 Template Name *
@@ -293,7 +298,7 @@ export function StructureTemplateForm({
             </div>
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <label className="block text-xs font-medium text-slate-700">
                 Shape
@@ -379,7 +384,7 @@ export function StructureTemplateForm({
             </div>
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {isRect ? (
               <div>
                 <label className="block text-xs font-medium text-slate-700">
@@ -458,7 +463,7 @@ export function StructureTemplateForm({
             </div>
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <label className="block text-xs font-medium text-slate-700">
                 Sump Mode
@@ -526,7 +531,40 @@ export function StructureTemplateForm({
           </div>
 
           {isRect ? (
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Inside Length (ft) *
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.25"
+                  required={isRect}
+                  value={rectLengthFeet}
+                  onChange={(e) => setRectLengthFeet(e.target.value)}
+                  placeholder="4"
+                  className={structureInputClassName}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Inside Width (ft) *
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.25"
+                  required={isRect}
+                  value={rectWidthFeet}
+                  onChange={(e) => setRectWidthFeet(e.target.value)}
+                  placeholder="4"
+                  className={structureInputClassName}
+                />
+                <p className="mt-1 text-[11px] text-slate-400">
+                  One size per template — sheets and quotes only pick height.
+                </p>
+              </div>
               <div>
                 <label className="block text-xs font-medium text-slate-700">
                   Wall Price per Vertical Foot ($)
@@ -586,134 +624,43 @@ export function StructureTemplateForm({
             </div>
           ) : null}
 
-          <div>
-            <label className="block text-xs font-medium text-slate-700">
-              Sheet PDF Set
-            </label>
-            <select
-              value={rectPdfSetId}
-              onChange={(e) => setRectPdfSetId(e.target.value)}
-              className={structureInputClassName}
-            >
-              <option value="">— None —</option>
-              {shapePdfSetOptions.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.name}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-[11px] text-slate-400">
-              {isRect
-                ? "Four slab-variant sheet PDFs; manage sets under Structures → Sheet PDF Sets."
-                : "One sheet PDF covering every riser/key combination; manage sets under Structures → Sheet PDF Sets."}
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-700">
-              Notes
-            </label>
-            <textarea
-              rows={2}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className={structureInputClassName}
-            />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs font-medium text-slate-700">
+                Sheet PDF Set
+              </label>
+              <select
+                value={rectPdfSetId}
+                onChange={(e) => setRectPdfSetId(e.target.value)}
+                className={structureInputClassName}
+              >
+                <option value="">— None —</option>
+                {shapePdfSetOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11px] text-slate-400">
+                Manage sets under Structures → Sheet PDF Sets.
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-700">
+                Notes
+              </label>
+              <textarea
+                rows={2}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className={structureInputClassName}
+              />
+            </div>
           </div>
         </div>
       </SectionCard>
 
-      {isRect ? (
-        <SectionCard
-          title="Preset Sizes"
-          description="Optional inside length × width starting points. Sheets can always enter a free size."
-          action={
-            <button
-              type="button"
-              onClick={() => setRectSizes((rows) => [...rows, createRectSize()])}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Add Size
-            </button>
-          }
-          noPadding
-        >
-          <div className={tableFlushWrapperClassName}>
-            <table className={tableClassName}>
-              <thead>
-                <tr>
-                  <th className={tableHeaderCellClassName}>Inside Length (ft)</th>
-                  <th className={tableHeaderCellClassName}>Inside Width (ft)</th>
-                  <th className={tableHeaderCellClassName}></th>
-                </tr>
-              </thead>
-              <tbody className={tableBodyClassName}>
-                {rectSizes.map((size, index) => (
-                  <tr key={size.id}>
-                    <td className={tableCellClassName}>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.25"
-                        value={size.insideLengthFeet}
-                        onChange={(e) =>
-                          setRectSizes((rows) =>
-                            rows.map((row) =>
-                              row.id === size.id
-                                ? { ...row, insideLengthFeet: e.target.value }
-                                : row,
-                            ),
-                          )
-                        }
-                        placeholder="4"
-                        className={structureTableInputClassName}
-                      />
-                    </td>
-                    <td className={tableCellClassName}>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.25"
-                        value={size.insideWidthFeet}
-                        onChange={(e) =>
-                          setRectSizes((rows) =>
-                            rows.map((row) =>
-                              row.id === size.id
-                                ? { ...row, insideWidthFeet: e.target.value }
-                                : row,
-                            ),
-                          )
-                        }
-                        placeholder="4"
-                        className={structureTableInputClassName}
-                      />
-                    </td>
-                    <td className={`${tableCellClassName} py-1.5 text-right`}>
-                      {rectSizes.length > 1 ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setRectSizes((rows) =>
-                              rows.filter((row) => row.id !== size.id),
-                            )
-                          }
-                          className="text-[11px] font-medium text-rose-600 hover:text-rose-800"
-                        >
-                          Remove
-                        </button>
-                      ) : (
-                        <span className="text-[11px] text-slate-400">
-                          #{index + 1}
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </SectionCard>
-      ) : (
+      {isRect ? null : (
       <SectionCard
         title="Offered Diameters"
         description="Pick from the mold registry — wall thickness and max pour heights are constants of each mold (Settings → Structure Molds)."

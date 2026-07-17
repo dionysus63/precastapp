@@ -464,14 +464,28 @@ export function computeRectWorkbookRow(
     return { ...row, unitPrice: null, status: "Select a template", config: null };
   }
 
-  const length = parseNum(row.insideLengthFeet);
-  const width = parseNum(row.insideWidthFeet);
+  // The template's mold/form defines the footprint; only legacy templates
+  // without a stored size fall back to the row's free entry.
+  const templateSize = template.presetSizes[0];
+  const length = templateSize
+    ? templateSize.insideLengthFeet
+    : parseNum(row.insideLengthFeet);
+  const width = templateSize
+    ? templateSize.insideWidthFeet
+    : parseNum(row.insideWidthFeet);
   if (length == null || width == null) {
     return { ...row, unitPrice: null, status: "Enter the inside size", config: null };
   }
 
+  const sizedRow = templateSize
+    ? {
+        ...row,
+        insideLengthFeet: String(templateSize.insideLengthFeet),
+        insideWidthFeet: String(templateSize.insideWidthFeet),
+      }
+    : row;
   const workingRow =
-    mode === "FULL" ? syncRectRowFromOpenings(row) : row;
+    mode === "FULL" ? syncRectRowFromOpenings(sizedRow) : sizedRow;
   const calcOpenings =
     mode === "FULL" ? workingRow.openings : quoteModeOpenings(workingRow);
 

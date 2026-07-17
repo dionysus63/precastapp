@@ -228,6 +228,16 @@ export function RectSheetForm({
   const template = templates.find((t) => t.id === templateId) ?? null;
   const casting = castings.find((c) => c.id === castingProductId) ?? null;
 
+  // The template's mold/form defines the footprint — sheets only choose the
+  // height. Legacy templates without a size keep the free inputs.
+  const templateSize = template?.presetSizes[0] ?? null;
+  const effectiveLengthFeet = templateSize
+    ? String(templateSize.insideLengthFeet)
+    : insideLengthFeet;
+  const effectiveWidthFeet = templateSize
+    ? String(templateSize.insideWidthFeet)
+    : insideWidthFeet;
+
   const materials = useMemo(
     () => [...new Set(openingSizes.map((entry) => entry.pipeMaterial))],
     [openingSizes],
@@ -261,8 +271,8 @@ export function RectSheetForm({
     const input: RectStructureInput = {
       rimElevation: parseNum(rimElevation),
       castingHeightFeet: casting?.heightFeet ?? 0,
-      insideLengthFeet: parseNum(insideLengthFeet),
-      insideWidthFeet: parseNum(insideWidthFeet),
+      insideLengthFeet: parseNum(effectiveLengthFeet),
+      insideWidthFeet: parseNum(effectiveWidthFeet),
       hasTopSlab,
       hasBaseSlab,
       baseAttached,
@@ -307,8 +317,8 @@ export function RectSheetForm({
     template,
     casting,
     rimElevation,
-    insideLengthFeet,
-    insideWidthFeet,
+    effectiveLengthFeet,
+    effectiveWidthFeet,
     hasTopSlab,
     hasBaseSlab,
     baseAttached,
@@ -333,8 +343,8 @@ export function RectSheetForm({
         inspection,
         approvedBy,
         rimElevation,
-        insideLengthFeet,
-        insideWidthFeet,
+        insideLengthFeet: effectiveLengthFeet,
+        insideWidthFeet: effectiveWidthFeet,
         hasTopSlab,
         hasBaseSlab,
         baseAttached,
@@ -366,8 +376,8 @@ export function RectSheetForm({
       inspection,
       approvedBy,
       rimElevation,
-      insideLengthFeet,
-      insideWidthFeet,
+      effectiveLengthFeet,
+      effectiveWidthFeet,
       hasTopSlab,
       hasBaseSlab,
       baseAttached,
@@ -522,23 +532,6 @@ export function RectSheetForm({
           </SectionCard>
 
           <SectionCard title="Structure">
-            {template && template.presetSizes.length > 0 ? (
-              <div className="mb-3 flex flex-wrap gap-2">
-                {template.presetSizes.map((size) => (
-                  <button
-                    key={size.id}
-                    type="button"
-                    onClick={() => {
-                      setInsideLengthFeet(String(size.insideLengthFeet));
-                      setInsideWidthFeet(String(size.insideWidthFeet));
-                    }}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    {size.insideLengthFeet}&apos; x {size.insideWidthFeet}&apos;
-                  </button>
-                ))}
-              </div>
-            ) : null}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div>
                 <label className="block text-xs font-medium text-slate-700">
@@ -548,10 +541,16 @@ export function RectSheetForm({
                   type="number"
                   min="0"
                   step="0.25"
-                  value={insideLengthFeet}
+                  value={effectiveLengthFeet}
+                  disabled={templateSize != null}
                   onChange={(e) => setInsideLengthFeet(e.target.value)}
                   className={structureInputClassName}
                 />
+                {templateSize ? (
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Set by the template.
+                  </p>
+                ) : null}
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-700">
@@ -561,10 +560,16 @@ export function RectSheetForm({
                   type="number"
                   min="0"
                   step="0.25"
-                  value={insideWidthFeet}
+                  value={effectiveWidthFeet}
+                  disabled={templateSize != null}
                   onChange={(e) => setInsideWidthFeet(e.target.value)}
                   className={structureInputClassName}
                 />
+                {templateSize ? (
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Set by the template.
+                  </p>
+                ) : null}
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-700">

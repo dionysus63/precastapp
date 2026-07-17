@@ -1295,8 +1295,8 @@
     "semantic_hash": ""
   },
   "components/drill-sheets/drill-sheet-preview.tsx": {
-    "mtime": 1783543785.675672,
-    "ast_hash": "de02ac6813392138d1edb9cfec2411e2",
+    "mtime": 1784301047.4383368,
+    "ast_hash": "cca7b1d230d428482228edc38006ace0",
     "semantic_hash": ""
   },
   "components/inventory/purchase-receipt-form.tsx": {
@@ -1345,8 +1345,8 @@
     "semantic_hash": ""
   },
   "lib/drill-sheet-detail.ts": {
-    "mtime": 1783875396.8428237,
-    "ast_hash": "d58b5f52122c989a684d348bccccb85a",
+    "mtime": 1784301038.220481,
+    "ast_hash": "169afc42cc8178a3c985c45e8a5e8904",
     "semantic_hash": ""
   },
   "lib/drill-sheet-diagram.ts": {
@@ -1370,8 +1370,8 @@
     "semantic_hash": ""
   },
   "lib/drill-sheet.ts": {
-    "mtime": 1784299307.924324,
-    "ast_hash": "755a8838f80f7a10eb372311e7de1a1d",
+    "mtime": 1784300864.8246884,
+    "ast_hash": "ccea138c3fdd45f6458ae35fb490bd28",
     "semantic_hash": ""
   },
   "lib/file-upload-utils.ts": {
@@ -1940,8 +1940,8 @@
     "semantic_hash": ""
   },
   "lib/quotes/structure-workbook.ts": {
-    "mtime": 1783366280.2057512,
-    "ast_hash": "0d4e85f326000645bfadffb96a522ada",
+    "mtime": 1784300912.5368361,
+    "ast_hash": "5f0a355dcd8250cba7f00691cef3d6ad",
     "semantic_hash": ""
   },
   "lib/structure-template-pdf-service.ts": {
@@ -2160,8 +2160,8 @@
     "semantic_hash": ""
   },
   "lib/drill-sheet-persistence.ts": {
-    "mtime": 1784299286.9617655,
-    "ast_hash": "02d5280dee35835b9f3f063c07551484",
+    "mtime": 1784301290.120059,
+    "ast_hash": "caccbe45e3aaccd19b561fb01ee2dc16",
     "semantic_hash": ""
   },
   "components/drill-sheets/drill-sheet-pdf-link.tsx": {
@@ -3452,6 +3452,11 @@
   "prisma/migrations/20260717150000_add_mold_fields_to_diameter_config/migration.sql": {
     "mtime": 1784299137.7855213,
     "ast_hash": "56a4ad9153d2d87174a5fa11f868d37b",
+    "semantic_hash": ""
+  },
+  "tests/unit/drill-sheet-weights.test.ts": {
+    "mtime": 1784301117.4507458,
+    "ast_hash": "54fcceb23b4d951bdf053e3d2caaab0f",
     "semantic_hash": ""
   }
 }

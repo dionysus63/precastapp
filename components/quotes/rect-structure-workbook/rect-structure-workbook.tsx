@@ -602,14 +602,22 @@ function RectDefaultsPanel({
           </label>
           <select
             value={defaults.templateId}
-            onChange={(e) =>
+            onChange={(e) => {
+              const next = templates.find(
+                (entry) => entry.id === e.target.value,
+              );
+              const nextSize = next?.presetSizes[0];
               onChange({
                 templateId: e.target.value,
-                ...slabPatchForTemplate(
-                  templates.find((entry) => entry.id === e.target.value),
-                ),
-              })
-            }
+                ...slabPatchForTemplate(next),
+                ...(nextSize
+                  ? {
+                      insideLengthFeet: String(nextSize.insideLengthFeet),
+                      insideWidthFeet: String(nextSize.insideWidthFeet),
+                    }
+                  : {}),
+              });
+            }}
             className={structureInputClassName}
           >
             {templates.map((entry) => (
@@ -644,18 +652,33 @@ function RectDefaultsPanel({
             <input
               type="text"
               inputMode="decimal"
-              value={defaults.insideLengthFeet}
+              value={
+                template?.presetSizes[0]
+                  ? String(template.presetSizes[0].insideLengthFeet)
+                  : defaults.insideLengthFeet
+              }
+              disabled={Boolean(template?.presetSizes[0])}
               onChange={(e) => onChange({ insideLengthFeet: e.target.value })}
               className={structureInputClassName}
             />
             <input
               type="text"
               inputMode="decimal"
-              value={defaults.insideWidthFeet}
+              value={
+                template?.presetSizes[0]
+                  ? String(template.presetSizes[0].insideWidthFeet)
+                  : defaults.insideWidthFeet
+              }
+              disabled={Boolean(template?.presetSizes[0])}
               onChange={(e) => onChange({ insideWidthFeet: e.target.value })}
               className={structureInputClassName}
             />
           </div>
+          {template?.presetSizes[0] ? (
+            <p className="mt-0.5 text-[10px] text-slate-400">
+              Set by the template.
+            </p>
+          ) : null}
         </div>
         <div>
           <label className="block text-[11px] font-medium text-slate-700">
@@ -689,28 +712,6 @@ function RectDefaultsPanel({
           />
         </div>
       </div>
-      {template && template.presetSizes.length > 0 ? (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-            Presets
-          </span>
-          {template.presetSizes.map((size) => (
-            <button
-              key={size.id}
-              type="button"
-              onClick={() =>
-                onChange({
-                  insideLengthFeet: String(size.insideLengthFeet),
-                  insideWidthFeet: String(size.insideWidthFeet),
-                })
-              }
-              className="rounded-md border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
-            >
-              {size.insideLengthFeet}&apos; x {size.insideWidthFeet}&apos;
-            </button>
-          ))}
-        </div>
-      ) : null}
     </SectionCard>
   );
 }
@@ -1241,6 +1242,10 @@ export function RectWorkbookGrid({
                   .join(" + ")
               : "";
             const computedCell = `${tableCellBordersClassName} whitespace-nowrap px-2 py-1.5 text-right text-[11px] tabular-nums`;
+            // Footprint comes from the row's template when it defines one.
+            const rowTemplateSize =
+              options.templates.find((entry) => entry.id === row.templateId)
+                ?.presetSizes[0] ?? null;
 
             return (
               <Fragment key={row.id}>
@@ -1286,12 +1291,23 @@ export function RectWorkbookGrid({
                         const nextTemplate = options.templates.find(
                           (entry) => entry.id === event.target.value,
                         );
+                        const nextSize = nextTemplate?.presetSizes[0];
                         patchAndCommitRow(row.id, {
                           templateId: event.target.value,
                           castingProductId:
                             nextTemplate?.defaultCastingProductId ??
                             row.castingProductId,
                           ...slabPatchForTemplate(nextTemplate),
+                          ...(nextSize
+                            ? {
+                                insideLengthFeet: String(
+                                  nextSize.insideLengthFeet,
+                                ),
+                                insideWidthFeet: String(
+                                  nextSize.insideWidthFeet,
+                                ),
+                              }
+                            : {}),
                         });
                       }}
                       onKeyDown={(event) =>
@@ -1314,7 +1330,12 @@ export function RectWorkbookGrid({
                     <input
                       type="text"
                       inputMode="decimal"
-                      value={row.insideLengthFeet}
+                      value={
+                        rowTemplateSize
+                          ? String(rowTemplateSize.insideLengthFeet)
+                          : row.insideLengthFeet
+                      }
+                      disabled={rowTemplateSize != null}
                       data-wb-row={rowIndex}
                       data-wb-col={columnIndexes.length}
                       onChange={(event) =>
@@ -1333,7 +1354,12 @@ export function RectWorkbookGrid({
                     <input
                       type="text"
                       inputMode="decimal"
-                      value={row.insideWidthFeet}
+                      value={
+                        rowTemplateSize
+                          ? String(rowTemplateSize.insideWidthFeet)
+                          : row.insideWidthFeet
+                      }
+                      disabled={rowTemplateSize != null}
                       data-wb-row={rowIndex}
                       data-wb-col={columnIndexes.width}
                       onChange={(event) =>

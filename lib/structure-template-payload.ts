@@ -127,14 +127,14 @@ export function parseTemplateData(data: Record<string, unknown>): TemplatePayloa
     diameterKeys.add(diameter.insideDiameterFeet);
   }
 
-  // Preset L x W sizes are optional (rect sheets also accept free entry);
-  // rows with both fields blank are dropped.
+  // A rectangular template is one mold/form: exactly one inside footprint.
+  // Sheets and quotes take the size from the template and only pick height.
   const rectSizesRaw =
     shape === "RECTANGULAR" && Array.isArray(data.rectSizes)
       ? data.rectSizes
       : [];
   const rectSizes: RectSizePayload[] = [];
-  rectSizesRaw.forEach((item, index) => {
+  rectSizesRaw.forEach((item) => {
     const row = item as Record<string, unknown>;
     const lengthBlank =
       row.insideLengthFeet === "" || row.insideLengthFeet == null;
@@ -146,24 +146,21 @@ export function parseTemplateData(data: Record<string, unknown>): TemplatePayloa
     rectSizes.push({
       insideLengthFeet: requirePositiveNumber(
         row.insideLengthFeet,
-        `Preset size #${index + 1} inside length`,
+        "Inside length",
       ),
       insideWidthFeet: requirePositiveNumber(
         row.insideWidthFeet,
-        `Preset size #${index + 1} inside width`,
+        "Inside width",
       ),
     });
   });
 
-  const rectSizeKeys = new Set<string>();
-  for (const size of rectSizes) {
-    const key = `${size.insideLengthFeet}x${size.insideWidthFeet}`;
-    if (rectSizeKeys.has(key)) {
-      throw new Error(
-        `Duplicate preset size ${size.insideLengthFeet}' x ${size.insideWidthFeet}' in template.`,
-      );
-    }
-    rectSizeKeys.add(key);
+  if (shape === "RECTANGULAR" && rectSizes.length !== 1) {
+    throw new Error(
+      rectSizes.length === 0
+        ? "Enter the template's inside length and width."
+        : "A rectangular template has exactly one inside size.",
+    );
   }
 
   return {
