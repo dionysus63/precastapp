@@ -5,6 +5,7 @@ import type {
   StructureType,
 } from "@/app/generated/prisma/client";
 import { structureNeedsDrillSheet } from "@/components/structures/structure-utils";
+import { richTextToPlainText } from "@/lib/rich-text";
 
 export const STRUCTURE_LINE_TYPES: QuoteLineType[] = [
   "CONFIGURABLE_STRUCTURE",
@@ -109,7 +110,11 @@ export async function linkJobStructuresFromQuoteInTransaction(
         productId: line.productId,
         structureType: mapLineTypeToStructureType(line.lineType),
         structureNumber: line.itemCode,
-        description: line.description,
+        // Quote line descriptions are rich text (HTML-escaped); structures
+        // live in plain-text land — production board, tickets, submittals.
+        description: line.description
+          ? richTextToPlainText(line.description) || null
+          : null,
         quantity: line.quantity,
         unit: line.unit,
         weight: line.weight,

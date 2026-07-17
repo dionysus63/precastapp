@@ -260,6 +260,56 @@ describe("won quote revision lifecycle", () => {
     await expect(createDraftRevision()).rejects.toThrow(/already revised/i);
   });
 
+  it("stores plain text when linking structures from rich-text quote lines", async () => {
+    // Quote line descriptions are rich text (HTML-escaped, <br> line breaks);
+    // the linked structure's description must be plain text — it shows on
+    // the production board, tickets, and submittals verbatim.
+    const job = await prisma.job.findUniqueOrThrow({
+      where: { id: fixture.jobId },
+    });
+    const quote = await prisma.quote.create({
+      data: {
+        quoteNumber: `${fixture.sourceQuoteNumber}-RICH`,
+        jobId: job.id,
+        jobNumber: job.jobNumber,
+        customerName: job.customerName,
+        projectName: job.projectName,
+        status: "WON",
+        subtotal: 500,
+        total: 500,
+        lineItems: {
+          create: {
+            lineNumber: 1,
+            lineType: "CUSTOM_STRUCTURE",
+            itemCode: "GT-1",
+            description:
+              "8' Mono Grease Trap w/ (2) 6&quot; Boots<br><b>lead-lined</b>",
+            quantity: 1,
+            unit: "EA",
+            unitPrice: 500,
+            taxable: false,
+            total: 500,
+          },
+        },
+      },
+    });
+
+    await prisma.$transaction((tx) =>
+      linkJobStructuresFromQuoteInTransaction(tx, quote.id),
+    );
+
+    const line = await prisma.quoteLineItem.findFirstOrThrow({
+      where: { quoteId: quote.id },
+      select: { jobStructureId: true },
+    });
+    const structure = await prisma.jobStructure.findUniqueOrThrow({
+      where: { id: line.jobStructureId! },
+    });
+    expect(structure.description).toBe(
+      "8' Mono Grease Trap w/ (2) 6\" Boots\nlead-lined",
+    );
+  });
+
   it("serializes concurrent attempts to revise the same won quote", async () => {
     const results = await Promise.allSettled([
       createDraftRevision(),

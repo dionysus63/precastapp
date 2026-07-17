@@ -700,8 +700,8 @@
     "semantic_hash": ""
   },
   "lib/delivery-fulfillment.ts": {
-    "mtime": 1784235609.6409438,
-    "ast_hash": "e4cd0dfe1d38142f1456f1e2cf38cece",
+    "mtime": 1784253928.4274783,
+    "ast_hash": "a44c78e8deff24edd808450c0975a377",
     "semantic_hash": ""
   },
   "lib/delivery-ticket-mapper.ts": {
@@ -755,8 +755,8 @@
     "semantic_hash": "caa4a2e41c671b33ef823cd429195415"
   },
   "lib/job-structure-workflow.ts": {
-    "mtime": 1784057600.5840662,
-    "ast_hash": "84769ce38759c873469ffe7fcf73c132",
+    "mtime": 1784253874.8146074,
+    "ast_hash": "708b15d8951e8549b4a380fd92cd9a7e",
     "semantic_hash": ""
   },
   "lib/open-windows-file.ts": {
@@ -3305,8 +3305,8 @@
     "semantic_hash": ""
   },
   "tests/integration/quote-revision-lifecycle.test.ts": {
-    "mtime": 1784058305.2717426,
-    "ast_hash": "39d8c4333f2d74f6ae1e6ff92a64c920",
+    "mtime": 1784254080.946358,
+    "ast_hash": "7d211c7843fc91696f66107284c3cb70",
     "semantic_hash": ""
   },
   "tests/unit/delivery-ticket-pdf-data.test.ts": {
@@ -3432,6 +3432,11 @@
   "tests/unit/quote-line-alias-map.test.ts": {
     "mtime": 1784235635.4871526,
     "ast_hash": "e2254716f456e378d0aef5561f6b0c74",
+    "semantic_hash": ""
+  },
+  "fix-rich-text-entities-in-descriptions.sql": {
+    "mtime": 1784253973.817941,
+    "ast_hash": "c80d8d9ab7b295b2caf19cf97f38d8fb",
     "semantic_hash": ""
   }
 }

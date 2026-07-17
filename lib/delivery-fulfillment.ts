@@ -22,6 +22,7 @@ import {
   loadDerivedAssemblyValues,
 } from "@/lib/casting-service";
 import { promoteJobStatus } from "@/lib/job-status-workflow";
+import { richTextToPlainText } from "@/lib/rich-text";
 import {
   formatAdsPipeJointTypeLabel,
   normalizeAdsPipeJointType,
@@ -122,6 +123,23 @@ export type QuoteLineFulfillment = {
   structurePieceOptions: StructurePieceOption[];
 };
 
+/**
+ * Quote line (and legacy structure) descriptions are rich text — HTML-escaped
+ * with entities like `&quot;` and `<br>` markup. Delivery surfaces are plain
+ * text, so decode before anything displays or stores these.
+ */
+function toPlainDescription(description: string | null): string | null {
+  if (!description?.trim()) {
+    return null;
+  }
+  return richTextToPlainText(description) || null;
+}
+
+/** Single-line variant for grid labels. */
+function toPlainLabel(description: string | null): string | null {
+  return toPlainDescription(description)?.replace(/\s+/g, " ").trim() || null;
+}
+
 function resolveDisplayName(line: {
   itemCode: string;
   description: string | null;
@@ -131,14 +149,18 @@ function resolveDisplayName(line: {
   if (line.product?.name) {
     return line.product.name;
   }
-  if (line.jobStructure?.description?.trim()) {
-    return line.jobStructure.description.trim();
+  const structureDescription = toPlainLabel(
+    line.jobStructure?.description ?? null,
+  );
+  if (structureDescription) {
+    return structureDescription;
   }
   if (line.jobStructure?.structureNumber?.trim()) {
     return line.jobStructure.structureNumber.trim();
   }
-  if (line.description?.trim()) {
-    return line.description.trim();
+  const lineDescription = toPlainLabel(line.description);
+  if (lineDescription) {
+    return lineDescription;
   }
   return line.itemCode;
 }
@@ -1047,7 +1069,7 @@ async function buildFulfillmentFromContext(
         lineNumber: line.lineNumber,
         lineType: line.lineType,
         itemCode: line.itemCode,
-        description: line.description,
+        description: toPlainDescription(line.description),
         displayName: resolveDisplayName(line),
         unit: line.unit || "LF",
         weightEach: resolveWeightEach(line),
@@ -1120,7 +1142,7 @@ async function buildFulfillmentFromContext(
         lineNumber: line.lineNumber,
         lineType: line.lineType,
         itemCode: line.itemCode,
-        description: line.description,
+        description: toPlainDescription(line.description),
         displayName: resolveDisplayName(line),
         unit: line.unit || "EA",
         weightEach: assemblyWeight,
@@ -1191,7 +1213,7 @@ async function buildFulfillmentFromContext(
         lineNumber: line.lineNumber,
         lineType: line.lineType,
         itemCode: line.itemCode,
-        description: line.description,
+        description: toPlainDescription(line.description),
         displayName: resolveDisplayName(line),
         unit: line.unit || "EA",
         weightEach: resolveWeightEach(line),
@@ -1252,7 +1274,7 @@ async function buildFulfillmentFromContext(
         lineNumber: line.lineNumber,
         lineType: line.lineType,
         itemCode: line.itemCode,
-        description: line.description,
+        description: toPlainDescription(line.description),
         displayName: resolveDisplayName(line),
         unit: line.unit,
         weightEach: resolveWeightEach(line),
@@ -1314,7 +1336,7 @@ async function buildFulfillmentFromContext(
       lineNumber: line.lineNumber,
       lineType: line.lineType,
       itemCode: line.itemCode,
-      description: line.description,
+      description: toPlainDescription(line.description),
       displayName: resolveDisplayName(line),
       unit: line.unit,
       weightEach: resolveWeightEach(line),
