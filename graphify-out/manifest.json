@@ -135,8 +135,8 @@
     "semantic_hash": ""
   },
   "app/structures/new/page.tsx": {
-    "mtime": 1784299431.054432,
-    "ast_hash": "a591b149fce5eaedba2e38d9e6cf4e51",
+    "mtime": 1784307301.3521037,
+    "ast_hash": "bc325440e97c291157d22d5813936673",
     "semantic_hash": ""
   },
   "components/customers/customer-form.tsx": {
@@ -1310,8 +1310,8 @@
     "semantic_hash": ""
   },
   "components/structures/structure-template-form.tsx": {
-    "mtime": 1784306184.3952274,
-    "ast_hash": "90d58116fbf0ff179aaddf9b563aea39",
+    "mtime": 1784307296.7313743,
+    "ast_hash": "3d48993f4824a1339939a301b74f2860",
     "semantic_hash": ""
   },
   "lib/app-settings-defaults.ts": {

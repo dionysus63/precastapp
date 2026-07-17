@@ -263,16 +263,18 @@ export function StructureTemplateForm({
   ]);
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} className="space-y-3">
       <input type="hidden" name="payload" value={payloadJson} />
       {expectedUpdatedAt ? (
         <input type="hidden" name="expectedUpdatedAt" value={expectedUpdatedAt} />
       ) : null}
 
       <SectionCard title="Template Details">
-        <div className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
+        {/* One flowing grid: conditional field groups use `contents` so
+            everything packs into full four-field rows. */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="contents">
+            <div className="lg:col-span-2">
               <label className="block text-xs font-medium text-slate-700">
                 Template Name *
               </label>
@@ -298,7 +300,7 @@ export function StructureTemplateForm({
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="contents">
             <div>
               <label className="block text-xs font-medium text-slate-700">
                 Shape
@@ -384,7 +386,7 @@ export function StructureTemplateForm({
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="contents">
             {isRect ? (
               <div>
                 <label className="block text-xs font-medium text-slate-700">
@@ -463,7 +465,7 @@ export function StructureTemplateForm({
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="contents">
             <div>
               <label className="block text-xs font-medium text-slate-700">
                 Sump Mode
@@ -531,7 +533,7 @@ export function StructureTemplateForm({
           </div>
 
           {isRect ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="contents">
               <div>
                 <label className="block text-xs font-medium text-slate-700">
                   Inside Length (ft) *
@@ -624,7 +626,7 @@ export function StructureTemplateForm({
             </div>
           ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="contents">
             <div>
               <label className="block text-xs font-medium text-slate-700">
                 Sheet PDF Set
@@ -645,12 +647,12 @@ export function StructureTemplateForm({
                 Manage sets under Structures → Sheet PDF Sets.
               </p>
             </div>
-            <div>
+            <div className="lg:col-span-3">
               <label className="block text-xs font-medium text-slate-700">
                 Notes
               </label>
               <textarea
-                rows={2}
+                rows={1}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 className={structureInputClassName}

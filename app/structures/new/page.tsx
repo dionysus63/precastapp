@@ -37,7 +37,7 @@ export default async function NewStructureTemplatePage() {
     >
       <BackButton href="/structures" label="Back to Structures" />
 
-      <div className="mt-4">
+      <div className="mt-3">
         <StructureTemplateForm
           action={createStructureTemplate}
           cancelHref="/structures"
