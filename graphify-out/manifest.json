@@ -2190,13 +2190,13 @@
     "semantic_hash": ""
   },
   "app/invoices/actions.ts": {
-    "mtime": 1783906826.8684833,
-    "ast_hash": "079f04c5fc1ec1a73ff185c5e27ae3aa",
+    "mtime": 1784599275.7021916,
+    "ast_hash": "8633452eb84b76b55fa8d67fc8385d7e",
     "semantic_hash": ""
   },
   "components/invoices/invoice-detail-actions.tsx": {
-    "mtime": 1783287348.1911972,
-    "ast_hash": "9ec0c327172000bd1dd15723570049f9",
+    "mtime": 1784599291.981387,
+    "ast_hash": "5d66b0e8272f31346935ea1b77a47414",
     "semantic_hash": ""
   },
   "components/invoices/invoice-draft-editor.tsx": {
@@ -2205,8 +2205,8 @@
     "semantic_hash": ""
   },
   "components/invoices/invoices-tabs.tsx": {
-    "mtime": 1784207827.6645808,
-    "ast_hash": "89972de7f805c0f4155ca471c382c5dd",
+    "mtime": 1784599301.189843,
+    "ast_hash": "76c3492381681fafb203f43239b536e5",
     "semantic_hash": ""
   },
   "lib/invoice-pdf-data.ts": {

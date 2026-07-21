@@ -386,6 +386,36 @@ function DraftReviewTab({
                           >
                             Print
                           </button>
+                          {canManage ? (
+                            <button
+                              type="button"
+                              disabled={pending}
+                              onClick={async () => {
+                                if (
+                                  !(await confirm({
+                                    title: "Delete draft?",
+                                    message: `Delete draft invoice ${row.invoiceNumber}? The delivery ticket can be converted again afterwards.`,
+                                    confirmLabel: "Delete draft",
+                                    variant: "danger",
+                                  }))
+                                ) {
+                                  return;
+                                }
+                                startTransition(async () => {
+                                  const { deleteDraftInvoice } = await import(
+                                    "@/app/invoices/actions"
+                                  );
+                                  const result = await deleteDraftInvoice(
+                                    row.id,
+                                  );
+                                  setMessage(result.error ?? "Draft deleted.");
+                                });
+                              }}
+                              className="text-red-700 underline hover:text-red-900 disabled:opacity-50"
+                            >
+                              Delete
+                            </button>
+                          ) : null}
                         </div>
                       </td>
                     </tr>

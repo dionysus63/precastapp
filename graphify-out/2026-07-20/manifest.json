@@ -1340,8 +1340,8 @@
     "semantic_hash": ""
   },
   "lib/delivery-ticket-pdf-data.ts": {
-    "mtime": 1784595787.8714607,
-    "ast_hash": "6ebcd7ea8604082ab76ec92a92b61e4c",
+    "mtime": 1784598017.9249244,
+    "ast_hash": "98bf79a4b48b9055f1c0fa7eb7661d0b",
     "semantic_hash": ""
   },
   "lib/drill-sheet-detail.ts": {
@@ -2210,13 +2210,13 @@
     "semantic_hash": ""
   },
   "lib/invoice-pdf-data.ts": {
-    "mtime": 1784595806.9386241,
-    "ast_hash": "8a2d626156ab991e906c4ac134ff2012",
+    "mtime": 1784598109.3004043,
+    "ast_hash": "f8a3c64d407a70c1d0f6dcfec5881f40",
     "semantic_hash": ""
   },
   "lib/invoice-pdf-fill.ts": {
-    "mtime": 1784161379.919971,
-    "ast_hash": "b98b240b50f5f2a6d8060f126669e5b5",
+    "mtime": 1784598132.5820508,
+    "ast_hash": "7101e37bf2356e52487610a695b5c638",
     "semantic_hash": ""
   },
   "lib/invoice-pdf-line-items.ts": {
@@ -2230,8 +2230,8 @@
     "semantic_hash": ""
   },
   "assets/templates/invoice-template.pdf": {
-    "mtime": 1783903705.2342026,
-    "ast_hash": "9342894a40b9bed7277ba9081c18baa3",
+    "mtime": 1784598162.5875988,
+    "ast_hash": "7884603c36f17201f96606e26ad66d83",
     "semantic_hash": ""
   },
   "components/production/approve-for-production-dialog.tsx": {
@@ -3200,13 +3200,13 @@
     "semantic_hash": ""
   },
   "scripts/generate-invoice-templates.ts": {
-    "mtime": 1783903688.3573377,
-    "ast_hash": "81767cbe09a485ced71d669604c67686",
+    "mtime": 1784598062.8938277,
+    "ast_hash": "7e58c9e6147b8e09adf052a4b346de19",
     "semantic_hash": ""
   },
   "assets/templates/invoice-template-continuation.pdf": {
-    "mtime": 1783903705.2942047,
-    "ast_hash": "f2038483acd0eb71b1cd6535c5ce4431",
+    "mtime": 1784598162.6486,
+    "ast_hash": "9a9170f400e7ce9a0070a9814ab0deee",
     "semantic_hash": ""
   },
   "assets/templates/lip-header.png": {

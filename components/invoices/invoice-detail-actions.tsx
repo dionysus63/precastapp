@@ -1,8 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { finalizeInvoices, markInvoicePaid, voidInvoice } from "@/app/invoices/actions";
+import {
+  deleteDraftInvoice,
+  finalizeInvoices,
+  markInvoicePaid,
+  voidInvoice,
+} from "@/app/invoices/actions";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { printPdfUrl } from "@/lib/print-pdf-url";
 
@@ -20,6 +26,7 @@ export function InvoiceDetailActions({
   canManage,
 }: InvoiceDetailActionsProps) {
   const confirm = useConfirm();
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   if (!canManage && status !== "DRAFT" && status !== "SENT" && status !== "PAID") {
@@ -71,6 +78,31 @@ export function InvoiceDetailActions({
             className="rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50"
           >
             Finalize
+          </button>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={async () => {
+              if (
+                !(await confirm({
+                  title: "Delete draft?",
+                  message: `Delete draft invoice ${invoiceNumber}? The delivery ticket can be converted again afterwards.`,
+                  confirmLabel: "Delete draft",
+                  variant: "danger",
+                }))
+              ) {
+                return;
+              }
+              startTransition(async () => {
+                const result = await deleteDraftInvoice(invoiceId);
+                if (!result.error) {
+                  router.push("/invoices");
+                }
+              });
+            }}
+            className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[11px] font-semibold text-red-800 hover:bg-red-100 disabled:opacity-50"
+          >
+            Delete draft
           </button>
         </>
       ) : null}

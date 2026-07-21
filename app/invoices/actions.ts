@@ -193,6 +193,33 @@ export async function markInvoicePaid(invoiceId: string) {
   }
 }
 
+/**
+ * Drafts only: removes the invoice outright (line items cascade), freeing
+ * the delivery ticket to be re-converted — e.g. after a pricing fix. The
+ * re-created invoice derives the same number back from the ticket number.
+ * Finalized invoices are voided instead so the numbering trail survives.
+ */
+export async function deleteDraftInvoice(invoiceId: string) {
+  await requirePermission(AppPermission.INVOICES_MANAGE);
+  try {
+    const deleted = await withDatabaseRetry((client) =>
+      client.invoice.deleteMany({
+        where: { id: invoiceId, status: "DRAFT" },
+      }),
+    );
+    if (deleted.count === 0) {
+      return { error: "Only draft invoices can be deleted." };
+    }
+    revalidatePath("/invoices");
+    return { success: true };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "Could not delete the draft.",
+    };
+  }
+}
+
 export async function voidInvoice(invoiceId: string) {
   await requirePermission(AppPermission.INVOICES_MANAGE);
   try {
