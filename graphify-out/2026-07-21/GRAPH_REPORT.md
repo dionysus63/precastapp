@@ -1,16 +1,16 @@
 # Graph Report - precastapp  (2026-07-21)
 
 ## Corpus Check
-- 683 files · ~419,174 words
+- 683 files · ~419,192 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 8032 nodes · 20358 edges · 410 communities (206 shown, 204 thin omitted)
+- 8032 nodes · 20358 edges · 414 communities (208 shown, 206 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 316 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `117c37b7`
+- Built from commit: `e82d8db2`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -389,9 +389,13 @@
 - [[_COMMUNITY_Community 393|Community 393]]
 - [[_COMMUNITY_Community 394|Community 394]]
 - [[_COMMUNITY_Community 395|Community 395]]
-- [[_COMMUNITY_Community 413|Community 413]]
-- [[_COMMUNITY_Community 424|Community 424]]
-- [[_COMMUNITY_Community 456|Community 456]]
+- [[_COMMUNITY_Community 396|Community 396]]
+- [[_COMMUNITY_Community 397|Community 397]]
+- [[_COMMUNITY_Community 399|Community 399]]
+- [[_COMMUNITY_Community 400|Community 400]]
+- [[_COMMUNITY_Community 401|Community 401]]
+- [[_COMMUNITY_Community 402|Community 402]]
+- [[_COMMUNITY_Community 403|Community 403]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `_` - 1177 edges
@@ -421,7 +425,7 @@
 - 1-file cycle: `electron/updater.mjs -> electron/updater.mjs`
 - 3-file cycle: `lib/quotes/constants.ts -> lib/quotes/types.ts -> lib/ring-builder-settings.ts -> lib/quotes/constants.ts`
 
-## Communities (410 total, 204 thin omitted)
+## Communities (414 total, 206 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.07
@@ -429,11 +433,11 @@ Nodes (32): PriceListOption, bulkPasteExamples, productKindBadgeVariant(), produ
 
 ### Community 1 - "Community 1"
 Cohesion: 0.04
-Nodes (13): 7642(), 9835(), AnnotationFactory, clearGlobalCaches(), computeIDs(), getIndexes(), GlobalColorSpaceCache, incrementalUpdate() (+5 more)
+Nodes (10): CFF, getXfaFontDict(), getXfaFontName(), isArrayEqual(), isRefsEqual(), Page, parseDefaultAppearance(), PDFDocument (+2 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.00
-Nodes (350): _, 4576(), aa, AbortException, Acrobat, Acrobat7, ADBE_JSConsole, ADBE_JSDebugger (+342 more)
+Nodes (353): _, 4576(), aa, AbortException, Acrobat, Acrobat7, ADBE_JSConsole, ADBE_JSDebugger (+345 more)
 
 ### Community 4 - "Community 4"
 Cohesion: 0.05
@@ -441,7 +445,7 @@ Nodes (60): bug:C1, bug:C2, bug:H1, bug:H2, bug:H3, bug:L1, bug:L2, bug:L3 (+52 
 
 ### Community 5 - "Community 5"
 Cohesion: 0.01
-Nodes (75): AppearanceFilter, Barcode, BatchOutput, Bind, Break, BreakAfter, BreakBefore, Calculate (+67 more)
+Nodes (83): AppearanceFilter, Arc, Barcode, BatchOutput, Bind, Border, Break, BreakAfter (+75 more)
 
 ### Community 6 - "Community 6"
 Cohesion: 0.03
@@ -456,8 +460,8 @@ Cohesion: 0.16
 Nodes (29): "public"."AppSettings", "public"."Contact", "public"."Customer", "public"."DailyProductionEntry", "public"."DailyProductionLine", "public"."DeliveryDayReconciliation", "public"."DeliveryTicket", "public"."DeliveryTicketLineItem" (+21 more)
 
 ### Community 9 - "Community 9"
-Cohesion: 0.03
-Nodes (18): addChildren(), adjustMapping(), ChunkedStream, ChunkedStreamManager, encodeToXmlString(), FontFinder, generateFont(), getFontSubstitution() (+10 more)
+Cohesion: 0.04
+Nodes (16): Binder, createDataNode(), createText(), decodeString(), encodeToXmlString(), generateFont(), getFontSubstitution(), parseExpression() (+8 more)
 
 ### Community 11 - "Community 11"
 Cohesion: 0.06
@@ -468,12 +472,12 @@ Cohesion: 0.03
 Nodes (157): 1072(), 1108(), 1148(), 116(), 1291(), 1385(), 1548(), 1625() (+149 more)
 
 ### Community 13 - "Community 13"
-Cohesion: 0.05
-Nodes (16): ButtonWidgetAnnotation, ChoiceWidgetAnnotation, createImage(), createImageDict(), ErrorFont, escapeString(), FakeUnicodeFont, FreeTextAnnotation (+8 more)
+Cohesion: 0.07
+Nodes (12): ChoiceWidgetAnnotation, ErrorFont, escapeString(), FakeUnicodeFont, FreeTextAnnotation, getPdfColor(), InkAnnotation, numberToString() (+4 more)
 
 ### Community 14 - "Community 14"
 Cohesion: 0.04
-Nodes (22): ao, AppearanceStreamEvaluator, Catalog, CCITTFaxStream, _collectJS(), createValidAbsoluteUrl(), FeatureTest, fetchDest() (+14 more)
+Nodes (23): ao, AppearanceStreamEvaluator, Catalog, _collectJS(), createValidAbsoluteUrl(), FeatureTest, fetchDest(), fetchRemoteDest() (+15 more)
 
 ### Community 15 - "Community 15"
 Cohesion: 0.05
@@ -484,7 +488,7 @@ Cohesion: 0.08
 Nodes (47): DrillSheetPreview(), DrillSheetPreviewMeta, DrillSheetPreviewProps, feet(), PlanDiagram(), angleToClockPosition(), BootSymbol, DiagramLayout (+39 more)
 
 ### Community 17 - "Community 17"
-Cohesion: 0.06
+Cohesion: 0.07
 Nodes (11): bytesToString(), calculateMD5(), CipherTransform, CipherTransformFactory, escapePDFName(), info(), stringToBytes(), writeDict() (+3 more)
 
 ### Community 18 - "Community 18"
@@ -500,12 +504,16 @@ Cohesion: 0.16
 Nodes (13): createCmapTable(), createNameTable(), createOS2Table(), createPostscriptName(), createPostTable(), DataBuilder, getUnicodeRangeFor(), int16() (+5 more)
 
 ### Community 21 - "Community 21"
-Cohesion: 0.26
-Nodes (22): getStockSubmittalsRoot(), assertPathUnderStockSubmittalsRoot(), assertProductExists(), collectSubmittalFilesForCode(), deleteProductDocument(), getProductDocumentForOpen(), getProductSubmittalDir(), listRootEntries() (+14 more)
+Cohesion: 0.13
+Nodes (34): pathExists(), resolveUniqueFilePath(), sanitizeFileName(), assertJobStructureWithFolder(), deleteJobStructureDocument(), DOCUMENT_TYPE_LABELS, getJobStructureDocumentForOpen(), getJobStructureSubmittalDir() (+26 more)
 
 ### Community 22 - "Community 22"
 Cohesion: 0.10
 Nodes (19): compilerOptions, allowJs, esModuleInterop, incremental, isolatedModules, jsx, lib, module (+11 more)
+
+### Community 23 - "Community 23"
+Cohesion: 0.08
+Nodes (4): ChunkedStream, ChunkedStreamManager, NetworkPdfManager, ObjectLoader
 
 ### Community 24 - "Community 24"
 Cohesion: 0.17
@@ -516,12 +524,12 @@ Cohesion: 0.10
 Nodes (37): computeWallHeightFeet(), annotateRectOpeningSections(), ComputedRectSection, computeHorizontalGeometry(), computeRectDefaultSumpFeet(), computeRectPricing(), computeRectStructure(), computeRectWallHeightFeet() (+29 more)
 
 ### Community 26 - "Community 26"
-Cohesion: 0.03
-Nodes (20): CFF, CmykICCBasedCS, ColorSpaceUtils, Commands, compileCharString(), CompiledFont, EvaluatorPreprocessor, fetchSync() (+12 more)
+Cohesion: 0.09
+Nodes (7): Commands, compileCharString(), CompiledFont, compileGlyf(), EvaluatorPreprocessor, lookupCmap(), StateManager
 
 ### Community 27 - "Community 27"
-Cohesion: 0.12
-Nodes (29): getSubmittalsJobSubfolder(), dedupeSharedPdfObjects(), isSkipped(), rewriteRefs(), SKIP_TYPES, structuralKey(), TYPE_KEY, buildSubmittalPackageBaseName() (+21 more)
+Cohesion: 0.11
+Nodes (34): getStockSubmittalsRoot(), getSubmittalsJobSubfolder(), dedupeSharedPdfObjects(), isSkipped(), rewriteRefs(), SKIP_TYPES, structuralKey(), TYPE_KEY (+26 more)
 
 ### Community 28 - "Community 28"
 Cohesion: 0.17
@@ -584,8 +592,8 @@ Cohesion: 0.07
 Nodes (35): annotateOpeningSections(), buildSolverHoles(), computeBaseTopToOpeningBottomInches(), computeDefaultSumpFeet(), computeDrillSheet(), ComputedSection, ComputedWeights, computeInvertToTopFeet() (+27 more)
 
 ### Community 43 - "Community 43"
-Cohesion: 0.09
-Nodes (10): buildPostScriptWasmFunction(), getPdfColorArray(), getQuadPoints(), getRgbColor(), HighlightAnnotation, parsePostScriptFunction(), PDFFunction, recoverSigned16BitBBox() (+2 more)
+Cohesion: 0.08
+Nodes (11): buildPostScriptWasmFunction(), getPdfColorArray(), getQuadPoints(), getRgbColor(), HighlightAnnotation, parsePostScriptFunction(), PDFFunction, recoverSigned16BitBBox() (+3 more)
 
 ### Community 45 - "Community 45"
 Cohesion: 0.08
@@ -596,8 +604,8 @@ Cohesion: 0.13
 Nodes (23): createDraftRevision(), createWonQuoteFixture(), Fixture, countJobSpecificSubmittals(), ApproveForProductionOptions, approveJobStructureForProduction(), findAncestorLineWithStructure(), linkJobStructuresFromQuote() (+15 more)
 
 ### Community 47 - "Community 47"
-Cohesion: 0.08
-Nodes (7): MurmurHash3_64, objectSize(), parseMarkedContentProps(), _parseVisibilityExpression(), Ref, RefSet, RefSetCache
+Cohesion: 0.04
+Nodes (19): 7642(), 9835(), addChildren(), clearGlobalCaches(), computeIDs(), getIndexes(), GlobalColorSpaceCache, incrementalUpdate() (+11 more)
 
 ### Community 48 - "Community 48"
 Cohesion: 0.39
@@ -608,11 +616,11 @@ Cohesion: 0.14
 Nodes (15): AGENTS.md, BraveBrowser, CLAUDE.md, COMMANDS.md, GoogleChrome, Next.js, PrismaClient, PrismaSchema (+7 more)
 
 ### Community 51 - "Community 51"
-Cohesion: 0.15
-Nodes (4): CFFDict, CFFParser, CFFTopDict, parseIndex()
+Cohesion: 0.07
+Nodes (7): adjustMapping(), CFFDict, CFFParser, CFFTopDict, ColorSpaceUtils, FontFinder, parseIndex()
 
 ### Community 52 - "Community 52"
-Cohesion: 0.08
+Cohesion: 0.09
 Nodes (4): Annotation, AnnotationBorderStyle, MarkupAnnotation, PopupAnnotation
 
 ### Community 53 - "Community 53"
@@ -648,8 +656,8 @@ Cohesion: 0.05
 Nodes (44): DeliveryTicketJobSearchOption, SaveDeliveryTicketInput, ScheduleLoadUpdate, buildRows(), DeliveryTicketEditor(), DeliveryTicketEditorProps, EditorLine, formatWeight() (+36 more)
 
 ### Community 73 - "Community 73"
-Cohesion: 0.12
-Nodes (9): Binder, createDataNode(), createText(), decodeString(), parseExpression(), parseXFAPath(), searchNode(), Template (+1 more)
+Cohesion: 0.06
+Nodes (9): BooleanElement, DateElement, DateTime, Decimal, Float, Integer, Text, Time (+1 more)
 
 ### Community 74 - "Community 74"
 Cohesion: 0.28
@@ -712,8 +720,8 @@ Cohesion: 0.08
 Nodes (43): EditQuotePage(), EditQuotePageProps, defaultQuoteExpirationDate(), assertSanitaryDrainRingAllowed(), getProductPricesForList(), mapProductToQuoteFormOption(), NewQuotePage(), NewQuotePageProps (+35 more)
 
 ### Community 108 - "Community 108"
-Cohesion: 0.03
-Nodes (60): applyAssist(), Arc, ariaLabel(), BooleanElement, Caption, CheckButton, checkDimensions(), ChoiceList (+52 more)
+Cohesion: 0.05
+Nodes (46): applyAssist(), ariaLabel(), Caption, checkDimensions(), computeBbox(), createWrapper(), DateTimeEdit, Draw (+38 more)
 
 ### Community 110 - "Community 110"
 Cohesion: 0.07
@@ -804,8 +812,8 @@ Cohesion: 0.33
 Nodes (6): `P1001` — Can't reach database server, Password authentication failed, Port 3000 already in use, Prisma Studio — "Could not load schema metadata", Quote PDF — "Could not find Chrome" / browser not found, Troubleshooting
 
 ### Community 138 - "Community 138"
-Cohesion: 0.14
-Nodes (24): ensureTaxonomyForBulkImport(), fetchActiveProductTaxonomy(), resolveTaxonomyByNamesForImport(), validateTaxonomySelection(), analyzeTaxonomyByNames(), buildCategoryFilterOptions(), buildSubcategoryFilterOptions(), collectMissingTaxonomyForImport() (+16 more)
+Cohesion: 0.08
+Nodes (7): CCITTFaxStream, CmykICCBasedCS, fetchBinaryData(), fetchSync(), JBig2CCITTFaxImage, JpxImage, __wbg_get_imports()
 
 ### Community 139 - "Community 139"
 Cohesion: 0.12
@@ -834,6 +842,10 @@ Nodes (49): diameterSupportsSanitaryDrainRing(), DRAIN_RING_SANITARY_DIAMETERS, 
 ### Community 159 - "Community 159"
 Cohesion: 0.12
 Nodes (30): GET(), parseDateParam(), GET(), removeAdsJointTypeSuffix(), removeTrailingRingHeightSuffix(), resolveLineDescription(), blankOr(), buildInvoiceFormData() (+22 more)
+
+### Community 160 - "Community 160"
+Cohesion: 0.13
+Nodes (22): buildPipeUnitPricesDescription(), computePipeLineWeightLb(), filterPipeProductsByType(), formatPipeDiameterLabel(), formatPipeQuoteLabel(), formatPipeQuoteLineDescription(), formatPipeStickRoundUpSummary(), formatPipeUnitPrice() (+14 more)
 
 ### Community 161 - "Community 161"
 Cohesion: 0.07
@@ -872,8 +884,8 @@ Cohesion: 0.09
 Nodes (43): GET(), RouteContext, GET(), RouteContext, EditRectSheetPage(), RectSheetDetail(), ComputedOpening, buildDrillSheetDetail() (+35 more)
 
 ### Community 173 - "Community 173"
-Cohesion: 0.04
-Nodes (13): addHTML(), Area, Border, createLine(), ExclGroup, flushHTML(), getAvailableSpace(), getRelevant() (+5 more)
+Cohesion: 0.11
+Nodes (6): addHTML(), createLine(), ExclGroup, flushHTML(), getAvailableSpace(), Subform
 
 ### Community 174 - "Community 174"
 Cohesion: 0.04
@@ -881,7 +893,7 @@ Nodes (82): InventoryProductSearchOption, resolveReceivingCategory(), saveInvent
 
 ### Community 177 - "Community 177"
 Cohesion: 0.04
-Nodes (95): formatYards(), buildPipeUnitPricesDescription(), computePipeLineWeightLb(), filterPipeProductsByType(), formatPipeDiameterLabel(), formatPipeQuoteLabel(), formatPipeQuoteLineDescription(), formatPipeStickRoundUpSummary() (+87 more)
+Nodes (77): formatYards(), StatusVariant, QuoteSaveDestination, drainRingDiameterFeetOptions, isCategoryLineItem(), quoteDueDateFilterOptions, quoteEstimatorFormOptions, quoteLineItemTypeLabels (+69 more)
 
 ### Community 179 - "Community 179"
 Cohesion: 0.11
@@ -1012,8 +1024,8 @@ Cohesion: 0.31
 Nodes (8): decodeApiKey(), PrismaDevPayload, resolveDatabaseUrl(), resolvePrismaDevPayload(), resolveShadowDatabaseUrl(), databaseUrl, shadowDatabaseUrl, main()
 
 ### Community 289 - "Community 289"
-Cohesion: 0.05
-Nodes (82): parseAdsPipeJointType(), parseCastingPieceRole(), parseCastingRole(), isRecognizedBulkRingStyle(), parseBulkRingStyle(), getPriceListsMissingProducts(), upsertProductPriceListItem(), BulkImportPreset (+74 more)
+Cohesion: 0.04
+Nodes (102): parseAdsPipeJointType(), parseCastingPieceRole(), parseCastingRole(), isRecognizedBulkRingStyle(), parseBulkRingStyle(), getPriceListsMissingProducts(), upsertProductPriceListItem(), BulkImportPreset (+94 more)
 
 ### Community 290 - "Community 290"
 Cohesion: 0.26
@@ -1028,16 +1040,16 @@ Cohesion: 0.57
 Nodes (4): globalSetup(), url, assertIsTestDatabaseUrl(), getTestDatabaseUrl()
 
 ### Community 296 - "Community 296"
-Cohesion: 0.09
-Nodes (38): GET(), RouteContext, pathExists(), resolveUniqueFilePath(), sanitizeFileName(), assertPathUnderJobFolder(), assertPathUnderRoot(), normalizePath() (+30 more)
+Cohesion: 0.15
+Nodes (21): GET(), RouteContext, assertPathUnderJobFolder(), assertPathUnderRoot(), normalizePath(), pathsEqual(), pathStartsWith(), buildPlanSheetBaseName() (+13 more)
 
 ### Community 297 - "Community 297"
 Cohesion: 0.29
 Nodes (7): BulkAttachBoard(), BulkAttachJobGroup, BulkAttachMode, BulkAttachTarget, IDLE_TILE, MODES, TileState
 
 ### Community 300 - "Community 300"
-Cohesion: 0.05
-Nodes (10): AsciiHexStream, BrotliStream, DecodeStream, DecryptStream, ea, Jbig2Stream, JpxStream, PredictorStream (+2 more)
+Cohesion: 0.06
+Nodes (9): AsciiHexStream, BrotliStream, DecodeStream, DecryptStream, ea, JpxStream, PredictorStream, RunLengthStream (+1 more)
 
 ### Community 302 - "Community 302"
 Cohesion: 0.36
@@ -1081,7 +1093,7 @@ Nodes (3): Authentication today, Authorization, Security posture: internal, trus
 
 ### Community 334 - "Community 334"
 Cohesion: 0.04
-Nodes (17): addCachedImageOps(), assert(), fetchBinaryData(), getNewAnnotationsMap(), getTilingPatternIR(), getTransformMatrix(), isPDFFunction(), ka (+9 more)
+Nodes (18): addCachedImageOps(), assert(), getNewAnnotationsMap(), getTilingPatternIR(), getTransformMatrix(), IccColorSpace, isNumberArray(), isPDFFunction() (+10 more)
 
 ### Community 336 - "Community 336"
 Cohesion: 0.15
@@ -1112,22 +1124,22 @@ Cohesion: 0.83
 Nodes (3): "Contact", "Customer", "CustomerContactRoleDefault"
 
 ### Community 386 - "Community 386"
-Cohesion: 0.05
-Nodes (11): 1181(), 7416(), collectActions(), compileGlyf(), deepCompare(), Dict, getInheritableProperty(), getModificationDate() (+3 more)
+Cohesion: 0.04
+Nodes (15): 1181(), 7416(), AnnotationFactory, ButtonWidgetAnnotation, collectActions(), createImage(), createImageDict(), deepCompare() (+7 more)
 
 ## Knowledge Gaps
 - **1270 isolated node(s):** `RouteContext`, `RouteContext`, `RouteContext`, `RouteContext`, `RouteContext` (+1265 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **204 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **206 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `_` connect `Community 2` to `Community 1`, `Community 3`, `Community 5`, `Community 9`, `Community 10`, `Community 12`, `Community 13`, `Community 14`, `Community 17`, `Community 20`, `Community 23`, `Community 26`, `Community 32`, `Community 40`, `Community 43`, `Community 44`, `Community 47`, `Community 50`, `Community 51`, `Community 52`, `Community 64`, `Community 67`, `Community 69`, `Community 70`, `Community 73`, `Community 75`, `Community 77`, `Community 89`, `Community 104`, `Community 108`, `Community 109`, `Community 111`, `Community 114`, `Community 121`, `Community 125`, `Community 127`, `Community 128`, `Community 129`, `Community 130`, `Community 133`, `Community 136`, `Community 157`, `Community 160`, `Community 162`, `Community 169`, `Community 172`, `Community 173`, `Community 175`, `Community 180`, `Community 182`, `Community 183`, `Community 184`, `Community 190`, `Community 195`, `Community 197`, `Community 198`, `Community 199`, `Community 201`, `Community 202`, `Community 204`, `Community 206`, `Community 207`, `Community 210`, `Community 213`, `Community 214`, `Community 219`, `Community 220`, `Community 221`, `Community 222`, `Community 223`, `Community 224`, `Community 225`, `Community 226`, `Community 227`, `Community 228`, `Community 229`, `Community 230`, `Community 232`, `Community 233`, `Community 235`, `Community 236`, `Community 237`, `Community 238`, `Community 239`, `Community 240`, `Community 241`, `Community 242`, `Community 243`, `Community 244`, `Community 245`, `Community 246`, `Community 247`, `Community 249`, `Community 250`, `Community 251`, `Community 252`, `Community 253`, `Community 254`, `Community 255`, `Community 257`, `Community 260`, `Community 267`, `Community 269`, `Community 270`, `Community 271`, `Community 274`, `Community 281`, `Community 284`, `Community 300`, `Community 308`, `Community 315`, `Community 316`, `Community 317`, `Community 319`, `Community 320`, `Community 323`, `Community 324`, `Community 328`, `Community 330`, `Community 331`, `Community 334`, `Community 337`, `Community 339`, `Community 341`, `Community 343`, `Community 344`, `Community 345`, `Community 347`, `Community 348`, `Community 351`, `Community 352`, `Community 353`, `Community 354`, `Community 355`, `Community 356`, `Community 359`, `Community 360`, `Community 361`, `Community 363`, `Community 364`, `Community 365`, `Community 366`, `Community 367`, `Community 368`, `Community 369`, `Community 370`, `Community 371`, `Community 372`, `Community 373`, `Community 374`, `Community 375`, `Community 376`, `Community 377`, `Community 378`, `Community 379`, `Community 380`, `Community 382`, `Community 383`, `Community 384`, `Community 385`, `Community 386`, `Community 387`, `Community 388`, `Community 389`, `Community 390`, `Community 391`, `Community 392`, `Community 393`, `Community 394`, `Community 395`, `Community 413`, `Community 424`, `Community 456`?**
+- **Why does `_` connect `Community 2` to `Community 1`, `Community 3`, `Community 5`, `Community 9`, `Community 10`, `Community 12`, `Community 13`, `Community 14`, `Community 17`, `Community 20`, `Community 23`, `Community 26`, `Community 32`, `Community 40`, `Community 43`, `Community 44`, `Community 47`, `Community 50`, `Community 51`, `Community 52`, `Community 64`, `Community 67`, `Community 69`, `Community 70`, `Community 73`, `Community 75`, `Community 77`, `Community 89`, `Community 104`, `Community 108`, `Community 109`, `Community 111`, `Community 114`, `Community 121`, `Community 125`, `Community 127`, `Community 128`, `Community 129`, `Community 130`, `Community 133`, `Community 136`, `Community 138`, `Community 157`, `Community 162`, `Community 169`, `Community 172`, `Community 173`, `Community 175`, `Community 180`, `Community 182`, `Community 183`, `Community 184`, `Community 190`, `Community 195`, `Community 197`, `Community 198`, `Community 199`, `Community 201`, `Community 202`, `Community 204`, `Community 206`, `Community 207`, `Community 210`, `Community 213`, `Community 214`, `Community 219`, `Community 220`, `Community 221`, `Community 222`, `Community 223`, `Community 224`, `Community 225`, `Community 226`, `Community 227`, `Community 228`, `Community 229`, `Community 230`, `Community 232`, `Community 233`, `Community 235`, `Community 236`, `Community 237`, `Community 238`, `Community 239`, `Community 240`, `Community 241`, `Community 242`, `Community 243`, `Community 244`, `Community 245`, `Community 246`, `Community 247`, `Community 249`, `Community 250`, `Community 251`, `Community 252`, `Community 253`, `Community 254`, `Community 255`, `Community 257`, `Community 260`, `Community 267`, `Community 269`, `Community 270`, `Community 271`, `Community 274`, `Community 281`, `Community 284`, `Community 300`, `Community 308`, `Community 315`, `Community 316`, `Community 317`, `Community 319`, `Community 320`, `Community 323`, `Community 324`, `Community 328`, `Community 330`, `Community 331`, `Community 334`, `Community 337`, `Community 339`, `Community 341`, `Community 343`, `Community 344`, `Community 345`, `Community 347`, `Community 348`, `Community 351`, `Community 352`, `Community 353`, `Community 354`, `Community 355`, `Community 356`, `Community 359`, `Community 360`, `Community 361`, `Community 363`, `Community 364`, `Community 365`, `Community 366`, `Community 367`, `Community 368`, `Community 369`, `Community 370`, `Community 371`, `Community 372`, `Community 373`, `Community 374`, `Community 375`, `Community 376`, `Community 377`, `Community 378`, `Community 379`, `Community 380`, `Community 382`, `Community 383`, `Community 384`, `Community 385`, `Community 386`, `Community 387`, `Community 388`, `Community 389`, `Community 390`, `Community 391`, `Community 392`, `Community 393`, `Community 394`, `Community 395`, `Community 396`, `Community 397`, `Community 399`, `Community 400`, `Community 401`, `Community 402`, `Community 403`?**
   _High betweenness centrality (0.478) - this node is a cross-community bridge._
-- **Why does `shadow()` connect `Community 14` to `Community 1`, `Community 2`, `Community 386`, `Community 130`, `Community 9`, `Community 13`, `Community 17`, `Community 23`, `Community 26`, `Community 32`, `Community 33`, `Community 162`, `Community 44`, `Community 300`, `Community 47`, `Community 51`, `Community 64`, `Community 328`, `Community 334`, `Community 337`, `Community 227`, `Community 108`?**
+- **Why does `shadow()` connect `Community 14` to `Community 1`, `Community 2`, `Community 386`, `Community 130`, `Community 9`, `Community 138`, `Community 17`, `Community 26`, `Community 32`, `Community 33`, `Community 162`, `Community 44`, `Community 300`, `Community 47`, `Community 51`, `Community 64`, `Community 197`, `Community 328`, `Community 334`, `Community 337`, `Community 227`, `Community 108`?**
   _High betweenness centrality (0.174) - this node is a cross-community bridge._
-- **Why does `StatusSelect()` connect `Community 266` to `Community 13`?**
+- **Why does `StatusSelect()` connect `Community 266` to `Community 386`?**
   _High betweenness centrality (0.133) - this node is a cross-community bridge._
 - **Are the 39 inferred relationships involving `withDatabaseRetry()` (e.g. with `GET()` and `GET()`) actually correct?**
   _`withDatabaseRetry()` has 39 INFERRED edges - model-reasoned connections that need verification._

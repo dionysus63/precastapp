@@ -184,7 +184,9 @@ async function drawSharedTop(ctx: Ctx, headerImageBytes: Uint8Array) {
   // widget ~2pt above a label drawn on the row baseline, so field rects sit
   // 2pt lower than the label to put both texts on the SAME baseline.
   const labelSize = 9;
-  const INFO_ROWS = [644.1, 625.1, 606.1, 587.1];
+  const INFO_ROWS = [644.1, 625.1, 606.1];
+  // Bill To block reads as one address: tighter 14pt pitch on the left.
+  const BILL_TO_ROWS = [644.1, 630.1, 616.1];
   const BILL_TO_VALUE_X = 95;
   const fieldRect = (rowY: number, x0: number, x1: number) => ({
     x0,
@@ -195,7 +197,7 @@ async function drawSharedTop(ctx: Ctx, headerImageBytes: Uint8Array) {
 
   page.drawText("Bill To:", {
     x: 56.7,
-    y: INFO_ROWS[0]!,
+    y: BILL_TO_ROWS[0]!,
     size: labelSize,
     font: helvBold,
     color: BLACK,
@@ -203,26 +205,27 @@ async function drawSharedTop(ctx: Ctx, headerImageBytes: Uint8Array) {
   // Company name on the label row, then the address (no contact line).
   const billToFields = ["Bill To Name", "Bill To Address 1", "Bill To Address 2"];
   billToFields.forEach((name, index) => {
-    addTextField(ctx, name, fieldRect(INFO_ROWS[index]!, BILL_TO_VALUE_X, 306.7));
+    addTextField(ctx, name, fieldRect(BILL_TO_ROWS[index]!, BILL_TO_VALUE_X, 306.7));
   });
 
-  // Right column: values share one left edge past the widest label.
+  // Right column: each value sits right after ITS OWN label.
   const rightLabels: Array<{ text: string; row: number; field: string }> = [
     { text: "Project Name:", row: 0, field: "Project Name" },
     { text: "Job Number:", row: 1, field: "Job Number" },
   ];
-  const deliveryLabel = "Delivery Address:";
-  const rightValueX =
-    320.7 + helvBold.widthOfTextAtSize(deliveryLabel, labelSize) + 6;
+  const valueXFor = (label: string) =>
+    320.7 + helvBold.widthOfTextAtSize(label, labelSize) + 6;
   for (const label of rightLabels) {
     const y = INFO_ROWS[label.row]!;
     page.drawText(label.text, { x: 320.7, y, size: labelSize, font: helvBold, color: BLACK });
-    addTextField(ctx, label.field, fieldRect(y, rightValueX, 561.7));
+    addTextField(ctx, label.field, fieldRect(y, valueXFor(label.text), 561.7));
   }
   // Full delivery address (multi-line) fills the space the ticket number
   // left behind — the ticket number lives in the meta strip now. Multiline
-  // text lays out from the TOP of the widget, so the top edge sits so the
-  // first line lands on the label's baseline.
+  // text lays out from the TOP of the widget: the top edge puts the first
+  // line on the label's baseline, and the bottom stays clear of the box
+  // border (long addresses clip inside the field instead of crossing it).
+  const deliveryLabel = "Delivery Address:";
   page.drawText(deliveryLabel, {
     x: 320.7,
     y: INFO_ROWS[2]!,
@@ -234,10 +237,10 @@ async function drawSharedTop(ctx: Ctx, headerImageBytes: Uint8Array) {
     ctx,
     "Delivery Address",
     {
-      x0: rightValueX,
-      y0: INFO_ROWS[3]! - 4,
+      x0: valueXFor(deliveryLabel),
+      y0: 590,
       x1: 561.7,
-      y1: INFO_ROWS[2]! + 9.5,
+      y1: INFO_ROWS[2]! + 12,
     },
     { multiline: true },
   );
