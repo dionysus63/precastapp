@@ -13,6 +13,7 @@ import { dedupeSharedPdfObjects } from "@/lib/pdf-dedupe";
 import { prisma } from "@/lib/prisma";
 import {
   buildInvoiceFormData,
+  formatCustomerAddress,
   mapInvoiceLineItemsForPdf,
   type DbInvoiceForPdf,
   type InvoiceContentPage,
@@ -197,8 +198,27 @@ export async function generateInvoicePdfBytes(
     readInvoiceTemplateBytes(),
     readInvoiceContinuationTemplateBytes(),
   ]);
-  const billingContact = invoice.customerId
-    ? await getDefaultContactForRole(prisma, invoice.customerId, "BILLING")
+  // Some tickets carry only the customer NAME (no customerId link); the
+  // invoice then has no customer relation even though the customer record —
+  // with the billing address and contacts — exists. Fall back to an exact
+  // name match so Bill To still fills in completely.
+  let billToCustomer: {
+    id: string;
+    address: string | null;
+    town: string | null;
+    state: string | null;
+    zip: string | null;
+  } | null = invoice.customer
+    ? { id: invoice.customerId!, ...invoice.customer }
+    : null;
+  if (!billToCustomer && invoice.customerName?.trim()) {
+    billToCustomer = await prisma.customer.findFirst({
+      where: { name: { equals: invoice.customerName.trim(), mode: "insensitive" } },
+      select: { id: true, address: true, town: true, state: true, zip: true },
+    });
+  }
+  const billingContact = billToCustomer
+    ? await getDefaultContactForRole(prisma, billToCustomer.id, "BILLING")
     : null;
   const lineItems = mapInvoiceLineItemsForPdf(invoice.lineItems);
 
@@ -225,7 +245,10 @@ export async function generateInvoicePdfBytes(
       },
       contentPage,
       pageIndex === slices.length - 1,
-      { billingContactName: billingContact?.contactName ?? null },
+      {
+        billingContactName: billingContact?.contactName ?? null,
+        customerAddressLines: formatCustomerAddress(billToCustomer),
+      },
     );
 
     const pageBytes = await buildInvoicePageBytes(

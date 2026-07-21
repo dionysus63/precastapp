@@ -29,7 +29,7 @@ import {
 
 export type ReconcileTabData = {
   allowed: boolean;
-  mode: "day" | "range" | "all";
+  mode: "day" | "range" | "all" | "unreconciled";
   from: string;
   to: string;
   days: Array<{
@@ -781,6 +781,7 @@ function ReconcileTab({
               date: fromInput || null,
               dateTo: toInput || null,
               all: null,
+              unreconciled: null,
             })
           }
           className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium hover:bg-slate-50"
@@ -796,7 +797,7 @@ function ReconcileTab({
             const date = yesterday.toLocaleDateString("en-CA");
             setFromInput(date);
             setToInput("");
-            setParams({ date, dateTo: null, all: null });
+            setParams({ date, dateTo: null, all: null, unreconciled: null });
           }}
           className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium hover:bg-slate-50"
         >
@@ -807,7 +808,7 @@ function ReconcileTab({
           onClick={() => {
             setFromInput("");
             setToInput("");
-            setParams({ date: null, dateTo: null, all: null });
+            setParams({ date: null, dateTo: null, all: null, unreconciled: null });
           }}
           className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium hover:bg-slate-50"
         >
@@ -818,7 +819,7 @@ function ReconcileTab({
           onClick={() => {
             setFromInput("");
             setToInput("");
-            setParams({ all: "1", date: null, dateTo: null });
+            setParams({ all: "1", date: null, dateTo: null, unreconciled: null });
           }}
           className={`rounded-lg px-3 py-1.5 font-medium ${
             data.mode === "all"
@@ -827,6 +828,21 @@ function ReconcileTab({
           }`}
         >
           View all
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setFromInput("");
+            setToInput("");
+            setParams({ unreconciled: "1", all: null, date: null, dateTo: null });
+          }}
+          className={`rounded-lg px-3 py-1.5 font-medium ${
+            data.mode === "unreconciled"
+              ? "bg-slate-900 text-white"
+              : "border border-slate-200 text-slate-700 hover:bg-slate-50"
+          }`}
+        >
+          View all Unreconciled Days
         </button>
         {data.mode === "range" ? (
           <span className="text-slate-500">
@@ -846,7 +862,9 @@ function ReconcileTab({
         <p className="text-sm text-slate-500">
           {data.mode === "day"
             ? "No delivery tickets for this date."
-            : "No delivery tickets in this range."}
+            : data.mode === "unreconciled"
+              ? "No unreconciled days — every delivery day is confirmed."
+              : "No delivery tickets in this range."}
         </p>
       ) : (
         data.days.map((day) => (

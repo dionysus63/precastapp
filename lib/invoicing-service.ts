@@ -438,6 +438,19 @@ export async function convertDeliveryTicketToInvoice(
     const taxRate =
       current.quote?.taxRate ?? new Prisma.Decimal(settings.defaultTaxRate);
 
+    // Some tickets carry only the customer NAME; backfill the link by exact
+    // name match so the invoice's Bill To (address, billing contact) works.
+    let customerId = ticket.customerId;
+    if (!customerId && ticket.customerName?.trim()) {
+      const matched = await tx.customer.findFirst({
+        where: {
+          name: { equals: ticket.customerName.trim(), mode: "insensitive" },
+        },
+        select: { id: true },
+      });
+      customerId = matched?.id ?? null;
+    }
+
     const priceLookups = await preloadUnitPriceLookups(
       tx,
       current.lineItems,
@@ -584,7 +597,7 @@ export async function convertDeliveryTicketToInvoice(
         deliveryTicketId: ticket.id,
         jobId: ticket.jobId,
         quoteId: ticket.quoteId,
-        customerId: ticket.customerId,
+        customerId,
         jobNumber: ticket.jobNumber,
         customerName: ticket.customerName,
         projectName: ticket.projectName,

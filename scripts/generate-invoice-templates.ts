@@ -41,8 +41,9 @@ const HEADER_IMAGE = { x: 48.7, y: 666.2, width: 348, height: 85.8 };
 // Info box (Bill To / project details), same as the quote template.
 const INFO_BOX = { top: 661.7, bottom: 583.1, dividerX: 312.7 };
 
-// Meta strip (four even cells: Ticket #, Invoice Date, Due Date, Page).
-// Slimmer than the quote template's strip, centered in the same envelope.
+// Meta strip (five even cells: Ticket #, Delivery/Pickup, Invoice Date,
+// Due Date, Page). Slimmer than the quote template's strip, centered in the
+// same envelope.
 const STRIP = { top: 568.4, labelBottom: 554.9, bottom: 539.9 };
 
 // Item table header band; verticals from lib/quote-pdf-layout.ts comments.
@@ -175,35 +176,71 @@ async function drawSharedTop(ctx: Ctx, headerImageBytes: Uint8Array) {
   drawBox(page, TABLE_LEFT_X, INFO_BOX.bottom, TABLE_RIGHT_X, INFO_BOX.top);
   drawLine(page, INFO_BOX.dividerX, INFO_BOX.bottom, INFO_BOX.dividerX, INFO_BOX.top);
 
+  // Both columns share the same four row baselines so everything in the
+  // info box lines up horizontally, and each column's values share one
+  // left edge so they line up vertically too.
   const labelSize = 9;
-  page.drawText("Bill To:", { x: 56.7, y: 646.1, size: labelSize, font: helvBold, color: BLACK });
-  addTextField(ctx, "Bill To Name", { x0: 95, y0: 644.1, x1: 306.7, y1: 658.1 });
-  // Billing contact's full name under the company, then the address.
-  addTextField(ctx, "Bill To Contact", { x0: 56.7, y0: 625, x1: 306.7, y1: 639 });
-  addTextField(ctx, "Bill To Address 1", { x0: 56.7, y0: 606.3, x1: 306.7, y1: 620.3 });
-  addTextField(ctx, "Bill To Address 2", { x0: 56.7, y0: 587.6, x1: 306.7, y1: 601.6 });
+  const INFO_ROWS = [644.1, 625.1, 606.1, 587.1];
+  const BILL_TO_VALUE_X = 95;
 
-  const rightLabels: Array<{ text: string; y: number; field: string }> = [
-    { text: "Project Name:", y: 644.1, field: "Project Name" },
-    { text: "Job Number:", y: 625.1, field: "Job Number" },
+  page.drawText("Bill To:", {
+    x: 56.7,
+    y: INFO_ROWS[0]!,
+    size: labelSize,
+    font: helvBold,
+    color: BLACK,
+  });
+  const billToFields = [
+    "Bill To Name",
+    "Bill To Contact",
+    "Bill To Address 1",
+    "Bill To Address 2",
   ];
+  billToFields.forEach((name, index) => {
+    const y = INFO_ROWS[index]!;
+    addTextField(ctx, name, {
+      x0: BILL_TO_VALUE_X,
+      y0: y - 2,
+      x1: 306.7,
+      y1: y + 12,
+    });
+  });
+
+  // Right column: values share one left edge past the widest label.
+  const rightLabels: Array<{ text: string; row: number; field: string }> = [
+    { text: "Project Name:", row: 0, field: "Project Name" },
+    { text: "Job Number:", row: 1, field: "Job Number" },
+  ];
+  const deliveryLabel = "Delivery Address:";
+  const rightValueX =
+    320.7 + helvBold.widthOfTextAtSize(deliveryLabel, labelSize) + 6;
   for (const label of rightLabels) {
-    page.drawText(label.text, { x: 320.7, y: label.y, size: labelSize, font: helvBold, color: BLACK });
-    const fieldX = 320.7 + helvBold.widthOfTextAtSize(label.text, labelSize) + 6;
-    addTextField(ctx, label.field, { x0: fieldX, y0: label.y - 2, x1: 561.7, y1: label.y + 12 });
+    const y = INFO_ROWS[label.row]!;
+    page.drawText(label.text, { x: 320.7, y, size: labelSize, font: helvBold, color: BLACK });
+    addTextField(ctx, label.field, {
+      x0: rightValueX,
+      y0: y - 2,
+      x1: 561.7,
+      y1: y + 12,
+    });
   }
   // Full delivery address (multi-line) fills the space the ticket number
   // left behind — the ticket number lives in the meta strip now.
-  const deliveryLabel = "Delivery Address:";
-  page.drawText(deliveryLabel, { x: 320.7, y: 606.1, size: labelSize, font: helvBold, color: BLACK });
+  page.drawText(deliveryLabel, {
+    x: 320.7,
+    y: INFO_ROWS[2]!,
+    size: labelSize,
+    font: helvBold,
+    color: BLACK,
+  });
   addTextField(
     ctx,
     "Delivery Address",
     {
-      x0: 320.7 + helvBold.widthOfTextAtSize(deliveryLabel, labelSize) + 6,
-      y0: 585.9,
+      x0: rightValueX,
+      y0: INFO_ROWS[3]! - 2,
       x1: 561.7,
-      y1: 617.9,
+      y1: INFO_ROWS[2]! + 12,
     },
     { multiline: true },
   );
@@ -215,6 +252,7 @@ async function drawSharedTop(ctx: Ctx, headerImageBytes: Uint8Array) {
   drawLine(page, TABLE_LEFT_X, STRIP.labelBottom, TABLE_RIGHT_X, STRIP.labelBottom);
   const stripCells: Array<{ label: string; field: string }> = [
     { label: "Ticket #", field: "Ticket Number" },
+    { label: "Delivery/Pickup", field: "Delivery Date" },
     { label: "Invoice Date", field: "Invoice Date" },
     { label: "Due Date", field: "Due Date" },
     { label: "Page", field: "Page" },

@@ -64,8 +64,12 @@ function formatPageNumber(page: InvoiceContentPage): string {
   return `${page.number} of ${page.count}`;
 }
 
-function formatCustomerAddress(invoice: DbInvoiceForPdf): string[] {
-  const customer = invoice.customer;
+export function formatCustomerAddress(customer: {
+  address: string | null;
+  town: string | null;
+  state: string | null;
+  zip: string | null;
+} | null): string[] {
   if (!customer) return [];
   const lines: string[] = [];
   if (customer.address?.trim()) lines.push(customer.address.trim());
@@ -174,9 +178,14 @@ export function buildInvoiceFormData(
   },
   contentPage: InvoiceContentPage,
   isLastPage: boolean,
-  extras: { billingContactName: string | null } = { billingContactName: null },
+  extras: {
+    billingContactName: string | null;
+    /** Overrides the invoice's customer relation (name-matched fallback). */
+    customerAddressLines?: string[];
+  } = { billingContactName: null },
 ): Record<string, string> {
-  const customerAddress = formatCustomerAddress(invoice);
+  const customerAddress =
+    extras.customerAddressLines ?? formatCustomerAddress(invoice.customer);
   // Any stored discount nets into the printed subtotal — the totals box has
   // no Discount row (rare discounts are entered as line items instead).
   const subtotalAfterDiscount =
@@ -193,6 +202,7 @@ export function buildInvoiceFormData(
     "Project Name": blankOr(invoice.projectName),
     "Job Number": blankOr(invoice.jobNumber),
     "Ticket Number": blankOr(invoice.deliveryTicket.ticketNumber),
+    "Delivery Date": formatDateForPdf(invoice.deliveryTicket.deliveryDate),
     "Delivery Address": resolveInvoiceDeliveryAddressLines(invoice).join("\n"),
     "Company Name": blankOr(company.companyName),
     "Company Address": blankOr(company.companyAddress),
@@ -227,6 +237,7 @@ export const INVOICE_TEMPLATE_FIELD_NAMES = [
   "Project Name",
   "Job Number",
   "Ticket Number",
+  "Delivery Date",
   "Delivery Address",
   "Company Name",
   "Company Address",

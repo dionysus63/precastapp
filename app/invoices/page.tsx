@@ -73,6 +73,7 @@ export default async function InvoicesPage({
     // Local date, not UTC — an evening visit should still open today's day.
     const today = new Date().toLocaleDateString("en-CA");
     const viewAll = parseStringParam(params.all) === "1";
+    const viewUnreconciled = parseStringParam(params.unreconciled) === "1";
     const dateParam = parseDateParam(params.date);
     const dateToParam = parseDateParam(params.dateTo);
 
@@ -84,6 +85,18 @@ export default async function InvoicesPage({
         to: "",
         days: [],
         truncated: false,
+      };
+    } else if (viewUnreconciled) {
+      const { days, truncated } = await listTicketsForReconciliationRange({});
+      reconcile = {
+        allowed: true,
+        mode: "unreconciled",
+        from: "",
+        to: "",
+        days: days
+          .filter((day) => !day.reconciliation)
+          .map((day) => ({ ...day, deliveredOtherDayTickets: [] })),
+        truncated,
       };
     } else if (viewAll) {
       const { days, truncated } = await listTicketsForReconciliationRange({});
