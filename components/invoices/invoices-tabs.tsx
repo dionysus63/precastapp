@@ -253,16 +253,22 @@ function DraftReviewTab({
                 className="rounded border border-slate-200 px-2 py-1"
               />
             </label>
-            <button
-              type="button"
-              disabled={pending || drafts.length === 0}
-              onClick={() =>
-                printPdfUrl("/api/invoices/draft-batch/pdf")
-              }
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-50"
-            >
-              Print all drafts
-            </button>
+            {drafts.length > 0 ? (
+              <Link
+                href="/invoices/draft-batch/preview"
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
+              >
+                Print all drafts
+              </Link>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium opacity-50"
+              >
+                Print all drafts
+              </button>
+            )}
             <button
               type="button"
               disabled={pending || drafts.length === 0}
