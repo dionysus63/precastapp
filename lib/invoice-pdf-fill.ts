@@ -8,7 +8,6 @@ import {
   degrees,
 } from "pdf-lib";
 import { getAppSettings } from "@/lib/app-settings";
-import { getDefaultContactForRole } from "@/lib/customer-contacts";
 import { dedupeSharedPdfObjects } from "@/lib/pdf-dedupe";
 import { prisma } from "@/lib/prisma";
 import {
@@ -74,9 +73,8 @@ export async function ensureInvoiceTemplateExists(): Promise<void> {
     { name: "Due Date", x: 400, y: 708, width: 160 },
     { name: "Page", x: 400, y: 692, width: 160 },
     { name: "Bill To Name", x: 48, y: 650, width: 250 },
-    { name: "Bill To Contact", x: 48, y: 634, width: 250 },
-    { name: "Bill To Address 1", x: 48, y: 618, width: 250 },
-    { name: "Bill To Address 2", x: 48, y: 602, width: 250 },
+    { name: "Bill To Address 1", x: 48, y: 634, width: 250 },
+    { name: "Bill To Address 2", x: 48, y: 618, width: 250 },
     { name: "Project Name", x: 320, y: 650, width: 240 },
     { name: "Job Number", x: 320, y: 634, width: 240 },
     { name: "Ticket Number", x: 320, y: 618, width: 240 },
@@ -200,8 +198,8 @@ export async function generateInvoicePdfBytes(
   ]);
   // Some tickets carry only the customer NAME (no customerId link); the
   // invoice then has no customer relation even though the customer record —
-  // with the billing address and contacts — exists. Fall back to an exact
-  // name match so Bill To still fills in completely.
+  // with the billing address — exists. Fall back to an exact name match so
+  // Bill To still fills in completely.
   let billToCustomer: {
     id: string;
     address: string | null;
@@ -217,9 +215,6 @@ export async function generateInvoicePdfBytes(
       select: { id: true, address: true, town: true, state: true, zip: true },
     });
   }
-  const billingContact = billToCustomer
-    ? await getDefaultContactForRole(prisma, billToCustomer.id, "BILLING")
-    : null;
   const lineItems = mapInvoiceLineItemsForPdf(invoice.lineItems);
 
   const measureDoc = await PDFDocument.load(templateBytes);
@@ -245,10 +240,7 @@ export async function generateInvoicePdfBytes(
       },
       contentPage,
       pageIndex === slices.length - 1,
-      {
-        billingContactName: billingContact?.contactName ?? null,
-        customerAddressLines: formatCustomerAddress(billToCustomer),
-      },
+      { customerAddressLines: formatCustomerAddress(billToCustomer) },
     );
 
     const pageBytes = await buildInvoicePageBytes(

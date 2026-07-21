@@ -151,24 +151,27 @@ async function drawSharedTop(ctx: Ctx, headerImageBytes: Uint8Array) {
   const headerImage = await ctx.doc.embedPng(headerImageBytes);
   page.drawImage(headerImage, HEADER_IMAGE);
 
-  // Title, right-aligned like "Price Quote" on the quote template.
+  // Title, right-aligned like "Price Quote" on the quote template but
+  // pulled up and left 1/4" (18pt) each.
   const title = "Invoice";
   const titleSize = 20;
   const titleWidth = helvBold.widthOfTextAtSize(title, titleSize);
+  const titleRightX = 542;
+  const titleBaselineY = 710;
   page.drawText(title, {
-    x: 560 - titleWidth,
-    y: 692,
+    x: titleRightX - titleWidth,
+    y: titleBaselineY,
     size: titleSize,
     font: helvBold,
     color: BLACK,
   });
   // Invoice number under the title (gray bold, like the quote/ticket
   // number), centered on the word "Invoice" above it.
-  const titleCenterX = 560 - titleWidth / 2;
+  const titleCenterX = titleRightX - titleWidth / 2;
   addTextField(
     ctx,
     "Invoice Number",
-    { x0: titleCenterX - 63, y0: 673.1, x1: titleCenterX + 63, y1: 689.1 },
+    { x0: titleCenterX - 63, y0: 691.1, x1: titleCenterX + 63, y1: 707.1 },
     { fontSize: 12, alignment: TextAlignment.Center, bold: true, grayText: true },
   );
 
@@ -176,12 +179,19 @@ async function drawSharedTop(ctx: Ctx, headerImageBytes: Uint8Array) {
   drawBox(page, TABLE_LEFT_X, INFO_BOX.bottom, TABLE_RIGHT_X, INFO_BOX.top);
   drawLine(page, INFO_BOX.dividerX, INFO_BOX.bottom, INFO_BOX.dividerX, INFO_BOX.top);
 
-  // Both columns share the same four row baselines so everything in the
-  // info box lines up horizontally, and each column's values share one
-  // left edge so they line up vertically too.
+  // Both columns share the same row baselines so everything in the info box
+  // lines up horizontally. Field text renders vertically centered in its
+  // widget ~2pt above a label drawn on the row baseline, so field rects sit
+  // 2pt lower than the label to put both texts on the SAME baseline.
   const labelSize = 9;
   const INFO_ROWS = [644.1, 625.1, 606.1, 587.1];
   const BILL_TO_VALUE_X = 95;
+  const fieldRect = (rowY: number, x0: number, x1: number) => ({
+    x0,
+    y0: rowY - 4,
+    x1,
+    y1: rowY + 10,
+  });
 
   page.drawText("Bill To:", {
     x: 56.7,
@@ -190,20 +200,10 @@ async function drawSharedTop(ctx: Ctx, headerImageBytes: Uint8Array) {
     font: helvBold,
     color: BLACK,
   });
-  const billToFields = [
-    "Bill To Name",
-    "Bill To Contact",
-    "Bill To Address 1",
-    "Bill To Address 2",
-  ];
+  // Company name on the label row, then the address (no contact line).
+  const billToFields = ["Bill To Name", "Bill To Address 1", "Bill To Address 2"];
   billToFields.forEach((name, index) => {
-    const y = INFO_ROWS[index]!;
-    addTextField(ctx, name, {
-      x0: BILL_TO_VALUE_X,
-      y0: y - 2,
-      x1: 306.7,
-      y1: y + 12,
-    });
+    addTextField(ctx, name, fieldRect(INFO_ROWS[index]!, BILL_TO_VALUE_X, 306.7));
   });
 
   // Right column: values share one left edge past the widest label.
@@ -217,15 +217,12 @@ async function drawSharedTop(ctx: Ctx, headerImageBytes: Uint8Array) {
   for (const label of rightLabels) {
     const y = INFO_ROWS[label.row]!;
     page.drawText(label.text, { x: 320.7, y, size: labelSize, font: helvBold, color: BLACK });
-    addTextField(ctx, label.field, {
-      x0: rightValueX,
-      y0: y - 2,
-      x1: 561.7,
-      y1: y + 12,
-    });
+    addTextField(ctx, label.field, fieldRect(y, rightValueX, 561.7));
   }
   // Full delivery address (multi-line) fills the space the ticket number
-  // left behind — the ticket number lives in the meta strip now.
+  // left behind — the ticket number lives in the meta strip now. Multiline
+  // text lays out from the TOP of the widget, so the top edge sits so the
+  // first line lands on the label's baseline.
   page.drawText(deliveryLabel, {
     x: 320.7,
     y: INFO_ROWS[2]!,
@@ -238,9 +235,9 @@ async function drawSharedTop(ctx: Ctx, headerImageBytes: Uint8Array) {
     "Delivery Address",
     {
       x0: rightValueX,
-      y0: INFO_ROWS[3]! - 2,
+      y0: INFO_ROWS[3]! - 4,
       x1: 561.7,
-      y1: INFO_ROWS[2]! + 12,
+      y1: INFO_ROWS[2]! + 9.5,
     },
     { multiline: true },
   );

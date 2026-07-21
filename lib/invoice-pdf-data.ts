@@ -179,10 +179,9 @@ export function buildInvoiceFormData(
   contentPage: InvoiceContentPage,
   isLastPage: boolean,
   extras: {
-    billingContactName: string | null;
     /** Overrides the invoice's customer relation (name-matched fallback). */
     customerAddressLines?: string[];
-  } = { billingContactName: null },
+  } = {},
 ): Record<string, string> {
   const customerAddress =
     extras.customerAddressLines ?? formatCustomerAddress(invoice.customer);
@@ -196,7 +195,6 @@ export function buildInvoiceFormData(
     "Invoice Date": formatDateForPdf(invoice.invoiceDate),
     "Due Date": formatDateForPdf(invoice.dueDate),
     "Bill To Name": blankOr(invoice.customerName),
-    "Bill To Contact": blankOr(extras.billingContactName),
     "Bill To Address 1": customerAddress[0] ?? "",
     "Bill To Address 2": customerAddress[1] ?? "",
     "Project Name": blankOr(invoice.projectName),
@@ -231,7 +229,6 @@ export const INVOICE_TEMPLATE_FIELD_NAMES = [
   "Invoice Date",
   "Due Date",
   "Bill To Name",
-  "Bill To Contact",
   "Bill To Address 1",
   "Bill To Address 2",
   "Project Name",
