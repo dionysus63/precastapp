@@ -192,7 +192,6 @@ export function buildInvoiceFormData(
 
   const data: Record<string, string> = {
     "Invoice Number": blankOr(invoice.invoiceNumber),
-    "Invoice Date": formatDateForPdf(invoice.invoiceDate),
     "Due Date": formatDateForPdf(invoice.dueDate),
     "Bill To Name": blankOr(invoice.customerName),
     "Bill To Address 1": customerAddress[0] ?? "",
@@ -226,7 +225,6 @@ export function buildInvoiceFormData(
  */
 export const INVOICE_TEMPLATE_FIELD_NAMES = [
   "Invoice Number",
-  "Invoice Date",
   "Due Date",
   "Bill To Name",
   "Bill To Address 1",

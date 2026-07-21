@@ -41,9 +41,9 @@ const HEADER_IMAGE = { x: 48.7, y: 666.2, width: 348, height: 85.8 };
 // Info box (Bill To / project details), same as the quote template.
 const INFO_BOX = { top: 661.7, bottom: 583.1, dividerX: 312.7 };
 
-// Meta strip (five even cells: Ticket #, Delivery/Pickup, Invoice Date,
-// Due Date, Page). Slimmer than the quote template's strip, centered in the
-// same envelope.
+// Meta strip (four even cells: Ticket #, Delivery/Pickup, Due Date, Page —
+// no invoice date; billing keys off the delivery date). Slimmer than the
+// quote template's strip, centered in the same envelope.
 const STRIP = { top: 568.4, labelBottom: 554.9, bottom: 539.9 };
 
 // Item table header band; verticals from lib/quote-pdf-layout.ts comments.
@@ -253,7 +253,6 @@ async function drawSharedTop(ctx: Ctx, headerImageBytes: Uint8Array) {
   const stripCells: Array<{ label: string; field: string }> = [
     { label: "Ticket #", field: "Ticket Number" },
     { label: "Delivery/Pickup", field: "Delivery Date" },
-    { label: "Invoice Date", field: "Invoice Date" },
     { label: "Due Date", field: "Due Date" },
     { label: "Page", field: "Page" },
   ];

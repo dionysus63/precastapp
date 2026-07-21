@@ -69,7 +69,6 @@ export async function ensureInvoiceTemplateExists(): Promise<void> {
     { name: "Company Phone", x: 48, y: 708, width: 250 },
     { name: "Company Email", x: 48, y: 692, width: 250 },
     { name: "Invoice Number", x: 400, y: 740, width: 160 },
-    { name: "Invoice Date", x: 400, y: 724, width: 160 },
     { name: "Due Date", x: 400, y: 708, width: 160 },
     { name: "Page", x: 400, y: 692, width: 160 },
     { name: "Bill To Name", x: 48, y: 650, width: 250 },

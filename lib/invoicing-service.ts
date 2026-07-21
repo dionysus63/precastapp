@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import type { PrismaClient } from "@/app/generated/prisma/client";
 import { Prisma } from "@/app/generated/prisma/client";
 import { getDefaultPriceListId } from "@/lib/price-list-service";
-import { defaultInvoiceDueDate, getAppSettings } from "@/lib/app-settings";
+import { getAppSettings } from "@/lib/app-settings";
 import { deriveInvoiceNumberFromTicket } from "@/lib/delivery-ticket-number";
 import {
   removeAdsJointTypeSuffix,
@@ -137,6 +137,28 @@ async function nextInvoiceNumber(
   const invoiceNumber = `INV-${String(yearTwoDigit).padStart(2, "0")}-${String(sequenceNumber).padStart(3, "0")}`;
 
   return { invoiceNumber, year, yearTwoDigit, sequenceNumber };
+}
+
+/**
+ * Invoices are due one calendar month after the delivery/pickup date,
+ * clamped to the last day of shorter months (Jan 31 -> Feb 28). Falls back
+ * to the given date when the ticket has no delivery date.
+ */
+export function invoiceDueDateFromDelivery(
+  deliveryDate: Date | null | undefined,
+  fallback: Date,
+): Date {
+  const base = new Date(deliveryDate ?? fallback);
+  base.setHours(0, 0, 0, 0);
+  const day = base.getDate();
+  const result = new Date(base.getFullYear(), base.getMonth() + 1, 1);
+  const lastDay = new Date(
+    result.getFullYear(),
+    result.getMonth() + 1,
+    0,
+  ).getDate();
+  result.setDate(Math.min(day, lastDay));
+  return result;
 }
 
 /**
@@ -406,7 +428,7 @@ export async function convertDeliveryTicketToInvoice(
     : new Date();
 
   const settings = await getAppSettings();
-  const dueDate = defaultInvoiceDueDate(settings.invoiceDueDays);
+  const dueDate = invoiceDueDateFromDelivery(ticket.deliveryDate, invoiceDate);
   const resolvedPriceListId =
     ticket.priceListId ?? (await getDefaultPriceListId(client));
 

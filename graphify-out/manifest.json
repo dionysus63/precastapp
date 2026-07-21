@@ -730,8 +730,8 @@
     "semantic_hash": ""
   },
   "lib/invoicing-service.ts": {
-    "mtime": 1784635030.7058718,
-    "ast_hash": "8f2e9269102a7691c60e044ce12fdbb9",
+    "mtime": 1784645076.352431,
+    "ast_hash": "f8b215327f0606b0c3c8881ac03e7867",
     "semantic_hash": ""
   },
   "lib/job-file-mapper.ts": {
@@ -2190,8 +2190,8 @@
     "semantic_hash": ""
   },
   "app/invoices/actions.ts": {
-    "mtime": 1784599275.7021916,
-    "ast_hash": "8633452eb84b76b55fa8d67fc8385d7e",
+    "mtime": 1784645110.1019392,
+    "ast_hash": "a497eec36519c6f5160b93015f84a9fa",
     "semantic_hash": ""
   },
   "components/invoices/invoice-detail-actions.tsx": {
@@ -2210,13 +2210,13 @@
     "semantic_hash": ""
   },
   "lib/invoice-pdf-data.ts": {
-    "mtime": 1784640395.1354003,
-    "ast_hash": "59ac7a05eaeae421dcb1649dd80f557b",
+    "mtime": 1784645125.3811786,
+    "ast_hash": "63c8919966000a4e1b1f5266feb003cb",
     "semantic_hash": ""
   },
   "lib/invoice-pdf-fill.ts": {
-    "mtime": 1784640404.0856779,
-    "ast_hash": "af680e09d3bf79b0dca3ae049104527c",
+    "mtime": 1784645136.113984,
+    "ast_hash": "3fab40081ebccb9ff51b02536c2f9cfa",
     "semantic_hash": ""
   },
   "lib/invoice-pdf-line-items.ts": {
@@ -2230,8 +2230,8 @@
     "semantic_hash": ""
   },
   "assets/templates/invoice-template.pdf": {
-    "mtime": 1784641444.706948,
-    "ast_hash": "266871ae332277c80d0c67b0b8eb5075",
+    "mtime": 1784645196.5694969,
+    "ast_hash": "6585df64714577908ad43d7767b8f598",
     "semantic_hash": ""
   },
   "components/production/approve-for-production-dialog.tsx": {
@@ -3200,13 +3200,13 @@
     "semantic_hash": ""
   },
   "scripts/generate-invoice-templates.ts": {
-    "mtime": 1784641422.8483524,
-    "ast_hash": "6f4b4660090552e8c9f50a643ecd3d72",
+    "mtime": 1784645121.2774684,
+    "ast_hash": "9a0b97fff616f26454b019470b873c9b",
     "semantic_hash": ""
   },
   "assets/templates/invoice-template-continuation.pdf": {
-    "mtime": 1784641444.7614954,
-    "ast_hash": "03940e57625ff511ba08bcf1217e834c",
+    "mtime": 1784645196.6224954,
+    "ast_hash": "fd10295f95fe5b7edadb4b2cd3ad0c35",
     "semantic_hash": ""
   },
   "assets/templates/lip-header.png": {
@@ -3582,6 +3582,11 @@
   "components/invoices/draft-batch-preview-content.tsx": {
     "mtime": 1784643532.6198366,
     "ast_hash": "50356449fb392503d49be5ffc6f01348",
+    "semantic_hash": ""
+  },
+  "tests/unit/invoice-due-date.test.ts": {
+    "mtime": 1784645148.0286527,
+    "ast_hash": "d96b4dfd942e6b1b6ad8484e3a8e6d1f",
     "semantic_hash": ""
   }
 }

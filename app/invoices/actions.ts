@@ -10,6 +10,7 @@ import {
 import { Prisma } from "@/app/generated/prisma/client";
 import { getAppSettings } from "@/lib/app-settings";
 import { requirePermission } from "@/lib/auth/session";
+import { invoiceDueDateFromDelivery } from "@/lib/invoicing-service";
 import { computeMoneyTotals } from "@/lib/money";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { computeDeliveryAmount } from "@/lib/quotes/money-rules";
@@ -42,13 +43,6 @@ function parseInvoiceDate(value: string | null | undefined): Date | null {
   if (!match) return null;
   const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
   return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function computeDueDateFromInvoiceDate(invoiceDate: Date, dueDays: number): Date {
-  const date = new Date(invoiceDate);
-  date.setDate(date.getDate() + dueDays);
-  date.setHours(0, 0, 0, 0);
-  return date;
 }
 
 function computeInvoiceFinancials(
@@ -108,35 +102,46 @@ export async function finalizeInvoices(
     return { error: "Select at least one draft invoice to finalize." };
   }
 
-  const settings = await getAppSettings();
   const invoiceDate = parseInvoiceDate(invoiceDateRaw) ?? new Date();
   invoiceDate.setHours(0, 0, 0, 0);
-  const dueDate = computeDueDateFromInvoiceDate(
-    invoiceDate,
-    settings.invoiceDueDays,
-  );
 
   try {
     const result = await withDatabaseRetry(async (client) => {
-      // Status stays in the WHERE clause: an invoice finalized (or voided)
-      // by a concurrent caller between any find and this update must not be
-      // stamped again.
-      const updated = await client.invoice.updateMany({
+      // Due dates are one month after each ticket's delivery/pickup date,
+      // so the batch updates per invoice. Status stays in the WHERE clause:
+      // an invoice finalized (or voided) by a concurrent caller between the
+      // find and an update must not be stamped again.
+      const drafts = await client.invoice.findMany({
         where: { id: { in: uniqueIds }, status: "DRAFT" },
-        data: {
-          status: "SENT",
-          invoiceDate,
-          dueDate,
-          finalizedAt: new Date(),
-          finalizedBy: user.displayName,
+        select: {
+          id: true,
+          deliveryTicket: { select: { deliveryDate: true } },
         },
       });
 
-      if (updated.count === 0) {
+      let finalized = 0;
+      for (const draft of drafts) {
+        const updated = await client.invoice.updateMany({
+          where: { id: draft.id, status: "DRAFT" },
+          data: {
+            status: "SENT",
+            invoiceDate,
+            dueDate: invoiceDueDateFromDelivery(
+              draft.deliveryTicket?.deliveryDate,
+              invoiceDate,
+            ),
+            finalizedAt: new Date(),
+            finalizedBy: user.displayName,
+          },
+        });
+        finalized += updated.count;
+      }
+
+      if (finalized === 0) {
         throw new Error("No draft invoices found to finalize.");
       }
 
-      return { finalized: updated.count };
+      return { finalized };
     });
 
     revalidatePath("/invoices");

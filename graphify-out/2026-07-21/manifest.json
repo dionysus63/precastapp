@@ -2205,8 +2205,8 @@
     "semantic_hash": ""
   },
   "components/invoices/invoices-tabs.tsx": {
-    "mtime": 1784634581.9334638,
-    "ast_hash": "95042bc1af36ba2cc3c2ae9172499219",
+    "mtime": 1784643547.2559156,
+    "ast_hash": "ecaa20f2dcd94270ab430eb29ff6b4b7",
     "semantic_hash": ""
   },
   "lib/invoice-pdf-data.ts": {
@@ -3572,6 +3572,16 @@
   "tests/unit/invoicing-ring-price.test.ts": {
     "mtime": 1784597561.313572,
     "ast_hash": "46c45ba44e72b6aa9dbb91ba230037ff",
+    "semantic_hash": ""
+  },
+  "app/invoices/draft-batch/preview/page.tsx": {
+    "mtime": 1784643539.3875475,
+    "ast_hash": "adef968d07dbdc677c4ff36341a4b12b",
+    "semantic_hash": ""
+  },
+  "components/invoices/draft-batch-preview-content.tsx": {
+    "mtime": 1784643532.6198366,
+    "ast_hash": "50356449fb392503d49be5ffc6f01348",
     "semantic_hash": ""
   }
 }
