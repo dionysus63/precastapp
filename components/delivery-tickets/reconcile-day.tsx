@@ -361,67 +361,33 @@ export function ReconcileDay({
           reconcileDate={date}
           emptyMessage="No delivery tickets scheduled for this date."
         />
-      </SectionCard>
 
-      {deliveredOtherDayTickets.length > 0 ? (
-        <SectionCard
-          title={`Delivered on ${date} but scheduled another day`}
-          noPadding
-        >
-          <TicketTable
-            tickets={deliveredOtherDayTickets}
-            reconcileDate={date}
-            showScheduledDate
-            emptyMessage=""
-          />
-        </SectionCard>
-      ) : null}
-
-      <SectionCard title="Confirm day & create draft invoices">
-        {reconciliation ? (
-          <div className="space-y-3">
-            <p className="text-sm text-emerald-700">
+        {/* Confirm lives on the same card as the day's tickets so there is
+            never any question which day the button applies to. */}
+        <div className="space-y-2 border-t border-slate-200 bg-slate-50/60 px-4 py-3">
+          {reconciliation ? (
+            <p className="text-xs text-emerald-700">
               Confirmed by {reconciliation.confirmedBy} on{" "}
               {reconciliation.confirmedAt
                 ? new Date(reconciliation.confirmedAt).toLocaleString()
                 : "—"}
               {reconciliation.notes ? ` — ${reconciliation.notes}` : ""}
+              {canManageInvoices && deliveredUninvoiced > 0
+                ? ` · ${deliveredUninvoiced} delivered ticket${
+                    deliveredUninvoiced === 1 ? " still needs" : "s still need"
+                  } a draft invoice — re-run confirm to create ${
+                    deliveredUninvoiced === 1 ? "it" : "them"
+                  }.`
+                : ""}
             </p>
-            {resultMessage ? (
-              <p className="text-sm text-slate-700">{resultMessage}</p>
-            ) : null}
-            {canManageInvoices && deliveredUninvoiced > 0 ? (
-              <p className="text-xs text-slate-600">
-                {deliveredUninvoiced} delivered ticket
-                {deliveredUninvoiced === 1 ? " still needs" : "s still need"} a
-                draft invoice. Re-run confirm below to create them.
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-
-        {hasWarnings ? (
-          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-            <strong>Review before confirming:</strong>{" "}
-            {warningFlags.length} issue
-            {warningFlags.length === 1 ? "" : "s"} flagged on this day&apos;s
-            tickets. You can still confirm, but double-check paper tickets
-            first.
-          </div>
-        ) : null}
-
-        <div className="grid max-w-md gap-3">
-          {canManageInvoices ? (
-            <p className="text-xs text-slate-600">
-              Confirming stamps the day with your name and creates draft
-              invoices for delivered tickets ({deliveredUninvoiced} ready).
+          ) : null}
+          {hasWarnings ? (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-900">
+              <strong>Review before confirming:</strong> {warningFlags.length}{" "}
+              issue{warningFlags.length === 1 ? "" : "s"} flagged on this
+              day&apos;s tickets — double-check the paper tickets first.
             </p>
-          ) : (
-            <p className="text-xs text-slate-500">
-              You need invoice permissions to create draft invoices from this
-              page.
-            </p>
-          )}
+          ) : null}
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
@@ -433,7 +399,7 @@ export function ReconcileDay({
                     setResultMessage(result.error);
                     return;
                   }
-                  const parts: string[] = ["Day confirmed."];
+                  const parts: string[] = [`${date} confirmed.`];
                   if (result.conversionResult) {
                     const { created, skipped, alreadyInvoiced } =
                       result.conversionResult;
@@ -461,8 +427,20 @@ export function ReconcileDay({
               }}
               className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
             >
-              {pending ? "Confirming…" : "Confirm day & create draft invoices"}
+              {pending
+                ? "Confirming…"
+                : `Confirm ${date} & create draft invoices`}
             </button>
+            {canManageInvoices ? (
+              <span className="text-xs text-slate-600">
+                {deliveredUninvoiced} delivered ticket
+                {deliveredUninvoiced === 1 ? "" : "s"} ready to invoice
+              </span>
+            ) : (
+              <span className="text-xs text-slate-500">
+                You need invoice permissions to create draft invoices.
+              </span>
+            )}
             {resultMessage ? (
               <Link
                 href="/invoices?tab=drafts"
@@ -472,8 +450,25 @@ export function ReconcileDay({
               </Link>
             ) : null}
           </div>
+          {resultMessage ? (
+            <p className="text-xs text-slate-700">{resultMessage}</p>
+          ) : null}
         </div>
       </SectionCard>
+
+      {deliveredOtherDayTickets.length > 0 ? (
+        <SectionCard
+          title={`Delivered on ${date} but scheduled another day`}
+          noPadding
+        >
+          <TicketTable
+            tickets={deliveredOtherDayTickets}
+            reconcileDate={date}
+            showScheduledDate
+            emptyMessage=""
+          />
+        </SectionCard>
+      ) : null}
     </div>
   );
 }
