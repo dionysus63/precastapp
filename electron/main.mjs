@@ -323,6 +323,13 @@ if (process.platform === "win32") {
   app.setAppUserModelId("com.li-precast.precastops");
 }
 
+// Dev affordance: run a second shell (e.g. against a local dev server)
+// alongside the installed app — the single-instance lock lives in userData,
+// so a separate profile dir sidesteps it. Ignored unless explicitly set.
+if (process.env.PRECAST_USER_DATA_DIR) {
+  app.setPath("userData", process.env.PRECAST_USER_DATA_DIR);
+}
+
 const gotLock = app.requestSingleInstanceLock();
 
 if (!gotLock) {

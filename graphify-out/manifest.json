@@ -1600,8 +1600,8 @@
     "semantic_hash": ""
   },
   "electron/main.mjs": {
-    "mtime": 1784292190.7472699,
-    "ast_hash": "acd3d52ecc47eb6dfd80593f266efbf9",
+    "mtime": 1784642446.0512166,
+    "ast_hash": "217173c9fffa7ad9bfdb9150d461826b",
     "semantic_hash": ""
   },
   "electron/package.json": {
@@ -1935,8 +1935,8 @@
     "semantic_hash": ""
   },
   "lib/print-pdf-url.ts": {
-    "mtime": 1784600376.8554544,
-    "ast_hash": "83f9f11cae7c9bc5afea2262c5594b56",
+    "mtime": 1784642742.8226726,
+    "ast_hash": "c6c7309b16096cff18c65abf2e5c6a9d",
     "semantic_hash": ""
   },
   "lib/quotes/structure-workbook.ts": {

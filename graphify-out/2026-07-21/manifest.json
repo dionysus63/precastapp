@@ -2230,8 +2230,8 @@
     "semantic_hash": ""
   },
   "assets/templates/invoice-template.pdf": {
-    "mtime": 1784640434.3238955,
-    "ast_hash": "3ed262a1382791f431d7cbbeac9c415c",
+    "mtime": 1784641444.706948,
+    "ast_hash": "266871ae332277c80d0c67b0b8eb5075",
     "semantic_hash": ""
   },
   "components/production/approve-for-production-dialog.tsx": {
@@ -3200,13 +3200,13 @@
     "semantic_hash": ""
   },
   "scripts/generate-invoice-templates.ts": {
-    "mtime": 1784640367.292874,
-    "ast_hash": "f95c3858ee24e264cf9269e17d06221a",
+    "mtime": 1784641422.8483524,
+    "ast_hash": "6f4b4660090552e8c9f50a643ecd3d72",
     "semantic_hash": ""
   },
   "assets/templates/invoice-template-continuation.pdf": {
-    "mtime": 1784640434.403585,
-    "ast_hash": "1e967849eb58cc171607f19db2bea5f4",
+    "mtime": 1784641444.7614954,
+    "ast_hash": "03940e57625ff511ba08bcf1217e834c",
     "semantic_hash": ""
   },
   "assets/templates/lip-header.png": {
