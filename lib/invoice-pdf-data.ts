@@ -1,4 +1,10 @@
 import type { Prisma } from "@/app/generated/prisma/client";
+import {
+  formatPostalAddressLines,
+  removeAdsJointTypeSuffix,
+  removeTrailingRingHeightSuffix,
+  splitMultilineAddress,
+} from "@/lib/delivery-ticket-pdf-data";
 import { formatQuantity, formatUsd } from "@/lib/format";
 import type { InvoiceDrawLineItem } from "@/lib/invoice-pdf-line-items";
 
@@ -24,6 +30,10 @@ export const INVOICE_PDF_INCLUDE = {
       deliveryAddress: true,
       fulfillmentMethod: true,
       deliveryDate: true,
+      job: {
+        select: { projectAddress: true, city: true, state: true, zip: true },
+      },
+      quote: { select: { projectAddress: true } },
     },
   },
 } as const satisfies Prisma.InvoiceInclude;
@@ -66,16 +76,92 @@ function formatCustomerAddress(invoice: DbInvoiceForPdf): string[] {
   return lines;
 }
 
+/** Structure lines are distinct pieces and never merge on the printout. */
+const STRUCTURE_INVOICE_LINE_TYPES = new Set([
+  "CONFIGURABLE_STRUCTURE",
+  "CUSTOM_STRUCTURE",
+]);
+
 export function mapInvoiceLineItemsForPdf(
   lineItems: DbInvoiceForPdf["lineItems"],
 ): InvoiceDrawLineItem[] {
-  return lineItems.map((line) => ({
-    item: line.itemCode.trim(),
-    qty: formatQuantity(line.quantity),
-    description: line.description?.trim() ?? "",
-    unitPrice: formatMoneyForPdf(line.unitPrice),
-    total: formatMoneyForPdf(line.total),
-  }));
+  // Same printed treatment as the delivery ticket (mapLineItemsForPdf in
+  // delivery-ticket-pdf-data): ring lines drop their "(5' ring)" editor
+  // suffix, and rings picked from multiple pool groups — one DB row per
+  // quote line for the same SKU — print as a single combined row. Lines only
+  // merge when the price agrees, so the qty x unit price = total arithmetic
+  // stays visibly correct.
+  const result: InvoiceDrawLineItem[] = [];
+  const mergedIndexByKey = new Map<string, number>();
+  const mergedSums = new Map<number, { qty: number; total: number }>();
+
+  for (const line of lineItems) {
+    const description = removeAdsJointTypeSuffix(
+      removeTrailingRingHeightSuffix(line.description?.trim() ?? ""),
+    );
+    const item: InvoiceDrawLineItem = {
+      item: line.itemCode.trim(),
+      qty: formatQuantity(line.quantity),
+      description,
+      unitPrice: formatMoneyForPdf(line.unitPrice),
+      total: formatMoneyForPdf(line.total),
+    };
+
+    const qtyNumber = Number.parseFloat(line.quantity.toString());
+    const totalNumber = Number.parseFloat(line.total.toString());
+    const mergeKey =
+      !STRUCTURE_INVOICE_LINE_TYPES.has(line.lineType) &&
+      Number.isFinite(qtyNumber) &&
+      Number.isFinite(totalNumber)
+        ? `${item.item}::${line.unit}::${description}::${item.unitPrice}`
+        : null;
+
+    if (mergeKey != null) {
+      const existingIndex = mergedIndexByKey.get(mergeKey);
+      if (existingIndex != null) {
+        const sums = mergedSums.get(existingIndex)!;
+        sums.qty += qtyNumber;
+        sums.total += totalNumber;
+        result[existingIndex] = {
+          ...result[existingIndex]!,
+          qty: formatQuantity(sums.qty),
+          total: formatMoneyForPdf(sums.total),
+        };
+        continue;
+      }
+      mergedIndexByKey.set(mergeKey, result.length);
+      mergedSums.set(result.length, { qty: qtyNumber, total: totalNumber });
+    }
+
+    result.push(item);
+  }
+
+  return result;
+}
+
+/**
+ * Full delivery address, mirroring the delivery ticket's resolution: the
+ * ticket's own (possibly multi-line) address first, then the job's postal
+ * address, then the quote's project address.
+ */
+function resolveInvoiceDeliveryAddressLines(invoice: DbInvoiceForPdf): string[] {
+  const ticket = invoice.deliveryTicket;
+  const ticketAddress = splitMultilineAddress(ticket.deliveryAddress);
+  if (ticketAddress.length > 0) {
+    return ticketAddress;
+  }
+  if (ticket.job) {
+    const jobAddress = formatPostalAddressLines(
+      ticket.job.projectAddress,
+      ticket.job.city,
+      ticket.job.state,
+      ticket.job.zip,
+    );
+    if (jobAddress.length > 0) {
+      return jobAddress;
+    }
+  }
+  return splitMultilineAddress(ticket.quote?.projectAddress);
 }
 
 export function buildInvoiceFormData(
@@ -88,8 +174,11 @@ export function buildInvoiceFormData(
   },
   contentPage: InvoiceContentPage,
   isLastPage: boolean,
+  extras: { billingContactName: string | null } = { billingContactName: null },
 ): Record<string, string> {
   const customerAddress = formatCustomerAddress(invoice);
+  // Any stored discount nets into the printed subtotal — the totals box has
+  // no Discount row (rare discounts are entered as line items instead).
   const subtotalAfterDiscount =
     Number(invoice.subtotal) - Number(invoice.discountAmount);
 
@@ -98,12 +187,13 @@ export function buildInvoiceFormData(
     "Invoice Date": formatDateForPdf(invoice.invoiceDate),
     "Due Date": formatDateForPdf(invoice.dueDate),
     "Bill To Name": blankOr(invoice.customerName),
+    "Bill To Contact": blankOr(extras.billingContactName),
     "Bill To Address 1": customerAddress[0] ?? "",
     "Bill To Address 2": customerAddress[1] ?? "",
     "Project Name": blankOr(invoice.projectName),
     "Job Number": blankOr(invoice.jobNumber),
     "Ticket Number": blankOr(invoice.deliveryTicket.ticketNumber),
-    "Delivery Address": blankOr(invoice.deliveryTicket.deliveryAddress),
+    "Delivery Address": resolveInvoiceDeliveryAddressLines(invoice).join("\n"),
     "Company Name": blankOr(company.companyName),
     "Company Address": blankOr(company.companyAddress),
     "Company Phone": blankOr(company.companyPhone),
@@ -113,7 +203,6 @@ export function buildInvoiceFormData(
 
   if (isLastPage) {
     data.Subtotal = formatMoneyForPdf(subtotalAfterDiscount);
-    data.Discount = formatMoneyForPdf(invoice.discountAmount);
     data.Delivery = formatMoneyForPdf(invoice.deliveryAmount);
     data["Tax Rate"] = `${Number(invoice.taxRate).toFixed(3)}%`;
     data["Sales Tax"] = formatMoneyForPdf(invoice.salesTax);
@@ -132,6 +221,7 @@ export const INVOICE_TEMPLATE_FIELD_NAMES = [
   "Invoice Date",
   "Due Date",
   "Bill To Name",
+  "Bill To Contact",
   "Bill To Address 1",
   "Bill To Address 2",
   "Project Name",
@@ -144,7 +234,6 @@ export const INVOICE_TEMPLATE_FIELD_NAMES = [
   "Company Email",
   "Page",
   "Subtotal",
-  "Discount",
   "Delivery",
   "Tax Rate",
   "Sales Tax",

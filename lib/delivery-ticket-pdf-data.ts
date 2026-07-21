@@ -160,7 +160,7 @@ function formatWeightNumber(value: { toString(): string } | null): string {
   return amount.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
 
-function formatPostalAddressLines(
+export function formatPostalAddressLines(
   address: string | null | undefined,
   town: string | null | undefined,
   state: string | null | undefined,
@@ -178,7 +178,7 @@ function formatPostalAddressLines(
   return lines;
 }
 
-function splitMultilineAddress(value: string | null | undefined): string[] {
+export function splitMultilineAddress(value: string | null | undefined): string[] {
   if (!value?.trim()) {
     return [];
   }
@@ -241,7 +241,7 @@ function formatQuantity(value: { toString(): string }): string {
   return amount.toLocaleString("en-US", { maximumFractionDigits: 4 });
 }
 
-function removeTrailingRingHeightSuffix(value: string): string {
+export function removeTrailingRingHeightSuffix(value: string): string {
   return value
     .replace(/\s*\(\s*\d+(?:\.\d+)?\s*['’′]\s+ring\s*\)\s*$/i, "")
     .trimEnd();
@@ -252,7 +252,7 @@ function removeTrailingRingHeightSuffix(value: string): string {
  * appended by the editor; the joint type now lives in the item code and
  * product name, so strip it from printed descriptions.
  */
-function removeAdsJointTypeSuffix(value: string): string {
+export function removeAdsJointTypeSuffix(value: string): string {
   return value
     .replace(/\s*\(\s*(?:Soiltight\s*\(ST\)|Watertight\s*\(WT\))\s*\)/gi, "")
     .replace(/\s{2,}/g, " ")

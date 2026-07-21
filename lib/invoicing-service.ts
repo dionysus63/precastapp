@@ -4,6 +4,10 @@ import { Prisma } from "@/app/generated/prisma/client";
 import { getDefaultPriceListId } from "@/lib/price-list-service";
 import { defaultInvoiceDueDate, getAppSettings } from "@/lib/app-settings";
 import { deriveInvoiceNumberFromTicket } from "@/lib/delivery-ticket-number";
+import {
+  removeAdsJointTypeSuffix,
+  removeTrailingRingHeightSuffix,
+} from "@/lib/delivery-ticket-pdf-data";
 import { computeMoneyTotals } from "@/lib/money";
 import { computeDeliveryAmount } from "@/lib/quotes/money-rules";
 
@@ -135,6 +139,28 @@ async function nextInvoiceNumber(
   return { invoiceNumber, year, yearTwoDigit, sequenceNumber };
 }
 
+/**
+ * Drain-ring pool quote lines are priced per VERTICAL FOOT, but their ring
+ * ticket lines carry per-piece counts (4 x "10'Ø x 5' Drain Ring"). Bill
+ * each ring at its height x the VF price so qty x unit price equals what
+ * actually shipped — mirrors the shipped-feet fulfillment math in
+ * delivery-fulfillment. A missing/zero product height falls back to the raw
+ * quote price rather than billing $0.
+ */
+export function ringPieceUnitPrice(
+  vfUnitPrice: Prisma.Decimal,
+  heightFeet: Prisma.Decimal | null | undefined,
+): Prisma.Decimal {
+  if (heightFeet == null) {
+    return vfUnitPrice;
+  }
+  const height = Number(heightFeet);
+  if (!Number.isFinite(height) || height <= 0) {
+    return vfUnitPrice;
+  }
+  return vfUnitPrice.mul(heightFeet);
+}
+
 async function resolveUnitPrice(
   client: PrismaClient | Prisma.TransactionClient,
   ticketLine: {
@@ -151,7 +177,13 @@ async function resolveUnitPrice(
     const quoteLine = preloaded?.quoteLines.get(ticketLine.quoteLineItemId);
     if (quoteLine) {
       return {
-        unitPrice: quoteLine.unitPrice,
+        unitPrice:
+          quoteLine.isDrainRing && ticketLine.productId
+            ? ringPieceUnitPrice(
+                quoteLine.unitPrice,
+                preloaded?.productHeights.get(ticketLine.productId),
+              )
+            : quoteLine.unitPrice,
         taxable: quoteLine.taxable,
         resolved: true,
       };
@@ -159,11 +191,19 @@ async function resolveUnitPrice(
     if (!preloaded) {
       const fetched = await client.quoteLineItem.findUnique({
         where: { id: ticketLine.quoteLineItemId },
-        select: { unitPrice: true, taxable: true },
+        select: { unitPrice: true, taxable: true, isDrainRing: true },
       });
       if (fetched) {
+        let unitPrice = fetched.unitPrice;
+        if (fetched.isDrainRing && ticketLine.productId) {
+          const product = await client.product.findUnique({
+            where: { id: ticketLine.productId },
+            select: { heightFeet: true },
+          });
+          unitPrice = ringPieceUnitPrice(unitPrice, product?.heightFeet);
+        }
         return {
-          unitPrice: fetched.unitPrice,
+          unitPrice,
           taxable: fetched.taxable,
           resolved: true,
         };
@@ -199,9 +239,11 @@ async function resolveUnitPrice(
 type UnitPriceLookups = {
   quoteLines: Map<
     string,
-    { unitPrice: Prisma.Decimal; taxable: boolean }
+    { unitPrice: Prisma.Decimal; taxable: boolean; isDrainRing: boolean }
   >;
   priceListItems: Map<string, { unitPrice: Prisma.Decimal }>;
+  /** Ring heights for per-piece pricing against per-VF drain-ring lines. */
+  productHeights: Map<string, Prisma.Decimal | null>;
 };
 
 async function preloadUnitPriceLookups(
@@ -234,7 +276,7 @@ async function preloadUnitPriceLookups(
     quoteLineItemIds.length > 0
       ? await client.quoteLineItem.findMany({
           where: { id: { in: quoteLineItemIds } },
-          select: { id: true, unitPrice: true, taxable: true },
+          select: { id: true, unitPrice: true, taxable: true, isDrainRing: true },
         })
       : [];
   const priceListItems =
@@ -247,16 +289,30 @@ async function preloadUnitPriceLookups(
           select: { productId: true, unitPrice: true },
         })
       : [];
+  const products =
+    productIds.length > 0
+      ? await client.product.findMany({
+          where: { id: { in: productIds } },
+          select: { id: true, heightFeet: true },
+        })
+      : [];
 
   return {
     quoteLines: new Map(
       quoteLines.map((line) => [
         line.id,
-        { unitPrice: line.unitPrice, taxable: line.taxable },
+        {
+          unitPrice: line.unitPrice,
+          taxable: line.taxable,
+          isDrainRing: line.isDrainRing,
+        },
       ]),
     ),
     priceListItems: new Map(
       priceListItems.map((item) => [item.productId, { unitPrice: item.unitPrice }]),
+    ),
+    productHeights: new Map(
+      products.map((product) => [product.id, product.heightFeet]),
     ),
   };
 }
@@ -410,7 +466,14 @@ export async function convertDeliveryTicketToInvoice(
         );
       }
 
-      resolvedLines.push({ line, unitPrice, taxable, description: line.description });
+      // Ticket lines carry editor-only suffixes ("(5' ring)", ADS joint
+      // types); invoices store the clean customer-facing description.
+      const cleanDescription = line.description
+        ? removeAdsJointTypeSuffix(
+            removeTrailingRingHeightSuffix(line.description),
+          ) || null
+        : null;
+      resolvedLines.push({ line, unitPrice, taxable, description: cleanDescription });
     }
 
     // A split structure is billed exactly once across all its piece lines:

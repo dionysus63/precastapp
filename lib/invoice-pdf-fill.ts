@@ -8,6 +8,9 @@ import {
   degrees,
 } from "pdf-lib";
 import { getAppSettings } from "@/lib/app-settings";
+import { getDefaultContactForRole } from "@/lib/customer-contacts";
+import { dedupeSharedPdfObjects } from "@/lib/pdf-dedupe";
+import { prisma } from "@/lib/prisma";
 import {
   buildInvoiceFormData,
   mapInvoiceLineItemsForPdf,
@@ -70,15 +73,15 @@ export async function ensureInvoiceTemplateExists(): Promise<void> {
     { name: "Due Date", x: 400, y: 708, width: 160 },
     { name: "Page", x: 400, y: 692, width: 160 },
     { name: "Bill To Name", x: 48, y: 650, width: 250 },
-    { name: "Bill To Address 1", x: 48, y: 634, width: 250 },
-    { name: "Bill To Address 2", x: 48, y: 618, width: 250 },
+    { name: "Bill To Contact", x: 48, y: 634, width: 250 },
+    { name: "Bill To Address 1", x: 48, y: 618, width: 250 },
+    { name: "Bill To Address 2", x: 48, y: 602, width: 250 },
     { name: "Project Name", x: 320, y: 650, width: 240 },
     { name: "Job Number", x: 320, y: 634, width: 240 },
     { name: "Ticket Number", x: 320, y: 618, width: 240 },
     { name: "Delivery Address", x: 320, y: 602, width: 240 },
     { name: "Subtotal", x: 420, y: 118, width: 140 },
-    { name: "Discount", x: 420, y: 104, width: 140 },
-    { name: "Delivery", x: 420, y: 90, width: 140 },
+    { name: "Delivery", x: 420, y: 104, width: 140 },
     { name: "Tax Rate", x: 420, y: 76, width: 140 },
     { name: "Sales Tax", x: 420, y: 62, width: 140 },
     { name: "Total", x: 420, y: 48, width: 140 },
@@ -194,6 +197,9 @@ export async function generateInvoicePdfBytes(
     readInvoiceTemplateBytes(),
     readInvoiceContinuationTemplateBytes(),
   ]);
+  const billingContact = invoice.customerId
+    ? await getDefaultContactForRole(prisma, invoice.customerId, "BILLING")
+    : null;
   const lineItems = mapInvoiceLineItemsForPdf(invoice.lineItems);
 
   const measureDoc = await PDFDocument.load(templateBytes);
@@ -219,6 +225,7 @@ export async function generateInvoicePdfBytes(
       },
       contentPage,
       pageIndex === slices.length - 1,
+      { billingContactName: billingContact?.contactName ?? null },
     );
 
     const pageBytes = await buildInvoicePageBytes(
@@ -261,5 +268,8 @@ export async function generateDraftInvoicesBatchPdfBytes(
     }
   }
 
+  // Every invoice page carries a copy of the template's header artwork and
+  // fonts; collapse the shared resources like the drill-sheet packet does.
+  dedupeSharedPdfObjects(merged);
   return merged.save();
 }
