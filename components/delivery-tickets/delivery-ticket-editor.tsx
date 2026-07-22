@@ -25,6 +25,7 @@ import {
 import { getQuoteFulfillmentWithOpenLoads } from "@/app/operations/actions";
 import { FormTypeahead } from "@/components/common/form-typeahead";
 import { SectionCard } from "@/components/dashboard/section-card";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import type { QuoteLineFulfillment } from "@/lib/delivery-fulfillment";
@@ -260,6 +261,7 @@ export function DeliveryTicketEditor({
   defaultValues,
 }: DeliveryTicketEditorProps) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
@@ -1213,13 +1215,138 @@ export function DeliveryTicketEditor({
     };
   }
 
-  function submit(
+  /**
+   * Lines on this load that exceed the quote's remaining quantity, mirroring
+   * the checks validateLines runs on save. Structures are omitted — they stay
+   * hard-capped server-side (a quoted structure is one physical piece).
+   */
+  function computeOverQuoteEntries(
+    payloadLines: DeliveryTicketLineInput[],
+  ): { label: string; unit: string; onLoad: number; available: number }[] {
+    const round2 = (value: number) => Math.round(value * 100) / 100;
+    const standardByLine = new Map<string, number>();
+    const ringFeetByLine = new Map<string, number>();
+    const adsQtyByLine = new Map<string, number>();
+    const castingPiecesByLine = new Map<string, Map<string, number>>();
+
+    for (const line of payloadLines) {
+      if (!line.quoteLineItemId) continue;
+      const meta = fulfillmentById.get(line.quoteLineItemId);
+      if (!meta || meta.isSplitStructure) continue;
+      if (
+        line.lineType === "CONFIGURABLE_STRUCTURE" ||
+        line.lineType === "CUSTOM_STRUCTURE"
+      ) {
+        continue;
+      }
+      if (meta.isDrainRing) {
+        const option = meta.drainRingOptions.find(
+          (entry) => entry.productId === line.productId,
+        );
+        if (!option) continue;
+        ringFeetByLine.set(
+          meta.quoteLineItemId,
+          (ringFeetByLine.get(meta.quoteLineItemId) ?? 0) +
+            option.heightFeet * line.quantity,
+        );
+      } else if (meta.isAdsPipe) {
+        adsQtyByLine.set(
+          meta.quoteLineItemId,
+          (adsQtyByLine.get(meta.quoteLineItemId) ?? 0) + line.quantity,
+        );
+      } else if (meta.isCastingAssembly) {
+        if (!line.productId) continue;
+        const pieces =
+          castingPiecesByLine.get(meta.quoteLineItemId) ??
+          new Map<string, number>();
+        pieces.set(
+          line.productId,
+          (pieces.get(line.productId) ?? 0) + line.quantity,
+        );
+        castingPiecesByLine.set(meta.quoteLineItemId, pieces);
+      } else {
+        standardByLine.set(
+          meta.quoteLineItemId,
+          (standardByLine.get(meta.quoteLineItemId) ?? 0) + line.quantity,
+        );
+      }
+    }
+
+    const entries: {
+      label: string;
+      unit: string;
+      onLoad: number;
+      available: number;
+    }[] = [];
+    const push = (
+      meta: QuoteLineFulfillment,
+      unit: string,
+      onLoad: number,
+    ) => {
+      entries.push({
+        label: meta.displayName || meta.itemCode,
+        unit,
+        onLoad: round2(onLoad),
+        available: getAvailableQty(meta),
+      });
+    };
+
+    for (const [id, qty] of standardByLine) {
+      const meta = fulfillmentById.get(id);
+      if (meta && qty > getAvailableQty(meta)) push(meta, meta.unit, qty);
+    }
+    for (const [id, feet] of ringFeetByLine) {
+      const meta = fulfillmentById.get(id);
+      if (meta && feet > getAvailableQty(meta) + 0.001) push(meta, "LF", feet);
+    }
+    for (const [id, qty] of adsQtyByLine) {
+      const meta = fulfillmentById.get(id);
+      if (meta && qty > getAvailableQty(meta)) push(meta, meta.unit, qty);
+    }
+    for (const [id, pieces] of castingPiecesByLine) {
+      const meta = fulfillmentById.get(id);
+      if (!meta || meta.castingComponentOptions.length === 0) continue;
+      let sets = Number.POSITIVE_INFINITY;
+      for (const option of meta.castingComponentOptions) {
+        const count = pieces.get(option.productId) ?? 0;
+        sets = Math.min(sets, Math.floor(count / option.quantity));
+      }
+      const setsUsed = Number.isFinite(sets) ? sets : 0;
+      if (setsUsed > getAvailableQty(meta)) push(meta, "sets", setsUsed);
+    }
+    return entries;
+  }
+
+  async function submit(
     status: SaveDeliveryTicketInput["status"],
     destination: "detail" | "walkIns" | "preview" = "detail",
   ) {
     setError(null);
+    const payload = buildPayload(status);
+
+    if (payload.ticketType === "JOB" && payload.quoteId) {
+      const overages = computeOverQuoteEntries(payload.lines);
+      if (overages.length > 0) {
+        const details = overages
+          .map((entry) => {
+            const over = Math.round((entry.onLoad - entry.available) * 100) / 100;
+            return `${entry.label}: ${entry.onLoad} ${entry.unit} on this load, ${entry.available} ${entry.unit} left on the quote (+${over} over)`;
+          })
+          .join("\n");
+        const accepted = await confirm({
+          title: "Ship more than quoted?",
+          message: `${details}\n\nThe extra quantity will be billed at the quoted unit price.`,
+          confirmLabel: "Ship anyway",
+          cancelLabel: "Go back",
+        });
+        if (!accepted) {
+          return;
+        }
+        payload.allowOverQuote = true;
+      }
+    }
+
     startTransition(async () => {
-      const payload = buildPayload(status);
       const result =
         mode === "edit" && ticketId
           ? await updateDeliveryTicket(ticketId, payload)

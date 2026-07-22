@@ -63,7 +63,9 @@ export function ConfirmDialogProvider({
             >
               {state.title}
             </h2>
-            <p className="mt-2 text-sm text-slate-600">{state.message}</p>
+            <p className="mt-2 whitespace-pre-line text-sm text-slate-600">
+              {state.message}
+            </p>
             <div className="mt-5 flex justify-end gap-2">
               <Button
                 type="button"

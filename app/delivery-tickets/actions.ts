@@ -101,6 +101,11 @@ export type SaveDeliveryTicketInput = {
   // provided, updateDeliveryTicket rejects the save if someone else changed
   // the ticket in the meantime (optimistic concurrency).
   expectedUpdatedAt?: string;
+  // The dispatcher saw the over-quote warning and accepted it: stock
+  // materials (fabric, rings, pipe, casting sets) may exceed the quote's
+  // remaining quantity on this save. Structures stay hard-capped regardless
+  // — a quoted structure is one physical piece.
+  allowOverQuote?: boolean;
   lines: DeliveryTicketLineInput[];
 };
 
@@ -171,6 +176,7 @@ async function validateLines(
     // resolve those to the current revision's lines (and adopt the current id
     // below) instead of rejecting the ticket.
     const aliasToCurrentId = await buildQuoteLineAliasMap(client, input.quoteId);
+    const allowOverQuote = input.allowOverQuote === true;
     const remainingFor = (line: (typeof fulfillment)[number]) =>
       Math.max(0, line.remainingQty - (scheduledByLine.get(line.quoteLineItemId) ?? 0));
     const drainRingFeetByLine = new Map<string, number>();
@@ -290,7 +296,11 @@ async function validateLines(
       }
 
       const remainingQty = remainingFor(meta);
-      if (line.quantity > remainingQty) {
+      const overridable =
+        allowOverQuote &&
+        line.lineType !== "CONFIGURABLE_STRUCTURE" &&
+        line.lineType !== "CUSTOM_STRUCTURE";
+      if (line.quantity > remainingQty && !overridable) {
         throw new Error(
           `Quantity for ${line.itemCode} exceeds remaining (${remainingQty}${remainingQty < meta.remainingQty ? ", including other open tickets" : ""}).`,
         );
@@ -308,7 +318,7 @@ async function validateLines(
       const meta = byId.get(quoteLineItemId);
       if (!meta) continue;
       const remainingQty = remainingFor(meta);
-      if (feet > remainingQty + 0.001) {
+      if (feet > remainingQty + 0.001 && !allowOverQuote) {
         const over = Math.round((feet - remainingQty) * 100) / 100;
         throw new Error(
           `${meta.displayName} exceeds remaining (${remainingQty} LF${remainingQty < meta.remainingQty ? ", including other open tickets" : ""}) by ${over} LF.`,
@@ -320,7 +330,7 @@ async function validateLines(
       const meta = byId.get(quoteLineItemId);
       if (!meta) continue;
       const remainingQty = remainingFor(meta);
-      if (qty > remainingQty) {
+      if (qty > remainingQty && !allowOverQuote) {
         throw new Error(
           `${meta.displayName} exceeds remaining (${remainingQty}${remainingQty < meta.remainingQty ? ", including other open tickets" : ""}).`,
         );
@@ -337,7 +347,7 @@ async function validateLines(
       }
       const setsUsed = Number.isFinite(sets) ? sets : 0;
       const remainingQty = remainingFor(meta);
-      if (setsUsed > remainingQty) {
+      if (setsUsed > remainingQty && !allowOverQuote) {
         throw new Error(
           `${meta.displayName}: sets on this load (${setsUsed}) exceed remaining (${remainingQty}${remainingQty < meta.remainingQty ? ", including other open tickets" : ""}).`,
         );
