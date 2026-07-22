@@ -99,12 +99,24 @@ export function CustomerContactsPanel({
   contacts,
 }: CustomerContactsPanelProps) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [refreshing, startRefreshTransition] = useTransition();
+  const [saving, setSaving] = useState(false);
+  const pending = saving || refreshing;
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ContactFormState>(emptyForm);
+
+  // The table renders from state fed by each mutation's returned rows —
+  // showing the change instantly — and adopts fresh server props whenever a
+  // navigation or refresh delivers them.
+  const [rows, setRows] = useState<CustomerContactRow[]>(contacts);
+  const [prevContactsProp, setPrevContactsProp] = useState(contacts);
+  if (contacts !== prevContactsProp) {
+    setPrevContactsProp(contacts);
+    setRows(contacts);
+  }
 
   function resetForm() {
     setForm(emptyForm);
@@ -140,67 +152,67 @@ export function CustomerContactsPanel({
       setSuccess(message);
     }
     resetForm();
-    router.refresh();
+    // router.refresh() must run in its OWN transition: calling it after an
+    // await inside the action's transition fetches the fresh RSC payload but
+    // never commits it to the visible tree in production builds — the
+    // "contact doesn't appear until you navigate away and back" bug.
+    startRefreshTransition(() => {
+      router.refresh();
+    });
+  }
+
+  /** Runs a mutation, applies its returned rows, then refreshes the rest. */
+  function runMutation(
+    mutate: () => Promise<{ error?: string; contacts?: CustomerContactRow[] }>,
+    successMessage: string,
+  ) {
+    setError(null);
+    setSuccess(null);
+    setSaving(true);
+    void (async () => {
+      try {
+        const result = await mutate();
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        if (result.contacts) {
+          setRows(result.contacts);
+        }
+        refresh(successMessage);
+      } finally {
+        setSaving(false);
+      }
+    })();
   }
 
   function handleSave() {
-    setError(null);
-    setSuccess(null);
-    startTransition(async () => {
-      const payload = { ...form, roles: form.roles as ContactRole[] };
-      const result = editingId
-        ? await updateCustomerContact(editingId, payload)
-        : await addCustomerContact(customerId, payload);
-
-      if (result.error) {
-        setError(result.error);
-        return;
-      }
-
-      refresh(editingId ? "Contact updated." : "Contact added.");
-    });
+    const payload = { ...form, roles: form.roles as ContactRole[] };
+    runMutation(
+      () =>
+        editingId
+          ? updateCustomerContact(editingId, payload)
+          : addCustomerContact(customerId, payload),
+      editingId ? "Contact updated." : "Contact added.",
+    );
   }
 
   function handleDelete(contactId: string) {
-    setError(null);
-    setSuccess(null);
-    startTransition(async () => {
-      const result = await deleteCustomerContact(contactId);
-      if (result.error) {
-        setError(result.error);
-        return;
-      }
-      refresh("Contact removed.");
-    });
+    runMutation(() => deleteCustomerContact(contactId), "Contact removed.");
   }
 
   function handleSetPrimary(contactId: string) {
-    setError(null);
-    setSuccess(null);
-    startTransition(async () => {
-      const result = await setPrimaryCustomerContact(contactId);
-      if (result.error) {
-        setError(result.error);
-        return;
-      }
-      refresh("Main contact updated.");
-    });
+    runMutation(
+      () => setPrimaryCustomerContact(contactId),
+      "Main contact updated.",
+    );
   }
 
   function handleMakeRoleDefault(contactId: string, role: ContactRoleValue) {
-    setError(null);
-    setSuccess(null);
-    startTransition(async () => {
-      const result = await setRoleDefaultContact(
-        contactId,
-        role as ContactRole,
-      );
-      if (result.error) {
-        setError(result.error);
-        return;
-      }
-      refresh("Default contact updated.");
-    });
+    runMutation(
+      () => setRoleDefaultContact(contactId, role as ContactRole),
+      "Default contact updated.",
+    );
   }
 
   const formVisible = showAddForm || editingId;
@@ -208,7 +220,7 @@ export function CustomerContactsPanel({
   return (
     <SectionCard
       title="Contacts"
-      description={`${contacts.length} contact${contacts.length === 1 ? "" : "s"} — ★ marks the default for each role`}
+      description={`${rows.length} contact${rows.length === 1 ? "" : "s"} — ★ marks the default for each role`}
       action={
         !formVisible ? (
           <button
@@ -360,7 +372,7 @@ export function CustomerContactsPanel({
             </tr>
           </thead>
           <tbody className={tableBodyClassName}>
-            {contacts.length === 0 ? (
+            {rows.length === 0 ? (
               <tr>
                 <td
                   colSpan={5}
@@ -371,7 +383,7 @@ export function CustomerContactsPanel({
                 </td>
               </tr>
             ) : (
-              contacts.map((contact) => (
+              rows.map((contact) => (
                 <tr key={contact.id} className={tableRowClassName}>
                   <td className={tableCellClassName}>
                     <span className="font-medium text-slate-900">

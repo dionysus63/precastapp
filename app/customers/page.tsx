@@ -1,6 +1,8 @@
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { ImportFeedbackBanner } from "@/components/common/import-feedback-banner";
 import { CustomersList } from "@/components/customers/customers-list";
+import { ContactsDirectory } from "@/components/customers/contacts-directory";
+import type { ContactRoleValue } from "@/components/customers/customer-utils";
 import { mapCustomerToRow } from "@/lib/customer-mapper";
 import { OPEN_STATUSES } from "@/lib/quotes/list-summary";
 import { withDatabaseRetry } from "@/lib/prisma";
@@ -78,6 +80,9 @@ const VALID_CUSTOMER_STATUSES = new Set<string>(
   customerStatusFormOptions.map((option) => option.value),
 );
 
+const CONTACT_SORT_COLUMNS = ["name", "company", "title"] as const;
+type ContactSortColumn = (typeof CONTACT_SORT_COLUMNS)[number];
+
 export default async function CustomersPage({
   searchParams,
 }: {
@@ -88,6 +93,8 @@ export default async function CustomersPage({
   const statusParam = parseStringParam(params.status);
   const sortParam = parseStringParam(params.sort);
   const dirParam = parseStringParam(params.dir);
+  const viewParam = parseStringParam(params.view);
+  const companyParam = parseStringParam(params.company);
   const requestedPage = parsePageParam(params.page);
   const importedCount = Number.parseInt(parseStringParam(params.imported) ?? "", 10);
   const imported =
@@ -154,12 +161,103 @@ export default async function CustomersPage({
   const countByStatus = new Map(
     statusGroups.map((group) => [group.status, group._count._all]),
   );
+  const contactsCount = await withDatabaseRetry((prisma) =>
+    prisma.contact.count(),
+  );
   const tabCounts = {
     active: countByStatus.get("ACTIVE") ?? 0,
     prospect: countByStatus.get("PROSPECT") ?? 0,
     inactive: countByStatus.get("INACTIVE") ?? 0,
     all: statusGroups.reduce((acc, group) => acc + group._count._all, 0),
+    contacts: contactsCount,
   };
+
+  if (viewParam === "contacts") {
+    const contactSortColumn: ContactSortColumn = (
+      CONTACT_SORT_COLUMNS as readonly string[]
+    ).includes(sortParam)
+      ? (sortParam as ContactSortColumn)
+      : "name";
+    const contactSortDirection: "asc" | "desc" =
+      dirParam === "desc" ? "desc" : "asc";
+
+    const contactWhere: Prisma.ContactWhereInput = {
+      ...(companyParam ? { customerId: companyParam } : {}),
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { email: { contains: search, mode: "insensitive" } },
+              { title: { contains: search, mode: "insensitive" } },
+              { customer: { name: { contains: search, mode: "insensitive" } } },
+            ],
+          }
+        : {}),
+    };
+    const orderBy: Prisma.ContactOrderByWithRelationInput[] =
+      contactSortColumn === "company"
+        ? [{ customer: { name: contactSortDirection } }, { name: "asc" }]
+        : contactSortColumn === "title"
+          ? [{ title: contactSortDirection }, { name: "asc" }]
+          : [{ name: contactSortDirection }];
+
+    const [contactsTotal, companies] = await withDatabaseRetry((prisma) =>
+      Promise.all([
+        prisma.contact.count({ where: contactWhere }),
+        prisma.customer.findMany({
+          where: { contacts: { some: {} } },
+          select: { id: true, name: true },
+          orderBy: { name: "asc" },
+        }),
+      ]),
+    );
+    const contactPageInfo = buildPageInfo(contactsTotal, requestedPage);
+    const contacts = await withDatabaseRetry((prisma) =>
+      prisma.contact.findMany({
+        where: contactWhere,
+        include: {
+          customer: { select: { id: true, name: true } },
+          roleDefaults: { select: { role: true } },
+        },
+        orderBy,
+        skip: contactPageInfo.skip,
+        take: contactPageInfo.take,
+      }),
+    );
+
+    return (
+      <DashboardShell
+        title="Customers"
+        subtitle="Manage customer accounts, contacts, and billing relationships."
+      >
+        <ContactsDirectory
+          rows={contacts.map((contact) => ({
+            id: contact.id,
+            name: contact.name,
+            title: contact.title ?? "",
+            customerId: contact.customerId,
+            customerName: contact.customer.name,
+            phone: contact.phone ?? "",
+            email: contact.email ?? "",
+            isPrimary: contact.isPrimary,
+            roles: contact.roles as ContactRoleValue[],
+            defaultForRoles: contact.roleDefaults.map(
+              (roleDefault) => roleDefault.role as ContactRoleValue,
+            ),
+          }))}
+          pageInfo={contactPageInfo}
+          counts={tabCounts}
+          companies={companies}
+          filters={{
+            search,
+            companyId: companyParam,
+            status: statusParam,
+          }}
+          sort={{ column: contactSortColumn, direction: contactSortDirection }}
+        />
+      </DashboardShell>
+    );
+  }
 
   let customers: Prisma.CustomerGetPayload<object>[];
   let openQuotesByCustomerId: Map<string, number>;

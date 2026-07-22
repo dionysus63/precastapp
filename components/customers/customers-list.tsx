@@ -10,6 +10,10 @@ import {
   useListQuery,
 } from "@/components/common/use-list-query";
 import { type CustomerRow } from "@/components/customers/customer-utils";
+import {
+  CustomersPageTabs,
+  type CustomersPageTabCounts,
+} from "@/components/customers/customers-page-tabs";
 import { ExportExcelLink } from "@/components/shared/export-excel-link";
 import type { PageInfo } from "@/lib/list-params";
 import {
@@ -34,17 +38,10 @@ type SortColumn =
 
 type SortDirection = "asc" | "desc";
 
-type CustomerTabCounts = {
-  active: number;
-  prospect: number;
-  inactive: number;
-  all: number;
-};
-
 type CustomersListProps = {
   customers: CustomerRow[];
   pageInfo: PageInfo;
-  tabCounts: CustomerTabCounts;
+  tabCounts: CustomersPageTabCounts;
   filters: { search: string; status: string };
   sort: { column: SortColumn; direction: SortDirection };
 };
@@ -253,58 +250,13 @@ export function CustomersList({
     [sort.column, sort.direction, setParams],
   );
 
-  const statusTabs = [
-    {
-      label: "Active",
-      param: "",
-      count: tabCounts.active,
-      isActive: filters.status === "" || filters.status === "ACTIVE",
-    },
-    {
-      label: "Prospects",
-      param: "PROSPECT",
-      count: tabCounts.prospect,
-      isActive: filters.status === "PROSPECT",
-    },
-    {
-      label: "Inactive",
-      param: "INACTIVE",
-      count: tabCounts.inactive,
-      isActive: filters.status === "INACTIVE",
-    },
-    {
-      label: "All",
-      param: "ALL",
-      count: tabCounts.all,
-      isActive: filters.status === "ALL" || filters.status === "All",
-    },
-  ];
-
   return (
     <div className="space-y-4">
-      <div className="border-b border-slate-200">
-        <div className="-mb-px flex flex-wrap items-center gap-1">
-          {statusTabs.map((tab) => (
-            <button
-              key={tab.label}
-              type="button"
-              onClick={() => setParams({ status: tab.param })}
-              className={`border-b-2 px-3 py-2 text-xs font-medium transition-colors ${
-                tab.isActive
-                  ? "border-slate-900 text-slate-900"
-                  : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
-              }`}
-            >
-              {tab.label}
-              <span
-                className={`ml-1.5 ${tab.isActive ? "text-slate-500" : "text-slate-400"}`}
-              >
-                {tab.count.toLocaleString()}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
+      <CustomersPageTabs
+        view="customers"
+        status={filters.status}
+        counts={tabCounts}
+      />
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-1 flex-col gap-3 sm:flex-row">

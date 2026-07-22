@@ -7,6 +7,8 @@ import {
   assignMissingRoleDefaults,
   promoteRoleDefaultsAfterDelete,
 } from "@/lib/customer-contacts";
+import type { ContactRoleValue } from "@/components/customers/customer-utils";
+import { mapContactToRow } from "@/lib/customer-mapper";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { translatePrismaError } from "@/lib/server/action-errors";
 
@@ -63,6 +65,36 @@ function revalidateCustomerPaths(customerId: string) {
   revalidatePath("/quotes/new");
 }
 
+/**
+ * Fresh contact rows returned to the contacts panel after every mutation:
+ * the panel renders from the action result directly instead of waiting on
+ * router.refresh(), whose re-render can sit unflushed until the next click
+ * in the desktop shell ("contact doesn't appear until I navigate away").
+ */
+async function loadContactRows(customerId: string) {
+  return withDatabaseRetry(async (client) => {
+    const contacts = await client.contact.findMany({
+      where: { customerId },
+      orderBy: [{ isPrimary: "desc" }, { name: "asc" }],
+    });
+    const roleDefaults = await client.customerContactRoleDefault.findMany({
+      where: { customerId },
+    });
+    const defaultsByContact = new Map<string, ContactRole[]>();
+    for (const roleDefault of roleDefaults) {
+      const list = defaultsByContact.get(roleDefault.contactId) ?? [];
+      list.push(roleDefault.role);
+      defaultsByContact.set(roleDefault.contactId, list);
+    }
+    return contacts.map((contact) =>
+      mapContactToRow(
+        contact,
+        (defaultsByContact.get(contact.id) ?? []) as ContactRoleValue[],
+      ),
+    );
+  });
+}
+
 export async function addCustomerContact(
   customerId: string,
   input: CustomerContactInput,
@@ -99,7 +131,7 @@ export async function addCustomerContact(
     );
 
     revalidateCustomerPaths(customerId);
-    return { success: true };
+    return { success: true, contacts: await loadContactRows(customerId) };
   } catch (error) {
     return {
       error:
@@ -165,7 +197,7 @@ export async function updateCustomerContact(
     );
 
     revalidateCustomerPaths(customerId);
-    return { success: true };
+    return { success: true, contacts: await loadContactRows(customerId) };
   } catch (error) {
     return {
       error:
@@ -228,7 +260,7 @@ export async function deleteCustomerContact(contactId: string) {
     );
 
     revalidateCustomerPaths(customerId);
-    return { success: true };
+    return { success: true, contacts: await loadContactRows(customerId) };
   } catch (error) {
     return {
       error:
@@ -270,7 +302,7 @@ export async function setPrimaryCustomerContact(contactId: string) {
     );
 
     revalidateCustomerPaths(customerId);
-    return { success: true };
+    return { success: true, contacts: await loadContactRows(customerId) };
   } catch (error) {
     return {
       error:
@@ -555,7 +587,7 @@ export async function setRoleDefaultContact(
     );
 
     revalidateCustomerPaths(customerId);
-    return { success: true };
+    return { success: true, contacts: await loadContactRows(customerId) };
   } catch (error) {
     return {
       error:
