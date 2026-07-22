@@ -696,22 +696,22 @@ export function JobProductionSection({
             Production queue
           </Link>
           <JobStructureImportButton jobId={jobId} />
-          <JobCustomStructureImportButton jobId={jobId} />
           <Link
             href={`/drill-sheets/new?jobId=${jobId}`}
             className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
           >
-            New Drill Sheet
+            Circular Drill Sheet
           </Link>
           <Link
             href={`/drill-sheets/rect/new?jobId=${jobId}`}
             className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
           >
-            New Rect Sheet
+            New Rectangular Drill Sheet
           </Link>
+          <JobCustomStructureImportButton jobId={jobId} />
           <NewRecordLink
             href={`/jobs/${jobId}/structures/new`}
-            label="New Structure"
+            label="New Custom Structure"
           />
         </div>
       }
@@ -737,7 +737,7 @@ export function JobProductionSection({
             {structures.length === 0 ? (
               <EmptyRow
                 colSpan={10}
-                message="No structures yet. They are created from a won quote (Link structures / Create Drill Sheets on the quote page) or manually with New Structure."
+                message="No structures yet. They are created from a won quote (Link structures / Create Drill Sheets on the quote page) or manually with New Custom Structure."
               />
             ) : (
               structures.map((structure) => (

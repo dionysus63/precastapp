@@ -845,8 +845,8 @@
     "semantic_hash": ""
   },
   "components/jobs/job-detail-content.tsx": {
-    "mtime": 1784679701.873587,
-    "ast_hash": "3232e19da66a2a40fe541da5307d21a3",
+    "mtime": 1784748841.638702,
+    "ast_hash": "517f7aff21d40b0ec978636fed0312b3",
     "semantic_hash": ""
   },
   "lib/job-detail-mapper.ts": {
@@ -3515,8 +3515,8 @@
     "semantic_hash": ""
   },
   "components/jobs/job-structure-import-dialog.tsx": {
-    "mtime": 1784736889.7983286,
-    "ast_hash": "629c8024a7339ef9d735caa160a2a359",
+    "mtime": 1784748826.161624,
+    "ast_hash": "9bbd2c2e6b9bb55fba42c8440eef2b15",
     "semantic_hash": ""
   },
   "tests/unit/rect-structure-opening-heights.test.ts": {
@@ -3590,8 +3590,8 @@
     "semantic_hash": ""
   },
   "components/jobs/job-custom-structure-import-dialog.tsx": {
-    "mtime": 1784736831.1641738,
-    "ast_hash": "18b466a2977bb48f7a2af715f9fb681f",
+    "mtime": 1784748827.575589,
+    "ast_hash": "ac71d31ad4836f6901d942b92025c98c",
     "semantic_hash": ""
   },
   "lib/custom-structure-import.ts": {

@@ -110,7 +110,7 @@ export function JobCustomStructureImportButton({ jobId }: { jobId: string }) {
         onClick={openDialog}
         className="inline-flex items-center justify-center rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-700 hover:bg-sky-100"
       >
-        Add Custom Structures
+        Bulk Add Custom Structures
       </button>
 
       {open ? (
