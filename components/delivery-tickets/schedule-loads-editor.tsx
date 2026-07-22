@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef, useState, useTransition } from "react";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 import {
   scheduleJobLoads,
   type ScheduleLoadUpdate,
@@ -80,7 +80,6 @@ export function ScheduleLoadsEditor({
   rows,
   fleetOptions,
 }: ScheduleLoadsEditorProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -271,7 +270,7 @@ export function ScheduleLoadsEditor({
       );
       // The parent remounts this editor via key when refreshed rows arrive,
       // which re-baselines the dirty tracking.
-      router.refresh();
+      reloadAfterAction();
     });
   }
 

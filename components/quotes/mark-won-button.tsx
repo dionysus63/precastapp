@@ -1,12 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { updateQuoteStatus } from "@/app/quotes/actions";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 
 export function MarkWonButton({ quoteId }: { quoteId: string }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   return (
@@ -21,7 +20,7 @@ export function MarkWonButton({ quoteId }: { quoteId: string }) {
             return;
           }
           toast.success("Quote marked won.");
-          router.refresh();
+          reloadAfterAction();
         })
       }
       className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"

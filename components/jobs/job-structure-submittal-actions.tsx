@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { uploadJobStructureDocumentAction } from "@/app/jobs/actions";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 import { CreateJobFolderButton } from "@/components/jobs/create-job-folder-button";
 import type { StructureStatus } from "@/components/structures/structure-utils";
 
@@ -22,7 +22,6 @@ export function JobStructureSubmittalActions({
   needsSubmittal,
   folderPath,
 }: JobStructureSubmittalActionsProps) {
-  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
@@ -39,7 +38,7 @@ export function JobStructureSubmittalActions({
         await uploadJobStructureDocumentAction(formData);
         formRef.current?.reset();
         setMessage("Uploaded.");
-        router.refresh();
+        reloadAfterAction();
       } catch (error) {
         setMessage(
           error instanceof Error ? error.message : "Could not upload.",

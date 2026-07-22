@@ -1,8 +1,8 @@
 "use client";
 
 import { useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { convertTicketToInvoice } from "@/app/operations/actions";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 
 type TicketOperationsPanelProps = {
   ticketId: string;
@@ -15,7 +15,6 @@ export function TicketOperationsPanel({
   status,
   hasInvoice,
 }: TicketOperationsPanelProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   if (status !== "DELIVERED" || hasInvoice) {
@@ -30,7 +29,7 @@ export function TicketOperationsPanel({
         startTransition(async () => {
           const result = await convertTicketToInvoice(ticketId);
           if (result.invoiceId) {
-            router.refresh();
+            reloadAfterAction();
           }
         })
       }

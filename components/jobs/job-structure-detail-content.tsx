@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
   markStructureMade,
@@ -15,6 +14,7 @@ import { DrillSheetPdfLink } from "@/components/drill-sheets/drill-sheet-pdf-lin
 import { JobStructureDocumentsSection } from "@/components/jobs/job-structure-documents-section";
 import { ApproveForProductionDialog } from "@/components/production/approve-for-production-dialog";
 import type { JobStructureDetailView } from "@/lib/job-structure-detail-mapper";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 
 type JobStructureDetailContentProps = {
   detail: JobStructureDetailView;
@@ -23,7 +23,6 @@ type JobStructureDetailContentProps = {
 export function JobStructureDetailContent({
   detail,
 }: JobStructureDetailContentProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [message, setMessage] = useState<{ error?: string; success?: string }>(
@@ -43,7 +42,7 @@ export function JobStructureDetailContent({
           return;
         }
         setMessage({ success: successText });
-        router.refresh();
+        reloadAfterAction();
       } catch (error) {
         setMessage({
           error: error instanceof Error ? error.message : "Action failed.",
@@ -331,7 +330,7 @@ export function JobStructureDetailContent({
           onClose={() => setApproveDialogOpen(false)}
           onSuccess={() => {
             setMessage({ success: "Structure approved for production." });
-            router.refresh();
+            reloadAfterAction();
           }}
         />
       ) : null}

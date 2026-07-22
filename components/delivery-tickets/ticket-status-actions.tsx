@@ -1,8 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { updateDeliveryTicketStatus } from "@/app/delivery-tickets/actions";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 import type { DeliveryTicketStatus } from "@/components/delivery-tickets/delivery-ticket-utils";
 
 type TicketStatusActionsProps = {
@@ -15,7 +15,6 @@ export function TicketStatusActions({
   ticketId,
   status,
 }: TicketStatusActionsProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
 
@@ -25,10 +24,12 @@ export function TicketStatusActions({
       const result = await updateDeliveryTicketStatus(ticketId, next);
       if ("error" in result && result.error) {
         setMessage(result.error);
-      } else if ("warning" in result && result.warning) {
+        return;
+      }
+      if ("warning" in result && result.warning) {
         setMessage(result.warning);
       }
-      router.refresh();
+      reloadAfterAction();
     });
   }
 

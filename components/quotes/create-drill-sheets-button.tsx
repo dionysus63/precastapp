@@ -1,8 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { createDrillSheetsFromQuote } from "@/app/quotes/structure-actions";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 
 type CreateDrillSheetsButtonProps = {
   quoteId: string;
@@ -17,7 +17,6 @@ export function CreateDrillSheetsButton({
   createdCount,
   canEdit,
 }: CreateDrillSheetsButtonProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +42,7 @@ export function CreateDrillSheetsButton({
                     ? `${result.created} drill sheet${result.created === 1 ? "" : "s"} created`
                     : "No new drill sheets to create",
                 );
-                router.refresh();
+                reloadAfterAction();
               } catch (caught) {
                 setError(
                   caught instanceof Error

@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 import {
   clearAllCustomersFormAction,
   clearAllDeliveryTicketsFormAction,
@@ -37,7 +37,6 @@ function DataResetSection({
   disabled,
   action,
 }: DataResetSectionProps) {
-  const router = useRouter();
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<{
     error?: string;
@@ -54,7 +53,7 @@ function DataResetSection({
         setMessage(result);
         if (result.success) {
           setPassword("");
-          router.refresh();
+          reloadAfterAction();
         }
       } catch {
         setMessage({ error: "An unexpected error occurred. Please try again." });
@@ -105,7 +104,6 @@ function TestStockSection({
   trackedProductCount: number;
   disabled: boolean;
 }) {
-  const router = useRouter();
   const [stockLevel, setStockLevel] = useState("500");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<{
@@ -124,7 +122,7 @@ function TestStockSection({
         setMessage(result);
         if (result.success) {
           setPassword("");
-          router.refresh();
+          reloadAfterAction();
         }
       } catch {
         setMessage({ error: "An unexpected error occurred. Please try again." });

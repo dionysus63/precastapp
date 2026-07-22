@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition, type ReactNode } from "react";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import {
@@ -182,7 +182,6 @@ export function ProductionBoard({
   awaitingApproval: ProductionQueueItem[];
   initialTab?: string;
 }) {
-  const router = useRouter();
   const itemsByTab: Record<ProductionTabId, ProductionQueueItem[]> = useMemo(
     () => ({
       approved,
@@ -599,7 +598,7 @@ export function ProductionBoard({
         <ApproveForProductionDialog
           target={approveTarget}
           onClose={() => setApproveTarget(null)}
-          onSuccess={() => router.refresh()}
+          onSuccess={() => reloadAfterAction()}
         />
       ) : null}
     </div>

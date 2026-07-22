@@ -1,8 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { updatePriceListSettings } from "@/app/settings/actions";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 import { SettingsFeedback } from "@/components/settings/settings-form-fields";
 
 type PriceListSettingsFormProps = {
@@ -19,7 +19,6 @@ type PriceListSettingsFormProps = {
 };
 
 export function PriceListSettingsForm({ priceList }: PriceListSettingsFormProps) {
-  const router = useRouter();
   const [message, setMessage] = useState<{ error?: string; success?: string }>(
     {},
   );
@@ -32,7 +31,7 @@ export function PriceListSettingsForm({ priceList }: PriceListSettingsFormProps)
         const result = await updatePriceListSettings(formData);
         setMessage(result);
         if (result.success) {
-          router.refresh();
+          reloadAfterAction();
         }
       } catch {
         setMessage({ error: "An unexpected error occurred. Please try again." });

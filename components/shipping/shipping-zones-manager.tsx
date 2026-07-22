@@ -1,8 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 import {
   createShippingZone,
   deleteShippingZone,
@@ -87,7 +87,6 @@ export function ShippingZonesManager({
   yard,
   companyAddress,
 }: ShippingZonesManagerProps) {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<ZoneFormState | null>(null);
@@ -157,7 +156,7 @@ export function ShippingZonesManager({
         return;
       }
       setForm(null);
-      router.refresh();
+      reloadAfterAction();
     });
   }
 
@@ -171,7 +170,7 @@ export function ShippingZonesManager({
         return;
       }
       if (form?.id === zone.id) setForm(null);
-      router.refresh();
+      reloadAfterAction();
     });
   }
 
@@ -193,7 +192,7 @@ export function ShippingZonesManager({
       }
       setYardLatInput(String(result.latitude));
       setYardLngInput(String(result.longitude));
-      router.refresh();
+      reloadAfterAction();
     });
   }
 

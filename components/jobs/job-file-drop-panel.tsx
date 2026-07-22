@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { uploadJobFileAction } from "@/app/files/actions";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { FileUploadDropzone } from "@/components/files/file-upload-dropzone";
 import { CreateJobFolderButton } from "@/components/jobs/create-job-folder-button";
@@ -46,7 +46,6 @@ export function JobFileDropPanel({
   noun,
   inputIdPrefix,
 }: JobFileDropPanelProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
@@ -71,7 +70,7 @@ export function JobFileDropPanel({
         formData.set("file", dropped);
         await uploadJobFileAction(formData);
         setProgress(null);
-        router.refresh();
+        reloadAfterAction();
       } catch (err) {
         setProgress(null);
         setError(err instanceof Error ? err.message : "Upload failed.");

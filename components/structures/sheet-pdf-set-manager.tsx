@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 import {
   createSheetPdfSetAction,
   deleteSheetPdfSetAction,
@@ -145,7 +145,6 @@ export function SheetPdfSetManager({
   sets,
   expectedFieldNames,
 }: SheetPdfSetManagerProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ error?: string; success?: string }>({});
   const [newName, setNewName] = useState("");
@@ -157,7 +156,7 @@ export function SheetPdfSetManager({
       try {
         await action();
         setMessage({ success });
-        router.refresh();
+        reloadAfterAction();
       } catch (error) {
         setMessage({
           error: error instanceof Error ? error.message : "Action failed.",

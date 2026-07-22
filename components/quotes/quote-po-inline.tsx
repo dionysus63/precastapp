@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { updateQuoteCustomerPo } from "@/app/quotes/actions";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 
 /**
  * Inline editor for the quote's customer PO number. Works at any quote
@@ -16,7 +16,6 @@ export function QuotePoInline({
   quoteId: string;
   customerPo: string;
 }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(customerPo);
@@ -31,7 +30,7 @@ export function QuotePoInline({
         return;
       }
       setEditing(false);
-      router.refresh();
+      reloadAfterAction();
     });
   }
 

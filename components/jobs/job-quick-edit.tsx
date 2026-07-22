@@ -10,6 +10,7 @@ import {
   jobStatusFormOptions,
   type JobStatusVariant,
 } from "@/components/jobs/job-utils";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 
 export type AssignableCustomer = {
   id: string;
@@ -105,7 +106,6 @@ export function JobCustomerEditor({
   customerName: string;
   customers: AssignableCustomer[];
 }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
   const [query, setQuery] = useState("");
@@ -121,7 +121,7 @@ export function JobCustomerEditor({
         await updateJobCustomerAction(jobId, nextId);
         setEditing(false);
         setQuery("");
-        router.refresh();
+        reloadAfterAction();
       } catch (caught) {
         setError(
           caught instanceof Error

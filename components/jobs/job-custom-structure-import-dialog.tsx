@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   importCustomJobStructures,
   type JobStructureImportResult,
 } from "@/app/jobs/structure-import-actions";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 import {
   customGridFromTsv,
   parseCustomStructureImport,
@@ -19,7 +19,6 @@ import {
  * Structures dialog's upload/paste UX.
  */
 export function JobCustomStructureImportButton({ jobId }: { jobId: string }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [parsed, setParsed] = useState<CustomImportResult | null>(null);
   const [sourceName, setSourceName] = useState<string | null>(null);
@@ -95,7 +94,7 @@ export function JobCustomStructureImportButton({ jobId }: { jobId: string }) {
       );
       setResult(outcome);
       if (outcome.created > 0) {
-        router.refresh();
+        reloadAfterAction();
       }
     } catch (error) {
       setReadError(error instanceof Error ? error.message : "Import failed.");

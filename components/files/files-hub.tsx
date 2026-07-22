@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { syncAllFiles } from "@/app/files/actions";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { OpenFileButton } from "@/components/files/open-file-button";
 import { JOB_SUBFOLDERS } from "@/lib/job-folder-constants";
@@ -105,7 +106,7 @@ export function FilesHub({
                   `Synced ${result.synced} job folder(s)${result.skipped > 0 ? ` (${result.skipped} skipped)` : ""}.`,
                 );
               }
-              router.refresh();
+              reloadAfterAction();
             })
           }
           className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"

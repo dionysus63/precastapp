@@ -1,15 +1,14 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createJobFolder } from "@/app/jobs/actions";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 
 type CreateJobFolderButtonProps = {
   jobId: string;
 };
 
 export function CreateJobFolderButton({ jobId }: CreateJobFolderButtonProps) {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -19,7 +18,7 @@ export function CreateJobFolderButton({ jobId }: CreateJobFolderButtonProps) {
 
     try {
       await createJobFolder(jobId);
-      router.refresh();
+      reloadAfterAction();
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Could not create job folder.",

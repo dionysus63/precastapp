@@ -1,8 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { deliverTicket } from "@/app/operations/actions";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 
 type MarkPickedUpControlProps = {
   ticketId: string;
@@ -13,7 +13,6 @@ export function MarkPickedUpControl({
   ticketId,
   ticketNumber,
 }: MarkPickedUpControlProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [showConfirm, setShowConfirm] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -30,7 +29,7 @@ export function MarkPickedUpControl({
       if ("warning" in result && result.warning) {
         setMessage(result.warning);
       }
-      router.refresh();
+      reloadAfterAction();
     });
   }
 

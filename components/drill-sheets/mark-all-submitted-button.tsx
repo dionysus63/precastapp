@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { markAllJobStructuresSubmitted } from "@/app/operations/actions";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 
 /**
  * One-click bulk submit for the detailing flow: after the drill-sheet packet
@@ -16,7 +16,6 @@ export function MarkAllSubmittedButton({
   jobId: string;
   count: number;
 }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [armed, setArmed] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -44,15 +43,16 @@ export function MarkAllSubmittedButton({
                 setMessage(result.error ?? "Could not submit.");
                 return;
               }
-              setMessage(
-                `Marked ${result.submitted} structure${
-                  result.submitted === 1 ? "" : "s"
-                } as submitted` +
-                  (result.skipped.length > 0
-                    ? ` — skipped ${result.skipped.join("; ")}`
-                    : "."),
-              );
-              router.refresh();
+              if (result.skipped.length > 0) {
+                // Leave the skip report on screen long enough to read
+                // before the reload replaces it.
+                setMessage(
+                  `Marked ${result.submitted} as submitted — skipped ${result.skipped.join("; ")}`,
+                );
+                setTimeout(reloadAfterAction, 4000);
+                return;
+              }
+              reloadAfterAction();
             });
           }}
           onBlur={() => setArmed(false)}

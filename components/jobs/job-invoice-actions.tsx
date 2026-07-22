@@ -1,9 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { convertTicketToInvoice } from "@/app/operations/actions";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 import type { JobInvoiceableDelivery } from "@/components/jobs/job-utils";
 
 type JobInvoiceActionsProps = {
@@ -11,7 +11,6 @@ type JobInvoiceActionsProps = {
 };
 
 export function JobInvoiceActions({ deliveries }: JobInvoiceActionsProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -26,7 +25,7 @@ export function JobInvoiceActions({ deliveries }: JobInvoiceActionsProps) {
         setError(result.error);
         return;
       }
-      router.refresh();
+      reloadAfterAction();
     });
   }
 

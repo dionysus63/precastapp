@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import {
   addJobBidder,
@@ -10,6 +9,7 @@ import {
   removeJobBidder,
 } from "@/app/jobs/bid-actions";
 import { isAwardableQuoteStatus } from "@/lib/job-bid-utils";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import type {
@@ -94,7 +94,6 @@ export function JobBiddingPanel({
   masterQuoteOptions,
   customers,
 }: JobBiddingPanelProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -155,7 +154,7 @@ export function JobBiddingPanel({
     if (message) {
       setSuccess(message);
     }
-    router.refresh();
+    reloadAfterAction();
   }
 
   function handleAddBidder() {

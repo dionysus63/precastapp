@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   importJobStructuresFromConfigs,
   loadJobStructureImportOptions,
@@ -15,6 +14,7 @@ import {
 import { parseRectStructureImport } from "@/lib/quotes/rect-structure-import";
 import { commitWorkbookRowPrice } from "@/lib/quotes/structure-workbook";
 import { computeRectWorkbookRow } from "@/lib/quotes/rect-structure-workbook";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 
 type ImportOptions = Awaited<ReturnType<typeof loadJobStructureImportOptions>>;
 
@@ -157,7 +157,6 @@ function buildPreview(grid: Cell[][], options: ImportOptions): PreviewState | nu
  * pointer to the quote workbook.
  */
 export function JobStructureImportButton({ jobId }: { jobId: string }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [options, setOptions] = useState<ImportOptions | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
@@ -245,7 +244,7 @@ export function JobStructureImportButton({ jobId }: { jobId: string }) {
       );
       setResult(outcome);
       if (outcome.created > 0) {
-        router.refresh();
+        reloadAfterAction();
       }
     } catch (error) {
       setReadError(

@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { updatePurchaseOrderStatus } from "@/app/purchase-orders/actions";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { VendorQuotePreview } from "@/components/purchase-orders/vendor-quote-preview";
@@ -58,7 +58,6 @@ export function PurchaseOrderDetailContent({
   purchaseOrder,
   canManage,
 }: PurchaseOrderDetailContentProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   function runStatus(status: "ISSUED" | "CANCELLED") {
@@ -68,7 +67,7 @@ export function PurchaseOrderDetailContent({
         alert(result.error);
         return;
       }
-      router.refresh();
+      reloadAfterAction();
     });
   }
 
