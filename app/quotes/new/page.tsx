@@ -67,12 +67,21 @@ export default async function NewQuotePage({
     ? mapCustomerToQuoteFormOption(initialCustomerRow)
     : null;
 
+  // Arriving from a job's Quotes or Bidding tab, the back button returns
+  // there instead of to the global quotes list.
+  const backTarget = initialJob
+    ? {
+        href: `/jobs/${initialJob.id}?tab=${bidderId ? "bidding" : "quotes"}`,
+        label: `Back to Job ${initialJob.jobNumber}`,
+      }
+    : { href: "/quotes", label: "Back to Quotes" };
+
   return (
     <DashboardShell
       title="New Quote"
       subtitle="Create a quote using stock products, configurable structures, custom structures, and services."
     >
-      <BackButton href="/quotes" label="Back to Quotes" />
+      <BackButton href={backTarget.href} label={backTarget.label} />
 
       <div className="mt-4">
         <QuoteForm
