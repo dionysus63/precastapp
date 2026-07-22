@@ -77,7 +77,15 @@ import {
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import type { ProductTaxonomyCategory } from "@/lib/product-taxonomy";
 import type { RingBuilderConfig } from "@/lib/ring-builder-settings";
-import { richTextHasContent, sanitizeRichText } from "@/lib/rich-text";
+import {
+  plainTextToRichText,
+  richTextHasContent,
+  sanitizeRichText,
+} from "@/lib/rich-text";
+import {
+  loadJobCustomStructureImportCandidates,
+  type JobCustomStructureImportCandidate,
+} from "@/app/quotes/job-sheet-import-actions";
 import {
   clearWorkbookApplyPayload,
   mergeWorkbookLineItems,
@@ -480,6 +488,14 @@ export function QuoteForm({
   const [customStructureRows, setCustomStructureRows] = useState<
     CustomStructureRow[]
   >(() => [createDefaultCustomStructureRow([])]);
+
+  // "Import from job structures" picker inside the custom-structure modal.
+  const [customImport, setCustomImport] = useState<{
+    loading: boolean;
+    error: string | null;
+    candidates: JobCustomStructureImportCandidate[];
+    unchecked: Set<string>;
+  } | null>(null);
 
   const [editingCustomStructureLineId, setEditingCustomStructureLineId] =
     useState<string | null>(null);
@@ -1344,6 +1360,97 @@ export function QuoteForm({
       ),
     );
     closeEditCustomStructureLine();
+  }
+
+  function isBlankCustomStructureRow(row: CustomStructureRow): boolean {
+    return (
+      !richTextHasContent(row.description) &&
+      !row.unitPrice.trim() &&
+      !row.weight.trim() &&
+      !row.yards.trim() &&
+      row.costItems.length === 0
+    );
+  }
+
+  /** Structure numbers already on this quote (editor rows + added lines). */
+  function customStructureNumbersInUse(): Set<string> {
+    const used = new Set<string>();
+    for (const row of customStructureRows) {
+      if (!isBlankCustomStructureRow(row) && row.structureNumber.trim()) {
+        used.add(row.structureNumber.trim().toLowerCase());
+      }
+    }
+    for (const line of lineItems) {
+      if (line.type === "CUSTOM_STRUCTURE" && line.item.trim()) {
+        used.add(line.item.trim().toLowerCase());
+      }
+    }
+    return used;
+  }
+
+  async function openCustomStructureImport() {
+    setCustomImport({
+      loading: true,
+      error: null,
+      candidates: [],
+      unchecked: new Set(),
+    });
+    try {
+      const candidates = await loadJobCustomStructureImportCandidates(jobId);
+      setCustomImport({
+        loading: false,
+        error: null,
+        candidates,
+        unchecked: new Set(),
+      });
+    } catch (error) {
+      setCustomImport({
+        loading: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Could not load the job's structures.",
+        candidates: [],
+        unchecked: new Set(),
+      });
+    }
+  }
+
+  function importCustomStructureCandidates() {
+    if (!customImport) {
+      return;
+    }
+    const used = customStructureNumbersInUse();
+    const picked = customImport.candidates.filter(
+      (candidate) =>
+        !customImport.unchecked.has(candidate.structureNumber) &&
+        !used.has(candidate.structureNumber.toLowerCase()),
+    );
+    setCustomImport(null);
+    if (picked.length === 0) {
+      showFlash("info", "Nothing new to import from the job.");
+      return;
+    }
+    const importedRows: CustomStructureRow[] = picked.map((candidate) => ({
+      id: createLineId(),
+      structureNumber: candidate.structureNumber,
+      description: candidate.description
+        ? plainTextToRichText(candidate.description)
+        : "",
+      qty: candidate.qty,
+      unitPrice: "",
+      weight: candidate.weight,
+      yards: candidate.yards,
+      costItems: [],
+    }));
+    setCustomStructureRows((current) => [
+      ...current.filter((row) => !isBlankCustomStructureRow(row)),
+      ...importedRows,
+    ]);
+    showFlash(
+      "info",
+      `Added ${importedRows.length} structure${importedRows.length === 1 ? "" : "s"} from the job — fill in prices, then Add to Quote.`,
+    );
   }
 
   function handleAddCustomStructure() {
@@ -2405,6 +2512,112 @@ export function QuoteForm({
         </div>
       </div>
 
+      {customImport ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="custom-structure-import-title"
+            className="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-xl border border-slate-200 bg-white shadow-xl"
+          >
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h3
+                id="custom-structure-import-title"
+                className="text-sm font-semibold text-slate-900"
+              >
+                Import custom structures from the job
+              </h3>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Structures no quote has picked up yet. Item codes match
+                structure numbers, so winning this quote links the lines back
+                to these exact structures — statuses and production progress
+                stay put.
+              </p>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-3">
+              {customImport.loading ? (
+                <p className="py-4 text-xs text-slate-500">Loading…</p>
+              ) : customImport.error ? (
+                <p className="py-4 text-xs font-medium text-red-600">
+                  {customImport.error}
+                </p>
+              ) : customImport.candidates.length === 0 ? (
+                <p className="py-4 text-xs text-slate-500">
+                  No unlinked custom structures on this job.
+                </p>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {customImport.candidates.map((candidate) => {
+                    const alreadyUsed = customStructureNumbersInUse().has(
+                      candidate.structureNumber.toLowerCase(),
+                    );
+                    return (
+                      <label
+                        key={candidate.structureNumber}
+                        className={`flex items-center gap-3 py-1.5 text-xs ${
+                          alreadyUsed ? "text-slate-400" : "text-slate-700"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          disabled={alreadyUsed}
+                          checked={
+                            !alreadyUsed &&
+                            !customImport.unchecked.has(
+                              candidate.structureNumber,
+                            )
+                          }
+                          onChange={(event) =>
+                            setCustomImport((current) => {
+                              if (!current) return current;
+                              const unchecked = new Set(current.unchecked);
+                              if (event.target.checked) {
+                                unchecked.delete(candidate.structureNumber);
+                              } else {
+                                unchecked.add(candidate.structureNumber);
+                              }
+                              return { ...current, unchecked };
+                            })
+                          }
+                          className="h-3.5 w-3.5 rounded border-slate-300"
+                        />
+                        <span className="w-24 shrink-0 font-semibold text-slate-900">
+                          {candidate.structureNumber}
+                        </span>
+                        <span className="w-14 shrink-0">×{candidate.qty}</span>
+                        <span className="min-w-0 flex-1 truncate text-slate-500">
+                          {candidate.description || "—"}
+                        </span>
+                        <span className="shrink-0 text-[11px] text-slate-400">
+                          {alreadyUsed ? "already on quote" : candidate.statusLabel}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-5 py-3">
+              <button
+                type="button"
+                onClick={() => setCustomImport(null)}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={customImport.loading || customImport.candidates.length === 0}
+                onClick={importCustomStructureCandidates}
+                className="rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+              >
+                Add to editor
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {addModalType ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
           <div
@@ -2428,23 +2641,34 @@ export function QuoteForm({
                   </p>
                 </div>
                 <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs font-medium text-slate-700">
                       {customStructureRows.length} structure
                       {customStructureRows.length === 1 ? "" : "s"}
                     </p>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setCustomStructureRows((current) => [
-                          ...current,
-                          createDefaultCustomStructureRow(current),
-                        ])
-                      }
-                      className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
-                    >
-                      Add another structure
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {jobId ? (
+                        <button
+                          type="button"
+                          onClick={() => void openCustomStructureImport()}
+                          className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 hover:bg-sky-100"
+                        >
+                          Import from job structures
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCustomStructureRows((current) => [
+                            ...current,
+                            createDefaultCustomStructureRow(current),
+                          ])
+                        }
+                        className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                      >
+                        Add another structure
+                      </button>
+                    </div>
                   </div>
                   {customStructureRows.map((row, rowIndex) => (
                     <div

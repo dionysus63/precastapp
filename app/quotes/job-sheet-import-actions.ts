@@ -80,3 +80,62 @@ export async function loadJobSheetImportCandidates(
   }
   return result;
 }
+
+export type JobCustomStructureImportCandidate = {
+  structureNumber: string;
+  description: string;
+  qty: string;
+  weight: string;
+  yards: string;
+  statusLabel: string;
+};
+
+function toPlainNumberString(value: { toString(): string } | null): string {
+  if (value == null) {
+    return "";
+  }
+  const parsed = Number(value.toString());
+  return Number.isFinite(parsed) ? String(parsed) : "";
+}
+
+/**
+ * Custom structures on the job (bulk-added or hand-created) that no quote
+ * has picked up yet, as prefill rows for the quote form's custom-structure
+ * editor. Item codes match structure numbers, so winning the quote adopts
+ * these exact structures — statuses and production progress stay put.
+ */
+export async function loadJobCustomStructureImportCandidates(
+  jobId: string,
+): Promise<JobCustomStructureImportCandidate[]> {
+  await requirePermission(AppPermission.QUOTES_MANAGE);
+
+  const structures = await prisma.jobStructure.findMany({
+    where: {
+      jobId,
+      quoteId: null,
+      quoteLineItems: { none: {} },
+      structureType: "CUSTOM_STRUCTURE",
+      structureNumber: { not: null },
+    },
+    orderBy: [{ structureNumber: "asc" }, { createdAt: "asc" }],
+    select: {
+      structureNumber: true,
+      description: true,
+      quantity: true,
+      weight: true,
+      yards: true,
+      status: true,
+    },
+  });
+
+  return structures
+    .filter((structure) => structure.structureNumber?.trim())
+    .map((structure) => ({
+      structureNumber: structure.structureNumber!.trim(),
+      description: structure.description ?? "",
+      qty: toPlainNumberString(structure.quantity) || "1",
+      weight: toPlainNumberString(structure.weight),
+      yards: toPlainNumberString(structure.yards),
+      statusLabel: STATUS_LABELS[structure.status] ?? structure.status,
+    }));
+}
