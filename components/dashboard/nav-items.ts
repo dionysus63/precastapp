@@ -53,13 +53,15 @@ export const navItems: NavItem[] = [
     icon: "file-text",
     requiredPermission: "QUOTES_VIEW",
   },
-  {
-    label: "Shipping Rates",
-    href: "/shipping",
-    section: "sales",
-    icon: "map",
-    requiredPermission: "QUOTES_VIEW",
-  },
+  // Shipping Rates is hidden until the zone-rate workflow goes live
+  // (~2027); the /shipping page itself stays reachable by URL.
+  // {
+  //   label: "Shipping Rates",
+  //   href: "/shipping",
+  //   section: "sales",
+  //   icon: "map",
+  //   requiredPermission: "QUOTES_VIEW",
+  // },
   {
     label: "Delivery Hub",
     href: "/delivery-tickets",
