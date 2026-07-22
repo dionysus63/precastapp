@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { AppPermission } from "@/app/generated/prisma/client";
+import { AppPermission, Prisma } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import type { CustomImportEntry } from "@/lib/custom-structure-import";
 import { createJobStructureFromQuoteConfig } from "@/lib/drill-sheet-persistence";
 import { createRectJobStructureFromQuoteConfig } from "@/lib/rect-sheet-persistence";
 import {
@@ -140,6 +141,97 @@ export async function importJobStructuresFromConfigs(
   if (created > 0) {
     revalidatePath(`/jobs/${jobId}`);
     revalidatePath("/drill-sheets");
+    revalidatePath("/production");
+  }
+
+  return { created, errors };
+}
+
+/**
+ * Bulk-create CUSTOM structures on a job — plain tracked pieces with a
+ * number, description, and quantity (e.g. a sound wall's ~50 piece types
+ * covering 1,500 pieces). No template or drill sheet; submittals attach as
+ * uploads and the pieces run the normal production workflow.
+ */
+export async function importCustomJobStructures(
+  jobId: string,
+  entries: CustomImportEntry[],
+): Promise<JobStructureImportResult> {
+  await requirePermission(AppPermission.STRUCTURES_MANAGE);
+
+  const job = await prisma.job.findUnique({
+    where: { id: jobId },
+    select: { id: true },
+  });
+  if (!job) {
+    throw new Error("Job was not found.");
+  }
+
+  const errors: string[] = [];
+  let created = 0;
+
+  for (const entry of entries) {
+    const structureNumber = entry.structureNumber.trim();
+    const description = entry.description.trim();
+    const label = structureNumber || "Structure";
+
+    if (!structureNumber || !description) {
+      errors.push(`${label}: a structure number and description are required.`);
+      continue;
+    }
+    const quantity = Number(entry.quantity);
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      errors.push(`${label}: quantity must be a positive whole number.`);
+      continue;
+    }
+    const weightEachLbs =
+      entry.weightEachLbs != null ? Number(entry.weightEachLbs) : null;
+    if (weightEachLbs != null && (!Number.isFinite(weightEachLbs) || weightEachLbs <= 0)) {
+      errors.push(`${label}: weight must be a positive number of pounds.`);
+      continue;
+    }
+
+    const existing = await prisma.jobStructure.findFirst({
+      where: {
+        jobId,
+        structureNumber: { equals: structureNumber, mode: "insensitive" },
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      errors.push(`${label}: a structure with this number already exists on the job.`);
+      continue;
+    }
+
+    try {
+      await prisma.jobStructure.create({
+        data: {
+          jobId,
+          structureType: "CUSTOM_STRUCTURE",
+          structureNumber,
+          description,
+          quantity: new Prisma.Decimal(String(quantity)),
+          unit: entry.unit.trim() || "EA",
+          weight:
+            weightEachLbs != null
+              ? new Prisma.Decimal(String(weightEachLbs))
+              : undefined,
+          status: "NOT_SUBMITTED",
+          needsCutSheet: true,
+          needsSubmittal: entry.needsSubmittal !== false,
+          notes: entry.notes?.trim() || null,
+        },
+      });
+      created += 1;
+    } catch (error) {
+      errors.push(
+        `${label}: ${error instanceof Error ? error.message : "could not create the structure."}`,
+      );
+    }
+  }
+
+  if (created > 0) {
+    revalidatePath(`/jobs/${jobId}`);
     revalidatePath("/production");
   }
 

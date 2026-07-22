@@ -845,8 +845,8 @@
     "semantic_hash": ""
   },
   "components/jobs/job-detail-content.tsx": {
-    "mtime": 1784322735.72831,
-    "ast_hash": "fc47c34c4e8f208ee4d6a9a6f6cce6ae",
+    "mtime": 1784679701.873587,
+    "ast_hash": "3232e19da66a2a40fe541da5307d21a3",
     "semantic_hash": ""
   },
   "lib/job-detail-mapper.ts": {
@@ -3510,8 +3510,8 @@
     "semantic_hash": ""
   },
   "app/jobs/structure-import-actions.ts": {
-    "mtime": 1784312737.3930328,
-    "ast_hash": "4eeb7809f8b12dae52fa573b280b5604",
+    "mtime": 1784679658.6878202,
+    "ast_hash": "5ddc8ca7d7afd5e4d987ebdcf7c64102",
     "semantic_hash": ""
   },
   "components/jobs/job-structure-import-dialog.tsx": {
@@ -3587,6 +3587,321 @@
   "tests/unit/invoice-due-date.test.ts": {
     "mtime": 1784645148.0286527,
     "ast_hash": "d96b4dfd942e6b1b6ad8484e3a8e6d1f",
+    "semantic_hash": ""
+  },
+  "tmp/landscape_plan/build_plan.py": {
+    "mtime": 1784653787.6200974,
+    "ast_hash": "16e253864814f3515585f1f4f970464a",
+    "semantic_hash": ""
+  },
+  "tmp/landscape_plan/build_workbook.mjs": {
+    "mtime": 1784653821.9924598,
+    "ast_hash": "b6c0bf9bc31a903ef2023ae9a2b456de",
+    "semantic_hash": ""
+  },
+  "output/pdf/long_island_native_landscape_plan.pdf": {
+    "mtime": 1784653864.9881399,
+    "ast_hash": "b6451c941cd89885a8f242ef41f9663c",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/wall_plan/Wall Plan.pdf": {
+    "mtime": 1784652947.1886365,
+    "ast_hash": "73c137f2f33d53b8c4288049c3e6379b",
+    "semantic_hash": ""
+  },
+  "tmp/landscape_plan/pdf_assets/lightened_site_crop.png": {
+    "mtime": 1784653864.830139,
+    "ast_hash": "dc1dfbcf3b88750b2cc9e8a4d6e85a3e",
+    "semantic_hash": ""
+  },
+  "tmp/landscape_plan/pdf_render/landscape-plan-1.png": {
+    "mtime": 1784653866.0314636,
+    "ast_hash": "d0bdee5694873b3571b1b114fd709098",
+    "semantic_hash": ""
+  },
+  "tmp/landscape_plan/pdf_render/landscape-plan-2.png": {
+    "mtime": 1784653866.448631,
+    "ast_hash": "b3c97838a9370b9bf70076bbe59bbd73",
+    "semantic_hash": ""
+  },
+  "tmp/landscape_plan/workbook_previews/plant-schedule.png": {
+    "mtime": 1784653830.3550062,
+    "ast_hash": "ee591bcdc0823041726f9bec7ec6c936",
+    "semantic_hash": ""
+  },
+  "tmp/landscape_plan/workbook_previews/references-and-notes.png": {
+    "mtime": 1784653830.7657726,
+    "ast_hash": "a6beaa7040bd7a7d9072354d21443359",
+    "semantic_hash": ""
+  },
+  "tmp/landscape_plan/workbook_previews/zone-allocation.png": {
+    "mtime": 1784653830.5112545,
+    "ast_hash": "1a68054fb1a44270f536982fcdb40eeb",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/wall_plan/site-crop.png": {
+    "mtime": 1784653381.2214615,
+    "ast_hash": "a37fe393c5ad38717b93bfbe13faf0c0",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/wall_plan/wall-crop.png": {
+    "mtime": 1784653381.2521298,
+    "ast_hash": "ea63d58c0454995d27d6e1047e4e9516",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/wall_plan/wall-plan-page-1.png": {
+    "mtime": 1784653249.545357,
+    "ast_hash": "6ff90241833f7ebc47bffeea44530b4f",
+    "semantic_hash": ""
+  },
+  "components/jobs/job-custom-structure-import-dialog.tsx": {
+    "mtime": 1784679695.221682,
+    "ast_hash": "72bcce003f9428fd831ffeedb3fbe365",
+    "semantic_hash": ""
+  },
+  "lib/custom-structure-import.ts": {
+    "mtime": 1784679640.2954986,
+    "ast_hash": "a70c148da61873f324dd568be3ad45a1",
+    "semantic_hash": ""
+  },
+  "scripts/generate-custom-import-template.mjs": {
+    "mtime": 1784679719.3389223,
+    "ast_hash": "322d0bdb288a369aae963d9bdd5d16bf",
+    "semantic_hash": ""
+  },
+  "tests/unit/custom-structure-import.test.ts": {
+    "mtime": 1784679736.5888636,
+    "ast_hash": "3a7c03ec09f603c16a0628b3507f1952",
+    "semantic_hash": ""
+  },
+  "tmp/landscape-workbook/build_landscape_workbook.mjs": {
+    "mtime": 1784663420.899789,
+    "ast_hash": "273ec972c8c95c4bc191e984d67e0ad5",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/fill_eaf.py": {
+    "mtime": 1784665659.7182746,
+    "ast_hash": "da04df6fd9ab2cacd77055e933ff64b8",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/inspect_buttons.py": {
+    "mtime": 1784665182.6127694,
+    "ast_hash": "ff2b1115b877e2fc40988c4301f51364",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/inspect_pdf.py": {
+    "mtime": 1784664745.6002297,
+    "ast_hash": "b6cbb867294e09a27a50ac2e54341805",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/inspect_prefilled_widgets.py": {
+    "mtime": 1784665477.3639317,
+    "ast_hash": "d17b7259812d6c8a0b3705e8e88b8b9c",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/inspection.json": {
+    "mtime": 1784664751.0368233,
+    "ast_hash": "5f857a52ac40ae35a5257a74ceeaa479",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/render_pdf.py": {
+    "mtime": 1784665292.436262,
+    "ast_hash": "19e7a4c88cafbe3e154476cc23aed7f0",
+    "semantic_hash": ""
+  },
+  "output/pdf/27_pilgrim_drive_feaf_draft.pdf": {
+    "mtime": 1784665674.0182297,
+    "ast_hash": "c31cd74e9321e03761c6dd96cebc40a5",
+    "semantic_hash": ""
+  },
+  "outputs/019f859b-37ae-7b11-9c72-c81d95c882bc/Final_Selected_Landscape_Plants_preview.png": {
+    "mtime": 1784663433.2433398,
+    "ast_hash": "665380238b77f4846e5613efba02ac99",
+    "semantic_hash": ""
+  },
+  "outputs/019f859b-37ae-7b11-9c72-c81d95c882bc/Long_Island_Landscape_Master_Plant_Schedule_preview.png": {
+    "mtime": 1784662165.9407344,
+    "ast_hash": "057a53e24899ca7a2d4015491ecbf9de",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/contact-sheet.png": {
+    "mtime": 1784664778.7901237,
+    "ast_hash": "27f7635efb270934c549bc16fd1b6369",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/filled-contact-sheet.png": {
+    "mtime": 1784665677.1635458,
+    "ast_hash": "aeb7ee8f3de1d4babf1b4f8e4dd02de3",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/filled-rendered/page-01.png": {
+    "mtime": 1784665675.2989423,
+    "ast_hash": "b114e9b6569ae1c431dc5d0f56f70e06",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/filled-rendered/page-02.png": {
+    "mtime": 1784665675.3987873,
+    "ast_hash": "74e6ff8cc15ad110983fb9a12a9350df",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/filled-rendered/page-03.png": {
+    "mtime": 1784665675.4973419,
+    "ast_hash": "53ef3a2990f93039d687b1086a6a3ada",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/filled-rendered/page-04.png": {
+    "mtime": 1784665675.6102176,
+    "ast_hash": "5aaa98909fde01e82b2fdd3af9f25333",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/filled-rendered/page-05.png": {
+    "mtime": 1784665675.701833,
+    "ast_hash": "37f8f7ae9255c899da2c345ac1be8306",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/filled-rendered/page-06.png": {
+    "mtime": 1784665675.8040092,
+    "ast_hash": "e3f502e642f4afb876ccd8667c04667a",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/filled-rendered/page-07.png": {
+    "mtime": 1784665675.9278498,
+    "ast_hash": "ed1fd4854d4b9bc0c2c4c619ee7041fb",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/filled-rendered/page-08.png": {
+    "mtime": 1784665676.0175323,
+    "ast_hash": "f3c73a3aaafe90915272008e354c5a4e",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/filled-rendered/page-09.png": {
+    "mtime": 1784665676.0970783,
+    "ast_hash": "0a87ab9e38d36c23fd234001c28f2067",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/filled-rendered/page-10.png": {
+    "mtime": 1784665676.1664088,
+    "ast_hash": "4ecc974d814c5d45a47f7d8f7c3f18d4",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/filled-rendered/page-11.png": {
+    "mtime": 1784665676.2670996,
+    "ast_hash": "12c8f782e6d56f6619a819fb94c43e57",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/filled-rendered/page-12.png": {
+    "mtime": 1784665676.389396,
+    "ast_hash": "fc9c285beda0e476fe0bb8bd822d5e77",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/filled-rendered/page-13.png": {
+    "mtime": 1784665676.492808,
+    "ast_hash": "63a4ecfbcadc73fec5f51b4c09297506",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/filled-rendered/page-14.png": {
+    "mtime": 1784665676.6117022,
+    "ast_hash": "61f8d895fc66fd9ba54ebf3240252d6f",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/filled-rendered/page-15.png": {
+    "mtime": 1784665676.6863055,
+    "ast_hash": "0d48bf022e6d6eda4e5d23794567a0ab",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/filled-rendered/page-16.png": {
+    "mtime": 1784665676.834187,
+    "ast_hash": "fb10308ad979d448c50e9b1a273492bb",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/filled-rendered/page-17.png": {
+    "mtime": 1784665676.894291,
+    "ast_hash": "fdef854fa3d7c9a760b4035d6ea49e52",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/rendered/page-01.png": {
+    "mtime": 1784664777.10917,
+    "ast_hash": "d9cfe0ae9c1300ef7b46f336d22d736e",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/rendered/page-02.png": {
+    "mtime": 1784664777.213474,
+    "ast_hash": "e9510d8154718bf8fc1ba6753ef56872",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/rendered/page-03.png": {
+    "mtime": 1784664777.295743,
+    "ast_hash": "805a6a02e122e9cc94992a63a15efb5a",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/rendered/page-04.png": {
+    "mtime": 1784664777.398064,
+    "ast_hash": "5aaa98909fde01e82b2fdd3af9f25333",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/rendered/page-05.png": {
+    "mtime": 1784664777.491818,
+    "ast_hash": "37f8f7ae9255c899da2c345ac1be8306",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/rendered/page-06.png": {
+    "mtime": 1784664777.5800295,
+    "ast_hash": "e3f502e642f4afb876ccd8667c04667a",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/rendered/page-07.png": {
+    "mtime": 1784664777.6940327,
+    "ast_hash": "ed1fd4854d4b9bc0c2c4c619ee7041fb",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/rendered/page-08.png": {
+    "mtime": 1784664777.7800379,
+    "ast_hash": "f3c73a3aaafe90915272008e354c5a4e",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/rendered/page-09.png": {
+    "mtime": 1784664777.8530695,
+    "ast_hash": "0a87ab9e38d36c23fd234001c28f2067",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/rendered/page-10.png": {
+    "mtime": 1784664777.915043,
+    "ast_hash": "272944fa1b6b83b7dc65633eace67da8",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/rendered/page-11.png": {
+    "mtime": 1784664778.0040758,
+    "ast_hash": "0d58e82ee2a14818f843facc80b56d86",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/rendered/page-12.png": {
+    "mtime": 1784664778.102125,
+    "ast_hash": "a408427aa3bf7941290ee132c913844d",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/rendered/page-13.png": {
+    "mtime": 1784664778.1831262,
+    "ast_hash": "892d5a0fb382756d93140861dea525b4",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/rendered/page-14.png": {
+    "mtime": 1784664778.2841327,
+    "ast_hash": "07129a2795b4fa512fbed1f587ce473e",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/rendered/page-15.png": {
+    "mtime": 1784664778.3511355,
+    "ast_hash": "0d48bf022e6d6eda4e5d23794567a0ab",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/rendered/page-16.png": {
+    "mtime": 1784664778.500112,
+    "ast_hash": "fb10308ad979d448c50e9b1a273492bb",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/rendered/page-17.png": {
+    "mtime": 1784664778.553146,
+    "ast_hash": "fdef854fa3d7c9a760b4035d6ea49e52",
     "semantic_hash": ""
   }
 }

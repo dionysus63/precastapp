@@ -730,8 +730,8 @@
     "semantic_hash": ""
   },
   "lib/invoicing-service.ts": {
-    "mtime": 1784635030.7058718,
-    "ast_hash": "8f2e9269102a7691c60e044ce12fdbb9",
+    "mtime": 1784645076.352431,
+    "ast_hash": "f8b215327f0606b0c3c8881ac03e7867",
     "semantic_hash": ""
   },
   "lib/job-file-mapper.ts": {
@@ -2190,8 +2190,8 @@
     "semantic_hash": ""
   },
   "app/invoices/actions.ts": {
-    "mtime": 1784599275.7021916,
-    "ast_hash": "8633452eb84b76b55fa8d67fc8385d7e",
+    "mtime": 1784645110.1019392,
+    "ast_hash": "a497eec36519c6f5160b93015f84a9fa",
     "semantic_hash": ""
   },
   "components/invoices/invoice-detail-actions.tsx": {
@@ -2210,13 +2210,13 @@
     "semantic_hash": ""
   },
   "lib/invoice-pdf-data.ts": {
-    "mtime": 1784640395.1354003,
-    "ast_hash": "59ac7a05eaeae421dcb1649dd80f557b",
+    "mtime": 1784645125.3811786,
+    "ast_hash": "63c8919966000a4e1b1f5266feb003cb",
     "semantic_hash": ""
   },
   "lib/invoice-pdf-fill.ts": {
-    "mtime": 1784640404.0856779,
-    "ast_hash": "af680e09d3bf79b0dca3ae049104527c",
+    "mtime": 1784645136.113984,
+    "ast_hash": "3fab40081ebccb9ff51b02536c2f9cfa",
     "semantic_hash": ""
   },
   "lib/invoice-pdf-line-items.ts": {
@@ -2230,8 +2230,8 @@
     "semantic_hash": ""
   },
   "assets/templates/invoice-template.pdf": {
-    "mtime": 1784641444.706948,
-    "ast_hash": "266871ae332277c80d0c67b0b8eb5075",
+    "mtime": 1784645196.5694969,
+    "ast_hash": "6585df64714577908ad43d7767b8f598",
     "semantic_hash": ""
   },
   "components/production/approve-for-production-dialog.tsx": {
@@ -3200,13 +3200,13 @@
     "semantic_hash": ""
   },
   "scripts/generate-invoice-templates.ts": {
-    "mtime": 1784641422.8483524,
-    "ast_hash": "6f4b4660090552e8c9f50a643ecd3d72",
+    "mtime": 1784645121.2774684,
+    "ast_hash": "9a0b97fff616f26454b019470b873c9b",
     "semantic_hash": ""
   },
   "assets/templates/invoice-template-continuation.pdf": {
-    "mtime": 1784641444.7614954,
-    "ast_hash": "03940e57625ff511ba08bcf1217e834c",
+    "mtime": 1784645196.6224954,
+    "ast_hash": "fd10295f95fe5b7edadb4b2cd3ad0c35",
     "semantic_hash": ""
   },
   "assets/templates/lip-header.png": {
@@ -3582,6 +3582,76 @@
   "components/invoices/draft-batch-preview-content.tsx": {
     "mtime": 1784643532.6198366,
     "ast_hash": "50356449fb392503d49be5ffc6f01348",
+    "semantic_hash": ""
+  },
+  "tests/unit/invoice-due-date.test.ts": {
+    "mtime": 1784645148.0286527,
+    "ast_hash": "d96b4dfd942e6b1b6ad8484e3a8e6d1f",
+    "semantic_hash": ""
+  },
+  "tmp/landscape_plan/build_plan.py": {
+    "mtime": 1784653787.6200974,
+    "ast_hash": "16e253864814f3515585f1f4f970464a",
+    "semantic_hash": ""
+  },
+  "tmp/landscape_plan/build_workbook.mjs": {
+    "mtime": 1784653821.9924598,
+    "ast_hash": "b6c0bf9bc31a903ef2023ae9a2b456de",
+    "semantic_hash": ""
+  },
+  "output/pdf/long_island_native_landscape_plan.pdf": {
+    "mtime": 1784653864.9881399,
+    "ast_hash": "b6451c941cd89885a8f242ef41f9663c",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/wall_plan/Wall Plan.pdf": {
+    "mtime": 1784652947.1886365,
+    "ast_hash": "73c137f2f33d53b8c4288049c3e6379b",
+    "semantic_hash": ""
+  },
+  "tmp/landscape_plan/pdf_assets/lightened_site_crop.png": {
+    "mtime": 1784653864.830139,
+    "ast_hash": "dc1dfbcf3b88750b2cc9e8a4d6e85a3e",
+    "semantic_hash": ""
+  },
+  "tmp/landscape_plan/pdf_render/landscape-plan-1.png": {
+    "mtime": 1784653866.0314636,
+    "ast_hash": "d0bdee5694873b3571b1b114fd709098",
+    "semantic_hash": ""
+  },
+  "tmp/landscape_plan/pdf_render/landscape-plan-2.png": {
+    "mtime": 1784653866.448631,
+    "ast_hash": "b3c97838a9370b9bf70076bbe59bbd73",
+    "semantic_hash": ""
+  },
+  "tmp/landscape_plan/workbook_previews/plant-schedule.png": {
+    "mtime": 1784653830.3550062,
+    "ast_hash": "ee591bcdc0823041726f9bec7ec6c936",
+    "semantic_hash": ""
+  },
+  "tmp/landscape_plan/workbook_previews/references-and-notes.png": {
+    "mtime": 1784653830.7657726,
+    "ast_hash": "a6beaa7040bd7a7d9072354d21443359",
+    "semantic_hash": ""
+  },
+  "tmp/landscape_plan/workbook_previews/zone-allocation.png": {
+    "mtime": 1784653830.5112545,
+    "ast_hash": "1a68054fb1a44270f536982fcdb40eeb",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/wall_plan/site-crop.png": {
+    "mtime": 1784653381.2214615,
+    "ast_hash": "a37fe393c5ad38717b93bfbe13faf0c0",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/wall_plan/wall-crop.png": {
+    "mtime": 1784653381.2521298,
+    "ast_hash": "ea63d58c0454995d27d6e1047e4e9516",
+    "semantic_hash": ""
+  },
+  "tmp/pdfs/wall_plan/wall-plan-page-1.png": {
+    "mtime": 1784653249.545357,
+    "ast_hash": "6ff90241833f7ebc47bffeea44530b4f",
     "semantic_hash": ""
   }
 }
