@@ -91,6 +91,13 @@ export const navItems: NavItem[] = [
     requiredPermission: "PRODUCTION_VIEW",
   },
   {
+    label: "Daily Production",
+    href: "/production/daily",
+    section: "operations",
+    icon: "clipboard",
+    requiredPermission: "PRODUCTION_VIEW",
+  },
+  {
     label: "Inventory",
     href: "/inventory",
     section: "operations",

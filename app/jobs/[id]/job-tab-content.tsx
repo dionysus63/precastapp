@@ -30,6 +30,7 @@ import {
   mapJobStructures,
 } from "@/lib/job-detail-mapper";
 import { getJobProgress } from "@/lib/job-progress";
+import { formatQuantity } from "@/lib/format";
 import { structureNeedsDrillSheet } from "@/components/structures/structure-utils";
 import { parseRectStructureConfigJson } from "@/lib/quotes/rect-structure-workbook";
 import { hasPermission, type AuthUser } from "@/lib/auth/permissions";
@@ -236,11 +237,38 @@ export async function JobTabContent({
         ) != null,
     );
 
+    // Daily Production progress for in-production structures ("12 / 44").
+    const inProductionIds = structures
+      .filter((structure) => structure.status === "IN_PRODUCTION")
+      .map((structure) => structure.id);
+    const madeSums = inProductionIds.length
+      ? await withDatabaseRetry((prisma) =>
+          prisma.dailyProductionStructureLine.groupBy({
+            by: ["jobStructureId"],
+            where: { jobStructureId: { in: inProductionIds } },
+            _sum: { quantityMade: true },
+          }),
+        )
+      : [];
+    const madeByStructure = new Map(
+      madeSums.map((row) => [
+        row.jobStructureId,
+        row._sum.quantityMade?.toNumber() ?? 0,
+      ]),
+    );
+    const mappedStructures = mapJobStructures(structures).map((row) => {
+      const madeSoFar = madeByStructure.get(row.id);
+      return madeSoFar && row.status === "IN_PRODUCTION"
+        ? { ...row, madeProgress: `${formatQuantity(madeSoFar)} / ${row.quantity}` }
+        : row;
+    });
+
     return (
       <JobProductionSection
         jobId={jobId}
         folderPath={detail.folderPath}
-        structures={mapJobStructures(structures)}
+        structures={mappedStructures}
+        jobStatusValue={detail.statusValue}
         completeDrillSheetsHref={
           rectPlaceholder
             ? `/quotes/${rectPlaceholder.quoteId}/complete-drill-sheets`

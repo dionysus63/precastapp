@@ -13,6 +13,7 @@ import {
   approveJobStructureForProduction,
   linkJobStructuresFromQuote,
   markJobStructureMade,
+  setJobStructureStatus,
   startJobStructureProduction,
   submitJobStructureForApproval,
 } from "@/lib/job-structure-workflow";
@@ -304,6 +305,142 @@ export async function saveProductionEntry(formData: FormData) {
           : "Could not save production entry.",
     };
   }
+}
+
+const BULK_STRUCTURE_STATUSES = [
+  "SUBMITTED",
+  "APPROVED",
+  "IN_PRODUCTION",
+  "MADE",
+] as const;
+
+export type BulkStructureStatus = (typeof BULK_STRUCTURE_STATUSES)[number];
+
+/**
+ * Bulk status change from the job production tab. Deliberately skips the
+ * per-structure submittal/approval gates — those exist for the
+ * contractor-approval flow, and self-directed jobs (bulk-created sound wall
+ * panels etc.) don't have one. The confirm dialog in the UI states this.
+ */
+export async function bulkSetJobStructureStatuses(
+  jobId: string,
+  structureIds: string[],
+  status: BulkStructureStatus,
+  setJobActive: boolean,
+) {
+  await requirePermission(AppPermission.PRODUCTION_MANAGE);
+  if (structureIds.length === 0) {
+    return { error: "Select at least one structure." };
+  }
+  if (!BULK_STRUCTURE_STATUSES.includes(status)) {
+    return { error: "Invalid status." };
+  }
+  try {
+    let updated = 0;
+    await withDatabaseRetry(async (client) => {
+      const structures = await client.jobStructure.findMany({
+        where: { id: { in: structureIds }, jobId },
+        select: { id: true, status: true },
+      });
+      if (structures.length !== structureIds.length) {
+        throw new Error("Some selected structures are no longer on this job.");
+      }
+      for (const structure of structures) {
+        if (structure.status === status) continue;
+        await setJobStructureStatus(client, structure.id, status);
+        updated += 1;
+      }
+      if (setJobActive) {
+        await client.job.updateMany({
+          where: {
+            id: jobId,
+            status: { in: ["QUOTING", "DETAILING", "AWARDED"] },
+          },
+          data: { status: "ACTIVE" },
+        });
+      }
+      revalidatePath("/production");
+      revalidatePath(`/jobs/${jobId}`);
+    });
+    return { success: true as const, updated };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not update the selected structures.",
+    };
+  }
+}
+
+export type DailyProductionSaveInput = {
+  /** yyyy-mm-dd */
+  productionDate: string;
+  enteredBy?: string | null;
+  notes?: string | null;
+  submissionKey: string;
+  stockLines: { productId: string; quantityProduced: number }[];
+  structureLines: {
+    jobStructureId: string;
+    jobStructurePieceId?: string | null;
+    quantityMade: number;
+  }[];
+};
+
+/** Save one person's Daily Production entry (structures + stock together). */
+export async function saveDailyProductionDay(input: DailyProductionSaveInput) {
+  await requirePermission(AppPermission.PRODUCTION_MANAGE);
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.productionDate)) {
+    return { error: "Production date is required." };
+  }
+  const productionDate = new Date(input.productionDate);
+  if (Number.isNaN(productionDate.getTime())) {
+    return { error: "Invalid production date." };
+  }
+  if (input.stockLines.length === 0 && input.structureLines.length === 0) {
+    return { error: "Enter at least one made quantity or piece." };
+  }
+  for (const line of input.stockLines) {
+    if (!Number.isInteger(line.quantityProduced) || line.quantityProduced <= 0) {
+      return { error: "Stock quantities must be positive whole numbers." };
+    }
+  }
+  for (const line of input.structureLines) {
+    if (
+      !line.jobStructurePieceId &&
+      (!Number.isFinite(line.quantityMade) || line.quantityMade <= 0)
+    ) {
+      return { error: "Structure quantities must be positive numbers." };
+    }
+  }
+
+  try {
+    await withDatabaseRetry((client) =>
+      saveDailyProductionEntry(client, {
+        productionDate,
+        enteredBy: input.enteredBy ?? null,
+        notes: input.notes ?? null,
+        submissionKey: input.submissionKey,
+        lines: input.stockLines,
+        structureLines: input.structureLines,
+      }),
+    );
+  } catch (error) {
+    // The same submission already landed (double-click / retry) — success.
+    if (!isDuplicateSubmission(error)) {
+      return {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Could not save the production entry.",
+      };
+    }
+  }
+  revalidatePath("/production/daily");
+  revalidatePath("/production");
+  revalidatePath("/inventory");
+  return { success: true as const };
 }
 
 export async function deliverTicket(deliveryTicketId: string) {

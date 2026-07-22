@@ -204,6 +204,8 @@ export type JobProgressView = {
   quoteNumber: string | null;
   lines: JobProgressLine[];
   summary: JobProgressSummary;
+  /** Fallback rows for jobs without a won quote: structure production progress. */
+  structureLines: JobStructureProgressLine[];
 };
 
 export type JobRelatedStructure = {
@@ -220,11 +222,25 @@ export type JobRelatedStructure = {
   submittedDate: string;
   madeDate: string;
   shippedDate: string;
+  /** Partial made progress ("12 / 44") while in production; set post-mapping. */
+  madeProgress?: string | null;
   /** Set when this structure is a drill sheet (has a structure template). */
   drillSheetId: string | null;
   /** Quote-only structure whose cut sheet hasn't been created yet. */
   needsDrillSheet: boolean;
   createDrillSheetHref: string | null;
+};
+
+/** Structure-based progress row for jobs without a won quote (detailing flow). */
+export type JobStructureProgressLine = {
+  id: string;
+  structureNumber: string;
+  description: string;
+  quantity: string;
+  madeSoFar: string;
+  remainingToMake: string;
+  statusLabel: string;
+  statusVariant: JobStatusVariant;
 };
 
 export type JobRelatedInvoice = {

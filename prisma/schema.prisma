@@ -767,6 +767,7 @@ model JobStructure {
   calc                   JobStructureCalc?
   documents              JobStructureDocument[]
   pieces                 JobStructurePiece[]
+  productionLogLines     DailyProductionStructureLine[]
 
   @@index([jobId])
   @@index([quoteId])
@@ -784,11 +785,14 @@ model JobStructurePiece {
   name           String
   sortOrder      Int      @default(0)
   weightLbs      Decimal? @db.Decimal(12, 2)
+  /// Set by Daily Production when this piece is recorded as poured/made.
+  madeDate       DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   jobStructure            JobStructure             @relation(fields: [jobStructureId], references: [id], onDelete: Cascade)
   deliveryTicketLineItems DeliveryTicketLineItem[]
+  productionLogLines      DailyProductionStructureLine[]
 
   @@index([jobStructureId])
 }
@@ -1359,7 +1363,8 @@ model DailyProductionEntry {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  lines DailyProductionLine[]
+  lines          DailyProductionLine[]
+  structureLines DailyProductionStructureLine[]
 
   @@index([productionDate])
 }
@@ -1378,6 +1383,29 @@ model DailyProductionLine {
 
   @@index([productionEntryId])
   @@index([productId])
+}
+
+/// One job-structure (or structure-piece) row on a daily production entry —
+/// the yard log that drives per-structure made progress. Made-so-far is
+/// always the sum of these lines, never a cached counter.
+model DailyProductionStructureLine {
+  id                  String   @id @default(cuid())
+  productionEntryId   String
+  jobStructureId      String
+  /// Set when the made record is a specific piece of a split structure;
+  /// quantityMade is 1 for piece lines.
+  jobStructurePieceId String?
+  quantityMade        Decimal  @db.Decimal(12, 4)
+  createdAt           DateTime @default(now())
+
+  productionEntry   DailyProductionEntry @relation(fields: [productionEntryId], references: [id], onDelete: Cascade)
+  // Cascade: this is job-scoped progress, not financial history — if the
+  // structure goes, its production log goes with it.
+  jobStructure      JobStructure         @relation(fields: [jobStructureId], references: [id], onDelete: Cascade)
+  jobStructurePiece JobStructurePiece?   @relation(fields: [jobStructurePieceId], references: [id], onDelete: SetNull)
+
+  @@index([productionEntryId])
+  @@index([jobStructureId])
 }
 
 /// Batch entry for purchased casting inventory received from a supplier.

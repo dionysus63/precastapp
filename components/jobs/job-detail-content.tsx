@@ -7,15 +7,13 @@ import { OpenJobFolderButton } from "@/components/jobs/open-job-folder-button";
 import { JobInvoiceActions } from "@/components/jobs/job-invoice-actions";
 import { JobStructureImportButton } from "@/components/jobs/job-structure-import-dialog";
 import { JobCustomStructureImportButton } from "@/components/jobs/job-custom-structure-import-dialog";
-import { JobStructureSubmittalActions } from "@/components/jobs/job-structure-submittal-actions";
+import { JobStructuresProductionTable } from "@/components/jobs/job-structures-production-table";
 import { JobFavoriteStar } from "@/components/jobs/job-favorite-star";
 import {
   JobCustomerEditor,
   JobStatusSelect,
   type AssignableCustomer,
 } from "@/components/jobs/job-quick-edit";
-import { StructureManageLink } from "@/components/jobs/structure-manage-link";
-import { DrillSheetPdfLink } from "@/components/drill-sheets/drill-sheet-pdf-link";
 import { JobDrillSheetsPdfButtons } from "@/components/drill-sheets/job-drill-sheets-pdf-buttons";
 import { MarkAllSubmittedButton } from "@/components/drill-sheets/mark-all-submitted-button";
 import { JobDeliveriesTable } from "@/components/jobs/job-deliveries-table";
@@ -654,11 +652,13 @@ export function JobProductionSection({
   folderPath,
   structures,
   completeDrillSheetsHref,
+  jobStatusValue,
 }: {
   jobId: string;
   folderPath: string | null;
   structures: JobRelatedStructure[];
   completeDrillSheetsHref?: string | null;
+  jobStatusValue: string;
 }) {
   return (
     <SectionCard
@@ -717,113 +717,12 @@ export function JobProductionSection({
       }
       noPadding
     >
-      <div className={tableFlushWrapperClassName}>
-        <table className={tableClassName}>
-          <thead>
-            <tr>
-              <th className={tableHeaderCellWrapClassName}>Structure</th>
-              <th className={tableHeaderCellWrapClassName}>Description</th>
-              <th className={tableHeaderCellWrapClassName}>Type</th>
-              <th className={tableHeaderCellWrapClassName}>Qty</th>
-              <th className={tableHeaderCellWrapClassName}>Docs</th>
-              <th className={tableHeaderCellWrapClassName}>Status</th>
-              <th className={tableHeaderCellWrapClassName}>Submitted</th>
-              <th className={tableHeaderCellWrapClassName}>Made</th>
-              <th className={tableHeaderCellWrapClassName}>Shipped</th>
-              <th className={tableHeaderCellWrapClassName}>Actions</th>
-            </tr>
-          </thead>
-          <tbody className={tableBodyClassName}>
-            {structures.length === 0 ? (
-              <EmptyRow
-                colSpan={10}
-                message="No structures yet. They are created from a won quote (Link structures / Create Drill Sheets on the quote page) or manually with New Custom Structure."
-              />
-            ) : (
-              structures.map((structure) => (
-                <tr key={structure.id} className={tableRowClassName}>
-                  <td className={`${tableCellClassName} font-medium text-slate-900`}>
-                    <StructureManageLink
-                      jobId={jobId}
-                      structureId={structure.id}
-                    >
-                      {structure.structureNumber}
-                    </StructureManageLink>
-                  </td>
-                  <td className={`${tableCellClassName} text-slate-700`}>
-                    {structure.description}
-                  </td>
-                  <td className={`${tableCellClassName} text-slate-600`}>
-                    {structure.typeLabel}
-                  </td>
-                  <td className={`${tableCellClassName} text-slate-600`}>
-                    {structure.quantity}
-                  </td>
-                  <td className={`${tableCellClassName} text-slate-600`}>
-                    {structure.documentCount}
-                  </td>
-                  <td className={tableCellClassName}>
-                    <span className="inline-flex flex-wrap items-center gap-1">
-                      <StatusBadge
-                        label={structure.statusLabel}
-                        variant={structure.statusVariant}
-                      />
-                      {structure.needsDrillSheet ? (
-                        <StatusBadge
-                          label="Needs drill sheet"
-                          variant="warning"
-                        />
-                      ) : null}
-                    </span>
-                  </td>
-                  <td className={`${tableCellClassName} text-slate-600`}>
-                    {structure.submittedDate}
-                  </td>
-                  <td className={`${tableCellClassName} text-slate-600`}>
-                    {structure.madeDate}
-                  </td>
-                  <td className={`${tableCellClassName} text-slate-600`}>
-                    {structure.shippedDate}
-                  </td>
-                  <td className={tableCellClassName}>
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {structure.createDrillSheetHref ? (
-                        <Link
-                          href={structure.createDrillSheetHref}
-                          className="inline-flex w-fit rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-100"
-                        >
-                          Create Drill Sheet
-                        </Link>
-                      ) : null}
-                      {structure.drillSheetId ? (
-                        <>
-                          <DrillSheetPdfLink
-                            drillSheetId={structure.drillSheetId}
-                            label="PDF"
-                          />
-                          <Link
-                            href={`/drill-sheets/${structure.drillSheetId}`}
-                            className="inline-flex w-fit rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
-                          >
-                            Drill Sheet
-                          </Link>
-                        </>
-                      ) : null}
-                      <JobStructureSubmittalActions
-                        jobId={jobId}
-                        jobStructureId={structure.id}
-                        status={structure.status}
-                        needsSubmittal={structure.needsSubmittal}
-                        folderPath={folderPath}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <JobStructuresProductionTable
+        jobId={jobId}
+        folderPath={folderPath}
+        structures={structures}
+        jobStatusValue={jobStatusValue}
+      />
     </SectionCard>
   );
 }

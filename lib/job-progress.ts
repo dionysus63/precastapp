@@ -5,6 +5,7 @@ import type {
   JobProgressSummary,
   JobProgressView,
   JobStatusVariant,
+  JobStructureProgressLine,
 } from "@/components/jobs/job-utils";
 import {
   structureNeedsDrillSheet,
@@ -169,7 +170,76 @@ const EMPTY_PROGRESS: JobProgressView = {
     partiallyShippedLines: 0,
     notShippedLines: 0,
   },
+  structureLines: [],
 };
+
+/**
+ * Progress for jobs without a won quote (detailing flow: structures created
+ * straight on the job): production progress per structure, from the Daily
+ * Production log.
+ */
+async function getStructureProgressLines(
+  client: DbClient,
+  jobId: string,
+): Promise<JobStructureProgressLine[]> {
+  const structures = await client.jobStructure.findMany({
+    where: { jobId },
+    orderBy: [{ structureNumber: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      structureNumber: true,
+      description: true,
+      quantity: true,
+      unit: true,
+      status: true,
+      pieces: { select: { madeDate: true } },
+    },
+  });
+  if (structures.length === 0) {
+    return [];
+  }
+
+  const madeSums = await client.dailyProductionStructureLine.groupBy({
+    by: ["jobStructureId"],
+    where: { jobStructureId: { in: structures.map((row) => row.id) } },
+    _sum: { quantityMade: true },
+  });
+  const madeByStructure = new Map(
+    madeSums.map((row) => [
+      row.jobStructureId,
+      row._sum.quantityMade?.toNumber() ?? 0,
+    ]),
+  );
+
+  return structures.map((structure) => {
+    const unit = structure.unit ?? "";
+    const qty = structure.quantity?.toNumber() ?? null;
+    const complete =
+      structure.status === "MADE" || structure.status === "SHIPPED";
+    let made: number;
+    if (structure.pieces.length > 0) {
+      made = structure.pieces.filter((piece) => piece.madeDate != null).length;
+    } else if (complete) {
+      // Marked made without (or before) a production log — show it complete.
+      made = qty ?? 1;
+    } else {
+      made = madeByStructure.get(structure.id) ?? 0;
+    }
+    const total = structure.pieces.length > 0 ? structure.pieces.length : qty;
+    const pieceUnit = structure.pieces.length > 0 ? "pcs" : unit;
+    return {
+      id: structure.id,
+      structureNumber: structure.structureNumber ?? "—",
+      description: structure.description ?? "—",
+      quantity: total != null ? formatQty(total, pieceUnit) : "—",
+      madeSoFar: formatQty(made, pieceUnit),
+      remainingToMake:
+        total != null ? formatQty(Math.max(0, total - made), pieceUnit) : "—",
+      statusLabel: structureStatusLabels[structure.status] ?? structure.status,
+      statusVariant: structureStatusVariant(structure.status),
+    };
+  });
+}
 
 export async function getJobProgress(
   client: DbClient,
@@ -182,7 +252,10 @@ export async function getJobProgress(
   });
 
   if (!wonQuote) {
-    return EMPTY_PROGRESS;
+    return {
+      ...EMPTY_PROGRESS,
+      structureLines: await getStructureProgressLines(client, jobId),
+    };
   }
 
   const { fulfillment, scheduled: scheduledMap } =
@@ -293,5 +366,6 @@ export async function getJobProgress(
     quoteNumber: wonQuote.quoteNumber,
     lines,
     summary: buildSummary(lines),
+    structureLines: [],
   };
 }

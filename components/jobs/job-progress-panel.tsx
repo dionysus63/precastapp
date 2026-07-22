@@ -29,8 +29,87 @@ function EmptyRow({ colSpan, message }: { colSpan: number; message: string }) {
 }
 
 export function JobProgressPanel({ jobId, progress }: JobProgressPanelProps) {
-  const { lines, summary, quoteNumber, quoteId } = progress;
+  const { lines, summary, quoteNumber, quoteId, structureLines } = progress;
   const remaining = summary.partiallyShippedLines + summary.notShippedLines;
+
+  // Detailing flow: no won quote, but structures live on the job — show
+  // production progress per structure instead of asking for a won quote.
+  if (!quoteNumber && structureLines.length > 0) {
+    const madeCount = structureLines.filter(
+      (line) => line.statusLabel === "Made" || line.statusLabel === "Shipped",
+    ).length;
+    return (
+      <div className="space-y-4">
+        <SectionCard
+          title="Structure Production Progress"
+          description={`${structureLines.length} structure${
+            structureLines.length === 1 ? "" : "s"
+          } · no won quote — tracking production directly`}
+          action={
+            <p className="text-right text-[11px] text-slate-600">
+              <span className="font-semibold text-slate-900">{madeCount}</span>{" "}
+              of{" "}
+              <span className="font-semibold text-slate-900">
+                {structureLines.length}
+              </span>{" "}
+              made · record daily counts in{" "}
+              <Link
+                href="/production/daily"
+                className="font-medium text-sky-700 hover:underline"
+              >
+                Daily Production
+              </Link>
+            </p>
+          }
+          noPadding
+        >
+          <div className={tableFlushWrapperClassName}>
+            <table className={tableClassName}>
+              <thead>
+                <tr>
+                  <th className={tableHeaderCellWrapClassName}>Structure</th>
+                  <th className={tableHeaderCellWrapClassName}>Description</th>
+                  <th className={tableHeaderCellWrapClassName}>Qty</th>
+                  <th className={tableHeaderCellWrapClassName}>Made</th>
+                  <th className={tableHeaderCellWrapClassName}>Remaining</th>
+                  <th className={tableHeaderCellWrapClassName}>Status</th>
+                </tr>
+              </thead>
+              <tbody className={tableBodyClassName}>
+                {structureLines.map((line) => (
+                  <tr key={line.id} className={tableRowClassName}>
+                    <td className={`${tableCellClassName} font-medium text-slate-900`}>
+                      <StructureManageLink jobId={jobId} structureId={line.id}>
+                        {line.structureNumber}
+                      </StructureManageLink>
+                    </td>
+                    <td className={`${tableCellClassName} text-slate-700`}>
+                      {line.description}
+                    </td>
+                    <td className={`${tableCellClassName} text-slate-600`}>
+                      {line.quantity}
+                    </td>
+                    <td className={`${tableCellClassName} font-medium text-slate-900`}>
+                      {line.madeSoFar}
+                    </td>
+                    <td className={`${tableCellClassName} text-slate-600`}>
+                      {line.remainingToMake}
+                    </td>
+                    <td className={tableCellClassName}>
+                      <StatusBadge
+                        label={line.statusLabel}
+                        variant={line.statusVariant}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </SectionCard>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
