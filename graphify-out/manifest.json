@@ -440,8 +440,8 @@
     "semantic_hash": ""
   },
   "app/delivery-tickets/actions.ts": {
-    "mtime": 1784771656.3047533,
-    "ast_hash": "2d06c0cde9d184b0189ba8cef9b2553f",
+    "mtime": 1784772634.4196365,
+    "ast_hash": "31e5c5d55ee537dcc1ffa7fe223399b8",
     "semantic_hash": ""
   },
   "app/delivery-tickets/new/page.tsx": {
@@ -2840,13 +2840,13 @@
     "semantic_hash": ""
   },
   "app/delivery-tickets/plan/page.tsx": {
-    "mtime": 1784149996.7180605,
-    "ast_hash": "daf0e717c696be11bcf2259f23c326bf",
+    "mtime": 1784772664.0296822,
+    "ast_hash": "2dc32726fb2a8e90d7bcf407707a0c2a",
     "semantic_hash": ""
   },
   "components/delivery-tickets/bulk-load-planner.tsx": {
-    "mtime": 1784771685.589206,
-    "ast_hash": "032faef5c7bbfcc6d3e616339700a673",
+    "mtime": 1784773050.1560526,
+    "ast_hash": "0e02b51be626a0bd736fe9f388514097",
     "semantic_hash": ""
   },
   "app/delivery-tickets/schedule/page.tsx": {
@@ -3652,6 +3652,11 @@
   "tests/integration/delivery-ticket-customer-link.test.ts": {
     "mtime": 1784770502.4645226,
     "ast_hash": "77fd6490671fd0086563539371f5df5b",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260722220925_saved_load_plan/migration.sql": {
+    "mtime": 1784772570.8197498,
+    "ast_hash": "0862b6c7105f91ea18081b3f909600b1",
     "semantic_hash": ""
   }
 }

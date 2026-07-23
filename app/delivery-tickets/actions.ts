@@ -791,6 +791,10 @@ export async function savePlannedLoads(
               tickets.push({ ...ticket, created: true });
             }
           }
+          // The parked plan became real tickets — clear it.
+          await tx.savedLoadPlan.deleteMany({
+            where: { quoteId: input.quoteId },
+          });
           return tickets;
         },
         // Each load re-runs the fulfillment rollup; give large plans headroom
@@ -817,6 +821,84 @@ export async function savePlannedLoads(
     return {
       error:
         error instanceof Error ? error.message : "Could not save the load plan.",
+    };
+  }
+}
+
+export type SaveLoadPlanForLaterInput = {
+  jobId: string;
+  quoteId: string;
+  /** New-load columns only (rowKey -> quantity string); ticket-backed
+   * columns already persist as draft tickets. */
+  loads: { cells: Record<string, string> }[];
+};
+
+/**
+ * Park the planner grid without creating tickets: one saved layout per
+ * quote, restored (or discarded) next time the planner opens. Committing
+ * the plan to tickets clears it.
+ */
+export async function saveLoadPlanForLater(input: SaveLoadPlanForLaterInput) {
+  const user = await requirePermission(AppPermission.DELIVERY_MANAGE);
+
+  const loads = input.loads
+    .map((load) => ({
+      cells: Object.fromEntries(
+        Object.entries(load.cells).filter(([, qty]) => qty.trim() !== ""),
+      ),
+    }))
+    .filter((load) => Object.keys(load.cells).length > 0);
+  if (loads.length === 0) {
+    return { error: "Assign at least one quantity before saving the plan." };
+  }
+
+  try {
+    await withDatabaseRetry(async (client) => {
+      const quote = await client.quote.findUnique({
+        where: { id: input.quoteId },
+        select: { jobId: true },
+      });
+      if (!quote || quote.jobId !== input.jobId) {
+        throw new Error("The quote was not found on this job.");
+      }
+      const planJson = JSON.stringify({ loads });
+      await client.savedLoadPlan.upsert({
+        where: { quoteId: input.quoteId },
+        create: {
+          quoteId: input.quoteId,
+          jobId: input.jobId,
+          planJson,
+          savedBy: user.displayName ?? null,
+        },
+        update: {
+          jobId: input.jobId,
+          planJson,
+          savedBy: user.displayName ?? null,
+        },
+      });
+    });
+    revalidatePath("/delivery-tickets/plan");
+    return { success: true as const, loadCount: loads.length };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "Could not save the plan.",
+    };
+  }
+}
+
+export async function discardSavedLoadPlan(quoteId: string) {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+  try {
+    await withDatabaseRetry((client) =>
+      client.savedLoadPlan.deleteMany({ where: { quoteId } }),
+    );
+    revalidatePath("/delivery-tickets/plan");
+    return { success: true as const };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "Could not discard the plan.",
     };
   }
 }

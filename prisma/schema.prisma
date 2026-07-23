@@ -1033,6 +1033,7 @@ model Quote {
   deliveryTickets DeliveryTicket[]
   invoices        Invoice[]
   planSheets      PlanSheet[]
+  savedLoadPlan   SavedLoadPlan?
 
   @@unique([originalQuoteId, revisionNumber])
   @@index([jobId])
@@ -1406,6 +1407,25 @@ model DailyProductionStructureLine {
 
   @@index([productionEntryId])
   @@index([jobStructureId])
+}
+
+/// A parked load-plan grid for a quote — laid out in the bulk planner but
+/// not yet committed to draft tickets, so dispatch can come back later.
+/// One per quote; creating the tickets clears it.
+model SavedLoadPlan {
+  id        String   @id @default(cuid())
+  quoteId   String   @unique
+  jobId     String
+  /// JSON: { loads: [{ cells: { [rowKey]: qtyString } }] } — new-load
+  /// columns only; ticket-backed columns already persist as draft tickets.
+  planJson  String
+  savedBy   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
 }
 
 /// Batch entry for purchased casting inventory received from a supplier.

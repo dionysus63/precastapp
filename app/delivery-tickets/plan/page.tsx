@@ -260,6 +260,43 @@ export default async function PlanLoadsPage({ searchParams }: PlanLoadsPageProps
     (ticket) => !managedIds.has(ticket.id),
   );
 
+  // Parked plan from a previous session, offered for restore in the planner.
+  const savedPlanRow = await withDatabaseRetry((client) =>
+    client.savedLoadPlan.findUnique({
+      where: { quoteId: selectedQuoteId },
+      select: { planJson: true, savedBy: true, updatedAt: true },
+    }),
+  );
+  let savedPlan: {
+    loads: { cells: Record<string, string> }[];
+    savedBy: string | null;
+    savedAtLabel: string;
+  } | null = null;
+  if (savedPlanRow) {
+    try {
+      const parsed = JSON.parse(savedPlanRow.planJson) as {
+        loads?: { cells?: Record<string, string> }[];
+      };
+      const loads = (parsed.loads ?? [])
+        .map((load) => ({ cells: load.cells ?? {} }))
+        .filter((load) => Object.keys(load.cells).length > 0);
+      if (loads.length > 0) {
+        savedPlan = {
+          loads,
+          savedBy: savedPlanRow.savedBy,
+          savedAtLabel: savedPlanRow.updatedAt.toLocaleString("en-US", {
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          }),
+        };
+      }
+    } catch {
+      // Unreadable saved plan: ignore rather than break the planner.
+    }
+  }
+
   const capacityDigits = Number(
     settings.truckCapacityLabel.replace(/[^0-9.]/g, ""),
   );
@@ -313,6 +350,7 @@ export default async function PlanLoadsPage({ searchParams }: PlanLoadsPageProps
           }))}
           loadCapacityLabel={settings.truckCapacityLabel}
           loadCapacityLbs={loadCapacityLbs}
+          savedPlan={savedPlan}
         />
       </div>
     </DashboardShell>

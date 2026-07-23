@@ -12,6 +12,8 @@ import {
   useTransition,
 } from "react";
 import {
+  discardSavedLoadPlan,
+  saveLoadPlanForLater,
   savePlannedLoads,
   type DeliveryTicketLineInput,
   type PlannedLoadInput,
@@ -55,6 +57,13 @@ export type DraftLoadColumn = {
   cells: Record<string, string>;
 };
 
+/** A parked (ticketless) plan saved earlier, offered for restore. */
+export type SavedPlanOffer = {
+  loads: { cells: Record<string, string> }[];
+  savedBy: string | null;
+  savedAtLabel: string;
+};
+
 export type BulkLoadPlannerProps = {
   jobId: string;
   quoteId: string;
@@ -65,6 +74,7 @@ export type BulkLoadPlannerProps = {
   existingTickets: ExistingTicketSummary[];
   loadCapacityLabel: string;
   loadCapacityLbs: number | null;
+  savedPlan?: SavedPlanOffer | null;
 };
 
 // Loads are anonymous columns until saved — dates, drivers, and trailers are
@@ -541,6 +551,7 @@ export function BulkLoadPlanner({
   existingTickets,
   loadCapacityLabel,
   loadCapacityLbs,
+  savedPlan = null,
 }: BulkLoadPlannerProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -790,20 +801,134 @@ export function BulkLoadPlanner({
   );
   const [deletedTickets, setDeletedTickets] = useState<DeletedTicket[]>([]);
 
+  // Grid state matching a parked (saved-for-later) plan: leaving the page
+  // loses nothing, so the unsaved-changes warning stands down. State (not a
+  // ref) because isDirty must recompute when it changes.
+  const [parkedBaseline, setParkedBaseline] = useState<Record<
+    string,
+    string
+  > | null>(null);
+
   const isDirty = useMemo(() => {
     if (deletedTickets.length > 0) return true;
-    const keys = new Set([
-      ...Object.keys(cells),
-      ...Object.keys(baselineCells.current),
-    ]);
+    const baseline = parkedBaseline ?? baselineCells.current;
+    const keys = new Set([...Object.keys(cells), ...Object.keys(baseline)]);
     for (const key of keys) {
-      if (parseQty(cells[key]) !== parseQty(baselineCells.current[key])) {
+      if (parseQty(cells[key]) !== parseQty(baseline[key])) {
         return true;
       }
     }
     return false;
-  }, [cells, deletedTickets]);
+  }, [cells, deletedTickets, parkedBaseline]);
   useUnsavedChangesWarning(isDirty && !saved);
+
+  // Parked plan from a previous session: offered as a banner until restored
+  // or discarded. "Save for Later" parks the current grid the same way.
+  const [savedPlanOffer, setSavedPlanOffer] = useState<SavedPlanOffer | null>(
+    savedPlan,
+  );
+  const [parkPending, startParkTransition] = useTransition();
+  const [parkMessage, setParkMessage] = useState<string | null>(null);
+
+  function collectNewLoadCells(): { cells: Record<string, string> }[] {
+    const validRowKeys = new Set(editableRows.map((row) => row.key));
+    return loads
+      .filter((load) => !load.ticketId)
+      .map((load) => {
+        const cellsForLoad: Record<string, string> = {};
+        for (const rowKey of validRowKeys) {
+          const value = cells[cellKey(rowKey, load.key)];
+          if (value?.trim()) {
+            cellsForLoad[rowKey] = value.trim();
+          }
+        }
+        return { cells: cellsForLoad };
+      })
+      .filter((load) => Object.keys(load.cells).length > 0);
+  }
+
+  function handleSaveForLater() {
+    setError(null);
+    setParkMessage(null);
+    startParkTransition(async () => {
+      const result = await saveLoadPlanForLater({
+        jobId,
+        quoteId,
+        loads: collectNewLoadCells(),
+      });
+      if ("error" in result && result.error) {
+        setError(result.error);
+        return;
+      }
+      // The layout is persisted now — leaving the page loses nothing.
+      setParkedBaseline({ ...cells });
+      setSavedPlanOffer(null);
+      setParkMessage(
+        `Plan saved for later (${result.loadCount} load${
+          result.loadCount === 1 ? "" : "s"
+        }). No tickets were created — come back to this page to pick it up.`,
+      );
+    });
+  }
+
+  function handleRestoreSavedPlan() {
+    if (!savedPlanOffer) return;
+    const validRowKeys = new Set(editableRows.map((row) => row.key));
+    const restoredLoads: LoadDraft[] = [];
+    const restoredCells: Record<string, string> = {};
+    let dropped = 0;
+    for (const saved of savedPlanOffer.loads) {
+      const load = makeLoad();
+      let hasAny = false;
+      for (const [rowKey, qty] of Object.entries(saved.cells)) {
+        if (!validRowKeys.has(rowKey)) {
+          dropped += 1;
+          continue;
+        }
+        restoredCells[cellKey(rowKey, load.key)] = qty;
+        hasAny = true;
+      }
+      if (hasAny) {
+        restoredLoads.push(load);
+      }
+    }
+    setLoads((current) => [
+      ...current.filter((load) => load.ticketId),
+      ...(restoredLoads.length > 0 ? restoredLoads : [makeLoad(), makeLoad()]),
+    ]);
+    // Keep ticket-backed columns' cells; replace the rest with the plan.
+    const ticketKeys = new Set(
+      loads.filter((load) => load.ticketId).map((load) => load.key),
+    );
+    const next: Record<string, string> = {};
+    for (const [key, value] of Object.entries(cells)) {
+      if (ticketKeys.has(key.split("|")[1] ?? "")) {
+        next[key] = value;
+      }
+    }
+    Object.assign(next, restoredCells);
+    setCells(next);
+    // The restored layout is already persisted — not dirty until edited.
+    setParkedBaseline(next);
+    setSavedPlanOffer(null);
+    setParkMessage(
+      dropped > 0
+        ? `Saved plan restored — ${dropped} entr${dropped === 1 ? "y" : "ies"} no longer matched the quote and ${dropped === 1 ? "was" : "were"} dropped.`
+        : "Saved plan restored.",
+    );
+  }
+
+  function handleDiscardSavedPlan() {
+    startParkTransition(async () => {
+      const result = await discardSavedLoadPlan(quoteId);
+      if ("error" in result && result.error) {
+        setError(result.error);
+        return;
+      }
+      setSavedPlanOffer(null);
+      setParkMessage("Saved plan discarded.");
+    });
+  }
 
   // Assigned per quote line across every load, in the group's accounting unit
   // (LF for drain rings, plain quantity otherwise).
@@ -1407,6 +1532,41 @@ export function BulkLoadPlanner({
 
   return (
     <div className="space-y-4">
+      {savedPlanOffer ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-sky-200 bg-sky-50 px-4 py-2.5">
+          <p className="text-xs text-sky-900">
+            <span className="font-semibold">Saved plan</span> from{" "}
+            {savedPlanOffer.savedAtLabel}
+            {savedPlanOffer.savedBy ? ` by ${savedPlanOffer.savedBy}` : ""} —{" "}
+            {savedPlanOffer.loads.length} load
+            {savedPlanOffer.loads.length === 1 ? "" : "s"}, no tickets created
+            yet.
+          </p>
+          <div className="ml-auto flex gap-2">
+            <button
+              type="button"
+              onClick={handleRestoreSavedPlan}
+              disabled={parkPending}
+              className="rounded-lg bg-sky-700 px-3 py-1 text-[11px] font-semibold text-white hover:bg-sky-800 disabled:opacity-50"
+            >
+              Restore plan
+            </button>
+            <button
+              type="button"
+              onClick={handleDiscardSavedPlan}
+              disabled={parkPending}
+              className="rounded-lg border border-sky-200 bg-white px-3 py-1 text-[11px] font-semibold text-sky-800 hover:bg-sky-100 disabled:opacity-50"
+            >
+              Discard
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {parkMessage ? (
+        <p className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2 text-xs text-slate-700">
+          {parkMessage}
+        </p>
+      ) : null}
       {editableRows.length > 0 ? (
         <div className="grid gap-x-6 gap-y-3 rounded-lg border border-slate-200 bg-white px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
@@ -1980,6 +2140,15 @@ export function BulkLoadPlanner({
               className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
             >
               + Add Load
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveForLater}
+              disabled={parkPending || pending}
+              title="Park this layout without creating tickets; it will be offered next time the planner opens."
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {parkPending ? "Saving…" : "Save for Later"}
             </button>
             <button
               type="button"
