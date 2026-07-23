@@ -254,6 +254,35 @@ function allLineageIds(lineageMap: Map<string, string[]>): string[] {
  * revision still reference superseded line ids; callers resolve those
  * references to the live lines through this map.
  */
+/**
+ * Every quote id in this quote's revision family (the original plus all its
+ * revisions), the given quote first. Saved load plans follow revisions with
+ * this: a plan parked against a superseded revision is found, its row keys
+ * remapped through the line alias map, and re-homed on the current quote.
+ */
+export async function getQuoteLineageQuoteIds(
+  client: DbClient,
+  quoteId: string,
+): Promise<string[]> {
+  const quote = await client.quote.findUnique({
+    where: { id: quoteId },
+    select: { id: true, originalQuoteId: true },
+  });
+  if (!quote) {
+    return [quoteId];
+  }
+  const rootId = quote.originalQuoteId ?? quote.id;
+  const family = await client.quote.findMany({
+    where: { OR: [{ id: rootId }, { originalQuoteId: rootId }] },
+    select: { id: true },
+  });
+  const ids = new Set<string>([quoteId]);
+  for (const row of family) {
+    ids.add(row.id);
+  }
+  return [...ids];
+}
+
 export async function buildQuoteLineAliasMap(
   client: DbClient,
   quoteId: string,

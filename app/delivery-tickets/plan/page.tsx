@@ -7,6 +7,8 @@ import {
 import { getAppSettings } from "@/lib/app-settings";
 import { withDatabaseRetry } from "@/lib/prisma";
 import {
+  buildQuoteLineAliasMap,
+  getQuoteLineageQuoteIds,
   getQuoteLineFulfillmentAndScheduled,
   getQuoteLineScheduledQuantities,
   OPEN_TICKET_STATUSES,
@@ -261,12 +263,20 @@ export default async function PlanLoadsPage({ searchParams }: PlanLoadsPageProps
   );
 
   // Parked plan from a previous session, offered for restore in the planner.
-  const savedPlanRow = await withDatabaseRetry((client) =>
-    client.savedLoadPlan.findUnique({
-      where: { quoteId: selectedQuoteId },
-      select: { planJson: true, savedBy: true, updatedAt: true },
-    }),
-  );
+  // Looked up across the quote's whole revision family: editing the quote
+  // and re-winning it creates a new quote id with new line ids, and the plan
+  // must survive that — old row keys are remapped through the line lineage.
+  const savedPlanRow = await withDatabaseRetry(async (client) => {
+    const lineageIds = await getQuoteLineageQuoteIds(client, selectedQuoteId);
+    const rows = await client.savedLoadPlan.findMany({
+      where: { quoteId: { in: lineageIds } },
+      orderBy: { updatedAt: "desc" },
+      select: { quoteId: true, planJson: true, savedBy: true, updatedAt: true },
+    });
+    return (
+      rows.find((row) => row.quoteId === selectedQuoteId) ?? rows[0] ?? null
+    );
+  });
   let savedPlan: {
     loads: { cells: Record<string, string> }[];
     savedBy: string | null;
@@ -277,8 +287,36 @@ export default async function PlanLoadsPage({ searchParams }: PlanLoadsPageProps
       const parsed = JSON.parse(savedPlanRow.planJson) as {
         loads?: { cells?: Record<string, string> }[];
       };
+      // Row keys are `lineId` or `lineId::productId`; a plan from a
+      // superseded revision carries old line ids — remap via lineage and
+      // keep only keys that resolve to a line on the current revision.
+      const aliasToCurrentId =
+        savedPlanRow.quoteId === selectedQuoteId
+          ? null
+          : await withDatabaseRetry((client) =>
+              buildQuoteLineAliasMap(client, selectedQuoteId),
+            );
+      const remapKey = (rowKey: string): string | null => {
+        const [lineId, ...rest] = rowKey.split("::");
+        const currentId = aliasToCurrentId
+          ? (aliasToCurrentId.get(lineId) ?? lineId)
+          : lineId;
+        if (!metaById.has(currentId)) {
+          return null;
+        }
+        return [currentId, ...rest].join("::");
+      };
       const loads = (parsed.loads ?? [])
-        .map((load) => ({ cells: load.cells ?? {} }))
+        .map((load) => {
+          const cells: Record<string, string> = {};
+          for (const [rowKey, qty] of Object.entries(load.cells ?? {})) {
+            const remapped = remapKey(rowKey);
+            if (remapped) {
+              cells[remapped] = qty;
+            }
+          }
+          return { cells };
+        })
         .filter((load) => Object.keys(load.cells).length > 0);
       if (loads.length > 0) {
         savedPlan = {

@@ -15,6 +15,7 @@ import { allocateDeliveryTicketNumber } from "@/lib/delivery-ticket-number";
 import {
   buildQuoteLineAliasMap,
   cancelDeliveredTicket,
+  getQuoteLineageQuoteIds,
   getQuoteLineFulfillmentAndScheduled,
   markDeliveryTicketDelivered,
   OPEN_TICKET_STATUSES,
@@ -791,9 +792,11 @@ export async function savePlannedLoads(
               tickets.push({ ...ticket, created: true });
             }
           }
-          // The parked plan became real tickets — clear it.
+          // The parked plan became real tickets — clear it, including any
+          // copy still homed on a superseded revision of this quote.
+          const lineageIds = await getQuoteLineageQuoteIds(tx, input.quoteId);
           await tx.savedLoadPlan.deleteMany({
-            where: { quoteId: input.quoteId },
+            where: { quoteId: { in: lineageIds } },
           });
           return tickets;
         },
@@ -862,6 +865,12 @@ export async function saveLoadPlanForLater(input: SaveLoadPlanForLaterInput) {
         throw new Error("The quote was not found on this job.");
       }
       const planJson = JSON.stringify({ loads });
+      // Saving re-homes the plan on the current quote; drop copies still
+      // attached to superseded revisions so they can't resurface.
+      const lineageIds = await getQuoteLineageQuoteIds(client, input.quoteId);
+      await client.savedLoadPlan.deleteMany({
+        where: { quoteId: { in: lineageIds, not: input.quoteId } },
+      });
       await client.savedLoadPlan.upsert({
         where: { quoteId: input.quoteId },
         create: {
@@ -890,9 +899,14 @@ export async function saveLoadPlanForLater(input: SaveLoadPlanForLaterInput) {
 export async function discardSavedLoadPlan(quoteId: string) {
   await requirePermission(AppPermission.DELIVERY_MANAGE);
   try {
-    await withDatabaseRetry((client) =>
-      client.savedLoadPlan.deleteMany({ where: { quoteId } }),
-    );
+    // The offered plan may still be homed on a superseded revision — discard
+    // across the whole family so it can't resurface.
+    await withDatabaseRetry(async (client) => {
+      const lineageIds = await getQuoteLineageQuoteIds(client, quoteId);
+      await client.savedLoadPlan.deleteMany({
+        where: { quoteId: { in: lineageIds } },
+      });
+    });
     revalidatePath("/delivery-tickets/plan");
     return { success: true as const };
   } catch (error) {
