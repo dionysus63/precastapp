@@ -92,6 +92,17 @@ export type StructurePieceOption = {
   openTicketNumber: string | null;
 };
 
+/**
+ * Structure statuses dispatch may plan loads against. Earlier statuses
+ * (Not Submitted / Submitted) aren't cleared for production yet; ticket
+ * saves enforce the same set server-side.
+ */
+export const PLANNABLE_STRUCTURE_STATUSES = [
+  "APPROVED",
+  "IN_PRODUCTION",
+  "MADE",
+];
+
 export type QuoteLineFulfillment = {
   quoteLineItemId: string;
   lineNumber: number;
@@ -106,6 +117,12 @@ export type QuoteLineFulfillment = {
   remainingQty: number;
   eligible: boolean;
   eligibilityReason: string | null;
+  /**
+   * Cumulative made count from the Daily Production log for structure
+   * quantity lines (null for other line kinds). Dispatch plans ahead freely;
+   * this is the "how much physically exists" signal shown alongside.
+   */
+  madeSoFarQty: number | null;
   jobStructureId: string | null;
   jobStructureStatus: string | null;
   productId: string | null;
@@ -1024,6 +1041,36 @@ async function buildFulfillmentFromContext(
     }
   }
 
+  // Daily Production made counts for non-split structure quantity lines —
+  // dispatch plans ahead freely, but sees how much physically exists.
+  const structureIdsForMadeCounts = [
+    ...new Set(
+      quote.lineItems
+        .filter(
+          (line) =>
+            (line.lineType === "CONFIGURABLE_STRUCTURE" ||
+              line.lineType === "CUSTOM_STRUCTURE") &&
+            line.jobStructureId &&
+            !splitStructureLineIds.has(line.id),
+        )
+        .map((line) => line.jobStructureId!),
+    ),
+  ];
+  const madeSums =
+    structureIdsForMadeCounts.length > 0
+      ? await client.dailyProductionStructureLine.groupBy({
+          by: ["jobStructureId"],
+          where: { jobStructureId: { in: structureIdsForMadeCounts } },
+          _sum: { quantityMade: true },
+        })
+      : [];
+  const madeSoFarByStructure = new Map(
+    madeSums.map((row) => [
+      row.jobStructureId,
+      Number(row._sum.quantityMade ?? 0),
+    ]),
+  );
+
   const result: QuoteLineFulfillment[] = [];
 
   for (const line of quote.lineItems) {
@@ -1078,6 +1125,7 @@ async function buildFulfillmentFromContext(
         remainingQty,
         eligible,
         eligibilityReason,
+        madeSoFarQty: null,
         jobStructureId: line.jobStructureId,
         jobStructureStatus: null,
         productId: null,
@@ -1151,6 +1199,7 @@ async function buildFulfillmentFromContext(
         remainingQty,
         eligible,
         eligibilityReason,
+        madeSoFarQty: null,
         jobStructureId: line.jobStructureId,
         jobStructureStatus: null,
         productId: line.productId,
@@ -1222,6 +1271,7 @@ async function buildFulfillmentFromContext(
         remainingQty,
         eligible,
         eligibilityReason,
+        madeSoFarQty: null,
         jobStructureId: line.jobStructureId,
         jobStructureStatus: line.jobStructure.status,
         productId: line.productId,
@@ -1283,6 +1333,7 @@ async function buildFulfillmentFromContext(
         remainingQty,
         eligible,
         eligibilityReason,
+        madeSoFarQty: null,
         jobStructureId: line.jobStructureId,
         jobStructureStatus: null,
         productId: line.productId,
@@ -1306,6 +1357,7 @@ async function buildFulfillmentFromContext(
 
     let eligible = remainingQty > 0;
     let eligibilityReason: string | null = null;
+    let madeSoFarQty: number | null = null;
 
     if (remainingQty <= 0) {
       eligible = false;
@@ -1325,9 +1377,18 @@ async function buildFulfillmentFromContext(
       if (!line.jobStructure) {
         eligible = false;
         eligibilityReason = "No job structure linked";
-      } else if (line.jobStructure.status !== "MADE") {
+      } else if (
+        !PLANNABLE_STRUCTURE_STATUSES.includes(line.jobStructure.status)
+      ) {
+        // Not yet cleared for production — dispatch plans ahead freely once
+        // a structure is Approved, informed by the made-so-far count.
         eligible = false;
         eligibilityReason = `Structure status: ${line.jobStructure.status}`;
+      } else {
+        madeSoFarQty =
+          line.jobStructure.status === "MADE"
+            ? quotedQty
+            : (madeSoFarByStructure.get(line.jobStructureId ?? "") ?? 0);
       }
     }
 
@@ -1345,6 +1406,7 @@ async function buildFulfillmentFromContext(
       remainingQty,
       eligible,
       eligibilityReason,
+      madeSoFarQty,
       jobStructureId: line.jobStructureId,
       jobStructureStatus: line.jobStructure?.status ?? null,
       productId: line.productId,

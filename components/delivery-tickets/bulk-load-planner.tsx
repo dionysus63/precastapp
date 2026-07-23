@@ -459,6 +459,12 @@ function buildRows(
       scheduledQty,
       weightPerUnit: meta.weightEach,
     });
+    // Structure quantity lines plan ahead of production; show how much
+    // physically exists so dispatch schedules with eyes open.
+    const madeDetail =
+      meta.madeSoFarQty != null
+        ? `${roundQty(meta.madeSoFarQty)} of ${roundQty(meta.quotedQty)} made`
+        : null;
     rows.push({
       kind: "item",
       key: meta.quoteLineItemId,
@@ -467,8 +473,12 @@ function buildRows(
       indent: false,
       itemCode: meta.itemCode,
       displayName: meta.displayName,
-      detail: null,
-      warning: meta.eligibilityReason,
+      detail: madeDetail,
+      warning:
+        meta.eligibilityReason ??
+        (meta.madeSoFarQty != null && meta.madeSoFarQty <= 0
+          ? "None made yet"
+          : null),
       unit: meta.unit,
       weightEach: meta.weightEach,
       feetPerUnit: null,

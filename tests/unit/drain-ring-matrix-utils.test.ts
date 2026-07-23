@@ -47,6 +47,7 @@ function fulfillmentLine(
     remainingQty: 5,
     eligible: true,
     eligibilityReason: null,
+    madeSoFarQty: null,
     jobStructureId: null,
     jobStructureStatus: null,
     productId: null,

@@ -18,6 +18,7 @@ import {
   getQuoteLineFulfillmentAndScheduled,
   markDeliveryTicketDelivered,
   OPEN_TICKET_STATUSES,
+  PLANNABLE_STRUCTURE_STATUSES,
 } from "@/lib/delivery-fulfillment";
 import { formatDrainRingStyleLabel } from "@/lib/drain-ring-utils";
 import { deliveryTicketStatusFlow } from "@/components/delivery-tickets/delivery-ticket-utils";
@@ -308,9 +309,13 @@ async function validateLines(
       if (
         (line.lineType === "CONFIGURABLE_STRUCTURE" ||
           line.lineType === "CUSTOM_STRUCTURE") &&
-        meta.jobStructureStatus !== "MADE"
+        !PLANNABLE_STRUCTURE_STATUSES.includes(meta.jobStructureStatus ?? "")
       ) {
-        throw new Error(`${line.itemCode} is not made yet (${meta.jobStructureStatus ?? "no structure"}).`);
+        // Dispatch plans ahead of production, but never against structures
+        // that aren't cleared for it yet.
+        throw new Error(
+          `${line.itemCode} is not approved for production yet (${meta.jobStructureStatus ?? "no structure"}).`,
+        );
       }
     }
 
