@@ -32,6 +32,8 @@ type InvoiceDraftEditorProps = {
   initialTaxRate: number;
   initialDiscount: number;
   initialLines: DraftInvoiceLineInput[];
+  /** True when editing a final (SENT) invoice instead of a draft. */
+  finalized?: boolean;
 };
 
 function newClientKey(): string {
@@ -79,6 +81,7 @@ export function InvoiceDraftEditor({
   initialTaxRate,
   initialDiscount,
   initialLines,
+  finalized = false,
 }: InvoiceDraftEditorProps) {
   const [lines, setLines] = useState<EditorLine[]>(
     initialLines.map((line) => ({
@@ -162,7 +165,7 @@ export function InvoiceDraftEditor({
         return;
       }
       const result = await updateDraftInvoice(input);
-      setMessage(result.error ?? "Draft saved.");
+      setMessage(result.error ?? (finalized ? "Invoice saved." : "Draft saved."));
     });
   };
 
@@ -177,7 +180,7 @@ export function InvoiceDraftEditor({
             onClick={() => save(false)}
             className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-50"
           >
-            Save draft
+            {finalized ? "Save" : "Save draft"}
           </button>
           <button
             type="button"
@@ -196,7 +199,9 @@ export function InvoiceDraftEditor({
         </p>
       ) : null}
 
-      <SectionCard title={`Edit draft ${invoiceNumber}`}>
+      <SectionCard
+        title={`Edit ${finalized ? "" : "draft "}${invoiceNumber}`}
+      >
         <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 text-xs">
           <div>
             <dt className="text-slate-500">Customer</dt>

@@ -72,7 +72,11 @@ function computeInvoiceFinancials(
   return { computed, deliveryAmount };
 }
 
-async function requireDraftInvoice(invoiceId: string) {
+// Paid and voided invoices are immutable records; drafts and final unpaid
+// (SENT) invoices can be edited — the latter behind an explicit confirm.
+const EDITABLE_INVOICE_STATUSES = ["DRAFT", "SENT"] as const;
+
+async function requireEditableInvoice(invoiceId: string) {
   const invoice = await withDatabaseRetry((client) =>
     client.invoice.findUnique({
       where: { id: invoiceId },
@@ -84,8 +88,8 @@ async function requireDraftInvoice(invoiceId: string) {
     throw new Error("Invoice not found.");
   }
 
-  if (invoice.status !== "DRAFT") {
-    throw new Error("Only draft invoices can be edited.");
+  if (!EDITABLE_INVOICE_STATUSES.includes(invoice.status as "DRAFT" | "SENT")) {
+    throw new Error("Paid or voided invoices cannot be edited.");
   }
 
   return invoice;
@@ -254,7 +258,7 @@ export async function voidInvoice(invoiceId: string) {
 
 export async function updateDraftInvoice(input: UpdateDraftInvoiceInput) {
   await requirePermission(AppPermission.INVOICES_MANAGE);
-  await requireDraftInvoice(input.invoiceId);
+  await requireEditableInvoice(input.invoiceId);
 
   if (input.lines.length === 0) {
     return { error: "At least one line item is required." };
@@ -288,8 +292,13 @@ export async function updateDraftInvoice(input: UpdateDraftInvoiceInput) {
           where: { id: input.invoiceId },
           select: { status: true },
         });
-        if (!invoice || invoice.status !== "DRAFT") {
-          throw new Error("Only draft invoices can be edited.");
+        if (
+          !invoice ||
+          !EDITABLE_INVOICE_STATUSES.includes(
+            invoice.status as "DRAFT" | "SENT",
+          )
+        ) {
+          throw new Error("Paid or voided invoices cannot be edited.");
         }
 
         if (input.deletedLineIds.length > 0) {
@@ -339,10 +348,13 @@ export async function updateDraftInvoice(input: UpdateDraftInvoiceInput) {
           }
         }
 
-        // Conditional on still being a draft, so a finalization that slipped
-        // in between statements can't be overwritten.
+        // Conditional on still being editable, so a payment or void that
+        // slipped in between statements can't be overwritten.
         const updatedInvoice = await tx.invoice.updateMany({
-          where: { id: input.invoiceId, status: "DRAFT" },
+          where: {
+            id: input.invoiceId,
+            status: { in: [...EDITABLE_INVOICE_STATUSES] },
+          },
           data: {
             subtotal: computed.subtotal,
             discountAmount: new Prisma.Decimal(input.discountAmount),
@@ -354,7 +366,7 @@ export async function updateDraftInvoice(input: UpdateDraftInvoiceInput) {
           },
         });
         if (updatedInvoice.count === 0) {
-          throw new Error("Only draft invoices can be edited.");
+          throw new Error("Paid or voided invoices cannot be edited.");
         }
       }),
     );

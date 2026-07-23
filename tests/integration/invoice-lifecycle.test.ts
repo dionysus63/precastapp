@@ -179,7 +179,9 @@ describe("invoice status transitions", () => {
 });
 
 describe("draft invoice editing", () => {
-  it("rejects edits to a non-draft invoice", async () => {
+  // Invoice A is VOID by this point (finalized -> paid -> voided above).
+  // Drafts and final unpaid (SENT) invoices are editable; paid/void never.
+  it("rejects edits to a paid or voided invoice", async () => {
     await expect(
       updateDraftInvoice(
         editInput(invoiceAId, [
@@ -196,7 +198,7 @@ describe("draft invoice editing", () => {
           },
         ]),
       ),
-    ).rejects.toThrow(/only draft invoices/i);
+    ).rejects.toThrow(/paid or voided/i);
   });
 
   it("rejects a line id belonging to another invoice and rolls back atomically", async () => {
@@ -281,5 +283,44 @@ describe("draft invoice editing", () => {
     expect(Number(invoice.total)).toBe(325);
     expect(Number(invoice.lineItems[0]!.total)).toBe(300);
     expect(Number(invoice.lineItems[1]!.total)).toBe(25);
+  });
+
+  it("edits a finalized (SENT) invoice and recomputes totals", async () => {
+    const finalizeResult = await finalizeInvoices([invoiceCId]);
+    expect(finalizeResult.error).toBeUndefined();
+
+    // Drop the service line added by the previous edit; correct the other.
+    const serviceLine = await prisma.invoiceLineItem.findFirstOrThrow({
+      where: { invoiceId: invoiceCId, itemCode: `${tag}-SVC` },
+      select: { id: true },
+    });
+    const result = await updateDraftInvoice(
+      editInput(
+        invoiceCId,
+        [
+          {
+            id: lineCId,
+            lineNumber: 1,
+            lineType: "STOCK_PRODUCT",
+            itemCode: `${tag}-ITEM-C`,
+            description: "Corrected after finalization",
+            quantity: 3,
+            unit: "EA",
+            unitPrice: 100,
+            taxable: false,
+          },
+        ],
+        [serviceLine.id],
+      ),
+    );
+    expect(result.error).toBeUndefined();
+
+    const invoice = await prisma.invoice.findUniqueOrThrow({
+      where: { id: invoiceCId },
+      include: { lineItems: { orderBy: { sortOrder: "asc" } } },
+    });
+    expect(invoice.status).toBe("SENT");
+    expect(invoice.lineItems).toHaveLength(1);
+    expect(Number(invoice.total)).toBe(300);
   });
 });

@@ -111,6 +111,25 @@ export function InvoiceDetailActions({
           <button
             type="button"
             disabled={pending}
+            onClick={async () => {
+              if (
+                !(await confirm({
+                  title: "Edit final invoice?",
+                  message: `Invoice ${invoiceNumber} is final. Changes will alter what the customer is billed — are you sure?`,
+                  confirmLabel: "Edit invoice",
+                }))
+              ) {
+                return;
+              }
+              router.push(`/invoices/${invoiceId}/edit`);
+            }}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Edit invoice
+          </button>
+          <button
+            type="button"
+            disabled={pending}
             onClick={() => {
               startTransition(async () => {
                 await markInvoicePaid(invoiceId);

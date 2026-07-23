@@ -2185,23 +2185,23 @@
     "semantic_hash": ""
   },
   "app/invoices/[id]/edit/page.tsx": {
-    "mtime": 1783287348.2001982,
-    "ast_hash": "c53d16efe5929a1d898ddd2827e243f2",
+    "mtime": 1784763833.4401648,
+    "ast_hash": "5a51db06c4c9655f31700217c3730ff8",
     "semantic_hash": ""
   },
   "app/invoices/actions.ts": {
-    "mtime": 1784645110.1019392,
-    "ast_hash": "a497eec36519c6f5160b93015f84a9fa",
+    "mtime": 1784763825.8529236,
+    "ast_hash": "895aa7d329695a9d73f347b3b2a83600",
     "semantic_hash": ""
   },
   "components/invoices/invoice-detail-actions.tsx": {
-    "mtime": 1784599291.981387,
-    "ast_hash": "5d66b0e8272f31346935ea1b77a47414",
+    "mtime": 1784763857.3490834,
+    "ast_hash": "025f2965f2b41bbd90bdb88927bd40e6",
     "semantic_hash": ""
   },
   "components/invoices/invoice-draft-editor.tsx": {
-    "mtime": 1784149912.976722,
-    "ast_hash": "de730195df0c2d4fcfc216c149f64ab0",
+    "mtime": 1784763850.4748378,
+    "ast_hash": "02c1a87576657514e6485fcf891d5b48",
     "semantic_hash": ""
   },
   "components/invoices/invoices-tabs.tsx": {
@@ -3220,8 +3220,8 @@
     "semantic_hash": ""
   },
   "tests/integration/invoice-lifecycle.test.ts": {
-    "mtime": 1783907852.4840455,
-    "ast_hash": "d3f5cdde9185babc6d56c96438f1e7c6",
+    "mtime": 1784764036.3247554,
+    "ast_hash": "1256d1850ac590bb27f64daed564e281",
     "semantic_hash": ""
   },
   "tests/integration/negative-stock.test.ts": {
@@ -3635,8 +3635,8 @@
     "semantic_hash": ""
   },
   "components/production/daily-production-entry.tsx": {
-    "mtime": 1784750739.3763394,
-    "ast_hash": "9dff9fcf788e80bb3c73c8fcb706e0ec",
+    "mtime": 1784763279.6960547,
+    "ast_hash": "da61cf4b617b2ba2947f7015b19c01e9",
     "semantic_hash": ""
   },
   "lib/daily-production-service.ts": {

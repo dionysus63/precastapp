@@ -26,16 +26,23 @@ export default async function EditDraftInvoicePage({ params }: PageProps) {
     notFound();
   }
 
-  if (invoice.status !== "DRAFT") {
+  // Drafts and final unpaid invoices are editable; paid/void are immutable.
+  if (invoice.status !== "DRAFT" && invoice.status !== "SENT") {
     redirect(`/invoices/${id}`);
   }
+  const finalized = invoice.status === "SENT";
 
   return (
     <DashboardShell
       title={`Edit ${invoice.invoiceNumber}`}
-      subtitle="Adjust pricing, tax, and delivery before finalizing."
+      subtitle={
+        finalized
+          ? "This invoice is final — saved changes update it immediately."
+          : "Adjust pricing, tax, and delivery before finalizing."
+      }
     >
       <InvoiceDraftEditor
+        finalized={finalized}
         invoiceId={invoice.id}
         invoiceNumber={invoice.invoiceNumber}
         ticketNumber={invoice.deliveryTicket.ticketNumber}
