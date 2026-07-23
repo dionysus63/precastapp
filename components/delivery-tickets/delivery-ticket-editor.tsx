@@ -1197,7 +1197,7 @@ export function DeliveryTicketEditor({
         ? walkInOneOff
           ? null
           : walkInCustomerId
-        : defaultValues?.customerId ?? null,
+        : selectedJob?.customerId ?? defaultValues?.customerId ?? null,
       customerName: isWalkIn
         ? walkInCustomer.trim()
         : selectedJob?.customerName ?? defaultValues?.customerName ?? "",

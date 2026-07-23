@@ -399,6 +399,36 @@ function buildLinesPayload(lines: DeliveryTicketLineInput[]) {
   };
 }
 
+/** Tickets should carry a real customer link whenever one can be determined:
+ * prefer the linked job's customer, then an exact (case-insensitive) name
+ * match. Downstream consumers (invoicing, billing contacts) rely on the id. */
+async function resolveTicketCustomerId(
+  client: Prisma.TransactionClient,
+  input: Pick<SaveDeliveryTicketInput, "customerId" | "jobId" | "customerName">,
+): Promise<string | null> {
+  if (input.customerId) {
+    return input.customerId;
+  }
+  if (input.jobId) {
+    const job = await client.job.findUnique({
+      where: { id: input.jobId },
+      select: { customerId: true },
+    });
+    if (job?.customerId) {
+      return job.customerId;
+    }
+  }
+  const name = input.customerName.trim();
+  if (!name) {
+    return null;
+  }
+  const match = await client.customer.findFirst({
+    where: { name: { equals: name, mode: "insensitive" } },
+    select: { id: true },
+  });
+  return match?.id ?? null;
+}
+
 function ticketData(input: SaveDeliveryTicketInput) {
   const { lineCreates, totalItems, totalWeight } = buildLinesPayload(input.lines);
 
@@ -467,23 +497,27 @@ export async function createDeliveryTicket(
         }
         await validateLines(tx, input);
 
+        let effectiveInput: SaveDeliveryTicketInput = {
+          ...input,
+          customerId: await resolveTicketCustomerId(tx, input),
+        };
+
         // New tickets with a known customer and no site contact default to
         // the customer's FIELD contact so the driver has someone to call.
-        let effectiveInput = input;
         if (
-          input.customerId &&
+          effectiveInput.customerId &&
           !input.siteContactName?.trim() &&
           !input.siteContactPhone?.trim() &&
           !input.siteContactEmail?.trim()
         ) {
           const fieldContact = await getDefaultContactForRole(
             tx,
-            input.customerId,
+            effectiveInput.customerId,
             "FIELD",
           );
           if (fieldContact) {
             effectiveInput = {
-              ...input,
+              ...effectiveInput,
               siteContactName: fieldContact.contactName,
               siteContactPhone: fieldContact.contactPhone,
               siteContactEmail: fieldContact.contactEmail,
@@ -628,6 +662,12 @@ export async function savePlannedLoads(
         async (tx) => {
           await assertQuoteLinkable(tx, input.quoteId);
 
+          const customerId = await resolveTicketCustomerId(tx, {
+            customerId: job.customerId,
+            jobId: null,
+            customerName: job.customerName,
+          });
+
           const managedRefs = [
             ...loads
               .filter((load) => load.ticketId)
@@ -705,7 +745,7 @@ export async function savePlannedLoads(
               status: "DRAFT",
               jobId: input.jobId,
               quoteId: input.quoteId,
-              customerId: job.customerId,
+              customerId,
               priceListId: defaultPriceListId,
               jobNumber: job.jobNumber,
               quoteNumber: quote.quoteNumber,
@@ -942,7 +982,11 @@ export async function updateDeliveryTicket(
 
         const defaultPriceListId =
           input.priceListId ?? (await getDefaultPriceListId(tx));
-        const data = ticketData({ ...input, priceListId: defaultPriceListId });
+        const data = ticketData({
+          ...input,
+          customerId: await resolveTicketCustomerId(tx, input),
+          priceListId: defaultPriceListId,
+        });
         const { lineItems, ...rest } = data;
 
         await tx.deliveryTicket.update({
@@ -1369,6 +1413,7 @@ export type DeliveryTicketJobSearchOption = {
   id: string;
   jobNumber: string;
   projectName: string;
+  customerId: string | null;
   customerName: string;
   quotes: { id: string; quoteNumber: string }[];
 };
@@ -1396,6 +1441,7 @@ export async function searchJobsForDeliveryTicket(
         id: true,
         jobNumber: true,
         projectName: true,
+        customerId: true,
         customerName: true,
         quotes: {
           where: { status: "WON" },

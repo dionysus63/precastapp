@@ -1004,6 +1004,7 @@ export async function listJobsWithQuotes() {
         id: true,
         jobNumber: true,
         projectName: true,
+        customerId: true,
         customerName: true,
         quotes: {
           where: { status: "WON" },
