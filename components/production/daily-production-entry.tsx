@@ -57,7 +57,6 @@ export function DailyProductionEntry({
   // key, and the server posts the entry only once.
   const [submissionKey] = useState(() => randomId());
 
-  const [jobFilter, setJobFilter] = useState("all");
   const [structureQty, setStructureQty] = useState<Record<string, string>>({});
   const [pieceChecked, setPieceChecked] = useState<Record<string, boolean>>({});
 
@@ -66,23 +65,61 @@ export function DailyProductionEntry({
   const [productFilter, setProductFilter] = useState("");
   const [stockQty, setStockQty] = useState<Record<string, string>>({});
 
-  const jobs = useMemo(() => {
-    const byId = new Map<string, { id: string; label: string }>();
+  // Structures grouped per job, each group an expandable section.
+  const jobGroups = useMemo(() => {
+    const byId = new Map<
+      string,
+      { id: string; label: string; rows: DailyProductionStructureRow[] }
+    >();
     for (const row of structures) {
-      if (row.jobId && !byId.has(row.jobId)) {
-        byId.set(row.jobId, {
-          id: row.jobId,
-          label: `${row.jobNumber ?? ""} — ${row.projectName ?? ""}`.trim(),
+      const key = row.jobId ?? "no-job";
+      const existing = byId.get(key);
+      if (existing) {
+        existing.rows.push(row);
+      } else {
+        byId.set(key, {
+          id: key,
+          label: row.jobId
+            ? `${row.jobNumber ?? ""} — ${row.projectName ?? ""}`.trim()
+            : "No job",
+          rows: [row],
         });
       }
     }
     return [...byId.values()];
   }, [structures]);
 
-  const visibleStructures =
-    jobFilter === "all"
-      ? structures
-      : structures.filter((row) => row.jobId === jobFilter);
+  // A single in-production job starts open; with several, pick your job.
+  const [expandedJobs, setExpandedJobs] = useState<Set<string>>(
+    () => new Set(jobGroups.length === 1 ? [jobGroups[0].id] : []),
+  );
+
+  function toggleJob(id: string) {
+    setExpandedJobs((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  /** Count of made-today inputs/pieces pending in a group (shown collapsed). */
+  function pendingInGroup(rows: DailyProductionStructureRow[]): number {
+    let count = 0;
+    for (const row of rows) {
+      if (row.pieces.length > 0) {
+        count += row.pieces.filter(
+          (piece) => !piece.made && pieceChecked[piece.id],
+        ).length;
+      } else if (Number(structureQty[row.jobStructureId] ?? "") > 0) {
+        count += 1;
+      }
+    }
+    return count;
+  }
 
   const activeCategory = categories.find((row) => row.id === categoryId) ?? null;
   const visibleProducts = useMemo(() => {
@@ -211,109 +248,136 @@ export function DailyProductionEntry({
         <div className="space-y-4">
           <SectionCard
             title="Job structures in production"
-            description={`${visibleStructures.length} structure${
-              visibleStructures.length === 1 ? "" : "s"
-            }`}
-            action={
-              jobs.length > 1 ? (
-                <select
-                  value={jobFilter}
-                  onChange={(event) => setJobFilter(event.target.value)}
-                  className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700"
-                  aria-label="Filter structures by job"
-                >
-                  <option value="all">All jobs</option>
-                  {jobs.map((job) => (
-                    <option key={job.id} value={job.id}>
-                      {job.label}
-                    </option>
-                  ))}
-                </select>
-              ) : null
-            }
+            description={`${structures.length} structure${
+              structures.length === 1 ? "" : "s"
+            } across ${jobGroups.length} job${jobGroups.length === 1 ? "" : "s"}`}
           >
-            {visibleStructures.length === 0 ? (
+            {jobGroups.length === 0 ? (
               <p className="text-xs text-slate-500">
                 Nothing is in production right now. Structures enter production
                 from a job&apos;s production tab.
               </p>
             ) : (
-              <div className="divide-y divide-slate-100">
-                {visibleStructures.map((row) => (
-                  <div
-                    key={row.jobStructureId}
-                    className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs font-semibold text-slate-900">
-                        {jobFilter === "all" && row.jobNumber ? (
-                          <span className="mr-1.5 text-slate-400">
-                            {row.jobNumber}
+              <div className="space-y-2">
+                {jobGroups.map((group) => {
+                  const open = expandedJobs.has(group.id);
+                  const pendingCount = pendingInGroup(group.rows);
+                  return (
+                    <div
+                      key={group.id}
+                      className="rounded-lg border border-slate-200"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleJob(group.id)}
+                        aria-expanded={open}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-slate-50"
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={`text-[10px] text-slate-400 transition-transform ${
+                            open ? "rotate-90" : ""
+                          }`}
+                        >
+                          ▶
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-900">
+                          {group.label}
+                        </span>
+                        {pendingCount > 0 ? (
+                          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
+                            {pendingCount} on this entry
                           </span>
                         ) : null}
-                        {row.structureNumber}
-                      </div>
-                      {row.description ? (
-                        <div className="truncate text-[11px] text-slate-500">
-                          {row.description}
+                        <span className="text-[11px] text-slate-500">
+                          {group.rows.length} structure
+                          {group.rows.length === 1 ? "" : "s"}
+                        </span>
+                      </button>
+                      {open ? (
+                        <div className="divide-y divide-slate-100 border-t border-slate-100 px-3">
+                          {group.rows.map((row) => (
+                            <div
+                              key={row.jobStructureId}
+                              className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="text-xs font-semibold text-slate-900">
+                                  {row.structureNumber}
+                                </div>
+                                {row.description ? (
+                                  <div className="truncate text-[11px] text-slate-500">
+                                    {row.description}
+                                  </div>
+                                ) : null}
+                              </div>
+                              {row.pieces.length > 0 ? (
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-[11px] text-slate-500">
+                                    {row.pieces.filter((piece) => piece.made).length}{" "}
+                                    / {row.pieces.length} pcs
+                                  </span>
+                                  {row.pieces.map((piece) => (
+                                    <label
+                                      key={piece.id}
+                                      className={`inline-flex items-center gap-1 text-[11px] ${
+                                        piece.made
+                                          ? "text-slate-400"
+                                          : "text-slate-700"
+                                      }`}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={
+                                          piece.made ||
+                                          Boolean(pieceChecked[piece.id])
+                                        }
+                                        disabled={piece.made || pending}
+                                        onChange={(event) =>
+                                          setPieceChecked((current) => ({
+                                            ...current,
+                                            [piece.id]: event.target.checked,
+                                          }))
+                                        }
+                                        className="h-3.5 w-3.5 rounded border-slate-300"
+                                      />
+                                      {piece.name}
+                                    </label>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[11px] text-slate-500">
+                                    {row.madeSoFar} / {row.quantity ?? "—"}
+                                    {row.unit && row.unit !== "EA"
+                                      ? ` ${row.unit}`
+                                      : ""}
+                                  </span>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    inputMode="decimal"
+                                    placeholder="0"
+                                    value={structureQty[row.jobStructureId] ?? ""}
+                                    disabled={pending}
+                                    onChange={(event) =>
+                                      setStructureQty((current) => ({
+                                        ...current,
+                                        [row.jobStructureId]: event.target.value,
+                                      }))
+                                    }
+                                    aria-label={`${row.structureNumber} made on this day`}
+                                    className={qtyInputClassName}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       ) : null}
                     </div>
-                    {row.pieces.length > 0 ? (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[11px] text-slate-500">
-                          {row.pieces.filter((piece) => piece.made).length} /{" "}
-                          {row.pieces.length} pcs
-                        </span>
-                        {row.pieces.map((piece) => (
-                          <label
-                            key={piece.id}
-                            className={`inline-flex items-center gap-1 text-[11px] ${
-                              piece.made ? "text-slate-400" : "text-slate-700"
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={piece.made || Boolean(pieceChecked[piece.id])}
-                              disabled={piece.made || pending}
-                              onChange={(event) =>
-                                setPieceChecked((current) => ({
-                                  ...current,
-                                  [piece.id]: event.target.checked,
-                                }))
-                              }
-                              className="h-3.5 w-3.5 rounded border-slate-300"
-                            />
-                            {piece.name}
-                          </label>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-slate-500">
-                          {row.madeSoFar} / {row.quantity ?? "—"}
-                          {row.unit && row.unit !== "EA" ? ` ${row.unit}` : ""}
-                        </span>
-                        <input
-                          type="number"
-                          min={0}
-                          inputMode="decimal"
-                          placeholder="0"
-                          value={structureQty[row.jobStructureId] ?? ""}
-                          disabled={pending}
-                          onChange={(event) =>
-                            setStructureQty((current) => ({
-                              ...current,
-                              [row.jobStructureId]: event.target.value,
-                            }))
-                          }
-                          aria-label={`${row.structureNumber} made on this day`}
-                          className={qtyInputClassName}
-                        />
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </SectionCard>
