@@ -315,9 +315,10 @@ export type RingAllocationBin = {
  * Allocation always re-solves from scratch for the full desired counts —
  * never incrementally on top of a previous pick — so an earlier ring that
  * happened to land in one pool can never block a combination that fits when
- * arranged differently. Rings are placed tallest-first into the pool with
- * the least remaining feet that still fits (best-fit decreasing), which
- * keeps large pools open for large rings.
+ * arranged differently. A greedy best-fit-decreasing pass handles the common
+ * case instantly; when it dead-ends, an exact backtracking search proves
+ * whether ANY arrangement fits before the combination is rejected (greedy
+ * alone wrongly fails layouts like pools 8'+6' with rings 4+4+3+3).
  */
 export function allocateRingsToBins(
   allocationBins: readonly RingAllocationBin[],
@@ -358,6 +359,40 @@ export function allocateRingsToBins(
     bins.reduce((sum, bin) => sum + bin.capacity, 0),
   );
 
+  const buildResult = (): RingAutoAssignResult => {
+    const assignments: RingAutoAssignment[] = [];
+    for (const bin of bins) {
+      for (const [productId, count] of bin.counts) {
+        assignments.push({
+          line: bin.line,
+          option: bin.optionsById.get(productId)!,
+          count,
+        });
+      }
+    }
+    return { ok: true, assignments };
+  };
+
+  const failure = (): RingAutoAssignResult => {
+    if (desiredFeet > totalCapacity + COMPLETED_QUANTITY_EPSILON) {
+      return {
+        ok: false,
+        reason: `Only ${totalCapacity} LF left across these pools.`,
+      };
+    }
+    const poolFeet = bins
+      .map((bin) => roundQuantity(bin.capacity))
+      .filter((feet) => feet > 0)
+      .sort((a, b) => b - a)
+      .join("' + ");
+    return {
+      ok: false,
+      reason: `No arrangement of those ring heights fits the remaining pool feet (${poolFeet}' left per pool) — assign by pool instead.`,
+    };
+  };
+
+  // Fast path: best-fit decreasing.
+  let greedyFailed = false;
   for (const ring of rings) {
     let best: Bin | null = null;
     for (const bin of bins) {
@@ -373,29 +408,83 @@ export function allocateRingsToBins(
       }
     }
     if (!best) {
-      return {
-        ok: false,
-        reason:
-          desiredFeet > totalCapacity + COMPLETED_QUANTITY_EPSILON
-            ? `Only ${totalCapacity} LF left across these pools.`
-            : "Those ring heights can't be split across the remaining pool feet — assign by pool instead.",
-      };
+      greedyFailed = true;
+      break;
     }
     best.used += ring.heightFeet;
     best.counts.set(ring.productId, (best.counts.get(ring.productId) ?? 0) + 1);
   }
-
-  const assignments: RingAutoAssignment[] = [];
-  for (const bin of bins) {
-    for (const [productId, count] of bin.counts) {
-      assignments.push({
-        line: bin.line,
-        option: bin.optionsById.get(productId)!,
-        count,
-      });
-    }
+  if (!greedyFailed) {
+    return buildResult();
   }
-  return { ok: true, assignments };
+  if (desiredFeet > totalCapacity + COMPLETED_QUANTITY_EPSILON) {
+    return failure();
+  }
+
+  // Exact search: greedy dead-ended but the total fits, so backtrack over
+  // ring→bin placements. Identical rings only move to same-or-later bins
+  // than their predecessor (symmetry breaking) and each ring skips bins
+  // whose remaining capacity it already tried (equivalent-state pruning),
+  // which keeps real-world sizes (tens of rings, a handful of pools) tiny.
+  for (const bin of bins) {
+    bin.used = 0;
+    bin.counts.clear();
+  }
+  let nodesLeft = 200_000;
+  const placement: number[] = new Array(rings.length).fill(-1);
+  // Bins are interchangeable for pruning only when they accept the same
+  // ring SKUs — pool lines in one diameter group normally all do.
+  const binSignatures = bins.map((bin) =>
+    [...bin.optionsById.keys()].sort().join(","),
+  );
+
+  const search = (ringIndex: number): boolean => {
+    if (ringIndex === rings.length) {
+      return true;
+    }
+    if (nodesLeft-- <= 0) {
+      return false;
+    }
+    const ring = rings[ringIndex];
+    const minBinIndex =
+      ringIndex > 0 && rings[ringIndex - 1].productId === ring.productId
+        ? placement[ringIndex - 1]
+        : 0;
+    const triedStates = new Set<string>();
+    for (let binIndex = minBinIndex; binIndex < bins.length; binIndex += 1) {
+      const bin = bins[binIndex];
+      if (!bin.optionsById.has(ring.productId)) {
+        continue;
+      }
+      const remaining = roundQuantity(bin.capacity - bin.used);
+      if (remaining + COMPLETED_QUANTITY_EPSILON < ring.heightFeet) {
+        continue;
+      }
+      const stateKey = `${remaining}|${binSignatures[binIndex]}`;
+      if (triedStates.has(stateKey)) {
+        continue;
+      }
+      triedStates.add(stateKey);
+      bin.used += ring.heightFeet;
+      placement[ringIndex] = binIndex;
+      if (search(ringIndex + 1)) {
+        return true;
+      }
+      bin.used -= ring.heightFeet;
+      placement[ringIndex] = -1;
+    }
+    return false;
+  };
+
+  if (!search(0)) {
+    return failure();
+  }
+  for (let ringIndex = 0; ringIndex < rings.length; ringIndex += 1) {
+    const bin = bins[placement[ringIndex]];
+    const { productId } = rings[ringIndex];
+    bin.counts.set(productId, (bin.counts.get(productId) ?? 0) + 1);
+  }
+  return buildResult();
 }
 
 /** Auto-assign against a single-ticket style matrix (the ticket editor). */

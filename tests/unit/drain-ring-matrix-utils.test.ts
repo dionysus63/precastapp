@@ -456,6 +456,77 @@ describe("allocateRingsAcrossPools", () => {
     }
   });
 
+  it("backtracks past greedy dead-ends when a valid arrangement exists", () => {
+    // Best-fit-decreasing alone fails this: it drops a 4' ring into the 6'
+    // pool (tightest fit) and dead-ends, but 4+4 -> 8' and 3+3 -> 6' works.
+    const three = ringOption("three", 3);
+    const four = ringOption("four", 4);
+    const matrix = matrixFor([
+      fulfillmentLine({
+        quoteLineItemId: "pool-8",
+        lineNumber: 1,
+        remainingQty: 8,
+        drainRingOptions: [three, four],
+      }),
+      fulfillmentLine({
+        quoteLineItemId: "pool-6",
+        lineNumber: 2,
+        remainingQty: 6,
+        drainRingOptions: [three, four],
+      }),
+    ]);
+
+    const result = allocateRingsAcrossPools(matrix, { four: 2, three: 2 });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const byKey = Object.fromEntries(
+        result.assignments.map((entry) => [
+          `${entry.line.quoteLineItemId}:${entry.option.productId}`,
+          entry.count,
+        ]),
+      );
+      expect(byKey).toEqual({ "pool-8:four": 2, "pool-6:three": 2 });
+    }
+  });
+
+  it("lists the per-pool feet when no arrangement can fit", () => {
+    const four = ringOption("four", 4);
+    const matrix = matrixFor([
+      fulfillmentLine({
+        quoteLineItemId: "p1",
+        lineNumber: 1,
+        remainingQty: 5,
+        drainRingOptions: [four],
+      }),
+      fulfillmentLine({
+        quoteLineItemId: "p2",
+        lineNumber: 2,
+        remainingQty: 5,
+        drainRingOptions: [four],
+      }),
+      fulfillmentLine({
+        quoteLineItemId: "p3",
+        lineNumber: 3,
+        remainingQty: 3,
+        drainRingOptions: [four],
+      }),
+      fulfillmentLine({
+        quoteLineItemId: "p4",
+        lineNumber: 4,
+        remainingQty: 3,
+        drainRingOptions: [four],
+      }),
+    ]);
+
+    // 16 LF total but only two pools can take a 4' ring — truly infeasible.
+    const result = allocateRingsAcrossPools(matrix, { four: 4 });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toContain("5' + 5' + 3' + 3'");
+      expect(result.reason).toContain("assign by pool");
+    }
+  });
+
   it("only assigns a SKU to pool groups that offer it", () => {
     const one = ringOption("one", 1);
     const three = ringOption("three", 3);
