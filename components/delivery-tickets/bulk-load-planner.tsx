@@ -661,6 +661,11 @@ export function BulkLoadPlanner({
   const [autoRingErrors, setAutoRingErrors] = useState<
     Record<string, string | null>
   >({});
+  // Amber, non-blocking: the assignment applied but pools run over their
+  // recorded feet (end-of-job drift); the save carries allowOverQuote.
+  const [autoRingWarnings, setAutoRingWarnings] = useState<
+    Record<string, string | null>
+  >({});
 
   function getRingMode(key: string): RingMode {
     return ringModes[key] ?? "auto";
@@ -720,12 +725,27 @@ export function BulkLoadPlanner({
       return desired;
     });
 
-    const result = allocateRingsForLoads(
+    let warning: string | null = null;
+    let result = allocateRingsForLoads(
       group.lines,
       group.availableByLineId,
       group.options,
       desiredByLoad,
     );
+    if (!result.ok && result.kind === "arrangement") {
+      const relaxed = allocateRingsForLoads(
+        group.lines,
+        group.availableByLineId,
+        group.options,
+        desiredByLoad,
+        { allowOverflow: true },
+      );
+      if (relaxed.ok) {
+        result = relaxed;
+        warning =
+          "Recorded pool feet don't fit this split — some pools will run over. You'll confirm when saving the plan.";
+      }
+    }
     if (!result.ok) {
       const failedLoad = loads[result.loadIndex];
       const label =
@@ -734,10 +754,12 @@ export function BulkLoadPlanner({
         ...current,
         [group.key]: `${label}: ${result.reason}`,
       }));
+      setAutoRingWarnings((current) => ({ ...current, [group.key]: null }));
       return;
     }
 
     setAutoRingErrors((current) => ({ ...current, [group.key]: null }));
+    setAutoRingWarnings((current) => ({ ...current, [group.key]: warning }));
     setCells((current) => {
       const next = { ...current };
       loads.forEach((load, index) => {
@@ -803,24 +825,46 @@ export function BulkLoadPlanner({
 
   // Grid state matching a parked (saved-for-later) plan: leaving the page
   // loses nothing, so the unsaved-changes warning stands down. State (not a
-  // ref) because isDirty must recompute when it changes.
+  // ref) because hasUnsavedChanges must recompute when it changes.
   const [parkedBaseline, setParkedBaseline] = useState<Record<
     string,
     string
   > | null>(null);
 
-  const isDirty = useMemo(() => {
-    if (deletedTickets.length > 0) return true;
-    const baseline = parkedBaseline ?? baselineCells.current;
-    const keys = new Set([...Object.keys(cells), ...Object.keys(baseline)]);
+  const cellsDiffer = (
+    left: Record<string, string>,
+    right: Record<string, string>,
+  ): boolean => {
+    const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
     for (const key of keys) {
-      if (parseQty(cells[key]) !== parseQty(baseline[key])) {
+      if (parseQty(left[key]) !== parseQty(right[key])) {
         return true;
       }
     }
     return false;
-  }, [cells, deletedTickets, parkedBaseline]);
-  useUnsavedChangesWarning(isDirty && !saved);
+  };
+
+  // Two distinct questions:
+  // - differsFromTickets: the grid differs from the draft tickets on disk,
+  //   so there is something to create/save. Drives the submit button — a
+  //   restored (parked) plan must stay creatable.
+  // - hasUnsavedChanges: the grid differs from EVERYTHING persisted
+  //   (tickets or the parked plan), so leaving would lose work. Drives the
+  //   leave-page warning only.
+  const differsFromTickets = useMemo(
+    () =>
+      deletedTickets.length > 0 || cellsDiffer(cells, baselineCells.current),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cells, deletedTickets],
+  );
+  const hasUnsavedChanges = useMemo(
+    () =>
+      deletedTickets.length > 0 ||
+      cellsDiffer(cells, parkedBaseline ?? baselineCells.current),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cells, deletedTickets, parkedBaseline],
+  );
+  useUnsavedChangesWarning(hasUnsavedChanges && !saved);
 
   // Parked plan from a previous session: offered as a banner until restored
   // or discarded. "Save for Later" parks the current grid the same way.
@@ -1012,8 +1056,27 @@ export function BulkLoadPlanner({
     const set = new Set<string>();
     for (const [groupKey, assigned] of groupAssigned) {
       const group = groups.get(groupKey);
-      if (group && !group.isCastingAssembly && assigned > group.available + 0.001) {
+      if (
+        group &&
+        !group.isCastingAssembly &&
+        // Ring pool lines judge over-assignment at the style-group level
+        // below: recorded per-pool splits may lag reality, so per-pool
+        // overflow is allowed (confirmed at save) while the group total fits.
+        !group.isDrainRing &&
+        assigned > group.available + 0.001
+      ) {
         set.add(groupKey);
+      }
+    }
+    for (const styleGroup of ringStyleGroups.byKey.values()) {
+      const totalAssigned = styleGroup.lines.reduce(
+        (sum, line) => sum + (groupAssigned.get(line.quoteLineItemId) ?? 0),
+        0,
+      );
+      if (totalAssigned > styleGroup.totalAvailableFeet + 0.001) {
+        for (const line of styleGroup.lines) {
+          set.add(line.quoteLineItemId);
+        }
       }
     }
     for (const [groupKey, stats] of castingStats) {
@@ -1022,7 +1085,7 @@ export function BulkLoadPlanner({
       }
     }
     return set;
-  }, [groupAssigned, groups, castingStats]);
+  }, [groupAssigned, groups, castingStats, ringStyleGroups]);
 
   const totalPieces = loadTotals.reduce((sum, load) => sum + load.pieces, 0);
   const totalWeight = loadTotals.reduce((sum, load) => sum + load.weight, 0);
@@ -1044,7 +1107,7 @@ export function BulkLoadPlanner({
   // With an empty baseline (create mode) any assignment is a change, so a
   // single dirty check covers both creating and re-planning.
   const canSubmit =
-    isDirty && overAssignedGroups.size === 0 && !pending && !saved;
+    differsFromTickets && overAssignedGroups.size === 0 && !pending && !saved;
 
   // Excel-style navigation over the qty cells: same pattern as the other
   // editable grids (quote-line-items-table), scoped with data-plan-* attrs.
@@ -1325,6 +1388,22 @@ export function BulkLoadPlanner({
     return lines;
   }
 
+  // Any ring line whose assigned feet exceed its recorded remaining feet
+  // (group totals still fit): the save must carry the over-quote flag.
+  const hasRingPoolOverflow = useMemo(() => {
+    for (const group of ringStyleGroups.byKey.values()) {
+      for (const line of group.lines) {
+        const assigned = groupAssigned.get(line.quoteLineItemId) ?? 0;
+        const available =
+          group.availableByLineId.get(line.quoteLineItemId) ?? 0;
+        if (assigned > available + 0.001) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }, [ringStyleGroups, groupAssigned]);
+
   function buildPayload(): SavePlannedLoadsInput {
     const loadsPayload: PlannedLoadInput[] = [];
     const deletions = deletedTickets.map((entry) => ({
@@ -1353,7 +1432,13 @@ export function BulkLoadPlanner({
       }
     }
 
-    return { jobId, quoteId, loads: loadsPayload, deletions };
+    return {
+      jobId,
+      quoteId,
+      loads: loadsPayload,
+      deletions,
+      allowOverQuote: hasRingPoolOverflow || undefined,
+    };
   }
 
   function handleSubmit() {
@@ -1384,6 +1469,7 @@ export function BulkLoadPlanner({
       overAssignedGroups.has(line.quoteLineItemId),
     );
     const error = autoRingErrors[group.key];
+    const warning = autoRingWarnings[group.key];
 
     return (
       <tr className="bg-slate-50/70">
@@ -1412,11 +1498,16 @@ export function BulkLoadPlanner({
         <td
           colSpan={loads.length}
           className={`${tableCellClassName} text-[11px] ${
-            error ? "font-medium text-red-700" : "text-slate-400"
+            error
+              ? "font-medium text-red-700"
+              : warning
+                ? "font-medium text-amber-700"
+                : "text-slate-400"
           }`}
         >
           <SpanHint>
             {error ??
+              warning ??
               (mode === "auto"
                 ? `Ring counts are split across ${group.lines.length} pool group${
                     group.lines.length === 1 ? "" : "s"
@@ -2169,6 +2260,12 @@ export function BulkLoadPlanner({
           <p className="text-sm font-semibold text-slate-800">
             Save this load plan?
           </p>
+          {hasRingPoolOverflow ? (
+            <p className="mt-1 text-xs font-medium text-amber-700">
+              Some ring pools run over their recorded remaining feet (the
+              totals still fit the quote) — saving accepts that split.
+            </p>
+          ) : null}
           <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {loads.map((load, index) => {
               const totals = loadTotals[index];

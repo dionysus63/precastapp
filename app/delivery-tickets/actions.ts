@@ -569,6 +569,10 @@ export type SavePlannedLoadsInput = {
   // Display order; loadSequence is renumbered "i of N" across this array.
   loads: PlannedLoadInput[];
   deletions: { ticketId: string; expectedUpdatedAt: string }[];
+  // The dispatcher accepted the over-quote / over-pool warning in the
+  // planner (e.g. ring pool splits running over their recorded feet while
+  // the group total fits). Same semantics as SaveDeliveryTicketInput's flag.
+  allowOverQuote?: boolean;
 };
 
 export type SavePlannedLoadsResult =
@@ -758,6 +762,7 @@ export async function savePlannedLoads(
               customerName: job.customerName,
               projectName: job.projectName,
               loadSequence,
+              allowOverQuote: input.allowOverQuote,
               lines: load.lines,
             };
             await validateLines(tx, loadInput);

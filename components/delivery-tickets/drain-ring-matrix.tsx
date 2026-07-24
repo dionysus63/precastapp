@@ -32,13 +32,13 @@ type DrainRingMatrixRowsProps = {
   ) => void;
   /**
    * Auto-assign mode: distribute the desired ring totals across the matrix's
-   * pool groups. Returns an error message when they can't fit, null on
-   * success.
+   * pool groups. `error` blocks (nothing applied); `warning` means the
+   * assignment applied but pools run over their recorded feet.
    */
   onAutoAssign: (
     matrix: DrainRingStyleMatrix,
     desiredCounts: Record<string, number>,
-  ) => string | null;
+  ) => { error: string | null; warning: string | null };
 };
 
 type DrainRingStyleTableProps = {
@@ -89,6 +89,7 @@ function DrainRingStyleTable({
 }: DrainRingStyleTableProps) {
   const [mode, setMode] = useState<"pool" | "auto">("auto");
   const [autoError, setAutoError] = useState<string | null>(null);
+  const [autoWarning, setAutoWarning] = useState<string | null>(null);
 
   const matrixComplete =
     matrix.rows.length > 0 && matrix.remainingLineCount === 0;
@@ -122,7 +123,9 @@ function DrainRingStyleTable({
       value.trim() !== "" && Number.isFinite(numeric) && numeric > 0
         ? Math.floor(numeric)
         : 0;
-    setAutoError(onAutoAssign(matrix, desired));
+    const outcome = onAutoAssign(matrix, desired);
+    setAutoError(outcome.error);
+    setAutoWarning(outcome.warning);
   }
   const matrixWidth =
     POOL_GROUP_COLUMN_WIDTH +
@@ -249,6 +252,11 @@ function DrainRingStyleTable({
                   {autoError ? (
                     <span className="mt-1 block text-[10px] font-medium text-red-700">
                       {autoError}
+                    </span>
+                  ) : null}
+                  {autoWarning ? (
+                    <span className="mt-1 block text-[10px] font-medium text-amber-700">
+                      {autoWarning}
                     </span>
                   ) : null}
                 </th>

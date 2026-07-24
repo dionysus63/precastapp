@@ -428,6 +428,7 @@ describe("allocateRingsAcrossPools", () => {
 
     expect(allocateRingsAcrossPools(matrix, { three: 2 })).toEqual({
       ok: false,
+      kind: "capacity",
       reason: "Only 5 LF left across these pools.",
     });
   });
@@ -524,6 +525,47 @@ describe("allocateRingsAcrossPools", () => {
     if (!result.ok) {
       expect(result.reason).toContain("5' + 5' + 3' + 3'");
       expect(result.reason).toContain("assign by pool");
+    }
+  });
+
+  it("allowOverflow distributes anyway when the total fits but the split doesn't", () => {
+    // 26-001's real case: recorded pools 11' + 3' + 2', four 4' rings.
+    const four = ringOption("four", 4);
+    const matrix = matrixFor([
+      fulfillmentLine({
+        quoteLineItemId: "p11",
+        lineNumber: 1,
+        remainingQty: 11,
+        drainRingOptions: [four],
+      }),
+      fulfillmentLine({
+        quoteLineItemId: "p3",
+        lineNumber: 2,
+        remainingQty: 3,
+        drainRingOptions: [four],
+      }),
+      fulfillmentLine({
+        quoteLineItemId: "p2",
+        lineNumber: 3,
+        remainingQty: 2,
+        drainRingOptions: [four],
+      }),
+    ]);
+
+    expect(allocateRingsAcrossPools(matrix, { four: 4 }).ok).toBe(false);
+
+    const relaxed = allocateRingsAcrossPools(
+      matrix,
+      { four: 4 },
+      { allowOverflow: true },
+    );
+    expect(relaxed.ok).toBe(true);
+    if (relaxed.ok) {
+      const total = relaxed.assignments.reduce(
+        (sum, entry) => sum + entry.count,
+        0,
+      );
+      expect(total).toBe(4);
     }
   });
 

@@ -300,7 +300,27 @@ export type RingAutoAssignment = {
 
 export type RingAutoAssignResult =
   | { ok: true; assignments: RingAutoAssignment[] }
-  | { ok: false; reason: string };
+  | {
+      ok: false;
+      reason: string;
+      /**
+       * "capacity": the rings exceed the group's total remaining feet.
+       * "arrangement": the total fits but no per-pool split works — callers
+       * may retry with allowOverflow when recorded pool splits are known to
+       * lag reality (end-of-job cleanup).
+       */
+      kind: "capacity" | "arrangement";
+    };
+
+export type RingAllocationOptions = {
+  /**
+   * Permit pools to run over their recorded remaining feet when no exact
+   * arrangement exists (rings still go to the fullest-fitting pools first,
+   * overflow lands where the most feet remain). The group total must still
+   * fit; callers surface the overflow and the save path confirms it.
+   */
+  allowOverflow?: boolean;
+};
 
 /** A pool group that auto-assignment can place rings into. */
 export type RingAllocationBin = {
@@ -324,6 +344,7 @@ export function allocateRingsToBins(
   allocationBins: readonly RingAllocationBin[],
   ringOptions: readonly DrainRingOption[],
   desiredCounts: Record<string, number>,
+  options: RingAllocationOptions = {},
 ): RingAutoAssignResult {
   type Bin = {
     line: QuoteLineFulfillment;
@@ -377,6 +398,7 @@ export function allocateRingsToBins(
     if (desiredFeet > totalCapacity + COMPLETED_QUANTITY_EPSILON) {
       return {
         ok: false,
+        kind: "capacity",
         reason: `Only ${totalCapacity} LF left across these pools.`,
       };
     }
@@ -387,6 +409,7 @@ export function allocateRingsToBins(
       .join("' + ");
     return {
       ok: false,
+      kind: "arrangement",
       reason: `No arrangement of those ring heights fits the remaining pool feet (${poolFeet}' left per pool) — assign by pool instead.`,
     };
   };
@@ -476,13 +499,57 @@ export function allocateRingsToBins(
     return false;
   };
 
-  if (!search(0)) {
+  if (search(0)) {
+    for (let ringIndex = 0; ringIndex < rings.length; ringIndex += 1) {
+      const bin = bins[placement[ringIndex]];
+      const { productId } = rings[ringIndex];
+      bin.counts.set(productId, (bin.counts.get(productId) ?? 0) + 1);
+    }
+    return buildResult();
+  }
+
+  if (!options.allowOverflow) {
     return failure();
   }
-  for (let ringIndex = 0; ringIndex < rings.length; ringIndex += 1) {
-    const bin = bins[placement[ringIndex]];
-    const { productId } = rings[ringIndex];
-    bin.counts.set(productId, (bin.counts.get(productId) ?? 0) + 1);
+
+  // Overflow pass: the recorded per-pool split is known to lag reality, so
+  // place rings best-fit where they still fit and let the rest land in the
+  // pool with the most feet remaining (least overflow damage). The group
+  // total already fits; the caller surfaces the per-pool overrun.
+  for (const bin of bins) {
+    bin.used = 0;
+    bin.counts.clear();
+  }
+  for (const ring of rings) {
+    let best: Bin | null = null;
+    let overflowTarget: Bin | null = null;
+    for (const bin of bins) {
+      if (!bin.optionsById.has(ring.productId)) {
+        continue;
+      }
+      const remaining = bin.capacity - bin.used;
+      if (remaining + COMPLETED_QUANTITY_EPSILON >= ring.heightFeet) {
+        if (!best || remaining < best.capacity - best.used) {
+          best = bin;
+        }
+      }
+      if (
+        !overflowTarget ||
+        remaining > overflowTarget.capacity - overflowTarget.used
+      ) {
+        overflowTarget = bin;
+      }
+    }
+    const target = best ?? overflowTarget;
+    if (!target) {
+      // No pool offers this SKU at all — a real configuration problem.
+      return failure();
+    }
+    target.used += ring.heightFeet;
+    target.counts.set(
+      ring.productId,
+      (target.counts.get(ring.productId) ?? 0) + 1,
+    );
   }
   return buildResult();
 }
@@ -491,6 +558,7 @@ export function allocateRingsToBins(
 export function allocateRingsAcrossPools(
   matrix: DrainRingStyleMatrix,
   desiredCounts: Record<string, number>,
+  options: RingAllocationOptions = {},
 ): RingAutoAssignResult {
   return allocateRingsToBins(
     matrix.rows
@@ -498,6 +566,7 @@ export function allocateRingsAcrossPools(
       .map((row) => ({ line: row.line, capacityFeet: row.availableFeet })),
     matrix.options.map((matrixOption) => matrixOption.option),
     desiredCounts,
+    options,
   );
 }
 
@@ -507,7 +576,12 @@ export type RingLoadAllocationResult =
       /** Per load (input order): `${quoteLineItemId}::${productId}` → count. */
       countsByLoad: Map<string, number>[];
     }
-  | { ok: false; loadIndex: number; reason: string };
+  | {
+      ok: false;
+      loadIndex: number;
+      reason: string;
+      kind: "capacity" | "arrangement";
+    };
 
 /**
  * Auto-assign ring counts for a sequence of loads sharing the same pool
@@ -521,6 +595,7 @@ export function allocateRingsForLoads(
   availableFeetByLineId: ReadonlyMap<string, number>,
   ringOptions: readonly DrainRingOption[],
   desiredCountsByLoad: readonly Record<string, number>[],
+  options: RingAllocationOptions = {},
 ): RingLoadAllocationResult {
   const capacity = new Map(availableFeetByLineId);
   const assignableLines = lines.filter(
@@ -538,9 +613,10 @@ export function allocateRingsForLoads(
       bins,
       ringOptions,
       desiredCountsByLoad[loadIndex],
+      options,
     );
     if (!result.ok) {
-      return { ok: false, loadIndex, reason: result.reason };
+      return { ok: false, loadIndex, reason: result.reason, kind: result.kind };
     }
     const loadCounts = new Map<string, number>();
     for (const assignment of result.assignments) {

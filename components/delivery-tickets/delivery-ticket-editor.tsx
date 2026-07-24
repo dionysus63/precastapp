@@ -644,16 +644,29 @@ export function DeliveryTicketEditor({
 
   /**
    * Auto-assign mode: replace every ring line in the matrix with a fresh
-   * allocation of the desired totals. Returns an error message when the
-   * counts can't be distributed, leaving the current selection untouched.
+   * allocation of the desired totals. When no exact per-pool arrangement
+   * exists but the group total fits (recorded pool splits lagging reality at
+   * the end of a job), the allocation applies with overflow and an amber
+   * warning — the over-quote confirm covers it at save time.
    */
   function applyAutoRingAssignment(
     matrix: DrainRingStyleMatrix,
     desiredCounts: Record<string, number>,
-  ): string | null {
-    const result = allocateRingsAcrossPools(matrix, desiredCounts);
+  ): { error: string | null; warning: string | null } {
+    let warning: string | null = null;
+    let result = allocateRingsAcrossPools(matrix, desiredCounts);
+    if (!result.ok && result.kind === "arrangement") {
+      const relaxed = allocateRingsAcrossPools(matrix, desiredCounts, {
+        allowOverflow: true,
+      });
+      if (relaxed.ok) {
+        result = relaxed;
+        warning =
+          "Recorded pool feet don't fit this split — some pools will run over. You'll confirm when saving.";
+      }
+    }
     if (!result.ok) {
-      return result.reason;
+      return { error: result.reason, warning: null };
     }
 
     const matrixLineIds = new Set(
@@ -694,7 +707,7 @@ export function DeliveryTicketEditor({
       }
       return next;
     });
-    return null;
+    return { error: null, warning };
   }
 
   function getAdsPipeCount(quoteLineItemId: string, productId: string): string {
