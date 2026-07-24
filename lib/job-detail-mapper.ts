@@ -313,7 +313,7 @@ function mapDelivery(ticket: JobDeliveryTicketWithLineItems): JobRelatedDelivery
   const status = ticket.status as DeliveryTicketStatus;
   return {
     id: ticket.id,
-    ticketNumber: ticket.ticketNumber,
+    ticketNumber: ticket.ticketNumber ?? "Planned",
     projectName: ticket.projectName,
     statusLabel: deliveryTicketStatusLabels[status] ?? ticket.status,
     statusVariant: deliveryStatusVariant(ticket.status),
@@ -330,7 +330,7 @@ function mapStructure(
 }
 
 function mapInvoice(
-  invoice: Invoice & { deliveryTicket?: { ticketNumber: string } | null },
+  invoice: Invoice & { deliveryTicket?: { ticketNumber: string | null } | null },
 ): JobRelatedInvoice {
   return {
     id: invoice.id,
@@ -367,7 +367,8 @@ export function mapJobInvoiceableDeliveries(
 ): JobInvoiceableDelivery[] {
   return tickets.map((ticket) => ({
     id: ticket.id,
-    ticketNumber: ticket.ticketNumber,
+    // Invoiceable tickets are delivered, hence always numbered.
+    ticketNumber: ticket.ticketNumber ?? "—",
     projectName: ticket.projectName,
     deliveryDate: formatDate(ticket.deliveryDate),
   }));
@@ -380,7 +381,7 @@ export function mapJobStructures(
 }
 
 export function mapJobInvoices(
-  invoices: (Invoice & { deliveryTicket?: { ticketNumber: string } | null })[],
+  invoices: (Invoice & { deliveryTicket?: { ticketNumber: string | null } | null })[],
 ): JobRelatedInvoice[] {
   return invoices.map(mapInvoice);
 }
@@ -623,7 +624,7 @@ export function buildJobOverview(
     ...deliveryTickets.map((ticket) => ({
       key: `ticket-${ticket.id}`,
       typeLabel: "Delivery",
-      recordNumber: ticket.ticketNumber,
+      recordNumber: ticket.ticketNumber ?? "Planned",
       href: `/delivery-tickets/${ticket.id}`,
       statusLabel:
         deliveryTicketStatusLabels[ticket.status as DeliveryTicketStatus] ??

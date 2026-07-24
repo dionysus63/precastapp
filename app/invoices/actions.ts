@@ -448,7 +448,8 @@ function mapInvoiceListRow(invoice: {
   total: { toString(): string };
   invoiceDate: Date | null;
   deliveryTicket: {
-    ticketNumber: string;
+    // Invoiced tickets are always numbered; nullable only to match the model.
+    ticketNumber: string | null;
     ticketType: string;
     paymentMethod: string | null;
     paymentReceived: boolean;
@@ -467,7 +468,7 @@ function mapInvoiceListRow(invoice: {
     salesTax: Number(invoice.salesTax),
     total: Number(invoice.total),
     invoiceDate: invoice.invoiceDate,
-    ticketNumber: invoice.deliveryTicket.ticketNumber,
+    ticketNumber: invoice.deliveryTicket.ticketNumber ?? "—",
     ticketType: invoice.deliveryTicket.ticketType,
     paymentMethod: invoice.deliveryTicket.paymentMethod,
     paymentReceived: invoice.deliveryTicket.paymentReceived,

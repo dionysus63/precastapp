@@ -57,6 +57,16 @@ function normalizeDeliveryLineText(value: string | null | undefined): string {
     .toLowerCase();
 }
 
+/**
+ * Planner-created drafts defer their ticket number until scheduled; show
+ * them as "Planned" wherever a T-number would appear.
+ */
+export function ticketNumberLabel(
+  ticketNumber: string | null | undefined,
+): string {
+  return ticketNumber?.trim() ? ticketNumber : "Planned";
+}
+
 export function isPositiveDeliveryQuantity(value: string): boolean {
   const numeric = Number(value);
   return value.trim() !== "" && Number.isFinite(numeric) && numeric > 0;

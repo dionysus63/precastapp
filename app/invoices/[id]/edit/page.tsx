@@ -45,7 +45,7 @@ export default async function EditDraftInvoicePage({ params }: PageProps) {
         finalized={finalized}
         invoiceId={invoice.id}
         invoiceNumber={invoice.invoiceNumber}
-        ticketNumber={invoice.deliveryTicket.ticketNumber}
+        ticketNumber={invoice.deliveryTicket.ticketNumber ?? "—"}
         customerName={invoice.customerName}
         projectName={invoice.projectName}
         initialTaxRate={Number(invoice.taxRate)}

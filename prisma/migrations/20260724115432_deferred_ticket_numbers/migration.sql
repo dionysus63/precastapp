@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "DeliveryTicket" ALTER COLUMN "ticketNumber" DROP NOT NULL,
+ALTER COLUMN "year" DROP NOT NULL,
+ALTER COLUMN "yearTwoDigit" DROP NOT NULL,
+ALTER COLUMN "sequenceNumber" DROP NOT NULL;

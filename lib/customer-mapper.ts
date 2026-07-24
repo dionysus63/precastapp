@@ -114,7 +114,7 @@ export function mapDeliveryTicketToCustomerRelated(
 
   return {
     id: ticket.id,
-    ticketNumber: ticket.ticketNumber,
+    ticketNumber: ticket.ticketNumber ?? "Planned",
     projectName: ticket.projectName,
     status: ticket.status,
     statusLabel: deliveryTicketStatusLabels[status] ?? ticket.status,

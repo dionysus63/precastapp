@@ -66,7 +66,7 @@ export async function loadJobDeliverySchedule(jobId: string) {
     if (a.createdAt.getTime() !== b.createdAt.getTime()) {
       return a.createdAt.getTime() - b.createdAt.getTime();
     }
-    return a.ticketNumber.localeCompare(b.ticketNumber);
+    return (a.ticketNumber ?? "").localeCompare(b.ticketNumber ?? "");
   });
 
   return { job, tickets: sorted };

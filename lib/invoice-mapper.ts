@@ -69,7 +69,7 @@ export function mapDbInvoiceToDetailView(invoice: {
   taxRate: { toString(): string };
   invoiceDate: Date | null;
   dueDate: Date | null;
-  deliveryTicket: { ticketNumber: string };
+  deliveryTicket: { ticketNumber: string | null };
   lineItems: {
     id: string;
     lineNumber: number;
@@ -93,7 +93,7 @@ export function mapDbInvoiceToDetailView(invoice: {
     customerName: invoice.customerName,
     projectName: invoice.projectName,
     jobNumber: invoice.jobNumber ?? "—",
-    ticketNumber: invoice.deliveryTicket.ticketNumber,
+    ticketNumber: invoice.deliveryTicket.ticketNumber ?? "—",
     invoiceDate: formatDate(invoice.invoiceDate),
     dueDate: formatDate(invoice.dueDate),
     subtotal: formatMoney(invoice.subtotal),

@@ -86,7 +86,8 @@ type DbJob = {
 } | null;
 
 export type DbDeliveryTicketForPdf = {
-  ticketNumber: string;
+  /** Null for planner drafts that haven't been scheduled yet ("DRAFT" prints). */
+  ticketNumber: string | null;
   /** "PICKUP" renders the pickup-ticket layout; anything else is delivery. */
   fulfillmentMethod?: string | null;
   customerName: string;
@@ -387,7 +388,7 @@ export function buildDeliveryTicketFormData(
   const isPickup = ticket.fulfillmentMethod === "PICKUP";
 
   return {
-    "Delivery Ticket Number": blankOr(ticket.ticketNumber),
+    "Delivery Ticket Number": ticket.ticketNumber ?? "DRAFT",
     "Copy Name": resolveCopyName(options, copyIndex),
     "Page Number": formatContentPageNumber(contentPage),
     "Contractor Name": blankOr(ticket.customerName),
@@ -424,7 +425,7 @@ export function mapDbDeliveryTicketToPdfView(
   const totalPieces = computeTotalPieces(ticket) || "—";
 
   return {
-    ticketNumber: ticket.ticketNumber,
+    ticketNumber: ticket.ticketNumber ?? "DRAFT",
     customerName: ticket.customerName,
     customerAddressLines,
     projectName: ticket.projectName,

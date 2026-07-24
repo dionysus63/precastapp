@@ -1,6 +1,9 @@
 import type { DeliveryTicketDetailView } from "@/components/delivery-tickets/delivery-ticket-utils";
 import type { DeliveryTicketRow } from "@/components/delivery-tickets/delivery-ticket-utils";
-import { deliveryTicketStatusLabels } from "@/components/delivery-tickets/delivery-ticket-utils";
+import {
+  deliveryTicketStatusLabels,
+  ticketNumberLabel,
+} from "@/components/delivery-tickets/delivery-ticket-utils";
 import { formatWeightLb } from "@/lib/format";
 import { deliveryTicketStatusVariant } from "@/lib/status-variants";
 import type { Prisma } from "@/app/generated/prisma/client";
@@ -26,7 +29,7 @@ export const deliveryTicketListSelect = {
 
 type DbDeliveryTicket = {
   id: string;
-  ticketNumber: string;
+  ticketNumber: string | null;
   status: string;
   jobId: string | null;
   quoteId: string | null;
@@ -95,8 +98,10 @@ export function mapDbDeliveryTicketToDetailView(
 
   return {
     id: ticket.id,
-    ticketNumber: ticket.ticketNumber,
-    title: `Ticket ${ticket.ticketNumber}`,
+    ticketNumber: ticketNumberLabel(ticket.ticketNumber),
+    title: ticket.ticketNumber
+      ? `Ticket ${ticket.ticketNumber}`
+      : "Planned Ticket",
     subtitle: `${ticket.projectName} — ${ticket.customerName}`,
     status: statusKey as DeliveryTicketDetailView["status"],
     statusLabel,
@@ -180,7 +185,7 @@ export function mapDbDeliveryTicketToDetailView(
 
 export function mapDbDeliveryTicketToListRow(ticket: {
   id: string;
-  ticketNumber: string;
+  ticketNumber: string | null;
   jobId?: string | null;
   customerId?: string | null;
   jobNumber: string | null;
@@ -200,7 +205,7 @@ export function mapDbDeliveryTicketToListRow(ticket: {
 
   return {
     id: ticket.id,
-    ticketNumber: ticket.ticketNumber,
+    ticketNumber: ticketNumberLabel(ticket.ticketNumber),
     jobId: ticket.jobId ?? null,
     customerId: ticket.customerId ?? null,
     jobNumber: ticket.jobNumber ?? "—",

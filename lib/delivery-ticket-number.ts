@@ -60,6 +60,34 @@ export async function allocateDeliveryTicketNumber(
 }
 
 /**
+ * Assign a number to a ticket that deferred it (planner-created drafts).
+ * No-op when already numbered. Must run inside the same transaction as the
+ * status change so numbers issue exactly once, in scheduling order.
+ */
+export async function ensureTicketNumberAssigned(
+  tx: Prisma.TransactionClient,
+  ticketId: string,
+): Promise<void> {
+  const ticket = await tx.deliveryTicket.findUnique({
+    where: { id: ticketId },
+    select: { ticketNumber: true },
+  });
+  if (!ticket || ticket.ticketNumber) {
+    return;
+  }
+  const numbering = await allocateDeliveryTicketNumber(tx);
+  await tx.deliveryTicket.update({
+    where: { id: ticketId },
+    data: {
+      ticketNumber: numbering.ticketNumber,
+      year: numbering.year,
+      yearTwoDigit: numbering.yearTwoDigit,
+      sequenceNumber: numbering.sequenceNumber,
+    },
+  });
+}
+
+/**
  * The invoice for a ticket carries the same digits with the invoice prefix:
  * ticket T10024 -> invoice I10024. Returns null for legacy ticket formats
  * (e.g. DT-26-0311) that don't end in a plain number run.

@@ -9,6 +9,7 @@ import { getAppSettings } from "@/lib/app-settings";
 import { loadJobDeliverySchedule } from "@/lib/delivery-schedule-data";
 import { formatDateIso } from "@/lib/delivery-dispatch-utils";
 import { deliveryTicketStatusVariant } from "@/lib/status-variants";
+import { ticketNumberLabel } from "@/components/delivery-tickets/delivery-ticket-utils";
 import { formatQuantity } from "@/lib/format";
 
 import { BackButton } from "@/components/dashboard/back-button";
@@ -63,7 +64,7 @@ export default async function ScheduleLoadsPage({
 
   const rows: ScheduleTicketRow[] = tickets.map((ticket) => ({
     id: ticket.id,
-    ticketNumber: ticket.ticketNumber,
+    ticketNumber: ticketNumberLabel(ticket.ticketNumber),
     status: ticket.status,
     statusVariant: deliveryTicketStatusVariant(ticket.status),
     loadSequence: ticket.loadSequence,

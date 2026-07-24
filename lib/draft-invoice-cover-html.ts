@@ -65,7 +65,7 @@ export async function buildDraftInvoiceCoverHtml(
         <tr>
           <td>${escapeHtml(formatDate(ticket.deliveryDate))}</td>
           <td class="mono">${escapeHtml(invoice.invoiceNumber ?? "—")}</td>
-          <td class="mono">${escapeHtml(ticket.ticketNumber)}</td>
+          <td class="mono">${escapeHtml(ticket.ticketNumber ?? "—")}</td>
           <td>
             <div class="customer">${escapeHtml(invoice.customerName ?? "—")}</div>
             <div class="project">${escapeHtml(invoice.projectName ?? "")}</div>

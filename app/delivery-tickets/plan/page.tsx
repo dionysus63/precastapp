@@ -16,9 +16,10 @@ import {
 } from "@/lib/delivery-fulfillment";
 
 import { BackButton } from "@/components/dashboard/back-button";
+import { ticketNumberLabel } from "@/components/delivery-tickets/delivery-ticket-utils";
 type CandidateDraft = {
   id: string;
-  ticketNumber: string;
+  ticketNumber: string | null;
   updatedAt: Date;
   lineItems: {
     quoteLineItemId: string | null;
@@ -377,7 +378,7 @@ export default async function PlanLoadsPage({ searchParams }: PlanLoadsPageProps
           draftColumns={draftColumns}
           existingTickets={existingTickets.map((ticket) => ({
             id: ticket.id,
-            ticketNumber: ticket.ticketNumber,
+            ticketNumber: ticketNumberLabel(ticket.ticketNumber),
             status: ticket.status,
             deliveryDate: ticket.deliveryDate
               ? ticket.deliveryDate.toISOString().slice(0, 10)

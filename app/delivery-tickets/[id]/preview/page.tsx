@@ -41,7 +41,7 @@ export default async function DeliveryTicketPreviewPage({
   return (
     <DeliveryTicketPreviewContent
       ticketId={ticket.id}
-      ticketNumber={ticket.ticketNumber}
+      ticketNumber={ticket.ticketNumber ?? "DRAFT"}
       backHref={fromWalkIns ? "/walk-ins" : fromHub ? "/delivery-tickets" : undefined}
       backLabel={fromWalkIns ? "Back to Walk-Ins" : fromHub ? "Back to Delivery Hub" : undefined}
       completeOnPrint={completeOnPrint}

@@ -554,16 +554,17 @@ export async function deliverAllTicketsForDay(
   const warnings: string[] = [];
 
   for (const ticket of openTickets) {
+    const label = ticket.ticketNumber ?? "Planned ticket";
     // Same path as the single-ticket "Mark delivered" button, one at a time so
     // one bad ticket (e.g. negative stock) doesn't block the rest of the day.
     const result = await deliverTicket(ticket.id);
     if ("error" in result && result.error) {
-      failed.push({ ticketNumber: ticket.ticketNumber, error: result.error });
+      failed.push({ ticketNumber: label, error: result.error });
       continue;
     }
     delivered += 1;
     if ("warning" in result && result.warning) {
-      warnings.push(`${ticket.ticketNumber}: ${result.warning}`);
+      warnings.push(`${label}: ${result.warning}`);
     }
   }
 
@@ -763,7 +764,7 @@ const RECONCILE_TICKET_SELECT = {
 function mapReconcileTicket(
   ticket: {
     id: string;
-    ticketNumber: string;
+    ticketNumber: string | null;
     customerName: string;
     projectName: string;
     status: string;
@@ -778,6 +779,7 @@ function mapReconcileTicket(
 ) {
   return {
     ...ticket,
+    ticketNumber: ticket.ticketNumber ?? "Planned",
     hasInvoice: Boolean(ticket.invoice),
   };
 }

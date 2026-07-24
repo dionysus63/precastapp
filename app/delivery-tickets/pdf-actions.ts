@@ -279,7 +279,7 @@ export async function generateDeliveryTicketPdf(
 
     const pdfBytes = await generateDeliveryTicketPdfBytes(ticket);
     const baseName = buildQuotePdfBaseName(
-      ticket.ticketNumber,
+      ticket.ticketNumber ?? "DRAFT",
       ticket.customerName,
       ticket.projectName,
     );

@@ -51,7 +51,8 @@ type ExistingTicketSummary = {
 /** An existing DRAFT ticket rendered as a pre-filled, editable load column. */
 export type DraftLoadColumn = {
   ticketId: string;
-  ticketNumber: string;
+  /** Null for planner drafts that haven't been scheduled/numbered yet. */
+  ticketNumber: string | null;
   expectedUpdatedAt: string;
   /** rowKey → quantity string, as the planner grid keys its cells. */
   cells: Record<string, string>;
@@ -807,7 +808,7 @@ export function BulkLoadPlanner({
       ? draftColumns.map((draft) => ({
           key: draft.ticketId,
           ticketId: draft.ticketId,
-          ticketNumber: draft.ticketNumber,
+          ticketNumber: draft.ticketNumber ?? undefined,
           expectedUpdatedAt: draft.expectedUpdatedAt,
         }))
       : Array.from(
@@ -1817,12 +1818,12 @@ export function BulkLoadPlanner({
                             <Link
                               href={`/delivery-tickets/${load.ticketId}`}
                               className="text-[11px] font-semibold text-sky-700 hover:text-sky-900"
-                              title={`Open ${load.ticketNumber}`}
+                              title={`Open ${load.ticketNumber ?? `planned load ${loadIndex + 1}`}`}
                             >
-                              {load.ticketNumber}
+                              {load.ticketNumber ?? `Load ${loadIndex + 1}`}
                             </Link>
                             <span className="ml-1 rounded border border-slate-300 px-1 text-[9px] font-medium uppercase text-slate-400">
-                              draft
+                              {load.ticketNumber ? "draft" : "planned"}
                             </span>
                           </span>
                         ) : (
@@ -1835,10 +1836,14 @@ export function BulkLoadPlanner({
                           onClick={() => removeLoad(load.key)}
                           disabled={loads.length <= 1}
                           className="text-slate-400 hover:text-red-600 disabled:opacity-30"
-                          title={load.ticketId ? `Delete ${load.ticketNumber}` : "Remove load"}
+                          title={
+                            load.ticketId
+                              ? `Delete ${load.ticketNumber ?? "planned load"}`
+                              : "Remove load"
+                          }
                           aria-label={
                             load.ticketId
-                              ? `Delete ${load.ticketNumber}`
+                              ? `Delete ${load.ticketNumber ?? `planned load ${loadIndex + 1}`}`
                               : `Remove load ${loadIndex + 1}`
                           }
                         >
@@ -2282,7 +2287,9 @@ export function BulkLoadPlanner({
                   }`}
                 >
                   <p className="font-semibold">
-                    {load.ticketId ? load.ticketNumber : `Load ${index + 1}`}
+                    {load.ticketId
+                      ? (load.ticketNumber ?? `Load ${index + 1} (planned)`)
+                      : `Load ${index + 1}`}
                     {load.ticketId
                       ? emptiedExisting
                         ? " — no items left, will be deleted"

@@ -1,5 +1,6 @@
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { WalkInsBoard, type WalkInRow } from "@/components/walk-ins/walk-ins-board";
+import { ticketNumberLabel } from "@/components/delivery-tickets/delivery-ticket-utils";
 import { requirePermission } from "@/lib/auth/session";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { withDatabaseRetry } from "@/lib/prisma";
@@ -39,7 +40,7 @@ function formatDate(value: Date | null): string | null {
 function toRow(record: WalkInRecord): WalkInRow {
   return {
     id: record.id,
-    ticketNumber: record.ticketNumber,
+    ticketNumber: ticketNumberLabel(record.ticketNumber),
     ticketType: record.ticketType,
     customerName: record.customerName,
     projectName: record.projectName,

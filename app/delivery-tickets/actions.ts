@@ -11,7 +11,10 @@ import type {
 } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { getDefaultContactForRole } from "@/lib/customer-contacts";
-import { allocateDeliveryTicketNumber } from "@/lib/delivery-ticket-number";
+import {
+  allocateDeliveryTicketNumber,
+  ensureTicketNumberAssigned,
+} from "@/lib/delivery-ticket-number";
 import {
   buildQuoteLineAliasMap,
   cancelDeliveredTicket,
@@ -745,8 +748,11 @@ export async function savePlannedLoads(
             });
           }
 
-          const tickets: { id: string; ticketNumber: string; created: boolean }[] =
-            [];
+          const tickets: {
+            id: string;
+            ticketNumber: string | null;
+            created: boolean;
+          }[] = [];
           for (const [index, load] of loads.entries()) {
             const loadSequence = `${index + 1} of ${loads.length}`;
             const loadInput: SaveDeliveryTicketInput = {
@@ -783,15 +789,11 @@ export async function savePlannedLoads(
               });
               tickets.push({ ...ticket, created: false });
             } else {
-              const numbering = await allocateDeliveryTicketNumber(tx);
+              // Planner drafts defer their ticket number until they leave
+              // DRAFT — numbers then issue in scheduling order, and deleted
+              // planned loads never burn one.
               const ticket = await tx.deliveryTicket.create({
-                data: {
-                  ...ticketData(loadInput),
-                  ticketNumber: numbering.ticketNumber,
-                  year: numbering.year,
-                  yearTwoDigit: numbering.yearTwoDigit,
-                  sequenceNumber: numbering.sequenceNumber,
-                },
+                data: ticketData(loadInput),
                 select: { id: true, ticketNumber: true },
               });
               tickets.push({ ...ticket, created: true });
@@ -820,7 +822,8 @@ export async function savePlannedLoads(
     return {
       success: true,
       ticketIds: saved.map((ticket) => ticket.id),
-      ticketNumbers: saved.map((ticket) => ticket.ticketNumber),
+      // Planner drafts are unnumbered until scheduled.
+      ticketNumbers: saved.map((ticket) => ticket.ticketNumber ?? "Planned"),
       createdCount: saved.filter((ticket) => ticket.created).length,
       updatedCount: saved.filter((ticket) => !ticket.created).length,
       deletedCount: deletions.length,
@@ -971,9 +974,10 @@ export async function scheduleJobLoads(
           if (!ticket || ticket.jobId !== jobId) {
             throw new Error("One of the tickets no longer belongs to this job. Refresh the page.");
           }
+          const label = ticket.ticketNumber ?? "A planned load";
           if (ticket.status !== "DRAFT" && ticket.status !== "SCHEDULED") {
             throw new Error(
-              `${ticket.ticketNumber} is ${ticket.status.toLowerCase().replace(/_/g, " ")} and can't be rescheduled here.`,
+              `${label} is ${ticket.status.toLowerCase().replace(/_/g, " ")} and can't be rescheduled here.`,
             );
           }
 
@@ -983,27 +987,30 @@ export async function scheduleJobLoads(
             ticket.updatedAt.getTime() !== expected.getTime()
           ) {
             throw new Error(
-              `${ticket.ticketNumber} was changed by someone else while you were editing. Refresh the page to load the latest version, then re-apply your changes.`,
+              `${label} was changed by someone else while you were editing. Refresh the page to load the latest version, then re-apply your changes.`,
             );
           }
 
           const deliveryDate = parseDate(update.deliveryDate);
           if (update.deliveryDate?.trim() && !deliveryDate) {
-            throw new Error(`Invalid delivery date for ${ticket.ticketNumber}.`);
+            throw new Error(`Invalid delivery date for ${label}.`);
           }
           if (ticket.status === "SCHEDULED" && !deliveryDate) {
             throw new Error(
-              `${ticket.ticketNumber} is already scheduled — it needs a delivery date. Cancel the ticket instead if the load is off.`,
+              `${label} is already scheduled — it needs a delivery date. Cancel the ticket instead if the load is off.`,
             );
           }
           const deliveryTime = update.deliveryTime?.trim() || null;
           if (deliveryTime && !TIME_PATTERN.test(deliveryTime)) {
-            throw new Error(`Invalid delivery time for ${ticket.ticketNumber} (use HH:MM).`);
+            throw new Error(`Invalid delivery time for ${label} (use HH:MM).`);
           }
 
           const status = deliveryDate ? "SCHEDULED" : ticket.status;
           if (ticket.status === "DRAFT" && status === "SCHEDULED") {
             scheduled += 1;
+            // Planned loads get their ticket number as they're scheduled —
+            // numbers issue in dispatch order.
+            await ensureTicketNumberAssigned(tx, update.ticketId);
           }
 
           await tx.deliveryTicket.update({
@@ -1102,6 +1109,10 @@ export async function updateDeliveryTicket(
             lineItems,
           },
         });
+        // A planner draft edited into a live status gets its number here.
+        if (input.status !== "DRAFT" && input.status !== "CANCELLED") {
+          await ensureTicketNumberAssigned(tx, ticketId);
+        }
       }),
     );
 
@@ -1273,9 +1284,16 @@ export async function updateDeliveryTicketStatus(
       );
     } else {
       await withDatabaseRetry((client) =>
-        client.deliveryTicket.update({
-          where: { id: ticketId },
-          data: { status },
+        client.$transaction(async (tx) => {
+          // Planner drafts defer numbering: the number issues the moment
+          // the ticket leaves DRAFT for a live status (never on cancel).
+          if (status !== "DRAFT" && status !== "CANCELLED") {
+            await ensureTicketNumberAssigned(tx, ticketId);
+          }
+          await tx.deliveryTicket.update({
+            where: { id: ticketId },
+            data: { status },
+          });
         }),
       );
     }

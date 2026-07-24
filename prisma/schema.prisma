@@ -1169,12 +1169,14 @@ enum TicketPaymentMethod {
 
 /// Delivery ticket for scheduling and tracking job deliveries.
 /// Ticket numbers follow DT##### format (e.g. DT10001); global sequence starting at 10001.
+/// Planner-created drafts defer numbering (all four fields null) until the
+/// ticket first leaves DRAFT — numbers then issue in scheduling order.
 model DeliveryTicket {
   id                     String               @id @default(cuid())
-  ticketNumber           String               @unique
-  year                   Int
-  yearTwoDigit           Int
-  sequenceNumber         Int
+  ticketNumber           String?              @unique
+  year                   Int?
+  yearTwoDigit           Int?
+  sequenceNumber         Int?
   ticketType             DeliveryTicketType   @default(JOB)
   fulfillmentMethod      FulfillmentMethod    @default(DELIVERY)
   status                 DeliveryTicketStatus @default(DRAFT)

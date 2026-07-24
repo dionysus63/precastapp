@@ -84,7 +84,7 @@ export async function batchConvertDeliveredTicketsToInvoices(
     if (ticket.status !== "DELIVERED") {
       result.skipped.push({
         ticketId: ticket.id,
-        ticketNumber: ticket.ticketNumber,
+        ticketNumber: ticket.ticketNumber ?? "Planned",
         reason: "Ticket is not delivered.",
       });
       continue;
@@ -100,7 +100,7 @@ export async function batchConvertDeliveredTicketsToInvoices(
       }
       result.skipped.push({
         ticketId: ticket.id,
-        ticketNumber: ticket.ticketNumber,
+        ticketNumber: ticket.ticketNumber ?? "Planned",
         reason:
           error instanceof Error ? error.message : "Could not create invoice.",
       });
@@ -596,7 +596,13 @@ export async function convertDeliveryTicketToInvoice(
 
     // Invoice number mirrors the ticket number (same digits, invoice
     // prefix): T10024 -> I10024. Legacy ticket formats fall back to the
-    // year-based invoice sequence.
+    // year-based invoice sequence. Only delivered tickets convert, and
+    // delivery always assigns a number — this guard is a belt-and-braces.
+    if (!ticket.ticketNumber) {
+      throw new Error(
+        "This ticket has no ticket number yet — schedule or deliver it first.",
+      );
+    }
     const derived = deriveInvoiceNumberFromTicket(
       ticket.ticketNumber,
       settings.invoiceNumberPrefix,

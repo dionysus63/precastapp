@@ -1606,6 +1606,13 @@ export async function markDeliveryTicketDelivered(
       return;
     }
 
+    // Safety net: a planner draft delivered straight from DRAFT still gets
+    // its number before anything downstream (invoices) needs it.
+    const { ensureTicketNumberAssigned } = await import(
+      "@/lib/delivery-ticket-number"
+    );
+    await ensureTicketNumberAssigned(tx, deliveryTicketId);
+
     // Product hitting the site means the job is underway: promote earlier
     // pipeline stages to ACTIVE (never overrides ON_HOLD/COMPLETE/etc.).
     if (ticket.jobId) {

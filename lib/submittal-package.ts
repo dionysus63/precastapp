@@ -394,7 +394,7 @@ export async function buildSubmittalPackagePdfBytesForDeliveryTicket(
 
   return {
     pdfBytes,
-    ticketNumber: ticket.ticketNumber,
+    ticketNumber: ticket.ticketNumber ?? "DRAFT",
     missing: missingProducts,
     skipped,
   };
@@ -424,7 +424,7 @@ export async function generateSubmittalPackageForDeliveryTicket(
 
   const outputDirectory = await resolveSubmittalPackageDirectory(jobFolderPath);
   const baseName = buildSubmittalPackageBaseName(
-    ticket.ticketNumber,
+    ticket.ticketNumber ?? "DRAFT",
     ticket.customerName,
   );
   const outputPath = await resolveQuotePdfOutputPath(outputDirectory, baseName);
