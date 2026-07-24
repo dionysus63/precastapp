@@ -135,7 +135,7 @@ export function ScheduleLoadsEditor({
   const tableRef = useRef<HTMLTableElement>(null);
   const navRowCountRef = useRef(0);
   navRowCountRef.current = editableRows.length;
-  const NAV_COLUMN_COUNT = 4;
+  const NAV_COLUMN_COUNT = 3;
 
   const handleCellKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLElement>, rowIndex: number, colIndex: number) => {
@@ -306,7 +306,6 @@ export function ScheduleLoadsEditor({
               <th className={`${tableHeaderCellClassName} text-right`}>Items</th>
               <th className={`${tableHeaderCellClassName} text-right`}>Weight</th>
               <th className={tableHeaderCellClassName}>Date</th>
-              <th className={tableHeaderCellClassName}>Time</th>
               <th className={tableHeaderCellClassName}>Trailer</th>
               <th className={tableHeaderCellClassName}>Driver</th>
               <th className={tableHeaderCellClassName}>Status</th>
@@ -357,24 +356,11 @@ export function ScheduleLoadsEditor({
                         />
                       </td>
                       <td className={tableGridCellClassName}>
-                        <input
-                          type="time"
-                          value={current.deliveryTime}
-                          data-sched-row={navRow}
-                          data-sched-col={1}
-                          onKeyDown={(event) => handleCellKeyDown(event, navRow, 1)}
-                          onChange={(event) =>
-                            setField(row.id, "deliveryTime", event.target.value)
-                          }
-                          className={`${tableCellInputClassName} min-w-[5.5rem]`}
-                        />
-                      </td>
-                      <td className={tableGridCellClassName}>
                         <select
                           value={current.trailer}
                           data-sched-row={navRow}
-                          data-sched-col={2}
-                          onKeyDown={(event) => handleCellKeyDown(event, navRow, 2)}
+                          data-sched-col={1}
+                          onKeyDown={(event) => handleCellKeyDown(event, navRow, 1)}
                           onChange={(event) =>
                             setField(row.id, "trailer", event.target.value)
                           }
@@ -394,8 +380,8 @@ export function ScheduleLoadsEditor({
                         <select
                           value={current.driver}
                           data-sched-row={navRow}
-                          data-sched-col={3}
-                          onKeyDown={(event) => handleCellKeyDown(event, navRow, 3)}
+                          data-sched-col={2}
+                          onKeyDown={(event) => handleCellKeyDown(event, navRow, 2)}
                           onChange={(event) =>
                             setField(row.id, "driver", event.target.value)
                           }
@@ -416,9 +402,6 @@ export function ScheduleLoadsEditor({
                     <>
                       <td className={`${tableCellClassName} whitespace-nowrap text-slate-500`}>
                         {row.deliveryDate || "—"}
-                      </td>
-                      <td className={`${tableCellClassName} text-slate-500`}>
-                        {row.deliveryTime || "—"}
                       </td>
                       <td className={`${tableCellClassName} text-slate-500`}>
                         {row.trailer || "—"}
