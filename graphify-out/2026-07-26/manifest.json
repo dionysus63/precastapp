@@ -35,8 +35,8 @@
     "semantic_hash": ""
   },
   "app/jobs/actions.ts": {
-    "mtime": 1785082783.0861077,
-    "ast_hash": "9426e1ecbdb58432b55c7f9a718728ec",
+    "mtime": 1783971268.8494322,
+    "ast_hash": "60c21ef51da5174655c8b9e7a7c5c4a6",
     "semantic_hash": ""
   },
   "app/jobs/new/page.tsx": {
@@ -70,8 +70,8 @@
     "semantic_hash": ""
   },
   "app/products/actions.ts": {
-    "mtime": 1785082787.671072,
-    "ast_hash": "f9ade10752762f3f74e82d2b46bbed89",
+    "mtime": 1783971268.8554323,
+    "ast_hash": "32bb5499f514606ce4c86f1a5186e715",
     "semantic_hash": ""
   },
   "app/products/bulk/page.tsx": {
@@ -465,8 +465,8 @@
     "semantic_hash": ""
   },
   "app/files/actions.ts": {
-    "mtime": 1785082775.5033097,
-    "ast_hash": "114763f9fc7890e0534628852249c33a",
+    "mtime": 1783971195.3249097,
+    "ast_hash": "a379282ee2e91338c50c1ffd0bd8507c",
     "semantic_hash": ""
   },
   "app/files/jobs/[jobId]/page.tsx": {
@@ -525,8 +525,8 @@
     "semantic_hash": ""
   },
   "app/settings/actions.ts": {
-    "mtime": 1785082806.8375545,
-    "ast_hash": "efc815e44a16881b712b3ba01004c448",
+    "mtime": 1784156515.1213987,
+    "ast_hash": "3bed5232c272b523288b7513f2a499bd",
     "semantic_hash": ""
   },
   "app/settings/billing/page.tsx": {
@@ -540,8 +540,8 @@
     "semantic_hash": ""
   },
   "app/settings/files/page.tsx": {
-    "mtime": 1785082818.9510145,
-    "ast_hash": "387e129283fce460f05e3bc9e5cc445d",
+    "mtime": 1781968791.1874888,
+    "ast_hash": "fb82f4b17619e0a7c19b41cbbbcb65b2",
     "semantic_hash": ""
   },
   "app/settings/operations/page.tsx": {
@@ -690,8 +690,8 @@
     "semantic_hash": ""
   },
   "lib/app-settings.ts": {
-    "mtime": 1785082749.3446467,
-    "ast_hash": "ad4ca617aabfbc31fae37d81423bc01b",
+    "mtime": 1784156487.0939863,
+    "ast_hash": "17c3ebf59ff5fe32f63f7d422000d41f",
     "semantic_hash": ""
   },
   "lib/company-logo.ts": {
@@ -785,8 +785,8 @@
     "semantic_hash": ""
   },
   "lib/windows-explorer.ts": {
-    "mtime": 1785082767.2541094,
-    "ast_hash": "f8294b48404700d25102d19cf040944d",
+    "mtime": 1783971085.9790769,
+    "ast_hash": "c43a3d8c9890850f08db7789fbf81078",
     "semantic_hash": ""
   },
   "prisma/migrations/20250617100000_baseline/migration.sql": {
@@ -1230,8 +1230,8 @@
     "semantic_hash": ""
   },
   "app/drill-sheets/pdf-actions.ts": {
-    "mtime": 1785082799.1600544,
-    "ast_hash": "864678193e09a5ceac5011600a4a27c9",
+    "mtime": 1783971614.778884,
+    "ast_hash": "8c96cf9c301581cf95031ae732376014",
     "semantic_hash": ""
   },
   "app/inventory/receive/page.tsx": {
@@ -3667,21 +3667,6 @@
   "scripts/unnumber-planned-drafts.ts": {
     "mtime": 1784911482.821664,
     "ast_hash": "907a956fc1551c1836ed3f5b4d33afca",
-    "semantic_hash": ""
-  },
-  "lib/client-path-mapping.ts": {
-    "mtime": 1785082738.2337432,
-    "ast_hash": "b928533d53300c60c4c191f5c61d7d1d",
-    "semantic_hash": ""
-  },
-  "prisma/migrations/20260726120000_add_client_path_mappings/migration.sql": {
-    "mtime": 1785082705.9309072,
-    "ast_hash": "e21d3e69c5ddede4f3b4cead1d0a646b",
-    "semantic_hash": ""
-  },
-  "tests/unit/client-path-mapping.test.ts": {
-    "mtime": 1785082835.1673038,
-    "ast_hash": "326c5bb4bdf2eda9560d2e9510dccbb4",
     "semantic_hash": ""
   }
 }

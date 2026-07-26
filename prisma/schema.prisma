@@ -1760,6 +1760,11 @@ model AppSettings {
   jobsRoot            String
   quotePdfFallbackDir String
   stockSubmittalsRoot String
+  /// Same folders as seen from office PCs (UNC); null = no translation when
+  /// handing paths to remote clients to open.
+  jobsRootClientPath            String?
+  quotePdfFallbackDirClientPath String?
+  stockSubmittalsRootClientPath String?
   jobSubfolders       Json
   // billing
   defaultTaxRate    Decimal @db.Decimal(6, 3)

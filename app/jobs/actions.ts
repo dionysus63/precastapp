@@ -428,8 +428,11 @@ export async function openJobFolder(jobId: string) {
   }
 
   let launched = true;
+  let clientOpenPath = folderPath;
   try {
-    launched = (await launchWindowsFolder(folderPath)).launched;
+    const launch = await launchWindowsFolder(folderPath);
+    launched = launch.launched;
+    clientOpenPath = launch.clientOpenPath;
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown Explorer error.";
@@ -438,7 +441,7 @@ export async function openJobFolder(jobId: string) {
 
   return {
     success: true as const,
-    path: folderPath,
+    path: clientOpenPath,
     launched,
     jobNumber: job.jobNumber,
   };
@@ -561,7 +564,7 @@ export async function openJobStructureDocument(
 
   return {
     success: true,
-    path: document.filePath,
+    path: launch.clientOpenPath,
     launched: launch.launched,
     documentName: document.documentName,
   };
@@ -598,7 +601,7 @@ export async function openJobStructureSubmittalsFolder(
 
   const launch = await launchFolder(folderPath, { allowedRoot: jobFolderPath });
 
-  return { success: true, path: folderPath, launched: launch.launched };
+  return { success: true, path: launch.clientOpenPath, launched: launch.launched };
 }
 
 export async function deleteJobStructureDocumentAction(documentId: string) {

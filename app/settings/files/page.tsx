@@ -56,6 +56,16 @@ export default async function FileSettingsPage({
             />
           </SettingsField>
           <SettingsField
+            label="Jobs root as seen from office PCs"
+            hint="Optional UNC path to the same folder (e.g. \\SERVER\PrecastJobs). When set, files under the jobs root open on workstations via this path."
+          >
+            <input
+              name="jobsRootClientPath"
+              defaultValue={settings.jobsRootClientPath ?? ""}
+              className={settingsInputClassName}
+            />
+          </SettingsField>
+          <SettingsField
             label="Quote PDF fallback directory"
             hint="Used when a job has no folder yet."
           >
@@ -67,6 +77,16 @@ export default async function FileSettingsPage({
             />
           </SettingsField>
           <SettingsField
+            label="Fallback directory as seen from office PCs"
+            hint="Optional UNC path to the same folder."
+          >
+            <input
+              name="quotePdfFallbackDirClientPath"
+              defaultValue={settings.quotePdfFallbackDirClientPath ?? ""}
+              className={settingsInputClassName}
+            />
+          </SettingsField>
+          <SettingsField
             label="Stock submittals root"
             hint="Catalog submittals are stored in subfolders named by product code (e.g. C:\StockSubmittals\MH-48)."
           >
@@ -74,6 +94,16 @@ export default async function FileSettingsPage({
               name="stockSubmittalsRoot"
               defaultValue={settings.stockSubmittalsRoot}
               required
+              className={settingsInputClassName}
+            />
+          </SettingsField>
+          <SettingsField
+            label="Stock submittals root as seen from office PCs"
+            hint="Optional UNC path to the same folder."
+          >
+            <input
+              name="stockSubmittalsRootClientPath"
+              defaultValue={settings.stockSubmittalsRootClientPath ?? ""}
               className={settingsInputClassName}
             />
           </SettingsField>

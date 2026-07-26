@@ -1091,7 +1091,7 @@ export async function openProductDocument(
 
   return {
     success: true,
-    path: document.filePath,
+    path: launch.clientOpenPath,
     launched: launch.launched,
     documentName: document.documentName,
   };
@@ -1122,7 +1122,7 @@ export async function openProductSubmittalsFolder(
 
   const launch = await launchWindowsFolder(root, { allowedRoot: root });
 
-  return { success: true, path: root, launched: launch.launched };
+  return { success: true, path: launch.clientOpenPath, launched: launch.launched };
 }
 
 export async function deleteProductDocumentAction(documentId: string) {

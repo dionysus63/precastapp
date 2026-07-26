@@ -86,6 +86,10 @@ export type AppSettingsView = {
   jobsRoot: string;
   quotePdfFallbackDir: string;
   stockSubmittalsRoot: string;
+  /** Same roots as seen from office PCs (UNC); null = no client translation. */
+  jobsRootClientPath: string | null;
+  quotePdfFallbackDirClientPath: string | null;
+  stockSubmittalsRootClientPath: string | null;
   jobSubfolders: string[];
   defaultTaxRate: number;
   quoteValidityDays: number;
@@ -192,6 +196,11 @@ export function mapAppSettingsRow(row: AppSettings): AppSettingsView {
     jobsRoot: row.jobsRoot,
     quotePdfFallbackDir: row.quotePdfFallbackDir,
     stockSubmittalsRoot: row.stockSubmittalsRoot,
+    jobsRootClientPath: row.jobsRootClientPath?.trim() || null,
+    quotePdfFallbackDirClientPath:
+      row.quotePdfFallbackDirClientPath?.trim() || null,
+    stockSubmittalsRootClientPath:
+      row.stockSubmittalsRootClientPath?.trim() || null,
     jobSubfolders: parseStringList(row.jobSubfolders, [...JOB_SUBFOLDERS]),
     defaultTaxRate: Number(row.defaultTaxRate),
     quoteValidityDays: row.quoteValidityDays,

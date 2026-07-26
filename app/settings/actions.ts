@@ -461,6 +461,15 @@ export async function updateFileSettingsFormAction(
   const stockSubmittalsRoot = String(
     formData.get("stockSubmittalsRoot") ?? "",
   ).trim();
+  const jobsRootClientPath = String(
+    formData.get("jobsRootClientPath") ?? "",
+  ).trim();
+  const quotePdfFallbackDirClientPath = String(
+    formData.get("quotePdfFallbackDirClientPath") ?? "",
+  ).trim();
+  const stockSubmittalsRootClientPath = String(
+    formData.get("stockSubmittalsRootClientPath") ?? "",
+  ).trim();
 
   if (!jobsRoot || !quotePdfFallbackDir || !stockSubmittalsRoot) {
     return {
@@ -473,6 +482,9 @@ export async function updateFileSettingsFormAction(
     jobsRoot,
     quotePdfFallbackDir,
     stockSubmittalsRoot,
+    jobsRootClientPath: jobsRootClientPath || null,
+    quotePdfFallbackDirClientPath: quotePdfFallbackDirClientPath || null,
+    stockSubmittalsRootClientPath: stockSubmittalsRootClientPath || null,
   });
 }
 

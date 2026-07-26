@@ -138,7 +138,7 @@ export async function openJobFile(fileId: string): Promise<
 
   return {
     success: true,
-    path: file.filePath,
+    path: launch.clientOpenPath,
     launched: launch.launched,
     fileName: file.fileName,
   };
@@ -158,7 +158,7 @@ export async function openJobFolderCategory(
   await assertPathAccessible(categoryPath, "directory");
   const launch = await launchWindowsFolder(categoryPath);
 
-  return { success: true, path: categoryPath, launched: launch.launched };
+  return { success: true, path: launch.clientOpenPath, launched: launch.launched };
 }
 
 export async function syncJobFilesAction(jobId: string) {

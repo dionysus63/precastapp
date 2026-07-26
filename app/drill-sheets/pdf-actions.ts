@@ -81,15 +81,18 @@ export async function generateJobDrillSheetsPdf(
     }
 
     let launched = false;
+    let clientOpenPath = outputPath;
     try {
-      launched = (await launchWindowsFile(outputPath)).launched;
+      const launch = await launchWindowsFile(outputPath);
+      launched = launch.launched;
+      clientOpenPath = launch.clientOpenPath;
     } catch {
       // Ignore: the PDF was saved and its path is returned to the caller.
     }
 
     return {
       success: true,
-      filePath: outputPath,
+      filePath: clientOpenPath,
       launched,
       included: built.included.length,
       skipped: built.skipped.map(
@@ -194,13 +197,16 @@ export async function generateDrillSheetPdf(
     }
 
     let launched = false;
+    let clientOpenPath = outputPath;
     try {
-      launched = (await launchWindowsFile(outputPath)).launched;
+      const launch = await launchWindowsFile(outputPath);
+      launched = launch.launched;
+      clientOpenPath = launch.clientOpenPath;
     } catch {
       // Ignore: the PDF was saved and its path is returned to the caller.
     }
 
-    return { success: true, filePath: outputPath, launched };
+    return { success: true, filePath: clientOpenPath, launched };
   } catch (error) {
     const message =
       error instanceof Error
@@ -268,11 +274,14 @@ async function generateRectSheetPdf(
   }
 
   let launched = false;
+  let clientOpenPath = outputPath;
   try {
-    launched = (await launchWindowsFile(outputPath)).launched;
+    const launch = await launchWindowsFile(outputPath);
+    launched = launch.launched;
+    clientOpenPath = launch.clientOpenPath;
   } catch {
     // Ignore: the PDF was saved and its path is returned to the caller.
   }
 
-  return { success: true, filePath: outputPath, launched };
+  return { success: true, filePath: clientOpenPath, launched };
 }

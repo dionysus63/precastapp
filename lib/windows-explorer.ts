@@ -5,6 +5,7 @@ import os from "os";
 import path from "path";
 import { promisify } from "util";
 import { getJobsRoot } from "@/lib/app-settings";
+import { toClientOpenPath } from "@/lib/client-path-mapping";
 import { assertPathUnderRoot } from "@/lib/job-path-security";
 
 const execFileAsync = promisify(execFile);
@@ -223,15 +224,15 @@ async function launchExplorer(context: LaunchContext, options?: ExplorerLaunchOp
   throw new Error(`Could not open Explorer (${errors.join("; ")})`);
 }
 
-export type ExplorerLaunchResult =
-  | { launched: true }
-  | {
-      /** The request came from another machine: Explorer can't open there
-       * from this process, so the caller hands the validated path back to
-       * the client (desktop shell opens it; browsers show it). */
-      launched: false;
-      clientOpenPath: string;
-    };
+export type ExplorerLaunchResult = {
+  launched: boolean;
+  /** The path to hand back to the browser when `launched` is false (the
+   * request came from another machine, where Explorer can't open from this
+   * process). Storage roots are rewritten to their client-visible (UNC)
+   * equivalents when a mapping is configured in Files & Folders settings —
+   * the desktop shell opens it; plain browsers show it. */
+  clientOpenPath: string;
+};
 
 /**
  * True when the request driving this server action came from a different
@@ -268,7 +269,7 @@ export async function launchWindowsFolder(
   await assertDirectoryExists(normalizedPath);
 
   if (await isRemoteClientRequest()) {
-    return { launched: false, clientOpenPath: normalizedPath };
+    return { launched: false, clientOpenPath: await toClientOpenPath(normalizedPath) };
   }
 
   await launchExplorer(
@@ -280,7 +281,7 @@ export async function launchWindowsFolder(
     },
     options,
   );
-  return { launched: true };
+  return { launched: true, clientOpenPath: normalizedPath };
 }
 
 /**
@@ -302,7 +303,7 @@ export async function launchWindowsFile(
   await assertFileExists(normalizedPath);
 
   if (await isRemoteClientRequest()) {
-    return { launched: false, clientOpenPath: normalizedPath };
+    return { launched: false, clientOpenPath: await toClientOpenPath(normalizedPath) };
   }
 
   const selectArg = explorerSelectArg(normalizedPath);
@@ -315,7 +316,7 @@ export async function launchWindowsFile(
     },
     options,
   );
-  return { launched: true };
+  return { launched: true, clientOpenPath: normalizedPath };
 }
 
 /**
