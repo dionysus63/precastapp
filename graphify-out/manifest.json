@@ -845,8 +845,8 @@
     "semantic_hash": ""
   },
   "components/jobs/job-detail-content.tsx": {
-    "mtime": 1784750603.267868,
-    "ast_hash": "c5ffa75cf618e28e30858a52f4674f7c",
+    "mtime": 1785102397.4838805,
+    "ast_hash": "dab648e5075357d959f90222f897fc66",
     "semantic_hash": ""
   },
   "lib/job-detail-mapper.ts": {
@@ -1215,8 +1215,8 @@
     "semantic_hash": ""
   },
   "app/drill-sheets/actions.ts": {
-    "mtime": 1783814037.9910836,
-    "ast_hash": "9021df8d180d6a0b25db52d75796c7af",
+    "mtime": 1785101982.121733,
+    "ast_hash": "f63110629cb4a5455cc01dcbaa4cab3a",
     "semantic_hash": ""
   },
   "app/drill-sheets/new/page.tsx": {
@@ -2160,8 +2160,8 @@
     "semantic_hash": ""
   },
   "lib/drill-sheet-persistence.ts": {
-    "mtime": 1784301290.120059,
-    "ast_hash": "caccbe45e3aaccd19b561fb01ee2dc16",
+    "mtime": 1785101968.6687114,
+    "ast_hash": "6dcd81c1e6982ee7ac2c2aa038e66e4e",
     "semantic_hash": ""
   },
   "components/drill-sheets/drill-sheet-pdf-link.tsx": {
@@ -2670,8 +2670,8 @@
     "semantic_hash": ""
   },
   "lib/rect-sheet-persistence.ts": {
-    "mtime": 1784317401.0020857,
-    "ast_hash": "e22ca2b44a58b72c98b4545b1eaf83eb",
+    "mtime": 1785101985.791075,
+    "ast_hash": "b5402475ba591793571f74af41b405ba",
     "semantic_hash": ""
   },
   "lib/rect-structure-diagram.ts": {
@@ -3682,6 +3682,51 @@
   "tests/unit/client-path-mapping.test.ts": {
     "mtime": 1785082835.1673038,
     "ast_hash": "326c5bb4bdf2eda9560d2e9510dccbb4",
+    "semantic_hash": ""
+  },
+  "app/jobs/[id]/structures/bulk-edit/page.tsx": {
+    "mtime": 1785102408.4069014,
+    "ast_hash": "f27244470dbed7c2b2700ae66083b027",
+    "semantic_hash": ""
+  },
+  "app/jobs/bulk-structure-actions.ts": {
+    "mtime": 1785102046.5235486,
+    "ast_hash": "f07431db1dc23ea668f6a211bd5c6a00",
+    "semantic_hash": ""
+  },
+  "components/jobs/bulk-edit/bulk-edit-payloads.ts": {
+    "mtime": 1785102429.6285331,
+    "ast_hash": "1e46915a7e74ebecdd61aafc8be3b968",
+    "semantic_hash": ""
+  },
+  "components/jobs/bulk-edit/bulk-edit-shared.tsx": {
+    "mtime": 1785102157.8665545,
+    "ast_hash": "7cdcbf755e2a69b660d37a3472c99e7f",
+    "semantic_hash": ""
+  },
+  "components/jobs/bulk-edit/circular-bulk-grid.tsx": {
+    "mtime": 1785102223.062043,
+    "ast_hash": "61765c1e62ae6a6a746a89ee53d4199f",
+    "semantic_hash": ""
+  },
+  "components/jobs/bulk-edit/job-structures-bulk-edit-client.tsx": {
+    "mtime": 1785102445.1382859,
+    "ast_hash": "a5c3a3d487480912a53e95956d2166ba",
+    "semantic_hash": ""
+  },
+  "components/jobs/bulk-edit/rect-bulk-grid.tsx": {
+    "mtime": 1785102314.7321405,
+    "ast_hash": "3943c2facc0bdd6acccde455e067d36d",
+    "semantic_hash": ""
+  },
+  "lib/job-structures-bulk-edit.ts": {
+    "mtime": 1785102028.350015,
+    "ast_hash": "01188c0d628d9836f6871ba2b17823ed",
+    "semantic_hash": ""
+  },
+  "tests/unit/bulk-edit-payloads.test.ts": {
+    "mtime": 1785102473.7372596,
+    "ast_hash": "f0c239796795c533162086b0231dcc33",
     "semantic_hash": ""
   }
 }

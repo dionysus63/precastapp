@@ -89,6 +89,11 @@ export function parseRectSheetPayload(formData: FormData): RectSheetPayload {
   } catch {
     throw new Error("Invalid sheet data.");
   }
+  return parseRectSheetPayloadData(parsed);
+}
+
+/** Validates an already-parsed payload object (bulk edit sends JSON arrays). */
+export function parseRectSheetPayloadData(parsed: unknown): RectSheetPayload {
   const data = parsed as Record<string, unknown>;
 
   const templateId = String(data.templateId ?? "").trim();

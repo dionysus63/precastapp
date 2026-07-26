@@ -83,6 +83,11 @@ export function parseDrillSheetPayload(formData: FormData): DrillSheetPayload {
   } catch {
     throw new Error("Invalid drill sheet data.");
   }
+  return parseDrillSheetPayloadData(parsed);
+}
+
+/** Validates an already-parsed payload object (bulk edit sends JSON arrays). */
+export function parseDrillSheetPayloadData(parsed: unknown): DrillSheetPayload {
   const data = parsed as Record<string, unknown>;
 
   const templateId = String(data.templateId ?? "").trim();
@@ -373,6 +378,71 @@ export async function createJobStructureFromPayload(
   });
 
   return created.id;
+}
+
+/**
+ * Recomputes and saves an existing circular drill sheet from a payload.
+ * `expectedUpdatedAtRaw` (when non-empty) guards against concurrent edits:
+ * the update fails if the row changed since the caller loaded it.
+ */
+export async function updateJobStructureFromPayload(
+  jobStructureId: string,
+  payload: DrillSheetPayload,
+  expectedUpdatedAtRaw: string,
+): Promise<void> {
+  const existing = await prisma.jobStructure.findUnique({
+    where: { id: jobStructureId },
+    select: { id: true, calc: { select: { id: true } } },
+  });
+  if (!existing) {
+    throw new Error("Drill sheet not found.");
+  }
+
+  const { template, insideDiameterFeet, casting, result, pricing } =
+    await loadAndComputeDrillSheet(payload);
+  const calcData = buildCalcData(payload, result, insideDiameterFeet, pricing);
+  const castingCreate = buildCastingCreate(casting);
+
+  await prisma.$transaction(async (tx) => {
+    if (expectedUpdatedAtRaw) {
+      const current = await tx.jobStructure.findUnique({
+        where: { id: jobStructureId },
+        select: { updatedAt: true },
+      });
+      const expected = new Date(expectedUpdatedAtRaw);
+      if (
+        !current ||
+        Number.isNaN(expected.getTime()) ||
+        current.updatedAt.getTime() !== expected.getTime()
+      ) {
+        throw new Error(
+          "This drill sheet was changed by someone else while you were editing. Refresh the page to load the latest version, then re-apply your changes.",
+        );
+      }
+    }
+
+    await tx.jobStructure.update({
+      where: { id: jobStructureId },
+      data: {
+        structureTemplateId: template.id,
+        jobId: payload.jobId ?? null,
+        structureNumber: payload.manholeNumber || null,
+        description: `${insideDiameterFeet}' ${template.name}`,
+        // Keep an existing (possibly hand-entered) weight when the mold has
+        // no wall thickness to compute one from.
+        weight:
+          result.totalWeightLb != null
+            ? new Prisma.Decimal(String(result.totalWeightLb))
+            : undefined,
+        calc: existing.calc ? { update: calcData } : { create: calcData },
+        openings: { deleteMany: {}, create: buildOpeningsCreate(result) },
+        sections: { deleteMany: {}, create: buildSectionsCreate(result) },
+        castings: castingCreate
+          ? { deleteMany: {}, create: castingCreate }
+          : { deleteMany: {} },
+      },
+    });
+  });
 }
 
 /**

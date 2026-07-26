@@ -695,6 +695,14 @@ export function JobProductionSection({
           >
             Production queue
           </Link>
+          {structures.some((structure) => structure.drillSheetId) ? (
+            <Link
+              href={`/jobs/${jobId}/structures/bulk-edit`}
+              className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Bulk Edit
+            </Link>
+          ) : null}
           <JobStructureImportButton jobId={jobId} />
           <Link
             href={`/drill-sheets/new?jobId=${jobId}`}

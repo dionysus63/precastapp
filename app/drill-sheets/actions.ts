@@ -6,13 +6,9 @@ import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import {
-  buildCalcData,
-  buildCastingCreate,
-  buildOpeningsCreate,
-  buildSectionsCreate,
   createJobStructureFromPayload,
-  loadAndComputeDrillSheet,
   parseDrillSheetPayload,
+  updateJobStructureFromPayload,
 } from "@/lib/drill-sheet-persistence";
 import {
   createRectJobStructureFromPayload,
@@ -43,55 +39,11 @@ export async function updateDrillSheet(
     formData.get("expectedUpdatedAt") ?? "",
   ).trim();
 
-  const existing = await prisma.jobStructure.findUnique({
-    where: { id: drillSheetId },
-    select: { id: true, calc: { select: { id: true } } },
-  });
-  if (!existing) {
-    throw new Error("Drill sheet not found.");
-  }
-
-  const { template, insideDiameterFeet, casting, result, pricing } =
-    await loadAndComputeDrillSheet(payload);
-  const calcData = buildCalcData(payload, result, insideDiameterFeet, pricing);
-  const castingCreate = buildCastingCreate(casting);
-
-  await prisma.$transaction(async (tx) => {
-    if (expectedUpdatedAtRaw) {
-      const current = await tx.jobStructure.findUnique({
-        where: { id: drillSheetId },
-        select: { updatedAt: true },
-      });
-      const expected = new Date(expectedUpdatedAtRaw);
-      if (
-        !current ||
-        Number.isNaN(expected.getTime()) ||
-        current.updatedAt.getTime() !== expected.getTime()
-      ) {
-        throw new Error(
-          "This drill sheet was changed by someone else while you were editing. Refresh the page to load the latest version, then re-apply your changes.",
-        );
-      }
-    }
-
-    await tx.jobStructure.update({
-      where: { id: drillSheetId },
-      data: {
-        structureTemplateId: template.id,
-        jobId: payload.jobId ?? null,
-        structureNumber: payload.manholeNumber || null,
-        description: `${insideDiameterFeet}' ${template.name}`,
-        calc: existing.calc
-          ? { update: calcData }
-          : { create: calcData },
-        openings: { deleteMany: {}, create: buildOpeningsCreate(result) },
-        sections: { deleteMany: {}, create: buildSectionsCreate(result) },
-        castings: castingCreate
-          ? { deleteMany: {}, create: castingCreate }
-          : { deleteMany: {} },
-      },
-    });
-  });
+  await updateJobStructureFromPayload(
+    drillSheetId,
+    payload,
+    expectedUpdatedAtRaw,
+  );
 
   revalidatePath("/drill-sheets");
   revalidatePath(`/drill-sheets/${drillSheetId}`);
