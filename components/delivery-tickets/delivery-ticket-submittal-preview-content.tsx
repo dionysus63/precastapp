@@ -7,6 +7,7 @@ import {
   DeliveryTicketSubmittalPdfCanvasPreview,
   getDeliveryTicketSubmittalPreviewPrintUrl,
 } from "@/components/delivery-tickets/delivery-ticket-submittal-pdf-canvas-preview";
+import { printPdfUrl } from "@/lib/print-pdf-url";
 
 type DeliveryTicketSubmittalPreviewContentProps = {
   ticketId: string;
@@ -41,17 +42,9 @@ export function DeliveryTicketSubmittalPreviewContent({
   }, []);
 
   function openPrintWindow() {
-    const printWindow = window.open(
-      getDeliveryTicketSubmittalPreviewPrintUrl(ticketId),
-      "_blank",
-    );
-    if (!printWindow) {
-      return;
-    }
-    printWindow.addEventListener("load", () => {
-      printWindow.focus();
-      printWindow.print();
-    });
+    // printPdfUrl handles the desktop shell (popup print() on a PDF viewer
+    // is a no-op there and the viewer's own print control hangs the app).
+    printPdfUrl(getDeliveryTicketSubmittalPreviewPrintUrl(ticketId));
   }
 
   function handlePrint() {

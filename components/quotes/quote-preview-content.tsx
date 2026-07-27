@@ -8,6 +8,7 @@ import {
   QuotePdfCanvasPreview,
 } from "@/components/quotes/quote-pdf-canvas-preview";
 import { SendQuoteButton } from "@/components/quotes/send-quote-button";
+import { printPdfUrl } from "@/lib/print-pdf-url";
 
 import { BackButton } from "@/components/dashboard/back-button";
 type QuotePreviewContentProps = {
@@ -42,14 +43,9 @@ export function QuotePreviewContent({
   }, []);
 
   function handlePrint() {
-    const printWindow = window.open(getQuotePreviewPrintUrl(quoteId), "_blank");
-    if (!printWindow) {
-      return;
-    }
-    printWindow.addEventListener("load", () => {
-      printWindow.focus();
-      printWindow.print();
-    });
+    // printPdfUrl handles the desktop shell (popup print() on a PDF viewer
+    // is a no-op there and the viewer's own print control hangs the app).
+    printPdfUrl(getQuotePreviewPrintUrl(quoteId));
   }
 
   function handleGeneratePdf() {

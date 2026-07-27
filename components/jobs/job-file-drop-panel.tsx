@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { uploadJobFileAction } from "@/app/files/actions";
+import { printPdfUrl } from "@/lib/print-pdf-url";
 import { reloadAfterAction } from "@/lib/reload-after-action";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { FileUploadDropzone } from "@/components/files/file-upload-dropzone";
@@ -80,6 +81,12 @@ export function JobFileDropPanel({
 
   function handlePrint() {
     if (!fileUrl) {
+      return;
+    }
+    // PDFs go through printPdfUrl: frame print() on a PDF viewer is a silent
+    // no-op in the desktop shell, and the viewer's own print control hangs it.
+    if (file && /\.pdf$/i.test(file.fileName)) {
+      printPdfUrl(fileUrl);
       return;
     }
     const frameWindow = previewFrameRef.current?.contentWindow;

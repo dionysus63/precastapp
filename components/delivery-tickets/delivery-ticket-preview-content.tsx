@@ -12,6 +12,7 @@ import {
   DeliveryTicketPdfCanvasPreview,
   getDeliveryTicketPreviewPrintUrl,
 } from "@/components/delivery-tickets/delivery-ticket-pdf-canvas-preview";
+import { printPdfUrl } from "@/lib/print-pdf-url";
 
 const COPY_COUNT = 3;
 
@@ -67,14 +68,9 @@ export function DeliveryTicketPreviewContent({
   }
 
   function openPrintWindow() {
-    const printWindow = window.open(getDeliveryTicketPreviewPrintUrl(ticketId), "_blank");
-    if (!printWindow) {
-      return;
-    }
-    printWindow.addEventListener("load", () => {
-      printWindow.focus();
-      printWindow.print();
-    });
+    // printPdfUrl handles the desktop shell (popup print() on a PDF viewer
+    // is a no-op there and the viewer's own print control hangs the app).
+    printPdfUrl(getDeliveryTicketPreviewPrintUrl(ticketId));
   }
 
   // Direct (silent) print when a server printer is configured; browser print
