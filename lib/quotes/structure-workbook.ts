@@ -1017,10 +1017,8 @@ export function formatPenetrationsSummary(
 export function formatStructureDescription(
   config: QuoteStructureConfig,
 ): string {
-  const diameterLabel =
-    config.diameterFeet != null
-      ? `${Math.round(config.diameterFeet * 12)}"`
-      : "";
+  // The template name already carries the size (e.g. "SCDPW 4'Ø MH"), so no
+  // diameter prefix.
   const templateName = config.templateName ?? "Structure";
   const wall =
     config.wallHeightFeet != null
@@ -1029,7 +1027,7 @@ export function formatStructureDescription(
   const rim = config.rimElevation.toFixed(2);
   const inv = config.lowInvertElevation.toFixed(2);
   const pipes = formatPenetrationsSummary(config.penetrations);
-  const base = `${diameterLabel} ${templateName} — Rim ${rim}' / Inv ${inv}'${wall ? ` — ${wall}` : ""}`.trim();
+  const base = `${templateName} — Rim ${rim}' / Inv ${inv}'${wall ? ` — ${wall}` : ""}`.trim();
   return pipes ? `${base} — Pipes: ${pipes}` : base;
 }
 
