@@ -4,8 +4,10 @@ import {
   memo,
   useCallback,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
+  type DragEvent,
   type KeyboardEvent,
 } from "react";
 import { StatusBadge } from "@/components/dashboard/status-badge";
@@ -148,20 +150,141 @@ export type QuoteLineItemsTableProps = {
   ) => void;
   onRemoveLine: (id: string) => void;
   onMoveLine: (id: string, direction: "up" | "down") => void;
+  /** Place the line at an exact index (drag-drop / jump-to-position). */
+  onMoveLineTo: (id: string, targetIndex: number) => void;
   onEditCustomStructure: (line: EditableQuoteLineItem) => void;
+};
+
+type RowDragHandlers = {
+  onHandleDragStart: (
+    event: DragEvent<HTMLElement>,
+    rowIndex: number,
+    lineId: string,
+  ) => void;
+  onHandleDragEnd: () => void;
+  onRowDragOver: (event: DragEvent<HTMLElement>, rowIndex: number) => void;
+  onRowDrop: (event: DragEvent<HTMLElement>, rowIndex: number) => void;
 };
 
 type QuoteLineItemRowProps = {
   line: EditableQuoteLineItem;
   rowIndex: number;
+  rowCount: number;
   isFirst: boolean;
   isLast: boolean;
+  isDragging: boolean;
+  /** Drop indicator edge while a drag hovers this row. */
+  dropEdge: "top" | "bottom" | null;
+  dragHandlers: RowDragHandlers;
   onUpdateLine: QuoteLineItemsTableProps["onUpdateLine"];
   onRemoveLine: QuoteLineItemsTableProps["onRemoveLine"];
   onMoveLine: QuoteLineItemsTableProps["onMoveLine"];
+  onMoveLineTo: QuoteLineItemsTableProps["onMoveLineTo"];
   onEditCustomStructure: QuoteLineItemsTableProps["onEditCustomStructure"];
   onCellKeyDown: CellKeyDownHandler;
 };
+
+function DragHandleCell({
+  line,
+  rowIndex,
+  dragHandlers,
+}: Pick<QuoteLineItemRowProps, "line" | "rowIndex" | "dragHandlers">) {
+  return (
+    <td className={`${tableCellBordersClassName} w-6 px-0.5 py-1 text-center`}>
+      <span
+        draggable
+        onDragStart={(event) =>
+          dragHandlers.onHandleDragStart(event, rowIndex, line.id)
+        }
+        onDragEnd={dragHandlers.onHandleDragEnd}
+        title="Drag to reorder"
+        aria-label={`Drag line ${line.lineNumber} to reorder`}
+        className="inline-flex h-6 w-4 cursor-grab select-none items-center justify-center rounded text-[13px] leading-none text-slate-300 hover:bg-slate-200/70 hover:text-slate-600 active:cursor-grabbing"
+      >
+        ⋮⋮
+      </span>
+    </td>
+  );
+}
+
+/**
+ * The row-number cell doubles as "move to position": click it, type the
+ * target line number, Enter. Precision tool for long quotes where dragging
+ * across pages of rows is tedious.
+ */
+function LineNumberCell({
+  line,
+  rowCount,
+  onMoveLineTo,
+}: Pick<QuoteLineItemRowProps, "line" | "rowCount" | "onMoveLineTo">) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState("");
+
+  if (!editing) {
+    return (
+      <td
+        className={`${tableRowNumberCellClassName} cursor-pointer hover:bg-sky-50 hover:text-sky-700`}
+        title="Click to type a new position for this line"
+        onClick={() => {
+          setValue(String(line.lineNumber));
+          setEditing(true);
+        }}
+      >
+        {line.lineNumber}
+      </td>
+    );
+  }
+
+  const commit = () => {
+    setEditing(false);
+    const target = Number.parseInt(value, 10);
+    if (Number.isFinite(target)) {
+      onMoveLineTo(line.id, Math.max(0, Math.min(rowCount - 1, target - 1)));
+    }
+  };
+
+  return (
+    <td className={`${tableRowNumberCellClassName} p-0`}>
+      <input
+        autoFocus
+        type="text"
+        inputMode="numeric"
+        value={value}
+        onFocus={(event) => event.currentTarget.select()}
+        onChange={(event) => setValue(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            commit();
+          } else if (event.key === "Escape") {
+            setEditing(false);
+          }
+        }}
+        onBlur={() => setEditing(false)}
+        aria-label={`Move line ${line.lineNumber} to position`}
+        className="h-full w-full border-0 bg-white px-1 py-1.5 text-center text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-sky-500"
+      />
+    </td>
+  );
+}
+
+/** Drop-indicator / drag styling for a row while a drag is in flight. */
+function rowDragClassName(
+  isDragging: boolean,
+  dropEdge: "top" | "bottom" | null,
+): string {
+  return [
+    isDragging ? "opacity-40" : "",
+    dropEdge === "top"
+      ? "[&>td]:border-t-2 [&>td]:!border-t-sky-500"
+      : "",
+    dropEdge === "bottom"
+      ? "[&>td]:!border-b-2 [&>td]:!border-b-sky-500"
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
 
 function MoveRemoveButtons({
   line,
@@ -170,7 +293,15 @@ function MoveRemoveButtons({
   onRemoveLine,
   onMoveLine,
   onEditCustomStructure,
-}: Omit<QuoteLineItemRowProps, "onUpdateLine" | "onCellKeyDown" | "rowIndex">) {
+}: Pick<
+  QuoteLineItemRowProps,
+  | "line"
+  | "isFirst"
+  | "isLast"
+  | "onRemoveLine"
+  | "onMoveLine"
+  | "onEditCustomStructure"
+>) {
   return (
     <div className="flex items-center gap-0.5">
       <button
@@ -216,18 +347,40 @@ function MoveRemoveButtons({
 const QuoteLineItemRow = memo(function QuoteLineItemRow({
   line,
   rowIndex,
+  rowCount,
   isFirst,
   isLast,
+  isDragging,
+  dropEdge,
+  dragHandlers,
   onUpdateLine,
   onRemoveLine,
   onMoveLine,
+  onMoveLineTo,
   onEditCustomStructure,
   onCellKeyDown,
 }: QuoteLineItemRowProps) {
+  const rowProps = {
+    className: `${tableRowClassName} ${rowDragClassName(isDragging, dropEdge)}`,
+    onDragOver: (event: DragEvent<HTMLElement>) =>
+      dragHandlers.onRowDragOver(event, rowIndex),
+    onDrop: (event: DragEvent<HTMLElement>) =>
+      dragHandlers.onRowDrop(event, rowIndex),
+  };
+
   if (isCategoryLineItem(line.type)) {
     return (
-      <tr className={tableRowClassName}>
-        <td className={tableRowNumberCellClassName}>{line.lineNumber}</td>
+      <tr {...rowProps}>
+        <DragHandleCell
+          line={line}
+          rowIndex={rowIndex}
+          dragHandlers={dragHandlers}
+        />
+        <LineNumberCell
+          line={line}
+          rowCount={rowCount}
+          onMoveLineTo={onMoveLineTo}
+        />
         <td className={tableCellClassName}>
           <StatusBadge label={line.typeLabel} variant="neutral" />
         </td>
@@ -255,8 +408,17 @@ const QuoteLineItemRow = memo(function QuoteLineItemRow({
   }
 
   return (
-    <tr className={tableRowClassName}>
-      <td className={tableRowNumberCellClassName}>{line.lineNumber}</td>
+    <tr {...rowProps}>
+      <DragHandleCell
+        line={line}
+        rowIndex={rowIndex}
+        dragHandlers={dragHandlers}
+      />
+      <LineNumberCell
+        line={line}
+        rowCount={rowCount}
+        onMoveLineTo={onMoveLineTo}
+      />
       <td className={tableCellClassName}>
         <StatusBadge label={line.typeLabel} variant="neutral" />
       </td>
@@ -383,11 +545,94 @@ export const QuoteLineItemsTable = memo(function QuoteLineItemsTable({
   onUpdateLine,
   onRemoveLine,
   onMoveLine,
+  onMoveLineTo,
   onEditCustomStructure,
 }: QuoteLineItemsTableProps) {
   const tableRef = useRef<HTMLTableElement>(null);
   const rowCountRef = useRef(0);
   rowCountRef.current = lineItems.length;
+  const lineItemsRef = useRef(lineItems);
+  lineItemsRef.current = lineItems;
+  const onMoveLineToRef = useRef(onMoveLineTo);
+  onMoveLineToRef.current = onMoveLineTo;
+
+  // --- Drag-to-reorder ------------------------------------------------------
+  const [dragLineId, setDragLineId] = useState<string | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const dragInfoRef = useRef<{ id: string; index: number } | null>(null);
+
+  const clearDrag = useCallback(() => {
+    dragInfoRef.current = null;
+    setDragLineId(null);
+    setDropIndex(null);
+  }, []);
+
+  /** Insertion slot for a pointer over a row: above its top half, below its bottom half. */
+  const insertionIndexFor = (
+    event: DragEvent<HTMLElement>,
+    rowIndex: number,
+  ): number => {
+    const row = (event.currentTarget as HTMLElement).closest("tr");
+    if (!row) {
+      return rowIndex;
+    }
+    const rect = row.getBoundingClientRect();
+    return event.clientY - rect.top < rect.height / 2 ? rowIndex : rowIndex + 1;
+  };
+
+  const onHandleDragStart = useCallback(
+    (event: DragEvent<HTMLElement>, rowIndex: number, lineId: string) => {
+      dragInfoRef.current = { id: lineId, index: rowIndex };
+      setDragLineId(lineId);
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", lineId);
+      const row = (event.currentTarget as HTMLElement).closest("tr");
+      if (row) {
+        event.dataTransfer.setDragImage(row, 16, row.clientHeight / 2);
+      }
+    },
+    [],
+  );
+
+  const onRowDragOver = useCallback(
+    (event: DragEvent<HTMLElement>, rowIndex: number) => {
+      if (!dragInfoRef.current) {
+        return;
+      }
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      setDropIndex(insertionIndexFor(event, rowIndex));
+    },
+    [],
+  );
+
+  const onRowDrop = useCallback(
+    (event: DragEvent<HTMLElement>, rowIndex: number) => {
+      const drag = dragInfoRef.current;
+      if (!drag) {
+        return;
+      }
+      event.preventDefault();
+      const insertAt = insertionIndexFor(event, rowIndex);
+      // Removing the dragged row first shifts later slots up by one.
+      const target = insertAt > drag.index ? insertAt - 1 : insertAt;
+      onMoveLineToRef.current(drag.id, target);
+      clearDrag();
+    },
+    [clearDrag],
+  );
+
+  // Referentially stable so the memoized rows don't re-render on every
+  // table render (all four callbacks are themselves stable).
+  const dragHandlers = useMemo<RowDragHandlers>(
+    () => ({
+      onHandleDragStart,
+      onHandleDragEnd: clearDrag,
+      onRowDragOver,
+      onRowDrop,
+    }),
+    [onHandleDragStart, clearDrag, onRowDragOver, onRowDrop],
+  );
 
   // Excel-style navigation: Tab/Enter walk cells left-to-right wrapping across
   // rows, arrows move by row/column, skipping cells a row doesn't expose
@@ -412,6 +657,20 @@ export const QuoteLineItemsTable = memo(function QuoteLineItemsTable({
       const rowCount = rowCountRef.current;
       const target = event.currentTarget;
       const isTextarea = target instanceof HTMLTextAreaElement;
+
+      // Alt+Arrow moves the ROW itself (works from any cell, textarea too).
+      if (
+        event.altKey &&
+        (event.key === "ArrowUp" || event.key === "ArrowDown")
+      ) {
+        event.preventDefault();
+        const direction = event.key === "ArrowUp" ? -1 : 1;
+        const line = lineItemsRef.current[rowIndex];
+        if (line) {
+          onMoveLineToRef.current(line.id, rowIndex + direction);
+        }
+        return;
+      }
 
       // Enter keeps its newline behavior inside the description textarea.
       if (event.key === "Tab" || (event.key === "Enter" && !isTextarea)) {
@@ -502,6 +761,7 @@ export const QuoteLineItemsTable = memo(function QuoteLineItemsTable({
       <table ref={tableRef} className={tableClassName}>
         <thead>
           <tr>
+            <th className={`${tableHeaderCellClassName} w-6`} aria-label="Drag" />
             <th className={`${tableHeaderCellClassName} w-10 text-center`}>
               #
             </th>
@@ -531,27 +791,41 @@ export const QuoteLineItemsTable = memo(function QuoteLineItemsTable({
           {lineItems.length === 0 ? (
             <tr>
               <td
-                colSpan={11}
+                colSpan={12}
                 className={`${tableCellBordersClassName} px-3 py-6 text-center text-slate-500`}
               >
                 No line items yet. Use the buttons above to add items.
               </td>
             </tr>
           ) : (
-            lineItems.map((line, lineIndex) => (
-              <QuoteLineItemRow
-                key={line.id}
-                line={line}
-                rowIndex={lineIndex}
-                isFirst={lineIndex <= 0}
-                isLast={lineIndex >= lineItems.length - 1}
-                onUpdateLine={onUpdateLine}
-                onRemoveLine={onRemoveLine}
-                onMoveLine={onMoveLine}
-                onEditCustomStructure={onEditCustomStructure}
-                onCellKeyDown={handleCellKeyDown}
-              />
-            ))
+            lineItems.map((line, lineIndex) => {
+              const isLast = lineIndex >= lineItems.length - 1;
+              const dropEdge =
+                dropIndex === lineIndex
+                  ? ("top" as const)
+                  : isLast && dropIndex === lineItems.length
+                    ? ("bottom" as const)
+                    : null;
+              return (
+                <QuoteLineItemRow
+                  key={line.id}
+                  line={line}
+                  rowIndex={lineIndex}
+                  rowCount={lineItems.length}
+                  isFirst={lineIndex <= 0}
+                  isLast={isLast}
+                  isDragging={dragLineId === line.id}
+                  dropEdge={dropEdge}
+                  dragHandlers={dragHandlers}
+                  onUpdateLine={onUpdateLine}
+                  onRemoveLine={onRemoveLine}
+                  onMoveLine={onMoveLine}
+                  onMoveLineTo={onMoveLineTo}
+                  onEditCustomStructure={onEditCustomStructure}
+                  onCellKeyDown={handleCellKeyDown}
+                />
+              );
+            })
           )}
         </tbody>
       </table>

@@ -1556,6 +1556,24 @@ export function QuoteForm({
     });
   }, []);
 
+  /** Drag-drop / jump-to-position: place the line at an exact index. */
+  const moveLineItemToIndex = useCallback((id: string, targetIndex: number) => {
+    setLineItems((current) => {
+      const index = current.findIndex((line) => line.id === id);
+      if (index < 0) {
+        return current;
+      }
+      const clamped = Math.max(0, Math.min(current.length - 1, targetIndex));
+      if (clamped === index) {
+        return current;
+      }
+      const next = [...current];
+      const [moved] = next.splice(index, 1);
+      next.splice(clamped, 0, moved);
+      return renumberLineItems(next);
+    });
+  }, []);
+
   function handleServiceOptionChange(item: string) {
     setSelectedServiceItem(item);
     const service = serviceOptionsState.find((entry) => entry.item === item);
@@ -1836,6 +1854,7 @@ export function QuoteForm({
                 onUpdateLine={updateLineItem}
                 onRemoveLine={removeLineItem}
                 onMoveLine={moveLineItem}
+                onMoveLineTo={moveLineItemToIndex}
                 onEditCustomStructure={openEditCustomStructureLine}
               />
             </div>
