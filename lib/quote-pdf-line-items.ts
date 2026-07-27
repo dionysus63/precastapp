@@ -186,43 +186,13 @@ function suffixFitsMain(
   return height <= availableHeight(MAIN_TABLE_LAYOUT);
 }
 
-function packContinuationPages(
-  items: QuoteDrawLineItem[],
-  font: PDFFont,
-): QuoteLineItemPageSlice[] {
-  const pages: QuoteLineItemPageSlice[] = [];
-  let currentItems: QuoteDrawLineItem[] = [];
-  let usedHeight = 0;
-  const maxHeight = availableHeight(CONT_TABLE_LAYOUT);
-
-  for (const item of items) {
-    const rowHeight = measureRowHeight(item, font, CONT_TABLE_LAYOUT);
-
-    if (
-      currentItems.length > 0 &&
-      usedHeight + rowHeight > maxHeight
-    ) {
-      pages.push({ items: currentItems, isLastPage: false });
-      currentItems = [];
-      usedHeight = 0;
-    }
-
-    if (currentItems.length === 0 && rowHeight > maxHeight) {
-      pages.push({ items: [item], isLastPage: false });
-      continue;
-    }
-
-    currentItems.push(item);
-    usedHeight += rowHeight;
-  }
-
-  if (currentItems.length > 0) {
-    pages.push({ items: currentItems, isLastPage: false });
-  }
-
-  return pages;
-}
-
+/**
+ * Pages fill front-to-back: each continuation page packs full before the
+ * next page starts, and whatever remains lands on the totals (main) page.
+ * The totals page holds less than a continuation page, so the check is
+ * "do ALL remaining rows fit the main layout?" at each page boundary —
+ * never pulling rows off an earlier page just to fatten the last one.
+ */
 export function paginateQuoteLineItems(
   items: QuoteDrawLineItem[],
   font: PDFFont,
@@ -231,32 +201,43 @@ export function paginateQuoteLineItems(
     return [{ items: [], isLastPage: true }];
   }
 
-  const totalMainHeight = items.reduce(
-    (sum, item) => sum + measureRowHeight(item, font, MAIN_TABLE_LAYOUT),
-    0,
-  );
-  if (totalMainHeight <= availableHeight(MAIN_TABLE_LAYOUT)) {
-    return [{ items, isLastPage: true }];
-  }
+  const pages: QuoteLineItemPageSlice[] = [];
+  let index = 0;
 
-  // Earliest start whose tail fits the main page wins — it packs the most
-  // rows onto the totals page and spills the fewest onto continuations.
-  // (Every later start also fits, so continuing the scan would shrink the
-  // last page down to a single row.)
-  let lastPageStart = items.length;
-  for (let start = 0; start < items.length; start += 1) {
-    if (suffixFitsMain(items, start, font)) {
-      lastPageStart = start;
-      break;
+  for (;;) {
+    if (suffixFitsMain(items, index, font)) {
+      pages.push({ items: items.slice(index), isLastPage: true });
+      return pages;
+    }
+
+    // Fill one continuation page greedily.
+    const group: QuoteDrawLineItem[] = [];
+    let usedHeight = 0;
+    const maxHeight = availableHeight(CONT_TABLE_LAYOUT);
+    while (index < items.length) {
+      const rowHeight = measureRowHeight(items[index], font, CONT_TABLE_LAYOUT);
+      if (group.length > 0 && usedHeight + rowHeight > maxHeight) {
+        break;
+      }
+      group.push(items[index]);
+      usedHeight += rowHeight;
+      index += 1;
+    }
+
+    // A full continuation page can swallow a remainder that was too tall for
+    // the main layout; keep at least one row back so the totals page never
+    // prints without a single line item above it.
+    if (index >= items.length && group.length > 1) {
+      group.pop();
+      index -= 1;
+    }
+    pages.push({ items: group, isLastPage: false });
+
+    if (index >= items.length) {
+      pages.push({ items: [], isLastPage: true });
+      return pages;
     }
   }
-
-  const continuationItems = items.slice(0, lastPageStart);
-  const lastPageItems = items.slice(lastPageStart);
-  const pages = packContinuationPages(continuationItems, font);
-  pages.push({ items: lastPageItems, isLastPage: true });
-
-  return pages;
 }
 
 function drawTextAt(

@@ -32,18 +32,29 @@ describe("paginateQuoteLineItems", () => {
     expect(pages[0].items).toHaveLength(5);
   });
 
-  it("packs the last page full instead of spilling one row", () => {
-    // 26 two-line rows (the Holbrook quote shape): must be 2 pages, not 3.
+  it("fills earlier pages full; the remainder lands on the totals page", () => {
+    // 26 two-line rows (the Holbrook quote shape): page 1 packs the full 15
+    // a continuation holds, the remaining 11 fit with the totals — 2 pages.
     const items = Array.from({ length: 26 }, (_, i) => structureRow(i));
     const pages = paginateQuoteLineItems(items, mockFont);
 
     expect(pages).toHaveLength(2);
-    expect(pages[pages.length - 1].isLastPage).toBe(true);
-    // The totals page carries as many rows as fit — never a lone straggler
-    // while the previous page has free space.
-    expect(pages[pages.length - 1].items.length).toBeGreaterThan(1);
-    const totalRows = pages.reduce((sum, page) => sum + page.items.length, 0);
-    expect(totalRows).toBe(26);
+    expect(pages[0].isLastPage).toBe(false);
+    expect(pages[0].items).toHaveLength(15);
+    expect(pages[1].isLastPage).toBe(true);
+    expect(pages[1].items).toHaveLength(11);
+  });
+
+  it("never pulls rows off an earlier page to fatten the last one", () => {
+    // 29 rows: page 1 fills (15); the remaining 14 exceed the totals page's
+    // capacity (12), so page 2 fills next — holding one row back so the
+    // totals page never prints without a line item above it.
+    const items = Array.from({ length: 29 }, (_, i) => structureRow(i));
+    const pages = paginateQuoteLineItems(items, mockFont);
+
+    expect(pages.map((page) => page.items.length)).toEqual([15, 13, 1]);
+    expect(pages[1].isLastPage).toBe(false);
+    expect(pages[2].isLastPage).toBe(true);
   });
 
   it("still paginates very long quotes without losing rows", () => {
@@ -55,6 +66,10 @@ describe("paginateQuoteLineItems", () => {
     expect(
       pages.slice(0, -1).every((page) => !page.isLastPage),
     ).toBe(true);
-    expect(pages[pages.length - 1].items.length).toBeGreaterThan(1);
+    // Every continuation page except possibly the one before the totals page
+    // is packed full.
+    expect(
+      pages.slice(0, -2).every((page) => page.items.length === 15),
+    ).toBe(true);
   });
 });
