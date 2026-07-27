@@ -24,6 +24,7 @@ import {
   StandardFonts,
   rgb,
 } from "pdf-lib";
+import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import type { RectSheetPreviewMeta } from "@/components/drill-sheets/rect-sheet-preview";
 import {
   planOpeningSpanFraction,
@@ -2058,5 +2059,5 @@ export async function fillRectSheetTemplatePdf(
     drawPipeErrors(doc.getPage(0), result.pipeErrors, boldFont, calcEndY);
   }
 
-  return doc.save();
+  return doc.save(PDF_SAVE_OPTIONS);
 }

@@ -5,6 +5,7 @@ import {
   rgb,
   StandardFonts,
 } from "pdf-lib";
+import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import type { DrillSheetPreviewMeta } from "@/components/drill-sheets/drill-sheet-preview";
 import { type DrillSheetResult, formatPipeDescription } from "@/lib/drill-sheet";
 
@@ -283,5 +284,5 @@ export async function appendDrillSheetFillablePage(
     height: 60,
   });
 
-  return doc.save();
+  return doc.save(PDF_SAVE_OPTIONS);
 }

@@ -8,6 +8,7 @@ import {
   type PDFFont,
   type PDFForm,
 } from "pdf-lib";
+import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import {
   buildQuoteFormData,
   mapQuoteLineItemsForPdf,
@@ -215,7 +216,7 @@ async function buildQuotePageBytes(
   const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
   drawQuoteLineItemsOnPage(page, font, boldFont, slice);
 
-  return doc.save();
+  return doc.save(PDF_SAVE_OPTIONS);
 }
 
 export async function generateQuotePdfBytes(
@@ -252,5 +253,5 @@ export async function generateQuotePdfBytes(
     merged.addPage(copiedPage);
   }
 
-  return merged.save();
+  return merged.save(PDF_SAVE_OPTIONS);
 }

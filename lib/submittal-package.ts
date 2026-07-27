@@ -3,6 +3,7 @@ import os from "os";
 import path from "path";
 import { randomUUID } from "crypto";
 import { PDFDocument } from "pdf-lib";
+import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import { dedupeSharedPdfObjects } from "@/lib/pdf-dedupe";
 import type { PrismaClient } from "@/app/generated/prisma/client";
 import {
@@ -370,7 +371,7 @@ async function mergeSubmittalPdfBytes(input: {
   }
 
   dedupeSharedPdfObjects(merged);
-  const pdfBytes = await merged.save();
+  const pdfBytes = await merged.save(PDF_SAVE_OPTIONS);
   return { pdfBytes, missing: input.missing, skipped };
 }
 
@@ -523,7 +524,7 @@ export async function generateSubmittalPackageForQuote(
     }
 
     dedupeSharedPdfObjects(merged);
-    const pdfBytes = await merged.save();
+    const pdfBytes = await merged.save(PDF_SAVE_OPTIONS);
     await writeFile(outputPath, pdfBytes);
 
     if (quote.jobId && jobFolderPath) {

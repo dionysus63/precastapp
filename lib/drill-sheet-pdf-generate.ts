@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts } from "pdf-lib";
+import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import type { DrillSheetWithDetail } from "@/lib/drill-sheet-detail";
 import {
   buildDrillSheetDetail,
@@ -45,7 +46,7 @@ export async function flattenPdfForms(bytes: Uint8Array): Promise<Uint8Array> {
     }
   }
 
-  return doc.save();
+  return doc.save(PDF_SAVE_OPTIONS);
 }
 
 export type DrillSheetPdfSource = "template" | "generated";

@@ -16,6 +16,7 @@ import {
   rgb,
   StandardFonts,
 } from "pdf-lib";
+import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import type { DrillSheetPreviewMeta } from "@/components/drill-sheets/drill-sheet-preview";
 import { angleToClockPosition } from "@/lib/drill-sheet-diagram";
 import {
@@ -1046,7 +1047,7 @@ export async function fillDrillSheetTemplatePdf(
     drawNoKeyNote(riserCircle, planCircle, result, font);
   }
 
-  return doc.save();
+  return doc.save(PDF_SAVE_OPTIONS);
 }
 
 type TemplateFontKey = "calibri" | "arial" | "helvetica";

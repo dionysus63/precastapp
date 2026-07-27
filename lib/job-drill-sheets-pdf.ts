@@ -4,6 +4,7 @@
 // one bad structure never blocks the rest of the packet.
 
 import { PDFDocument } from "pdf-lib";
+import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import {
   buildDrillSheetDetail,
   drillSheetDetailInclude,
@@ -148,7 +149,7 @@ export async function buildJobDrillSheetsPdfBytes(
   dedupeSharedPdfObjects(merged);
   return {
     ok: true,
-    bytes: await merged.save(),
+    bytes: await merged.save(PDF_SAVE_OPTIONS),
     jobNumber: job.jobNumber,
     jobFolderPath: job.folderPath ?? null,
     included,

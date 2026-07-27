@@ -7,6 +7,7 @@ import {
   rgb,
   degrees,
 } from "pdf-lib";
+import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import { getAppSettings } from "@/lib/app-settings";
 import { dedupeSharedPdfObjects } from "@/lib/pdf-dedupe";
 import { prisma } from "@/lib/prisma";
@@ -105,7 +106,7 @@ export async function ensureInvoiceTemplateExists(): Promise<void> {
     color: rgb(0, 0, 0),
   });
 
-  const bytes = await doc.save();
+  const bytes = await doc.save(PDF_SAVE_OPTIONS);
   await writeFile(getInvoiceTemplatePath(), bytes);
 }
 
@@ -184,7 +185,7 @@ async function buildInvoicePageBytes(
     drawDraftWatermark(page, boldFont);
   }
 
-  return doc.save();
+  return doc.save(PDF_SAVE_OPTIONS);
 }
 
 export async function generateInvoicePdfBytes(
@@ -253,7 +254,7 @@ export async function generateInvoicePdfBytes(
     merged.addPage(copied);
   }
 
-  return merged.save();
+  return merged.save(PDF_SAVE_OPTIONS);
 }
 
 export async function generateDraftInvoicesBatchPdfBytes(
@@ -285,5 +286,5 @@ export async function generateDraftInvoicesBatchPdfBytes(
   // Every invoice page carries a copy of the template's header artwork and
   // fonts; collapse the shared resources like the drill-sheet packet does.
   dedupeSharedPdfObjects(merged);
-  return merged.save();
+  return merged.save(PDF_SAVE_OPTIONS);
 }

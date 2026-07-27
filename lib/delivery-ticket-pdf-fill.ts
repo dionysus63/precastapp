@@ -9,6 +9,7 @@ import {
   type PDFForm,
   type PDFPage,
 } from "pdf-lib";
+import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import {
   buildDeliveryTicketFormData,
   computeTotalPieces,
@@ -165,14 +166,14 @@ async function buildContentPageBytes(
     applyPickupTicketArtwork(page, boldFont, font);
     fillAcroFormFields(doc, formData, font);
     drawLineItemsOnPage(page, font, slice, totalPieces, PICKUP_TABLE_LAYOUT);
-    return doc.save();
+    return doc.save(PDF_SAVE_OPTIONS);
   }
 
   fillAcroFormFields(doc, formData, font);
   redrawDriverLabel(page, boldFont);
   drawLineItemsOnPage(page, font, slice, totalPieces);
 
-  return doc.save();
+  return doc.save(PDF_SAVE_OPTIONS);
 }
 
 function isPickupTicket(ticket: DbDeliveryTicketForPdf): boolean {
@@ -224,7 +225,7 @@ async function buildCopyPdfBytes(
     merged.addPage(copiedPage);
   }
 
-  return merged.save();
+  return merged.save(PDF_SAVE_OPTIONS);
 }
 
 export async function generateDeliveryTicketCopyPdfBytes(
@@ -261,5 +262,5 @@ export async function generateDeliveryTicketPdfBytes(
     }
   }
 
-  return merged.save();
+  return merged.save(PDF_SAVE_OPTIONS);
 }
