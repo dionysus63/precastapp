@@ -239,10 +239,15 @@ export function paginateQuoteLineItems(
     return [{ items, isLastPage: true }];
   }
 
+  // Earliest start whose tail fits the main page wins — it packs the most
+  // rows onto the totals page and spills the fewest onto continuations.
+  // (Every later start also fits, so continuing the scan would shrink the
+  // last page down to a single row.)
   let lastPageStart = items.length;
   for (let start = 0; start < items.length; start += 1) {
     if (suffixFitsMain(items, start, font)) {
       lastPageStart = start;
+      break;
     }
   }
 

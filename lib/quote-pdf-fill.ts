@@ -4,6 +4,7 @@ import {
   PDFDocument,
   PDFTextField,
   StandardFonts,
+  TextAlignment,
   type PDFFont,
   type PDFForm,
 } from "pdf-lib";
@@ -185,6 +186,13 @@ function fillAcroFormFields(
     const maxLength = field.getMaxLength();
     if (maxLength !== undefined && value.length > maxLength) {
       field.setMaxLength(undefined);
+    }
+
+    // The meta strip (Date / Valid Until / …) is centered, but the
+    // continuation template shipped with M_Date left-aligned; normalize
+    // here instead of re-authoring the binary template.
+    if (name.startsWith("M_")) {
+      field.setAlignment(TextAlignment.Center);
     }
 
     field.setText(value);
