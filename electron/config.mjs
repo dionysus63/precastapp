@@ -8,7 +8,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function readJsonFile(filePath) {
   try {
-    const raw = fs.readFileSync(filePath, "utf8");
+    // Strip a UTF-8 BOM — PowerShell 5.1's Set-Content -Encoding UTF8 adds one
+    let raw = fs.readFileSync(filePath, "utf8");
+    if (raw.charCodeAt(0) === 0xfeff) {
+      raw = raw.slice(1);
+    }
     const parsed = JSON.parse(raw);
     if (typeof parsed.serverUrl === "string" && parsed.serverUrl.trim()) {
       return { serverUrl: parsed.serverUrl.trim() };

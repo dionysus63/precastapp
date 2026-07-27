@@ -22,7 +22,9 @@ if ($trimmed -notmatch "^https?://") {
 
 $configPath = Join-Path $repoRoot "electron\config.default.json"
 $config = @{ serverUrl = $trimmed } | ConvertTo-Json
-Set-Content -Path $configPath -Value $config -Encoding UTF8
+# WriteAllText writes UTF-8 without a BOM; Set-Content -Encoding UTF8 adds one,
+# which breaks JSON.parse in the Electron shell
+[System.IO.File]::WriteAllText($configPath, $config)
 
 Write-Host "Building Precast Ops Electron client" -ForegroundColor Cyan
 Write-Host "  Server URL: $trimmed"
