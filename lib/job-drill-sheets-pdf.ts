@@ -27,6 +27,10 @@ export type JobDrillSheetsPdfResult =
 
 export async function buildJobDrillSheetsPdfBytes(
   jobId: string,
+  options: {
+    /** Limit the packet to these structures (e.g. a table selection). */
+    structureIds?: string[];
+  } = {},
 ): Promise<JobDrillSheetsPdfResult> {
   const job = await withDatabaseRetry((prisma) =>
     prisma.job.findUnique({
@@ -41,7 +45,13 @@ export async function buildJobDrillSheetsPdfBytes(
   const rows = await withDatabaseRetry((prisma) =>
     prisma.jobStructure.findMany({
       // Placeholder structures without a calc row have no sheet yet.
-      where: { jobId, calc: { isNot: null } },
+      where: {
+        jobId,
+        calc: { isNot: null },
+        ...(options.structureIds?.length
+          ? { id: { in: options.structureIds } }
+          : {}),
+      },
       select: {
         id: true,
         structureNumber: true,
@@ -56,7 +66,12 @@ export async function buildJobDrillSheetsPdfBytes(
     }),
   );
   if (rows.length === 0) {
-    return { ok: false, error: "This job has no drill sheets yet." };
+    return {
+      ok: false,
+      error: options.structureIds?.length
+        ? "None of the selected structures have drill sheets."
+        : "This job has no drill sheets yet.",
+    };
   }
 
   const merged = await PDFDocument.create();

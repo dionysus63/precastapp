@@ -373,6 +373,63 @@ export async function bulkSetJobStructureStatuses(
   }
 }
 
+/**
+ * Deletes selected structures from a job. All-or-nothing: structures already
+ * on a delivery ticket block the whole delete (removing them would orphan the
+ * ticket lines), so nothing disappears half-way. Quote lines linked to a
+ * deleted structure stay on the quote but lose their structure link.
+ */
+export async function bulkDeleteJobStructures(
+  jobId: string,
+  structureIds: string[],
+) {
+  await requirePermission(AppPermission.STRUCTURES_MANAGE);
+  if (structureIds.length === 0) {
+    return { error: "Select at least one structure." };
+  }
+  try {
+    let deleted = 0;
+    await withDatabaseRetry(async (client) => {
+      const structures = await client.jobStructure.findMany({
+        where: { id: { in: structureIds }, jobId },
+        select: {
+          id: true,
+          structureNumber: true,
+          _count: { select: { deliveryTicketLineItems: true } },
+        },
+      });
+      if (structures.length !== structureIds.length) {
+        throw new Error("Some selected structures are no longer on this job.");
+      }
+      const onTickets = structures.filter(
+        (structure) => structure._count.deliveryTicketLineItems > 0,
+      );
+      if (onTickets.length > 0) {
+        throw new Error(
+          `On delivery tickets and cannot be deleted: ${onTickets
+            .map((structure) => structure.structureNumber ?? "(unnumbered)")
+            .join(", ")}. Deselect them and try again.`,
+        );
+      }
+      const result = await client.jobStructure.deleteMany({
+        where: { id: { in: structureIds }, jobId },
+      });
+      deleted = result.count;
+      revalidatePath("/production");
+      revalidatePath(`/jobs/${jobId}`);
+      revalidatePath("/drill-sheets");
+    });
+    return { success: true as const, deleted };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not delete the selected structures.",
+    };
+  }
+}
+
 export type DailyProductionSaveInput = {
   /** yyyy-mm-dd */
   productionDate: string;

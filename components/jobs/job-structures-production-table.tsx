@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { bulkSetJobStructureStatuses, type BulkStructureStatus } from "@/app/operations/actions";
+import {
+  bulkDeleteJobStructures,
+  bulkSetJobStructureStatuses,
+  type BulkStructureStatus,
+} from "@/app/operations/actions";
+import { printPdfUrl } from "@/lib/print-pdf-url";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { DrillSheetPdfLink } from "@/components/drill-sheets/drill-sheet-pdf-link";
 import { JobStructureSubmittalActions } from "@/components/jobs/job-structure-submittal-actions";
@@ -73,6 +78,45 @@ export function JobStructuresProductionTable({
     });
   }
 
+  const selectedRows = structures.filter((row) => selected.has(row.id));
+  const selectedSheetIds = selectedRows
+    .filter((row) => row.drillSheetId)
+    .map((row) => row.id);
+
+  function printSelectedSheets() {
+    setError(null);
+    printPdfUrl(
+      `/api/jobs/${jobId}/drill-sheets?structureIds=${selectedSheetIds.join(",")}`,
+    );
+  }
+
+  async function deleteSelected() {
+    setError(null);
+    const names = selectedRows
+      .map((row) => row.structureNumber || "(unnumbered)")
+      .join(", ");
+    const accepted = await confirm({
+      title: `Delete ${selected.size} structure${selected.size === 1 ? "" : "s"}?`,
+      message:
+        `Permanently deletes ${names} with their drill sheets, documents, and production history. ` +
+        "Linked quote lines stay on the quote but lose their structure link. " +
+        "Structures already on delivery tickets cannot be deleted.",
+      confirmLabel: "Delete",
+      cancelLabel: "Go back",
+    });
+    if (!accepted) {
+      return;
+    }
+    startTransition(async () => {
+      const result = await bulkDeleteJobStructures(jobId, [...selected]);
+      if ("error" in result && result.error) {
+        setError(result.error);
+        return;
+      }
+      reloadAfterAction();
+    });
+  }
+
   async function applyBulkStatus() {
     setError(null);
     const label =
@@ -137,6 +181,28 @@ export function JobStructuresProductionTable({
             className="rounded-md bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
           >
             {pending ? "Applying…" : "Apply"}
+          </button>
+          <span className="h-4 w-px bg-sky-200" aria-hidden />
+          <button
+            type="button"
+            disabled={pending || selectedSheetIds.length === 0}
+            onClick={printSelectedSheets}
+            title={
+              selectedSheetIds.length === 0
+                ? "None of the selected structures have drill sheets."
+                : undefined
+            }
+            className="rounded-md border border-sky-200 bg-white px-3 py-1 text-[11px] font-semibold text-sky-800 hover:bg-sky-100 disabled:opacity-50"
+          >
+            Print sheets ({selectedSheetIds.length})
+          </button>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => void deleteSelected()}
+            className="rounded-md border border-red-200 bg-white px-3 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+          >
+            {pending ? "Working…" : "Delete"}
           </button>
           {jobNotActive ? (
             <label className="ml-auto inline-flex items-center gap-1.5 text-[11px] font-medium text-sky-800">

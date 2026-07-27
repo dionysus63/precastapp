@@ -7,12 +7,17 @@ type RouteContext = {
   params: Promise<{ jobId: string }>;
 };
 
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
   try {
     await requirePermission(AppPermission.STRUCTURES_VIEW);
     const { jobId } = await context.params;
+    const structureIds = (new URL(request.url).searchParams.get("structureIds") ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean)
+      .slice(0, 500);
 
-    const built = await buildJobDrillSheetsPdfBytes(jobId);
+    const built = await buildJobDrillSheetsPdfBytes(jobId, { structureIds });
     if (!built.ok) {
       return new NextResponse(built.error, { status: 404 });
     }
