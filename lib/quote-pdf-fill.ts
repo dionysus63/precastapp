@@ -8,6 +8,7 @@ import {
   type PDFFont,
   type PDFForm,
 } from "pdf-lib";
+import { removeFlattenLeftovers } from "@/lib/pdf-flatten-cleanup";
 import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import {
   buildQuoteFormData,
@@ -201,6 +202,7 @@ function fillAcroFormFields(
 
   fitProjectAddressFields(form, font);
   form.flatten();
+  removeFlattenLeftovers(doc);
 }
 
 async function buildQuotePageBytes(

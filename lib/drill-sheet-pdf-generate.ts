@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts } from "pdf-lib";
+import { removeFlattenLeftovers } from "@/lib/pdf-flatten-cleanup";
 import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import type { DrillSheetWithDetail } from "@/lib/drill-sheet-detail";
 import {
@@ -36,6 +37,7 @@ export async function flattenPdfForms(bytes: Uint8Array): Promise<Uint8Array> {
     const font = await doc.embedFont(StandardFonts.Helvetica);
     form.updateFieldAppearances(font);
     form.flatten();
+    removeFlattenLeftovers(doc);
   } catch {
     for (const field of form.getFields()) {
       try {

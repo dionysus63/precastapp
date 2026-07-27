@@ -9,6 +9,7 @@ import {
   type PDFForm,
   type PDFPage,
 } from "pdf-lib";
+import { removeFlattenLeftovers } from "@/lib/pdf-flatten-cleanup";
 import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import {
   buildDeliveryTicketFormData,
@@ -121,6 +122,7 @@ function fillAcroFormFields(
 
   fitTermsField(form, font);
   form.flatten();
+  removeFlattenLeftovers(doc);
 }
 
 /**

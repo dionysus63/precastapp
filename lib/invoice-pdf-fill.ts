@@ -7,6 +7,7 @@ import {
   rgb,
   degrees,
 } from "pdf-lib";
+import { removeFlattenLeftovers } from "@/lib/pdf-flatten-cleanup";
 import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import { getAppSettings } from "@/lib/app-settings";
 import { dedupeSharedPdfObjects } from "@/lib/pdf-dedupe";
@@ -151,6 +152,7 @@ function fillAcroFormFields(
   }
 
   form.flatten();
+  removeFlattenLeftovers(doc);
 }
 
 function drawDraftWatermark(page: import("pdf-lib").PDFPage, font: import("pdf-lib").PDFFont) {
