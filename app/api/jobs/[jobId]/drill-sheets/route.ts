@@ -11,11 +11,14 @@ export async function GET(request: Request, context: RouteContext) {
   try {
     await requirePermission(AppPermission.STRUCTURES_VIEW);
     const { jobId } = await context.params;
-    const structureIds = (new URL(request.url).searchParams.get("structureIds") ?? "")
+    const url = new URL(request.url);
+    const structureIds = (url.searchParams.get("structureIds") ?? "")
       .split(",")
       .map((id) => id.trim())
       .filter(Boolean)
       .slice(0, 500);
+    // ?download=1 saves the packet as a file instead of viewing inline.
+    const asDownload = url.searchParams.get("download") === "1";
 
     const built = await buildJobDrillSheetsPdfBytes(jobId, { structureIds });
     if (!built.ok) {
@@ -24,7 +27,7 @@ export async function GET(request: Request, context: RouteContext) {
 
     const headers: Record<string, string> = {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="drill-sheets-${built.jobNumber}.pdf"`,
+      "Content-Disposition": `${asDownload ? "attachment" : "inline"}; filename="drill-sheets-${built.jobNumber}.pdf"`,
       "Cache-Control": "private, no-store",
       "X-Drill-Sheets-Included": String(built.included.length),
     };

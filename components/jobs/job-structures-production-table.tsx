@@ -90,6 +90,16 @@ export function JobStructuresProductionTable({
     );
   }
 
+  /** Download the selected sheets as one PDF (browser/shell save dialog). */
+  function saveSelectedSheets() {
+    setError(null);
+    const anchor = document.createElement("a");
+    anchor.href = `/api/jobs/${jobId}/drill-sheets?structureIds=${selectedSheetIds.join(",")}&download=1`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+  }
+
   async function deleteSelected() {
     setError(null);
     const names = selectedRows
@@ -195,6 +205,19 @@ export function JobStructuresProductionTable({
             className="rounded-md border border-sky-200 bg-white px-3 py-1 text-[11px] font-semibold text-sky-800 hover:bg-sky-100 disabled:opacity-50"
           >
             Print sheets ({selectedSheetIds.length})
+          </button>
+          <button
+            type="button"
+            disabled={pending || selectedSheetIds.length === 0}
+            onClick={saveSelectedSheets}
+            title={
+              selectedSheetIds.length === 0
+                ? "None of the selected structures have drill sheets."
+                : "Download the selected sheets as one PDF."
+            }
+            className="rounded-md border border-sky-200 bg-white px-3 py-1 text-[11px] font-semibold text-sky-800 hover:bg-sky-100 disabled:opacity-50"
+          >
+            Save sheets ({selectedSheetIds.length})
           </button>
           <button
             type="button"
