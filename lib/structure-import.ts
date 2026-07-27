@@ -187,7 +187,7 @@ export const STRUCTURE_IMPORT_TYPES: StructureImportTypeDefinition[] = [
   },
   {
     type: "rect-openings",
-    label: "Rect Opening Sizes",
+    label: "Rect Structure Openings",
     description:
       "Block-out openings for rectangular structures. Rows are matched by Material + Pipe Size and updated in place.",
     columns: [
@@ -204,7 +204,7 @@ export const STRUCTURE_IMPORT_TYPES: StructureImportTypeDefinition[] = [
   },
   {
     type: "pipe-openings",
-    label: "Pipe Opening Sizes",
+    label: "Round Structure Openings",
     description:
       "Cored/boot openings for circular structures. Rows are matched by Material + Pipe Size + Has Boot and updated in place.",
     columns: [

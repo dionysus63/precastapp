@@ -86,8 +86,8 @@ export function PipeOpeningSizesForm({
       <input type="hidden" name="payload" value={payloadJson} />
 
       <SectionCard
-        title="Pipe Opening Size Catalog"
-        description="Material/type + size + boot maps to hole diameter, pipe wall, boot model, and price per boot."
+        title="Round Structure Opening Catalog"
+        description="Material/type + size + boot maps to hole diameter, pipe wall, boot model, and price per boot. Pipe wall sets the pipe's outside: top-of-pipe on the sheet is invert + size + wall, and grouted holes must clear OD = size + 2 × wall."
         action={
           <button
             type="button"
@@ -107,7 +107,14 @@ export function PipeOpeningSizesForm({
                 <th className={tableHeaderCellClassName}>Size (in)</th>
                 <th className={tableHeaderCellClassName}>Boot?</th>
                 <th className={tableHeaderCellClassName}>Hole (in)</th>
-                <th className={tableHeaderCellClassName}>Pipe Wall (in)</th>
+                <th
+                  className={tableHeaderCellClassName}
+                  title={
+                    "Pipe wall thickness. Drives the top-of-pipe elevation on the sheet (invert + size + wall) and the joint clearance for grouted/cast-in holes (pipe OD = size + 2 × wall)."
+                  }
+                >
+                  Pipe Wall (in)
+                </th>
                 <th className={tableHeaderCellClassName}>Boot Model</th>
                 <th className={tableHeaderCellClassName}>Price/Boot</th>
                 <th className={tableHeaderCellClassName}></th>

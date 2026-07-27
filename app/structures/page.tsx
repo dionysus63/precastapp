@@ -29,20 +29,20 @@ export default async function StructuresPage() {
   return (
     <DashboardShell
       title="Structures"
-      subtitle="Structure templates and pipe opening size catalog for the Drill Sheet Workbook."
+      subtitle="Structure templates and per-shape opening catalogs for the Drill Sheet Workbook."
     >
       <div className="mb-4 flex flex-wrap justify-end gap-2">
         <Link
           href="/structures/pipe-openings"
           className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
         >
-          Pipe Opening Sizes ({pipeOpeningCount})
+          Round Structure Openings ({pipeOpeningCount})
         </Link>
         <Link
           href="/structures/rect-openings"
           className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
         >
-          Rect Opening Sizes ({rectOpeningCount})
+          Rect Structure Openings ({rectOpeningCount})
         </Link>
         <Link
           href="/structures/sheet-pdfs"

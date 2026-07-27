@@ -84,8 +84,8 @@ export function RectOpeningSizesForm({
       <input type="hidden" name="payload" value={payloadJson} />
 
       <SectionCard
-        title="Rectangular Opening Size Catalog"
-        description="Material/type + pipe size maps to the block-out opening width and height. Skewed pipes widen the opening manually on the sheet."
+        title="Rect Structure Opening Catalog"
+        description="Material/type + pipe size maps to the block-out opening width and height. Skewed pipes widen the opening manually on the sheet. Pipe wall sets the outside top of pipe (invert + size + wall) for wall-height checks."
         action={
           <button
             type="button"
@@ -105,7 +105,14 @@ export function RectOpeningSizesForm({
                 <th className={tableHeaderCellClassName}>Pipe Size (in)</th>
                 <th className={tableHeaderCellClassName}>Opening Width (in)</th>
                 <th className={tableHeaderCellClassName}>Opening Height (in)</th>
-                <th className={tableHeaderCellClassName}>Pipe Wall Thk (in)</th>
+                <th
+                  className={tableHeaderCellClassName}
+                  title={
+                    "Pipe wall thickness. Drives the outside top of pipe (invert + size + wall), used to check the pipe clears the wall height."
+                  }
+                >
+                  Pipe Wall Thk (in)
+                </th>
                 <th className={tableHeaderCellClassName}>Price/Opening</th>
                 <th className={tableHeaderCellClassName}></th>
               </tr>
