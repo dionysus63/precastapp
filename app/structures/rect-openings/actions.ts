@@ -13,7 +13,8 @@ type RectOpeningPayload = {
   openingWidthInches: number;
   openingHeightInches: number;
   pipeWallThicknessInches: number;
-  pricePerOpening: number | null;
+  /** "" = no price entry on the selected list. */
+  pricePerOpening: string;
 };
 
 function decimal(value: number): Prisma.Decimal {
@@ -55,12 +56,6 @@ function parseRectOpeningsPayload(formData: FormData): RectOpeningPayload[] {
       continue;
     }
 
-    const priceRaw = row.pricePerOpening;
-    const pricePerOpening =
-      priceRaw === null || priceRaw === undefined || priceRaw === ""
-        ? null
-        : Number(priceRaw);
-
     const wallRaw = Number(row.pipeWallThicknessInches);
     const pipeWallThicknessInches =
       Number.isFinite(wallRaw) && wallRaw > 0 ? wallRaw : 0;
@@ -71,10 +66,7 @@ function parseRectOpeningsPayload(formData: FormData): RectOpeningPayload[] {
       openingWidthInches,
       openingHeightInches,
       pipeWallThicknessInches,
-      pricePerOpening:
-        pricePerOpening != null && Number.isFinite(pricePerOpening)
-          ? pricePerOpening
-          : null,
+      pricePerOpening: String(row.pricePerOpening ?? "").trim(),
     });
   }
 
@@ -83,6 +75,7 @@ function parseRectOpeningsPayload(formData: FormData): RectOpeningPayload[] {
 
 export async function saveRectOpeningSizes(formData: FormData) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
+  const priceListId = String(formData.get("priceListId") ?? "").trim();
   const entries = parseRectOpeningsPayload(formData);
 
   const keys = new Set<string>();
@@ -96,27 +89,78 @@ export async function saveRectOpeningSizes(formData: FormData) {
     keys.add(key);
   }
 
+  const priceList = priceListId
+    ? await prisma.priceList.findUnique({ where: { id: priceListId } })
+    : null;
+  if (!priceList) {
+    throw new Error("Pick a price list before saving opening prices.");
+  }
+
+  // Upsert by material/size so catalog ids stay stable — price list entries
+  // reference rows by id and must survive a settings save.
   await prisma.$transaction(async (tx) => {
-    await tx.rectOpeningSize.deleteMany({});
-    if (entries.length > 0) {
-      await tx.rectOpeningSize.createMany({
-        data: entries.map((entry, index) => ({
-          pipeMaterial: entry.pipeMaterial,
-          pipeSizeInches: decimal(entry.pipeSizeInches),
-          openingWidthInches: decimal(entry.openingWidthInches),
-          openingHeightInches: decimal(entry.openingHeightInches),
-          pipeWallThicknessInches: decimal(entry.pipeWallThicknessInches),
-          pricePerOpening:
-            entry.pricePerOpening === null
-              ? null
-              : decimal(entry.pricePerOpening),
-          sortOrder: index,
-        })),
-      });
+    const existing = await tx.rectOpeningSize.findMany();
+    const existingByKey = new Map(
+      existing.map((row) => [
+        `${row.pipeMaterial.trim().toLowerCase()}|${Number(row.pipeSizeInches)}`,
+        row,
+      ]),
+    );
+
+    const keptIds = new Set<string>();
+    for (const [index, entry] of entries.entries()) {
+      const key = `${entry.pipeMaterial.toLowerCase()}|${entry.pipeSizeInches}`;
+      const data = {
+        pipeMaterial: entry.pipeMaterial,
+        openingWidthInches: decimal(entry.openingWidthInches),
+        openingHeightInches: decimal(entry.openingHeightInches),
+        pipeWallThicknessInches: decimal(entry.pipeWallThicknessInches),
+        sortOrder: index,
+      };
+      const current = existingByKey.get(key);
+      const saved = current
+        ? await tx.rectOpeningSize.update({ where: { id: current.id }, data })
+        : await tx.rectOpeningSize.create({
+            data: { ...data, pipeSizeInches: decimal(entry.pipeSizeInches) },
+          });
+      keptIds.add(saved.id);
+
+      if (entry.pricePerOpening !== "") {
+        const price = Number(entry.pricePerOpening);
+        if (!Number.isFinite(price) || price < 0) {
+          throw new Error(
+            `Price per opening for ${entry.pipeSizeInches}" ${entry.pipeMaterial} must be a non-negative number (or blank).`,
+          );
+        }
+        await tx.rectOpeningPriceListEntry.upsert({
+          where: {
+            priceListId_rectOpeningSizeId: {
+              priceListId,
+              rectOpeningSizeId: saved.id,
+            },
+          },
+          create: {
+            priceListId,
+            rectOpeningSizeId: saved.id,
+            pricePerOpening: decimal(price),
+          },
+          update: { pricePerOpening: decimal(price) },
+        });
+      } else {
+        await tx.rectOpeningPriceListEntry.deleteMany({
+          where: { priceListId, rectOpeningSizeId: saved.id },
+        });
+      }
     }
+
+    await tx.rectOpeningSize.deleteMany({
+      where: { id: { notIn: [...keptIds] } },
+    });
   });
 
   revalidatePath("/structures");
   revalidatePath("/structures/rect-openings");
-  redirect("/structures/rect-openings");
+  redirect(
+    `/structures/rect-openings?priceList=${encodeURIComponent(priceListId)}`,
+  );
 }

@@ -44,6 +44,10 @@ export type RectSheetTemplateOption = {
   minPricingHeightFeet: number;
   topSlabPrice: number;
   baseSlabPrice: number;
+  /** No price entry on any list — prices are 0 until settings are filled in. */
+  priceMissing?: boolean;
+  /** Prices came from the default list, not the requested one. */
+  priceUsedFallback?: boolean;
   defaultCastingProductId: string | null;
   defaultCastingHeightFeet: number | null;
   presetSizes: {
@@ -66,6 +70,8 @@ export type RectSheetOpeningSizeOption = {
   openingHeightInches: number;
   pipeWallThicknessInches: number | null;
   pricePerOpening: number | null;
+  /** Price came from the default list, not the requested one. */
+  priceUsedFallback?: boolean;
 };
 
 export type RectOpeningField = {

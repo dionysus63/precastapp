@@ -60,7 +60,7 @@ export default async function EditQuoteStructuresPage({
     castingOptions,
     pipeOpeningSizes,
     diameterConfigs,
-  } = await loadDrillSheetFormOptions();
+  } = await loadDrillSheetFormOptions(quote.priceListId);
 
   return (
     <DashboardShell

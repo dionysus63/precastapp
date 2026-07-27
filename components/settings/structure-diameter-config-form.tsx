@@ -25,6 +25,9 @@ export type DiameterConfigRow = {
 type StructureDiameterConfigFormProps = {
   action: (formData: FormData) => Promise<void>;
   defaultRows: DiameterConfigRow[];
+  /** Price columns read/write this list's entries; blank = no entry. */
+  priceListId: string;
+  priceListName: string;
 };
 
 function uid() {
@@ -65,6 +68,8 @@ function outsideDiameterLabel(row: DiameterConfigRow): string {
 export function StructureDiameterConfigForm({
   action,
   defaultRows,
+  priceListId,
+  priceListName,
 }: StructureDiameterConfigFormProps) {
   const [rows, setRows] = useState<DiameterConfigRow[]>(
     defaultRows.length > 0 ? defaultRows : [createRow()],
@@ -100,6 +105,7 @@ export function StructureDiameterConfigForm({
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="payload" value={payloadJson} />
+      <input type="hidden" name="priceListId" value={priceListId} />
 
       <div className="flex justify-end">
         <button
@@ -122,8 +128,18 @@ export function StructureDiameterConfigForm({
               <th className={tableHeaderCellClassName}>Max Base (ft)</th>
               <th className={tableHeaderCellClassName}>Max Riser (ft)</th>
               <th className={tableHeaderCellClassName}>Key Height (ft)</th>
-              <th className={tableHeaderCellClassName}>$/ft Wall</th>
-              <th className={tableHeaderCellClassName}>Base Price</th>
+              <th
+                className={tableHeaderCellClassName}
+                title={`Prices on the "${priceListName}" price list. Blank = no entry — quotes on this list fall back to the default list's price.`}
+              >
+                $/ft Wall ({priceListName})
+              </th>
+              <th
+                className={tableHeaderCellClassName}
+                title={`Prices on the "${priceListName}" price list. Blank = no entry — quotes on this list fall back to the default list's price.`}
+              >
+                Base Price ({priceListName})
+              </th>
               <th className={tableHeaderCellClassName}></th>
             </tr>
           </thead>
@@ -263,7 +279,7 @@ export function StructureDiameterConfigForm({
           type="submit"
           className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
         >
-          Save Molds
+          Save Molds ({priceListName} prices)
         </button>
       </div>
     </form>

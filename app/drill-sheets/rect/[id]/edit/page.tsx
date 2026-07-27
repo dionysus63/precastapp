@@ -8,6 +8,7 @@ import {
   rectSheetDetailInclude,
 } from "@/lib/rect-sheet-detail";
 import { prisma } from "@/lib/prisma";
+import { getPriceListIdForStructure } from "@/lib/structure-pricing";
 
 import { BackButton } from "@/components/dashboard/back-button";
 type EditRectSheetPageProps = {
@@ -24,7 +25,9 @@ export default async function EditRectSheetPage({
       where: { id },
       include: rectSheetDetailInclude,
     }),
-    loadRectSheetFormOptions(),
+    getPriceListIdForStructure(id).then((priceListId) =>
+      loadRectSheetFormOptions(priceListId),
+    ),
   ]);
 
   if (!sheet || sheet.structureTemplate?.shape !== "RECTANGULAR") {

@@ -7,6 +7,7 @@ import {
   drillSheetDetailInclude,
 } from "@/lib/drill-sheet-detail";
 import { loadDrillSheetFormOptions } from "@/lib/drill-sheet-options";
+import { getPriceListIdForStructure } from "@/lib/structure-pricing";
 import { prisma } from "@/lib/prisma";
 
 import { BackButton } from "@/components/dashboard/back-button";
@@ -33,7 +34,9 @@ export default async function EditDrillSheetPage({
       where: { id },
       include: drillSheetDetailInclude,
     }),
-    loadDrillSheetFormOptions(),
+    getPriceListIdForStructure(id).then((priceListId) =>
+      loadDrillSheetFormOptions(priceListId),
+    ),
   ]);
 
   if (!sheet || !sheet.calc) {

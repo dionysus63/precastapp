@@ -525,8 +525,8 @@
     "semantic_hash": ""
   },
   "app/settings/actions.ts": {
-    "mtime": 1785082806.8375545,
-    "ast_hash": "efc815e44a16881b712b3ba01004c448",
+    "mtime": 1785165389.3182402,
+    "ast_hash": "1b3dc5c3ea5588cf19235aba14cfd4b5",
     "semantic_hash": ""
   },
   "app/settings/billing/page.tsx": {
@@ -555,8 +555,8 @@
     "semantic_hash": ""
   },
   "app/settings/price-lists/[id]/page.tsx": {
-    "mtime": 1784150068.8679113,
-    "ast_hash": "e031285767f2d6b6f66f163caf4136d9",
+    "mtime": 1785165450.2646215,
+    "ast_hash": "e210530d27afaa61a1f5737900e5138b",
     "semantic_hash": ""
   },
   "app/settings/price-lists/page.tsx": {
@@ -1200,8 +1200,8 @@
     "semantic_hash": ""
   },
   "app/drill-sheets/[id]/edit/page.tsx": {
-    "mtime": 1784149912.7381203,
-    "ast_hash": "d0e6216734ff643be4e1f1e0a3d45b58",
+    "mtime": 1785165212.1457822,
+    "ast_hash": "85a16656a81372f1ff6ffeec91cc77c6",
     "semantic_hash": ""
   },
   "app/drill-sheets/[id]/page.tsx": {
@@ -1250,13 +1250,13 @@
     "semantic_hash": ""
   },
   "app/structures/[id]/page.tsx": {
-    "mtime": 1784299458.2115853,
-    "ast_hash": "d2cc77a5e99896affc661f7b30dd92b4",
+    "mtime": 1785165092.0218837,
+    "ast_hash": "5ec66b48e7b74aaab188bbcc73840bbd",
     "semantic_hash": ""
   },
   "app/structures/actions.ts": {
-    "mtime": 1784299489.175638,
-    "ast_hash": "64d7d973388355a4c8187ca16c0bd100",
+    "mtime": 1785165062.473834,
+    "ast_hash": "7edc30f2cca804e9d88b25a6089b8ea4",
     "semantic_hash": ""
   },
   "app/structures/page.tsx": {
@@ -1310,8 +1310,8 @@
     "semantic_hash": ""
   },
   "components/structures/structure-template-form.tsx": {
-    "mtime": 1784307296.7313743,
-    "ast_hash": "3d48993f4824a1339939a301b74f2860",
+    "mtime": 1785165137.4810088,
+    "ast_hash": "d3c601d7b1c2a2fcc86810a517e541d9",
     "semantic_hash": ""
   },
   "lib/app-settings-defaults.ts": {
@@ -1355,8 +1355,8 @@
     "semantic_hash": ""
   },
   "lib/drill-sheet-options.ts": {
-    "mtime": 1784317397.5740106,
-    "ast_hash": "80982be2c16377ee1fe560ae51f0b9ed",
+    "mtime": 1785164590.5570982,
+    "ast_hash": "32dba916a8bdf71dc2f047d3b76aac3c",
     "semantic_hash": ""
   },
   "lib/drill-sheet-pdf-html.ts": {
@@ -1370,8 +1370,8 @@
     "semantic_hash": ""
   },
   "lib/drill-sheet.ts": {
-    "mtime": 1784300864.8246884,
-    "ast_hash": "ccea138c3fdd45f6458ae35fb490bd28",
+    "mtime": 1785165702.310184,
+    "ast_hash": "a2cf81cf7300da0841ee2f5fe8ff37de",
     "semantic_hash": ""
   },
   "lib/file-upload-utils.ts": {
@@ -1845,8 +1845,8 @@
     "semantic_hash": ""
   },
   "app/quotes/[id]/edit/structures/page.tsx": {
-    "mtime": 1783287348.2372003,
-    "ast_hash": "07107472d88169a20789494dd208e5be",
+    "mtime": 1785165203.7705421,
+    "ast_hash": "8906dc5417dade28fb1214f7699d2164",
     "semantic_hash": ""
   },
   "app/quotes/new/structures/page.tsx": {
@@ -1855,23 +1855,23 @@
     "semantic_hash": ""
   },
   "app/settings/diameters/actions.ts": {
-    "mtime": 1784299202.8944094,
-    "ast_hash": "da78ccc5c2ee1aba7ce2d01c8ad40cd6",
+    "mtime": 1785164782.842426,
+    "ast_hash": "a698ce3103c23d7b058bb62ecd8dd299",
     "semantic_hash": ""
   },
   "app/settings/diameters/page.tsx": {
-    "mtime": 1784299261.528202,
-    "ast_hash": "c2b4789d7c42603073c3b519496b7c6a",
+    "mtime": 1785164800.2320578,
+    "ast_hash": "5e3f50853170d57cdbc08dbaeb0f68bf",
     "semantic_hash": ""
   },
   "app/structures/pipe-openings/actions.ts": {
-    "mtime": 1783287348.2152007,
-    "ast_hash": "e882e10f23f1f0d6e738c6e3edcedbf0",
+    "mtime": 1785164860.9236262,
+    "ast_hash": "d54c696fc2c4ff472c1205a3009f0434",
     "semantic_hash": ""
   },
   "app/structures/pipe-openings/page.tsx": {
-    "mtime": 1785159263.4160795,
-    "ast_hash": "27c6e49a4d04635ba361c061f52cab3b",
+    "mtime": 1785164926.1883657,
+    "ast_hash": "1b6b1adb25487eab9bf58f19834744da",
     "semantic_hash": ""
   },
   "components/auth/login-form.tsx": {
@@ -1900,18 +1900,18 @@
     "semantic_hash": ""
   },
   "components/quotes/structure-workbook/structure-workbook.tsx": {
-    "mtime": 1784322929.3476772,
-    "ast_hash": "9d9de7d19c9f879f79b3ef64fda8b2ba",
+    "mtime": 1785165677.3946269,
+    "ast_hash": "dbea4dc9a5ce1e8df737579a8ee96500",
     "semantic_hash": ""
   },
   "components/settings/structure-diameter-config-form.tsx": {
-    "mtime": 1784299250.2198615,
-    "ast_hash": "6922dbfe306f3e8cd3222116648896e6",
+    "mtime": 1785164818.8694463,
+    "ast_hash": "731d83a99aa173328334fe5a8c4ab78c",
     "semantic_hash": ""
   },
   "components/structures/pipe-opening-sizes-form.tsx": {
-    "mtime": 1785159289.0189662,
-    "ast_hash": "f179a0742ca1118879e4b2fdfd3f3b13",
+    "mtime": 1785164962.3827362,
+    "ast_hash": "06f2cad6800c9c8ca00c5e809ba3a9a6",
     "semantic_hash": ""
   },
   "electron/updater.mjs": {
@@ -2160,8 +2160,8 @@
     "semantic_hash": ""
   },
   "lib/drill-sheet-persistence.ts": {
-    "mtime": 1785101968.6687114,
-    "ast_hash": "6dcd81c1e6982ee7ac2c2aa038e66e4e",
+    "mtime": 1785164681.206644,
+    "ast_hash": "d4640a21dd08079ebd7d208fc237a5a6",
     "semantic_hash": ""
   },
   "components/drill-sheets/drill-sheet-pdf-link.tsx": {
@@ -2625,28 +2625,28 @@
     "semantic_hash": ""
   },
   "app/drill-sheets/rect/[id]/edit/page.tsx": {
-    "mtime": 1784149912.7371202,
-    "ast_hash": "c17295041544cd9f648feaba8250bcdc",
+    "mtime": 1785165221.1841404,
+    "ast_hash": "37c2ef2703cb8026ec9b6dec32be59a1",
     "semantic_hash": ""
   },
   "app/drill-sheets/rect/new/page.tsx": {
-    "mtime": 1784311384.0669267,
-    "ast_hash": "d43ae9df54c44be1930402c62056f702",
+    "mtime": 1785165281.42374,
+    "ast_hash": "258d6406ab7621e45f778e205e2b78b7",
     "semantic_hash": ""
   },
   "app/structures/rect-openings/actions.ts": {
-    "mtime": 1784317429.1677096,
-    "ast_hash": "fbaa8765a143ea5692615cd24a196114",
+    "mtime": 1785164892.729654,
+    "ast_hash": "431a2458611107e07b687b3f879d02b6",
     "semantic_hash": ""
   },
   "app/structures/rect-openings/page.tsx": {
-    "mtime": 1785159264.770536,
-    "ast_hash": "774b14e5eb9e218511aa9e9cd783db44",
+    "mtime": 1785164944.084974,
+    "ast_hash": "e74bdfbf6bb5a9bbcbd14ea51c0e6a4a",
     "semantic_hash": ""
   },
   "components/drill-sheets/rect-sheet-form.tsx": {
-    "mtime": 1785111095.2485354,
-    "ast_hash": "e2fbe89494d94b34556b979c8896f18e",
+    "mtime": 1785164610.4276156,
+    "ast_hash": "6f1abc90d2f4643de7d1d86fce3b2328",
     "semantic_hash": ""
   },
   "components/drill-sheets/rect-sheet-preview.tsx": {
@@ -2655,8 +2655,8 @@
     "semantic_hash": ""
   },
   "components/structures/rect-opening-sizes-form.tsx": {
-    "mtime": 1785159290.365451,
-    "ast_hash": "ecd0a126bbedd5c7c1db6b07d99bd0fc",
+    "mtime": 1785164979.921783,
+    "ast_hash": "9ab0e15791110775098821b2f4bb3f47",
     "semantic_hash": ""
   },
   "lib/rect-sheet-detail.ts": {
@@ -2670,8 +2670,8 @@
     "semantic_hash": ""
   },
   "lib/rect-sheet-persistence.ts": {
-    "mtime": 1785111050.871174,
-    "ast_hash": "6647090cbd725bb73bd432f2c7f27941",
+    "mtime": 1785164718.9459379,
+    "ast_hash": "c0d0b5b0455d41c1bb09f28abcd476e5",
     "semantic_hash": ""
   },
   "lib/rect-structure-diagram.ts": {
@@ -2805,8 +2805,8 @@
     "semantic_hash": ""
   },
   "app/quotes/[id]/edit/rect-structures/page.tsx": {
-    "mtime": 1784322886.6539674,
-    "ast_hash": "f8b22e3a366f6fbd60d595aadf9643ca",
+    "mtime": 1785165202.3660977,
+    "ast_hash": "14792f14970f409925993b36cca16c8d",
     "semantic_hash": ""
   },
   "app/quotes/new/rect-structures/page.tsx": {
@@ -2820,8 +2820,8 @@
     "semantic_hash": ""
   },
   "components/quotes/rect-structure-workbook/rect-structure-workbook.tsx": {
-    "mtime": 1784322875.0874307,
-    "ast_hash": "4d7acbfc39bef276602377fea702a909",
+    "mtime": 1785165721.977799,
+    "ast_hash": "979f3fb04ca84243cd4c51cd5f78db12",
     "semantic_hash": ""
   },
   "lib/quotes/rect-structure-workbook.ts": {
@@ -3060,8 +3060,8 @@
     "semantic_hash": ""
   },
   "app/quotes/[id]/complete-drill-sheets/page.tsx": {
-    "mtime": 1784150226.7891147,
-    "ast_hash": "7e74de7a6659361a77d93e387fcce4a3",
+    "mtime": 1785165260.902851,
+    "ast_hash": "2f4d4af0aea4bc00004c98a30f1efed8",
     "semantic_hash": ""
   },
   "components/quotes/rect-structure-workbook/complete-drill-sheets-client.tsx": {
@@ -3195,8 +3195,8 @@
     "semantic_hash": ""
   },
   "lib/structure-template-payload.ts": {
-    "mtime": 1784306201.2195337,
-    "ast_hash": "b4f54e73e4f436a463e7ab2c6f7caba5",
+    "mtime": 1785165039.4924495,
+    "ast_hash": "a3ffed9adcdd768ac2bee65ad1a49d2a",
     "semantic_hash": ""
   },
   "scripts/generate-invoice-templates.ts": {
@@ -3732,6 +3732,26 @@
   "tests/unit/rect-brick-target.test.ts": {
     "mtime": 1785111315.3541942,
     "ast_hash": "4e2b73bcc4ebf38d94584d89c356a600",
+    "semantic_hash": ""
+  },
+  "components/structures/price-list-switcher.tsx": {
+    "mtime": 1785164908.2549849,
+    "ast_hash": "2a7325d96ff152a717225d4fda73a3f1",
+    "semantic_hash": ""
+  },
+  "lib/structure-pricing.ts": {
+    "mtime": 1785165344.1907156,
+    "ast_hash": "c7e163432a3a8b93618c5264cc7bc334",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260727100000_structure_prices_per_price_list/migration.sql": {
+    "mtime": 1785164386.0314524,
+    "ast_hash": "4ad746ae3535deb4171058562e08314f",
+    "semantic_hash": ""
+  },
+  "tests/unit/structure-pricing.test.ts": {
+    "mtime": 1785164469.0310779,
+    "ast_hash": "580069236e04ffec40c8e6cbc8836b26",
     "semantic_hash": ""
   }
 }

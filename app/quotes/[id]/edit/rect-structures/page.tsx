@@ -54,7 +54,7 @@ export default async function EditQuoteRectStructuresPage({
 
   const formValues = mapQuoteToFormInitialValues(quote);
   const { templateOptions, castingOptions, openingSizes } =
-    await loadRectSheetFormOptions();
+    await loadRectSheetFormOptions(quote.priceListId);
 
   return (
     <DashboardShell

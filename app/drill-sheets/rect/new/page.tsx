@@ -36,7 +36,12 @@ async function loadPlaceholder(structureId: string | undefined) {
         structureTemplateId: true,
         updatedAt: true,
         quote: {
-          select: { id: true, customerName: true, projectName: true },
+          select: {
+            id: true,
+            customerName: true,
+            projectName: true,
+            priceListId: true,
+          },
         },
         quoteLineItems: {
           select: { structureConfigJson: true },
@@ -61,8 +66,9 @@ export default async function NewRectSheetPage({
   searchParams,
 }: NewRectSheetPageProps) {
   const { structureId, jobId } = await searchParams;
-  const [{ templateOptions, castingOptions, jobOptions, openingSizes }, placeholder] =
-    await Promise.all([loadRectSheetFormOptions(), loadPlaceholder(structureId)]);
+  const placeholder = await loadPlaceholder(structureId);
+  const { templateOptions, castingOptions, jobOptions, openingSizes } =
+    await loadRectSheetFormOptions(placeholder?.quote?.priceListId ?? null);
 
   const configJson = placeholder?.quoteLineItems[0]?.structureConfigJson ?? null;
   const rectConfig = placeholder ? parseRectStructureConfigJson(configJson) : null;

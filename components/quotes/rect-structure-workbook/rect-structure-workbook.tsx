@@ -350,6 +350,13 @@ export function RectStructureWorkbook({
     }
   }
 
+  /** Recompute every row's price from the current options (quote's list). */
+  function repriceAllRows() {
+    handleRowsChange(
+      rows.map((row) => computeRectWorkbookRow(row, options, workbookMode)),
+    );
+  }
+
   const effectiveReturnPath =
     readWorkbookSession(quoteId)?.returnPath ?? returnPath;
 
@@ -428,6 +435,15 @@ export function RectStructureWorkbook({
 
   return (
     <div className="space-y-4">
+      {templates.some((template) => template.priceUsedFallback) ||
+      openingSizes.some((entry) => entry.priceUsedFallback) ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+          Some template or opening prices are missing on this quote&apos;s
+          price list — the default list&apos;s prices are being used for
+          those. Fill them in on the template editor / Rect Structure
+          Openings.
+        </div>
+      ) : null}
       <RectDefaultsPanel
         defaults={defaults}
         templates={templates}
@@ -521,6 +537,14 @@ export function RectStructureWorkbook({
             className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
           >
             Remove empty rows
+          </button>
+          <button
+            type="button"
+            onClick={repriceAllRows}
+            title="Recompute every row's price from the quote's price list (use after changing the quote's list or updating template/opening prices)."
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Reprice from price list
           </button>
           <button
             type="button"

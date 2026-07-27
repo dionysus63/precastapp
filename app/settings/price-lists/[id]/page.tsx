@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SettingsShell } from "@/components/settings/settings-shell";
 import { SectionCard } from "@/components/dashboard/section-card";
@@ -11,6 +12,7 @@ import {
   getMissingProductsForPriceList,
   getPriceListCompleteness,
 } from "@/lib/price-list-service";
+import { getStructurePricingCompleteness } from "@/lib/structure-pricing";
 import { withDatabaseRetry } from "@/lib/prisma";
 
 import {
@@ -29,7 +31,8 @@ export default async function PriceListDetailPage({
 }: PriceListDetailPageProps) {
   const { id } = await params;
 
-  const [priceList, missingProducts, completeness] = await Promise.all([
+  const [priceList, missingProducts, completeness, structureCompleteness] =
+    await Promise.all([
     withDatabaseRetry((prisma) =>
       prisma.priceList.findUnique({
         where: { id },
@@ -47,6 +50,7 @@ export default async function PriceListDetailPage({
     ),
     getMissingProductsForPriceList(id),
     getPriceListCompleteness(id),
+    getStructurePricingCompleteness(id),
   ]);
 
   if (!priceList) {
@@ -76,6 +80,30 @@ export default async function PriceListDetailPage({
           <span className="text-xs text-slate-500">
             {completeness.listedCount} of {completeness.totalActiveProducts}{" "}
             active products priced
+          </span>
+          <span className="text-xs text-slate-500">
+            · Structures: {structureCompleteness.molds.priced}/
+            {structureCompleteness.molds.total} molds,{" "}
+            {structureCompleteness.rectTemplates.priced}/
+            {structureCompleteness.rectTemplates.total} rect templates,{" "}
+            {structureCompleteness.pipeOpenings.priced}/
+            {structureCompleteness.pipeOpenings.total} boots,{" "}
+            {structureCompleteness.rectOpenings.priced}/
+            {structureCompleteness.rectOpenings.total} rect openings priced
+            {" — "}
+            <Link
+              href={`/settings/diameters?priceList=${priceList.id}`}
+              className="text-sky-600 hover:underline"
+            >
+              molds
+            </Link>
+            {", "}
+            <Link
+              href={`/structures/pipe-openings?priceList=${priceList.id}`}
+              className="text-sky-600 hover:underline"
+            >
+              openings
+            </Link>
           </span>
         </div>
 

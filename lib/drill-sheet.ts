@@ -24,6 +24,8 @@ export type PipeOpeningSizeEntry = {
   pipeWallThicknessInches: number;
   bootModel?: string | null;
   pricePerBoot?: number | null;
+  /** Price came from the default price list, not the requested one. */
+  priceUsedFallback?: boolean;
 };
 
 export type DiameterConfig = {
@@ -36,6 +38,10 @@ export type DiameterConfig = {
   /** Mold registry extras (display/enforcement; the calc doesn't use them). */
   label?: string | null;
   wallThicknessInches?: number | null;
+  /** No price entry on any list — prices are 0 until settings are filled in. */
+  priceMissing?: boolean;
+  /** Prices came from the default price list, not the requested one. */
+  priceUsedFallback?: boolean;
 };
 
 export type TemplateConfig = {

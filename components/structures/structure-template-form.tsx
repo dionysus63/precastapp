@@ -85,6 +85,9 @@ type StructureTemplateFormProps = {
   rectPdfSetOptions?: RectPdfSetOption[];
   /** Circular templates can only offer diameters with a registered mold. */
   moldOptions?: TemplateMoldOption[];
+  /** Rect wall/slab prices read and write this price list's entry. */
+  priceListId?: string | null;
+  priceListName?: string | null;
 };
 
 function uid() {
@@ -142,6 +145,8 @@ export function StructureTemplateForm({
   castingOptions,
   rectPdfSetOptions = [],
   moldOptions = [],
+  priceListId = null,
+  priceListName = null,
 }: StructureTemplateFormProps) {
   const initial = defaultValue ?? defaultFormValue;
   const [name, setName] = useState(initial.name);
@@ -265,6 +270,9 @@ export function StructureTemplateForm({
   return (
     <form action={action} className="space-y-3">
       <input type="hidden" name="payload" value={payloadJson} />
+      {priceListId ? (
+        <input type="hidden" name="priceListId" value={priceListId} />
+      ) : null}
       {expectedUpdatedAt ? (
         <input type="hidden" name="expectedUpdatedAt" value={expectedUpdatedAt} />
       ) : null}
@@ -570,6 +578,7 @@ export function StructureTemplateForm({
               <div>
                 <label className="block text-xs font-medium text-slate-700">
                   Wall Price per Vertical Foot ($)
+                  {priceListName ? ` — ${priceListName}` : ""}
                 </label>
                 <input
                   type="number"
@@ -597,7 +606,7 @@ export function StructureTemplateForm({
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-700">
-                  Top Slab Price ($)
+                  Top Slab Price ($){priceListName ? ` — ${priceListName}` : ""}
                 </label>
                 <input
                   type="number"
@@ -611,7 +620,7 @@ export function StructureTemplateForm({
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-700">
-                  Base Slab Price ($)
+                  Base Slab Price ($){priceListName ? ` — ${priceListName}` : ""}
                 </label>
                 <input
                   type="number"

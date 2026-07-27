@@ -258,22 +258,10 @@ export function buildNestedCreate(payload: TemplatePayload) {
     openingToJointMinBottomInches: decimal(
       payload.openingToJointMinBottomInches,
     ),
-    rectWallPricePerFoot:
-      payload.rectWallPricePerFoot === null
-        ? null
-        : decimal(payload.rectWallPricePerFoot),
     rectMinPricingHeightFeet:
       payload.rectMinPricingHeightFeet === null
         ? null
         : decimal(payload.rectMinPricingHeightFeet),
-    rectTopSlabPrice:
-      payload.rectTopSlabPrice === null
-        ? null
-        : decimal(payload.rectTopSlabPrice),
-    rectBaseSlabPrice:
-      payload.rectBaseSlabPrice === null
-        ? null
-        : decimal(payload.rectBaseSlabPrice),
     rectPdfSetId: payload.rectPdfSetId,
     status: payload.status,
     notes: payload.notes,
@@ -290,6 +278,32 @@ export function buildNestedCreate(payload: TemplatePayload) {
         sortOrder: index,
       })),
     },
+  };
+}
+
+/**
+ * The rect wall/slab prices from a template payload as a price-list entry,
+ * or null when the payload prices nothing (delete the list's entry).
+ */
+export function rectPriceEntryFromPayload(payload: TemplatePayload): {
+  wallPricePerFoot: Prisma.Decimal;
+  topSlabPrice: Prisma.Decimal;
+  baseSlabPrice: Prisma.Decimal;
+} | null {
+  if (payload.shape !== "RECTANGULAR") {
+    return null;
+  }
+  if (
+    payload.rectWallPricePerFoot === null &&
+    payload.rectTopSlabPrice === null &&
+    payload.rectBaseSlabPrice === null
+  ) {
+    return null;
+  }
+  return {
+    wallPricePerFoot: decimal(payload.rectWallPricePerFoot ?? 0),
+    topSlabPrice: decimal(payload.rectTopSlabPrice ?? 0),
+    baseSlabPrice: decimal(payload.rectBaseSlabPrice ?? 0),
   };
 }
 

@@ -30,6 +30,10 @@ import {
   copyPriceListItems,
   resolvePriceListIsDefault,
 } from "@/lib/price-list-service";
+import {
+  assertStructurePricingCompleteForDefault,
+  copyStructurePriceEntries,
+} from "@/lib/structure-pricing";
 
 export type SettingsActionResult = {
   error?: string;
@@ -124,10 +128,12 @@ export async function createPriceList(formData: FormData) {
 
         if (copyFromPriceListId) {
           await copyPriceListItems(created.id, copyFromPriceListId, tx);
+          await copyStructurePriceEntries(created.id, copyFromPriceListId, tx);
         }
 
         if (isDefault) {
           await assertPriceListCompleteForDefault(created.id, tx);
+          await assertStructurePricingCompleteForDefault(created.id, tx);
         }
       }),
     );
@@ -184,6 +190,7 @@ export async function updatePriceListSettings(
 
         if (isDefault && !current.isDefault) {
           await assertPriceListCompleteForDefault(id, tx);
+          await assertStructurePricingCompleteForDefault(id, tx);
           await tx.priceList.updateMany({
             data: { isDefault: false },
             where: { isDefault: true },

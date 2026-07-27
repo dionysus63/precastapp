@@ -10,8 +10,10 @@ import {
   assertPdfSetMatchesShape,
   buildNestedCreate,
   parseTemplateData,
+  rectPriceEntryFromPayload,
   type TemplatePayload,
 } from "@/lib/structure-template-payload";
+import { getDefaultPriceListId } from "@/lib/price-list-service";
 
 function parseTemplatePayload(formData: FormData): TemplatePayload {
   const raw = String(formData.get("payload") ?? "").trim();
@@ -68,15 +70,59 @@ async function assertDiametersHaveMolds(payload: TemplatePayload) {
   }
 }
 
+/** The list rect template prices save to: form's pick, else the default. */
+async function resolvePriceListIdForTemplateSave(
+  formData: FormData,
+): Promise<string | null> {
+  const requested = String(formData.get("priceListId") ?? "").trim();
+  if (requested) {
+    const list = await prisma.priceList.findUnique({
+      where: { id: requested },
+      select: { id: true },
+    });
+    if (list) {
+      return list.id;
+    }
+  }
+  return getDefaultPriceListId();
+}
+
+async function saveRectPriceEntry(
+  tx: Prisma.TransactionClient,
+  templateId: string,
+  payload: TemplatePayload,
+  priceListId: string | null,
+) {
+  if (payload.shape !== "RECTANGULAR" || !priceListId) {
+    return;
+  }
+  const entry = rectPriceEntryFromPayload(payload);
+  if (entry) {
+    await tx.rectTemplatePriceListEntry.upsert({
+      where: { priceListId_templateId: { priceListId, templateId } },
+      create: { priceListId, templateId, ...entry },
+      update: entry,
+    });
+  } else {
+    await tx.rectTemplatePriceListEntry.deleteMany({
+      where: { priceListId, templateId },
+    });
+  }
+}
+
 export async function createStructureTemplate(formData: FormData) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
   const payload = parseTemplatePayload(formData);
   await assertPdfSetMatchesShape(payload);
   await assertDiametersHaveMolds(payload);
+  const priceListId = await resolvePriceListIdForTemplateSave(formData);
 
   try {
-    await prisma.structureTemplate.create({
-      data: buildNestedCreate(payload),
+    await prisma.$transaction(async (tx) => {
+      const created = await tx.structureTemplate.create({
+        data: buildNestedCreate(payload),
+      });
+      await saveRectPriceEntry(tx, created.id, payload, priceListId);
     });
   } catch (error) {
     handlePrismaError(error);
@@ -94,6 +140,7 @@ export async function updateStructureTemplate(
   const payload = parseTemplatePayload(formData);
   await assertPdfSetMatchesShape(payload);
   await assertDiametersHaveMolds(payload);
+  const priceListId = await resolvePriceListIdForTemplateSave(formData);
   const expectedUpdatedAtRaw = String(
     formData.get("expectedUpdatedAt") ?? "",
   ).trim();
@@ -143,10 +190,7 @@ export async function updateStructureTemplate(
           sumpFixedInches: nested.sumpFixedInches,
           openingToJointMinTopInches: nested.openingToJointMinTopInches,
           openingToJointMinBottomInches: nested.openingToJointMinBottomInches,
-          rectWallPricePerFoot: nested.rectWallPricePerFoot,
           rectMinPricingHeightFeet: nested.rectMinPricingHeightFeet,
-          rectTopSlabPrice: nested.rectTopSlabPrice,
-          rectBaseSlabPrice: nested.rectBaseSlabPrice,
           rectPdfSetId: nested.rectPdfSetId,
           status: nested.status,
           notes: nested.notes,
@@ -154,6 +198,7 @@ export async function updateStructureTemplate(
           rectSizes: nested.rectSizes,
         },
       });
+      await saveRectPriceEntry(tx, templateId, payload, priceListId);
     });
   } catch (error) {
     handlePrismaError(error);

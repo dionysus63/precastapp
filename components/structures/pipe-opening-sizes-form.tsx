@@ -28,6 +28,9 @@ export type PipeOpeningRow = {
 type PipeOpeningSizesFormProps = {
   action: (formData: FormData) => Promise<void>;
   defaultRows: PipeOpeningRow[];
+  /** Price/Boot reads and writes this list's entries; blank = no entry. */
+  priceListId: string;
+  priceListName: string;
 };
 
 function uid() {
@@ -50,6 +53,8 @@ function createRow(): PipeOpeningRow {
 export function PipeOpeningSizesForm({
   action,
   defaultRows,
+  priceListId,
+  priceListName,
 }: PipeOpeningSizesFormProps) {
   const [rows, setRows] = useState<PipeOpeningRow[]>(
     defaultRows.length > 0 ? defaultRows : [createRow()],
@@ -84,6 +89,7 @@ export function PipeOpeningSizesForm({
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="payload" value={payloadJson} />
+      <input type="hidden" name="priceListId" value={priceListId} />
 
       <SectionCard
         title="Round Structure Opening Catalog"
@@ -116,7 +122,12 @@ export function PipeOpeningSizesForm({
                   Pipe Wall (in)
                 </th>
                 <th className={tableHeaderCellClassName}>Boot Model</th>
-                <th className={tableHeaderCellClassName}>Price/Boot</th>
+                <th
+                  className={tableHeaderCellClassName}
+                  title={`Prices on the "${priceListName}" price list. Blank = no entry — quotes on this list fall back to the default list's price.`}
+                >
+                  Price/Boot ({priceListName})
+                </th>
                 <th className={tableHeaderCellClassName}></th>
               </tr>
             </thead>

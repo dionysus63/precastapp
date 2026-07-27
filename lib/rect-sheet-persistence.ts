@@ -9,6 +9,10 @@ import {
 import type { RectQuoteStructureConfig } from "@/lib/quotes/rect-structure-workbook";
 import { decimal, parseNum } from "@/lib/drill-sheet-persistence";
 import { prisma } from "@/lib/prisma";
+import {
+  getPriceListIdForStructure,
+  loadStructurePricing,
+} from "@/lib/structure-pricing";
 
 export type RectOpeningPayload = {
   label: string;
@@ -159,12 +163,17 @@ export function parseRectSheetPayloadData(parsed: unknown): RectSheetPayload {
 /** Builds the pure-calc input from a payload plus DB template/catalog rows. */
 export async function loadAndComputeRectSheet(
   payload: RectSheetPayload,
+  options: {
+    /** Price from this list (default-list fallback); null = default list. */
+    priceListId?: string | null;
+  } = {},
 ): Promise<LoadedRectSheet> {
-  const [template, openingSizes] = await Promise.all([
+  const [template, openingSizes, pricing] = await Promise.all([
     prisma.structureTemplate.findUnique({
       where: { id: payload.templateId },
     }),
     prisma.rectOpeningSize.findMany({ orderBy: { sortOrder: "asc" } }),
+    loadStructurePricing(options.priceListId ?? null),
   ]);
 
   if (!template) {
@@ -212,21 +221,13 @@ export async function loadAndComputeRectSheet(
           ? Number(template.sumpFixedInches)
           : null,
       wallPricePerFoot:
-        template.rectWallPricePerFoot != null
-          ? Number(template.rectWallPricePerFoot)
-          : 0,
+        pricing.rectTemplates.get(template.id)?.wallPricePerFoot ?? 0,
       minPricingHeightFeet:
         template.rectMinPricingHeightFeet != null
           ? Number(template.rectMinPricingHeightFeet)
           : 0,
-      topSlabPrice:
-        template.rectTopSlabPrice != null
-          ? Number(template.rectTopSlabPrice)
-          : 0,
-      baseSlabPrice:
-        template.rectBaseSlabPrice != null
-          ? Number(template.rectBaseSlabPrice)
-          : 0,
+      topSlabPrice: pricing.rectTemplates.get(template.id)?.topSlabPrice ?? 0,
+      baseSlabPrice: pricing.rectTemplates.get(template.id)?.baseSlabPrice ?? 0,
     },
     openingSizes: openingSizes.map((entry) => ({
       pipeMaterial: entry.pipeMaterial,
@@ -237,8 +238,7 @@ export async function loadAndComputeRectSheet(
         Number(entry.pipeWallThicknessInches) > 0
           ? Number(entry.pipeWallThicknessInches)
           : null,
-      pricePerOpening:
-        entry.pricePerOpening != null ? Number(entry.pricePerOpening) : null,
+      pricePerOpening: pricing.rectOpenings.get(entry.id)?.price ?? null,
     })),
     openings: payload.openings.map((opening) => ({
       label: opening.label,
@@ -377,10 +377,16 @@ export function buildRectDimensionData(result: RectStructureResult) {
 
 export async function createRectJobStructureFromPayload(
   payload: RectSheetPayload,
-  options: { quoteId?: string | null; quantity?: number } = {},
+  options: {
+    quoteId?: string | null;
+    quantity?: number;
+    priceListId?: string | null;
+  } = {},
 ): Promise<string> {
-  const { template, casting, result, pricing } =
-    await loadAndComputeRectSheet(payload);
+  const { template, casting, result, pricing } = await loadAndComputeRectSheet(
+    payload,
+    { priceListId: options.priceListId ?? null },
+  );
 
   const sizeLabel =
     result.insideLengthFeet != null && result.insideWidthFeet != null
@@ -499,9 +505,20 @@ export async function createRectJobStructureFromQuoteConfig(
     return options.upgradeJobStructureId;
   }
 
+  // Price the new structure from the quote's list.
+  let priceListId: string | null = null;
+  if (options.quoteId) {
+    const quote = await prisma.quote.findUnique({
+      where: { id: options.quoteId },
+      select: { priceListId: true },
+    });
+    priceListId = quote?.priceListId ?? null;
+  }
+
   return createRectJobStructureFromPayload(payload, {
     quoteId: options.quoteId ?? null,
     quantity: options.quantity,
+    priceListId,
   });
 }
 
@@ -522,8 +539,11 @@ export async function updateRectJobStructureFromPayload(
     throw new Error("Sheet not found.");
   }
 
-  const { template, casting, result, pricing } =
-    await loadAndComputeRectSheet(payload);
+  const priceListId = await getPriceListIdForStructure(jobStructureId);
+  const { template, casting, result, pricing } = await loadAndComputeRectSheet(
+    payload,
+    { priceListId },
+  );
   const calcData = buildRectCalcData(payload, result, pricing);
   const dimensionData = buildRectDimensionData(result);
 

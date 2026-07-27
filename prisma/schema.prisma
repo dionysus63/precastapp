@@ -520,15 +520,10 @@ model StructureTemplate {
   sumpFixedInches             Decimal?                @db.Decimal(6, 2)
   openingToJointMinTopInches    Decimal               @default(4) @db.Decimal(6, 2)
   openingToJointMinBottomInches Decimal               @default(4) @db.Decimal(6, 2)
-  /// Rectangular templates: wall price per vertical foot of structure height.
-  rectWallPricePerFoot        Decimal?                @db.Decimal(12, 2)
   /// Rectangular templates: minimum billed height in feet (e.g. 4' minimum
-  /// wall pricing even when the structure is only 2' tall).
+  /// wall pricing even when the structure is only 2' tall). Wall/slab prices
+  /// live in RectTemplatePriceListEntry, per price list.
   rectMinPricingHeightFeet    Decimal?                @db.Decimal(6, 2)
-  /// Rectangular templates: top slab price, charged only when the sheet has one.
-  rectTopSlabPrice            Decimal?                @db.Decimal(12, 2)
-  /// Rectangular templates: base slab price, charged only when the sheet has one.
-  rectBaseSlabPrice           Decimal?                @db.Decimal(12, 2)
   /// Shared sheet-PDF set used by this rectangular template.
   rectPdfSetId                String?
   status                      StructureTemplateStatus @default(ACTIVE)
@@ -542,6 +537,7 @@ model StructureTemplate {
   rectSizes      StructureTemplateRectSize[]
   templatePdfs   StructureTemplatePdf[]
   jobStructures  JobStructure[]
+  rectPriceEntries RectTemplatePriceListEntry[]
 
   @@index([shape])
   @@index([status])
@@ -652,10 +648,11 @@ model PipeOpeningSize {
   /// Pipe wall thickness (inches); pipe OD = size + 2 × wall thickness.
   pipeWallThicknessInches Decimal  @default(0) @db.Decimal(6, 2)
   bootModel               String?
-  pricePerBoot            Decimal? @db.Decimal(12, 2)
   sortOrder               Int      @default(0)
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
+
+  priceEntries PipeOpeningPriceListEntry[]
 
   @@unique([pipeMaterial, pipeSizeInches, pipeType, hasBoot])
   @@index([pipeMaterial])
@@ -672,10 +669,11 @@ model RectOpeningSize {
   openingWidthInches      Decimal  @db.Decimal(6, 2)
   openingHeightInches     Decimal  @db.Decimal(6, 2)
   pipeWallThicknessInches Decimal  @default(0) @db.Decimal(6, 2)
-  pricePerOpening         Decimal? @db.Decimal(12, 2)
   sortOrder           Int      @default(0)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+
+  priceEntries RectOpeningPriceListEntry[]
 
   @@unique([pipeMaterial, pipeSizeInches])
   @@index([pipeMaterial])
@@ -695,11 +693,80 @@ model StructureDiameterConfig {
   maxBaseHeightFeet  Decimal  @db.Decimal(6, 2)
   maxRiserHeightFeet Decimal  @db.Decimal(6, 2)
   keyHeightFeet      Decimal  @db.Decimal(6, 4)
-  wallPricePerFoot   Decimal  @default(0) @db.Decimal(12, 2)
-  basePrice          Decimal  @default(0) @db.Decimal(12, 2)
   sortOrder          Int      @default(0)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+
+  priceEntries DiameterPriceListEntry[]
+}
+
+/// Per-price-list pricing for a circular mold. Geometry stays on the config;
+/// wall/base prices vary by list (missing entry falls back to the default list).
+model DiameterPriceListEntry {
+  id               String   @id @default(cuid())
+  priceListId      String
+  diameterConfigId String
+  wallPricePerFoot Decimal  @db.Decimal(12, 2)
+  basePrice        Decimal  @db.Decimal(12, 2)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  priceList      PriceList               @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  diameterConfig StructureDiameterConfig @relation(fields: [diameterConfigId], references: [id], onDelete: Cascade)
+
+  @@unique([priceListId, diameterConfigId])
+  @@index([diameterConfigId])
+}
+
+/// Per-price-list pricing for a rectangular template's walls and slabs.
+model RectTemplatePriceListEntry {
+  id               String   @id @default(cuid())
+  priceListId      String
+  templateId       String
+  wallPricePerFoot Decimal  @db.Decimal(12, 2)
+  topSlabPrice     Decimal  @db.Decimal(12, 2)
+  baseSlabPrice    Decimal  @db.Decimal(12, 2)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  priceList PriceList         @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  template  StructureTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([priceListId, templateId])
+  @@index([templateId])
+}
+
+/// Per-price-list boot price for a circular pipe opening catalog row.
+/// Rows without a boot price simply have no entry.
+model PipeOpeningPriceListEntry {
+  id                String   @id @default(cuid())
+  priceListId       String
+  pipeOpeningSizeId String
+  pricePerBoot      Decimal  @db.Decimal(12, 2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  priceList       PriceList       @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  pipeOpeningSize PipeOpeningSize @relation(fields: [pipeOpeningSizeId], references: [id], onDelete: Cascade)
+
+  @@unique([priceListId, pipeOpeningSizeId])
+  @@index([pipeOpeningSizeId])
+}
+
+/// Per-price-list price for a rectangular opening catalog row.
+model RectOpeningPriceListEntry {
+  id                String   @id @default(cuid())
+  priceListId       String
+  rectOpeningSizeId String
+  pricePerOpening   Decimal  @db.Decimal(12, 2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  priceList       PriceList       @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  rectOpeningSize RectOpeningSize @relation(fields: [rectOpeningSizeId], references: [id], onDelete: Cascade)
+
+  @@unique([priceListId, rectOpeningSizeId])
+  @@index([rectOpeningSizeId])
 }
 
 enum StructureType {
@@ -1671,6 +1738,10 @@ model PriceList {
   items           PriceListItem[]
   quotes          Quote[]
   deliveryTickets DeliveryTicket[]
+  diameterEntries     DiameterPriceListEntry[]
+  rectTemplateEntries RectTemplatePriceListEntry[]
+  pipeOpeningEntries  PipeOpeningPriceListEntry[]
+  rectOpeningEntries  RectOpeningPriceListEntry[]
 }
 
 model PriceListItem {

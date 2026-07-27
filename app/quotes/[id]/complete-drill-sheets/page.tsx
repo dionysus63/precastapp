@@ -26,7 +26,12 @@ export default async function CompleteDrillSheetsPage({
       withDatabaseRetry((prisma) =>
         prisma.quote.findUnique({
           where: { id },
-          select: { id: true, quoteNumber: true, jobId: true },
+          select: {
+            id: true,
+            quoteNumber: true,
+            jobId: true,
+            priceListId: true,
+          },
         }),
       ),
       withDatabaseRetry((prisma) =>
@@ -48,7 +53,12 @@ export default async function CompleteDrillSheetsPage({
           },
         }),
       ),
-      loadRectSheetFormOptions(),
+      withDatabaseRetry((prisma) =>
+        prisma.quote.findUnique({
+          where: { id },
+          select: { priceListId: true },
+        }),
+      ).then((row) => loadRectSheetFormOptions(row?.priceListId ?? null)),
     ]);
 
   if (!quote) {

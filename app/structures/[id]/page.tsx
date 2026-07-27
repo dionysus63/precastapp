@@ -10,11 +10,17 @@ import {
   updateStructureTemplate,
   loadCastingProductOptions,
 } from "@/app/structures/actions";
+import {
+  PriceListSwitcher,
+  pickSelectedPriceList,
+} from "@/components/structures/price-list-switcher";
 import { prisma } from "@/lib/prisma";
+import { listPriceListOptions } from "@/lib/price-list-service";
 
 import { BackButton } from "@/components/dashboard/back-button";
 type EditStructureTemplatePageProps = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ priceList?: string }>;
 };
 
 function decimalToString(value: { toString(): string } | null): string {
@@ -23,10 +29,12 @@ function decimalToString(value: { toString(): string } | null): string {
 
 export default async function EditStructureTemplatePage({
   params,
+  searchParams,
 }: EditStructureTemplatePageProps) {
   const { id } = await params;
+  const { priceList } = await searchParams;
 
-  const [template, castingOptions, pdfSets, molds] = await Promise.all([
+  const [template, castingOptions, pdfSets, molds, priceLists] = await Promise.all([
     prisma.structureTemplate.findUnique({
       where: { id },
       include: {
@@ -42,11 +50,24 @@ export default async function EditStructureTemplatePage({
     prisma.structureDiameterConfig.findMany({
       orderBy: { sortOrder: "asc" },
     }),
+    listPriceListOptions(),
   ]);
 
   if (!template) {
     notFound();
   }
+
+  const selectedPriceList = pickSelectedPriceList(priceLists, priceList);
+  const rectPriceEntry = selectedPriceList
+    ? await prisma.rectTemplatePriceListEntry.findUnique({
+        where: {
+          priceListId_templateId: {
+            priceListId: selectedPriceList.id,
+            templateId: template.id,
+          },
+        },
+      })
+    : null;
 
   const moldOptions = molds.map((mold) => ({
     label: mold.label,
@@ -77,10 +98,14 @@ export default async function EditStructureTemplatePage({
     openingToJointMinBottomInches: decimalToString(
       template.openingToJointMinBottomInches,
     ),
-    rectWallPricePerFoot: decimalToString(template.rectWallPricePerFoot),
+    rectWallPricePerFoot: rectPriceEntry
+      ? String(rectPriceEntry.wallPricePerFoot)
+      : "",
     rectMinPricingHeightFeet: decimalToString(template.rectMinPricingHeightFeet),
-    rectTopSlabPrice: decimalToString(template.rectTopSlabPrice),
-    rectBaseSlabPrice: decimalToString(template.rectBaseSlabPrice),
+    rectTopSlabPrice: rectPriceEntry ? String(rectPriceEntry.topSlabPrice) : "",
+    rectBaseSlabPrice: rectPriceEntry
+      ? String(rectPriceEntry.baseSlabPrice)
+      : "",
     rectPdfSetId: template.rectPdfSetId ?? "",
     status: template.status as "ACTIVE" | "INACTIVE",
     notes: template.notes ?? "",
@@ -102,13 +127,23 @@ export default async function EditStructureTemplatePage({
       title={`Edit ${template.name}`}
       subtitle="Update template configuration and offered diameters."
     >
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <BackButton href="/structures" label="Back to Structures" />
-        <DeleteStructureTemplateButton templateId={template.id} />
+        <div className="flex flex-wrap items-center gap-3">
+          {template.shape === "RECTANGULAR" ? (
+            <PriceListSwitcher
+              priceLists={priceLists}
+              selectedId={selectedPriceList?.id ?? null}
+              basePath={`/structures/${template.id}`}
+            />
+          ) : null}
+          <DeleteStructureTemplateButton templateId={template.id} />
+        </div>
       </div>
 
       <div className="mt-4">
         <StructureTemplateForm
+          key={selectedPriceList?.id ?? "no-list"}
           action={updateAction}
           cancelHref="/structures"
           submitLabel="Save Changes"
@@ -117,6 +152,8 @@ export default async function EditStructureTemplatePage({
           castingOptions={castingOptions}
           rectPdfSetOptions={pdfSets}
           moldOptions={moldOptions}
+          priceListId={selectedPriceList?.id ?? null}
+          priceListName={selectedPriceList?.name ?? null}
         />
       </div>
 

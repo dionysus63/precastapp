@@ -452,6 +452,13 @@ export function StructureWorkbook({
     persistSession(rows, defaults, mode);
   };
 
+  /** Recompute every row's price from the current options (quote's list). */
+  const repriceAllRows = () => {
+    const committed = commitAllWorkbookRowPrices(rows, options, workbookMode);
+    setRows(committed);
+    persistSession(committed);
+  };
+
   const removeEmptyRows = () => {
     const next = rows.filter(
       (row) =>
@@ -552,6 +559,14 @@ export function StructureWorkbook({
 
   return (
     <div className="space-y-4">
+      {options.diameterConfigs.some((config) => config.priceUsedFallback) ||
+      options.pipeOpeningSizes.some((entry) => entry.priceUsedFallback) ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+          Some mold or boot prices are missing on this quote&apos;s price list
+          — the default list&apos;s prices are being used for those. Fill them
+          in under Settings → Structure Molds / Round Structure Openings.
+        </div>
+      ) : null}
       <StructureWorkbookDefaultsPanel
         defaults={defaults}
         options={options}
@@ -704,6 +719,14 @@ export function StructureWorkbook({
             className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
           >
             Remove empty rows
+          </button>
+          <button
+            type="button"
+            onClick={repriceAllRows}
+            title="Recompute every row's price from the quote's price list (use after changing the quote's list or updating mold/boot prices)."
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Reprice from price list
           </button>
           <button
             type="button"

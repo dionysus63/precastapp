@@ -13,8 +13,9 @@ type DiameterConfigPayload = {
   maxBaseHeightFeet: number;
   maxRiserHeightFeet: number;
   keyHeightFeet: number;
-  wallPricePerFoot: number;
-  basePrice: number;
+  /** "" = no price entry on the selected list (falls back to the default list). */
+  wallPricePerFoot: string;
+  basePrice: string;
 };
 
 function decimal(value: number): Prisma.Decimal {
@@ -46,8 +47,6 @@ function parseDiameterConfigPayload(formData: FormData): DiameterConfigPayload[]
     const maxBaseHeightFeet = Number(row.maxBaseHeightFeet);
     const maxRiserHeightFeet = Number(row.maxRiserHeightFeet);
     const keyHeightFeet = Number(row.keyHeightFeet);
-    const wallPricePerFoot = Number(row.wallPricePerFoot ?? 0);
-    const basePrice = Number(row.basePrice ?? 0);
 
     if (
       !Number.isFinite(insideDiameterFeet) ||
@@ -78,16 +77,25 @@ function parseDiameterConfigPayload(formData: FormData): DiameterConfigPayload[]
       maxBaseHeightFeet,
       maxRiserHeightFeet,
       keyHeightFeet,
-      wallPricePerFoot: Number.isFinite(wallPricePerFoot) ? wallPricePerFoot : 0,
-      basePrice: Number.isFinite(basePrice) ? basePrice : 0,
+      wallPricePerFoot: String(row.wallPricePerFoot ?? "").trim(),
+      basePrice: String(row.basePrice ?? "").trim(),
     });
   }
 
   return result;
 }
 
+function parsePrice(raw: string, label: string): number {
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(`${label} must be a non-negative number (or blank).`);
+  }
+  return value;
+}
+
 export async function saveStructureDiameterConfigs(formData: FormData) {
   await requirePermission(AppPermission.SETTINGS_MANAGE);
+  const priceListId = String(formData.get("priceListId") ?? "").trim();
   const entries = parseDiameterConfigPayload(formData);
 
   const keys = new Set<number>();
@@ -98,29 +106,93 @@ export async function saveStructureDiameterConfigs(formData: FormData) {
     keys.add(entry.insideDiameterFeet);
   }
 
+  const priceList = priceListId
+    ? await prisma.priceList.findUnique({ where: { id: priceListId } })
+    : null;
+  if (!priceList) {
+    throw new Error("Pick a price list before saving mold prices.");
+  }
+
+  // Upsert by inside diameter so config ids stay stable — price list entries
+  // (and anything else referencing a mold) survive a settings save.
   await prisma.$transaction(async (tx) => {
-    await tx.structureDiameterConfig.deleteMany({});
-    if (entries.length > 0) {
-      await tx.structureDiameterConfig.createMany({
-        data: entries.map((entry, index) => ({
-          label: entry.label,
-          insideDiameterFeet: decimal(entry.insideDiameterFeet),
-          wallThicknessInches:
-            entry.wallThicknessInches != null
-              ? decimal(entry.wallThicknessInches)
-              : null,
-          maxBaseHeightFeet: decimal(entry.maxBaseHeightFeet),
-          maxRiserHeightFeet: decimal(entry.maxRiserHeightFeet),
-          keyHeightFeet: decimal(entry.keyHeightFeet),
-          wallPricePerFoot: decimal(entry.wallPricePerFoot),
-          basePrice: decimal(entry.basePrice),
-          sortOrder: index,
-        })),
-      });
+    const existing = await tx.structureDiameterConfig.findMany();
+    const existingByDiameter = new Map(
+      existing.map((config) => [Number(config.insideDiameterFeet), config]),
+    );
+
+    const keptIds = new Set<string>();
+    for (const [index, entry] of entries.entries()) {
+      const geometry = {
+        label: entry.label,
+        wallThicknessInches:
+          entry.wallThicknessInches != null
+            ? decimal(entry.wallThicknessInches)
+            : null,
+        maxBaseHeightFeet: decimal(entry.maxBaseHeightFeet),
+        maxRiserHeightFeet: decimal(entry.maxRiserHeightFeet),
+        keyHeightFeet: decimal(entry.keyHeightFeet),
+        sortOrder: index,
+      };
+      const current = existingByDiameter.get(entry.insideDiameterFeet);
+      const config = current
+        ? await tx.structureDiameterConfig.update({
+            where: { id: current.id },
+            data: geometry,
+          })
+        : await tx.structureDiameterConfig.create({
+            data: {
+              ...geometry,
+              insideDiameterFeet: decimal(entry.insideDiameterFeet),
+            },
+          });
+      keptIds.add(config.id);
+
+      const hasPrice =
+        entry.wallPricePerFoot !== "" || entry.basePrice !== "";
+      if (hasPrice) {
+        const wallPricePerFoot = parsePrice(
+          entry.wallPricePerFoot || "0",
+          `Wall $/ft for ${entry.insideDiameterFeet}'`,
+        );
+        const basePrice = parsePrice(
+          entry.basePrice || "0",
+          `Base price for ${entry.insideDiameterFeet}'`,
+        );
+        await tx.diameterPriceListEntry.upsert({
+          where: {
+            priceListId_diameterConfigId: {
+              priceListId,
+              diameterConfigId: config.id,
+            },
+          },
+          create: {
+            priceListId,
+            diameterConfigId: config.id,
+            wallPricePerFoot: decimal(wallPricePerFoot),
+            basePrice: decimal(basePrice),
+          },
+          update: {
+            wallPricePerFoot: decimal(wallPricePerFoot),
+            basePrice: decimal(basePrice),
+          },
+        });
+      } else {
+        await tx.diameterPriceListEntry.deleteMany({
+          where: { priceListId, diameterConfigId: config.id },
+        });
+      }
     }
+
+    // Molds removed from the grid go away entirely (their entries cascade).
+    await tx.structureDiameterConfig.deleteMany({
+      where: { id: { notIn: [...keptIds] } },
+    });
   });
 
   revalidatePath("/settings");
   revalidatePath("/settings/diameters");
-  redirect("/settings/diameters?success=1");
+  redirect(
+    `/settings/diameters?success=1&priceList=${encodeURIComponent(priceListId)}`,
+  );
 }

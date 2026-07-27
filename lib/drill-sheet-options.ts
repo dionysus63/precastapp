@@ -9,6 +9,7 @@ import type {
   RectSheetOpeningSizeOption,
 } from "@/components/drill-sheets/rect-sheet-form";
 import { prisma } from "@/lib/prisma";
+import { loadStructurePricing } from "@/lib/structure-pricing";
 
 export type DrillSheetFormOptions = {
   templateOptions: DrillSheetTemplateOption[];
@@ -23,6 +24,8 @@ export type DrillSheetFormOptions = {
     pipeWallThicknessInches: number;
     bootModel: string | null;
     pricePerBoot: number | null;
+    /** Price came from the default list, not the requested one. */
+    priceUsedFallback?: boolean;
   }[];
   diameterConfigs: {
     label: string | null;
@@ -33,11 +36,16 @@ export type DrillSheetFormOptions = {
     keyHeightFeet: number;
     wallPricePerFoot: number;
     basePrice: number;
+    /** No price entry on any list — priced at 0 until settings are filled in. */
+    priceMissing?: boolean;
+    priceUsedFallback?: boolean;
   }[];
 };
 
-export async function loadDrillSheetFormOptions(): Promise<DrillSheetFormOptions> {
-  const [templates, castings, jobs, pipeOpeningSizes, diameterConfigs] =
+export async function loadDrillSheetFormOptions(
+  priceListId: string | null = null,
+): Promise<DrillSheetFormOptions> {
+  const [templates, castings, jobs, pipeOpeningSizes, diameterConfigs, pricing] =
     await Promise.all([
       prisma.structureTemplate.findMany({
         where: { status: "ACTIVE", shape: "CIRCULAR" },
@@ -61,6 +69,7 @@ export async function loadDrillSheetFormOptions(): Promise<DrillSheetFormOptions
       }),
       prisma.pipeOpeningSize.findMany({ orderBy: { sortOrder: "asc" } }),
       prisma.structureDiameterConfig.findMany({ orderBy: { sortOrder: "asc" } }),
+      loadStructurePricing(priceListId),
     ]);
 
   const templateOptions: DrillSheetTemplateOption[] = templates.map(
@@ -104,30 +113,38 @@ export async function loadDrillSheetFormOptions(): Promise<DrillSheetFormOptions
       id: job.id,
       label: `${job.jobNumber} — ${job.projectName}`,
     })),
-    pipeOpeningSizes: pipeOpeningSizes.map((entry) => ({
-      pipeMaterial: entry.pipeMaterial,
-      pipeSizeInches: Number(entry.pipeSizeInches),
-      pipeType: entry.pipeType,
-      hasBoot: entry.hasBoot,
-      holeDiameterInches: Number(entry.holeDiameterInches),
-      pipeWallThicknessInches: Number(entry.pipeWallThicknessInches),
-      bootModel: entry.bootModel,
-      pricePerBoot:
-        entry.pricePerBoot != null ? Number(entry.pricePerBoot) : null,
-    })),
-    diameterConfigs: diameterConfigs.map((config) => ({
-      label: config.label,
-      insideDiameterFeet: Number(config.insideDiameterFeet),
-      wallThicknessInches:
-        config.wallThicknessInches != null
-          ? Number(config.wallThicknessInches)
-          : null,
-      maxBaseHeightFeet: Number(config.maxBaseHeightFeet),
-      maxRiserHeightFeet: Number(config.maxRiserHeightFeet),
-      keyHeightFeet: Number(config.keyHeightFeet),
-      wallPricePerFoot: Number(config.wallPricePerFoot),
-      basePrice: Number(config.basePrice),
-    })),
+    pipeOpeningSizes: pipeOpeningSizes.map((entry) => {
+      const price = pricing.pipeOpenings.get(entry.id);
+      return {
+        pipeMaterial: entry.pipeMaterial,
+        pipeSizeInches: Number(entry.pipeSizeInches),
+        pipeType: entry.pipeType,
+        hasBoot: entry.hasBoot,
+        holeDiameterInches: Number(entry.holeDiameterInches),
+        pipeWallThicknessInches: Number(entry.pipeWallThicknessInches),
+        bootModel: entry.bootModel,
+        pricePerBoot: price?.price ?? null,
+        priceUsedFallback: price?.usedFallback ?? false,
+      };
+    }),
+    diameterConfigs: diameterConfigs.map((config) => {
+      const price = pricing.diameters.get(config.id);
+      return {
+        label: config.label,
+        insideDiameterFeet: Number(config.insideDiameterFeet),
+        wallThicknessInches:
+          config.wallThicknessInches != null
+            ? Number(config.wallThicknessInches)
+            : null,
+        maxBaseHeightFeet: Number(config.maxBaseHeightFeet),
+        maxRiserHeightFeet: Number(config.maxRiserHeightFeet),
+        keyHeightFeet: Number(config.keyHeightFeet),
+        wallPricePerFoot: price?.wallPricePerFoot ?? 0,
+        basePrice: price?.basePrice ?? 0,
+        priceMissing: !price,
+        priceUsedFallback: price?.usedFallback ?? false,
+      };
+    }),
   };
 }
 
@@ -138,8 +155,10 @@ export type RectSheetFormOptions = {
   openingSizes: RectSheetOpeningSizeOption[];
 };
 
-export async function loadRectSheetFormOptions(): Promise<RectSheetFormOptions> {
-  const [templates, castings, jobs, openingSizes] = await Promise.all([
+export async function loadRectSheetFormOptions(
+  priceListId: string | null = null,
+): Promise<RectSheetFormOptions> {
+  const [templates, castings, jobs, openingSizes, pricing] = await Promise.all([
     prisma.structureTemplate.findMany({
       where: { status: "ACTIVE", shape: "RECTANGULAR" },
       orderBy: { name: "asc" },
@@ -165,48 +184,45 @@ export async function loadRectSheetFormOptions(): Promise<RectSheetFormOptions> 
       select: { id: true, jobNumber: true, projectName: true },
     }),
     prisma.rectOpeningSize.findMany({ orderBy: { sortOrder: "asc" } }),
+    loadStructurePricing(priceListId),
   ]);
 
   return {
-    templateOptions: templates.map((template) => ({
-      id: template.id,
-      name: template.name,
-      agencyStandard: template.agencyStandard,
-      wallThicknessInches: Number(template.wallThicknessInches),
-      baseSlabThicknessInches: Number(template.baseSlabThicknessInches),
-      topSlabThicknessInches: Number(template.topSlabThicknessInches),
-      minimumBrickInches: Number(template.minimumBrickInches),
-      sumpMode: template.sumpMode,
-      sumpFixedInches:
-        template.sumpFixedInches != null
-          ? Number(template.sumpFixedInches)
+    templateOptions: templates.map((template) => {
+      const price = pricing.rectTemplates.get(template.id);
+      return {
+        id: template.id,
+        name: template.name,
+        agencyStandard: template.agencyStandard,
+        wallThicknessInches: Number(template.wallThicknessInches),
+        baseSlabThicknessInches: Number(template.baseSlabThicknessInches),
+        topSlabThicknessInches: Number(template.topSlabThicknessInches),
+        minimumBrickInches: Number(template.minimumBrickInches),
+        sumpMode: template.sumpMode,
+        sumpFixedInches:
+          template.sumpFixedInches != null
+            ? Number(template.sumpFixedInches)
+            : null,
+        wallPricePerFoot: price?.wallPricePerFoot ?? 0,
+        minPricingHeightFeet:
+          template.rectMinPricingHeightFeet != null
+            ? Number(template.rectMinPricingHeightFeet)
+            : 0,
+        topSlabPrice: price?.topSlabPrice ?? 0,
+        baseSlabPrice: price?.baseSlabPrice ?? 0,
+        priceMissing: !price,
+        priceUsedFallback: price?.usedFallback ?? false,
+        defaultCastingProductId: template.castingProductId,
+        defaultCastingHeightFeet: template.castingProduct?.heightFeet
+          ? Number(template.castingProduct.heightFeet)
           : null,
-      wallPricePerFoot:
-        template.rectWallPricePerFoot != null
-          ? Number(template.rectWallPricePerFoot)
-          : 0,
-      minPricingHeightFeet:
-        template.rectMinPricingHeightFeet != null
-          ? Number(template.rectMinPricingHeightFeet)
-          : 0,
-      topSlabPrice:
-        template.rectTopSlabPrice != null
-          ? Number(template.rectTopSlabPrice)
-          : 0,
-      baseSlabPrice:
-        template.rectBaseSlabPrice != null
-          ? Number(template.rectBaseSlabPrice)
-          : 0,
-      defaultCastingProductId: template.castingProductId,
-      defaultCastingHeightFeet: template.castingProduct?.heightFeet
-        ? Number(template.castingProduct.heightFeet)
-        : null,
-      presetSizes: template.rectSizes.map((size) => ({
-        id: size.id,
-        insideLengthFeet: Number(size.insideLengthFeet),
-        insideWidthFeet: Number(size.insideWidthFeet),
-      })),
-    })),
+        presetSizes: template.rectSizes.map((size) => ({
+          id: size.id,
+          insideLengthFeet: Number(size.insideLengthFeet),
+          insideWidthFeet: Number(size.insideWidthFeet),
+        })),
+      };
+    }),
     castingOptions: castings.map((casting) => ({
       id: casting.id,
       name: casting.name,
@@ -216,17 +232,20 @@ export async function loadRectSheetFormOptions(): Promise<RectSheetFormOptions> 
       id: job.id,
       label: `${job.jobNumber} — ${job.projectName}`,
     })),
-    openingSizes: openingSizes.map((entry) => ({
-      pipeMaterial: entry.pipeMaterial,
-      pipeSizeInches: Number(entry.pipeSizeInches),
-      openingWidthInches: Number(entry.openingWidthInches),
-      openingHeightInches: Number(entry.openingHeightInches),
-      pipeWallThicknessInches:
-        Number(entry.pipeWallThicknessInches) > 0
-          ? Number(entry.pipeWallThicknessInches)
-          : null,
-      pricePerOpening:
-        entry.pricePerOpening != null ? Number(entry.pricePerOpening) : null,
-    })),
+    openingSizes: openingSizes.map((entry) => {
+      const price = pricing.rectOpenings.get(entry.id);
+      return {
+        pipeMaterial: entry.pipeMaterial,
+        pipeSizeInches: Number(entry.pipeSizeInches),
+        openingWidthInches: Number(entry.openingWidthInches),
+        openingHeightInches: Number(entry.openingHeightInches),
+        pipeWallThicknessInches:
+          Number(entry.pipeWallThicknessInches) > 0
+            ? Number(entry.pipeWallThicknessInches)
+            : null,
+        pricePerOpening: price?.price ?? null,
+        priceUsedFallback: price?.usedFallback ?? false,
+      };
+    }),
   };
 }

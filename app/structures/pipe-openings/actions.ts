@@ -14,7 +14,8 @@ type PipeOpeningPayload = {
   holeDiameterInches: number;
   pipeWallThicknessInches: number;
   bootModel: string | null;
-  pricePerBoot: number | null;
+  /** "" = no price entry on the selected list. */
+  pricePerBoot: string;
 };
 
 function decimal(value: number): Prisma.Decimal {
@@ -53,12 +54,6 @@ function parsePipeOpeningsPayload(formData: FormData): PipeOpeningPayload[] {
       continue;
     }
 
-    const priceRaw = row.pricePerBoot;
-    const pricePerBoot =
-      priceRaw === null || priceRaw === undefined || priceRaw === ""
-        ? null
-        : Number(priceRaw);
-
     const wallRaw = Number(row.pipeWallThicknessInches);
     const pipeWallThicknessInches =
       Number.isFinite(wallRaw) && wallRaw > 0 ? wallRaw : 0;
@@ -70,18 +65,25 @@ function parsePipeOpeningsPayload(formData: FormData): PipeOpeningPayload[] {
       holeDiameterInches,
       pipeWallThicknessInches,
       bootModel: String(row.bootModel ?? "").trim() || null,
-      pricePerBoot:
-        pricePerBoot != null && Number.isFinite(pricePerBoot)
-          ? pricePerBoot
-          : null,
+      pricePerBoot: String(row.pricePerBoot ?? "").trim(),
     });
   }
 
   return result;
 }
 
+/** Legacy rows keep material and type split; match on the combined string. */
+function combinedMaterial(row: { pipeMaterial: string; pipeType: string }) {
+  return [row.pipeMaterial, row.pipeType]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
 export async function savePipeOpeningSizes(formData: FormData) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
+  const priceListId = String(formData.get("priceListId") ?? "").trim();
   const entries = parsePipeOpeningsPayload(formData);
 
   const keys = new Set<string>();
@@ -95,30 +97,84 @@ export async function savePipeOpeningSizes(formData: FormData) {
     keys.add(key);
   }
 
+  const priceList = priceListId
+    ? await prisma.priceList.findUnique({ where: { id: priceListId } })
+    : null;
+  if (!priceList) {
+    throw new Error("Pick a price list before saving boot prices.");
+  }
+
+  // Upsert by material/size/boot so catalog ids stay stable — price list
+  // entries reference rows by id and must survive a settings save.
   await prisma.$transaction(async (tx) => {
-    await tx.pipeOpeningSize.deleteMany({});
-    if (entries.length > 0) {
-      await tx.pipeOpeningSize.createMany({
-        data: entries.map((entry, index) => ({
-          pipeMaterial: entry.pipeMaterial,
-          pipeSizeInches: decimal(entry.pipeSizeInches),
-          // Material and type are captured as one combined string now.
-          pipeType: "",
-          hasBoot: entry.hasBoot,
-          holeDiameterInches: decimal(entry.holeDiameterInches),
-          pipeWallThicknessInches: decimal(entry.pipeWallThicknessInches),
-          bootModel: entry.bootModel,
-          pricePerBoot:
-            entry.pricePerBoot === null
-              ? null
-              : decimal(entry.pricePerBoot),
-          sortOrder: index,
-        })),
-      });
+    const existing = await tx.pipeOpeningSize.findMany();
+    const existingByKey = new Map(
+      existing.map((row) => [
+        `${combinedMaterial(row)}|${Number(row.pipeSizeInches)}|${row.hasBoot}`,
+        row,
+      ]),
+    );
+
+    const keptIds = new Set<string>();
+    for (const [index, entry] of entries.entries()) {
+      const key = `${entry.pipeMaterial.toLowerCase()}|${entry.pipeSizeInches}|${entry.hasBoot}`;
+      const data = {
+        pipeMaterial: entry.pipeMaterial,
+        // Material and type are captured as one combined string now.
+        pipeType: "",
+        hasBoot: entry.hasBoot,
+        holeDiameterInches: decimal(entry.holeDiameterInches),
+        pipeWallThicknessInches: decimal(entry.pipeWallThicknessInches),
+        bootModel: entry.bootModel,
+        sortOrder: index,
+      };
+      const current = existingByKey.get(key);
+      const saved = current
+        ? await tx.pipeOpeningSize.update({
+            where: { id: current.id },
+            data,
+          })
+        : await tx.pipeOpeningSize.create({
+            data: { ...data, pipeSizeInches: decimal(entry.pipeSizeInches) },
+          });
+      keptIds.add(saved.id);
+
+      if (entry.pricePerBoot !== "") {
+        const price = Number(entry.pricePerBoot);
+        if (!Number.isFinite(price) || price < 0) {
+          throw new Error(
+            `Price per boot for ${entry.pipeSizeInches}" ${entry.pipeMaterial} must be a non-negative number (or blank).`,
+          );
+        }
+        await tx.pipeOpeningPriceListEntry.upsert({
+          where: {
+            priceListId_pipeOpeningSizeId: {
+              priceListId,
+              pipeOpeningSizeId: saved.id,
+            },
+          },
+          create: {
+            priceListId,
+            pipeOpeningSizeId: saved.id,
+            pricePerBoot: decimal(price),
+          },
+          update: { pricePerBoot: decimal(price) },
+        });
+      } else {
+        await tx.pipeOpeningPriceListEntry.deleteMany({
+          where: { priceListId, pipeOpeningSizeId: saved.id },
+        });
+      }
     }
+
+    await tx.pipeOpeningSize.deleteMany({
+      where: { id: { notIn: [...keptIds] } },
+    });
   });
 
   revalidatePath("/structures");
   revalidatePath("/structures/pipe-openings");
-  redirect("/structures/pipe-openings");
+  redirect(
+    `/structures/pipe-openings?priceList=${encodeURIComponent(priceListId)}`,
+  );
 }

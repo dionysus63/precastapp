@@ -6,6 +6,10 @@ import {
   type PipeConnectionType,
 } from "@/lib/drill-sheet";
 import { prisma } from "@/lib/prisma";
+import {
+  getPriceListIdForStructure,
+  loadStructurePricing,
+} from "@/lib/structure-pricing";
 import type { QuoteStructureConfig } from "@/lib/quotes/structure-workbook";
 
 export type OpeningPayload = {
@@ -133,17 +137,23 @@ export function parseDrillSheetPayloadData(parsed: unknown): DrillSheetPayload {
 
 export async function loadAndComputeDrillSheet(
   payload: DrillSheetPayload,
+  options: {
+    /** Price from this list (default-list fallback); null = default list. */
+    priceListId?: string | null;
+  } = {},
 ): Promise<LoadedDrillSheet> {
-  const [template, pipeOpeningSizes, diameterConfigs] = await Promise.all([
-    prisma.structureTemplate.findUnique({
-      where: { id: payload.templateId },
-      include: {
-        diameters: { where: { id: payload.diameterId } },
-      },
-    }),
-    prisma.pipeOpeningSize.findMany(),
-    prisma.structureDiameterConfig.findMany(),
-  ]);
+  const [template, pipeOpeningSizes, diameterConfigs, pricing] =
+    await Promise.all([
+      prisma.structureTemplate.findUnique({
+        where: { id: payload.templateId },
+        include: {
+          diameters: { where: { id: payload.diameterId } },
+        },
+      }),
+      prisma.pipeOpeningSize.findMany(),
+      prisma.structureDiameterConfig.findMany(),
+      loadStructurePricing(options.priceListId ?? null),
+    ]);
 
   if (!template) {
     throw new Error("Structure template not found.");
@@ -182,6 +192,10 @@ export async function loadAndComputeDrillSheet(
     }
   }
 
+  const diameterPricing = pricing.diameters.get(diameterConfig.id);
+  const wallPricePerFoot = diameterPricing?.wallPricePerFoot ?? 0;
+  const basePrice = diameterPricing?.basePrice ?? 0;
+
   const input: DrillSheetInput = {
     rimElevation: parseNum(payload.rimElevation),
     castingHeightFeet: casting?.heightFeet ?? 0,
@@ -190,8 +204,8 @@ export async function loadAndComputeDrillSheet(
       maxBaseHeightFeet: Number(diameterConfig.maxBaseHeightFeet),
       maxRiserHeightFeet: Number(diameterConfig.maxRiserHeightFeet),
       keyHeightFeet: Number(diameterConfig.keyHeightFeet),
-      wallPricePerFoot: Number(diameterConfig.wallPricePerFoot),
-      basePrice: Number(diameterConfig.basePrice),
+      wallPricePerFoot,
+      basePrice,
       wallThicknessInches:
         diameterConfig.wallThicknessInches != null
           ? Number(diameterConfig.wallThicknessInches)
@@ -221,8 +235,7 @@ export async function loadAndComputeDrillSheet(
       holeDiameterInches: Number(entry.holeDiameterInches),
       pipeWallThicknessInches: Number(entry.pipeWallThicknessInches),
       bootModel: entry.bootModel,
-      pricePerBoot:
-        entry.pricePerBoot != null ? Number(entry.pricePerBoot) : null,
+      pricePerBoot: pricing.pipeOpenings.get(entry.id)?.price ?? null,
     })),
     openings: payload.openings.map((opening) => ({
       label: opening.label,
@@ -239,8 +252,8 @@ export async function loadAndComputeDrillSheet(
   const wallHeight = new Prisma.Decimal(
     Number.isFinite(result.wallHeightFeet) ? String(result.wallHeightFeet) : "0",
   );
-  const wallPrice = diameterConfig.basePrice
-    .add(wallHeight.mul(diameterConfig.wallPricePerFoot))
+  const wallPrice = new Prisma.Decimal(String(basePrice))
+    .add(wallHeight.mul(new Prisma.Decimal(String(wallPricePerFoot))))
     .toDecimalPlaces(2);
   let bootsPrice = new Prisma.Decimal(0);
   for (const opening of result.openings) {
@@ -347,10 +360,12 @@ export function buildCastingCreate(casting: { id: string; name: string } | null)
 
 export async function createJobStructureFromPayload(
   payload: DrillSheetPayload,
-  options: CreateJobStructureOptions = {},
+  options: CreateJobStructureOptions & { priceListId?: string | null } = {},
 ): Promise<string> {
   const { template, insideDiameterFeet, casting, result, pricing } =
-    await loadAndComputeDrillSheet(payload);
+    await loadAndComputeDrillSheet(payload, {
+      priceListId: options.priceListId ?? null,
+    });
   const castingCreate = buildCastingCreate(casting);
 
   const created = await prisma.jobStructure.create({
@@ -398,8 +413,9 @@ export async function updateJobStructureFromPayload(
     throw new Error("Drill sheet not found.");
   }
 
+  const priceListId = await getPriceListIdForStructure(jobStructureId);
   const { template, insideDiameterFeet, casting, result, pricing } =
-    await loadAndComputeDrillSheet(payload);
+    await loadAndComputeDrillSheet(payload, { priceListId });
   const calcData = buildCalcData(payload, result, insideDiameterFeet, pricing);
   const castingCreate = buildCastingCreate(casting);
 
@@ -462,8 +478,9 @@ export async function upgradeJobStructureFromPayload(
     throw new Error("Structure to upgrade was not found.");
   }
 
+  const priceListId = await getPriceListIdForStructure(jobStructureId);
   const { template, insideDiameterFeet, casting, result, pricing } =
-    await loadAndComputeDrillSheet(payload);
+    await loadAndComputeDrillSheet(payload, { priceListId });
   const castingCreate = buildCastingCreate(casting);
   const calcData = buildCalcData(payload, result, insideDiameterFeet, pricing);
 
@@ -551,5 +568,15 @@ export async function createJobStructureFromQuoteConfig(
     return upgradeJobStructureFromPayload(options.upgradeJobStructureId, payload);
   }
 
-  return createJobStructureFromPayload(payload, options);
+  // Price the new structure from the quote's list.
+  let priceListId: string | null = null;
+  if (options.quoteId) {
+    const quote = await prisma.quote.findUnique({
+      where: { id: options.quoteId },
+      select: { priceListId: true },
+    });
+    priceListId = quote?.priceListId ?? null;
+  }
+
+  return createJobStructureFromPayload(payload, { ...options, priceListId });
 }

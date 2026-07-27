@@ -28,6 +28,9 @@ export type RectOpeningRow = {
 type RectOpeningSizesFormProps = {
   action: (formData: FormData) => Promise<void>;
   defaultRows: RectOpeningRow[];
+  /** Price/Opening reads and writes this list's entries; blank = no entry. */
+  priceListId: string;
+  priceListName: string;
 };
 
 function uid() {
@@ -49,6 +52,8 @@ function createRow(): RectOpeningRow {
 export function RectOpeningSizesForm({
   action,
   defaultRows,
+  priceListId,
+  priceListName,
 }: RectOpeningSizesFormProps) {
   const [rows, setRows] = useState<RectOpeningRow[]>(
     defaultRows.length > 0 ? defaultRows : [createRow()],
@@ -82,6 +87,7 @@ export function RectOpeningSizesForm({
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="payload" value={payloadJson} />
+      <input type="hidden" name="priceListId" value={priceListId} />
 
       <SectionCard
         title="Rect Structure Opening Catalog"
@@ -113,7 +119,12 @@ export function RectOpeningSizesForm({
                 >
                   Pipe Wall Thk (in)
                 </th>
-                <th className={tableHeaderCellClassName}>Price/Opening</th>
+                <th
+                  className={tableHeaderCellClassName}
+                  title={`Prices on the "${priceListName}" price list. Blank = no entry — quotes on this list fall back to the default list's price.`}
+                >
+                  Price/Opening ({priceListName})
+                </th>
                 <th className={tableHeaderCellClassName}></th>
               </tr>
             </thead>
