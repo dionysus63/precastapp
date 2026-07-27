@@ -99,6 +99,8 @@ export type RectSheetFormValues = {
   inspection: string;
   approvedBy: string;
   rimElevation: string;
+  /** Manual brick target in inches; "" = template minimum drives brick. */
+  brickTargetInches: string;
   insideLengthFeet: string;
   insideWidthFeet: string;
   hasTopSlab: boolean;
@@ -195,6 +197,9 @@ export function RectSheetForm({
   const [rimElevation, setRimElevation] = useState(
     defaultValues?.rimElevation ?? "",
   );
+  const [brickTargetInches, setBrickTargetInches] = useState(
+    defaultValues?.brickTargetInches ?? "",
+  );
   const [insideLengthFeet, setInsideLengthFeet] = useState(
     defaultValues?.insideLengthFeet ?? "",
   );
@@ -277,6 +282,7 @@ export function RectSheetForm({
     const input: RectStructureInput = {
       rimElevation: parseNum(rimElevation),
       castingHeightFeet: casting?.heightFeet ?? 0,
+      brickTargetInches: parseNum(brickTargetInches),
       insideLengthFeet: parseNum(effectiveLengthFeet),
       insideWidthFeet: parseNum(effectiveWidthFeet),
       hasTopSlab,
@@ -323,6 +329,7 @@ export function RectSheetForm({
     template,
     casting,
     rimElevation,
+    brickTargetInches,
     effectiveLengthFeet,
     effectiveWidthFeet,
     hasTopSlab,
@@ -349,6 +356,7 @@ export function RectSheetForm({
         inspection,
         approvedBy,
         rimElevation,
+        brickTargetInches,
         insideLengthFeet: effectiveLengthFeet,
         insideWidthFeet: effectiveWidthFeet,
         hasTopSlab,
@@ -382,6 +390,7 @@ export function RectSheetForm({
       inspection,
       approvedBy,
       rimElevation,
+      brickTargetInches,
       effectiveLengthFeet,
       effectiveWidthFeet,
       hasTopSlab,
@@ -588,6 +597,24 @@ export function RectSheetForm({
                   onChange={(e) => setRimElevation(e.target.value)}
                   className={structureInputClassName}
                 />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Brick (inches)
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={brickTargetInches}
+                  onChange={(e) => setBrickTargetInches(e.target.value)}
+                  className={structureInputClassName}
+                  placeholder="Auto"
+                />
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Walls drop to the 6&quot; pour leaving at least this much
+                  brick. Blank = template minimum.
+                </p>
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-700">

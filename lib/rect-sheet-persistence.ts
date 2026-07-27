@@ -33,6 +33,8 @@ export type RectSheetPayload = {
   inspection: string;
   approvedBy: string;
   rimElevation: string;
+  /** Manual brick target in inches; "" = template minimum drives brick. */
+  brickTargetInches: string;
   insideLengthFeet: string;
   insideWidthFeet: string;
   hasTopSlab: boolean;
@@ -135,6 +137,7 @@ export function parseRectSheetPayloadData(parsed: unknown): RectSheetPayload {
     inspection: String(data.inspection ?? "").trim(),
     approvedBy: String(data.approvedBy ?? "").trim(),
     rimElevation: String(data.rimElevation ?? "").trim(),
+    brickTargetInches: String(data.brickTargetInches ?? "").trim(),
     insideLengthFeet: String(data.insideLengthFeet ?? "").trim(),
     insideWidthFeet: String(data.insideWidthFeet ?? "").trim(),
     hasTopSlab: data.hasTopSlab === true,
@@ -192,6 +195,7 @@ export async function loadAndComputeRectSheet(
   const input: RectStructureInput = {
     rimElevation: parseNum(payload.rimElevation),
     castingHeightFeet: casting?.heightFeet ?? 0,
+    brickTargetInches: parseNum(payload.brickTargetInches),
     insideLengthFeet: parseNum(payload.insideLengthFeet),
     insideWidthFeet: parseNum(payload.insideWidthFeet),
     hasTopSlab: payload.hasTopSlab,
@@ -294,6 +298,9 @@ export function buildRectCalcData(
     sheetDate,
     inspection: payload.inspection || null,
     approvedBy: payload.approvedBy || null,
+    // Rect sheets reuse the circular brick-adjustment column for the manual
+    // brick target (inches) so the round-trip needs no schema change.
+    brickAdjustment: payload.brickTargetInches || null,
     rimElevation: decimal(result.rimElevation),
     lowestInvertFeet: decimal(result.lowInvertElevation),
     sumpFeet: decimal(result.sumpFeet),
@@ -445,6 +452,7 @@ export async function createRectJobStructureFromQuoteConfig(
     inspection: "",
     approvedBy: "",
     rimElevation: String(config.rimElevation),
+    brickTargetInches: "",
     insideLengthFeet: String(config.insideLengthFeet),
     insideWidthFeet: String(config.insideWidthFeet),
     hasTopSlab: config.hasTopSlab,

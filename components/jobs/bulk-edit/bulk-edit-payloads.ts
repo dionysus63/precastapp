@@ -49,6 +49,7 @@ export function rectPayloadFromValues(values: RectSheetFormValues): unknown {
     inspection: values.inspection,
     approvedBy: values.approvedBy,
     rimElevation: values.rimElevation,
+    brickTargetInches: values.brickTargetInches,
     insideLengthFeet: values.insideLengthFeet,
     insideWidthFeet: values.insideWidthFeet,
     hasTopSlab: values.hasTopSlab,

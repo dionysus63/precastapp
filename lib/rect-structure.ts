@@ -113,6 +113,11 @@ export type RectStructureInput = {
   template: RectTemplateConfig;
   openingSizes: RectOpeningSizeEntry[];
   openings: RectOpeningInput[];
+  /**
+   * Manual brick override in inches: walls drop to the tallest 6" increment
+   * leaving at least this much brick. Null = template minimum drives it.
+   */
+  brickTargetInches?: number | null;
   /** Manual section heights, bottom-to-top. Empty = single pour. */
   sectionHeightsFeet: number[];
   /** Key toggle for the joint above section i (length = sections - 1). */
@@ -692,12 +697,33 @@ export function computeRectStructure(
     rawAvailableFeet = round4(
       invertToTopFeet - castingHeightFeet - topSlabThicknessFeet + sumpFeet,
     );
-    const rounded = computeRectWallHeightFeet(
-      rawAvailableFeet,
-      template.minimumBrickInches,
-    );
-    wallHeightFeet = rounded.wallHeightFeet;
-    brickFeet = rounded.brickFeet;
+    const brickTargetFeet =
+      input.brickTargetInches != null && input.brickTargetInches >= 0
+        ? inchesToFeet(input.brickTargetInches)
+        : null;
+    if (brickTargetFeet != null) {
+      // round4 before dividing: rawAvailable is already 4-decimal rounded, so
+      // the raw difference can sit a hair under an exact 6" multiple.
+      wallHeightFeet = round4(
+        Math.max(
+          0,
+          Math.floor(round4(rawAvailableFeet - brickTargetFeet) / 0.5 + 1e-4),
+        ) * 0.5,
+      );
+      brickFeet = round4(Math.max(0, rawAvailableFeet - wallHeightFeet));
+      if (brickFeet + EPSILON < brickTargetFeet) {
+        warnings.push(
+          `Only ${Math.round(brickFeet * 12)}" of brick fits below the casting — the ${input.brickTargetInches}" target does not.`,
+        );
+      }
+    } else {
+      const rounded = computeRectWallHeightFeet(
+        rawAvailableFeet,
+        template.minimumBrickInches,
+      );
+      wallHeightFeet = rounded.wallHeightFeet;
+      brickFeet = rounded.brickFeet;
+    }
   }
 
   // Openings are cut through the walls, never the brick course — the walls

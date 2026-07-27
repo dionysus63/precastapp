@@ -124,6 +124,13 @@ export function formatElevation(value: number | null | undefined): string {
   });
 }
 
+export function formatBrickInches(feet: number | null | undefined): string {
+  if (feet == null || !Number.isFinite(feet)) {
+    return "—";
+  }
+  return `${Math.round(feet * 12)}"`;
+}
+
 export function formatWeightLb(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) {
     return "—";

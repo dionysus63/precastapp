@@ -106,6 +106,9 @@ export function buildRectSheetFormValues(
     inspection: calc?.inspection ?? "",
     approvedBy: calc?.approvedBy ?? "",
     rimElevation: decimalToInput(calc?.rimElevation ?? null),
+    // Rect sheets store the manual brick target (inches) in the shared
+    // brick-adjustment column.
+    brickTargetInches: calc?.brickAdjustment ?? "",
     insideLengthFeet: decimalToInput(
       dims?.insideLength ?? calc?.insideLengthFeet ?? null,
     ),
@@ -170,6 +173,7 @@ export function buildRectSheetFormValuesForIdentity(
     inspection: "",
     approvedBy: "",
     rimElevation: "",
+    brickTargetInches: "",
     insideLengthFeet: "",
     insideWidthFeet: "",
     hasTopSlab: true,
@@ -256,6 +260,7 @@ export function buildRectSheetFormValuesFromQuoteConfig(
     inspection: "",
     approvedBy: "",
     rimElevation: String(config.rimElevation),
+    brickTargetInches: "",
     insideLengthFeet: String(config.insideLengthFeet),
     insideWidthFeet: String(config.insideWidthFeet),
     hasTopSlab: config.hasTopSlab,
@@ -294,6 +299,7 @@ export function rectPayloadFromFormValues(
     inspection: values.inspection,
     approvedBy: values.approvedBy,
     rimElevation: values.rimElevation,
+    brickTargetInches: values.brickTargetInches,
     insideLengthFeet: values.insideLengthFeet,
     insideWidthFeet: values.insideWidthFeet,
     hasTopSlab: values.hasTopSlab,

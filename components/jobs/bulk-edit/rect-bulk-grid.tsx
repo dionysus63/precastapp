@@ -29,6 +29,7 @@ import {
 } from "@/lib/table-styles";
 import {
   StructureStatusBadge,
+  formatBrickInches,
   formatElevation,
   formatFeet,
   formatWeightLb,
@@ -87,6 +88,7 @@ export function computeRectPreview(
   const input: RectStructureInput = {
     rimElevation: parseNum(values.rimElevation),
     castingHeightFeet: castingHeightFeet ?? 0,
+    brickTargetInches: parseNum(values.brickTargetInches),
     insideLengthFeet: parseNum(values.insideLengthFeet),
     insideWidthFeet: parseNum(values.insideWidthFeet),
     hasTopSlab: values.hasTopSlab,
@@ -210,6 +212,7 @@ export function RectBulkGrid({
       RectSheetFormValues,
       | "structureNumber"
       | "rimElevation"
+      | "brickTargetInches"
       | "insideLengthFeet"
       | "insideWidthFeet"
     >,
@@ -251,10 +254,14 @@ export function RectBulkGrid({
             <th className={tableHeaderCellClassName}>W</th>
             <th className={tableHeaderCellClassName}>Casting</th>
             <th className={tableHeaderCellClassName}>Rim elev</th>
+            <th className={tableHeaderCellClassName} title={'Brick target in inches — walls drop to the 6" pour leaving at least this much brick. Blank = template minimum.'}>
+              Brick tgt
+            </th>
             <th className={tableHeaderCellClassName}>Top slab</th>
             <th className={tableHeaderCellClassName}>Base slab</th>
             <th className={tableHeaderCellClassName}>Openings</th>
             <th className={tableHeaderCellClassName}>Low inv</th>
+            <th className={tableHeaderCellClassName}>Brick</th>
             <th className={tableHeaderCellClassName}>Wall ht</th>
             <th className={tableHeaderCellClassName}>Total ht</th>
             <th className={tableHeaderCellClassName}>Heaviest pick</th>
@@ -350,13 +357,23 @@ export function RectBulkGrid({
                   <td className={tableGridCellClassName}>
                     {cellInput(row, rowIndex, 5, "rimElevation", "w-20", true)}
                   </td>
+                  <td className={tableGridCellClassName}>
+                    {cellInput(
+                      row,
+                      rowIndex,
+                      6,
+                      "brickTargetInches",
+                      "w-14",
+                      true,
+                    )}
+                  </td>
                   <td
                     className={`${tableCellBordersClassName} px-2 py-1.5 text-center`}
                   >
                     <input
                       type="checkbox"
                       data-r={rowIndex}
-                      data-c={6}
+                      data-c={7}
                       checked={row.values.hasTopSlab}
                       onChange={(event) =>
                         patchValues(row, { hasTopSlab: event.target.checked })
@@ -374,7 +391,7 @@ export function RectBulkGrid({
                     <input
                       type="checkbox"
                       data-r={rowIndex}
-                      data-c={7}
+                      data-c={8}
                       checked={row.values.hasBaseSlab}
                       onChange={(event) =>
                         patchValues(row, { hasBaseSlab: event.target.checked })
@@ -401,6 +418,9 @@ export function RectBulkGrid({
                     {formatElevation(preview?.lowInvertElevation)}
                   </td>
                   <td className={tableComputedCellClassName}>
+                    {formatBrickInches(preview?.brickFeet)}
+                  </td>
+                  <td className={tableComputedCellClassName}>
                     {formatFeet(preview?.wallHeightFeet)}
                   </td>
                   <td className={tableComputedCellClassName}>
@@ -421,7 +441,7 @@ export function RectBulkGrid({
                 {error || previewError ? (
                   <tr>
                     <td
-                      colSpan={14}
+                      colSpan={16}
                       className={`${tableCellBordersClassName} bg-rose-50 px-3 py-1 text-[11px] text-rose-700`}
                     >
                       {error ?? previewError}
@@ -431,7 +451,7 @@ export function RectBulkGrid({
                 {isExpanded ? (
                   <tr>
                     <td
-                      colSpan={14}
+                      colSpan={16}
                       className={`${tableCellBordersClassName} bg-slate-50/70 px-4 py-2`}
                     >
                       <div className="space-y-2">

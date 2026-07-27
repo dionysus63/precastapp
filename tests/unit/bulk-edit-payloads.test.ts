@@ -55,6 +55,7 @@ const rectValues: RectSheetFormValues = {
   inspection: "",
   approvedBy: "",
   rimElevation: "101.5",
+  brickTargetInches: "8",
   insideLengthFeet: "6",
   insideWidthFeet: "4",
   hasTopSlab: true,
@@ -122,6 +123,7 @@ describe("bulk edit payload round-trips", () => {
     expect(parsed.castingProductId).toBeNull();
     expect(parsed.structureNumber).toBe("CB-3");
     expect(parsed.rimElevation).toBe("101.5");
+    expect(parsed.brickTargetInches).toBe("8");
     expect(parsed.insideLengthFeet).toBe("6");
     expect(parsed.hasTopSlab).toBe(true);
     expect(parsed.baseAttached).toBe(false);

@@ -27,6 +27,7 @@ import {
 } from "@/lib/table-styles";
 import {
   StructureStatusBadge,
+  formatBrickInches,
   formatElevation,
   formatFeet,
   formatWeightLb,
@@ -254,6 +255,7 @@ export function CircularBulkGrid({
             <th className={tableHeaderCellClassName}>Steps</th>
             <th className={tableHeaderCellClassName}>Openings</th>
             <th className={tableHeaderCellClassName}>Low inv</th>
+            <th className={tableHeaderCellClassName}>Brick</th>
             <th className={tableHeaderCellClassName}>Wall ht</th>
             <th className={tableHeaderCellClassName}>Total ht</th>
             <th className={tableHeaderCellClassName}>Weight</th>
@@ -407,6 +409,9 @@ export function CircularBulkGrid({
                     {formatElevation(preview?.lowInvertElevation)}
                   </td>
                   <td className={tableComputedCellClassName}>
+                    {formatBrickInches(preview?.brickFeet)}
+                  </td>
+                  <td className={tableComputedCellClassName}>
                     {formatFeet(preview?.wallHeightFeet)}
                   </td>
                   <td className={tableComputedCellClassName}>
@@ -427,7 +432,7 @@ export function CircularBulkGrid({
                 {error || previewError ? (
                   <tr>
                     <td
-                      colSpan={15}
+                      colSpan={16}
                       className={`${tableCellBordersClassName} bg-rose-50 px-3 py-1 text-[11px] text-rose-700`}
                     >
                       {error ?? previewError}
@@ -437,7 +442,7 @@ export function CircularBulkGrid({
                 {isExpanded ? (
                   <tr>
                     <td
-                      colSpan={15}
+                      colSpan={16}
                       className={`${tableCellBordersClassName} bg-slate-50/70 px-4 py-2`}
                     >
                       <div className="space-y-1">
