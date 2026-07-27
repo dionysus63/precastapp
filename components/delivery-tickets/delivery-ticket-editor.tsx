@@ -839,6 +839,39 @@ export function DeliveryTicketEditor({
     });
   }
 
+  /** Whole sets: every component gets N × its per-set quantity. */
+  function setCastingSets(meta: QuoteLineFulfillment, value: string) {
+    const numeric = Number(value);
+    const sets =
+      value.trim() !== "" && Number.isFinite(numeric) && numeric > 0
+        ? Math.floor(numeric)
+        : 0;
+    for (const option of meta.castingComponentOptions) {
+      setCastingPieceCount(
+        meta,
+        option,
+        sets > 0 ? String(sets * option.quantity) : "",
+      );
+    }
+  }
+
+  /** True when the piece counts form whole sets (nothing partial). */
+  function castingPiecesAreEvenSets(meta: QuoteLineFulfillment): boolean {
+    const sets = getCastingSetsUsed(meta);
+    return meta.castingComponentOptions.every((option) => {
+      const count =
+        Number(getCastingPieceCount(meta.quoteLineItemId, option.pieceRole)) ||
+        0;
+      return count === sets * option.quantity;
+    });
+  }
+
+  // Casting rows pick whole sets by default; this opt-in reveals per-piece
+  // counts for partial loads (auto-open when counts are already uneven).
+  const [expandedCastingIds, setExpandedCastingIds] = useState<Set<string>>(
+    new Set(),
+  );
+
   // --- Split-structure pieces ---------------------------------------------
 
   const [splitFormStructureId, setSplitFormStructureId] = useState<string | null>(
@@ -1796,6 +1829,10 @@ export function DeliveryTicketEditor({
                     const setsAvailable = getAvailableQty(line);
                     const setsRemainingAfter = setsAvailable - setsUsed;
                     const overLimit = setsUsed > setsAvailable + 0.001;
+                    const piecesEven = castingPiecesAreEvenSets(line);
+                    const piecesExpanded =
+                      !piecesEven ||
+                      expandedCastingIds.has(line.quoteLineItemId);
                     return (
                       <tr key={line.quoteLineItemId} className="bg-slate-50/40">
                         <td className={`${quoteLineTableCellClassName} align-top`} colSpan={11}>
@@ -1829,6 +1866,59 @@ export function DeliveryTicketEditor({
                                 "No BOM components linked to this casting."}
                             </p>
                           ) : (
+                            <>
+                              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                                <label className="flex items-center gap-2 text-[11px] font-medium text-slate-700">
+                                  Sets on load
+                                  <input
+                                    aria-label={`${line.displayName} sets on load`}
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={piecesEven ? setsUsed || "" : ""}
+                                    placeholder={piecesEven ? "0" : "mixed"}
+                                    className={`w-20 ${loadQuantityInputClass}`}
+                                    onChange={(event) =>
+                                      setCastingSets(line, event.target.value)
+                                    }
+                                  />
+                                </label>
+                                <span className="text-[10px] text-slate-400">
+                                  1 set ={" "}
+                                  {line.castingComponentOptions
+                                    .map(
+                                      (option) =>
+                                        `${option.quantity > 1 ? `${option.quantity}× ` : ""}${formatCastingPieceRoleLabel(option.pieceRole)}`,
+                                    )
+                                    .join(" + ")}
+                                </span>
+                                {piecesEven ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setExpandedCastingIds((current) => {
+                                        const next = new Set(current);
+                                        if (next.has(line.quoteLineItemId)) {
+                                          next.delete(line.quoteLineItemId);
+                                        } else {
+                                          next.add(line.quoteLineItemId);
+                                        }
+                                        return next;
+                                      })
+                                    }
+                                    className="rounded border border-slate-200 bg-white px-1.5 py-px text-[10px] font-medium text-slate-600 hover:bg-slate-50"
+                                  >
+                                    {piecesExpanded
+                                      ? "Hide pieces"
+                                      : "Adjust pieces"}
+                                  </button>
+                                ) : (
+                                  <span className="text-[10px] font-medium text-amber-600">
+                                    Partial set — piece counts differ
+                                  </span>
+                                )}
+                              </div>
+                              {piecesExpanded ? (
                             <div className="mt-2 grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
                               {line.castingComponentOptions.map((option) => (
                                 <div
@@ -1872,6 +1962,8 @@ export function DeliveryTicketEditor({
                                 </div>
                               ))}
                             </div>
+                              ) : null}
+                            </>
                           )}
 
                           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-600">
