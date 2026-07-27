@@ -250,8 +250,8 @@
     "semantic_hash": ""
   },
   "components/quotes/quote-form.tsx": {
-    "mtime": 1784754308.1362479,
-    "ast_hash": "17268392f3c4b79c6d63a873295a467e",
+    "mtime": 1785182582.8599825,
+    "ast_hash": "c05b4065db2d272eca189d9d6bbeaf27",
     "semantic_hash": ""
   },
   "components/quotes/quote-preview-content.tsx": {
@@ -1590,8 +1590,8 @@
     "semantic_hash": ""
   },
   "electron/config.default.json": {
-    "mtime": 1785178314.3189507,
-    "ast_hash": "8aea3f0e060c8a5c9aa09a474228a98a",
+    "mtime": 1785179315.3241107,
+    "ast_hash": "5776055838998b3aa232f60681ed5b90",
     "semantic_hash": ""
   },
   "electron/config.mjs": {
@@ -1635,8 +1635,8 @@
     "semantic_hash": ""
   },
   "lib/quote-pdf-fill.ts": {
-    "mtime": 1783637452.928204,
-    "ast_hash": "229d7901f379ee4a2c61a8d1d8eb2ac0",
+    "mtime": 1785179783.3769934,
+    "ast_hash": "5e634fa2fa09f491a8817548cea25613",
     "semantic_hash": ""
   },
   "lib/quote-pdf-layout.ts": {
@@ -1645,8 +1645,8 @@
     "semantic_hash": ""
   },
   "lib/quote-pdf-line-items.ts": {
-    "mtime": 1784049429.7209215,
-    "ast_hash": "dfe2351ae0ea22044504a169f949f5df",
+    "mtime": 1785183933.0403001,
+    "ast_hash": "932110c45d5bbda9b5ca08c511a43645",
     "semantic_hash": ""
   },
   "scripts/list-quote-pdf-fields.ts": {
@@ -1940,8 +1940,8 @@
     "semantic_hash": ""
   },
   "lib/quotes/structure-workbook.ts": {
-    "mtime": 1784300912.5368361,
-    "ast_hash": "5f0a355dcd8250cba7f00691cef3d6ad",
+    "mtime": 1785184834.4682708,
+    "ast_hash": "2c65700ecb9b12fa93e0f0c4979b5af0",
     "semantic_hash": ""
   },
   "lib/structure-template-pdf-service.ts": {
@@ -2080,8 +2080,8 @@
     "semantic_hash": ""
   },
   "components/quotes/quote-line-items-table.tsx": {
-    "mtime": 1783814040.9213128,
-    "ast_hash": "74665ae631aebc20bbee4284929c6d63",
+    "mtime": 1785182752.7771168,
+    "ast_hash": "47e10342d16cf65dcf686b84dff138a5",
     "semantic_hash": ""
   },
   "components/quotes/quotes-page-sections.tsx": {
@@ -3757,6 +3757,11 @@
   "app/print-actions.ts": {
     "mtime": 1785171203.6152523,
     "ast_hash": "c43bed48de496f3cda33fef801e8e912",
+    "semantic_hash": ""
+  },
+  "tests/unit/quote-pdf-pagination.test.ts": {
+    "mtime": 1785183962.794967,
+    "ast_hash": "08570a2746576e78d81d08c325db0ce1",
     "semantic_hash": ""
   }
 }
