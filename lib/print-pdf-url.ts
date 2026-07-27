@@ -1,19 +1,27 @@
+import {
+  listPrintersForClient,
+  printServerPdfForClient,
+} from "@/app/print-actions";
+
 /**
- * Opens a same-origin PDF URL and triggers the print dialog.
+ * Prints a same-origin PDF URL.
  *
- * The PDF is fetched first: generation can take several seconds (the
- * draft-invoice batch renders a cover plus every invoice), and printing
- * straight from the API URL raced a fixed fallback timer against the
- * download. A failed response surfaces its error text instead of silently
- * printing nothing.
+ * Browsers: fetch the PDF and print it from a hidden PDF-viewer frame
+ * (crisp vector output through the normal print dialog).
  *
- * In the desktop shell (Electron), calling print() on a PDF-viewer frame is
- * a silent no-op — Electron never wired up printing for the Chromium PDF
- * plugin. There the pages are rasterized with pdf.js (same pipeline as the
- * in-app PDF previews) into a plain HTML frame, which prints fine. Browsers
- * keep the direct PDF frame for crisp vector output.
+ * Desktop shell (Electron): the shell cannot print AT ALL — renderer
+ * window.print() deadlocks the whole app on Windows the moment the system
+ * dialog is confirmed, and main-process webContents.print never fires its
+ * callback (both reproduced on Electron 35). Instead the app shows its own
+ * picker of the SERVER's printers and the server prints the PDF with the
+ * same pdf-to-printer pipeline used for delivery tickets.
  */
 export function printPdfUrl(url: string): void {
+  if ("precastOpsDesktop" in window) {
+    void printViaServerWithPicker(url);
+    return;
+  }
+
   void (async () => {
     try {
       const response = await fetch(url);
@@ -25,23 +33,127 @@ export function printPdfUrl(url: string): void {
         );
         return;
       }
-      const blob = await response.blob();
-
-      if ("precastOpsDesktop" in window) {
-        try {
-          await printBlobAsRasterPages(blob);
-          return;
-        } catch {
-          // Fall through to the PDF-frame path rather than printing nothing.
-        }
-      }
-      printBlobAsPdfFrame(blob);
+      printBlobAsPdfFrame(await response.blob());
     } catch (error) {
       window.alert(
         error instanceof Error ? error.message : "Could not print the PDF.",
       );
     }
   })();
+}
+
+const LAST_PRINTER_KEY = "precast:last-print-printer";
+
+async function printViaServerWithPicker(url: string): Promise<void> {
+  let printers: string[] = [];
+  try {
+    printers = await listPrintersForClient();
+  } catch {
+    printers = [];
+  }
+  if (printers.length === 0) {
+    window.alert("No printers are available on the server.");
+    return;
+  }
+
+  let remembered: string | null = null;
+  try {
+    remembered = localStorage.getItem(LAST_PRINTER_KEY);
+  } catch {
+    // Storage unavailable; the first printer is preselected.
+  }
+
+  const printer = await pickPrinter(printers, remembered);
+  if (!printer) {
+    return;
+  }
+  try {
+    localStorage.setItem(LAST_PRINTER_KEY, printer);
+  } catch {
+    // Best effort only.
+  }
+
+  const result = await printServerPdfForClient(url, printer);
+  if (!result.success) {
+    window.alert(result.error);
+  }
+}
+
+/** Minimal in-app printer picker (the shell has no usable native dialog). */
+function pickPrinter(
+  printers: string[],
+  preselect: string | null,
+): Promise<string | null> {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.style.cssText =
+      "position:fixed;inset:0;z-index:100000;display:flex;align-items:center;" +
+      "justify-content:center;background:rgba(15,23,42,0.45)";
+
+    const card = document.createElement("div");
+    card.style.cssText =
+      "background:#fff;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,0.25);" +
+      "padding:20px;width:340px;max-width:90vw;font-family:inherit";
+
+    const title = document.createElement("p");
+    title.textContent = "Print";
+    title.style.cssText =
+      "margin:0 0 4px;font-size:15px;font-weight:600;color:#0f172a";
+
+    const hint = document.createElement("p");
+    hint.textContent = "Prints from the office server to the printer you pick.";
+    hint.style.cssText = "margin:0 0 12px;font-size:12px;color:#64748b";
+
+    const select = document.createElement("select");
+    select.style.cssText =
+      "width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;" +
+      "font-size:13px;color:#0f172a;background:#fff";
+    for (const name of printers) {
+      const option = document.createElement("option");
+      option.value = name;
+      option.textContent = name;
+      select.appendChild(option);
+    }
+    if (preselect && printers.includes(preselect)) {
+      select.value = preselect;
+    }
+
+    const buttons = document.createElement("div");
+    buttons.style.cssText =
+      "display:flex;justify-content:flex-end;gap:8px;margin-top:16px";
+
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.textContent = "Cancel";
+    cancel.style.cssText =
+      "padding:7px 14px;border:1px solid #cbd5e1;border-radius:8px;" +
+      "background:#fff;font-size:13px;font-weight:600;color:#334155;cursor:pointer";
+
+    const confirm = document.createElement("button");
+    confirm.type = "button";
+    confirm.textContent = "Print";
+    confirm.style.cssText =
+      "padding:7px 16px;border:none;border-radius:8px;background:#0f172a;" +
+      "font-size:13px;font-weight:600;color:#fff;cursor:pointer";
+
+    const close = (value: string | null) => {
+      overlay.remove();
+      resolve(value);
+    };
+    cancel.addEventListener("click", () => close(null));
+    confirm.addEventListener("click", () => close(select.value || null));
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) {
+        close(null);
+      }
+    });
+
+    buttons.append(cancel, confirm);
+    card.append(title, hint, select, buttons);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    select.focus();
+  });
 }
 
 function attachHiddenIframe(): HTMLIFrameElement {
@@ -88,71 +200,4 @@ function printBlobAsPdfFrame(blob: Blob): void {
   // Blob URLs load near-instantly; this is only insurance against a missed
   // load event.
   window.setTimeout(triggerPrint, 1500);
-}
-
-/** Desktop-shell path: pdf.js rasters each page into an HTML frame. */
-async function printBlobAsRasterPages(blob: Blob): Promise<void> {
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-  const data = new Uint8Array(await blob.arrayBuffer());
-  const pdf = await pdfjs.getDocument({ data }).promise;
-
-  const pages: string[] = [];
-  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-    const page = await pdf.getPage(pageNumber);
-    // 2x = 144 dpi — crisp on paper without megabyte-per-page canvases.
-    const viewport = page.getViewport({ scale: 2 });
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.ceil(viewport.width);
-    canvas.height = Math.ceil(viewport.height);
-    const context = canvas.getContext("2d");
-    if (!context) {
-      throw new Error("Could not create a print canvas.");
-    }
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    await page.render({ canvasContext: context, viewport, canvas }).promise;
-    pages.push(canvas.toDataURL("image/png"));
-  }
-  void pdf.cleanup();
-
-  const iframe = attachHiddenIframe();
-  const doc = iframe.contentDocument;
-  if (!doc) {
-    throw new Error("Could not create a print frame.");
-  }
-  doc.open();
-  doc.write(
-    "<!doctype html><html><head><style>" +
-      "@page{size:letter;margin:0}" +
-      "html,body{margin:0;padding:0}" +
-      "img{display:block;width:100%;page-break-after:always}" +
-      "img:last-child{page-break-after:auto}" +
-      "</style></head><body>" +
-      pages.map((src) => `<img src="${src}">`).join("") +
-      "</body></html>",
-  );
-  doc.close();
-
-  // Let the data-URL images decode before printing.
-  await Promise.all(
-    [...doc.images].map(
-      (img) =>
-        new Promise<void>((resolve) => {
-          if (img.complete) {
-            resolve();
-          } else {
-            img.addEventListener("load", () => resolve());
-            img.addEventListener("error", () => resolve());
-          }
-        }),
-    ),
-  );
-
-  try {
-    iframe.contentWindow?.focus();
-    iframe.contentWindow?.print();
-  } finally {
-    cleanupAfterPrint(iframe);
-  }
 }
