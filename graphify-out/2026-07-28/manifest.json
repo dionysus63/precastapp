@@ -1250,8 +1250,8 @@
     "semantic_hash": ""
   },
   "app/structures/[id]/page.tsx": {
-    "mtime": 1785165092.0218837,
-    "ast_hash": "5ec66b48e7b74aaab188bbcc73840bbd",
+    "mtime": 1785264975.4897947,
+    "ast_hash": "224898453cd87a00aca1fb4333a54c83",
     "semantic_hash": ""
   },
   "app/structures/actions.ts": {
@@ -1310,8 +1310,8 @@
     "semantic_hash": ""
   },
   "components/structures/structure-template-form.tsx": {
-    "mtime": 1785165137.4810088,
-    "ast_hash": "d3c601d7b1c2a2fcc86810a517e541d9",
+    "mtime": 1785264968.960313,
+    "ast_hash": "3ec923bfe0c04fe033bbce9a26484d9d",
     "semantic_hash": ""
   },
   "lib/app-settings-defaults.ts": {
@@ -1355,8 +1355,8 @@
     "semantic_hash": ""
   },
   "lib/drill-sheet-options.ts": {
-    "mtime": 1785164590.5570982,
-    "ast_hash": "32dba916a8bdf71dc2f047d3b76aac3c",
+    "mtime": 1785264979.1893146,
+    "ast_hash": "a960784d0cdf869a67c06036c630f49c",
     "semantic_hash": ""
   },
   "lib/drill-sheet-pdf-html.ts": {
@@ -2645,8 +2645,8 @@
     "semantic_hash": ""
   },
   "components/drill-sheets/rect-sheet-form.tsx": {
-    "mtime": 1785164610.4276156,
-    "ast_hash": "6f1abc90d2f4643de7d1d86fce3b2328",
+    "mtime": 1785265009.0863442,
+    "ast_hash": "f90eb4bad1dfab65469e394d227d38f0",
     "semantic_hash": ""
   },
   "components/drill-sheets/rect-sheet-preview.tsx": {
@@ -3195,8 +3195,8 @@
     "semantic_hash": ""
   },
   "lib/structure-template-payload.ts": {
-    "mtime": 1785165039.4924495,
-    "ast_hash": "a3ffed9adcdd768ac2bee65ad1a49d2a",
+    "mtime": 1785264942.0805383,
+    "ast_hash": "d0cb84d5f559e9e367a782ce704d99d3",
     "semantic_hash": ""
   },
   "scripts/generate-invoice-templates.ts": {
@@ -3310,8 +3310,8 @@
     "semantic_hash": ""
   },
   "tests/unit/delivery-ticket-pdf-data.test.ts": {
-    "mtime": 1784238363.207874,
-    "ast_hash": "1bfa964fc1e8b2fad6ca8f8720067277",
+    "mtime": 1785254148.8625765,
+    "ast_hash": "e752346376f1cabd43391eba60b71eb2",
     "semantic_hash": ""
   },
   "tests/unit/delivery-ticket-editor-utils.test.ts": {
@@ -3782,6 +3782,16 @@
   "tests/unit/casting-ticket-lines.test.ts": {
     "mtime": 1785253849.7620065,
     "ast_hash": "67fcff0232bd7ea21ec1db2329f2aab7",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260728120000_rect_template_sizes_in_inches/migration.sql": {
+    "mtime": 1785264865.9056861,
+    "ast_hash": "9a5b7480fa0a0cd6c8d86bcd3229082c",
+    "semantic_hash": ""
+  },
+  "tests/unit/structure-template-payload.test.ts": {
+    "mtime": 1785265061.3872232,
+    "ast_hash": "5085c10d3d613ddd67bcf2073b9b5a9d",
     "semantic_hash": ""
   }
 }

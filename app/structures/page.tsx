@@ -2,6 +2,7 @@ import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
+import { duplicateStructureTemplate } from "@/app/structures/actions";
 import { prisma } from "@/lib/prisma";
 
 import {
@@ -123,12 +124,28 @@ export default async function StructuresPage() {
                       />
                     </td>
                     <td className={tableCellClassName}>
-                      <Link
-                        href={`/structures/${template.id}`}
-                        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
-                      >
-                        Edit
-                      </Link>
+                      <div className="flex items-center gap-1.5">
+                        <Link
+                          href={`/structures/${template.id}`}
+                          className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                        >
+                          Edit
+                        </Link>
+                        <form
+                          action={duplicateStructureTemplate.bind(
+                            null,
+                            template.id,
+                          )}
+                        >
+                          <button
+                            type="submit"
+                            title={`Create a copy of ${template.name}`}
+                            className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                          >
+                            Duplicate
+                          </button>
+                        </form>
+                      </div>
                     </td>
                   </tr>
                 ))

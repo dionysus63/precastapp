@@ -8,6 +8,7 @@ import {
 import { DeleteStructureTemplateButton } from "@/components/structures/delete-structure-template-button";
 import {
   updateStructureTemplate,
+  duplicateStructureTemplate,
   loadCastingProductOptions,
 } from "@/app/structures/actions";
 import {
@@ -137,6 +138,15 @@ export default async function EditStructureTemplatePage({
               basePath={`/structures/${template.id}`}
             />
           ) : null}
+          <form action={duplicateStructureTemplate.bind(null, template.id)}>
+            <button
+              type="submit"
+              title={`Create a copy of ${template.name}`}
+              className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            >
+              Duplicate
+            </button>
+          </form>
           <DeleteStructureTemplateButton templateId={template.id} />
         </div>
       </div>

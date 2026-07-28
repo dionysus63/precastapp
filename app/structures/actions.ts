@@ -209,6 +209,95 @@ export async function updateStructureTemplate(
   redirect("/structures");
 }
 
+/**
+ * Deep-copy a template under a unique "(Copy)" name: scalars, offered
+ * diameters / rect footprint, and per-price-list rect prices. The shared
+ * Sheet PDF Set and casting product carry over by reference; legacy
+ * per-template PDF uploads (dormant) are not copied.
+ */
+export async function duplicateStructureTemplate(templateId: string) {
+  await requirePermission(AppPermission.STRUCTURES_MANAGE);
+
+  let newTemplateId = "";
+  try {
+    newTemplateId = await prisma.$transaction(async (tx) => {
+      const source = await tx.structureTemplate.findUnique({
+        where: { id: templateId },
+        include: {
+          diameters: { orderBy: { sortOrder: "asc" } },
+          rectSizes: { orderBy: { sortOrder: "asc" } },
+          rectPriceEntries: true,
+        },
+      });
+      if (!source) {
+        throw new Error("Template not found.");
+      }
+
+      let name = `${source.name} (Copy)`;
+      for (
+        let attempt = 2;
+        await tx.structureTemplate.findUnique({
+          where: { name },
+          select: { id: true },
+        });
+        attempt += 1
+      ) {
+        name = `${source.name} (Copy ${attempt})`;
+      }
+
+      const created = await tx.structureTemplate.create({
+        data: {
+          name,
+          agencyStandard: source.agencyStandard,
+          shape: source.shape,
+          wallThicknessInches: source.wallThicknessInches,
+          baseSlabThicknessInches: source.baseSlabThicknessInches,
+          topSlabThicknessInches: source.topSlabThicknessInches,
+          castingProductId: source.castingProductId,
+          minimumBrickInches: source.minimumBrickInches,
+          connectionType: source.connectionType,
+          sumpMode: source.sumpMode,
+          sumpFixedInches: source.sumpFixedInches,
+          openingToJointMinTopInches: source.openingToJointMinTopInches,
+          openingToJointMinBottomInches: source.openingToJointMinBottomInches,
+          rectMinPricingHeightFeet: source.rectMinPricingHeightFeet,
+          rectPdfSetId: source.rectPdfSetId,
+          status: source.status,
+          notes: source.notes,
+          diameters: {
+            create: source.diameters.map((diameter) => ({
+              insideDiameterFeet: diameter.insideDiameterFeet,
+              sortOrder: diameter.sortOrder,
+            })),
+          },
+          rectSizes: {
+            create: source.rectSizes.map((size) => ({
+              insideLengthInches: size.insideLengthInches,
+              insideWidthInches: size.insideWidthInches,
+              sortOrder: size.sortOrder,
+            })),
+          },
+          rectPriceEntries: {
+            create: source.rectPriceEntries.map((entry) => ({
+              priceListId: entry.priceListId,
+              wallPricePerFoot: entry.wallPricePerFoot,
+              topSlabPrice: entry.topSlabPrice,
+              baseSlabPrice: entry.baseSlabPrice,
+            })),
+          },
+        },
+        select: { id: true },
+      });
+      return created.id;
+    });
+  } catch (error) {
+    handlePrismaError(error);
+  }
+
+  revalidatePath("/structures");
+  redirect(`/structures/${newTemplateId}`);
+}
+
 export async function deleteStructureTemplate(templateId: string) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
 
