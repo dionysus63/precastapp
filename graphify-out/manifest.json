@@ -205,8 +205,8 @@
     "semantic_hash": ""
   },
   "components/jobs/job-utils.ts": {
-    "mtime": 1784751912.456565,
-    "ast_hash": "efa383ea0f4392b6e76711c53a86c7ca",
+    "mtime": 1785250737.3042638,
+    "ast_hash": "7332f217e1dc8a4b9d9e4638d159f659",
     "semantic_hash": ""
   },
   "components/jobs/jobs-list.tsx": {
@@ -840,18 +840,18 @@
     "semantic_hash": ""
   },
   "app/jobs/[id]/page.tsx": {
-    "mtime": 1784297528.7383358,
-    "ast_hash": "6dd009e239446f52faeb620cb7c6e2a7",
+    "mtime": 1785250722.183118,
+    "ast_hash": "2b2d330c45e7798c7da5d8468e574099",
     "semantic_hash": ""
   },
   "components/jobs/job-detail-content.tsx": {
-    "mtime": 1785102397.4838805,
-    "ast_hash": "dab648e5075357d959f90222f897fc66",
+    "mtime": 1785250745.5812829,
+    "ast_hash": "a0692a2be33101c6394fbfd3a2abb3ff",
     "semantic_hash": ""
   },
   "lib/job-detail-mapper.ts": {
-    "mtime": 1784909320.8340979,
-    "ast_hash": "9dcb78188f330bcde345798afe0c48ed",
+    "mtime": 1785250735.527545,
+    "ast_hash": "0f7a67d6a3f4a51797857cd90077160d",
     "semantic_hash": ""
   },
   "app/jobs/[id]/structures/new/page.tsx": {

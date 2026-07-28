@@ -292,6 +292,9 @@ export type JobDetailView = {
   bidDate: string;
   awardedDate: string;
   folderPath: string | null;
+  /** Quote carrying the customer's PO (won quote, else latest) — null when the job has no quotes. */
+  poQuoteId: string | null;
+  customerPO: string;
   notes: string;
   createdAt: string;
   updatedAt: string;

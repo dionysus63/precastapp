@@ -9,6 +9,7 @@ import { JobStructureImportButton } from "@/components/jobs/job-structure-import
 import { JobCustomStructureImportButton } from "@/components/jobs/job-custom-structure-import-dialog";
 import { JobStructuresProductionTable } from "@/components/jobs/job-structures-production-table";
 import { JobFavoriteStar } from "@/components/jobs/job-favorite-star";
+import { QuotePoInline } from "@/components/quotes/quote-po-inline";
 import {
   JobCustomerEditor,
   JobStatusSelect,
@@ -236,6 +237,14 @@ export function JobDetailContent({
               customerName={detail.customer}
               customers={assignableCustomers}
             />
+            {detail.poQuoteId ? (
+              <span className="rounded-lg border border-slate-200 bg-slate-50/60 px-2 py-1 text-xs text-slate-700">
+                <QuotePoInline
+                  quoteId={detail.poQuoteId}
+                  customerPo={detail.customerPO}
+                />
+              </span>
+            ) : null}
           </div>
 
           <p className="text-sm text-slate-600">

@@ -64,7 +64,15 @@ export default async function JobDetailPage({
               invoices: true,
             },
           },
-          quotes: { select: { status: true, total: true } },
+          quotes: {
+            select: {
+              id: true,
+              status: true,
+              total: true,
+              customerPO: true,
+              updatedAt: true,
+            },
+          },
           bidders: {
             select: {
               isWinner: true,

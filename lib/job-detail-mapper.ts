@@ -61,7 +61,7 @@ export type JobWithSummaryRelations = Job & {
     jobStructures: number;
     invoices: number;
   };
-  quotes: Pick<Quote, "status" | "total">[];
+  quotes: Pick<Quote, "id" | "status" | "total" | "customerPO" | "updatedAt">[];
   bidders: {
     isWinner: boolean;
     customer: { name: string };
@@ -411,6 +411,18 @@ export function mapJobToDetailView(job: JobWithSummaryRelations): JobDetailView 
     0,
   );
 
+  // The customer's PO lives on a quote (one source of truth — it flows to
+  // ticket and invoice PDFs from there). The header chip edits the won
+  // quote's PO, falling back to the latest quote before award.
+  const poQuote =
+    [...job.quotes]
+      .sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime())
+      .find((quote) => quote.status === "WON") ??
+    [...job.quotes].sort(
+      (left, right) => right.updatedAt.getTime() - left.updatedAt.getTime(),
+    )[0] ??
+    null;
+
   const structureStatusBreakdown = structureStatusOptions
     .map((option) => ({
       label: option.label,
@@ -471,6 +483,8 @@ export function mapJobToDetailView(job: JobWithSummaryRelations): JobDetailView 
     bidDate: formatDate(job.bidDate),
     awardedDate: formatDate(job.awardedDate),
     folderPath: job.folderPath,
+    poQuoteId: poQuote?.id ?? null,
+    customerPO: poQuote?.customerPO ?? "",
     notes: job.notes ?? "—",
     createdAt: formatDate(job.createdAt),
     updatedAt: formatDate(job.updatedAt),
