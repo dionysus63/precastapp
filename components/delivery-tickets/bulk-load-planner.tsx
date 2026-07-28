@@ -1053,6 +1053,86 @@ export function BulkLoadPlanner({
     return map;
   }, [groups, editableRows, rowAssigned]);
 
+  // Casting assemblies enter whole sets by default (matching the single-ticket
+  // editor); per-piece rows are an opt-in for partial loads. A group whose
+  // cells don't form whole sets in every column renders per-piece regardless.
+  const [castingPieceModeKeys, setCastingPieceModeKeys] = useState<Set<string>>(
+    () => new Set(),
+  );
+
+  const castingPieceRowsByGroup = useMemo(() => {
+    const map = new Map<string, ItemRow[]>();
+    for (const row of editableRows) {
+      if (!groups.get(row.groupKey)?.isCastingAssembly) continue;
+      const list = map.get(row.groupKey);
+      if (list) {
+        list.push(row);
+      } else {
+        map.set(row.groupKey, [row]);
+      }
+    }
+    return map;
+  }, [editableRows, groups]);
+
+  /** Whole sets in one load column, or null when the piece counts are uneven. */
+  function castingSetsForLoad(groupKey: string, loadKey: string): number | null {
+    let sets: number | null = null;
+    for (const row of castingPieceRowsByGroup.get(groupKey) ?? []) {
+      const perSet = row.perSetQty ?? 1;
+      const rowSets = parseQty(cells[cellKey(row.key, loadKey)]) / perSet;
+      if (!Number.isInteger(rowSets)) return null;
+      if (sets == null) {
+        sets = rowSets;
+      } else if (sets !== rowSets) {
+        return null;
+      }
+    }
+    return sets ?? 0;
+  }
+
+  function castingGroupIsEven(groupKey: string): boolean {
+    return loads.every((load) => castingSetsForLoad(groupKey, load.key) != null);
+  }
+
+  function getCastingMode(groupKey: string): "sets" | "pieces" {
+    if (!castingGroupIsEven(groupKey)) return "pieces";
+    return castingPieceModeKeys.has(groupKey) ? "pieces" : "sets";
+  }
+
+  function toggleCastingMode(groupKey: string) {
+    setCastingPieceModeKeys((current) => {
+      const next = new Set(current);
+      if (next.has(groupKey)) {
+        next.delete(groupKey);
+      } else {
+        next.add(groupKey);
+      }
+      return next;
+    });
+  }
+
+  /** Sets-mode edit: every piece cell gets N × its per-set quantity. */
+  function handleCastingSetsChange(
+    groupKey: string,
+    loadKey: string,
+    rawValue: string,
+  ) {
+    const numeric = Number(rawValue);
+    const sets =
+      rawValue.trim() !== "" && Number.isFinite(numeric) && numeric > 0
+        ? Math.floor(numeric)
+        : 0;
+    const pieceRows = castingPieceRowsByGroup.get(groupKey) ?? [];
+    setCells((current) => {
+      const next = { ...current };
+      for (const row of pieceRows) {
+        next[cellKey(row.key, loadKey)] =
+          sets > 0 ? String(sets * (row.perSetQty ?? 1)) : "";
+      }
+      return next;
+    });
+  }
+
   const overAssignedGroups = useMemo(() => {
     const set = new Set<string>();
     for (const [groupKey, assigned] of groupAssigned) {
@@ -1929,26 +2009,109 @@ export function BulkLoadPlanner({
                     : (groupAssigned.get(row.groupKey) ?? 0);
                   const left = roundQty(group.available - assigned);
                   const over = overAssignedGroups.has(row.groupKey);
+                  const castingMode = group.isCastingAssembly
+                    ? getCastingMode(row.groupKey)
+                    : null;
+                  const castingEven = group.isCastingAssembly
+                    ? castingGroupIsEven(row.groupKey)
+                    : true;
+                  // Sets inputs join keyboard nav on the first (hidden) piece
+                  // row's index, mirroring the auto ring rows.
+                  const castingNavRow = castingPieceRowsByGroup.get(
+                    row.groupKey,
+                  )?.[0]?.navRow;
                   return (
                     <tr key={row.key} className="bg-slate-50/70">
                       <td className={`${stickyItemCellClassName} !bg-slate-50`}>
-                        <span className="font-semibold text-slate-800">
-                          {row.itemCode}
-                        </span>{" "}
-                        <span className="text-slate-600">{row.displayName}</span>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="min-w-0">
+                            <span className="font-semibold text-slate-800">
+                              {row.itemCode}
+                            </span>{" "}
+                            <span className="text-slate-600">
+                              {row.displayName}
+                            </span>
+                          </span>
+                          {group.isCastingAssembly ? (
+                            <button
+                              type="button"
+                              onClick={() => toggleCastingMode(row.groupKey)}
+                              disabled={!castingEven}
+                              title={
+                                !castingEven
+                                  ? "Counts don't form whole sets — even out the piece rows to switch back."
+                                  : castingMode === "sets"
+                                    ? "Show the component pieces to load a partial set."
+                                    : "Enter complete assemblies per load."
+                              }
+                              className="shrink-0 rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                            >
+                              {castingMode === "sets"
+                                ? "Adjust pieces"
+                                : "Whole sets"}
+                            </button>
+                          ) : null}
+                        </div>
                       </td>
                       <td className={`${stickyAvailableCellClassName} !bg-slate-50 font-medium`}>
                         {formatQuantity(group.available)} {group.unitLabel}
                       </td>
-                      <td colSpan={loads.length} className={`${tableCellClassName} text-[11px] text-slate-400`}>
-                        <SpanHint>
-                          {group.isCastingAssembly
-                            ? "Assign piece counts below — a set is complete only when every piece ships."
-                            : group.isDrainRing
-                              ? "Assign ring counts below — feet are tallied against the quote line."
-                              : "Assign quantities below — options share this line's total."}
-                        </SpanHint>
-                      </td>
+                      {castingMode === "sets" ? (
+                        loads.map((load, loadIndex) => {
+                          const sets =
+                            castingSetsForLoad(row.groupKey, load.key) ?? 0;
+                          return (
+                            <td
+                              key={load.key}
+                              className={`${tableGridCellClassName} ${
+                                over && sets > 0 ? "bg-red-50" : ""
+                              }`}
+                            >
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={sets > 0 ? String(sets) : ""}
+                                data-plan-auto="1"
+                                {...(castingNavRow != null
+                                  ? {
+                                      "data-plan-row": castingNavRow,
+                                      "data-plan-col": loadIndex,
+                                    }
+                                  : {})}
+                                onKeyDown={
+                                  castingNavRow != null
+                                    ? (event) =>
+                                        handleCellKeyDown(
+                                          event,
+                                          castingNavRow,
+                                          loadIndex,
+                                        )
+                                    : undefined
+                                }
+                                onChange={(event) =>
+                                  handleCastingSetsChange(
+                                    row.groupKey,
+                                    load.key,
+                                    event.target.value,
+                                  )
+                                }
+                                className={tableNumericCellInputClassName}
+                                placeholder=""
+                              />
+                            </td>
+                          );
+                        })
+                      ) : (
+                        <td colSpan={loads.length} className={`${tableCellClassName} text-[11px] text-slate-400`}>
+                          <SpanHint>
+                            {group.isCastingAssembly
+                              ? "Assign piece counts below — a set is complete only when every piece ships."
+                              : group.isDrainRing
+                                ? "Assign ring counts below — feet are tallied against the quote line."
+                                : "Assign quantities below — options share this line's total."}
+                          </SpanHint>
+                        </td>
+                      )}
                       <td
                         className={`${stickyAssignedCellClassName} font-medium ${
                           over
@@ -2104,6 +2267,15 @@ export function BulkLoadPlanner({
                         : renderPlannerRow()}
                     </Fragment>
                   );
+                }
+                // Casting piece rows stay hidden while the group takes whole
+                // sets on its header row.
+                if (
+                  row.kind === "item" &&
+                  groups.get(row.groupKey)?.isCastingAssembly &&
+                  getCastingMode(row.groupKey) === "sets"
+                ) {
+                  return null;
                 }
                 return renderPlannerRow();
               })}
