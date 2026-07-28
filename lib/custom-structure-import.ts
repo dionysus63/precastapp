@@ -20,6 +20,10 @@ export type CustomImportEntry = {
   unit: string;
   /** Per-piece weight in pounds (null when not provided). */
   weightEachLbs: number | null;
+  /** Per-piece unit price in dollars — quote imports only (null when not provided). */
+  unitPriceEach: number | null;
+  /** Per-piece concrete yards — quote imports only (null when not provided). */
+  yardsEach: number | null;
   needsSubmittal: boolean;
   notes: string | null;
 };
@@ -78,6 +82,8 @@ type ColumnMap = {
   qty?: number;
   unit?: number;
   weight?: number;
+  price?: number;
+  yards?: number;
   submittal?: number;
   notes?: number;
 };
@@ -98,10 +104,15 @@ function findHeader(grid: Cell[][]): { rowIndex: number; columns: ColumnMap } | 
         columns.description = column;
       } else if (columns.qty == null && (header.startsWith("qty") || header.startsWith("quantity") || header.startsWith("count"))) {
         columns.qty = column;
+      } else if (columns.price == null && header.includes("price")) {
+        // Checked before "unit" so "Unit Price" lands on price, not unit.
+        columns.price = column;
       } else if (columns.unit == null && header.startsWith("unit")) {
         columns.unit = column;
       } else if (columns.weight == null && header.startsWith("weight")) {
         columns.weight = column;
+      } else if (columns.yards == null && (header.startsWith("yard") || header === "cy")) {
+        columns.yards = column;
       } else if (columns.submittal == null && header.includes("submittal")) {
         columns.submittal = column;
       } else if (columns.notes == null && header.startsWith("note")) {
@@ -178,6 +189,28 @@ export function parseCustomStructureImport(grid: Cell[][]): CustomImportResult {
       weightEachLbs = parsed;
     }
 
+    const priceText = at(header.columns.price).replace(/\$/g, "");
+    let unitPriceEach: number | null = null;
+    if (priceText !== "") {
+      const parsed = parseNumberCell(priceText);
+      if (parsed == null || parsed < 0) {
+        fail(`Unit Price "${priceText}" must be a number.`);
+        continue;
+      }
+      unitPriceEach = parsed;
+    }
+
+    const yardsText = at(header.columns.yards);
+    let yardsEach: number | null = null;
+    if (yardsText !== "") {
+      const parsed = parseNumberCell(yardsText);
+      if (parsed == null || parsed < 0) {
+        fail(`Yards "${yardsText}" must be a number.`);
+        continue;
+      }
+      yardsEach = parsed;
+    }
+
     const submittalText = at(header.columns.submittal);
     let needsSubmittal = true;
     if (submittalText !== "") {
@@ -199,6 +232,8 @@ export function parseCustomStructureImport(grid: Cell[][]): CustomImportResult {
         quantity,
         unit: at(header.columns.unit) || "EA",
         weightEachLbs,
+        unitPriceEach,
+        yardsEach,
         needsSubmittal,
         notes: at(header.columns.notes) || null,
       },

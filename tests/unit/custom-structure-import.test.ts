@@ -31,6 +31,8 @@ describe("parseCustomStructureImport", () => {
       quantity: 120,
       unit: "EA",
       weightEachLbs: 9800,
+      unitPriceEach: null,
+      yardsEach: null,
       needsSubmittal: true,
       notes: null,
     });
@@ -41,9 +43,28 @@ describe("parseCustomStructureImport", () => {
       quantity: 1,
       unit: "EA",
       weightEachLbs: null,
+      unitPriceEach: null,
+      yardsEach: null,
       needsSubmittal: false,
       notes: "stock yard",
     });
+  });
+
+  it("parses quote-side Unit Price and Yards columns", () => {
+    const result = parseCustomStructureImport([
+      ["Structure #", "Description", "Qty", "Unit Price", "Weight", "Yards"],
+      ["CS-1", "Valve vault", 2, "$32,500", 28500, "9.2"],
+      ["CS-2", "Meter pit", 1, "", "", ""],
+      ["CS-3", "Bad price", 1, "a lot", "", ""],
+    ]);
+    expect(result.rows).toHaveLength(2);
+    // "Unit Price" must land on price, not the Unit column.
+    expect(result.rows[0].entry.unit).toBe("EA");
+    expect(result.rows[0].entry.unitPriceEach).toBe(32500);
+    expect(result.rows[0].entry.yardsEach).toBe(9.2);
+    expect(result.rows[1].entry.unitPriceEach).toBeNull();
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0].structureNumber).toBe("CS-3");
   });
 
   it("matches headers by name regardless of order and extras", () => {

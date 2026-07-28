@@ -87,6 +87,10 @@ import {
   type JobCustomStructureImportCandidate,
 } from "@/app/quotes/job-sheet-import-actions";
 import {
+  customGridFromTsv,
+  parseCustomStructureImport,
+} from "@/lib/custom-structure-import";
+import {
   clearWorkbookApplyPayload,
   mergeWorkbookLineItems,
   readWorkbookApplyPayload,
@@ -496,6 +500,11 @@ export function QuoteForm({
     candidates: JobCustomStructureImportCandidate[];
     unchecked: Set<string>;
   } | null>(null);
+
+  // "Paste from Excel" bulk add inside the custom-structure modal.
+  const [customPasteOpen, setCustomPasteOpen] = useState(false);
+  const [customPasteText, setCustomPasteText] = useState("");
+  const [customPasteError, setCustomPasteError] = useState<string | null>(null);
 
   const [editingCustomStructureLineId, setEditingCustomStructureLineId] =
     useState<string | null>(null);
@@ -1019,6 +1028,9 @@ export function QuoteForm({
 
     if (type === "CUSTOM_STRUCTURE") {
       setCustomStructureRows([createDefaultCustomStructureRow([])]);
+      setCustomPasteOpen(false);
+      setCustomPasteText("");
+      setCustomPasteError(null);
     }
 
     if (type === "SERVICE") {
@@ -1450,6 +1462,83 @@ export function QuoteForm({
     showFlash(
       "info",
       `Added ${importedRows.length} structure${importedRows.length === 1 ? "" : "s"} from the job — fill in prices, then Add to Quote.`,
+    );
+  }
+
+  /** Bulk add: pasted Excel rows (with prices) become editable structure rows. */
+  function handleCustomStructurePaste() {
+    const parsed = parseCustomStructureImport(customGridFromTsv(customPasteText));
+    if (!parsed.headerFound) {
+      setCustomPasteError(
+        'Couldn\'t find the header row — include column headings like "Structure #", "Description", "Qty", "Unit Price", "Weight", "Yards".',
+      );
+      return;
+    }
+
+    const used = customStructureNumbersInUse();
+    const skippedDuplicates: string[] = [];
+    const pastedRows: CustomStructureRow[] = [];
+    for (const row of parsed.rows) {
+      if (used.has(row.entry.structureNumber.toLowerCase())) {
+        skippedDuplicates.push(row.entry.structureNumber);
+        continue;
+      }
+      pastedRows.push({
+        id: createLineId(),
+        structureNumber: row.entry.structureNumber,
+        description: plainTextToRichText(row.entry.description),
+        qty: String(row.entry.quantity),
+        unitPrice:
+          row.entry.unitPriceEach != null ? String(row.entry.unitPriceEach) : "",
+        weight:
+          row.entry.weightEachLbs != null ? String(row.entry.weightEachLbs) : "",
+        yards: row.entry.yardsEach != null ? String(row.entry.yardsEach) : "",
+        costItems: [],
+      });
+    }
+
+    if (pastedRows.length === 0) {
+      const problems: string[] = [];
+      if (parsed.errors.length > 0) {
+        problems.push(
+          `${parsed.errors.length} row${parsed.errors.length === 1 ? "" : "s"} had errors (first: row ${parsed.errors[0].rowNumber} — ${parsed.errors[0].message})`,
+        );
+      }
+      if (skippedDuplicates.length > 0) {
+        problems.push(
+          `${skippedDuplicates.length} already on this quote (${skippedDuplicates.slice(0, 3).join(", ")}${skippedDuplicates.length > 3 ? "…" : ""})`,
+        );
+      }
+      setCustomPasteError(
+        problems.length > 0
+          ? `No rows added: ${problems.join("; ")}.`
+          : "No structure rows found below the header row.",
+      );
+      return;
+    }
+
+    setCustomStructureRows((current) => [
+      ...current.filter((row) => !isBlankCustomStructureRow(row)),
+      ...pastedRows,
+    ]);
+    setCustomPasteOpen(false);
+    setCustomPasteText("");
+    setCustomPasteError(null);
+
+    const notes: string[] = [];
+    if (parsed.errors.length > 0) {
+      notes.push(
+        `${parsed.errors.length} row${parsed.errors.length === 1 ? "" : "s"} skipped (first: row ${parsed.errors[0].rowNumber} — ${parsed.errors[0].message})`,
+      );
+    }
+    if (skippedDuplicates.length > 0) {
+      notes.push(
+        `${skippedDuplicates.length} duplicate${skippedDuplicates.length === 1 ? "" : "s"} already on this quote`,
+      );
+    }
+    showFlash(
+      notes.length > 0 ? "info" : "success",
+      `Added ${pastedRows.length} structure${pastedRows.length === 1 ? "" : "s"} from the paste${notes.length > 0 ? ` — ${notes.join("; ")}` : ""}. Review below, then Add to Quote.`,
     );
   }
 
@@ -2677,6 +2766,16 @@ export function QuoteForm({
                       ) : null}
                       <button
                         type="button"
+                        onClick={() => {
+                          setCustomPasteOpen((current) => !current);
+                          setCustomPasteError(null);
+                        }}
+                        className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 hover:bg-sky-100"
+                      >
+                        Paste from Excel
+                      </button>
+                      <button
+                        type="button"
                         onClick={() =>
                           setCustomStructureRows((current) => [
                             ...current,
@@ -2689,6 +2788,52 @@ export function QuoteForm({
                       </button>
                     </div>
                   </div>
+                  {customPasteOpen ? (
+                    <div className="rounded-xl border border-sky-200 bg-sky-50/40 p-3">
+                      <p className="text-[11px] font-medium text-slate-700">
+                        Paste cells from Excel — include the header row.
+                        Recognized columns: Structure #, Description, Qty, Unit
+                        Price, Weight, Yards.
+                      </p>
+                      <textarea
+                        rows={5}
+                        value={customPasteText}
+                        onChange={(event) => {
+                          setCustomPasteText(event.target.value);
+                          setCustomPasteError(null);
+                        }}
+                        placeholder={
+                          "Structure #\tDescription\tQty\tUnit Price\tWeight\tYards\nCS-1\tCustom 8'x12' valve vault\t2\t32500\t28500\t9.2"
+                        }
+                        className="mt-2 block w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 font-mono text-[11px] text-slate-900"
+                      />
+                      {customPasteError ? (
+                        <p className="mt-2 text-[11px] font-medium text-red-600">
+                          {customPasteError}
+                        </p>
+                      ) : null}
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleCustomStructurePaste}
+                          disabled={!customPasteText.trim()}
+                          className="rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-40"
+                        >
+                          Add pasted structures
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCustomPasteOpen(false);
+                            setCustomPasteError(null);
+                          }}
+                          className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
                   {customStructureRows.map((row, rowIndex) => (
                     <div
                       key={row.id}
