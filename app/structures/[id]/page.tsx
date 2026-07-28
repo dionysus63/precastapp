@@ -115,8 +115,8 @@ export default async function EditStructureTemplatePage({
     })),
     rectSizes: template.rectSizes.map((size) => ({
       id: size.id,
-      insideLengthFeet: decimalToString(size.insideLengthFeet),
-      insideWidthFeet: decimalToString(size.insideWidthFeet),
+      insideLengthInches: String(size.insideLengthInches),
+      insideWidthInches: String(size.insideWidthInches),
     })),
   };
 

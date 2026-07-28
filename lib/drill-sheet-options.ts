@@ -216,10 +216,12 @@ export async function loadRectSheetFormOptions(
         defaultCastingHeightFeet: template.castingProduct?.heightFeet
           ? Number(template.castingProduct.heightFeet)
           : null,
+        // Sizes are stored in whole inches; downstream calc and sheets work
+        // in feet, rounded to 4 decimals to match JobStructureCalc storage.
         presetSizes: template.rectSizes.map((size) => ({
           id: size.id,
-          insideLengthFeet: Number(size.insideLengthFeet),
-          insideWidthFeet: Number(size.insideWidthFeet),
+          insideLengthFeet: Math.round((size.insideLengthInches / 12) * 10000) / 10000,
+          insideWidthFeet: Math.round((size.insideWidthInches / 12) * 10000) / 10000,
         })),
       };
     }),

@@ -622,17 +622,18 @@ model StructureTemplateDiameter {
 /// Preset inside length x width combo for a rectangular structure template.
 /// Sheets can also enter free L x W; presets are one-click starting points.
 model StructureTemplateRectSize {
-  id               String   @id @default(cuid())
-  templateId       String
-  insideLengthFeet Decimal  @db.Decimal(6, 2)
-  insideWidthFeet  Decimal  @db.Decimal(6, 2)
-  sortOrder        Int      @default(0)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                 String   @id @default(cuid())
+  templateId         String
+  /// Whole inches — footprints are picked at 1" increments.
+  insideLengthInches Int
+  insideWidthInches  Int
+  sortOrder          Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   template StructureTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
-  @@unique([templateId, insideLengthFeet, insideWidthFeet])
+  @@unique([templateId, insideLengthInches, insideWidthInches])
   @@index([templateId])
 }
 

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { randomId } from "@/lib/random-id";
+import { formatFeetInchesShort } from "@/lib/drill-sheet";
 import { useMemo, useState } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import {
@@ -569,7 +570,8 @@ export function RectSheetForm({
                 />
                 {templateSize ? (
                   <p className="mt-1 text-[11px] text-slate-400">
-                    Set by the template.
+                    Set by the template —{" "}
+                    {formatFeetInchesShort(templateSize.insideLengthFeet)}.
                   </p>
                 ) : null}
               </div>
@@ -588,7 +590,8 @@ export function RectSheetForm({
                 />
                 {templateSize ? (
                   <p className="mt-1 text-[11px] text-slate-400">
-                    Set by the template.
+                    Set by the template —{" "}
+                    {formatFeetInchesShort(templateSize.insideWidthFeet)}.
                   </p>
                 ) : null}
               </div>

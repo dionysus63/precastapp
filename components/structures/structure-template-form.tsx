@@ -23,9 +23,20 @@ type DiameterField = {
 
 type RectSizeField = {
   id: string;
-  insideLengthFeet: string;
-  insideWidthFeet: string;
+  insideLengthInches: string;
+  insideWidthInches: string;
 };
+
+/** "54" → 4'-6" — live hint under the inch inputs. */
+function feetInchesHint(inchesText: string): string | null {
+  const inches = Number(inchesText);
+  if (!Number.isFinite(inches) || inches <= 0) {
+    return null;
+  }
+  const feet = Math.floor(inches / 12);
+  const rest = Math.round(inches % 12);
+  return `${feet}'-${rest}"`;
+}
 
 export type CastingOption = {
   id: string;
@@ -196,11 +207,11 @@ export function StructureTemplateForm({
   );
   // A rectangular template is one mold/form: exactly one inside footprint.
   // Legacy templates with several preset rows seed from the first.
-  const [rectLengthFeet, setRectLengthFeet] = useState(
-    initial.rectSizes[0]?.insideLengthFeet ?? "",
+  const [rectLengthInches, setRectLengthInches] = useState(
+    initial.rectSizes[0]?.insideLengthInches ?? "",
   );
-  const [rectWidthFeet, setRectWidthFeet] = useState(
-    initial.rectSizes[0]?.insideWidthFeet ?? "",
+  const [rectWidthInches, setRectWidthInches] = useState(
+    initial.rectSizes[0]?.insideWidthInches ?? "",
   );
 
   const isRect = shape === "RECTANGULAR";
@@ -236,8 +247,8 @@ export function StructureTemplateForm({
       })),
       rectSizes: [
         {
-          insideLengthFeet: rectLengthFeet,
-          insideWidthFeet: rectWidthFeet,
+          insideLengthInches: rectLengthInches,
+          insideWidthInches: rectWidthInches,
         },
       ],
     });
@@ -263,8 +274,8 @@ export function StructureTemplateForm({
     status,
     notes,
     diameters,
-    rectLengthFeet,
-    rectWidthFeet,
+    rectLengthInches,
+    rectWidthInches,
   ]);
 
   return (
@@ -544,34 +555,42 @@ export function StructureTemplateForm({
             <div className="contents">
               <div>
                 <label className="block text-xs font-medium text-slate-700">
-                  Inside Length (ft) *
+                  Inside Length (in) *
                 </label>
                 <input
                   type="number"
-                  min="0"
-                  step="0.25"
+                  min="1"
+                  step="1"
                   required={isRect}
-                  value={rectLengthFeet}
-                  onChange={(e) => setRectLengthFeet(e.target.value)}
-                  placeholder="4"
+                  value={rectLengthInches}
+                  onChange={(e) => setRectLengthInches(e.target.value)}
+                  placeholder="48"
                   className={structureInputClassName}
                 />
+                {feetInchesHint(rectLengthInches) ? (
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    {feetInchesHint(rectLengthInches)}
+                  </p>
+                ) : null}
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-700">
-                  Inside Width (ft) *
+                  Inside Width (in) *
                 </label>
                 <input
                   type="number"
-                  min="0"
-                  step="0.25"
+                  min="1"
+                  step="1"
                   required={isRect}
-                  value={rectWidthFeet}
-                  onChange={(e) => setRectWidthFeet(e.target.value)}
-                  placeholder="4"
+                  value={rectWidthInches}
+                  onChange={(e) => setRectWidthInches(e.target.value)}
+                  placeholder="48"
                   className={structureInputClassName}
                 />
                 <p className="mt-1 text-[11px] text-slate-400">
+                  {feetInchesHint(rectWidthInches)
+                    ? `${feetInchesHint(rectWidthInches)} — `
+                    : ""}
                   One size per template — sheets and quotes only pick height.
                 </p>
               </div>

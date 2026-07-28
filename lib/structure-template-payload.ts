@@ -11,8 +11,8 @@ type DiameterPayload = {
 };
 
 type RectSizePayload = {
-  insideLengthFeet: number;
-  insideWidthFeet: number;
+  insideLengthInches: number;
+  insideWidthInches: number;
 };
 
 export type TemplatePayload = {
@@ -136,19 +136,38 @@ export function parseTemplateData(data: Record<string, unknown>): TemplatePayloa
   const rectSizes: RectSizePayload[] = [];
   rectSizesRaw.forEach((item) => {
     const row = item as Record<string, unknown>;
+    // Footprints are whole inches; legacy callers (bulk import "4x6" cells)
+    // still send feet, converted at 12"/ft and rounded to the nearest inch.
+    const isBlank = (value: unknown) => value === "" || value == null;
     const lengthBlank =
-      row.insideLengthFeet === "" || row.insideLengthFeet == null;
+      isBlank(row.insideLengthInches) && isBlank(row.insideLengthFeet);
     const widthBlank =
-      row.insideWidthFeet === "" || row.insideWidthFeet == null;
+      isBlank(row.insideWidthInches) && isBlank(row.insideWidthFeet);
     if (lengthBlank && widthBlank) {
       return;
     }
+    const inches = (
+      inchesValue: unknown,
+      feetValue: unknown,
+      label: string,
+    ): number => {
+      if (!isBlank(inchesValue)) {
+        const num = requirePositiveNumber(inchesValue, label);
+        if (!Number.isInteger(num)) {
+          throw new Error(`${label} must be whole inches.`);
+        }
+        return num;
+      }
+      return Math.round(requirePositiveNumber(feetValue, label) * 12);
+    };
     rectSizes.push({
-      insideLengthFeet: requirePositiveNumber(
+      insideLengthInches: inches(
+        row.insideLengthInches,
         row.insideLengthFeet,
         "Inside length",
       ),
-      insideWidthFeet: requirePositiveNumber(
+      insideWidthInches: inches(
+        row.insideWidthInches,
         row.insideWidthFeet,
         "Inside width",
       ),
@@ -273,8 +292,8 @@ export function buildNestedCreate(payload: TemplatePayload) {
     },
     rectSizes: {
       create: payload.rectSizes.map((size, index) => ({
-        insideLengthFeet: decimal(size.insideLengthFeet),
-        insideWidthFeet: decimal(size.insideWidthFeet),
+        insideLengthInches: size.insideLengthInches,
+        insideWidthInches: size.insideWidthInches,
         sortOrder: index,
       })),
     },
