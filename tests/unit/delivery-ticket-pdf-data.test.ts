@@ -283,6 +283,37 @@ describe("delivery ticket PDF form data", () => {
     expect(computeTotalPieces(ticket({ lineItems: lines }))).toBe("10");
   });
 
+  it("counts casting assembly sets as their component pieces", () => {
+    const assemblyLine: DbDeliveryTicketForPdf["lineItems"][number] = {
+      itemCode: "EJ301",
+      description: "NC Curb Inlet Assembly",
+      quantity: { toString: () => "2" },
+      unit: "EA",
+      totalWeight: null,
+      jobStructure: null,
+      product: {
+        pipeLengthFeet: null,
+        castingRole: "ASSEMBLY",
+        castingSoldAsUnit: false,
+        castingAssemblyComponents: [
+          { quantity: 1 },
+          { quantity: 1 },
+          { quantity: 1 },
+        ],
+      },
+    };
+
+    // 2 sets × 3 pieces per set = 6 physical pieces on the truck.
+    expect(computeTotalPieces(ticket({ lineItems: [assemblyLine] }))).toBe("6");
+
+    // Sold-as-unit assemblies are single pieces — no BOM expansion.
+    const soldAsUnit = {
+      ...assemblyLine,
+      product: { ...assemblyLine.product!, castingSoldAsUnit: true },
+    };
+    expect(computeTotalPieces(ticket({ lineItems: [soldAsUnit] }))).toBe("2");
+  });
+
   it("rounds partial pipe sticks up and leaves non-LF pipe lines alone", () => {
     const partial: DbDeliveryTicketForPdf["lineItems"][number] = {
       itemCode: "ADS-15-20-ST",

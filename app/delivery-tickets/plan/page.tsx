@@ -50,6 +50,22 @@ function mapDraftToCells(
     }
     if (line.notes != null || line.yardLocation != null) return null;
 
+    // Whole-set assembly lines seed the grid as their component piece cells
+    // (sets × per-set quantity), matching the planner's piece rows.
+    if (
+      meta.isCastingAssembly &&
+      line.productId &&
+      line.productId === meta.productId &&
+      meta.castingComponentOptions.length > 0
+    ) {
+      for (const option of meta.castingComponentOptions) {
+        const rowKey = `${line.quoteLineItemId}::${option.productId}`;
+        cells[rowKey] =
+          (cells[rowKey] ?? 0) + Number(line.quantity) * option.quantity;
+      }
+      continue;
+    }
+
     let rowKey: string;
     if (meta.isDrainRing || meta.isAdsPipe || meta.isCastingAssembly) {
       const options = meta.isDrainRing

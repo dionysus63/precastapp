@@ -48,6 +48,7 @@ import {
   formatCastingPieceRoleLabel,
   type CastingPieceRole,
 } from "@/lib/casting-utils";
+import { collapseCastingTicketLines } from "@/lib/casting-ticket-lines";
 import {
   tableBodyClassName,
   tableCellClassName,
@@ -1257,7 +1258,15 @@ export function DeliveryTicketEditor({
       trailer: resolveFleetValue(trailer, trailerOther),
       // Only meaningful in edit mode; lets the server reject stale saves.
       expectedUpdatedAt,
-      lines: linePayload,
+      // Whole casting sets ship as one assembly line; partial-set leftovers
+      // stay as piece lines.
+      lines:
+        ticketType === "JOB"
+          ? collapseCastingTicketLines(
+              linePayload,
+              fulfillment.filter((meta) => meta.isCastingAssembly),
+            )
+          : linePayload,
     };
   }
 
@@ -1357,7 +1366,11 @@ export function DeliveryTicketEditor({
         const count = pieces.get(option.productId) ?? 0;
         sets = Math.min(sets, Math.floor(count / option.quantity));
       }
-      const setsUsed = Number.isFinite(sets) ? sets : 0;
+      // Collapsed whole-set lines carry the assembly product directly.
+      const directSets = meta.productId
+        ? Math.floor(pieces.get(meta.productId) ?? 0)
+        : 0;
+      const setsUsed = (Number.isFinite(sets) ? sets : 0) + directSets;
       if (setsUsed > getAvailableQty(meta)) push(meta, "sets", setsUsed);
     }
     return entries;

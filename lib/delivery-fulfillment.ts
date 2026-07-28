@@ -598,7 +598,10 @@ async function loadShippedCastingSetsByQuoteLineId(
       const shipped = shippedByComponent.get(row.componentId) ?? 0;
       sets = Math.min(sets, Math.floor(shipped / row.quantity));
     }
-    totals.set(line.id, Number.isFinite(sets) ? sets : 0);
+    // Whole-set ticket lines carry the assembly product itself with quantity
+    // already in sets; legacy per-piece lines contribute via the BOM min.
+    const directSets = Math.floor(shippedByComponent.get(line.productId) ?? 0);
+    totals.set(line.id, directSets + (Number.isFinite(sets) ? sets : 0));
   }
 
   return totals;

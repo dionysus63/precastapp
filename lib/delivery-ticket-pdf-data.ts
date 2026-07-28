@@ -9,9 +9,15 @@ export const DELIVERY_TICKET_PDF_INCLUDE = {
         select: { structureNumber: true, description: true },
       },
       // Pipe ships in fixed stick lengths (ADS 20', RCP 8'); the ticket's
-      // total piece count converts LF quantities to sticks.
+      // total piece count converts LF quantities to sticks. Casting
+      // assembly lines (qty = sets) convert to physical pieces via the BOM.
       product: {
-        select: { pipeLengthFeet: true },
+        select: {
+          pipeLengthFeet: true,
+          castingRole: true,
+          castingSoldAsUnit: true,
+          castingAssemblyComponents: { select: { quantity: true } },
+        },
       },
     },
   },
@@ -121,9 +127,13 @@ export type DbDeliveryTicketForPdf = {
       structureNumber: string | null;
       description: string | null;
     } | null;
-    /** Optional: lets the total piece count convert LF of pipe to sticks. */
+    /** Optional: lets the total piece count convert LF of pipe to sticks
+     * and casting assembly sets to physical pieces. */
     product?: {
       pipeLengthFeet: { toString(): string } | null;
+      castingRole?: string | null;
+      castingSoldAsUnit?: boolean;
+      castingAssemblyComponents?: { quantity: number }[];
     } | null;
   }[];
 };
@@ -289,6 +299,20 @@ export function computeTotalPieces(ticket: DbDeliveryTicketForPdf): string {
       : 0;
     if (stickLength > 0 && line.unit?.trim().toUpperCase() === "LF") {
       return sum + Math.ceil(qty / stickLength);
+    }
+
+    // A casting assembly line's quantity is whole sets; the truck carries
+    // each set's component pieces.
+    if (
+      line.product?.castingRole === "ASSEMBLY" &&
+      !line.product.castingSoldAsUnit &&
+      line.product.castingAssemblyComponents?.length
+    ) {
+      const piecesPerSet = line.product.castingAssemblyComponents.reduce(
+        (pieces, row) => pieces + row.quantity,
+        0,
+      );
+      return sum + qty * piecesPerSet;
     }
 
     return sum + qty;

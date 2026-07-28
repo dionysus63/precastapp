@@ -532,7 +532,23 @@ export async function deductInventoryForDeliveredTicket(
       lineItems: {
         where: { lineType: "STOCK_PRODUCT", productId: { not: null } },
         include: {
-          product: { select: { id: true, trackInventory: true } },
+          product: {
+            select: {
+              id: true,
+              trackInventory: true,
+              castingRole: true,
+              castingSoldAsUnit: true,
+              // Parts-mode assemblies aren't stocked themselves — delivering
+              // one set consumes each tracked component.
+              castingAssemblyComponents: {
+                select: {
+                  componentId: true,
+                  quantity: true,
+                  component: { select: { trackInventory: true } },
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -543,13 +559,47 @@ export async function deductInventoryForDeliveredTicket(
   }
 
   for (const line of ticket.lineItems) {
-    if (!line.productId || !line.product?.trackInventory) {
+    if (!line.productId || !line.product) {
       continue;
     }
 
     // Idempotency guard: a line already marked DELIVERED has already been
     // deducted. Skip it so concurrent / repeated marks don't double-deduct.
     if (line.status === "DELIVERED") {
+      continue;
+    }
+
+    const isPartsAssembly =
+      line.product.castingRole === "ASSEMBLY" &&
+      !line.product.castingSoldAsUnit &&
+      line.product.castingAssemblyComponents.length > 0;
+
+    if (isPartsAssembly) {
+      // One assembly line (qty = sets) deducts every tracked component;
+      // reversal replays these ledger entries, so it needs no special case.
+      for (const bomRow of line.product.castingAssemblyComponents) {
+        if (!bomRow.component.trackInventory) {
+          continue;
+        }
+        await applyStockChange(client, {
+          productId: bomRow.componentId,
+          quantityChange: line.quantity.mul(-bomRow.quantity),
+          transactionType: "DELIVERY",
+          transactionDate: deliveredAt,
+          referenceType: "DELIVERY_TICKET_LINE_ITEM",
+          referenceId: line.id,
+          createdBy: createdBy ?? null,
+          allowNegative: true,
+        });
+      }
+      await client.deliveryTicketLineItem.update({
+        where: { id: line.id },
+        data: { status: "DELIVERED" },
+      });
+      continue;
+    }
+
+    if (!line.product.trackInventory) {
       continue;
     }
 

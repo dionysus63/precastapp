@@ -354,7 +354,12 @@ async function validateLines(
         const pieces = piecesByProduct.get(option.productId) ?? 0;
         sets = Math.min(sets, Math.floor(pieces / option.quantity));
       }
-      const setsUsed = Number.isFinite(sets) ? sets : 0;
+      // Whole-set lines carry the assembly product itself; their quantity is
+      // already in sets.
+      const directSets = meta.productId
+        ? Math.floor(piecesByProduct.get(meta.productId) ?? 0)
+        : 0;
+      const setsUsed = (Number.isFinite(sets) ? sets : 0) + directSets;
       const remainingQty = remainingFor(meta);
       if (setsUsed > remainingQty && !allowOverQuote) {
         throw new Error(

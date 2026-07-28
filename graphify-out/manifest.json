@@ -430,8 +430,8 @@
     "semantic_hash": ""
   },
   "app/delivery-tickets/[id]/edit/page.tsx": {
-    "mtime": 1784149912.7331202,
-    "ast_hash": "98077a8f862e1e82e49d43295b2bced6",
+    "mtime": 1785253694.670355,
+    "ast_hash": "9438c879c5056702552dbc14bc9ca0bb",
     "semantic_hash": ""
   },
   "app/delivery-tickets/[id]/page.tsx": {
@@ -440,8 +440,8 @@
     "semantic_hash": ""
   },
   "app/delivery-tickets/actions.ts": {
-    "mtime": 1784908986.1949427,
-    "ast_hash": "b298f692458fca5d15329196e925d337",
+    "mtime": 1785253735.3825288,
+    "ast_hash": "11d29c422d685706667f28679cd08a99",
     "semantic_hash": ""
   },
   "app/delivery-tickets/new/page.tsx": {
@@ -580,8 +580,8 @@
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-ticket-editor.tsx": {
-    "mtime": 1785158182.2196403,
-    "ast_hash": "90ad07c3481c43a4efc922e16083df25",
+    "mtime": 1785253636.748948,
+    "ast_hash": "63b643090b211acdb41f2d7a1f3dabff",
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-ticket-utils.ts": {
@@ -700,8 +700,8 @@
     "semantic_hash": ""
   },
   "lib/delivery-fulfillment.ts": {
-    "mtime": 1784908626.5858428,
-    "ast_hash": "fedbb96e60b9b4283b01dd1630a4e286",
+    "mtime": 1785253746.9138136,
+    "ast_hash": "206b376a8b5939b7fbcac5491152ec27",
     "semantic_hash": ""
   },
   "lib/delivery-ticket-mapper.ts": {
@@ -720,8 +720,8 @@
     "semantic_hash": ""
   },
   "lib/inventory-service.ts": {
-    "mtime": 1784750404.3869927,
-    "ast_hash": "02997a83339482947afa257cfdcd34d9",
+    "mtime": 1785253772.9407246,
+    "ast_hash": "6ee53b8981d227791fafbbfe5d9ec5af",
     "semantic_hash": ""
   },
   "lib/invoice-mapper.ts": {
@@ -1340,8 +1340,8 @@
     "semantic_hash": ""
   },
   "lib/delivery-ticket-pdf-data.ts": {
-    "mtime": 1784908834.1833158,
-    "ast_hash": "0bff4787f574319a8c6f99e583a25b50",
+    "mtime": 1785253800.481261,
+    "ast_hash": "35bb2922ca704d3312f9f1c5dd50a1d7",
     "semantic_hash": ""
   },
   "lib/drill-sheet-detail.ts": {
@@ -2840,13 +2840,13 @@
     "semantic_hash": ""
   },
   "app/delivery-tickets/plan/page.tsx": {
-    "mtime": 1784909036.4456153,
-    "ast_hash": "ed2d7dfa56908ef02c2f6a4989c6d1a2",
+    "mtime": 1785253722.7938094,
+    "ast_hash": "f31c844c1067adc973419535b616c543",
     "semantic_hash": ""
   },
   "components/delivery-tickets/bulk-load-planner.tsx": {
-    "mtime": 1785249216.612743,
-    "ast_hash": "547c7ee583a0fadbbbaac1a9bf6896ef",
+    "mtime": 1785253716.3233116,
+    "ast_hash": "fc340f1c2277233220885046a0f44382",
     "semantic_hash": ""
   },
   "app/delivery-tickets/schedule/page.tsx": {
@@ -3772,6 +3772,16 @@
   "lib/pdf-save-options.ts": {
     "mtime": 1785189770.0922987,
     "ast_hash": "8f8c3a136ecf3e7cd094d9f1fcf3858a",
+    "semantic_hash": ""
+  },
+  "lib/casting-ticket-lines.ts": {
+    "mtime": 1785253597.6131952,
+    "ast_hash": "98fb31d79da7a1499bae71dacf805060",
+    "semantic_hash": ""
+  },
+  "tests/unit/casting-ticket-lines.test.ts": {
+    "mtime": 1785253849.7620065,
+    "ast_hash": "67fcff0232bd7ea21ec1db2329f2aab7",
     "semantic_hash": ""
   }
 }

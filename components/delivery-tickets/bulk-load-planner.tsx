@@ -21,6 +21,7 @@ import {
 } from "@/app/delivery-tickets/actions";
 import { allocateRingsForLoads } from "@/components/delivery-tickets/drain-ring-matrix-utils";
 import { formatCastingPieceRoleLabel } from "@/lib/casting-utils";
+import { collapseCastingTicketLines } from "@/lib/casting-ticket-lines";
 import type {
   DrainRingOption,
   QuoteLineFulfillment,
@@ -1466,7 +1467,12 @@ export function BulkLoadPlanner({
         weightEach: row.weightEach,
       });
     }
-    return lines;
+    // Whole casting sets ship as one assembly line; partial-set leftovers
+    // stay as piece lines.
+    return collapseCastingTicketLines(
+      lines,
+      fulfillment.filter((meta) => meta.isCastingAssembly),
+    );
   }
 
   // Any ring line whose assigned feet exceed its recorded remaining feet
