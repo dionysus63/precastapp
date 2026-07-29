@@ -65,6 +65,7 @@ import {
   quoteTypeFormOptions,
 } from "@/components/quotes/quote-utils";
 import { QuoteFormTypeahead } from "@/components/quotes/quote-form-typeahead";
+import { BackButton } from "@/components/dashboard/back-button";
 import {
   StockProductPicker,
   type StagedStockProduct,
@@ -166,6 +167,10 @@ type QuoteFormProps = {
     paymentTerms: string[];
     defaultEstimator?: string | null;
   };
+  /** Renders the page's back pill inside the form so leaving with unsaved
+   * changes asks to save first (plain Links can't be intercepted). */
+  backHref?: string;
+  backLabel?: string;
 };
 
 type CustomStructureRow = {
@@ -225,6 +230,8 @@ export function QuoteForm({
   initialValues,
   expectedUpdatedAt,
   quoteDefaults,
+  backHref,
+  backLabel,
 }: QuoteFormProps) {
   const router = useRouter();
   const isEditing = Boolean(quoteId && initialValues);
@@ -263,6 +270,9 @@ export function QuoteForm({
   const [isPending, startTransition] = useTransition();
   const [isDirty, setIsDirty] = useState(false);
   useUnsavedChangesWarning(isDirty);
+  // Back-pill guard: client-side navigation skips beforeunload, so the pill
+  // opens this dialog instead when there are unsaved changes.
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [lineItems, setLineItems] = useState<EditableQuoteLineItem[]>(
     initialValues?.lineItems ?? [],
   );
@@ -1691,9 +1701,71 @@ export function QuoteForm({
   }
 
   return (
+    <>
+    {backHref ? (
+      <BackButton
+        href={backHref}
+        label={backLabel ?? "Back"}
+        onClick={(event) => {
+          if (isDirty) {
+            event.preventDefault();
+            setShowLeaveConfirm(true);
+          }
+        }}
+      />
+    ) : null}
+
+    {showLeaveConfirm && backHref ? (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+        <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-lg">
+          <h3 className="text-sm font-semibold text-slate-900">
+            Save your changes?
+          </h3>
+          <p className="mt-1 text-xs text-slate-600">
+            This quote has unsaved changes. Save them before leaving, or
+            discard them?
+          </p>
+          <div className="mt-4 flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowLeaveConfirm(false)}
+              disabled={isPending}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Keep Editing
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowLeaveConfirm(false);
+                setIsDirty(false);
+                router.push(backHref);
+              }}
+              disabled={isPending}
+              className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+            >
+              Discard Changes
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowLeaveConfirm(false);
+                handleSaveDraft();
+              }}
+              disabled={isPending}
+              className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              {isPending ? "Saving…" : "Save Changes"}
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null}
+
     <form
       onSubmit={handleSubmit}
       onChange={() => setIsDirty(true)}
+      className={backHref ? "mt-4" : undefined}
     >
       {flashMessage ? (
         <div
@@ -3432,5 +3504,6 @@ export function QuoteForm({
         />
       ) : null}
     </form>
+    </>
   );
 }

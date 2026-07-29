@@ -19,7 +19,6 @@ import { listProductTaxonomy } from "@/lib/product-taxonomy.server";
 import { withDatabaseRetry } from "@/lib/prisma";
 import type { QuoteStatus } from "@/app/generated/prisma/client";
 
-import { BackButton } from "@/components/dashboard/back-button";
 type EditQuotePageProps = {
   params: Promise<{ id: string }>;
 };
@@ -102,10 +101,10 @@ export default async function EditQuotePage({ params }: EditQuotePageProps) {
       title={`Edit Quote ${quote.quoteNumber}`}
       subtitle="Update quote details, line items, and pricing."
     >
-      <BackButton href={`/quotes/${quote.id}`} label="Back to Quote" />
-
-      <div className="mt-4">
+      <div>
         <QuoteForm
+          backHref={`/quotes/${quote.id}`}
+          backLabel="Back to Quote"
           quoteId={quote.id}
           initialValues={initialValues}
           expectedUpdatedAt={quote.updatedAt.toISOString()}

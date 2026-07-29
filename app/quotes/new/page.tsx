@@ -15,7 +15,6 @@ import { listProductTaxonomy } from "@/lib/product-taxonomy.server";
 import { requireAuth } from "@/lib/auth/session";
 import { withDatabaseRetry } from "@/lib/prisma";
 
-import { BackButton } from "@/components/dashboard/back-button";
 type NewQuotePageProps = {
   searchParams: Promise<{
     jobId?: string;
@@ -81,10 +80,10 @@ export default async function NewQuotePage({
       title="New Quote"
       subtitle="Create a quote using stock products, configurable structures, custom structures, and services."
     >
-      <BackButton href={backTarget.href} label={backTarget.label} />
-
-      <div className="mt-4">
+      <div>
         <QuoteForm
+          backHref={backTarget.href}
+          backLabel={backTarget.label}
           initialCustomer={initialCustomer}
           initialJob={initialJob}
           initialCustomerId={customerId}
