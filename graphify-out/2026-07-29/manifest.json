@@ -115,8 +115,8 @@
     "semantic_hash": ""
   },
   "app/quotes/actions.ts": {
-    "mtime": 1784311251.9090197,
-    "ast_hash": "87d2616437c494564c5c1ed154d0b0e2",
+    "mtime": 1785344927.5667305,
+    "ast_hash": "70bdc09672a9612be999fcaa95ac2c0b",
     "semantic_hash": ""
   },
   "app/quotes/new/page.tsx": {
@@ -245,13 +245,13 @@
     "semantic_hash": ""
   },
   "components/quotes/quote-detail-content.tsx": {
-    "mtime": 1784311221.0901608,
-    "ast_hash": "ec2989a775be37ee36e8832798e15091",
+    "mtime": 1785345163.32496,
+    "ast_hash": "304551327f0b7db5efb023e894b0cf3b",
     "semantic_hash": ""
   },
   "components/quotes/quote-form.tsx": {
-    "mtime": 1785342884.5615373,
-    "ast_hash": "0e8cd035a3350aad76ea2f4618c6b2a5",
+    "mtime": 1785345126.221582,
+    "ast_hash": "7e271b2d56c0b9a606bd6f240d8936cc",
     "semantic_hash": ""
   },
   "components/quotes/quote-preview-content.tsx": {
@@ -260,8 +260,8 @@
     "semantic_hash": ""
   },
   "components/quotes/quote-utils.ts": {
-    "mtime": 1783525570.5620527,
-    "ast_hash": "38b650a591cfc531e75893f92d4be618",
+    "mtime": 1785344980.4881203,
+    "ast_hash": "2acde2a7a7b627209314a5826efc5493",
     "semantic_hash": ""
   },
   "components/quotes/quotes-page-content.tsx": {
@@ -700,8 +700,8 @@
     "semantic_hash": ""
   },
   "lib/delivery-fulfillment.ts": {
-    "mtime": 1785253746.9138136,
-    "ast_hash": "206b376a8b5939b7fbcac5491152ec27",
+    "mtime": 1785344990.9361963,
+    "ast_hash": "1f84cf678d97091028bf4f2339d2af3c",
     "semantic_hash": ""
   },
   "lib/delivery-ticket-mapper.ts": {
@@ -1410,8 +1410,8 @@
     "semantic_hash": ""
   },
   "lib/quotes/constants.ts": {
-    "mtime": 1783814040.9203115,
-    "ast_hash": "2db50f0b32ad3083ffeeebf352f5d0ea",
+    "mtime": 1785344898.7781665,
+    "ast_hash": "8a00674e00daa56089ed3a818c3fc7cf",
     "semantic_hash": ""
   },
   "lib/quotes/list-summary.ts": {
@@ -1420,13 +1420,13 @@
     "semantic_hash": ""
   },
   "lib/quotes/money-rules.ts": {
-    "mtime": 1782735964.3222177,
-    "ast_hash": "20d966644682508dba4d4c9b7b5dfb59",
+    "mtime": 1785344958.195038,
+    "ast_hash": "8d5fba64a015d010bfcd9f806f1da087",
     "semantic_hash": ""
   },
   "lib/quotes/types.ts": {
-    "mtime": 1783963565.0132463,
-    "ast_hash": "2439c00a3c2ee80bdbdc5ec1132bebd8",
+    "mtime": 1785344891.2655225,
+    "ast_hash": "fafce16acb7ab64b36f592b71956c2c4",
     "semantic_hash": ""
   },
   "lib/server/form-data.ts": {
@@ -1630,8 +1630,8 @@
     "semantic_hash": ""
   },
   "lib/quote-pdf-data.ts": {
-    "mtime": 1783963318.8251665,
-    "ast_hash": "13bfaa32dd0fc8f6e50bcf69414a8b38",
+    "mtime": 1785345027.7310154,
+    "ast_hash": "755b3f68c6a619aeb199db85a77c7c3a",
     "semantic_hash": ""
   },
   "lib/quote-pdf-fill.ts": {
@@ -1645,8 +1645,8 @@
     "semantic_hash": ""
   },
   "lib/quote-pdf-line-items.ts": {
-    "mtime": 1785183933.0403001,
-    "ast_hash": "932110c45d5bbda9b5ca08c511a43645",
+    "mtime": 1785345276.3612561,
+    "ast_hash": "9b37dbe5a43e9ab4cf8b84229b37a935",
     "semantic_hash": ""
   },
   "scripts/list-quote-pdf-fields.ts": {
@@ -1675,8 +1675,8 @@
     "semantic_hash": ""
   },
   "lib/quote-copy.ts": {
-    "mtime": 1783814037.9820845,
-    "ast_hash": "9e9b2a5221413b10d806773bf28544b7",
+    "mtime": 1785344960.071492,
+    "ast_hash": "1d1a6faa6a3bcfa4877af2514c27e93c",
     "semantic_hash": ""
   },
   "lib/quote-revision.ts": {
@@ -2080,8 +2080,8 @@
     "semantic_hash": ""
   },
   "components/quotes/quote-line-items-table.tsx": {
-    "mtime": 1785182752.7771168,
-    "ast_hash": "47e10342d16cf65dcf686b84dff138a5",
+    "mtime": 1785345145.2601156,
+    "ast_hash": "9368f038cc06d18414d0b562270e1943",
     "semantic_hash": ""
   },
   "components/quotes/quotes-page-sections.tsx": {
@@ -3760,8 +3760,8 @@
     "semantic_hash": ""
   },
   "tests/unit/quote-pdf-pagination.test.ts": {
-    "mtime": 1785183962.794967,
-    "ast_hash": "08570a2746576e78d81d08c325db0ce1",
+    "mtime": 1785345240.609416,
+    "ast_hash": "a0194bc3ea212ff7f8b6f61615401e34",
     "semantic_hash": ""
   },
   "lib/pdf-flatten-cleanup.ts": {
@@ -3797,6 +3797,11 @@
   "prisma/migrations/20260729100000_ticket_line_unit_price/migration.sql": {
     "mtime": 1785328213.7419996,
     "ast_hash": "b49abfc6eb7bfc7e33f70bb8e0ca3fb5",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260729120000_quote_note_and_page_break_lines/migration.sql": {
+    "mtime": 1785344856.6148303,
+    "ast_hash": "b339e03280b1c00b926dd572ce74ee0c",
     "semantic_hash": ""
   }
 }

@@ -330,6 +330,8 @@ export type QuoteDetailView = {
   expirationDate: string;
   priceList: string;
   taxRate: string;
+  /** Raw tax rate percentage — drives the inline tax-exempt toggle. */
+  taxRatePercent: number;
   customerPo: string;
   customerNotes: string;
   internalNotes: string;

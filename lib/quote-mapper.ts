@@ -475,6 +475,7 @@ export function mapQuoteToDetailView(
     expirationDate: formatQuoteDate(quote.expirationDate),
     priceList: quote.priceList?.name ?? "—",
     taxRate: `${Number.isFinite(taxRateNumber) ? taxRateNumber : 0}%`,
+    taxRatePercent: Number.isFinite(taxRateNumber) ? taxRateNumber : 0,
     customerPo: quote.customerPO?.trim() || "—",
     customerNotes: quote.customerNotes?.trim() || "—",
     internalNotes: quote.internalNotes?.trim() || "—",

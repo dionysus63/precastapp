@@ -42,6 +42,8 @@ import { promoteJobStatus } from "@/lib/job-status-workflow";
 import { linkPlanSheetToQuote } from "@/app/quotes/plan-sheet-actions";
 import { computeMoneyTotals } from "@/lib/money";
 import { computeDeliveryAmount } from "@/lib/quotes/money-rules";
+import { computeQuoteTotalsFromLines } from "@/lib/quote-copy";
+import { getAppSettings } from "@/lib/app-settings";
 import {
   isNonBillableLineItem,
   resolveQuoteLineQuantityForStorage,
@@ -1028,6 +1030,62 @@ export async function updateQuoteCustomerPo(
     return {
       error:
         error instanceof Error ? error.message : "Could not save the PO.",
+    };
+  }
+}
+
+/**
+ * Flip a quote's sales tax without unlocking the full editor — the tax
+ * exempt certificate usually arrives after the quote is won (same lock
+ * bypass as the customer PO). Exempt zeroes the rate; un-exempt restores
+ * the app default. Stored totals recompute; line totals are pre-tax and
+ * unchanged. Invoices created afterward pick up the new rate.
+ */
+export async function setQuoteTaxExempt(
+  quoteId: string,
+  exempt: boolean,
+): Promise<{ success: true } | { error: string }> {
+  await requirePermission(AppPermission.QUOTES_MANAGE);
+  try {
+    const appSettings = await getAppSettings();
+    const newRate = exempt ? 0 : appSettings.defaultTaxRate;
+
+    const quote = await prisma.quote.findUnique({
+      where: { id: quoteId },
+      include: {
+        lineItems: { orderBy: [{ sortOrder: "asc" }, { lineNumber: "asc" }] },
+      },
+    });
+    if (!quote) {
+      return { error: "Quote not found." };
+    }
+
+    const { computed } = computeQuoteTotalsFromLines(
+      quote.lineItems,
+      new Prisma.Decimal(newRate),
+      quote.discountAmount,
+    );
+
+    await prisma.quote.update({
+      where: { id: quoteId },
+      data: {
+        taxRate: new Prisma.Decimal(newRate),
+        taxableAmount: computed.taxableAmount,
+        salesTax: computed.salesTax,
+        total: computed.total,
+      },
+    });
+
+    revalidatePath(`/quotes/${quoteId}`);
+    revalidatePath("/quotes");
+    if (quote.jobId) {
+      revalidatePath(`/jobs/${quote.jobId}`);
+    }
+    return { success: true };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "Could not update the tax.",
     };
   }
 }

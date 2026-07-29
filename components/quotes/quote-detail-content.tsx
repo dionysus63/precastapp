@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { BackButton } from "@/components/dashboard/back-button";
 import { CollapsibleSectionCard } from "@/components/dashboard/collapsible-section-card";
 import { SectionCard } from "@/components/dashboard/section-card";
@@ -17,6 +18,7 @@ import { ReviseQuoteButton } from "@/components/quotes/revise-quote-button";
 import { SendQuoteButton } from "@/components/quotes/send-quote-button";
 import { QuotePdfDragChip } from "@/components/quotes/quote-pdf-drag-chip";
 import { QuotePoInline } from "@/components/quotes/quote-po-inline";
+import { QuoteTaxExemptInline } from "@/components/quotes/quote-tax-exempt-inline";
 import { JobStructureSubmittalActions } from "@/components/jobs/job-structure-submittal-actions";
 import { StructureManageLink } from "@/components/jobs/structure-manage-link";
 import { RichTextContent } from "@/components/ui/rich-text-content";
@@ -113,12 +115,15 @@ type QuoteDetailContentProps = {
   pdfFileName: string;
   /** Auto-open the send dialog (form's save-then-send flow via ?send=1). */
   autoOpenSend?: boolean;
+  /** App default rate — what "un-exempt" restores. */
+  defaultTaxRatePercent: number;
 };
 
 export function QuoteDetailContent({
   quote,
   pdfFileName,
   autoOpenSend = false,
+  defaultTaxRatePercent,
 }: QuoteDetailContentProps) {
   const backHref = quote.jobId
     ? `/jobs/${quote.jobId}?tab=quotes`
@@ -620,13 +625,21 @@ export function QuoteDetailContent({
           </p>
           <dl className="w-64 max-w-full space-y-1 text-xs">
             {summaryRows.map(([label, value]) => (
-              <div
-                key={label}
-                className="flex items-center justify-between gap-3"
-              >
-                <dt className="text-slate-500">{label}</dt>
-                <dd className="font-medium text-slate-700">{value}</dd>
-              </div>
+              <Fragment key={label}>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-slate-500">{label}</dt>
+                  <dd className="font-medium text-slate-700">{value}</dd>
+                </div>
+                {label === "Sales Tax" ? (
+                  <div className="flex justify-end">
+                    <QuoteTaxExemptInline
+                      quoteId={quote.id}
+                      taxRatePercent={quote.taxRatePercent}
+                      defaultTaxRatePercent={defaultTaxRatePercent}
+                    />
+                  </div>
+                ) : null}
+              </Fragment>
             ))}
             <div className="flex items-center justify-between gap-3 border-t border-slate-300 pt-1">
               <dt className="font-semibold text-slate-900">Total</dt>
