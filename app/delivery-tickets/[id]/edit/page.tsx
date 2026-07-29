@@ -108,15 +108,16 @@ export default async function EditDeliveryTicketPage({
       return pieces.map((piece) => ({
         key: castingAssemblyEditorKey(line.quoteLineItemId!, piece.pieceRole),
         quoteLineItemId: line.quoteLineItemId,
-        productId: piece.productId,
-        jobStructureId: null,
-        jobStructurePieceId: null,
+        productId: piece.productId as string | null,
+        jobStructureId: null as string | null,
+        jobStructurePieceId: null as string | null,
         lineType: "STOCK_PRODUCT" as const,
         itemCode: piece.itemCode,
         description: piece.description,
         quantity: String(piece.quantity),
         unit: "EA",
         weightEach: piece.weightEach != null ? String(piece.weightEach) : "",
+        unitPrice: "",
         yardLocation: "",
       }));
     }
@@ -161,6 +162,7 @@ export default async function EditDeliveryTicketPage({
         quantity: line.quantity.toString(),
         unit: line.unit,
         weightEach: line.weightEach ? line.weightEach.toString() : "",
+        unitPrice: line.unitPrice ? line.unitPrice.toString() : "",
         yardLocation: line.yardLocation ?? "",
       },
     ];

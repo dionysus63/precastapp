@@ -1332,6 +1332,10 @@ model DeliveryTicketLineItem {
   unit             String             @default("EA")
   weightEach       Decimal?           @db.Decimal(12, 2)
   totalWeight      Decimal?           @db.Decimal(12, 2)
+  /// Price agreed at ticket time for items added outside the quote
+  /// (customer calls mid-job). Invoicing uses it ahead of quote-line and
+  /// price-list lookups.
+  unitPrice        Decimal?           @db.Decimal(12, 2)
   yardLocation     String?
   status           DeliveryItemStatus @default(NOT_READY)
   notes            String?

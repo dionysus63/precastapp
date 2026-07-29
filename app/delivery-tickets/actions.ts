@@ -64,6 +64,9 @@ export type DeliveryTicketLineInput = {
   quantity: number;
   unit?: string;
   weightEach?: number | null;
+  /** Required for JOB-ticket items added outside the quote — the price
+   * agreed on the phone; invoicing bills it directly. */
+  unitPrice?: number | null;
   yardLocation?: string | null;
   notes?: string | null;
 };
@@ -190,7 +193,26 @@ async function validateLines(
     const structurePiecesSeen = new Set<string>();
 
     for (const line of input.lines) {
-      if (!line.quoteLineItemId) continue;
+      if (!line.quoteLineItemId) {
+        // Extras added outside the quote (customer called mid-job): allowed
+        // without a new quote — like over-quote shipping — but the price must
+        // be agreed and entered now, or invoicing has nothing to bill.
+        if (line.quantity <= 0) {
+          throw new Error(
+            `Quantity must be greater than zero for ${line.itemCode}.`,
+          );
+        }
+        if (
+          line.unitPrice == null ||
+          !Number.isFinite(line.unitPrice) ||
+          line.unitPrice < 0
+        ) {
+          throw new Error(
+            `${line.itemCode} is not on the quote — enter its unit price.`,
+          );
+        }
+        continue;
+      }
       let meta = byId.get(line.quoteLineItemId);
       if (!meta) {
         const currentId = aliasToCurrentId.get(line.quoteLineItemId);
@@ -389,6 +411,7 @@ function buildLineCreates(lines: DeliveryTicketLineInput[]) {
       unit: line.unit ?? "EA",
       weightEach,
       totalWeight,
+      unitPrice: line.unitPrice != null ? toDecimal(line.unitPrice) : null,
       yardLocation: line.yardLocation ?? null,
       notes: line.notes ?? null,
       sortOrder: index,

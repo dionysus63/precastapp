@@ -190,11 +190,19 @@ async function resolveUnitPrice(
     productId: string | null;
     quoteLineItemId: string | null;
     itemCode: string;
+    /** Price agreed at ticket time (items added outside the quote). */
+    unitPrice?: Prisma.Decimal | null;
   },
   quoteId: string | null,
   priceListId: string | null,
   preloaded?: UnitPriceLookups,
 ): Promise<{ unitPrice: Prisma.Decimal; taxable: boolean; resolved: boolean }> {
+  // A price entered on the ticket line itself wins: it's the number the
+  // customer agreed to when the item was added mid-job.
+  if (ticketLine.unitPrice != null) {
+    return { unitPrice: ticketLine.unitPrice, taxable: true, resolved: true };
+  }
+
   if (ticketLine.quoteLineItemId) {
     const quoteLine = preloaded?.quoteLines.get(ticketLine.quoteLineItemId);
     if (quoteLine) {

@@ -430,8 +430,8 @@
     "semantic_hash": ""
   },
   "app/delivery-tickets/[id]/edit/page.tsx": {
-    "mtime": 1785328480.5272431,
-    "ast_hash": "10eec76bae655fb82aef6b73dd4674ed",
+    "mtime": 1785253694.670355,
+    "ast_hash": "9438c879c5056702552dbc14bc9ca0bb",
     "semantic_hash": ""
   },
   "app/delivery-tickets/[id]/page.tsx": {
@@ -440,8 +440,8 @@
     "semantic_hash": ""
   },
   "app/delivery-tickets/actions.ts": {
-    "mtime": 1785328274.556249,
-    "ast_hash": "0c4af5a6f2e7e1a8b8721ed1b907fc6b",
+    "mtime": 1785253735.3825288,
+    "ast_hash": "11d29c422d685706667f28679cd08a99",
     "semantic_hash": ""
   },
   "app/delivery-tickets/new/page.tsx": {
@@ -580,8 +580,8 @@
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-ticket-editor.tsx": {
-    "mtime": 1785328419.5041473,
-    "ast_hash": "2f6a8ec64836f961bd446f2322e32b27",
+    "mtime": 1785253636.748948,
+    "ast_hash": "63b643090b211acdb41f2d7a1f3dabff",
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-ticket-utils.ts": {
@@ -730,8 +730,8 @@
     "semantic_hash": ""
   },
   "lib/invoicing-service.ts": {
-    "mtime": 1785328297.6155398,
-    "ast_hash": "6cc1dcb9fed03c0ad3e9269e522f1c87",
+    "mtime": 1784908917.478434,
+    "ast_hash": "5ecc76d80a64e18ac835ea793048adb4",
     "semantic_hash": ""
   },
   "lib/job-file-mapper.ts": {
@@ -3792,11 +3792,6 @@
   "tests/unit/structure-template-payload.test.ts": {
     "mtime": 1785265061.3872232,
     "ast_hash": "5085c10d3d613ddd67bcf2073b9b5a9d",
-    "semantic_hash": ""
-  },
-  "prisma/migrations/20260729100000_ticket_line_unit_price/migration.sql": {
-    "mtime": 1785328213.7419996,
-    "ast_hash": "b49abfc6eb7bfc7e33f70bb8e0ca3fb5",
     "semantic_hash": ""
   }
 }

@@ -87,6 +87,8 @@ type EditorLine = {
   quantity: string;
   unit: string;
   weightEach: string;
+  /** JOB-ticket extras only: the price agreed when the item was added. */
+  unitPrice?: string;
   yardLocation: string;
 };
 
@@ -299,6 +301,8 @@ export function DeliveryTicketEditor({
     defaultValues?.projectName ?? "",
   );
   const [walkInSearch, setWalkInSearch] = useState("");
+  // JOB tickets: product search for items added outside the quote.
+  const [extraSearch, setExtraSearch] = useState("");
   const [walkInCategoryId, setWalkInCategoryId] = useState("all");
   const [walkInSubcategoryId, setWalkInSubcategoryId] = useState<string | null>(
     null,
@@ -1184,6 +1188,73 @@ export function DeliveryTicketEditor({
     setError(null);
   }
 
+  // --- JOB-ticket extras: items the customer added after the quote --------
+
+  const extraLines =
+    ticketType === "JOB"
+      ? lines.filter((line) => line.quoteLineItemId == null)
+      : [];
+
+  const extraResults = useMemo(() => {
+    const q = extraSearch.trim().toLowerCase();
+    if (!q) {
+      return [];
+    }
+    return products
+      .filter((product) =>
+        `${product.productCode} ${product.name}`.toLowerCase().includes(q),
+      )
+      .slice(0, 8);
+  }, [products, extraSearch]);
+
+  function addExtraProduct(product: ProductOption) {
+    const key = generateLineKey();
+    setLines((current) => [
+      ...current,
+      {
+        key,
+        quoteLineItemId: null,
+        productId: product.id,
+        jobStructureId: null,
+        lineType: "STOCK_PRODUCT",
+        itemCode: product.productCode,
+        description: product.name,
+        quantity: "1",
+        unit: product.unit || "EA",
+        weightEach: product.weight != null ? String(product.weight) : "",
+        unitPrice: product.unitPrice != null ? String(product.unitPrice) : "",
+        yardLocation: "",
+      },
+    ]);
+    setSelectedLineIds((current) => new Set([...current, key]));
+    setExtraSearch("");
+    markDirty();
+    setError(null);
+  }
+
+  function addExtraCustomLine() {
+    const key = generateLineKey();
+    setLines((current) => [
+      ...current,
+      {
+        key,
+        quoteLineItemId: null,
+        productId: null,
+        jobStructureId: null,
+        lineType: "MISC",
+        itemCode: "",
+        description: "",
+        quantity: "1",
+        unit: "EA",
+        weightEach: "",
+        unitPrice: "",
+        yardLocation: "",
+      },
+    ]);
+    setSelectedLineIds((current) => new Set([...current, key]));
+    markDirty();
+  }
+
   function updateWalkInLine(key: string, field: keyof EditorLine, value: string) {
     setLines((current) =>
       current.map((line) =>
@@ -1223,6 +1294,7 @@ export function DeliveryTicketEditor({
           quantity: Number(line.quantity),
           unit: line.unit,
           weightEach,
+          unitPrice: line.unitPrice?.trim() ? Number(line.unitPrice) : null,
           yardLocation: line.yardLocation || null,
         };
       });
@@ -1382,6 +1454,31 @@ export function DeliveryTicketEditor({
   ) {
     setError(null);
     const payload = buildPayload(status);
+
+    if (payload.ticketType === "JOB") {
+      // Extras ship without a new quote, but the agreed price (and a name)
+      // must be on the line now — invoicing bills exactly what's entered.
+      const extras = payload.lines.filter((line) => !line.quoteLineItemId);
+      const unnamed = extras.filter((line) => !line.itemCode.trim());
+      if (unnamed.length > 0) {
+        setError("Give each extra item a name / item code.");
+        return;
+      }
+      const unpriced = extras.filter(
+        (line) =>
+          line.unitPrice == null ||
+          !Number.isFinite(line.unitPrice) ||
+          line.unitPrice < 0,
+      );
+      if (unpriced.length > 0) {
+        setError(
+          `Enter a unit price for the extra item${unpriced.length === 1 ? "" : "s"}: ${unpriced
+            .map((line) => line.itemCode)
+            .join(", ")}.`,
+        );
+        return;
+      }
+    }
 
     if (payload.ticketType === "JOB" && payload.quoteId) {
       const overages = computeOverQuoteEntries(payload.lines);
@@ -2520,6 +2617,205 @@ export function DeliveryTicketEditor({
               </tfoot>
           </table>
         </section>
+      ) : null}
+
+      {ticketType === "JOB" && quote ? (
+        <SectionCard
+          title="Extra items"
+          description="Items the customer added after the quote — no new quote needed; they bill on the invoice at the price you enter here."
+        >
+          <div className="flex flex-wrap items-start gap-2">
+            <div className="relative w-full max-w-sm">
+              <input
+                type="text"
+                value={extraSearch}
+                onChange={(event) => setExtraSearch(event.target.value)}
+                placeholder="Search products by code or name…"
+                className={compactInputClass}
+              />
+              {extraResults.length > 0 ? (
+                <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+                  {extraResults.map((product) => (
+                    <button
+                      key={product.id}
+                      type="button"
+                      onClick={() => addExtraProduct(product)}
+                      className="flex w-full items-baseline justify-between gap-2 px-3 py-1.5 text-left text-xs hover:bg-slate-50"
+                    >
+                      <span className="min-w-0">
+                        <span className="font-medium text-slate-900">
+                          {product.productCode}
+                        </span>{" "}
+                        <span className="text-slate-600">{product.name}</span>
+                      </span>
+                      <span className="shrink-0 text-slate-500">
+                        {product.unitPrice != null
+                          ? formatUsd(product.unitPrice)
+                          : "no list price"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={addExtraCustomLine}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              + Custom item
+            </button>
+          </div>
+
+          {extraLines.length > 0 ? (
+            <div className="mt-3 overflow-x-auto">
+              <table className={tableClassName}>
+                <thead>
+                  <tr>
+                    <th className={tableHeaderCellClassName}>Item</th>
+                    <th className={tableHeaderCellClassName}>Description</th>
+                    <th className={`${tableHeaderCellClassName} text-center`}>Qty</th>
+                    <th className={`${tableHeaderCellClassName} text-center`}>Unit</th>
+                    <th className={`${tableHeaderCellClassName} text-center`}>
+                      Price Each ($) *
+                    </th>
+                    <th className={`${tableHeaderCellClassName} text-center`}>
+                      Weight Each (lb)
+                    </th>
+                    <th className={`${tableHeaderCellClassName} text-right`}>
+                      Line Total
+                    </th>
+                    <th className={tableHeaderCellClassName} />
+                  </tr>
+                </thead>
+                <tbody className={tableBodyClassName}>
+                  {extraLines.map((line) => {
+                    const qty = Number(line.quantity) || 0;
+                    const price = Number(line.unitPrice ?? "");
+                    const priceMissing =
+                      !line.unitPrice?.trim() ||
+                      !Number.isFinite(price) ||
+                      price < 0;
+                    return (
+                      <tr key={line.key}>
+                        <td className={tableCellClassName}>
+                          {line.productId ? (
+                            <span className="font-medium text-slate-900">
+                              {line.itemCode}
+                            </span>
+                          ) : (
+                            <input
+                              type="text"
+                              value={line.itemCode}
+                              placeholder="Item code / name"
+                              onChange={(event) =>
+                                updateWalkInLine(
+                                  line.key,
+                                  "itemCode",
+                                  event.target.value,
+                                )
+                              }
+                              className={`w-32 ${tableInlineInputClassName}`}
+                            />
+                          )}
+                        </td>
+                        <td className={tableCellClassName}>
+                          <input
+                            type="text"
+                            value={line.description}
+                            onChange={(event) =>
+                              updateWalkInLine(
+                                line.key,
+                                "description",
+                                event.target.value,
+                              )
+                            }
+                            className={`w-full min-w-40 ${tableInlineInputClassName}`}
+                          />
+                        </td>
+                        <td className={`${tableCellClassName} text-center`}>
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={line.quantity}
+                            onChange={(event) =>
+                              updateWalkInLine(
+                                line.key,
+                                "quantity",
+                                event.target.value,
+                              )
+                            }
+                            className={`mx-auto w-16 ${tableInlineInputClassName} text-center`}
+                          />
+                        </td>
+                        <td className={`${tableCellClassName} text-center text-slate-600`}>
+                          {line.unit}
+                        </td>
+                        <td className={`${tableCellClassName} text-center`}>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={line.unitPrice ?? ""}
+                            placeholder="required"
+                            onChange={(event) =>
+                              updateWalkInLine(
+                                line.key,
+                                "unitPrice",
+                                event.target.value,
+                              )
+                            }
+                            className={`mx-auto w-24 ${tableInlineInputClassName} text-center ${
+                              priceMissing
+                                ? "border-amber-400 bg-amber-50/60"
+                                : ""
+                            }`}
+                          />
+                        </td>
+                        <td className={`${tableCellClassName} text-center`}>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={line.weightEach}
+                            onChange={(event) =>
+                              updateWalkInLine(
+                                line.key,
+                                "weightEach",
+                                event.target.value,
+                              )
+                            }
+                            className={`mx-auto w-20 ${tableInlineInputClassName} text-center`}
+                          />
+                        </td>
+                        <td className={`${tableCellClassName} text-right font-medium text-slate-900`}>
+                          {!priceMissing && qty > 0
+                            ? formatUsd(qty * price)
+                            : "—"}
+                        </td>
+                        <td className={`${tableCellClassName} text-right`}>
+                          <button
+                            type="button"
+                            onClick={() => removeLine(line.key)}
+                            className="rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-red-600 hover:bg-red-50"
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-slate-400">
+              Nothing extra on this load — search the catalog or add a custom
+              item when a customer phones something in.
+            </p>
+          )}
+        </SectionCard>
       ) : null}
 
       {ticketType === "WALK_IN" ? (
