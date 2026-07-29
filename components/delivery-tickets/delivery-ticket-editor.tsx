@@ -24,6 +24,7 @@ import {
 } from "@/app/delivery-tickets/actions";
 import { getQuoteFulfillmentWithOpenLoads } from "@/app/operations/actions";
 import { FormTypeahead } from "@/components/common/form-typeahead";
+import { BackButton } from "@/components/dashboard/back-button";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning";
@@ -110,6 +111,10 @@ export type DeliveryTicketEditorProps = {
   > & {
     lines?: EditorLine[];
   };
+  /** Renders the page's back pill inside the editor so leaving with unsaved
+   * changes asks to save first (plain Links can't be intercepted). */
+  backHref?: string;
+  backLabel?: string;
 };
 
 const inputClass =
@@ -262,6 +267,8 @@ export function DeliveryTicketEditor({
   products = [],
   fleetOptions,
   defaultValues,
+  backHref,
+  backLabel,
 }: DeliveryTicketEditorProps) {
   const router = useRouter();
   const confirm = useConfirm();
@@ -274,6 +281,16 @@ export function DeliveryTicketEditor({
 
   function markDirty() {
     setIsDirty(true);
+  }
+  // Back-pill / Cancel guard: client-side navigation skips beforeunload, so
+  // dirty leaves open a save dialog targeting the clicked destination.
+  const [leaveTarget, setLeaveTarget] = useState<string | null>(null);
+
+  function guardLeave(event: React.MouseEvent, href: string) {
+    if (isDirty) {
+      event.preventDefault();
+      setLeaveTarget(href);
+    }
   }
   const [ticketType, setTicketType] = useState<"JOB" | "WALK_IN">(
     defaultValues?.ticketType ?? "JOB",
@@ -1567,6 +1584,7 @@ export function DeliveryTicketEditor({
     <div className="flex flex-wrap justify-end gap-1.5">
       <Link
         href={cancelHref}
+        onClick={(event) => guardLeave(event, cancelHref)}
         className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
       >
         Cancel
@@ -1614,6 +1632,67 @@ export function DeliveryTicketEditor({
 
   return (
     <div className="space-y-4" onChange={markDirty}>
+      {backHref ? (
+        <BackButton
+          href={backHref}
+          label={backLabel ?? "Back"}
+          onClick={(event) => guardLeave(event, backHref)}
+        />
+      ) : null}
+
+      {leaveTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-lg">
+            <h3 className="text-sm font-semibold text-slate-900">
+              Save your changes?
+            </h3>
+            <p className="mt-1 text-xs text-slate-600">
+              This ticket has unsaved changes. Save them before leaving, or
+              discard them?
+            </p>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setLeaveTarget(null)}
+                disabled={pending}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Keep Editing
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = leaveTarget;
+                  setIsDirty(false);
+                  setLeaveTarget(null);
+                  router.push(target);
+                }}
+                disabled={pending}
+                className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+              >
+                Discard Changes
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLeaveTarget(null);
+                  void submit(
+                    mode === "edit"
+                      ? (defaultValues?.status ?? "DRAFT")
+                      : "DRAFT",
+                    ticketType === "WALK_IN" ? "walkIns" : "detail",
+                  );
+                }}
+                disabled={pending}
+                className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+              >
+                {pending ? "Saving…" : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {ticketType === "WALK_IN" ? (
         <div className="flex flex-wrap items-center gap-3">
           {ticketTypeButtons}

@@ -8,8 +8,6 @@ import { withDatabaseRetry } from "@/lib/prisma";
 import { formatDateIso } from "@/lib/delivery-dispatch-utils";
 import { castingAssemblyEditorKey } from "@/lib/casting-utils";
 import { explodeAssemblyTicketLine } from "@/lib/casting-ticket-lines";
-
-import { BackButton } from "@/components/dashboard/back-button";
 type EditDeliveryTicketPageProps = {
   params: Promise<{ id: string }>;
 };
@@ -173,10 +171,10 @@ export default async function EditDeliveryTicketPage({
       title={`Edit ${ticket.ticketNumber}`}
       subtitle="Update delivery ticket lines and schedule."
     >
-      <BackButton href={`/delivery-tickets/${ticket.id}`} label="Back to ticket" />
-
-      <div className="mt-4">
+      <div>
         <DeliveryTicketEditor
+          backHref={`/delivery-tickets/${ticket.id}`}
+          backLabel="Back to ticket"
           mode="edit"
           ticketId={ticket.id}
           expectedUpdatedAt={ticket.updatedAt.toISOString()}
@@ -189,6 +187,8 @@ export default async function EditDeliveryTicketPage({
           }}
           defaultValues={{
             ticketType: ticket.ticketType,
+            // Saving from the leave dialog keeps the ticket's current status.
+            status: ticket.status,
             fulfillmentMethod: ticket.fulfillmentMethod,
             paymentMethod: ticket.paymentMethod,
             paymentReceived: ticket.paymentReceived,
