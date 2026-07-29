@@ -51,7 +51,9 @@ export type QuoteLineItemType =
   | "CUSTOM_STRUCTURE"
   | "SERVICE"
   | "MISC"
-  | "CATEGORY";
+  | "CATEGORY"
+  | "NOTE"
+  | "PAGE_BREAK";
 
 export type CustomStructureCostItem = {
   id: string;

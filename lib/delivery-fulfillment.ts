@@ -1106,6 +1106,10 @@ async function buildFulfillmentFromContext(
   const result: QuoteLineFulfillment[] = [];
 
   for (const line of quote.lineItems) {
+    // Presentation-only quote lines: nothing to ship, nothing to plan.
+    if (line.lineType === "NOTE" || line.lineType === "PAGE_BREAK") {
+      continue;
+    }
     if (isQuoteLineDrainRing(line)) {
       const diameter = line.ringDiameterFeet
         ? Number(line.ringDiameterFeet)

@@ -56,6 +56,10 @@ enum QuoteLineType {
   SERVICE
   MISC
   CATEGORY
+  /// Full-width text row on the printed quote — no qty/price.
+  NOTE
+  /// Everything after this line starts on a new PDF page.
+  PAGE_BREAK
 }
 
 enum ProductStatus {

@@ -57,6 +57,76 @@ describe("paginateQuoteLineItems", () => {
     expect(pages[2].isLastPage).toBe(true);
   });
 
+  it("forces a new page at a PAGE_BREAK marker", () => {
+    const items = [
+      ...Array.from({ length: 3 }, (_, i) => structureRow(i)),
+      { item: "", qty: "", description: "", unitPrice: "", total: "", isPageBreak: true },
+      ...Array.from({ length: 3 }, (_, i) => structureRow(10 + i)),
+    ];
+    const pages = paginateQuoteLineItems(items, mockFont);
+
+    // Without the break these 6 rows fit one page; the break splits them.
+    expect(pages).toHaveLength(2);
+    expect(pages[0].isLastPage).toBe(false);
+    expect(pages[0].items).toHaveLength(3);
+    expect(pages[1].isLastPage).toBe(true);
+    expect(pages[1].items).toHaveLength(3);
+    expect(pages.flatMap((page) => page.items).some((item) => item.isPageBreak)).toBe(
+      false,
+    );
+  });
+
+  it("packs oversized segments before a break onto full continuation pages", () => {
+    const items = [
+      ...Array.from({ length: 20 }, (_, i) => structureRow(i)),
+      { item: "", qty: "", description: "", unitPrice: "", total: "", isPageBreak: true },
+      ...Array.from({ length: 5 }, (_, i) => structureRow(30 + i)),
+    ];
+    const pages = paginateQuoteLineItems(items, mockFont);
+
+    expect(pages.map((page) => page.items.length)).toEqual([15, 5, 5]);
+    expect(pages[2].isLastPage).toBe(true);
+  });
+
+  it("ignores leading and doubled page breaks", () => {
+    const breakRow = {
+      item: "",
+      qty: "",
+      description: "",
+      unitPrice: "",
+      total: "",
+      isPageBreak: true,
+    };
+    const pages = paginateQuoteLineItems(
+      [breakRow, structureRow(1), breakRow, breakRow, structureRow(2)],
+      mockFont,
+    );
+    expect(pages).toHaveLength(2);
+    expect(pages[0].items).toHaveLength(1);
+    expect(pages[1].items).toHaveLength(1);
+    expect(pages[1].isLastPage).toBe(true);
+  });
+
+  it("a trailing page break leaves the totals page without items", () => {
+    const breakRow = {
+      item: "",
+      qty: "",
+      description: "",
+      unitPrice: "",
+      total: "",
+      isPageBreak: true,
+    };
+    const pages = paginateQuoteLineItems(
+      [structureRow(1), structureRow(2), breakRow],
+      mockFont,
+    );
+    expect(pages).toHaveLength(2);
+    expect(pages[0].isLastPage).toBe(false);
+    expect(pages[0].items).toHaveLength(2);
+    expect(pages[1].items).toHaveLength(0);
+    expect(pages[1].isLastPage).toBe(true);
+  });
+
   it("still paginates very long quotes without losing rows", () => {
     const items = Array.from({ length: 100 }, (_, i) => structureRow(i));
     const pages = paginateQuoteLineItems(items, mockFont);

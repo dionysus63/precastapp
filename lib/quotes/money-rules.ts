@@ -3,6 +3,7 @@ import {
   computeMoneyTotals,
   type MoneyLineInput,
 } from "@/lib/money";
+import { isNonBillableLineItem } from "@/lib/quotes/constants";
 
 /** True when a SERVICE line represents a delivery charge (item code or description). */
 export function isDeliveryServiceLine(
@@ -69,7 +70,9 @@ export function computeQuotePreviewTotals(
   lines: QuotePreviewLineInput[],
   taxRatePercent: DecimalLike,
 ): QuotePreviewTotals {
-  const billableLines = lines.filter((line) => line.lineType !== "CATEGORY");
+  const billableLines = lines.filter(
+    (line) => !isNonBillableLineItem(line.lineType),
+  );
   const computed = computeMoneyTotals(
     billableLines.map((line) => ({
       quantity: line.quantity,
@@ -99,7 +102,7 @@ export function computeQuotePreviewTotals(
 
   let billableIndex = 0;
   const lineTotals = lines.map((line) => {
-    if (line.lineType === "CATEGORY") {
+    if (isNonBillableLineItem(line.lineType)) {
       return 0;
     }
     const total = toNumber(computed.lineTotals[billableIndex]!);
@@ -108,7 +111,7 @@ export function computeQuotePreviewTotals(
   });
 
   const delivery = lines.reduce((sum, line, index) => {
-    if (line.lineType === "CATEGORY") {
+    if (isNonBillableLineItem(line.lineType)) {
       return sum;
     }
     if (

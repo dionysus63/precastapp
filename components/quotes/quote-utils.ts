@@ -3,6 +3,7 @@ import {
   computeQuotePreviewTotals,
 } from "@/lib/quotes/money-rules";
 import { formatUsd, formatWeightLb, formatYards } from "@/lib/format";
+import { isNonBillableLineItem } from "@/lib/quotes/constants";
 
 export * from "@/lib/quotes/types";
 export * from "@/lib/quotes/constants";
@@ -52,7 +53,7 @@ export function pickDefaultCustomerContact(
 export function getLineItemTotal(
   line: import("@/lib/quotes/types").EditableQuoteLineItem,
 ): number {
-  if (line.type === "CATEGORY") {
+  if (isNonBillableLineItem(line.type)) {
     return 0;
   }
   return computeLineItemTotal(

@@ -368,7 +368,44 @@ const QuoteLineItemRow = memo(function QuoteLineItemRow({
       dragHandlers.onRowDrop(event, rowIndex),
   };
 
-  if (isCategoryLineItem(line.type)) {
+  if (line.type === "PAGE_BREAK") {
+    return (
+      <tr {...rowProps}>
+        <DragHandleCell
+          line={line}
+          rowIndex={rowIndex}
+          dragHandlers={dragHandlers}
+        />
+        <LineNumberCell
+          line={line}
+          rowCount={rowCount}
+          onMoveLineTo={onMoveLineTo}
+        />
+        <td className={tableCellClassName}>
+          <StatusBadge label={line.typeLabel} variant="neutral" />
+        </td>
+        <td className={`${tableCellBordersClassName} px-2`} colSpan={8}>
+          <div className="flex items-center gap-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+            <span className="h-0 flex-1 border-t-2 border-dashed border-slate-300" />
+            Everything below starts on a new page
+            <span className="h-0 flex-1 border-t-2 border-dashed border-slate-300" />
+          </div>
+        </td>
+        <td className={`${tableCellBordersClassName} px-1.5 py-1`}>
+          <MoveRemoveButtons
+            line={line}
+            isFirst={isFirst}
+            isLast={isLast}
+            onRemoveLine={onRemoveLine}
+            onMoveLine={onMoveLine}
+            onEditCustomStructure={onEditCustomStructure}
+          />
+        </td>
+      </tr>
+    );
+  }
+
+  if (isCategoryLineItem(line.type) || line.type === "NOTE") {
     return (
       <tr {...rowProps}>
         <DragHandleCell
@@ -388,7 +425,9 @@ const QuoteLineItemRow = memo(function QuoteLineItemRow({
           <QuoteLineDescriptionTextarea
             value={line.description}
             onChange={(value) => onUpdateLine(line.id, "description", value)}
-            className={`${tableCellTextareaClassName} font-medium`}
+            className={`${tableCellTextareaClassName} ${
+              isCategoryLineItem(line.type) ? "font-medium" : ""
+            }`}
             rowIndex={rowIndex}
             onCellKeyDown={onCellKeyDown}
           />

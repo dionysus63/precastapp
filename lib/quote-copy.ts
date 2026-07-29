@@ -2,6 +2,7 @@ import { Prisma, type QuoteLineType } from "@/app/generated/prisma/client";
 import { parseDrainRingStyle } from "@/lib/drain-ring-utils";
 import { computeMoneyTotals } from "@/lib/money";
 import { computeDeliveryAmount } from "@/lib/quotes/money-rules";
+import { isNonBillableLineItem } from "@/lib/quotes/constants";
 
 export function toQuoteDecimal(value: Prisma.Decimal | number | string) {
   return new Prisma.Decimal(value.toString());
@@ -49,7 +50,9 @@ export function computeQuoteTotalsFromLines(
   taxRate: Prisma.Decimal,
   discountAmount: Prisma.Decimal = new Prisma.Decimal(0),
 ) {
-  const billableLines = lineItems.filter((line) => line.lineType !== "CATEGORY");
+  const billableLines = lineItems.filter(
+    (line) => !isNonBillableLineItem(line.lineType),
+  );
   const computed = computeMoneyTotals(
     billableLines.map((line) => ({
       quantity: line.quantity,
@@ -62,7 +65,7 @@ export function computeQuoteTotalsFromLines(
 
   let billableIndex = 0;
   const lineTotals = lineItems.map((line) => {
-    if (line.lineType === "CATEGORY") {
+    if (isNonBillableLineItem(line.lineType)) {
       return new Prisma.Decimal(0);
     }
     const total = computed.lineTotals[billableIndex]!;
@@ -72,7 +75,7 @@ export function computeQuoteTotalsFromLines(
 
   const totalWeight = lineItems.reduce(
     (sum, line) => {
-      if (line.lineType === "CATEGORY") {
+      if (isNonBillableLineItem(line.lineType)) {
         return sum;
       }
       return line.weight != null
@@ -84,7 +87,7 @@ export function computeQuoteTotalsFromLines(
 
   const totalYards = lineItems.reduce(
     (sum, line) => {
-      if (line.lineType === "CATEGORY") {
+      if (isNonBillableLineItem(line.lineType)) {
         return sum;
       }
       return line.yards != null

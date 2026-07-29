@@ -138,6 +138,28 @@ export function mapQuoteLineItemsForPdf(
       };
     }
 
+    if (line.lineType === "NOTE") {
+      return {
+        item: "",
+        qty: "",
+        description: line.description?.trim() ?? "",
+        unitPrice: "",
+        total: "",
+        isNoteLine: true,
+      };
+    }
+
+    if (line.lineType === "PAGE_BREAK") {
+      return {
+        item: "",
+        qty: "",
+        description: "",
+        unitPrice: "",
+        total: "",
+        isPageBreak: true,
+      };
+    }
+
     return {
       item: line.itemCode.trim(),
       qty: formatQuantity(line.quantity),

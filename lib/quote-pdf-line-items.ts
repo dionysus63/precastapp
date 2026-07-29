@@ -33,6 +33,10 @@ export type QuoteDrawLineItem = {
   unitPrice: string;
   total: string;
   isCategoryLine?: boolean;
+  /** Full-width plain-text row — no item/qty/price columns. */
+  isNoteLine?: boolean;
+  /** Zero-height marker: pagination starts a new page here. */
+  isPageBreak?: boolean;
 };
 
 export type QuoteLineItemPageSlice = {
@@ -134,7 +138,10 @@ export function measureRowHeight(
   font: PDFFont,
   layout: QuoteTableLayout,
 ): number {
-  if (item.isCategoryLine) {
+  if (item.isPageBreak) {
+    return 0;
+  }
+  if (item.isCategoryLine || item.isNoteLine) {
     const descLines = measureDescriptionLines(
       item.description,
       font,
@@ -192,50 +199,97 @@ function suffixFitsMain(
  * The totals page holds less than a continuation page, so the check is
  * "do ALL remaining rows fit the main layout?" at each page boundary —
  * never pulling rows off an earlier page just to fatten the last one.
+ *
+ * PAGE_BREAK markers force the page boundary early: every segment before
+ * the last paginates onto continuation pages only, so the rows after the
+ * break always open a fresh page.
  */
 export function paginateQuoteLineItems(
   items: QuoteDrawLineItem[],
   font: PDFFont,
 ): QuoteLineItemPageSlice[] {
-  if (items.length === 0) {
-    return [{ items: [], isLastPage: true }];
+  // Split at forced breaks (markers consumed; empty segments from leading
+  // or doubled breaks produce no blank pages).
+  const segments: QuoteDrawLineItem[][] = [[]];
+  for (const item of items) {
+    if (item.isPageBreak) {
+      segments.push([]);
+    } else {
+      segments[segments.length - 1]!.push(item);
+    }
   }
+  // Empty segments (leading/doubled breaks) produce no blank pages, but an
+  // empty LAST segment stays: a trailing break pushes the totals page clear.
+  const filled = segments.filter(
+    (segment, index) => segment.length > 0 || index === segments.length - 1,
+  );
+  const lastSegment = filled.pop() ?? [];
 
   const pages: QuoteLineItemPageSlice[] = [];
-  let index = 0;
-
-  for (;;) {
-    if (suffixFitsMain(items, index, font)) {
-      pages.push({ items: items.slice(index), isLastPage: true });
-      return pages;
-    }
-
-    // Fill one continuation page greedily.
+  const fillContinuationPage = (
+    segment: QuoteDrawLineItem[],
+    startIndex: number,
+  ): number => {
     const group: QuoteDrawLineItem[] = [];
     let usedHeight = 0;
+    let index = startIndex;
     const maxHeight = availableHeight(CONT_TABLE_LAYOUT);
-    while (index < items.length) {
-      const rowHeight = measureRowHeight(items[index], font, CONT_TABLE_LAYOUT);
+    while (index < segment.length) {
+      const rowHeight = measureRowHeight(
+        segment[index],
+        font,
+        CONT_TABLE_LAYOUT,
+      );
       if (group.length > 0 && usedHeight + rowHeight > maxHeight) {
         break;
       }
-      group.push(items[index]);
+      group.push(segment[index]);
       usedHeight += rowHeight;
       index += 1;
     }
+    pages.push({ items: group, isLastPage: false });
+    return index;
+  };
+
+  // Segments before the last: continuation pages only, so the next segment
+  // starts on a new page regardless of remaining space.
+  for (const segment of filled) {
+    let index = 0;
+    while (index < segment.length) {
+      index = fillContinuationPage(segment, index);
+    }
+  }
+
+  // Last segment: original algorithm — remainder lands on the totals page.
+  const items2 = lastSegment;
+  if (items2.length === 0) {
+    pages.push({ items: [], isLastPage: true });
+    return pages;
+  }
+
+  let index = 0;
+  for (;;) {
+    if (suffixFitsMain(items2, index, font)) {
+      pages.push({ items: items2.slice(index), isLastPage: true });
+      return pages;
+    }
+
+    const nextIndex = fillContinuationPage(items2, index);
+    index = nextIndex;
 
     // A full continuation page can swallow a remainder that was too tall for
     // the main layout; keep at least one row back so the totals page never
     // prints without a single line item above it.
-    if (index >= items.length && group.length > 1) {
-      group.pop();
-      index -= 1;
-    }
-    pages.push({ items: group, isLastPage: false });
-
-    if (index >= items.length) {
-      pages.push({ items: [], isLastPage: true });
-      return pages;
+    if (index >= items2.length) {
+      const lastGroup = pages[pages.length - 1]!;
+      if (lastGroup.items.length > 1) {
+        lastGroup.items.pop();
+        index -= 1;
+      }
+      if (index >= items2.length) {
+        pages.push({ items: [], isLastPage: true });
+        return pages;
+      }
     }
   }
 }
@@ -329,7 +383,15 @@ export function drawLineItemRow(
   topY: number,
   layout: QuoteTableLayout,
 ): number {
-  if (item.isCategoryLine) {
+  if (item.isPageBreak) {
+    // Zero-height marker — pagination already ended the page before it.
+    return topY;
+  }
+
+  if (item.isCategoryLine || item.isNoteLine) {
+    // Full-width text rows: categories emphasize their first line
+    // (bold + underline); notes print as plain text.
+    const emphasizeTitle = Boolean(item.isCategoryLine);
     const descLines = measureDescriptionLines(
       item.description,
       font,
@@ -350,7 +412,7 @@ export function drawLineItemRow(
     for (let index = 0; index < descLines.length; index += 1) {
       const lineText = descLines[index]!;
       const lineY = firstLineY - index * layout.lineHeight;
-      const isTitleLine = index === 0;
+      const isTitleLine = emphasizeTitle && index === 0;
 
       drawTextAt(
         page,

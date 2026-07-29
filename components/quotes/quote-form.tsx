@@ -51,6 +51,7 @@ import {
   formatQuoteYards,
   getLineItemTotal,
   isCategoryLineItem,
+  isNonBillableLineItem,
   resolveQuoteLineQuantityForStorage,
   parseQuoteNumber,
   pickDefaultCustomerContact,
@@ -653,10 +654,10 @@ export function QuoteForm({
     }
 
     const billableLines = lineItems.filter(
-      (line) => !isCategoryLineItem(line.type),
+      (line) => !isNonBillableLineItem(line.type),
     );
     if (billableLines.length === 0) {
-      return "Add at least one billable line item (not only categories).";
+      return "Add at least one billable line item (not only categories, notes, or page breaks).";
     }
 
     if (taxRatePercent < 0) {
@@ -664,9 +665,12 @@ export function QuoteForm({
     }
 
     for (const line of lineItems) {
-      if (isCategoryLineItem(line.type)) {
+      if (line.type === "PAGE_BREAK") {
+        continue;
+      }
+      if (line.type === "CATEGORY" || line.type === "NOTE") {
         if (!line.description.trim()) {
-          return `Line ${line.lineNumber}: category name is required.`;
+          return `Line ${line.lineNumber}: ${line.type === "NOTE" ? "note text" : "category name"} is required.`;
         }
         continue;
       }
@@ -1208,6 +1212,50 @@ export function QuoteForm({
           lineNumber: current.length + 1,
           type: "CATEGORY",
           typeLabel: quoteLineItemTypeLabels.CATEGORY,
+          item: "",
+          description: "",
+          qty: "1",
+          unit: "",
+          unitPrice: "0",
+          weight: "",
+          yards: "",
+          taxable: false,
+        },
+      ]),
+    );
+  }
+
+  function addNoteLine() {
+    setLineItems((current) =>
+      renumberLineItems([
+        ...current,
+        {
+          id: createLineId(),
+          lineNumber: current.length + 1,
+          type: "NOTE",
+          typeLabel: quoteLineItemTypeLabels.NOTE,
+          item: "",
+          description: "",
+          qty: "1",
+          unit: "",
+          unitPrice: "0",
+          weight: "",
+          yards: "",
+          taxable: false,
+        },
+      ]),
+    );
+  }
+
+  function addPageBreakLine() {
+    setLineItems((current) =>
+      renumberLineItems([
+        ...current,
+        {
+          id: createLineId(),
+          lineNumber: current.length + 1,
+          type: "PAGE_BREAK",
+          typeLabel: quoteLineItemTypeLabels.PAGE_BREAK,
           item: "",
           description: "",
           qty: "1",
@@ -2003,6 +2051,22 @@ export function QuoteForm({
                   className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
                 >
                   Add Category
+                </button>
+                <button
+                  type="button"
+                  onClick={addNoteLine}
+                  title="A text-only row on the printed quote — no quantity or price."
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  Add Note
+                </button>
+                <button
+                  type="button"
+                  onClick={addPageBreakLine}
+                  title="Everything after this line starts on a new page of the printed quote."
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  Add Page Break
                 </button>
               </div>
 

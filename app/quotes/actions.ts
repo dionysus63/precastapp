@@ -42,7 +42,10 @@ import { promoteJobStatus } from "@/lib/job-status-workflow";
 import { linkPlanSheetToQuote } from "@/app/quotes/plan-sheet-actions";
 import { computeMoneyTotals } from "@/lib/money";
 import { computeDeliveryAmount } from "@/lib/quotes/money-rules";
-import { resolveQuoteLineQuantityForStorage } from "@/lib/quotes/constants";
+import {
+  isNonBillableLineItem,
+  resolveQuoteLineQuantityForStorage,
+} from "@/lib/quotes/constants";
 import { canEditQuote } from "@/lib/quotes/edit-rules";
 
 const QUOTE_STATUSES = Object.values(QuoteStatus);
@@ -153,10 +156,12 @@ function validateCreateQuoteInput(input: CreateQuoteInput) {
   }
 
   const billableLines = input.lineItems.filter(
-    (line) => line.lineType !== "CATEGORY",
+    (line) => !isNonBillableLineItem(line.lineType),
   );
   if (billableLines.length === 0) {
-    throw new Error("Add at least one billable line item (not only categories).");
+    throw new Error(
+      "Add at least one billable line item (not only categories, notes, or page breaks).",
+    );
   }
 
   if (input.taxRate < 0) {
@@ -164,10 +169,13 @@ function validateCreateQuoteInput(input: CreateQuoteInput) {
   }
 
   for (const line of input.lineItems) {
-    if (line.lineType === "CATEGORY") {
+    if (line.lineType === "PAGE_BREAK") {
+      continue;
+    }
+    if (line.lineType === "CATEGORY" || line.lineType === "NOTE") {
       if (!line.description.trim()) {
         throw new Error(
-          `Line ${line.lineNumber}: category name is required.`,
+          `Line ${line.lineNumber}: ${line.lineType === "NOTE" ? "note text" : "category name"} is required.`,
         );
       }
       continue;
@@ -217,7 +225,7 @@ function isQuoteNumberConflict(error: unknown): boolean {
 
 function computeQuoteFinancials(input: CreateQuoteInput) {
   const billableLines = input.lineItems.filter(
-    (line) => line.lineType !== "CATEGORY",
+    (line) => !isNonBillableLineItem(line.lineType),
   );
   const computed = computeMoneyTotals(
     billableLines.map((line) => ({
@@ -230,7 +238,7 @@ function computeQuoteFinancials(input: CreateQuoteInput) {
 
   let billableIndex = 0;
   const lineTotals = input.lineItems.map((line) => {
-    if (line.lineType === "CATEGORY") {
+    if (isNonBillableLineItem(line.lineType)) {
       return new Prisma.Decimal(0);
     }
     const total = computed.lineTotals[billableIndex]!;
@@ -240,7 +248,7 @@ function computeQuoteFinancials(input: CreateQuoteInput) {
 
   const totalWeight = input.lineItems.reduce(
     (sum, line) => {
-      if (line.lineType === "CATEGORY") {
+      if (isNonBillableLineItem(line.lineType)) {
         return sum;
       }
       return line.weight != null
@@ -251,7 +259,7 @@ function computeQuoteFinancials(input: CreateQuoteInput) {
   );
   const totalYards = input.lineItems.reduce(
     (sum, line) => {
-      if (line.lineType === "CATEGORY") {
+      if (isNonBillableLineItem(line.lineType)) {
         return sum;
       }
       return line.yards != null

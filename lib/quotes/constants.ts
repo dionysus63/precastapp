@@ -100,20 +100,32 @@ export const quoteLineItemTypeLabels: Record<QuoteLineItemType, string> = {
   SERVICE: "Service",
   MISC: "Misc",
   CATEGORY: "Category",
+  NOTE: "Note",
+  PAGE_BREAK: "Page Break",
 };
 
 export function isCategoryLineItem(type: QuoteLineItemType | string): boolean {
   return type === "CATEGORY";
 }
 
-/** CATEGORY lines are non-billable but must satisfy DB quantity > 0. */
+/**
+ * Presentation-only lines: category headers, note rows, and page breaks.
+ * They never bill, never ship, and never count toward totals.
+ */
+export function isNonBillableLineItem(
+  type: QuoteLineItemType | string,
+): boolean {
+  return type === "CATEGORY" || type === "NOTE" || type === "PAGE_BREAK";
+}
+
+/** Non-billable lines still must satisfy the DB's quantity > 0 constraint. */
 export const CATEGORY_LINE_STORAGE_QUANTITY = 1;
 
 export function resolveQuoteLineQuantityForStorage(
   lineType: QuoteLineItemType | string,
   quantity: number,
 ): number {
-  if (isCategoryLineItem(lineType)) {
+  if (isNonBillableLineItem(lineType)) {
     return CATEGORY_LINE_STORAGE_QUANTITY;
   }
   return quantity;

@@ -500,7 +500,23 @@ export function QuoteDetailContent({
                 </tr>
               ) : (
                 quote.lineItems.map((line) =>
-                  isCategoryLineItem(line.type) ? (
+                  line.type === "PAGE_BREAK" ? (
+                    <tr key={line.id}>
+                      <td className={`${tableCellClassName} text-slate-700`}>
+                        {line.lineNumber}
+                      </td>
+                      <td className={tableCellClassName}>
+                        <StatusBadge label={line.typeLabel} variant="neutral" />
+                      </td>
+                      <td className={tableCellBordersClassName} colSpan={10}>
+                        <div className="flex items-center gap-2 px-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                          <span className="h-0 flex-1 border-t-2 border-dashed border-slate-300" />
+                          New page on the printed quote
+                          <span className="h-0 flex-1 border-t-2 border-dashed border-slate-300" />
+                        </div>
+                      </td>
+                    </tr>
+                  ) : isCategoryLineItem(line.type) || line.type === "NOTE" ? (
                     <tr key={line.id} className="bg-slate-50/60">
                       <td className={`${tableCellClassName} text-slate-700`}>
                         {line.lineNumber}
@@ -512,7 +528,13 @@ export function QuoteDetailContent({
                         />
                       </td>
                       <td className={`${tableCellClassName} text-slate-400`}>—</td>
-                      <td className={`${tableCellClassName} font-semibold text-slate-900 underline`}>
+                      <td
+                        className={`${tableCellClassName} ${
+                          isCategoryLineItem(line.type)
+                            ? "font-semibold text-slate-900 underline"
+                            : "text-slate-700"
+                        }`}
+                      >
                         {line.description}
                       </td>
                       <td className={`${tableCellClassName} text-slate-400`}>—</td>
