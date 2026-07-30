@@ -22,6 +22,7 @@ const options: StructureWorkbookOptions = {
       sumpFixedInches: null,
       openingToJointMinTopInches: 4,
       openingToJointMinBottomInches: 4,
+      topSlabOpeningInches: null,
       defaultCastingProductId: "cast-default",
       defaultCastingHeightFeet: 0.25,
       diameters: [

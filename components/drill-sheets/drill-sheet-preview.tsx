@@ -27,6 +27,8 @@ export type DrillSheetPreviewMeta = {
   useBase: string;
   useRiser: string;
   brickAdjustment: string;
+  /** Template's top slab clear opening (whole inches) — printed on the sheet. */
+  topSlabOpeningInches: number | null;
 };
 
 type DrillSheetPreviewProps = {

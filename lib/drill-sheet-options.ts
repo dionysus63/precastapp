@@ -91,6 +91,7 @@ export async function loadDrillSheetFormOptions(
       openingToJointMinBottomInches: Number(
         template.openingToJointMinBottomInches,
       ),
+      topSlabOpeningInches: template.topSlabOpeningInches,
       defaultCastingProductId: template.castingProductId,
       defaultCastingHeightFeet: template.castingProduct?.heightFeet
         ? Number(template.castingProduct.heightFeet)

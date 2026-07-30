@@ -156,6 +156,7 @@ export const DRILL_SHEET_TEMPLATE_FIELD_NAMES = [
   "casting_thickness_inches",
   "brick_thickness_inches",
   "brick_adjustment_inches",
+  "top_slab_opening_inches",
   "top_slab_thickness_inches",
   "base_height_inches",
   "base_height_feet_and_inches",
@@ -226,6 +227,20 @@ function wholeInchesFromFeet(feet: number | null | undefined): string {
     return "";
   }
   return `${Math.round(feet * 12)}"`;
+}
+
+/** "2.35\"" or "2.35" → "2" — bare whole-inch number for template blanks
+ * that print their own inch mark. Non-numeric text passes through as-is. */
+function wholeInchesText(value: string): string {
+  const bare = value.replace(/"/g, "").trim();
+  if (!bare) {
+    return "";
+  }
+  const numeric = Number(bare);
+  if (!Number.isFinite(numeric)) {
+    return bare;
+  }
+  return String(Math.round(numeric));
 }
 
 function elevationFeet(
@@ -300,10 +315,17 @@ export function buildDrillSheetFieldMap(
     // Diagram dimension column: whole inches to match the drawn artwork.
     casting_thickness_inches: wholeInchesFromFeet(result.castingHeightFeet),
     brick_thickness_inches: wholeInchesFromFeet(result.brickFeet),
-    // Bare number; the template prints the inch mark after the box.
-    brick_adjustment_inches: (
-      meta.brickAdjustment || inchesFromFeet(result.brickFeet)
-    ).replace(/"/g, ""),
+    // Bare number; the template prints the inch mark after the box. Brick
+    // ships in whole courses, so the printed adjustment rounds to the
+    // nearest full inch.
+    brick_adjustment_inches: wholeInchesText(
+      meta.brickAdjustment || inchesFromFeet(result.brickFeet),
+    ),
+    // Template-configured clear opening in the top slab.
+    top_slab_opening_inches:
+      meta.topSlabOpeningInches != null
+        ? `${meta.topSlabOpeningInches}"`
+        : "",
     // Alias for the "Use: __'Ø" blank on templates that kept the old name.
     "Manhole Diameter":
       meta.insideDiameterFeet != null ? String(meta.insideDiameterFeet) : "",

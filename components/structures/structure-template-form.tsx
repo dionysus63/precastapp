@@ -58,6 +58,8 @@ export type StructureTemplateFormValue = {
   sumpFixedInches: string;
   openingToJointMinTopInches: string;
   openingToJointMinBottomInches: string;
+  /** Circular only: top slab clear opening in whole inches. */
+  topSlabOpeningInches: string;
   rectWallPricePerFoot: string;
   rectMinPricingHeightFeet: string;
   rectTopSlabPrice: string;
@@ -136,6 +138,7 @@ const defaultFormValue: StructureTemplateFormValue = {
   sumpFixedInches: "",
   openingToJointMinTopInches: "4",
   openingToJointMinBottomInches: "4",
+  topSlabOpeningInches: "",
   rectWallPricePerFoot: "",
   rectMinPricingHeightFeet: "",
   rectTopSlabPrice: "",
@@ -187,6 +190,9 @@ export function StructureTemplateForm({
     useState(initial.openingToJointMinTopInches);
   const [openingToJointMinBottomInches, setOpeningToJointMinBottomInches] =
     useState(initial.openingToJointMinBottomInches);
+  const [topSlabOpeningInches, setTopSlabOpeningInches] = useState(
+    initial.topSlabOpeningInches,
+  );
   const [rectWallPricePerFoot, setRectWallPricePerFoot] = useState(
     initial.rectWallPricePerFoot,
   );
@@ -235,6 +241,7 @@ export function StructureTemplateForm({
       sumpFixedInches: sumpMode === "FIXED" ? sumpFixedInches : null,
       openingToJointMinTopInches,
       openingToJointMinBottomInches,
+      topSlabOpeningInches: topSlabOpeningInches || null,
       rectWallPricePerFoot: rectWallPricePerFoot || null,
       rectMinPricingHeightFeet: rectMinPricingHeightFeet || null,
       rectTopSlabPrice: rectTopSlabPrice || null,
@@ -266,6 +273,7 @@ export function StructureTemplateForm({
     sumpFixedInches,
     openingToJointMinTopInches,
     openingToJointMinBottomInches,
+    topSlabOpeningInches,
     rectWallPricePerFoot,
     rectMinPricingHeightFeet,
     rectTopSlabPrice,
@@ -546,6 +554,24 @@ export function StructureTemplateForm({
                     }
                     className={structureInputClassName}
                   />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-700">
+                    Top Slab Opening (in)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={topSlabOpeningInches}
+                    onChange={(e) => setTopSlabOpeningInches(e.target.value)}
+                    placeholder="30"
+                    className={structureInputClassName}
+                  />
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Whole inches — prints on the drill sheet. Blank leaves the
+                    sheet's opening box empty.
+                  </p>
                 </div>
               </>
             ) : null}

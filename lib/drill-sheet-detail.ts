@@ -17,6 +17,7 @@ export const drillSheetDetailInclude = {
       name: true,
       agencyStandard: true,
       shape: true,
+      topSlabOpeningInches: true,
       rectPdfSet: { include: { files: true } },
     },
   },
@@ -232,6 +233,7 @@ export function buildDrillSheetDetail(
     useBase: calc.useBase ?? "",
     useRiser: calc.useRiser ?? "",
     brickAdjustment: calc.brickAdjustment ?? "",
+    topSlabOpeningInches: sheet.structureTemplate?.topSlabOpeningInches ?? null,
   };
 
   return { meta, result };

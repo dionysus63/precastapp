@@ -29,6 +29,8 @@ export type TemplatePayload = {
   sumpFixedInches: number | null;
   openingToJointMinTopInches: number;
   openingToJointMinBottomInches: number;
+  /** Circular only: top slab clear opening in whole inches. */
+  topSlabOpeningInches: number | null;
   rectWallPricePerFoot: number | null;
   rectMinPricingHeightFeet: number | null;
   rectTopSlabPrice: number | null;
@@ -233,6 +235,19 @@ export function parseTemplateData(data: Record<string, unknown>): TemplatePayloa
       data.openingToJointMinBottomInches,
       "Opening-to-joint min (bottom)",
     ),
+    topSlabOpeningInches: (() => {
+      if (shape !== "CIRCULAR") {
+        return null;
+      }
+      const value = optionalNonNegativeNumber(data.topSlabOpeningInches);
+      if (value == null || value === 0) {
+        return null;
+      }
+      if (!Number.isInteger(value)) {
+        throw new Error("Top slab opening must be whole inches.");
+      }
+      return value;
+    })(),
     rectWallPricePerFoot:
       shape === "RECTANGULAR"
         ? optionalNonNegativeNumber(data.rectWallPricePerFoot)
@@ -277,6 +292,7 @@ export function buildNestedCreate(payload: TemplatePayload) {
     openingToJointMinBottomInches: decimal(
       payload.openingToJointMinBottomInches,
     ),
+    topSlabOpeningInches: payload.topSlabOpeningInches,
     rectMinPricingHeightFeet:
       payload.rectMinPricingHeightFeet === null
         ? null

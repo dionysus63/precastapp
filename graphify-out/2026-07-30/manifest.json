@@ -1250,13 +1250,13 @@
     "semantic_hash": ""
   },
   "app/structures/[id]/page.tsx": {
-    "mtime": 1785354332.080573,
-    "ast_hash": "a5909f79e741876343b009594fa6e314",
+    "mtime": 1785274082.0047915,
+    "ast_hash": "8bb2b459e135c01d34a4a0082cceee6c",
     "semantic_hash": ""
   },
   "app/structures/actions.ts": {
-    "mtime": 1785354363.8052933,
-    "ast_hash": "6d73f5c5afc7dffc2c34d8cc8affec51",
+    "mtime": 1785274046.236944,
+    "ast_hash": "9f15f3f7d26c84d123d6da7ec269d00d",
     "semantic_hash": ""
   },
   "app/structures/page.tsx": {
@@ -1280,8 +1280,8 @@
     "semantic_hash": ""
   },
   "components/drill-sheets/drill-sheet-form.tsx": {
-    "mtime": 1785355700.4431164,
-    "ast_hash": "b9795908b722355f7b5a249f9329922e",
+    "mtime": 1784311305.610277,
+    "ast_hash": "e8f9e0f7fc941b5c6080592bf9104821",
     "semantic_hash": ""
   },
   "components/drill-sheets/drill-sheet-pdf-button.tsx": {
@@ -1295,8 +1295,8 @@
     "semantic_hash": ""
   },
   "components/drill-sheets/drill-sheet-preview.tsx": {
-    "mtime": 1785355693.2481382,
-    "ast_hash": "3071885026cc79823e5d9622bae7d5e1",
+    "mtime": 1784301047.4383368,
+    "ast_hash": "cca7b1d230d428482228edc38006ace0",
     "semantic_hash": ""
   },
   "components/inventory/purchase-receipt-form.tsx": {
@@ -1310,8 +1310,8 @@
     "semantic_hash": ""
   },
   "components/structures/structure-template-form.tsx": {
-    "mtime": 1785354326.6029835,
-    "ast_hash": "d712ec51581121cd2786ef48acce427b",
+    "mtime": 1785264968.960313,
+    "ast_hash": "3ec923bfe0c04fe033bbce9a26484d9d",
     "semantic_hash": ""
   },
   "lib/app-settings-defaults.ts": {
@@ -1345,8 +1345,8 @@
     "semantic_hash": ""
   },
   "lib/drill-sheet-detail.ts": {
-    "mtime": 1785355734.5333629,
-    "ast_hash": "a73ee531d7b62dd4af18fd4d0b9d349f",
+    "mtime": 1784301038.220481,
+    "ast_hash": "169afc42cc8178a3c985c45e8a5e8904",
     "semantic_hash": ""
   },
   "lib/drill-sheet-diagram.ts": {
@@ -1355,8 +1355,8 @@
     "semantic_hash": ""
   },
   "lib/drill-sheet-options.ts": {
-    "mtime": 1785354391.585689,
-    "ast_hash": "ad58583c8cd6f3fd4254848c46c0e68e",
+    "mtime": 1785264979.1893146,
+    "ast_hash": "a960784d0cdf869a67c06036c630f49c",
     "semantic_hash": ""
   },
   "lib/drill-sheet-pdf-html.ts": {
@@ -1930,8 +1930,8 @@
     "semantic_hash": ""
   },
   "lib/drill-sheet-template-pdf.ts": {
-    "mtime": 1785355769.907947,
-    "ast_hash": "6fb4e22e4c1983fe438952d100cb8481",
+    "mtime": 1785189784.2563105,
+    "ast_hash": "5569b6d2efbf3b95cae4ea5e61a88ff7",
     "semantic_hash": ""
   },
   "lib/print-pdf-url.ts": {
@@ -3195,8 +3195,8 @@
     "semantic_hash": ""
   },
   "lib/structure-template-payload.ts": {
-    "mtime": 1785354273.6077657,
-    "ast_hash": "f188314e171af5542ab2233dd40afb85",
+    "mtime": 1785264942.0805383,
+    "ast_hash": "d0cb84d5f559e9e367a782ce704d99d3",
     "semantic_hash": ""
   },
   "scripts/generate-invoice-templates.ts": {
@@ -3495,8 +3495,8 @@
     "semantic_hash": ""
   },
   "tests/unit/circular-structure-import.test.ts": {
-    "mtime": 1785355075.2650194,
-    "ast_hash": "5cf427265b26106799d88b6eaa6a358f",
+    "mtime": 1784310191.399737,
+    "ast_hash": "646cff1f2ba4f81b09c025f257ae9f27",
     "semantic_hash": ""
   },
   "components/quotes/quote-po-inline.tsx": {
@@ -3807,11 +3807,6 @@
   "components/quotes/quote-tax-exempt-inline.tsx": {
     "mtime": 1785348269.073292,
     "ast_hash": "730815653c0f6101ef57c7a4af7658be",
-    "semantic_hash": ""
-  },
-  "prisma/migrations/20260729150000_template_top_slab_opening/migration.sql": {
-    "mtime": 1785354239.9998941,
-    "ast_hash": "0065d35f6353c015b00c49290c7b4d20",
     "semantic_hash": ""
   }
 }

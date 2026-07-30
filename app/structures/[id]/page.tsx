@@ -99,6 +99,10 @@ export default async function EditStructureTemplatePage({
     openingToJointMinBottomInches: decimalToString(
       template.openingToJointMinBottomInches,
     ),
+    topSlabOpeningInches:
+      template.topSlabOpeningInches != null
+        ? String(template.topSlabOpeningInches)
+        : "",
     rectWallPricePerFoot: rectPriceEntry
       ? String(rectPriceEntry.wallPricePerFoot)
       : "",

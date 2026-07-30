@@ -39,6 +39,8 @@ export type DrillSheetTemplateOption = {
   sumpFixedInches: number | null;
   openingToJointMinTopInches: number;
   openingToJointMinBottomInches: number;
+  /** Top slab clear opening in whole inches — printed on the drill sheet. */
+  topSlabOpeningInches: number | null;
   defaultCastingProductId: string | null;
   defaultCastingHeightFeet: number | null;
   diameters: { id: string; insideDiameterFeet: number }[];
@@ -418,6 +420,7 @@ export function DrillSheetForm({
     useBase,
     useRiser,
     brickAdjustment,
+    topSlabOpeningInches: selectedTemplate?.topSlabOpeningInches ?? null,
   };
 
   function updateOpening(
