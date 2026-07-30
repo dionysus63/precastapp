@@ -132,13 +132,13 @@ function CalledInPickupCard({ row }: { row: WalkInRow }) {
           href={`/delivery-tickets/${row.id}/preview?from=walk-ins`}
           className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
         >
-          Preview Ticket
+          Print Ticket
         </Link>
         <Link
           href={`/delivery-tickets/${row.id}/submittals/preview?from=walk-ins`}
           className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
         >
-          Preview Submittals
+          Print Submittals
         </Link>
       </div>
     </div>
@@ -212,7 +212,7 @@ export function WalkInsBoard({
 
       <PickupTileSection
         title="Called-in pickups"
-        description="Pre-arranged orders waiting for the customer. Use preview links to print the ticket and submittals."
+        description="Pre-arranged orders waiting for the customer. Use the print links for the ticket and submittals."
         emptyMessage="No pickups are waiting right now."
         rows={calledIn}
         renderCard={(row) => <CalledInPickupCard key={row.id} row={row} />}

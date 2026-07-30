@@ -30,7 +30,8 @@ export default async function DeliveryTicketsPage() {
         prisma.deliveryTicket.findMany({
           where: {
             deliveryDate: { gte: scheduleCutoff },
-            ticketType: { not: "WALK_IN" },
+            // Walk-ins and called-in pickups live on the Walk-Ins board.
+            fulfillmentMethod: "DELIVERY",
           },
           orderBy: [{ deliveryDate: "asc" }, { createdAt: "asc" }],
           select: deliveryTicketListSelect,
