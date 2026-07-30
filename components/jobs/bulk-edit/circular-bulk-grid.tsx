@@ -142,6 +142,16 @@ export function CircularBulkGrid({
 }: CircularBulkGridProps) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  // "Set all" header inputs for Date / Inspection: typing applies to every
+  // row immediately (the parent batches the per-row updates).
+  const [setAllDate, setSetAllDate] = useState("");
+  const [setAllInspection, setSetAllInspection] = useState("");
+
+  const applyToAll = (patch: Partial<DrillSheetFormValues>) => {
+    for (const row of rows) {
+      onValuesChange(row.structureId, { ...row.values, ...patch });
+    }
+  };
 
   const materialOptions = useMemo(
     () => [
@@ -210,6 +220,7 @@ export function CircularBulkGrid({
       | "brickAdjustment"
       | "useBase"
       | "useRiser"
+      | "inspection"
     >,
     widthClass: string,
     numeric = false,
@@ -253,6 +264,8 @@ export function CircularBulkGrid({
             <th className={tableHeaderCellClassName}>Use base</th>
             <th className={tableHeaderCellClassName}>Use riser</th>
             <th className={tableHeaderCellClassName}>Steps</th>
+            <th className={tableHeaderCellClassName}>Date</th>
+            <th className={tableHeaderCellClassName}>Inspection</th>
             <th className={tableHeaderCellClassName}>Openings</th>
             <th className={tableHeaderCellClassName}>Low inv</th>
             <th className={tableHeaderCellClassName}>Brick</th>
@@ -260,6 +273,40 @@ export function CircularBulkGrid({
             <th className={tableHeaderCellClassName}>Total ht</th>
             <th className={tableHeaderCellClassName}>Weight</th>
             <th className={tableHeaderCellClassName}>Status</th>
+          </tr>
+          <tr>
+            <th
+              colSpan={9}
+              className={`${tableHeaderCellClassName} text-right font-normal normal-case tracking-normal text-slate-400`}
+            >
+              Set every structure →
+            </th>
+            <th className={`${tableHeaderCellClassName} font-normal`}>
+              <input
+                type="date"
+                value={setAllDate}
+                onChange={(event) => {
+                  setSetAllDate(event.target.value);
+                  applyToAll({ date: event.target.value });
+                }}
+                className={`${tableInlineInputClassName} w-32`}
+                title="Sets the date on every structure below"
+              />
+            </th>
+            <th className={`${tableHeaderCellClassName} font-normal`}>
+              <input
+                type="text"
+                value={setAllInspection}
+                placeholder="Set all…"
+                onChange={(event) => {
+                  setSetAllInspection(event.target.value);
+                  applyToAll({ inspection: event.target.value });
+                }}
+                className={`${tableInlineInputClassName} w-24`}
+                title="Sets the inspection on every structure below"
+              />
+            </th>
+            <th colSpan={7} className={tableHeaderCellClassName} />
           </tr>
         </thead>
         <tbody className={tableBodyClassName}>
@@ -393,6 +440,36 @@ export function CircularBulkGrid({
                       }}
                     />
                   </td>
+                  <td className={tableGridCellClassName}>
+                    <input
+                      type="date"
+                      data-r={rowIndex}
+                      data-c={9}
+                      value={row.values.date}
+                      onChange={(event) =>
+                        patchValues(row, { date: event.target.value })
+                      }
+                      onKeyDown={(event) => {
+                        if (isFillDownKey(event)) {
+                          event.preventDefault();
+                          fillFromAbove(
+                            rowIndex,
+                            (values) => values.date,
+                            (target, value) =>
+                              patchValues(target, { date: value as string }),
+                          );
+                          return;
+                        }
+                        if (handleGridNavKey(event, tableRef)) {
+                          event.preventDefault();
+                        }
+                      }}
+                      className={`${tableInlineInputClassName} w-32`}
+                    />
+                  </td>
+                  <td className={tableGridCellClassName}>
+                    {cellInput(row, rowIndex, 10, "inspection", "w-24")}
+                  </td>
                   <td
                     className={`${tableCellBordersClassName} px-2 py-1 whitespace-nowrap`}
                   >
@@ -432,7 +509,7 @@ export function CircularBulkGrid({
                 {error || previewError ? (
                   <tr>
                     <td
-                      colSpan={16}
+                      colSpan={18}
                       className={`${tableCellBordersClassName} bg-rose-50 px-3 py-1 text-[11px] text-rose-700`}
                     >
                       {error ?? previewError}
@@ -442,7 +519,7 @@ export function CircularBulkGrid({
                 {isExpanded ? (
                   <tr>
                     <td
-                      colSpan={16}
+                      colSpan={18}
                       className={`${tableCellBordersClassName} bg-slate-50/70 px-4 py-2`}
                     >
                       <div className="space-y-1">
