@@ -141,6 +141,10 @@ export const DRILL_SHEET_TEMPLATE_FIELD_NAMES = [
   "template_name",
   "diameter",
   "rim_elevation",
+  // Split from rim_elevation (2026-07-30): the schematic-side blank keeps
+  // the old name; the calc-column blank is rim_elevation_calcs so the two
+  // spots can hold their own alignment.
+  "rim_elevation_calcs",
   "low_invert",
   "invert_to_top",
   "casting_minus",
@@ -300,6 +304,7 @@ export function buildDrillSheetFieldMap(
         ? formatFeetInches(meta.insideDiameterFeet)
         : "",
     rim_elevation: decimalFeet(result.rimElevation),
+    rim_elevation_calcs: decimalFeet(result.rimElevation),
     low_invert: decimalFeet(result.lowInvertElevation),
     invert_to_top: decimalFeet(result.invertToTopFeet),
     casting_minus: decimalFeet(result.castingHeightFeet),
@@ -1039,10 +1044,10 @@ export async function fillDrillSheetTemplatePdf(
       continue;
     }
 
-    // The T9 form's rim_elevation was authored without an alignment while
-    // every other blank in its stack column is centered — normalize so the
-    // column reads as one.
-    if (name === "rim_elevation") {
+    // The calc-column rim blank sits in an otherwise-centered column;
+    // normalize in case the split field was authored without an alignment.
+    // (The schematic-side rim_elevation keeps whatever the form authored.)
+    if (name === "rim_elevation_calcs") {
       field.setAlignment(TextAlignment.Center);
     }
 
