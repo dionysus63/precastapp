@@ -1039,6 +1039,13 @@ export async function fillDrillSheetTemplatePdf(
       continue;
     }
 
+    // The T9 form's rim_elevation was authored without an alignment while
+    // every other blank in its stack column is centered — normalize so the
+    // column reads as one.
+    if (name === "rim_elevation") {
+      field.setAlignment(TextAlignment.Center);
+    }
+
     try {
       field.setText(value);
       filledFields.push(field);
