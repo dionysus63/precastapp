@@ -1045,6 +1045,24 @@ export async function fillDrillSheetTemplatePdf(
       continue;
     }
 
+    // Acrobat authors alignment on the widget; pdf-lib's default appearance
+    // (the fallback when no printed neighbor is found — e.g. when pdfjs text
+    // extraction is unavailable in a packaged build) reads only the
+    // field-level /Q. Promote a unanimous widget /Q so both render paths
+    // align identically on every machine.
+    const fieldDict = field.acroField.dict;
+    if (!(fieldDict.get(PDFName.of("Q")) instanceof PDFNumber)) {
+      const widgetQs = field.acroField
+        .getWidgets()
+        .map((entry) =>
+          entry.dict.lookupMaybe(PDFName.of("Q"), PDFNumber)?.asNumber(),
+        )
+        .filter((q): q is number => q != null);
+      if (widgetQs.length > 0 && widgetQs.every((q) => q === widgetQs[0])) {
+        fieldDict.set(PDFName.of("Q"), PDFNumber.of(widgetQs[0]!));
+      }
+    }
+
     try {
       field.setText(value);
       filledFields.push(field);
