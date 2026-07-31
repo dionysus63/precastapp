@@ -33,7 +33,7 @@ export const INVOICE_PDF_INCLUDE = {
       job: {
         select: { projectAddress: true, city: true, state: true, zip: true },
       },
-      quote: { select: { projectAddress: true } },
+      quote: { select: { projectAddress: true, customerPO: true } },
     },
   },
 } as const satisfies Prisma.InvoiceInclude;
@@ -199,7 +199,15 @@ export function buildInvoiceFormData(
     "Project Name": blankOr(invoice.projectName),
     "Job Number": blankOr(invoice.jobNumber),
     "Ticket Number": blankOr(invoice.deliveryTicket.ticketNumber),
-    "Delivery Date": formatDateForPdf(invoice.deliveryTicket.deliveryDate),
+    // The date the material moved (delivered or picked up).
+    "Ticket Date": formatDateForPdf(invoice.deliveryTicket.deliveryDate),
+    // The word matching how it moved, under the "Delivery or Pickup" header.
+    Fulfillment:
+      invoice.deliveryTicket.fulfillmentMethod === "PICKUP"
+        ? "Pickup"
+        : "Delivery",
+    "Purchase Order Number":
+      blankOr(invoice.deliveryTicket.quote?.customerPO) || "—",
     "Delivery Address":
       invoice.deliveryTicket.fulfillmentMethod === "PICKUP"
         ? "Customer pickup"
@@ -235,7 +243,9 @@ export const INVOICE_TEMPLATE_FIELD_NAMES = [
   "Project Name",
   "Job Number",
   "Ticket Number",
-  "Delivery Date",
+  "Ticket Date",
+  "Fulfillment",
+  "Purchase Order Number",
   "Delivery Address",
   "Company Name",
   "Company Address",

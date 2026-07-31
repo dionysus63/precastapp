@@ -90,7 +90,18 @@ function PickupCardBody({ row }: { row: WalkInRow }) {
         </p>
         <p className={tileLineClass}>{jobNameLine(row)}</p>
         <p className={tileLineClass}>{dateLine(row)}</p>
-        <p className={tileLineClass}>{row.ticketNumber}</p>
+        <p className={tileLineClass}>
+          <Link
+            href={
+              row.status === "DELIVERED"
+                ? `/delivery-tickets/${row.id}`
+                : `/delivery-tickets/${row.id}/edit`
+            }
+            className="underline hover:text-slate-900"
+          >
+            {row.ticketNumber}
+          </Link>
+        </p>
         <p
           className={`${tileLineClass} ${
             row.paymentReceived ? "text-green-700" : ""

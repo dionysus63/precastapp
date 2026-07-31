@@ -41,9 +41,10 @@ const HEADER_IMAGE = { x: 48.7, y: 666.2, width: 348, height: 85.8 };
 // Info box (Bill To / project details), same as the quote template.
 const INFO_BOX = { top: 661.7, bottom: 583.1, dividerX: 312.7 };
 
-// Meta strip (four even cells: Ticket #, Delivery/Pickup, Due Date, Page —
-// no invoice date; billing keys off the delivery date). Slimmer than the
-// quote template's strip, centered in the same envelope.
+// Meta strip (six weighted cells: Ticket #, Ticket Date, Delivery or Pickup,
+// Purchase Order #, Pmt Due Date, Page — no invoice date; billing keys off
+// the delivery date). Slimmer than the quote template's strip, centered in
+// the same envelope.
 const STRIP = { top: 568.4, labelBottom: 554.9, bottom: 539.9 };
 
 // Item table header band; verticals from lib/quote-pdf-layout.ts comments.
@@ -122,6 +123,8 @@ function addTextField(
     bold?: boolean;
     grayText?: boolean;
     multiline?: boolean;
+    /** Match the widget background to the band it sits on (default white). */
+    backgroundColor?: ReturnType<typeof rgb>;
   } = {},
 ) {
   const form = ctx.doc.getForm();
@@ -140,6 +143,9 @@ function addTextField(
     borderWidth: 0,
     font: options.bold ? ctx.helvBold : ctx.helv,
     textColor: options.grayText ? GRAY_TEXT : BLACK,
+    ...(options.backgroundColor
+      ? { backgroundColor: options.backgroundColor }
+      : {}),
   });
   // After addToPage so the field has a /DA entry to update.
   field.setFontSize(options.fontSize ?? 9);
@@ -245,22 +251,28 @@ async function drawSharedTop(ctx: Ctx, headerImageBytes: Uint8Array) {
     { multiline: true },
   );
 
-  // Meta strip: gray label band over a value row, four even cells, text
-  // centered vertically in both bands.
+  // Meta strip: gray label band over a value row, six weighted cells, text
+  // centered vertically in both bands. The "Delivery or Pickup" cell's value
+  // is the WORD Delivery or Pickup (field "Fulfillment"), matching how the
+  // material moved; its date lives in Ticket Date.
   drawBox(page, TABLE_LEFT_X, STRIP.labelBottom, TABLE_RIGHT_X, STRIP.top, { fill: true });
   drawBox(page, TABLE_LEFT_X, STRIP.bottom, TABLE_RIGHT_X, STRIP.top);
   drawLine(page, TABLE_LEFT_X, STRIP.labelBottom, TABLE_RIGHT_X, STRIP.labelBottom);
-  const stripCells: Array<{ label: string; field: string }> = [
-    { label: "Ticket #", field: "Ticket Number" },
-    { label: "Delivery/Pickup", field: "Delivery Date" },
-    { label: "Due Date", field: "Due Date" },
-    { label: "Page", field: "Page" },
+  const stripCells: Array<{ label: string; field: string; weight: number }> = [
+    { label: "Ticket #", field: "Ticket Number", weight: 13 },
+    { label: "Ticket Date", field: "Ticket Date", weight: 15 },
+    { label: "Delivery or Pickup", field: "Fulfillment", weight: 17 },
+    { label: "Purchase Order #", field: "Purchase Order Number", weight: 24 },
+    { label: "Pmt Due Date", field: "Due Date", weight: 16 },
+    { label: "Page", field: "Page", weight: 15 },
   ];
-  const cellWidth = (TABLE_RIGHT_X - TABLE_LEFT_X) / stripCells.length;
+  const stripWidth = TABLE_RIGHT_X - TABLE_LEFT_X;
+  const totalWeight = stripCells.reduce((sum, cell) => sum + cell.weight, 0);
   const labelBandCenter = (STRIP.top + STRIP.labelBottom) / 2;
   const valueBandCenter = (STRIP.labelBottom + STRIP.bottom) / 2;
+  let cellLeft = TABLE_LEFT_X;
   stripCells.forEach((cell, index) => {
-    const cellLeft = TABLE_LEFT_X + index * cellWidth;
+    const cellWidth = (stripWidth * cell.weight) / totalWeight;
     if (index > 0) {
       drawLine(page, cellLeft, STRIP.bottom, cellLeft, STRIP.top);
     }
@@ -283,6 +295,7 @@ async function drawSharedTop(ctx: Ctx, headerImageBytes: Uint8Array) {
       },
       { alignment: TextAlignment.Center },
     );
+    cellLeft += cellWidth;
   });
 
   // Item table header band.
