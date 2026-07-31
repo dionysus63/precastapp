@@ -6,6 +6,7 @@ import {
   PDFFont,
   PDFHexString,
   PDFName,
+  PDFNumber,
   PDFPage,
   PDFString,
   PDFTextField,
@@ -1044,13 +1045,6 @@ export async function fillDrillSheetTemplatePdf(
       continue;
     }
 
-    // The calc-column rim blank sits in an otherwise-centered column;
-    // normalize in case the split field was authored without an alignment.
-    // (The schematic-side rim_elevation keeps whatever the form authored.)
-    if (name === "rim_elevation_calcs") {
-      field.setAlignment(TextAlignment.Center);
-    }
-
     try {
       field.setText(value);
       filledFields.push(field);
@@ -1558,10 +1552,18 @@ function makeBaselineAlignedProvider(
     // instead of ballooning to fit their boxes.
     const fontSize = daSize ?? (inDiagram ? DIAGRAM_FIELD_FONT_SIZE_PT : undefined);
 
+    // Alignment follows the authored /Q — widget-level first (a field
+    // placed twice can align each spot independently), then field-level.
+    const widgetQ = widget.dict.lookupMaybe(PDFName.of("Q"), PDFNumber);
+    const alignment =
+      widgetQ != null
+        ? (widgetQ.asNumber() as TextAlignment)
+        : (textField.getAlignment() ?? TextAlignment.Left);
+
     let layout: ReturnType<typeof layoutSinglelineText>;
     try {
       layout = layoutSinglelineText(textField.getText() ?? "", {
-        alignment: textField.getAlignment() ?? TextAlignment.Left,
+        alignment,
         fontSize,
         font,
         bounds,
