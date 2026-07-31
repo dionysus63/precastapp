@@ -1191,9 +1191,18 @@ async function applyTemplateFieldFonts(
   const fontByField = new Map<string, TemplateFontKey | null>();
   for (const field of form.getFields()) {
     if (field instanceof PDFTextField) {
+      // Widget-level /DA wins over the field-level one (PDF spec order, and
+      // it's the layer Acrobat's editor actually writes) — a stale
+      // field-level entry would otherwise pick a different typeface than
+      // the one authored, making e.g. one thickness blank render smaller
+      // than its neighbors.
+      const widgetDa = field.acroField
+        .getWidgets()[0]
+        ?.dict.lookupMaybe(PDFName.of("DA"), PDFString, PDFHexString)
+        ?.decodeText();
       fontByField.set(
         field.getName(),
-        classifyDaFont(field.acroField.getDefaultAppearance()),
+        classifyDaFont(widgetDa ?? field.acroField.getDefaultAppearance()),
       );
     }
   }
