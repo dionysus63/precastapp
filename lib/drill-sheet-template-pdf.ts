@@ -1552,7 +1552,11 @@ function makeBaselineAlignedProvider(
     };
     const daSize =
       readDaFontSize(widget.dict) ?? readDaFontSize(textField.acroField.dict);
-    const fontSize = inDiagram ? DIAGRAM_FIELD_FONT_SIZE_PT : daSize;
+    // An explicitly authored size always wins — the form is the design
+    // authority. The diagram size only fills in for auto-sized (0 Tf)
+    // fields inside the stack region, so they match the drawn labels
+    // instead of ballooning to fit their boxes.
+    const fontSize = daSize ?? (inDiagram ? DIAGRAM_FIELD_FONT_SIZE_PT : undefined);
 
     let layout: ReturnType<typeof layoutSinglelineText>;
     try {
