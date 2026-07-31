@@ -34,7 +34,8 @@ import { formatQuantity } from "@/lib/format";
 import { structureNeedsDrillSheet } from "@/components/structures/structure-utils";
 import { parseRectStructureConfigJson } from "@/lib/quotes/rect-structure-workbook";
 import { hasPermission, type AuthUser } from "@/lib/auth/permissions";
-import { AppPermission } from "@/app/generated/prisma/client";
+import { AppPermission, type Prisma } from "@/app/generated/prisma/client";
+import { isDeliveryServiceLine } from "@/lib/quotes/money-rules";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { listCustomersForBidList } from "@/app/jobs/bid-actions";
 
@@ -305,11 +306,83 @@ export async function JobTabContent({
         ),
       ]);
 
+    // Freight reconciliation: the quote estimated N delivery loads, but
+    // customer pickups mean fewer get billed — surface quoted vs invoiced so
+    // leftover delivery charges don't get invoiced by habit.
+    const deliveryCharges = await withDatabaseRetry(async (prisma) => {
+      // A job can hold several WON quotes (scopes); freight sums across all.
+      const wonQuotes = await prisma.quote.findMany({
+        where: { jobId, status: "WON" },
+        select: {
+          lineItems: {
+            select: {
+              lineType: true,
+              itemCode: true,
+              description: true,
+              quantity: true,
+              total: true,
+            },
+          },
+        },
+      });
+      const invoicedLines = await prisma.invoiceLineItem.findMany({
+        where: { invoice: { jobId, status: { not: "VOID" } } },
+        select: {
+          lineType: true,
+          itemCode: true,
+          description: true,
+          quantity: true,
+          total: true,
+        },
+      });
+      const pickupTicketCount = await prisma.deliveryTicket.count({
+        where: {
+          jobId,
+          fulfillmentMethod: "PICKUP",
+          status: { not: "CANCELLED" },
+        },
+      });
+
+      const sumDeliveryLines = (
+        lines: Array<{
+          lineType: string;
+          itemCode: string;
+          description: string | null;
+          quantity: Prisma.Decimal;
+          total: Prisma.Decimal;
+        }>,
+      ) =>
+        lines
+          .filter((line) =>
+            isDeliveryServiceLine(line.lineType, line.itemCode, line.description),
+          )
+          .reduce(
+            (acc, line) => ({
+              loads: acc.loads + Number(line.quantity),
+              amount: acc.amount + Number(line.total),
+            }),
+            { loads: 0, amount: 0 },
+          );
+
+      const quoted = sumDeliveryLines(
+        wonQuotes.flatMap((quote) => quote.lineItems),
+      );
+      const invoiced = sumDeliveryLines(invoicedLines);
+      return {
+        quotedLoads: quoted.loads,
+        quotedAmount: quoted.amount,
+        invoicedLoads: invoiced.loads,
+        invoicedAmount: invoiced.amount,
+        pickupTicketCount,
+      };
+    });
+
     return (
       <JobInvoicesSection
         invoices={mapJobInvoices(invoices)}
         invoiceableDeliveries={mapJobInvoiceableDeliveries(invoiceableTickets)}
         canManageInvoices={canManageInvoices}
+        deliveryCharges={deliveryCharges}
       />
     );
   }

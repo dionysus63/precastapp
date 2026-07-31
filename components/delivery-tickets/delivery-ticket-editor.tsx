@@ -212,6 +212,7 @@ function mergeFulfillmentIntoLine(
 function mapFulfillmentToLine(
   meta: QuoteLineFulfillment,
   availableQty: number = meta.remainingQty,
+  usePickupPrice = false,
 ): EditorLine {
   return {
     key: meta.quoteLineItemId,
@@ -224,6 +225,12 @@ function mapFulfillmentToLine(
     quantity: meta.eligible && availableQty > 0 ? String(availableQty) : "0",
     unit: meta.unit,
     weightEach: meta.weightEach != null ? String(meta.weightEach) : "",
+    // Pickup tickets bill the price list's pickup price when one exists;
+    // the override lands in DeliveryTicketLineItem.unitPrice at save.
+    unitPrice:
+      usePickupPrice && meta.pickupUnitPrice != null
+        ? String(meta.pickupUnitPrice)
+        : undefined,
     yardLocation: "",
   };
 }
@@ -557,7 +564,10 @@ export function DeliveryTicketEditor({
               : line,
           );
         }
-        return [...current, mapFulfillmentToLine(meta, getAvailableQty(meta))];
+        return [
+          ...current,
+          mapFulfillmentToLine(meta, getAvailableQty(meta), isPickup),
+        ];
       });
     } else {
       setSelectedLineIds((current) => {
@@ -599,7 +609,7 @@ export function DeliveryTicketEditor({
       return [
         ...current,
         {
-          ...mapFulfillmentToLine(meta),
+          ...mapFulfillmentToLine(meta, meta.remainingQty, isPickup),
           quantity: value,
         },
       ];
@@ -1280,6 +1290,24 @@ export function DeliveryTicketEditor({
     );
   }
 
+  /** Fill every quote-sourced line's override from the price list's pickup
+   * price. Composite lines (ring SKUs, casting pieces) stay manual. */
+  function applyPickupListPrices() {
+    setLines((current) =>
+      current.map((line) => {
+        if (!line.quoteLineItemId || isCompositeEditorKey(line.key)) {
+          return line;
+        }
+        const meta = fulfillmentById.get(line.quoteLineItemId);
+        if (!meta || meta.pickupUnitPrice == null) {
+          return line;
+        }
+        return { ...line, unitPrice: String(meta.pickupUnitPrice) };
+      }),
+    );
+    markDirty();
+  }
+
   function removeLine(key: string) {
     setLines((current) => current.filter((line) => line.key !== key));
     setSelectedLineIds((current) => {
@@ -1293,6 +1321,16 @@ export function DeliveryTicketEditor({
     const activeLines = lines.filter((line) => selectedLineIds.has(line.key));
     const linePayload: DeliveryTicketLineInput[] = activeLines
       .filter((line) => Number(line.quantity) > 0)
+      // A stale selection could still hold a freight line after the ticket
+      // was switched to pickup; the picker hides them, drop them here too.
+      .filter(
+        (line) =>
+          !(
+            isPickup &&
+            fulfillmentMetaForEditorLine(line, fulfillmentById)
+              ?.isDeliveryService
+          ),
+      )
       .map((line) => {
         const meta = fulfillmentMetaForEditorLine(line, fulfillmentById);
         const weightEach =
@@ -1311,7 +1349,13 @@ export function DeliveryTicketEditor({
           quantity: Number(line.quantity),
           unit: line.unit,
           weightEach,
-          unitPrice: line.unitPrice?.trim() ? Number(line.unitPrice) : null,
+          // Quote-sourced lines carry a price override only on pickup
+          // tickets (pickup repricing); switching back to delivery reverts
+          // them to quote pricing. Extras always carry their agreed price.
+          unitPrice:
+            line.unitPrice?.trim() && (line.quoteLineItemId == null || isPickup)
+              ? Number(line.unitPrice)
+              : null,
           yardLocation: line.yardLocation || null,
         };
       });
@@ -2007,7 +2051,11 @@ export function DeliveryTicketEditor({
                 </tr>
               </thead>
               <tbody className={tableBodyClassName}>
-                {fulfillment.filter((line) => !line.isDrainRing).map((line) => {
+                {fulfillment
+                  .filter((line) => !line.isDrainRing)
+                  // Freight lines never ride on a customer-pickup ticket.
+                  .filter((line) => !(isPickup && line.isDeliveryService))
+                  .map((line) => {
                   const isConfigurableStructure =
                     line.lineType === "CONFIGURABLE_STRUCTURE";
                   const linePrimaryLabel = getDeliveryLinePrimaryLabel(line);
@@ -2696,6 +2744,180 @@ export function DeliveryTicketEditor({
               </tfoot>
           </table>
         </section>
+      ) : null}
+
+      {ticketType === "JOB" && quote && isPickup ? (
+        <SectionCard
+          title="Pickup pricing"
+          description="Customer pickup — the quote's delivery charges stay off this ticket. Lines bill at the pickup price entered here; leave a price blank to bill as quoted."
+        >
+          {(() => {
+            const pricedLines = lines.filter(
+              (line) =>
+                selectedLineIds.has(line.key) &&
+                Number(line.quantity) > 0 &&
+                line.quoteLineItemId,
+            );
+            if (pricedLines.length === 0) {
+              return (
+                <p className="text-xs text-slate-500">
+                  Pick lines above to price this pickup.
+                </p>
+              );
+            }
+            const rows = pricedLines.map((line) => {
+              const meta = fulfillmentMetaForEditorLine(line, fulfillmentById);
+              const composite = isCompositeEditorKey(line.key);
+              const quotedEach =
+                meta && !composite ? meta.quotedUnitPrice : null;
+              const qty = Number(line.quantity) || 0;
+              const overrideRaw = line.unitPrice?.trim() ?? "";
+              const overrideEach =
+                overrideRaw && Number.isFinite(Number(overrideRaw))
+                  ? Number(overrideRaw)
+                  : null;
+              const effectiveEach = overrideEach ?? quotedEach;
+              return {
+                line,
+                label: meta?.displayName ?? line.itemCode,
+                itemCode: line.itemCode,
+                quotedEach,
+                pickupListEach:
+                  meta && !composite ? meta.pickupUnitPrice : null,
+                qty,
+                effectiveEach,
+              };
+            });
+            const total = rows.reduce(
+              (sum, row) =>
+                row.effectiveEach != null
+                  ? sum + row.qty * row.effectiveEach
+                  : sum,
+              0,
+            );
+            const savings = rows.reduce(
+              (sum, row) =>
+                row.quotedEach != null && row.effectiveEach != null
+                  ? sum + row.qty * (row.quotedEach - row.effectiveEach)
+                  : sum,
+              0,
+            );
+            const hasListPrices = rows.some(
+              (row) => row.pickupListEach != null,
+            );
+            return (
+              <>
+                {hasListPrices ? (
+                  <div className="mb-3">
+                    <button
+                      type="button"
+                      onClick={applyPickupListPrices}
+                      className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      Apply price-list pickup prices
+                    </button>
+                  </div>
+                ) : null}
+                <div className="overflow-x-auto">
+                  <table className={tableClassName}>
+                    <thead>
+                      <tr>
+                        <th className={tableHeaderCellClassName}>Item</th>
+                        <th className={`${tableHeaderCellClassName} text-center`}>
+                          Qty
+                        </th>
+                        <th className={`${tableHeaderCellClassName} text-center`}>
+                          Quoted each
+                        </th>
+                        <th className={`${tableHeaderCellClassName} text-center`}>
+                          Pickup price each ($)
+                        </th>
+                        <th className={`${tableHeaderCellClassName} text-right`}>
+                          Line total
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className={tableBodyClassName}>
+                      {rows.map((row) => (
+                        <tr key={row.line.key}>
+                          <td className={tableCellClassName}>
+                            <div className="font-medium text-slate-900">
+                              {row.label}
+                            </div>
+                            <div className="text-slate-500">{row.itemCode}</div>
+                          </td>
+                          <td className={`${tableCellClassName} text-center`}>
+                            {row.qty} {row.line.unit}
+                          </td>
+                          <td
+                            className={`${tableCellClassName} text-center ${
+                              row.effectiveEach != null &&
+                              row.quotedEach != null &&
+                              row.effectiveEach < row.quotedEach
+                                ? "text-slate-400 line-through"
+                                : "text-slate-600"
+                            }`}
+                          >
+                            {row.quotedEach != null
+                              ? formatUsd(row.quotedEach)
+                              : "—"}
+                          </td>
+                          <td className={`${tableCellClassName} text-center`}>
+                            <input
+                              aria-label={`${row.label} pickup price each`}
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={row.line.unitPrice ?? ""}
+                              placeholder={
+                                row.quotedEach != null
+                                  ? row.quotedEach.toFixed(2)
+                                  : "as quoted"
+                              }
+                              onChange={(event) => {
+                                updateWalkInLine(
+                                  row.line.key,
+                                  "unitPrice",
+                                  event.target.value,
+                                );
+                                markDirty();
+                              }}
+                              className={`mx-auto w-28 ${tableInlineInputClassName} text-center`}
+                            />
+                          </td>
+                          <td className={`${tableCellClassName} text-right font-medium text-slate-900`}>
+                            {row.effectiveEach != null && row.qty > 0
+                              ? formatUsd(row.qty * row.effectiveEach)
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-slate-200 bg-slate-50/80">
+                        <td
+                          colSpan={4}
+                          className={`${tableCellClassName} text-right font-medium text-slate-700`}
+                        >
+                          {savings > 0.004 ? (
+                            <span className="mr-3 font-normal text-green-700">
+                              {formatUsd(savings)} below quoted — invoice will
+                              note the pickup adjustment
+                            </span>
+                          ) : null}
+                          Ticket total
+                        </td>
+                        <td className={`${tableCellClassName} text-right font-semibold text-slate-900`}>
+                          {formatUsd(total)}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </>
+            );
+          })()}
+        </SectionCard>
       ) : null}
 
       {ticketType === "JOB" && quote ? (

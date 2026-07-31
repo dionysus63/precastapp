@@ -744,19 +744,99 @@ export function JobProductionSection({
   );
 }
 
+export type JobDeliveryChargesSummary = {
+  quotedLoads: number;
+  quotedAmount: number;
+  invoicedLoads: number;
+  invoicedAmount: number;
+  pickupTicketCount: number;
+};
+
+function formatMoney(value: number): string {
+  return value.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+  });
+}
+
+function formatLoads(value: number): string {
+  return `${value % 1 === 0 ? value : value.toFixed(2)} load${value === 1 ? "" : "s"}`;
+}
+
 export function JobInvoicesSection({
   invoices,
   invoiceableDeliveries,
   canManageInvoices,
+  deliveryCharges,
 }: {
   invoices: JobRelatedInvoice[];
   invoiceableDeliveries: JobInvoiceableDelivery[];
   canManageInvoices: boolean;
+  deliveryCharges?: JobDeliveryChargesSummary | null;
 }) {
+  const showDeliveryCharges =
+    deliveryCharges &&
+    (deliveryCharges.quotedLoads > 0 ||
+      deliveryCharges.invoicedAmount > 0 ||
+      deliveryCharges.pickupTicketCount > 0);
+  const deliveryRemaining = deliveryCharges
+    ? deliveryCharges.quotedAmount - deliveryCharges.invoicedAmount
+    : 0;
   return (
     <div className="space-y-4">
       {canManageInvoices && invoiceableDeliveries.length > 0 ? (
         <JobInvoiceActions deliveries={invoiceableDeliveries} />
+      ) : null}
+      {showDeliveryCharges ? (
+        <SectionCard
+          title="Delivery charges"
+          description="Freight quoted vs invoiced — loads the customer picks up shouldn't bill delivery."
+        >
+          <div className="flex flex-wrap gap-x-8 gap-y-2 text-xs">
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                Quoted
+              </div>
+              <div className="mt-0.5 font-semibold text-slate-900">
+                {formatLoads(deliveryCharges.quotedLoads)} ·{" "}
+                {formatMoney(deliveryCharges.quotedAmount)}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                Invoiced
+              </div>
+              <div className="mt-0.5 font-semibold text-slate-900">
+                {formatLoads(deliveryCharges.invoicedLoads)} ·{" "}
+                {formatMoney(deliveryCharges.invoicedAmount)}
+              </div>
+            </div>
+            {deliveryCharges.pickupTicketCount > 0 ? (
+              <div>
+                <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                  Customer pickups
+                </div>
+                <div className="mt-0.5 font-semibold text-slate-900">
+                  {deliveryCharges.pickupTicketCount} ticket
+                  {deliveryCharges.pickupTicketCount === 1 ? "" : "s"}
+                </div>
+              </div>
+            ) : null}
+            {deliveryRemaining > 0.004 ? (
+              <div>
+                <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                  Not yet invoiced
+                </div>
+                <div className="mt-0.5 font-semibold text-amber-700">
+                  {formatMoney(deliveryRemaining)}
+                  {deliveryCharges.pickupTicketCount > 0
+                    ? " — review before final invoice"
+                    : ""}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </SectionCard>
       ) : null}
       <SectionCard
         title="Invoices"

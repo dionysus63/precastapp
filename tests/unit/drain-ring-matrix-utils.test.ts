@@ -63,6 +63,9 @@ function fulfillmentLine(
     adsPipeOptions: [],
     isSplitStructure: false,
     structurePieceOptions: [],
+    quotedUnitPrice: 0,
+    pickupUnitPrice: null,
+    isDeliveryService: false,
     ...overrides,
   };
 }

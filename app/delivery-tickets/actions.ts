@@ -230,6 +230,11 @@ async function validateLines(
       if (line.quantity <= 0) {
         throw new Error(`Quantity must be greater than zero for ${line.itemCode}.`);
       }
+      if (meta.isDeliveryService && input.fulfillmentMethod === "PICKUP") {
+        throw new Error(
+          `${meta.displayName} is a delivery charge — it can't go on a customer-pickup ticket.`,
+        );
+      }
 
       if (meta.isSplitStructure) {
         if (!line.jobStructurePieceId) {

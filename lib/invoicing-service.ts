@@ -494,6 +494,8 @@ export async function convertDeliveryTicketToInvoice(
       description: string | null;
     }> = [];
 
+    const isPickupTicket = ticket.fulfillmentMethod === "PICKUP";
+
     for (const line of current.lineItems) {
       const { unitPrice, taxable, resolved } = await resolveUnitPrice(
         tx,
@@ -511,11 +513,32 @@ export async function convertDeliveryTicketToInvoice(
 
       // Ticket lines carry editor-only suffixes ("(5' ring)", ADS joint
       // types); invoices store the clean customer-facing description.
-      const cleanDescription = line.description
+      let cleanDescription = line.description
         ? removeAdsJointTypeSuffix(
             removeTrailingRingHeightSuffix(line.description),
           ) || null
         : null;
+
+      // Pickup repricing: when a customer-pickup ticket bills a quote line at
+      // an overridden price, say so on the invoice instead of leaving a
+      // silent mismatch against the quote.
+      if (isPickupTicket && line.unitPrice != null && line.quoteLineItemId) {
+        const quoteRef = priceLookups.quoteLines.get(line.quoteLineItemId);
+        const quotedEach = quoteRef
+          ? quoteRef.isDrainRing && line.productId
+            ? ringPieceUnitPrice(
+                quoteRef.unitPrice,
+                priceLookups.productHeights.get(line.productId),
+              )
+            : quoteRef.unitPrice
+          : null;
+        if (quotedEach != null && !unitPrice.equals(quotedEach)) {
+          cleanDescription = cleanDescription
+            ? `${cleanDescription} (pickup price)`
+            : "(pickup price)";
+        }
+      }
+
       resolvedLines.push({ line, unitPrice, taxable, description: cleanDescription });
     }
 

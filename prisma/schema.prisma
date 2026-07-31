@@ -1761,6 +1761,8 @@ model PriceListItem {
   priceListId String
   productId   String
   unitPrice   Decimal  @db.Decimal(12, 2)
+  /// Customer-pickup (FOB yard) price. Null = no pickup discount; bill unitPrice.
+  pickupPrice Decimal? @db.Decimal(12, 2)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

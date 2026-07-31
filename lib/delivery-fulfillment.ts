@@ -22,6 +22,7 @@ import {
   loadDerivedAssemblyValues,
 } from "@/lib/casting-service";
 import { promoteJobStatus } from "@/lib/job-status-workflow";
+import { isDeliveryServiceLine } from "@/lib/quotes/money-rules";
 import { richTextToPlainText } from "@/lib/rich-text";
 import {
   formatAdsPipeJointTypeLabel,
@@ -138,6 +139,14 @@ export type QuoteLineFulfillment = {
   adsPipeOptions: AdsPipeOption[];
   isSplitStructure: boolean;
   structurePieceOptions: StructurePieceOption[];
+  /** Quote line unit price (per `unit`), as agreed on the quote. */
+  quotedUnitPrice: number;
+  /** Pickup (FOB yard) price from the quote's price list for product lines;
+   * null when the list has no pickup price for the product. */
+  pickupUnitPrice: number | null;
+  /** Delivery-charge SERVICE line ("Delivery — Zone 2") — freight, so it
+   * stays off customer-pickup tickets. */
+  isDeliveryService: boolean;
 };
 
 /**
@@ -1103,6 +1112,30 @@ async function buildFulfillmentFromContext(
     ]),
   );
 
+  // Pickup (FOB yard) prices from the quote's price list, for repricing
+  // customer-pickup tickets. Product lines only; structures stay manual.
+  const pickupProductIds = [
+    ...new Set(
+      quote.lineItems
+        .map((line) => line.productId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const pickupPriceRows =
+    quote.priceListId && pickupProductIds.length > 0
+      ? await client.priceListItem.findMany({
+          where: {
+            priceListId: quote.priceListId,
+            productId: { in: pickupProductIds },
+            pickupPrice: { not: null },
+          },
+          select: { productId: true, pickupPrice: true },
+        })
+      : [];
+  const pickupPriceByProductId = new Map(
+    pickupPriceRows.map((row) => [row.productId, Number(row.pickupPrice)]),
+  );
+
   const result: QuoteLineFulfillment[] = [];
 
   for (const line of quote.lineItems) {
@@ -1110,6 +1143,15 @@ async function buildFulfillmentFromContext(
     if (line.lineType === "NOTE" || line.lineType === "PAGE_BREAK") {
       continue;
     }
+    const quotedUnitPrice = Number(line.unitPrice);
+    const pickupUnitPrice = line.productId
+      ? (pickupPriceByProductId.get(line.productId) ?? null)
+      : null;
+    const isDeliveryService = isDeliveryServiceLine(
+      line.lineType,
+      line.itemCode,
+      line.description,
+    );
     if (isQuoteLineDrainRing(line)) {
       const diameter = line.ringDiameterFeet
         ? Number(line.ringDiameterFeet)
@@ -1179,6 +1221,9 @@ async function buildFulfillmentFromContext(
         adsPipeOptions: [],
         isSplitStructure: false,
         structurePieceOptions: [],
+        quotedUnitPrice,
+        pickupUnitPrice,
+        isDeliveryService,
       });
       continue;
     }
@@ -1251,6 +1296,9 @@ async function buildFulfillmentFromContext(
         adsPipeOptions: [],
         isSplitStructure: false,
         structurePieceOptions: [],
+        quotedUnitPrice,
+        pickupUnitPrice,
+        isDeliveryService,
       });
       continue;
     }
@@ -1323,6 +1371,9 @@ async function buildFulfillmentFromContext(
         adsPipeOptions: [],
         isSplitStructure: true,
         structurePieceOptions,
+        quotedUnitPrice,
+        pickupUnitPrice,
+        isDeliveryService,
       });
       continue;
     }
@@ -1387,6 +1438,9 @@ async function buildFulfillmentFromContext(
         adsPipeOptions,
         isSplitStructure: false,
         structurePieceOptions: [],
+        quotedUnitPrice,
+        pickupUnitPrice,
+        isDeliveryService,
       });
       continue;
     }
@@ -1460,6 +1514,9 @@ async function buildFulfillmentFromContext(
       adsPipeOptions: [],
       isSplitStructure: false,
       structurePieceOptions: [],
+      quotedUnitPrice,
+      pickupUnitPrice,
+      isDeliveryService,
     });
   }
 

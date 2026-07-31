@@ -200,7 +200,10 @@ export function buildInvoiceFormData(
     "Job Number": blankOr(invoice.jobNumber),
     "Ticket Number": blankOr(invoice.deliveryTicket.ticketNumber),
     "Delivery Date": formatDateForPdf(invoice.deliveryTicket.deliveryDate),
-    "Delivery Address": resolveInvoiceDeliveryAddressLines(invoice).join("\n"),
+    "Delivery Address":
+      invoice.deliveryTicket.fulfillmentMethod === "PICKUP"
+        ? "Customer pickup"
+        : resolveInvoiceDeliveryAddressLines(invoice).join("\n"),
     "Company Name": blankOr(company.companyName),
     "Company Address": blankOr(company.companyAddress),
     "Company Phone": blankOr(company.companyPhone),

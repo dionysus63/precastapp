@@ -1,16 +1,16 @@
 # Graph Report - precastapp  (2026-07-31)
 
 ## Corpus Check
-- 731 files · ~458,764 words
+- 731 files · ~458,859 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 8288 nodes · 21146 edges · 433 communities (218 shown, 215 thin omitted)
+- 8288 nodes · 21146 edges · 434 communities (218 shown, 216 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 325 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `68da15a8`
+- Built from commit: `4717e8b0`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -413,6 +413,7 @@
 - [[_COMMUNITY_Community 421|Community 421]]
 - [[_COMMUNITY_Community 422|Community 422]]
 - [[_COMMUNITY_Community 424|Community 424]]
+- [[_COMMUNITY_Community 425|Community 425]]
 - [[_COMMUNITY_Community 427|Community 427]]
 
 ## God Nodes (most connected - your core abstractions)
@@ -443,7 +444,7 @@
 - 1-file cycle: `electron/updater.mjs -> electron/updater.mjs`
 - 3-file cycle: `lib/quotes/constants.ts -> lib/quotes/types.ts -> lib/ring-builder-settings.ts -> lib/quotes/constants.ts`
 
-## Communities (433 total, 215 thin omitted)
+## Communities (434 total, 216 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.05
@@ -467,7 +468,7 @@ Nodes (83): AppearanceFilter, Arc, Barcode, BatchOutput, Bind, Border, Break, Br
 
 ### Community 6 - "Community 6"
 Cohesion: 0.03
-Nodes (19): addCachedImageOps(), CFF, ColorSpaceUtils, fetchBinaryData(), getTilingPatternIR(), IccColorSpace, IdentityToUnicodeMap, isPDFFunction() (+11 more)
+Nodes (17): addCachedImageOps(), CFF, ColorSpaceUtils, fetchBinaryData(), getTilingPatternIR(), IdentityToUnicodeMap, isPDFFunction(), ka (+9 more)
 
 ### Community 7 - "Community 7"
 Cohesion: 0.08
@@ -519,7 +520,7 @@ Nodes (36): 616(), 8745(), 9504(), 9565(), An, bytesToString(), CipherTransform,
 
 ### Community 20 - "Community 20"
 Cohesion: 0.12
-Nodes (34): lookupPipeOpeningSize(), applyDefaultsToBlankRow(), buildDrillSheetOpeningsInput(), clearWorkbookApplyPayload(), commitWorkbookRowPrice(), computePenetrationsBootsPrice(), computeWorkbookRowPrice(), ensureRowOpenings() (+26 more)
+Nodes (34): lookupPipeOpeningSize(), applyDefaultsToBlankRow(), buildDrillSheetOpeningsInput(), clearWorkbookApplyPayload(), commitWorkbookRowPrice(), computePenetrationsBootsPrice(), computeWorkbookRowPrice(), createDefaultPenetration() (+26 more)
 
 ### Community 21 - "Community 21"
 Cohesion: 0.10
@@ -530,20 +531,20 @@ Cohesion: 0.10
 Nodes (19): compilerOptions, allowJs, esModuleInterop, incremental, isolatedModules, jsx, lib, module (+11 more)
 
 ### Community 23 - "Community 23"
-Cohesion: 0.04
-Nodes (11): AnnotationFactory, clearGlobalCaches(), getNewAnnotationsMap(), getXfaFontDict(), getXfaFontName(), Page, PDFDocument, validateCSSFont() (+3 more)
+Cohesion: 0.05
+Nodes (5): getNewAnnotationsMap(), Page, PDFDocument, WorkerMessageHandler, XFAFactory
 
 ### Community 24 - "Community 24"
-Cohesion: 0.04
-Nodes (17): Annotation, AnnotationBorderStyle, AppearanceStreamEvaluator, buildPostScriptWasmFunction(), getPdfColorArray(), getQuadPoints(), getRgbColor(), isNumberArray() (+9 more)
+Cohesion: 0.06
+Nodes (15): AppearanceStreamEvaluator, buildPostScriptWasmFunction(), getPdfColorArray(), getQuadPoints(), getRgbColor(), IccColorSpace, isNumberArray(), lookupNormalRect() (+7 more)
 
 ### Community 25 - "Community 25"
 Cohesion: 0.06
 Nodes (63): createDrillSheet(), createRectSheet(), updateDrillSheet(), updateRectSheet(), EditDrillSheetPage(), EditDrillSheetPageProps, BulkSheetRowInput, BulkSheetRowResult (+55 more)
 
 ### Community 26 - "Community 26"
-Cohesion: 0.04
-Nodes (12): addChildren(), BasePDFStream, calculateMD5(), ChunkedStream, ChunkedStreamManager, CipherTransformFactory, MessageHandler, NetworkPdfManager (+4 more)
+Cohesion: 0.05
+Nodes (10): BasePDFStream, calculateMD5(), ChunkedStream, ChunkedStreamManager, CipherTransformFactory, MessageHandler, NetworkPdfManager, PDFWorkerStreamRangeReader (+2 more)
 
 ### Community 27 - "Community 27"
 Cohesion: 0.08
@@ -682,8 +683,8 @@ Cohesion: 0.13
 Nodes (8): encodeASCIIString(), _nodesEqual(), PsJsCompiler, PSStackToTree, PsWasmCompiler, section(), unsignedLEB128(), vec()
 
 ### Community 72 - "Community 72"
-Cohesion: 0.11
-Nodes (5): Dict, getModificationDate(), HighlightAnnotation, PopupAnnotation, stringToAsciiOrUTF16BE()
+Cohesion: 0.09
+Nodes (4): Annotation, AnnotationBorderStyle, MarkupAnnotation, PopupAnnotation
 
 ### Community 73 - "Community 73"
 Cohesion: 0.13
@@ -702,8 +703,8 @@ Cohesion: 0.24
 Nodes (12): "DailyProductionEntry", "DailyProductionLine", "DeliveryDayReconciliation", "DeliveryTicket", "DeliveryTicketLineItem", "DeliveryTicketSequence", "InventoryTransaction", "Invoice" (+4 more)
 
 ### Community 77 - "Community 77"
-Cohesion: 0.04
-Nodes (14): Binder, CFFParser, createDataNode(), createText(), encodeToXmlString(), generateFont(), getFontSubstitution(), parseExpression() (+6 more)
+Cohesion: 0.03
+Nodes (22): addChildren(), adjustMapping(), Binder, CFFParser, createDataNode(), createText(), encodeToXmlString(), generateFont() (+14 more)
 
 ### Community 78 - "Community 78"
 Cohesion: 0.13
@@ -782,8 +783,8 @@ Cohesion: 0.11
 Nodes (28): ProductDetailPage(), ProductDetailPageProps, DbClient, DerivedAssemblyValues, enrichProductWithDerivedAssemblyValues(), isBlankOrZero(), isPartsModeCastingAssembly(), loadDerivedAssemblyValues() (+20 more)
 
 ### Community 115 - "Community 115"
-Cohesion: 0.07
-Nodes (43): RectSheetCastingOption, RectSheetOpeningSizeOption, RectSheetTemplateOption, buildRectApplyLineItems(), buildRectQuoteConfig(), clearRectWorkbookSession(), computeRectWorkbookRow(), createDefaultRectDefaults() (+35 more)
+Cohesion: 0.06
+Nodes (65): RectSheetCastingOption, RectSheetOpeningSizeOption, RectSheetTemplateOption, JobCustomStructureImportCandidate, JobSheetImportCandidate, JobSheetImportCandidates, loadJobCustomStructureImportCandidates(), loadJobSheetImportCandidates() (+57 more)
 
 ### Community 117 - "Community 117"
 Cohesion: 0.08
@@ -819,7 +820,7 @@ Nodes (20): ensureTaxonomyForBulkImport(), fetchActiveProductTaxonomy(), resolve
 
 ### Community 125 - "Community 125"
 Cohesion: 0.09
-Nodes (25): normalizeDegrees(), PipeOpeningSizeEntry, EMPTY_PLAN_SHEET_MARKUP, findStructureMarker(), parsePlanSheetMarkup(), PlanSheetMarkup, PlanSheetPipeLine, PlanSheetStructureMarker (+17 more)
+Nodes (24): normalizeDegrees(), PipeOpeningSizeEntry, EMPTY_PLAN_SHEET_MARKUP, findStructureMarker(), parsePlanSheetMarkup(), PlanSheetMarkup, PlanSheetPipeLine, PlanSheetStructureMarker (+16 more)
 
 ### Community 126 - "Community 126"
 Cohesion: 0.05
@@ -830,16 +831,16 @@ Cohesion: 0.05
 Nodes (68): AuditLogInput, auditLogRetentionDays(), pruneOldAuditLogs(), writeAuditLog(), requireAuth(), saveBillingSettings(), FileSettingsPage(), FileSettingsPageProps (+60 more)
 
 ### Community 128 - "Community 128"
-Cohesion: 0.04
-Nodes (25): ao, Catalog, CmykICCBasedCS, createValidAbsoluteUrl(), decodeString(), FeatureTest, fetchDest(), fetchRemoteDest() (+17 more)
+Cohesion: 0.03
+Nodes (27): ao, Catalog, CCITTFaxStream, CmykICCBasedCS, createValidAbsoluteUrl(), decodeString(), FeatureTest, fetchDest() (+19 more)
 
 ### Community 130 - "Community 130"
 Cohesion: 0.09
 Nodes (25): ScheduleLoadUpdate, BulkLoadPlanner(), SCHEDULE_FIELD_KEYS, ScheduleFields, ScheduleLoadsEditor(), ScheduleLoadsEditorProps, ScheduleTicketRow, useUnsavedChangesWarning() (+17 more)
 
 ### Community 131 - "Community 131"
-Cohesion: 0.08
-Nodes (37): RectOpeningPlacement, JobCustomStructureImportCandidate, JobSheetImportCandidates, loadJobCustomStructureImportCandidates(), loadJobSheetImportCandidates(), STATUS_LABELS, DecimalLike, decimalToInput() (+29 more)
+Cohesion: 0.14
+Nodes (17): RectOpeningPlacement, Cell, cellText(), findHeaderRow(), gridFromTsv(), OpeningColumnGroup, parseNumberCell(), parseRectStructureImport() (+9 more)
 
 ### Community 132 - "Community 132"
 Cohesion: 0.36
@@ -870,8 +871,8 @@ Cohesion: 0.20
 Nodes (4): getB(), LZWStream, MeshShading, MeshStreamReader
 
 ### Community 139 - "Community 139"
-Cohesion: 0.08
-Nodes (33): DrillSheetTemplateOption, JobSheetImportCandidate, JobSheetImportDialog(), JobSheetImportDialogProps, PlanSheetRecord, applyTsvToRows(), commitAllWorkbookRowPrices(), createDefaultPenetration() (+25 more)
+Cohesion: 0.09
+Nodes (31): DrillSheetTemplateOption, PlanSheetRecord, applyTsvToRows(), commitAllWorkbookRowPrices(), createDefaultWorkbookDefaults(), createDefaultWorkbookRow(), formatStructureNumber(), nextStructureNumber() (+23 more)
 
 ### Community 140 - "Community 140"
 Cohesion: 0.14
@@ -886,8 +887,8 @@ Cohesion: 0.08
 Nodes (24): Align, ALIGNMENTS, BLACK, calibrateVariant(), EXPLODED_SPECS, extractTextItems(), HEADER_SPECS, LADDER_SPECS (+16 more)
 
 ### Community 155 - "Community 155"
-Cohesion: 0.18
-Nodes (10): InventoryAdjustPage(), searchInventoryProducts(), AdjustForm(), AdjustFormProps, ProductOption, createRow(), ProductionEntryForm(), ProductionEntryFormProps (+2 more)
+Cohesion: 0.08
+Nodes (37): EditPurchaseOrderPage(), allocatePurchaseOrderNumber(), formatPurchaseOrderNumber(), resolvePurchaseOrderDirectory(), resolveVendorQuotePath(), applyReceiptToPurchaseOrder(), computePurchaseOrderTotals(), createPurchaseOrderRecord() (+29 more)
 
 ### Community 158 - "Community 158"
 Cohesion: 0.06
@@ -943,19 +944,19 @@ Nodes (3): CFFFont, findBlock(), Type1Font
 
 ### Community 172 - "Community 172"
 Cohesion: 0.05
-Nodes (20): 7642(), 7657(), 9835(), adjustMapping(), computeIDs(), escapePDFName(), FontFinder, getIndexes() (+12 more)
+Nodes (20): 7642(), 7657(), 9835(), clearGlobalCaches(), computeIDs(), escapePDFName(), FontFinder, getIndexes() (+12 more)
 
 ### Community 173 - "Community 173"
 Cohesion: 0.11
 Nodes (6): addHTML(), createLine(), ExclGroup, flushHTML(), getAvailableSpace(), Subform
 
 ### Community 174 - "Community 174"
-Cohesion: 0.05
-Nodes (76): EditPurchaseOrderPage(), InventoryProductSearchOption, resolveReceivingCategory(), savePurchaseReceipt(), mapPurchaseOrderDetail(), mapPurchaseOrderListRow(), PoWithVendor, allocatePurchaseOrderNumber() (+68 more)
+Cohesion: 0.06
+Nodes (51): InventoryAdjustPage(), InventoryProductSearchOption, resolveReceivingCategory(), savePurchaseReceipt(), searchInventoryProducts(), AdjustForm(), AdjustFormProps, ProductOption (+43 more)
 
 ### Community 177 - "Community 177"
 Cohesion: 0.11
-Nodes (22): buildPreview(), Cell, detectShape(), ImportOptions, JobStructureImportButton(), PreviewState, PreviewStructure, JobStructureImportEntry (+14 more)
+Nodes (23): buildPreview(), Cell, detectShape(), ImportOptions, JobStructureImportButton(), PreviewState, PreviewStructure, JobStructureImportEntry (+15 more)
 
 ### Community 179 - "Community 179"
 Cohesion: 0.27
@@ -978,8 +979,8 @@ Cohesion: 0.22
 Nodes (8): main, name, postcss, overrides, @hono/node-server, next, private, version
 
 ### Community 187 - "Community 187"
-Cohesion: 0.05
-Nodes (50): NotFound(), JobStructuresBulkEditPage(), CompleteDrillSheetsPage(), CompleteDrillSheetsPageProps, EditCustomerPage(), EditJobPage(), getJobFilesForBrowser(), JobDetailPage() (+42 more)
+Cohesion: 0.06
+Nodes (48): NotFound(), JobStructuresBulkEditPage(), CompleteDrillSheetsPage(), CompleteDrillSheetsPageProps, EditCustomerPage(), EditJobPage(), getJobFilesForBrowser(), JobDetailPage() (+40 more)
 
 ### Community 188 - "Community 188"
 Cohesion: 0.03
@@ -1171,7 +1172,7 @@ Nodes (100): MarkAllSubmittedButton(), JobTabContent(), JobTabContentProps, upda
 
 ### Community 345 - "Community 345"
 Cohesion: 0.04
-Nodes (19): 1181(), 7416(), assert(), CCITTFaxStream, collectActions(), _collectJS(), deepCompare(), getInheritableProperty() (+11 more)
+Nodes (21): 1181(), 7416(), AnnotationFactory, assert(), collectActions(), _collectJS(), deepCompare(), Dict (+13 more)
 
 ### Community 357 - "Community 357"
 Cohesion: 0.09
@@ -1184,14 +1185,14 @@ Nodes (3): "Contact", "Customer", "CustomerContactRoleDefault"
 ## Knowledge Gaps
 - **1338 isolated node(s):** `RouteContext`, `RouteContext`, `RouteContext`, `RouteContext`, `RouteContext` (+1333 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **215 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **216 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `_` connect `Community 2` to `Community 0`, `Community 3`, `Community 5`, `Community 6`, `Community 10`, `Community 12`, `Community 14`, `Community 18`, `Community 19`, `Community 23`, `Community 24`, `Community 26`, `Community 37`, `Community 40`, `Community 43`, `Community 45`, `Community 50`, `Community 64`, `Community 65`, `Community 70`, `Community 72`, `Community 77`, `Community 111`, `Community 126`, `Community 128`, `Community 129`, `Community 138`, `Community 157`, `Community 164`, `Community 171`, `Community 172`, `Community 173`, `Community 175`, `Community 182`, `Community 183`, `Community 184`, `Community 190`, `Community 192`, `Community 195`, `Community 197`, `Community 198`, `Community 201`, `Community 202`, `Community 206`, `Community 207`, `Community 210`, `Community 213`, `Community 214`, `Community 219`, `Community 220`, `Community 221`, `Community 223`, `Community 224`, `Community 225`, `Community 226`, `Community 228`, `Community 229`, `Community 230`, `Community 232`, `Community 233`, `Community 234`, `Community 235`, `Community 236`, `Community 237`, `Community 238`, `Community 239`, `Community 240`, `Community 241`, `Community 242`, `Community 243`, `Community 244`, `Community 245`, `Community 246`, `Community 247`, `Community 248`, `Community 249`, `Community 250`, `Community 251`, `Community 252`, `Community 253`, `Community 254`, `Community 255`, `Community 257`, `Community 260`, `Community 261`, `Community 264`, `Community 266`, `Community 269`, `Community 270`, `Community 271`, `Community 272`, `Community 281`, `Community 290`, `Community 296`, `Community 300`, `Community 302`, `Community 308`, `Community 317`, `Community 320`, `Community 321`, `Community 324`, `Community 325`, `Community 328`, `Community 331`, `Community 334`, `Community 336`, `Community 337`, `Community 341`, `Community 344`, `Community 345`, `Community 346`, `Community 347`, `Community 348`, `Community 351`, `Community 352`, `Community 354`, `Community 355`, `Community 359`, `Community 360`, `Community 361`, `Community 363`, `Community 364`, `Community 365`, `Community 366`, `Community 367`, `Community 368`, `Community 369`, `Community 370`, `Community 371`, `Community 372`, `Community 373`, `Community 374`, `Community 375`, `Community 376`, `Community 377`, `Community 378`, `Community 379`, `Community 380`, `Community 382`, `Community 383`, `Community 384`, `Community 385`, `Community 386`, `Community 387`, `Community 388`, `Community 389`, `Community 390`, `Community 391`, `Community 392`, `Community 393`, `Community 394`, `Community 395`, `Community 399`, `Community 400`, `Community 401`, `Community 402`, `Community 403`, `Community 404`, `Community 405`, `Community 406`, `Community 407`, `Community 408`, `Community 409`, `Community 411`, `Community 412`, `Community 413`, `Community 414`, `Community 415`, `Community 417`, `Community 419`, `Community 420`, `Community 421`, `Community 422`, `Community 424`, `Community 427`?**
+- **Why does `_` connect `Community 2` to `Community 0`, `Community 3`, `Community 5`, `Community 6`, `Community 10`, `Community 12`, `Community 14`, `Community 18`, `Community 19`, `Community 23`, `Community 24`, `Community 26`, `Community 37`, `Community 40`, `Community 43`, `Community 45`, `Community 50`, `Community 64`, `Community 65`, `Community 70`, `Community 72`, `Community 77`, `Community 111`, `Community 126`, `Community 128`, `Community 129`, `Community 138`, `Community 157`, `Community 164`, `Community 171`, `Community 172`, `Community 173`, `Community 175`, `Community 182`, `Community 183`, `Community 184`, `Community 190`, `Community 192`, `Community 195`, `Community 197`, `Community 198`, `Community 201`, `Community 202`, `Community 206`, `Community 207`, `Community 210`, `Community 213`, `Community 214`, `Community 219`, `Community 220`, `Community 221`, `Community 223`, `Community 224`, `Community 225`, `Community 226`, `Community 228`, `Community 229`, `Community 230`, `Community 232`, `Community 233`, `Community 234`, `Community 235`, `Community 236`, `Community 237`, `Community 238`, `Community 239`, `Community 240`, `Community 241`, `Community 242`, `Community 243`, `Community 244`, `Community 245`, `Community 246`, `Community 247`, `Community 248`, `Community 249`, `Community 250`, `Community 251`, `Community 252`, `Community 253`, `Community 254`, `Community 255`, `Community 257`, `Community 260`, `Community 261`, `Community 264`, `Community 266`, `Community 269`, `Community 270`, `Community 271`, `Community 272`, `Community 281`, `Community 290`, `Community 296`, `Community 300`, `Community 302`, `Community 308`, `Community 317`, `Community 320`, `Community 321`, `Community 324`, `Community 325`, `Community 328`, `Community 331`, `Community 334`, `Community 336`, `Community 337`, `Community 341`, `Community 344`, `Community 345`, `Community 346`, `Community 347`, `Community 348`, `Community 351`, `Community 352`, `Community 354`, `Community 355`, `Community 359`, `Community 360`, `Community 361`, `Community 363`, `Community 364`, `Community 365`, `Community 366`, `Community 367`, `Community 368`, `Community 369`, `Community 370`, `Community 371`, `Community 372`, `Community 373`, `Community 374`, `Community 375`, `Community 376`, `Community 377`, `Community 378`, `Community 379`, `Community 380`, `Community 382`, `Community 383`, `Community 384`, `Community 385`, `Community 386`, `Community 387`, `Community 388`, `Community 389`, `Community 390`, `Community 391`, `Community 392`, `Community 393`, `Community 394`, `Community 395`, `Community 399`, `Community 400`, `Community 401`, `Community 402`, `Community 403`, `Community 404`, `Community 405`, `Community 406`, `Community 407`, `Community 408`, `Community 409`, `Community 411`, `Community 412`, `Community 413`, `Community 414`, `Community 415`, `Community 417`, `Community 419`, `Community 420`, `Community 421`, `Community 422`, `Community 424`, `Community 425`, `Community 427`?**
   _High betweenness centrality (0.466) - this node is a cross-community bridge._
-- **Why does `shadow()` connect `Community 128` to `Community 0`, `Community 2`, `Community 6`, `Community 264`, `Community 14`, `Community 19`, `Community 23`, `Community 24`, `Community 26`, `Community 31`, `Community 33`, `Community 37`, `Community 40`, `Community 43`, `Community 172`, `Community 64`, `Community 197`, `Community 72`, `Community 77`, `Community 345`, `Community 248`, `Community 126`?**
+- **Why does `shadow()` connect `Community 128` to `Community 0`, `Community 2`, `Community 6`, `Community 264`, `Community 14`, `Community 19`, `Community 23`, `Community 24`, `Community 26`, `Community 31`, `Community 33`, `Community 37`, `Community 40`, `Community 43`, `Community 172`, `Community 64`, `Community 197`, `Community 77`, `Community 345`, `Community 248`, `Community 126`?**
   _High betweenness centrality (0.182) - this node is a cross-community bridge._
 - **Why does `StatusSelect()` connect `Community 180` to `Community 345`?**
   _High betweenness centrality (0.109) - this node is a cross-community bridge._
@@ -1202,4 +1203,4 @@ _Questions this graph is uniquely positioned to answer:_
 - **What connects `RouteContext`, `RouteContext`, `RouteContext` to the rest of the system?**
   _1338 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
-  _Cohesion score 0.05063291139240506 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.04876543209876543 - nodes in this community are weakly interconnected._

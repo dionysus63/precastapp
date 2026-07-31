@@ -236,6 +236,19 @@ export async function upsertPriceListItem(formData: FormData) {
   }
   const unitPrice = new Prisma.Decimal(unitPriceRaw);
 
+  // Only forms that include the field touch pickupPrice, so the quick-add
+  // rows (which omit it) can't clear a stored pickup price.
+  const hasPickupPrice = formData.has("pickupPrice");
+  const pickupPriceRaw = String(formData.get("pickupPrice") ?? "").trim();
+  let pickupPrice: Prisma.Decimal | null = null;
+  if (hasPickupPrice && pickupPriceRaw) {
+    const pickupPriceNumber = Number(pickupPriceRaw);
+    if (!Number.isFinite(pickupPriceNumber) || pickupPriceNumber < 0) {
+      return { error: "Pickup price must be zero or greater." };
+    }
+    pickupPrice = new Prisma.Decimal(pickupPriceRaw);
+  }
+
   try {
     await withDatabaseRetry((client) =>
       client.priceListItem.upsert({
@@ -246,9 +259,11 @@ export async function upsertPriceListItem(formData: FormData) {
           priceListId,
           productId,
           unitPrice,
+          pickupPrice,
         },
         update: {
           unitPrice,
+          ...(hasPickupPrice ? { pickupPrice } : {}),
         },
       }),
     );
@@ -261,6 +276,37 @@ export async function upsertPriceListItem(formData: FormData) {
         error instanceof Error ? error.message : "Could not save price list item.",
     };
   }
+}
+
+/** Inline per-row edit on the items table: sets only pickupPrice (empty clears). */
+export async function updatePriceListItemPickupPriceFormAction(
+  formData: FormData,
+): Promise<void> {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
+  const id = String(formData.get("id") ?? "").trim();
+  const priceListId = String(formData.get("priceListId") ?? "").trim();
+  const pickupPriceRaw = String(formData.get("pickupPrice") ?? "").trim();
+
+  if (!id) {
+    return;
+  }
+
+  let pickupPrice: Prisma.Decimal | null = null;
+  if (pickupPriceRaw) {
+    const pickupPriceNumber = Number(pickupPriceRaw);
+    if (!Number.isFinite(pickupPriceNumber) || pickupPriceNumber < 0) {
+      return;
+    }
+    pickupPrice = new Prisma.Decimal(pickupPriceRaw);
+  }
+
+  await withDatabaseRetry((client) =>
+    client.priceListItem.update({
+      where: { id },
+      data: { pickupPrice },
+    }),
+  );
+  revalidatePath(`/settings/price-lists/${priceListId}`);
 }
 
 export async function deletePriceListItem(formData: FormData) {

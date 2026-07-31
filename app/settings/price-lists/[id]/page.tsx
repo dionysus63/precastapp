@@ -5,6 +5,7 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import {
   deletePriceListItemFormAction,
+  updatePriceListItemPickupPriceFormAction,
   upsertPriceListItemFormAction,
 } from "@/app/settings/actions";
 import { PriceListSettingsForm } from "@/components/settings/price-list-settings-form";
@@ -123,7 +124,7 @@ export default async function PriceListDetailPage({
         </SectionCard>
 
         <SectionCard title="Add or update item">
-          <form action={upsertPriceListItemFormAction} className="grid max-w-lg gap-3 sm:grid-cols-3">
+          <form action={upsertPriceListItemFormAction} className="grid max-w-2xl gap-3 sm:grid-cols-4">
             <input type="hidden" name="priceListId" value={priceList.id} />
             <div className="sm:col-span-2">
               <label htmlFor="productId" className="text-xs font-medium text-slate-700">
@@ -162,7 +163,21 @@ export default async function PriceListDetailPage({
                 className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
               />
             </div>
-            <div className="sm:col-span-3">
+            <div>
+              <label htmlFor="pickupPrice" className="text-xs font-medium text-slate-700">
+                Pickup price
+              </label>
+              <input
+                id="pickupPrice"
+                name="pickupPrice"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Same as unit"
+                className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
+              />
+            </div>
+            <div className="sm:col-span-4">
               <button
                 type="submit"
                 className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white"
@@ -245,6 +260,7 @@ export default async function PriceListDetailPage({
                   <tr>
                     <th className={tableHeaderCellClassName}>Product</th>
                     <th className={tableHeaderCellClassName}>Unit price</th>
+                    <th className={tableHeaderCellClassName}>Pickup price</th>
                     <th className={tableHeaderCellClassName}>Actions</th>
                   </tr>
                 </thead>
@@ -257,6 +273,41 @@ export default async function PriceListDetailPage({
                       </td>
                       <td className={tableCellClassName}>
                         ${Number(item.unitPrice).toFixed(2)}
+                      </td>
+                      <td className={tableCellClassName}>
+                        <form
+                          action={updatePriceListItemPickupPriceFormAction}
+                          className="flex items-center gap-2"
+                        >
+                          <input type="hidden" name="id" value={item.id} />
+                          <input type="hidden" name="priceListId" value={priceList.id} />
+                          <label
+                            htmlFor={`pickupPrice-${item.id}`}
+                            className="sr-only"
+                          >
+                            Pickup price
+                          </label>
+                          <input
+                            id={`pickupPrice-${item.id}`}
+                            name="pickupPrice"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            defaultValue={
+                              item.pickupPrice != null
+                                ? Number(item.pickupPrice).toFixed(2)
+                                : ""
+                            }
+                            placeholder="Same as unit"
+                            className="w-28 rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
+                          />
+                          <button
+                            type="submit"
+                            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                          >
+                            Save
+                          </button>
+                        </form>
                       </td>
                       <td className={tableCellClassName}>
                         <form action={deletePriceListItemFormAction}>
