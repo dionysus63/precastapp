@@ -228,6 +228,34 @@ export async function getProductPricesForList(
   return new Map(items.map((item) => [item.productId, item.unitPrice]));
 }
 
+/** Delivered + pickup price per product (pickupPrice null = no yard price). */
+export async function getProductPriceEntriesForList(
+  productIds: string[],
+  priceListId: string | null,
+  client: DbClient = prisma,
+): Promise<
+  Map<string, { unitPrice: Prisma.Decimal; pickupPrice: Prisma.Decimal | null }>
+> {
+  if (!priceListId || productIds.length === 0) {
+    return new Map();
+  }
+
+  const items = await client.priceListItem.findMany({
+    where: {
+      priceListId,
+      productId: { in: productIds },
+    },
+    select: { productId: true, unitPrice: true, pickupPrice: true },
+  });
+
+  return new Map(
+    items.map((item) => [
+      item.productId,
+      { unitPrice: item.unitPrice, pickupPrice: item.pickupPrice },
+    ]),
+  );
+}
+
 export async function loadPriceListOptionsForForms() {
   return withDatabaseRetry((client) => listPriceListOptions(client));
 }

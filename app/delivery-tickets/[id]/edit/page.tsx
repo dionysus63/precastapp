@@ -4,6 +4,7 @@ import { DeliveryTicketEditor } from "@/components/delivery-tickets/delivery-tic
 import { listJobsWithQuotes } from "@/app/operations/actions";
 import { listStockProductsForTicket } from "@/app/delivery-tickets/actions";
 import { getAppSettings } from "@/lib/app-settings";
+import { loadPriceListOptionsForForms } from "@/lib/price-list-service";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { formatDateIso } from "@/lib/delivery-dispatch-utils";
 import { castingAssemblyEditorKey } from "@/lib/casting-utils";
@@ -17,7 +18,7 @@ export default async function EditDeliveryTicketPage({
 }: EditDeliveryTicketPageProps) {
   const { id } = await params;
 
-  const [ticket, jobs, products, settings] = await Promise.all([
+  const [ticket, jobs, settings, priceListOptions] = await Promise.all([
     withDatabaseRetry((prisma) =>
       prisma.deliveryTicket.findUnique({
         where: { id },
@@ -61,8 +62,8 @@ export default async function EditDeliveryTicketPage({
       }),
     ),
     listJobsWithQuotes(),
-    listStockProductsForTicket(),
     getAppSettings(),
+    loadPriceListOptionsForForms(),
   ]);
 
   if (!ticket) {
@@ -72,6 +73,10 @@ export default async function EditDeliveryTicketPage({
   if (ticket.status === "DELIVERED" || ticket.status === "CANCELLED") {
     redirect(`/delivery-tickets/${ticket.id}`);
   }
+
+  // Catalog prices come from the ticket's own price list (default when none),
+  // so reopening a ticket shows the same prices it was sold from.
+  const products = await listStockProductsForTicket(ticket.priceListId);
 
   // Roles already claimed per quote line — a product serving two roles gets
   // its legacy piece lines keyed to successive roles.
@@ -160,7 +165,7 @@ export default async function EditDeliveryTicketPage({
         quantity: line.quantity.toString(),
         unit: line.unit,
         weightEach: line.weightEach ? line.weightEach.toString() : "",
-        unitPrice: line.unitPrice ? line.unitPrice.toString() : "",
+        unitPrice: line.unitPrice ? Number(line.unitPrice).toFixed(2) : "",
         yardLocation: line.yardLocation ?? "",
       },
     ];
@@ -180,6 +185,7 @@ export default async function EditDeliveryTicketPage({
           expectedUpdatedAt={ticket.updatedAt.toISOString()}
           jobs={jobs}
           products={products}
+          priceListOptions={priceListOptions}
           fleetOptions={{
             drivers: settings.drivers,
             trailers: settings.trailers,
@@ -190,6 +196,7 @@ export default async function EditDeliveryTicketPage({
             // Saving from the leave dialog keeps the ticket's current status.
             status: ticket.status,
             fulfillmentMethod: ticket.fulfillmentMethod,
+            priceListId: ticket.priceListId,
             paymentMethod: ticket.paymentMethod,
             paymentReceived: ticket.paymentReceived,
             pickedUpBy: ticket.pickedUpBy,

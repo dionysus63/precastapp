@@ -28,7 +28,10 @@ import { formatDrainRingStyleLabel } from "@/lib/drain-ring-utils";
 import { deliveryTicketStatusFlow } from "@/components/delivery-tickets/delivery-ticket-utils";
 import { generateSubmittalPackageForDeliveryTicket } from "@/lib/submittal-package";
 import { maybeCreatePayNowInvoiceForTicket } from "@/lib/invoicing-service";
-import { getDefaultPriceListId, getProductPricesForList } from "@/lib/price-list-service";
+import {
+  getDefaultPriceListId,
+  getProductPriceEntriesForList,
+} from "@/lib/price-list-service";
 import {
   enrichProductWithDerivedAssemblyValues,
   isPartsModeCastingAssembly,
@@ -43,6 +46,8 @@ export type TicketProductOption = {
   unit: string;
   weight: number | null;
   unitPrice: number | null;
+  /** FOB-yard price from the price list; null = same as unitPrice. */
+  pickupPrice: number | null;
   currentStock: number | null;
   trackInventory: boolean;
   categoryId: string;
@@ -1192,11 +1197,14 @@ export async function listStockProductsForTicket(
   );
 
   const priceMap = resolvedPriceListId
-    ? await getProductPricesForList(
+    ? await getProductPriceEntriesForList(
         products.map((product) => product.id),
         resolvedPriceListId,
       )
-    : new Map();
+    : new Map<
+        string,
+        { unitPrice: Prisma.Decimal; pickupPrice: Prisma.Decimal | null }
+      >();
 
   const partsAssemblyIds = products
     .filter((product) => isPartsModeCastingAssembly(product))
@@ -1208,9 +1216,10 @@ export async function listStockProductsForTicket(
     : new Map();
 
   return products.map((product) => {
+    const priceEntry = priceMap.get(product.id);
     const enriched = enrichProductWithDerivedAssemblyValues(
       product,
-      priceMap.get(product.id),
+      priceEntry?.unitPrice,
       derivedMap.get(product.id),
     );
     return {
@@ -1223,6 +1232,10 @@ export async function listStockProductsForTicket(
       unitPrice:
         enriched.unitPrice != null
           ? Number(enriched.unitPrice.toString())
+          : null,
+      pickupPrice:
+        priceEntry?.pickupPrice != null
+          ? Number(priceEntry.pickupPrice.toString())
           : null,
       currentStock: product.trackInventory ? product.currentStockQuantity : null,
       trackInventory: product.trackInventory,

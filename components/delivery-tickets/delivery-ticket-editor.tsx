@@ -13,6 +13,7 @@ import {
 } from "react";
 import {
   createDeliveryTicket,
+  listStockProductsForTicket,
   searchCustomersForWalkInTicket,
   searchJobsForDeliveryTicket,
   splitStructureForShipping,
@@ -66,6 +67,8 @@ type ProductOption = {
   unit: string;
   weight: number | null;
   unitPrice?: number | null;
+  /** FOB-yard price; null = pickup bills the delivered unitPrice. */
+  pickupPrice?: number | null;
   currentStock?: number | null;
   trackInventory?: boolean;
   categoryId: string;
@@ -101,6 +104,8 @@ export type DeliveryTicketEditorProps = {
   expectedUpdatedAt?: string;
   jobs: JobOption[];
   products?: ProductOption[];
+  /** All price lists for the walk-in selector (default list first). */
+  priceListOptions?: { id: string; name: string; isDefault: boolean }[];
   fleetOptions?: {
     drivers: string[];
     trailers: string[];
@@ -189,6 +194,15 @@ function generateLineKey(): string {
   return randomId();
 }
 
+/** The price a product bills at for the given fulfillment: pickup tickets
+ * take the FOB-yard price when one exists, otherwise the delivered price. */
+function productPriceFor(product: ProductOption, pickup: boolean): number | null {
+  if (pickup && product.pickupPrice != null) {
+    return product.pickupPrice;
+  }
+  return product.unitPrice ?? null;
+}
+
 function mergeFulfillmentIntoLine(
   existing: EditorLine,
   meta: QuoteLineFulfillment,
@@ -271,7 +285,8 @@ export function DeliveryTicketEditor({
   ticketId,
   expectedUpdatedAt,
   jobs,
-  products = [],
+  products: initialProducts = [],
+  priceListOptions = [],
   fleetOptions,
   defaultValues,
   backHref,
@@ -281,6 +296,16 @@ export function DeliveryTicketEditor({
   const confirm = useConfirm();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Catalog + active price list: walk-ins can switch lists, which re-fetches
+  // product prices and smart-reprices the lines already on the ticket.
+  const [products, setProducts] = useState<ProductOption[]>(initialProducts);
+  const [priceListId, setPriceListId] = useState<string | null>(
+    defaultValues?.priceListId ??
+      priceListOptions.find((option) => option.isDefault)?.id ??
+      priceListOptions[0]?.id ??
+      null,
+  );
+  const [priceListLoading, setPriceListLoading] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [stickyRegionHeight, setStickyRegionHeight] = useState(0);
   const stickyRegionRef = useRef<HTMLDivElement>(null);
@@ -325,6 +350,9 @@ export function DeliveryTicketEditor({
     defaultValues?.projectName ?? "",
   );
   const [walkInSearch, setWalkInSearch] = useState("");
+  // Per-line weight inputs are hidden by default to keep the ticket panel
+  // tight; the total weight always shows at the bottom.
+  const [showLineWeights, setShowLineWeights] = useState(false);
   // JOB tickets: product search for items added outside the quote.
   const [extraSearch, setExtraSearch] = useState("");
   const [walkInCategoryId, setWalkInCategoryId] = useState("all");
@@ -451,9 +479,11 @@ export function DeliveryTicketEditor({
     selectedJob?.quotes.find((entry) => entry.id === quoteId) ??
     selectedJob?.quotes[0];
 
+  // Measures the sticky header so dependent sticky elements (the JOB quote
+  // table header, the walk-in "On this ticket" panel) pin just below it.
   useEffect(() => {
     const element = stickyRegionRef.current;
-    if (!element || ticketType !== "JOB") {
+    if (!element) {
       return;
     }
 
@@ -1204,6 +1234,11 @@ export function DeliveryTicketEditor({
           quantity: "1",
           unit: product.unit || "EA",
           weightEach: product.weight != null ? String(product.weight) : "",
+          // Walk-ins are always pickups: bill the yard price when one exists.
+          unitPrice: (() => {
+            const price = productPriceFor(product, true);
+            return price != null ? price.toFixed(2) : "";
+          })(),
           yardLocation: "",
         },
       ];
@@ -1213,6 +1248,55 @@ export function DeliveryTicketEditor({
     );
     markDirty();
     setError(null);
+  }
+
+  /** Switch price lists: re-fetch the catalog, then smart-reprice — lines
+   * still at the OLD list's catalog price follow the new list; hand-entered
+   * prices are kept (they show a "custom" tag in the ticket panel). */
+  function handlePriceListChange(nextId: string) {
+    if (!nextId || nextId === priceListId) {
+      return;
+    }
+    const previousProducts = products;
+    setPriceListId(nextId);
+    setPriceListLoading(true);
+    markDirty();
+    void listStockProductsForTicket(nextId)
+      .then((next) => {
+        setProducts(next);
+        const oldById = new Map(previousProducts.map((p) => [p.id, p]));
+        const nextById = new Map(next.map((p) => [p.id, p]));
+        setLines((current) =>
+          current.map((line) => {
+            if (line.quoteLineItemId != null || !line.productId) {
+              return line;
+            }
+            const nextProduct = nextById.get(line.productId);
+            if (!nextProduct) {
+              return line;
+            }
+            const nextPrice = productPriceFor(nextProduct, true);
+            const oldProduct = oldById.get(line.productId);
+            const oldCatalog = oldProduct
+              ? productPriceFor(oldProduct, true)
+              : null;
+            const entered = Number(line.unitPrice ?? "");
+            const untouched =
+              !line.unitPrice?.trim() ||
+              (oldCatalog != null &&
+                Number.isFinite(entered) &&
+                Math.abs(entered - oldCatalog) < 0.005);
+            if (!untouched) {
+              return line;
+            }
+            return {
+              ...line,
+              unitPrice: nextPrice != null ? nextPrice.toFixed(2) : "",
+            };
+          }),
+        );
+      })
+      .finally(() => setPriceListLoading(false));
   }
 
   // --- JOB-ticket extras: items the customer added after the quote --------
@@ -1236,6 +1320,7 @@ export function DeliveryTicketEditor({
 
   function addExtraProduct(product: ProductOption) {
     const key = generateLineKey();
+    const price = productPriceFor(product, isPickup);
     setLines((current) => [
       ...current,
       {
@@ -1249,7 +1334,7 @@ export function DeliveryTicketEditor({
         quantity: "1",
         unit: product.unit || "EA",
         weightEach: product.weight != null ? String(product.weight) : "",
-        unitPrice: product.unitPrice != null ? String(product.unitPrice) : "",
+        unitPrice: price != null ? price.toFixed(2) : "",
         yardLocation: "",
       },
     ]);
@@ -1365,6 +1450,12 @@ export function DeliveryTicketEditor({
     return {
       ticketType,
       fulfillmentMethod: isWalkIn ? "PICKUP" : fulfillmentMethod,
+      // Walk-ins bill from the list picked on screen; invoicing resolves any
+      // remaining lookups against the same list. Job tickets keep whatever
+      // the ticket already had.
+      priceListId: isWalkIn
+        ? priceListId
+        : (defaultValues?.priceListId ?? null),
       status,
       paymentMethod: isPickup ? (paymentMethod || null) : null,
       paymentReceived: isPickup ? paymentReceived : false,
@@ -1586,6 +1677,29 @@ export function DeliveryTicketEditor({
   const selectedLineCount = lines.filter((line) =>
     selectedLineIds.has(line.key),
   ).length;
+  // Walk-in money summary for the sticky bar and the lines-table footer.
+  const walkInActiveLines =
+    ticketType === "WALK_IN"
+      ? lines.filter(
+          (line) =>
+            selectedLineIds.has(line.key) && Number(line.quantity) > 0,
+        )
+      : [];
+  const walkInPieceCount = walkInActiveLines.reduce(
+    (sum, line) => sum + (Number(line.quantity) || 0),
+    0,
+  );
+  const walkInSubtotal = walkInActiveLines.reduce((sum, line) => {
+    const qty = Number(line.quantity) || 0;
+    const price = Number(line.unitPrice ?? "");
+    return line.unitPrice?.trim() && Number.isFinite(price) && price >= 0
+      ? sum + qty * price
+      : sum;
+  }, 0);
+  const walkInMissingPriceCount = walkInActiveLines.filter((line) => {
+    const price = Number(line.unitPrice ?? "");
+    return !line.unitPrice?.trim() || !Number.isFinite(price) || price < 0;
+  }).length;
   const cancelHref =
     mode === "edit" && ticketId
       ? `/delivery-tickets/${ticketId}`
@@ -1738,12 +1852,176 @@ export function DeliveryTicketEditor({
       ) : null}
 
       {ticketType === "WALK_IN" ? (
-        <div className="flex flex-wrap items-center gap-3">
-          {ticketTypeButtons}
-          <span className="text-xs text-slate-500">
-            Walk-in tickets are always customer pickups.
-          </span>
+        <div
+          ref={stickyRegionRef}
+          className="sticky top-[74px] z-[9] rounded-xl border border-slate-300 bg-white/95 shadow-lg shadow-slate-900/5 backdrop-blur"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-1.5">
+            <div className="flex flex-wrap items-center gap-3">
+              {ticketTypeButtons}
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                <span className="rounded-full bg-slate-900 px-2 py-0.5 font-semibold text-white">
+                  {walkInPieceCount} {walkInPieceCount === 1 ? "item" : "items"}
+                </span>
+                <span className="text-sm font-semibold text-slate-900">
+                  {formatUsd(walkInSubtotal)}
+                </span>
+                {walkInMissingPriceCount > 0 ? (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-800">
+                    {walkInMissingPriceCount} without a price
+                  </span>
+                ) : null}
+                {totalWeight > 0 ? <span>{formatWeight(totalWeight)}</span> : null}
+              </div>
+            </div>
+            {actionButtons}
+          </div>
+
+          <div className="flex flex-wrap items-end gap-x-2 gap-y-1.5 px-3 py-1.5">
+            <div className="w-56 max-w-full min-w-0 shrink-0">
+              <span className="mb-1 flex items-baseline justify-between">
+                <label htmlFor="walkInCustomer" className={`${compactLabelClass} mb-0`}>
+                  Customer
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWalkInOneOff((current) => !current);
+                    setWalkInCustomerId(null);
+                    setWalkInCustomer("");
+                  }}
+                  className="text-[10px] font-medium text-slate-400 underline-offset-2 hover:text-slate-900 hover:underline"
+                >
+                  {walkInOneOff ? "search customers" : "cash sale"}
+                </button>
+              </span>
+              {walkInOneOff ? (
+                <input
+                  id="walkInCustomer"
+                  value={walkInCustomer}
+                  onChange={(event) => setWalkInCustomer(event.target.value)}
+                  placeholder="Cash sale / customer name"
+                  className={compactInputClass}
+                />
+              ) : (
+                <FormTypeahead
+                  inputId="walkInCustomer"
+                  selectedLabel={walkInCustomerId ? walkInCustomer : ""}
+                  placeholder="Search customers…"
+                  searchItems={searchCustomersForWalkInTicket}
+                  itemKey={(customer) => customer.id}
+                  itemLabel={(customer) => customer.name}
+                  clearLabel="Clear customer"
+                  onSelect={(customer) => {
+                    setWalkInCustomerId(customer?.id ?? null);
+                    setWalkInCustomer(customer?.name ?? "");
+                    markDirty();
+                  }}
+                  inputClassName={`${compactInputClass} min-w-0`}
+                />
+              )}
+            </div>
+            <div className="w-40 max-w-full shrink-0">
+              <label htmlFor="walkInReference" className={compactLabelClass}>
+                Reference / PO
+              </label>
+              <input
+                id="walkInReference"
+                value={walkInReference}
+                onChange={(event) => setWalkInReference(event.target.value)}
+                placeholder="Walk-in sale"
+                className={compactInputClass}
+              />
+            </div>
+            <div className="w-36 max-w-full shrink-0">
+              <label htmlFor="deliveryDate" className={compactLabelClass}>
+                Pickup date
+              </label>
+              <input
+                id="deliveryDate"
+                type="date"
+                value={deliveryDate}
+                onChange={(event) => setDeliveryDate(event.target.value)}
+                className={compactInputClass}
+              />
+            </div>
+            <div className="w-40 max-w-full shrink-0">
+              <label htmlFor="walkInPayment" className={compactLabelClass}>
+                Payment
+              </label>
+              <select
+                id="walkInPayment"
+                value={paymentMethod}
+                onChange={(event) =>
+                  setPaymentMethod(
+                    event.target.value as "PAY_NOW" | "ON_ACCOUNT" | "",
+                  )
+                }
+                className={compactInputClass}
+              >
+                <option value="">Not specified</option>
+                <option value="PAY_NOW">Pay now</option>
+                <option value="ON_ACCOUNT">Charge to account</option>
+              </select>
+            </div>
+            <div className="w-40 max-w-full shrink-0">
+              <label htmlFor="walkInPickedUpBy" className={compactLabelClass}>
+                Picked up by
+              </label>
+              <input
+                id="walkInPickedUpBy"
+                value={pickedUpBy}
+                onChange={(event) => setPickedUpBy(event.target.value)}
+                placeholder="Name on pickup"
+                className={compactInputClass}
+              />
+            </div>
+            <label className="flex h-8 items-center gap-1.5 text-xs text-slate-700">
+              <input
+                type="checkbox"
+                checked={paymentReceived}
+                onChange={(event) => setPaymentReceived(event.target.checked)}
+              />
+              Paid
+            </label>
+            {priceListOptions.length > 0 ? (
+              <div className="ml-auto max-w-full shrink-0">
+                <label htmlFor="walkInPriceList" className={compactLabelClass}>
+                  Price list
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-44">
+                    <select
+                      id="walkInPriceList"
+                      value={priceListId ?? ""}
+                      disabled={priceListLoading}
+                      onChange={(event) =>
+                        handlePriceListChange(event.target.value)
+                      }
+                      className={compactInputClass}
+                    >
+                      {priceListOptions.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.name}
+                          {option.isDefault ? " (default)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                    {priceListLoading ? "Loading…" : "Pickup prices"}
+                  </span>
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
+      ) : null}
+
+      {ticketType === "WALK_IN" && error ? (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {error}
+        </p>
       ) : null}
 
       {ticketType === "JOB" ? (
@@ -2950,9 +3228,12 @@ export function DeliveryTicketEditor({
                         <span className="text-slate-600">{product.name}</span>
                       </span>
                       <span className="shrink-0 text-slate-500">
-                        {product.unitPrice != null
-                          ? formatUsd(product.unitPrice)
-                          : "no list price"}
+                        {(() => {
+                          const price = productPriceFor(product, isPickup);
+                          return price != null
+                            ? formatUsd(price)
+                            : "no list price";
+                        })()}
                       </span>
                     </button>
                   ))}
@@ -3120,130 +3401,10 @@ export function DeliveryTicketEditor({
       ) : null}
 
       {ticketType === "WALK_IN" ? (
+        <div className="grid items-start gap-4 xl:grid-cols-2">
         <SectionCard
-          title="Walk-in details"
-          description="Customer, pickup date, and payment for this counter sale."
-        >
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <label
-                htmlFor="walkInCustomer"
-                className="block text-xs font-medium text-slate-700"
-              >
-                Customer
-              </label>
-              {walkInOneOff ? (
-                <input
-                  id="walkInCustomer"
-                  value={walkInCustomer}
-                  onChange={(event) => setWalkInCustomer(event.target.value)}
-                  placeholder="Cash sale / customer name"
-                  className={inputClass}
-                />
-              ) : (
-                <FormTypeahead
-                  inputId="walkInCustomer"
-                  selectedLabel={walkInCustomerId ? walkInCustomer : ""}
-                  placeholder="Search customers…"
-                  searchItems={searchCustomersForWalkInTicket}
-                  itemKey={(customer) => customer.id}
-                  itemLabel={(customer) => customer.name}
-                  clearLabel="Clear customer"
-                  onSelect={(customer) => {
-                    setWalkInCustomerId(customer?.id ?? null);
-                    setWalkInCustomer(customer?.name ?? "");
-                    markDirty();
-                  }}
-                  inputClassName={inputClass}
-                />
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setWalkInOneOff((current) => !current);
-                  setWalkInCustomerId(null);
-                  setWalkInCustomer("");
-                }}
-                className="mt-1 text-[11px] font-medium text-slate-500 underline-offset-2 hover:text-slate-900 hover:underline"
-              >
-                {walkInOneOff
-                  ? "Search existing customers"
-                  : "Cash / one-off customer instead"}
-              </button>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-700">
-                Reference / PO (optional)
-              </label>
-              <input
-                value={walkInReference}
-                onChange={(event) => setWalkInReference(event.target.value)}
-                placeholder="Walk-in sale"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="deliveryDate"
-                className="block text-xs font-medium text-slate-700"
-              >
-                Pickup date
-              </label>
-              <input
-                id="deliveryDate"
-                type="date"
-                value={deliveryDate}
-                onChange={(event) => setDeliveryDate(event.target.value)}
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-700">
-                Payment method
-              </label>
-              <select
-                value={paymentMethod}
-                onChange={(event) =>
-                  setPaymentMethod(
-                    event.target.value as "PAY_NOW" | "ON_ACCOUNT" | "",
-                  )
-                }
-                className={inputClass}
-              >
-                <option value="">Not specified</option>
-                <option value="PAY_NOW">Pay now</option>
-                <option value="ON_ACCOUNT">Charge to account</option>
-              </select>
-            </div>
-          </div>
-          <div className="mt-3 flex flex-wrap items-end gap-x-6 gap-y-3">
-            <div className="w-full max-w-xs">
-              <label className="block text-xs font-medium text-slate-700">
-                Picked up by (optional)
-              </label>
-              <input
-                value={pickedUpBy}
-                onChange={(event) => setPickedUpBy(event.target.value)}
-                placeholder="Name on pickup"
-                className={inputClass}
-              />
-            </div>
-            <label className="flex items-center gap-2 pb-2 text-xs text-slate-700">
-              <input
-                type="checkbox"
-                checked={paymentReceived}
-                onChange={(event) => setPaymentReceived(event.target.checked)}
-              />
-              Payment received
-            </label>
-          </div>
-        </SectionCard>
-      ) : null}
-
-      {ticketType === "WALK_IN" ? (
-        <SectionCard
-          title="Products on this ticket"
-          description="Pick a category, then click products to add them. Click again to add another."
+          title="Products"
+          description="Tap a product to add it (tap again for another). Prices shown are pickup prices — a crossed-out number is the delivered price."
         >
           {products.length === 0 ? (
             <p className="text-xs text-slate-500">
@@ -3342,53 +3503,71 @@ export function DeliveryTicketEditor({
               ) : null}
               {walkInResults.length > 0 ? (
                 <>
-                  <ul className="max-h-72 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200 bg-white">
+                  <div className="grid grid-cols-1 gap-1.5">
                     {walkInResults.map((product) => {
                       const onTicket =
                         walkInQtyByProductId.get(product.id) ?? 0;
+                      const pickupEach = productPriceFor(product, true);
+                      const showsDeliveredStrike =
+                        product.pickupPrice != null &&
+                        product.unitPrice != null &&
+                        product.pickupPrice !== product.unitPrice;
                       return (
-                        <li key={product.id}>
-                          <button
-                            type="button"
-                            onClick={() => addWalkInLine(product.id)}
-                            className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-xs ${
-                              onTicket > 0
-                                ? "bg-emerald-50/60 hover:bg-emerald-50"
-                                : "hover:bg-slate-50"
-                            }`}
-                          >
-                            <span className="min-w-0">
-                              <span className="font-medium text-slate-900">
-                                {product.productCode}
-                              </span>
-                              <span className="ml-2 text-slate-600">
-                                {product.name}
-                              </span>
+                        <button
+                          key={product.id}
+                          type="button"
+                          onClick={() => addWalkInLine(product.id)}
+                          title={product.name}
+                          className={`flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-left text-xs transition-colors ${
+                            onTicket > 0
+                              ? "border-emerald-300 bg-emerald-50/60 hover:bg-emerald-50"
+                              : "border-slate-200 bg-white hover:border-slate-400 hover:bg-slate-50"
+                          }`}
+                        >
+                          <span className="min-w-0 flex-1 truncate">
+                            <span className="font-semibold text-slate-900">
+                              {product.productCode}
                             </span>
-                            <span className="flex shrink-0 items-center gap-3 text-slate-500">
-                              {product.unitPrice != null ? (
-                                <span className="font-medium text-slate-700">
-                                  {formatUsd(product.unitPrice)}
-                                </span>
-                              ) : null}
-                              {product.currentStock != null ? (
-                                <span>{product.currentStock} in stock</span>
-                              ) : null}
-                              {onTicket > 0 ? (
-                                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                                  {onTicket} on ticket
-                                </span>
-                              ) : (
-                                <span className="rounded-md border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                                  Add
-                                </span>
-                              )}
+                            <span className="ml-1.5 text-slate-600">
+                              {product.name}
                             </span>
-                          </button>
-                        </li>
+                          </span>
+                          <span className="shrink-0 whitespace-nowrap">
+                            {pickupEach != null ? (
+                              <>
+                                <span className="font-semibold text-slate-900">
+                                  {formatUsd(pickupEach)}
+                                </span>
+                                {showsDeliveredStrike ? (
+                                  <span className="ml-1 text-[10px] text-slate-400 line-through">
+                                    {formatUsd(product.unitPrice!)}
+                                  </span>
+                                ) : null}
+                              </>
+                            ) : (
+                              <span className="font-medium text-amber-700">
+                                No list price
+                              </span>
+                            )}
+                          </span>
+                          {product.currentStock != null ? (
+                            <span className="hidden shrink-0 text-[10px] text-slate-400 sm:inline">
+                              {product.currentStock} in stock
+                            </span>
+                          ) : null}
+                          {onTicket > 0 ? (
+                            <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800">
+                              {onTicket} on ticket
+                            </span>
+                          ) : (
+                            <span className="shrink-0 rounded-md border border-slate-300 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                              Add
+                            </span>
+                          )}
+                        </button>
                       );
                     })}
-                  </ul>
+                  </div>
                   {walkInFiltered.length > walkInResults.length ? (
                     <p className="text-[11px] text-slate-400">
                       Showing {walkInResults.length} of {walkInFiltered.length} —
@@ -3404,35 +3583,87 @@ export function DeliveryTicketEditor({
             </div>
           )}
 
-          {lines.length > 0 ? (
-            <div className="mt-4 overflow-x-auto">
-              <table className={tableClassName}>
-                <thead>
-                  <tr>
-                    <th className={tableHeaderCellClassName}>Item</th>
-                    <th className={tableHeaderCellClassName}>Qty</th>
-                    <th className={tableHeaderCellClassName}>Unit</th>
-                    <th className={tableHeaderCellClassName}>Weight each</th>
-                    <th className={tableHeaderCellClassName}>Line weight</th>
-                    <th className={tableHeaderCellClassName}></th>
-                  </tr>
-                </thead>
-                <tbody className={tableBodyClassName}>
-                  {lines.map((line) => {
-                    const qty = Number(line.quantity) || 0;
-                    const each = parseEditorWeight(line.weightEach) ?? 0;
-                    return (
-                      <tr key={line.key}>
-                        <td className={tableCellClassName}>
-                          <span className="font-medium text-slate-900">
+        </SectionCard>
+
+        <div
+          className="xl:sticky xl:self-start"
+          style={{
+            top: `${DASHBOARD_HEADER_HEIGHT + stickyRegionHeight + 8}px`,
+          }}
+        >
+          <SectionCard
+            title="On this ticket"
+            description="Adjust quantities and prices here."
+            action={
+              lines.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setShowLineWeights((current) => !current)}
+                  className="shrink-0 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  {showLineWeights
+                    ? "Hide individual weights"
+                    : "Show individual weights"}
+                </button>
+              ) : null
+            }
+          >
+            {lines.length === 0 ? (
+              <p className="text-xs text-slate-500">
+                Nothing here yet — tap products on the left to add them.
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                {lines.map((line) => {
+                  const qty = Number(line.quantity) || 0;
+                  const price = Number(line.unitPrice ?? "");
+                  const priceMissing =
+                    !line.unitPrice?.trim() ||
+                    !Number.isFinite(price) ||
+                    price < 0;
+                  const weightEach = parseEditorWeight(line.weightEach) ?? 0;
+                  // Hand-entered price (differs from the active list's
+                  // pickup price) — tagged so list switches don't hide it.
+                  const catalogProduct = line.productId
+                    ? products.find((entry) => entry.id === line.productId)
+                    : undefined;
+                  const catalogPrice = catalogProduct
+                    ? productPriceFor(catalogProduct, true)
+                    : null;
+                  const isCustomPrice =
+                    !priceMissing &&
+                    catalogPrice != null &&
+                    Math.abs(price - catalogPrice) >= 0.005;
+                  return (
+                    <div
+                      key={line.key}
+                      className="rounded-lg border border-slate-200 p-2"
+                    >
+                      <div className="flex items-start justify-between gap-2 text-xs">
+                        <span className="min-w-0">
+                          <span className="font-semibold text-slate-900">
                             {line.itemCode}
                           </span>
-                          <span className="ml-2 text-slate-500">
+                          <span className="ml-1.5 text-slate-500">
                             {line.description}
                           </span>
-                        </td>
-                        <td className={tableCellClassName}>
+                        </span>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${line.itemCode}`}
+                          onClick={() => removeLine(line.key)}
+                          className="shrink-0 text-sm leading-none text-slate-400 hover:text-red-600"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                            Qty
+                          </span>
                           <input
+                            aria-label={`${line.itemCode} quantity`}
                             type="number"
                             min="0"
                             step="any"
@@ -3440,12 +3671,60 @@ export function DeliveryTicketEditor({
                             onChange={(event) =>
                               updateWalkInLine(line.key, "quantity", event.target.value)
                             }
-                            className={`w-20 ${inlineTableInputClass}`}
+                            className={`w-14 ${inlineTableInputClass} text-center`}
                           />
-                        </td>
-                        <td className={`${tableCellClassName} text-slate-600`}>{line.unit}</td>
-                        <td className={tableCellClassName}>
+                          <span>{line.unit}</span>
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                            Each
+                          </span>
+                          <span>$</span>
                           <input
+                            aria-label={`${line.itemCode} price each`}
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={line.unitPrice ?? ""}
+                            placeholder="0.00"
+                            onChange={(event) =>
+                              updateWalkInLine(line.key, "unitPrice", event.target.value)
+                            }
+                            onBlur={() => {
+                              const parsed = Number(line.unitPrice ?? "");
+                              if (
+                                line.unitPrice?.trim() &&
+                                Number.isFinite(parsed) &&
+                                parsed >= 0
+                              ) {
+                                updateWalkInLine(
+                                  line.key,
+                                  "unitPrice",
+                                  parsed.toFixed(2),
+                                );
+                              }
+                            }}
+                            className={`w-20 ${inlineTableInputClass} text-center ${
+                              priceMissing ? "border-amber-400 bg-amber-50/60" : ""
+                            }`}
+                          />
+                          {isCustomPrice ? (
+                            <span className="rounded bg-amber-100 px-1 py-0.5 text-[10px] font-semibold text-amber-800">
+                              custom
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="ml-auto text-sm font-semibold text-slate-900">
+                          {!priceMissing && qty > 0
+                            ? formatUsd(qty * price)
+                            : "—"}
+                        </span>
+                      </div>
+                      {showLineWeights ? (
+                        <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
+                          <span>Weight each</span>
+                          <input
+                            aria-label={`${line.itemCode} weight each`}
                             type="number"
                             min="0"
                             step="any"
@@ -3453,29 +3732,45 @@ export function DeliveryTicketEditor({
                             onChange={(event) =>
                               updateWalkInLine(line.key, "weightEach", event.target.value)
                             }
-                            className={`w-24 ${inlineTableInputClass}`}
+                            className={`w-16 ${inlineTableInputClass} text-center`}
                           />
-                        </td>
-                        <td className={`${tableCellClassName} text-slate-600`}>
-                          {each > 0 ? formatWeight(qty * each) : "—"}
-                        </td>
-                        <td className={`${tableCellClassName} text-right`}>
-                          <button
-                            type="button"
-                            onClick={() => removeLine(line.key)}
-                            className="text-xs font-medium text-red-600 hover:text-red-800"
-                          >
-                            Remove
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
-        </SectionCard>
+                          <span>lb</span>
+                          {qty > 0 && weightEach > 0 ? (
+                            <span className="ml-auto">
+                              {formatWeight(qty * weightEach)}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+
+                <div className="flex items-baseline justify-between border-t border-slate-200 pt-2 text-xs">
+                  <span className="font-medium text-slate-700">
+                    Subtotal (before tax)
+                  </span>
+                  <span className="text-sm font-semibold text-slate-900">
+                    {formatUsd(walkInSubtotal)}
+                  </span>
+                </div>
+                {walkInMissingPriceCount > 0 ? (
+                  <p className="text-[11px] text-amber-700">
+                    {walkInMissingPriceCount} line
+                    {walkInMissingPriceCount === 1 ? "" : "s"} missing a price —
+                    they won't count toward the subtotal.
+                  </p>
+                ) : null}
+                {totalWeight > 0 ? (
+                  <p className="text-[11px] text-slate-500">
+                    Total weight {formatWeight(totalWeight)}
+                  </p>
+                ) : null}
+              </div>
+            )}
+          </SectionCard>
+        </div>
+        </div>
       ) : null}
 
       {ticketType === "JOB" && fulfillmentMethod === "PICKUP" ? (
@@ -3525,27 +3820,6 @@ export function DeliveryTicketEditor({
         </SectionCard>
       ) : null}
 
-      {ticketType === "WALK_IN" ? (
-        <>
-          <SectionCard title="Summary">
-            <p className="text-xs text-slate-600">
-              {selectedLineCount} line(s) selected
-              {totalWeight > 0
-                ? ` · ${formatWeight(totalWeight)} on this load`
-                : ""}
-              {deliveryDate ? ` · scheduled for ${deliveryDate}` : ""}
-            </p>
-          </SectionCard>
-
-          {error ? (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-              {error}
-            </p>
-          ) : null}
-
-          {actionButtons}
-        </>
-      ) : null}
     </div>
   );
 }

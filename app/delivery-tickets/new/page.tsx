@@ -5,6 +5,7 @@ import {
 } from "@/app/operations/actions";
 import { listStockProductsForTicket } from "@/app/delivery-tickets/actions";
 import { getAppSettings } from "@/lib/app-settings";
+import { loadPriceListOptionsForForms } from "@/lib/price-list-service";
 
 type NewDeliveryTicketPageProps = {
   searchParams: Promise<{ jobId?: string; fulfillment?: string; type?: string }>;
@@ -14,10 +15,11 @@ export default async function NewDeliveryTicketPage({
   searchParams,
 }: NewDeliveryTicketPageProps) {
   const { jobId, fulfillment, type } = await searchParams;
-  const [jobs, products, settings] = await Promise.all([
+  const [jobs, products, settings, priceListOptions] = await Promise.all([
     listJobsWithQuotes(),
     listStockProductsForTicket(),
     getAppSettings(),
+    loadPriceListOptionsForForms(),
   ]);
 
   const defaultJobId = jobId && jobs.some((job) => job.id === jobId) ? jobId : undefined;
@@ -55,6 +57,7 @@ export default async function NewDeliveryTicketPage({
           mode="create"
           jobs={jobs}
           products={products}
+          priceListOptions={priceListOptions}
           defaultValues={defaultValues}
           fleetOptions={{
             drivers: settings.drivers,
