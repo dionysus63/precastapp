@@ -336,7 +336,16 @@ export function DeliveryTicketEditor({
   >(defaultValues?.fulfillmentMethod ?? "DELIVERY");
   const [paymentMethod, setPaymentMethod] = useState<
     "PAY_NOW" | "ON_ACCOUNT" | ""
-  >(defaultValues?.paymentMethod ?? "");
+  >(
+    defaultValues?.paymentMethod ??
+      // New walk-ins/pickups default to on-account; saved tickets keep
+      // whatever was chosen (including "not specified").
+      (mode === "create" &&
+      (defaultValues?.ticketType === "WALK_IN" ||
+        defaultValues?.fulfillmentMethod === "PICKUP")
+        ? "ON_ACCOUNT"
+        : ""),
+  );
   const [paymentReceived, setPaymentReceived] = useState(
     defaultValues?.paymentReceived ?? false,
   );
@@ -426,6 +435,8 @@ export function DeliveryTicketEditor({
     if (next !== "JOB") {
       setFulfillment([]);
       setOnOpenLoads({});
+      // Walk-ins default to on-account unless a payment was already picked.
+      setPaymentMethod((current) => current || "ON_ACCOUNT");
     }
   }
 
