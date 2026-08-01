@@ -208,13 +208,13 @@ export function WalkInsBoard({
     <div className="space-y-8">
       <div className="flex flex-wrap gap-2">
         <Link
-          href="/delivery-tickets/new?type=walkin"
+          href="/delivery-tickets/new?type=walkin&from=walk-ins"
           className={newTicketLinkClass}
         >
           New Walk-In Sale
         </Link>
         <Link
-          href="/delivery-tickets/new?fulfillment=pickup"
+          href="/delivery-tickets/new?fulfillment=pickup&from=walk-ins"
           className={newTicketLinkClass}
         >
           New Pickup Ticket

@@ -11,12 +11,24 @@ import { castingAssemblyEditorKey } from "@/lib/casting-utils";
 import { explodeAssemblyTicketLine } from "@/lib/casting-ticket-lines";
 type EditDeliveryTicketPageProps = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
+};
+
+/** Origin keys the preview/entry pages pass; drives back + save returns. */
+const EDIT_ORIGINS: Record<string, { href: string }> = {
+  "walk-ins": { href: "/walk-ins" },
+  hub: { href: "/delivery-tickets" },
+  all: { href: "/delivery-tickets/all" },
+  home: { href: "/" },
 };
 
 export default async function EditDeliveryTicketPage({
   params,
+  searchParams,
 }: EditDeliveryTicketPageProps) {
   const { id } = await params;
+  const { from } = await searchParams;
+  const origin = from ? EDIT_ORIGINS[from] : undefined;
 
   const [ticket, jobs, settings, priceListOptions] = await Promise.all([
     withDatabaseRetry((prisma) =>
@@ -178,8 +190,15 @@ export default async function EditDeliveryTicketPage({
     >
       <div>
         <DeliveryTicketEditor
-          backHref={`/delivery-tickets/${ticket.id}`}
-          backLabel="Back to ticket"
+          backHref={
+            origin
+              ? `/delivery-tickets/${ticket.id}/preview?from=${from}`
+              : `/delivery-tickets/${ticket.id}`
+          }
+          backLabel={origin ? "Back to Preview" : "Back to ticket"}
+          returnTo={
+            origin && from ? { key: from, href: origin.href } : undefined
+          }
           mode="edit"
           ticketId={ticket.id}
           expectedUpdatedAt={ticket.updatedAt.toISOString()}

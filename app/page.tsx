@@ -151,7 +151,11 @@ export default async function Home() {
     { label: "New Job", href: "/jobs/new", primary: true },
     { label: "Create Quote", href: "/quotes/new", primary: true },
     { label: "New Customer", href: "/customers/new", primary: false },
-    { label: "Record Delivery", href: "/delivery-tickets/new", primary: false },
+    {
+      label: "Record Delivery",
+      href: "/delivery-tickets/new?from=home",
+      primary: false,
+    },
     { label: "Production queue", href: "/production", primary: false },
     { label: "Delivery tickets", href: "/delivery-tickets", primary: false },
     { label: "Record production", href: "/inventory/production", primary: false },

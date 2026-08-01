@@ -8,13 +8,26 @@ import { getAppSettings } from "@/lib/app-settings";
 import { loadPriceListOptionsForForms } from "@/lib/price-list-service";
 
 type NewDeliveryTicketPageProps = {
-  searchParams: Promise<{ jobId?: string; fulfillment?: string; type?: string }>;
+  searchParams: Promise<{
+    jobId?: string;
+    fulfillment?: string;
+    type?: string;
+    from?: string;
+  }>;
 };
+
+/** Pages that link here pass `from` so back/cancel/preview return to them. */
+const TICKET_ORIGINS = {
+  "walk-ins": { href: "/walk-ins", label: "Back to Walk-Ins" },
+  hub: { href: "/delivery-tickets", label: "Back to Delivery Hub" },
+  all: { href: "/delivery-tickets/all", label: "Back to All Tickets" },
+  home: { href: "/", label: "Back to Dashboard" },
+} as const;
 
 export default async function NewDeliveryTicketPage({
   searchParams,
 }: NewDeliveryTicketPageProps) {
-  const { jobId, fulfillment, type } = await searchParams;
+  const { jobId, fulfillment, type, from } = await searchParams;
   const [jobs, products, settings, priceListOptions] = await Promise.all([
     listJobsWithQuotes(),
     listStockProductsForTicket(),
@@ -46,14 +59,21 @@ export default async function NewDeliveryTicketPage({
     ? "Prepare a counter / pickup order ready for the front desk."
     : "Schedule and prepare products or structures for delivery.";
 
+  const originKey =
+    from && from in TICKET_ORIGINS
+      ? (from as keyof typeof TICKET_ORIGINS)
+      : isPickup || isWalkIn
+        ? "walk-ins"
+        : "hub";
+  const origin = TICKET_ORIGINS[originKey];
+
   return (
     <DashboardShell title={heading} subtitle={subtitle}>
       <div>
         <DeliveryTicketEditor
-          backHref={isPickup || isWalkIn ? "/walk-ins" : "/delivery-tickets"}
-          backLabel={
-            isPickup || isWalkIn ? "Back to Walk-Ins" : "Back to Delivery Hub"
-          }
+          backHref={origin.href}
+          backLabel={origin.label}
+          returnTo={{ key: originKey, href: origin.href }}
           mode="create"
           jobs={jobs}
           products={products}

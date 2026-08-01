@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { PermissionKey, UserRoleKey } from "@/lib/auth/constants";
 import { ROLE_LABELS } from "@/lib/auth/constants";
@@ -23,6 +24,22 @@ export function Sidebar({
   userRole: UserRoleKey;
 }) {
   const pathname = usePathname();
+  // Query string, read after mount (window-only) — used to attribute
+  // walk-in flavored ticket pages to the Walk-Ins tab. Re-read per
+  // navigation; the brief SSR frame without it just highlights by path.
+  const [search, setSearch] = useState("");
+  useEffect(() => {
+    setSearch(window.location.search);
+  }, [pathname]);
+  const query = new URLSearchParams(search);
+  // Ticket pages opened for walk-ins/pickups live under /delivery-tickets
+  // but belong to the Walk-Ins tab.
+  const isWalkInTicketPage =
+    pathname.startsWith("/delivery-tickets") &&
+    (query.get("type") === "walkin" ||
+      query.get("fulfillment") === "pickup" ||
+      query.get("from") === "walk-ins");
+  const effectivePathname = isWalkInTicketPage ? "/walk-ins" : pathname;
   const visibleItems = navItems.filter((item) => {
     if (!item.requiredPermission) {
       return true;
@@ -39,7 +56,8 @@ export function Sidebar({
   // highlight their own entry instead of every prefix entry.
   const activeHref = visibleItems.reduce((best, item) => {
     const matches =
-      pathname === item.href || pathname.startsWith(`${item.href}/`);
+      effectivePathname === item.href ||
+      effectivePathname.startsWith(`${item.href}/`);
     return matches && item.href.length > best.length ? item.href : best;
   }, "");
 

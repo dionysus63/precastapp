@@ -106,6 +106,9 @@ export type DeliveryTicketEditorProps = {
   products?: ProductOption[];
   /** All price lists for the walk-in selector (default list first). */
   priceListOptions?: { id: string; name: string; isDefault: boolean }[];
+  /** Where cancel / save-draft / preview-back return to — the page that
+   * opened the editor (key is the preview page's `from` param). */
+  returnTo?: { key: string; href: string };
   fleetOptions?: {
     drivers: string[];
     trailers: string[];
@@ -291,6 +294,7 @@ export function DeliveryTicketEditor({
   defaultValues,
   backHref,
   backLabel,
+  returnTo = { key: "walk-ins", href: "/walk-ins" },
 }: DeliveryTicketEditorProps) {
   const router = useRouter();
   const confirm = useConfirm();
@@ -1664,9 +1668,9 @@ export function DeliveryTicketEditor({
       } else if ("success" in result && result.success) {
         const href =
           destination === "preview"
-            ? `/delivery-tickets/${result.ticketId}/preview?from=walk-ins`
+            ? `/delivery-tickets/${result.ticketId}/preview?from=${returnTo.key}`
             : destination === "walkIns"
-              ? "/walk-ins"
+              ? returnTo.href
               : `/delivery-tickets/${result.ticketId}`;
         router.push(href);
         router.refresh();
@@ -1704,7 +1708,7 @@ export function DeliveryTicketEditor({
     mode === "edit" && ticketId
       ? `/delivery-tickets/${ticketId}`
       : ticketType === "WALK_IN"
-        ? "/walk-ins"
+        ? returnTo.href
         : "/delivery-tickets";
   const ticketTypeButtons = (
     <div

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BackButton } from "@/components/dashboard/back-button";
 import { useCallback, useState, useTransition } from "react";
@@ -21,6 +22,8 @@ type DeliveryTicketPreviewContentProps = {
   ticketNumber: string;
   backHref?: string;
   backLabel?: string;
+  /** When set, shows an Edit Ticket button (still-open tickets only). */
+  editHref?: string;
   /** Walk-in counter sales: printing marks the ticket delivered/complete. */
   completeOnPrint?: boolean;
   /**
@@ -36,6 +39,7 @@ export function DeliveryTicketPreviewContent({
   ticketNumber,
   backHref,
   backLabel = "Back to Ticket",
+  editHref,
   completeOnPrint = false,
   directPrintPrinter = null,
 }: DeliveryTicketPreviewContentProps) {
@@ -138,6 +142,14 @@ export function DeliveryTicketPreviewContent({
             label={backLabel}
           />
           <div className="flex flex-wrap gap-2">
+            {editHref ? (
+              <Link
+                href={editHref}
+                className="rounded border border-neutral-300 bg-white px-4 py-1.5 text-sm font-semibold text-neutral-800 hover:bg-neutral-50"
+              >
+                Edit Ticket
+              </Link>
+            ) : null}
             <button
               type="button"
               onClick={handlePrint}

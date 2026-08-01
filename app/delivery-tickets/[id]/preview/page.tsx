@@ -8,14 +8,21 @@ type DeliveryTicketPreviewPageProps = {
   searchParams: Promise<{ from?: string }>;
 };
 
+/** Matches the `from` keys the ticket editor and its entry pages pass. */
+const PREVIEW_ORIGINS: Record<string, { href: string; label: string }> = {
+  "walk-ins": { href: "/walk-ins", label: "Back to Walk-Ins" },
+  hub: { href: "/delivery-tickets", label: "Back to Delivery Hub" },
+  all: { href: "/delivery-tickets/all", label: "Back to All Tickets" },
+  home: { href: "/", label: "Back to Dashboard" },
+};
+
 export default async function DeliveryTicketPreviewPage({
   params,
   searchParams,
 }: DeliveryTicketPreviewPageProps) {
   const { id } = await params;
   const { from } = await searchParams;
-  const fromWalkIns = from === "walk-ins";
-  const fromHub = from === "hub";
+  const origin = from ? PREVIEW_ORIGINS[from] : undefined;
 
   const [ticket, settings] = await Promise.all([
     withDatabaseRetry((prisma) =>
@@ -38,12 +45,21 @@ export default async function DeliveryTicketPreviewPage({
     ticket.status !== "DELIVERED" &&
     ticket.status !== "CANCELLED";
 
+  // Still-open tickets can hop back into the editor; the origin rides along
+  // so a later Save & Preview lands back here with the same back button.
+  const editable =
+    ticket.status !== "DELIVERED" && ticket.status !== "CANCELLED";
+  const editHref = editable
+    ? `/delivery-tickets/${ticket.id}/edit${origin && from ? `?from=${from}` : ""}`
+    : undefined;
+
   return (
     <DeliveryTicketPreviewContent
       ticketId={ticket.id}
       ticketNumber={ticket.ticketNumber ?? "DRAFT"}
-      backHref={fromWalkIns ? "/walk-ins" : fromHub ? "/delivery-tickets" : undefined}
-      backLabel={fromWalkIns ? "Back to Walk-Ins" : fromHub ? "Back to Delivery Hub" : undefined}
+      backHref={origin?.href}
+      backLabel={origin?.label}
+      editHref={editHref}
       completeOnPrint={completeOnPrint}
       directPrintPrinter={settings.ticketPrinterName}
     />
