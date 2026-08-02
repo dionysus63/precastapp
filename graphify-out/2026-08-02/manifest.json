@@ -430,8 +430,8 @@
     "semantic_hash": ""
   },
   "app/delivery-tickets/[id]/edit/page.tsx": {
-    "mtime": 1785603260.8101997,
-    "ast_hash": "8468678161383e7d7df3494adbd2f3c8",
+    "mtime": 1785683342.1840208,
+    "ast_hash": "b09d4c41240cee9d5e5698e9e662a5c9",
     "semantic_hash": ""
   },
   "app/delivery-tickets/[id]/page.tsx": {
@@ -440,13 +440,13 @@
     "semantic_hash": ""
   },
   "app/delivery-tickets/actions.ts": {
-    "mtime": 1785598367.024006,
-    "ast_hash": "023516ce6e4d91856146f5786451dcf1",
+    "mtime": 1785683323.8591447,
+    "ast_hash": "3bd004a71d790d871e243de76bd29d9c",
     "semantic_hash": ""
   },
   "app/delivery-tickets/new/page.tsx": {
-    "mtime": 1785602480.3624585,
-    "ast_hash": "6971ddae88d7f3ab1d624db8866a8db8",
+    "mtime": 1785683336.7345607,
+    "ast_hash": "79865c66c79bf78abae1d0d5d6cd811f",
     "semantic_hash": ""
   },
   "app/delivery-tickets/page.tsx": {
@@ -550,8 +550,8 @@
     "semantic_hash": ""
   },
   "app/settings/page.tsx": {
-    "mtime": 1784299277.3303173,
-    "ast_hash": "c147a70b599a582ab3d93e5170a7dc50",
+    "mtime": 1785683308.0058553,
+    "ast_hash": "a6aef43639ac916a88f0b8d1f0813e78",
     "semantic_hash": ""
   },
   "app/settings/price-lists/[id]/page.tsx": {
@@ -580,8 +580,8 @@
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-ticket-editor.tsx": {
-    "mtime": 1785602503.5994914,
-    "ast_hash": "05e496b8d230181e562bbd827567b30e",
+    "mtime": 1785683454.4584615,
+    "ast_hash": "af56ba7a47df31340ec833dbd04d210f",
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-ticket-utils.ts": {
@@ -3817,6 +3817,21 @@
   "prisma/migrations/20260731111934_price_list_pickup_price/migration.sql": {
     "mtime": 1785511181.3269036,
     "ast_hash": "c590b8f35681c24c8d40d8d8085e0ddc",
+    "semantic_hash": ""
+  },
+  "app/settings/product-groups/actions.ts": {
+    "mtime": 1785683258.3251479,
+    "ast_hash": "9dc1f0210a8b47112081b0cfd8a152f3",
+    "semantic_hash": ""
+  },
+  "app/settings/product-groups/page.tsx": {
+    "mtime": 1785683297.364046,
+    "ast_hash": "f241689b29758df0955869c611985552",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260801110624_product_groups/migration.sql": {
+    "mtime": 1785683192.7582107,
+    "ast_hash": "9b00208a5675c5886b54bb15396e1e9b",
     "semantic_hash": ""
   }
 }
