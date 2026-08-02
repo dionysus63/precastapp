@@ -500,15 +500,39 @@ export async function saveDailyProductionDay(input: DailyProductionSaveInput) {
   return { success: true as const };
 }
 
-export async function deliverTicket(deliveryTicketId: string) {
+export async function deliverTicket(
+  deliveryTicketId: string,
+  options: {
+    /** Counter flow: set the ticket's payment-received flag before the
+     * pay-now invoice is created, so it comes out PAID (or a draft). */
+    paymentReceived?: boolean;
+  } = {},
+) {
   await requirePermission(AppPermission.DELIVERY_MANAGE);
   try {
+    if (options.paymentReceived !== undefined) {
+      await withDatabaseRetry((client) =>
+        client.deliveryTicket.update({
+          where: { id: deliveryTicketId },
+          data: { paymentReceived: options.paymentReceived },
+        }),
+      );
+    }
     await withDatabaseRetry((client) =>
       markDeliveryTicketDelivered(client, deliveryTicketId),
     );
     const invoiceResult = await withDatabaseRetry((client) =>
       maybeCreatePayNowInvoiceForTicket(client, deliveryTicketId),
     );
+    // Invoice number for the counter confirmation strip ("Invoice I10123").
+    const invoice = invoiceResult.invoiceId
+      ? await withDatabaseRetry((client) =>
+          client.invoice.findUnique({
+            where: { id: invoiceResult.invoiceId! },
+            select: { id: true, invoiceNumber: true, status: true },
+          }),
+        )
+      : null;
     revalidatePath("/delivery-tickets");
     revalidatePath(`/delivery-tickets/${deliveryTicketId}`);
     revalidatePath("/walk-ins");
@@ -518,6 +542,7 @@ export async function deliverTicket(deliveryTicketId: string) {
     }
     return {
       success: true,
+      invoice,
       warning: invoiceResult.error
         ? `Ticket completed, but the pay-now invoice could not be created: ${invoiceResult.error}`
         : null,

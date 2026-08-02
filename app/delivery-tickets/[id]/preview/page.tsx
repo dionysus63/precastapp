@@ -28,7 +28,15 @@ export default async function DeliveryTicketPreviewPage({
     withDatabaseRetry((prisma) =>
       prisma.deliveryTicket.findUnique({
         where: { id },
-        select: { id: true, ticketNumber: true, ticketType: true, status: true },
+        select: {
+          id: true,
+          ticketNumber: true,
+          ticketType: true,
+          status: true,
+          paymentMethod: true,
+          paymentReceived: true,
+          invoice: { select: { id: true, invoiceNumber: true } },
+        },
       }),
     ),
     getAppSettings(),
@@ -61,6 +69,9 @@ export default async function DeliveryTicketPreviewPage({
       backLabel={origin?.label}
       editHref={editHref}
       completeOnPrint={completeOnPrint}
+      payNow={ticket.paymentMethod === "PAY_NOW"}
+      paymentReceivedDefault={ticket.paymentReceived}
+      existingInvoice={ticket.invoice}
       directPrintPrinter={settings.ticketPrinterName}
     />
   );

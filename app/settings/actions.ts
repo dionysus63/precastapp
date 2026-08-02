@@ -609,6 +609,14 @@ export async function updatePrintingSettingsFormAction(
   const parseColorMode = (value: FormDataEntryValue | null) =>
     String(value ?? "") === "monochrome" ? "monochrome" : "color";
 
+  const invoiceCopiesRaw = Number(
+    String(formData.get("invoicePrintCopies") ?? "").trim(),
+  );
+  const invoicePrintCopies =
+    Number.isFinite(invoiceCopiesRaw) && invoiceCopiesRaw >= 1
+      ? Math.min(5, Math.round(invoiceCopiesRaw))
+      : 2;
+
   return updateAppSettings({
     ticketPrinterName:
       String(formData.get("ticketPrinterName") ?? "").trim() || null,
@@ -618,6 +626,7 @@ export async function updatePrintingSettingsFormAction(
     submittalPrintColorMode: parseColorMode(
       formData.get("submittalPrintColorMode"),
     ),
+    invoicePrintCopies,
   });
 }
 

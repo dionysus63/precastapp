@@ -162,6 +162,27 @@ export default async function PrintingSettingsPage({
             )}
           />
 
+          <div className="mt-2 border-t border-slate-100 pt-4">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Pay-now invoices
+            </h4>
+            <p className="mt-1 text-xs text-slate-500">
+              Copies of the invoice printed by “Print Ticket + Invoice” when a
+              walk-in pays at the counter. Prints on the ticket printer.
+            </p>
+          </div>
+          <SettingsField label="Invoice copies">
+            <input
+              name="invoicePrintCopies"
+              type="number"
+              min="1"
+              max="5"
+              step="1"
+              defaultValue={settings.invoicePrintCopies}
+              className={settingsInputClassName}
+            />
+          </SettingsField>
+
           <SettingsSubmitButton>Save</SettingsSubmitButton>
         </form>
       </SectionCard>

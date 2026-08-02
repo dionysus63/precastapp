@@ -515,8 +515,8 @@
     "semantic_hash": ""
   },
   "app/operations/actions.ts": {
-    "mtime": 1785160528.1121025,
-    "ast_hash": "5ba5ce731811a5588c8d07f3d56515cd",
+    "mtime": 1785687912.9919026,
+    "ast_hash": "6ca44088110fe2080d0c4e3f6fb1fcef",
     "semantic_hash": ""
   },
   "app/production/page.tsx": {
@@ -525,8 +525,8 @@
     "semantic_hash": ""
   },
   "app/settings/actions.ts": {
-    "mtime": 1785511251.41083,
-    "ast_hash": "9a596981160e06954ba4a04cb3802e4d",
+    "mtime": 1785687843.4916093,
+    "ast_hash": "64d3dab076eb23d01feb6b1e09f4835f",
     "semantic_hash": ""
   },
   "app/settings/billing/page.tsx": {
@@ -690,8 +690,8 @@
     "semantic_hash": ""
   },
   "lib/app-settings.ts": {
-    "mtime": 1785082749.3446467,
-    "ast_hash": "ad4ca617aabfbc31fae37d81423bc01b",
+    "mtime": 1785687822.869553,
+    "ast_hash": "af87d3808ed2f235a535e1520d236064",
     "semantic_hash": ""
   },
   "lib/company-logo.ts": {
@@ -870,13 +870,13 @@
     "semantic_hash": ""
   },
   "app/delivery-tickets/[id]/preview/page.tsx": {
-    "mtime": 1785603249.6577864,
-    "ast_hash": "cda52e05f952309c57a38ec438dfcf3f",
+    "mtime": 1785688056.4771247,
+    "ast_hash": "dc9c9149e4b6ab3176f2cb4bd9c5fcc8",
     "semantic_hash": ""
   },
   "components/delivery-tickets/delivery-ticket-preview-content.tsx": {
-    "mtime": 1785603240.238595,
-    "ast_hash": "7bfe41f1ff7f592d1686a2d2c1ef3748",
+    "mtime": 1785688044.525677,
+    "ast_hash": "e8f6ecda36f6dd18fdf45e32b684b293",
     "semantic_hash": ""
   },
   "components/delivery-tickets/dispatcher-week-calendar.tsx": {
@@ -3380,8 +3380,8 @@
     "semantic_hash": ""
   },
   "app/settings/printing/page.tsx": {
-    "mtime": 1784156537.769458,
-    "ast_hash": "da3653830e328ba02c5f1fadad32d022",
+    "mtime": 1785687856.5402586,
+    "ast_hash": "0e57b99080e56a4e5eae126f1145eb03",
     "semantic_hash": ""
   },
   "prisma/migrations/20260715190035_add_submittal_printer_settings/migration.sql": {
@@ -3837,6 +3837,16 @@
   "components/settings/group-product-picker.tsx": {
     "mtime": 1785684829.7688503,
     "ast_hash": "01b7d8f92f22ae809a341b0c1d95a683",
+    "semantic_hash": ""
+  },
+  "app/invoices/pdf-actions.ts": {
+    "mtime": 1785687893.2351987,
+    "ast_hash": "37ec61a858203aff6ecc578c21213eb5",
+    "semantic_hash": ""
+  },
+  "prisma/migrations/20260802122225_invoice_print_copies/migration.sql": {
+    "mtime": 1785687750.774598,
+    "ast_hash": "1c74ea12176f96e3722bea9cce1aa86e",
     "semantic_hash": ""
   }
 }

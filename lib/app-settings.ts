@@ -83,6 +83,8 @@ export type AppSettingsView = {
   /** Printer on the server host for silent submittal printing; null = browser dialog. */
   submittalPrinterName: string | null;
   submittalPrintColorMode: "color" | "monochrome";
+  /** Copies of the invoice printed by the pay-now counter flow. */
+  invoicePrintCopies: number;
   jobsRoot: string;
   quotePdfFallbackDir: string;
   stockSubmittalsRoot: string;
@@ -193,6 +195,10 @@ export function mapAppSettingsRow(row: AppSettings): AppSettingsView {
     submittalPrinterName: row.submittalPrinterName?.trim() || null,
     submittalPrintColorMode:
       row.submittalPrintColorMode === "monochrome" ? "monochrome" : "color",
+    invoicePrintCopies:
+      Number.isFinite(row.invoicePrintCopies) && row.invoicePrintCopies >= 1
+        ? Math.min(5, Math.round(row.invoicePrintCopies))
+        : 2,
     jobsRoot: row.jobsRoot,
     quotePdfFallbackDir: row.quotePdfFallbackDir,
     stockSubmittalsRoot: row.stockSubmittalsRoot,

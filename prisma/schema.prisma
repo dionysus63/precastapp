@@ -1874,6 +1874,8 @@ model AppSettings {
   submittalPrinterName       String?
   /// "color" | "monochrome"; null = color.
   submittalPrintColorMode    String?
+  /// Copies of the invoice printed by the pay-now counter flow.
+  invoicePrintCopies         Int      @default(2)
   companyLogoPath   String?
   // paths
   jobsRoot            String

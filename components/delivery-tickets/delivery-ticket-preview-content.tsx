@@ -8,6 +8,7 @@ import {
   generateDeliveryTicketPdf,
   printDeliveryTicketDirect,
 } from "@/app/delivery-tickets/pdf-actions";
+import { printInvoiceDirect } from "@/app/invoices/pdf-actions";
 import { deliverTicket } from "@/app/operations/actions";
 import {
   DeliveryTicketPdfCanvasPreview,
@@ -26,6 +27,12 @@ type DeliveryTicketPreviewContentProps = {
   editHref?: string;
   /** Walk-in counter sales: printing marks the ticket delivered/complete. */
   completeOnPrint?: boolean;
+  /** Pay-now ticket: completing also prints the invoice for the counter. */
+  payNow?: boolean;
+  /** Ticket's payment-received flag, editable here before completing. */
+  paymentReceivedDefault?: boolean;
+  /** Already-created invoice (completed tickets) for re-printing. */
+  existingInvoice?: { id: string; invoiceNumber: string | null } | null;
   /**
    * Server-side ticket printer (Settings -> Fleet & Crew). When set, the
    * print button prints silently on the server instead of opening the
@@ -41,6 +48,9 @@ export function DeliveryTicketPreviewContent({
   backLabel = "Back to Ticket",
   editHref,
   completeOnPrint = false,
+  payNow = false,
+  paymentReceivedDefault = false,
+  existingInvoice = null,
   directPrintPrinter = null,
 }: DeliveryTicketPreviewContentProps) {
   const router = useRouter();
@@ -59,6 +69,14 @@ export function DeliveryTicketPreviewContent({
   const [pdfResult, setPdfResult] = useState<
     { type: "success"; filePath: string } | { type: "error"; message: string } | null
   >(null);
+  const [paymentReceived, setPaymentReceived] = useState(
+    paymentReceivedDefault,
+  );
+  const [invoiceMessage, setInvoiceMessage] = useState<{
+    type: "error" | "success";
+    text: string;
+    invoiceId: string | null;
+  } | null>(null);
 
   const handleSheetCountChange = useCallback((count: number) => {
     setSheetCount(count);
@@ -99,6 +117,40 @@ export function DeliveryTicketPreviewContent({
     });
   }
 
+  /** Prints the invoice: silent server print when configured, otherwise the
+   * browser dialog on the invoice PDF. `intro` prefixes the confirmation
+   * (e.g. "Sale complete — "). */
+  function printInvoice(invoiceId: string, label: string, intro = "") {
+    setInvoiceMessage(null);
+    if (!directPrintPrinter) {
+      printPdfUrl(`/api/invoices/${invoiceId}/pdf`);
+      setInvoiceMessage({
+        type: "success",
+        text: `${intro}Opened invoice ${label} for printing.`,
+        invoiceId,
+      });
+      return;
+    }
+    startPrintingTransition(async () => {
+      const result = await printInvoiceDirect(invoiceId);
+      if (!result.success) {
+        setInvoiceMessage({
+          type: "error",
+          text: `${intro}${result.error}`,
+          invoiceId,
+        });
+        return;
+      }
+      setInvoiceMessage({
+        type: "success",
+        text: `${intro}Sent invoice ${label} (${result.copies} ${
+          result.copies === 1 ? "copy" : "copies"
+        }) to the printer.`,
+        invoiceId,
+      });
+    });
+  }
+
   function handlePrint() {
     if (!completeOnPrint) {
       printCopies();
@@ -108,7 +160,10 @@ export function DeliveryTicketPreviewContent({
     startCompleteTransition(async () => {
       // Complete first so a printed ticket is always a completed sale; the
       // action is idempotent, so re-printing an already-completed one is safe.
-      const result = await deliverTicket(ticketId);
+      const result = await deliverTicket(
+        ticketId,
+        payNow ? { paymentReceived } : {},
+      );
       if ("error" in result && result.error) {
         setCompleteMessage({ type: "error", text: result.error });
         return;
@@ -117,6 +172,16 @@ export function DeliveryTicketPreviewContent({
         setCompleteMessage({ type: "warning", text: result.warning });
       }
       printCopies();
+      // Pay-now counter flow: the completed sale's invoice prints in the
+      // same motion, while the customer is at the counter.
+      if (payNow && "invoice" in result && result.invoice) {
+        const paidNote = result.invoice.status === "PAID" ? ", paid" : "";
+        printInvoice(
+          result.invoice.id,
+          result.invoice.invoiceNumber ?? "",
+          `Sale complete (invoice${paidNote}) — `,
+        );
+      }
       router.refresh();
     });
   }
@@ -141,7 +206,7 @@ export function DeliveryTicketPreviewContent({
             href={backHref ?? `/delivery-tickets/${ticketId}`}
             label={backLabel}
           />
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {editHref ? (
               <Link
                 href={editHref}
@@ -149,6 +214,31 @@ export function DeliveryTicketPreviewContent({
               >
                 Edit Ticket
               </Link>
+            ) : null}
+            {completeOnPrint && payNow ? (
+              <label className="flex items-center gap-1.5 text-sm text-neutral-700">
+                <input
+                  type="checkbox"
+                  checked={paymentReceived}
+                  onChange={(event) => setPaymentReceived(event.target.checked)}
+                />
+                Payment received
+              </label>
+            ) : null}
+            {!completeOnPrint && existingInvoice ? (
+              <button
+                type="button"
+                onClick={() =>
+                  printInvoice(
+                    existingInvoice.id,
+                    existingInvoice.invoiceNumber ?? "",
+                  )
+                }
+                disabled={isPrinting}
+                className="rounded border border-neutral-300 bg-white px-4 py-1.5 text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-60"
+              >
+                Print Invoice
+              </button>
             ) : null}
             <button
               type="button"
@@ -165,7 +255,9 @@ export function DeliveryTicketPreviewContent({
                 : isPrinting
                   ? "Printing…"
                   : completeOnPrint
-                    ? "Print & Complete Sale"
+                    ? payNow
+                      ? "Print Ticket + Invoice — Complete Sale"
+                      : "Print & Complete Sale"
                     : "Print (3 copies)"}
             </button>
             <button
@@ -199,8 +291,11 @@ export function DeliveryTicketPreviewContent({
         {completeOnPrint ? (
           <div className="mx-auto max-w-[8.5in] px-4 pb-3 text-xs text-neutral-500">
             Printing marks this sale complete: stock is deducted and the ticket
-            moves to “Recently completed” on the walk-ins board. Previewing
-            alone leaves it open.
+            moves to “Recently completed” on the walk-ins board.
+            {payNow
+              ? " The invoice is created and printed in the same step — check Payment received once the card runs so it comes out paid."
+              : ""}{" "}
+            Previewing alone leaves it open.
           </div>
         ) : null}
         {printMessage ? (
@@ -223,6 +318,25 @@ export function DeliveryTicketPreviewContent({
             }`}
           >
             {completeMessage.text}
+          </div>
+        ) : null}
+        {invoiceMessage ? (
+          <div
+            className={`mx-auto max-w-[8.5in] border-t px-4 py-3 text-sm ${
+              invoiceMessage.type === "error"
+                ? "border-red-100 bg-red-50 text-red-800"
+                : "border-emerald-100 bg-emerald-50 text-emerald-900"
+            }`}
+          >
+            {invoiceMessage.text}
+            {invoiceMessage.invoiceId ? (
+              <Link
+                href={`/invoices/${invoiceMessage.invoiceId}`}
+                className="ml-2 font-semibold underline underline-offset-2"
+              >
+                View invoice
+              </Link>
+            ) : null}
           </div>
         ) : null}
         {pdfResult?.type === "success" ? (
