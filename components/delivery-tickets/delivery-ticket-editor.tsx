@@ -69,6 +69,8 @@ type ProductOption = {
   unitPrice?: number | null;
   /** FOB-yard price; null = pickup bills the delivered unitPrice. */
   pickupPrice?: number | null;
+  /** ProductGroup ids this product belongs to (walk-in picker filters). */
+  groupIds?: string[];
   currentStock?: number | null;
   trackInventory?: boolean;
   categoryId: string;
@@ -106,6 +108,8 @@ export type DeliveryTicketEditorProps = {
   products?: ProductOption[];
   /** All price lists for the walk-in selector (default list first). */
   priceListOptions?: { id: string; name: string; isDefault: boolean }[];
+  /** Product groups/sub-groups (Settings → Product Groups) for the picker. */
+  productGroups?: { id: string; name: string; parentId: string | null }[];
   /** Where cancel / save-draft / preview-back return to — the page that
    * opened the editor (key is the preview page's `from` param). */
   returnTo?: { key: string; href: string };
@@ -290,6 +294,7 @@ export function DeliveryTicketEditor({
   jobs,
   products: initialProducts = [],
   priceListOptions = [],
+  productGroups = [],
   fleetOptions,
   defaultValues,
   backHref,
@@ -366,6 +371,13 @@ export function DeliveryTicketEditor({
   // Per-line weight inputs are hidden by default to keep the ticket panel
   // tight; the total weight always shows at the bottom.
   const [showLineWeights, setShowLineWeights] = useState(false);
+  // Picker filter mode: built-in categories vs custom groups (a product can
+  // be in several groups — Settings → Product Groups).
+  const [walkInPickerMode, setWalkInPickerMode] = useState<
+    "categories" | "groups"
+  >("categories");
+  const [walkInGroupId, setWalkInGroupId] = useState<string | null>(null);
+  const [walkInSubgroupId, setWalkInSubgroupId] = useState<string | null>(null);
   // JOB tickets: product search for items added outside the quote.
   const [extraSearch, setExtraSearch] = useState("");
   const [walkInCategoryId, setWalkInCategoryId] = useState("all");
@@ -1171,18 +1183,75 @@ export function DeliveryTicketEditor({
     return list;
   }, [products, walkInCategoryId]);
 
+  const topLevelGroups = useMemo(
+    () => productGroups.filter((group) => group.parentId == null),
+    [productGroups],
+  );
+  const subgroupsByParent = useMemo(() => {
+    const map = new Map<string, typeof productGroups>();
+    for (const group of productGroups) {
+      if (group.parentId) {
+        const list = map.get(group.parentId) ?? [];
+        list.push(group);
+        map.set(group.parentId, list);
+      }
+    }
+    return map;
+  }, [productGroups]);
+  /** Ids a group filter matches: the group itself plus its sub-groups. */
+  const groupFilterIds = useMemo(() => {
+    if (!walkInGroupId) {
+      return null;
+    }
+    if (walkInSubgroupId) {
+      return new Set([walkInSubgroupId]);
+    }
+    return new Set([
+      walkInGroupId,
+      ...(subgroupsByParent.get(walkInGroupId) ?? []).map((group) => group.id),
+    ]);
+  }, [walkInGroupId, walkInSubgroupId, subgroupsByParent]);
+  const productCountByGroupId = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const product of products) {
+      for (const groupId of product.groupIds ?? []) {
+        map.set(groupId, (map.get(groupId) ?? 0) + 1);
+      }
+    }
+    return map;
+  }, [products]);
+  const countForGroup = (groupId: string) => {
+    const ids = [
+      groupId,
+      ...(subgroupsByParent.get(groupId) ?? []).map((group) => group.id),
+    ];
+    const idSet = new Set(ids);
+    return products.filter((product) =>
+      (product.groupIds ?? []).some((id) => idSet.has(id)),
+    ).length;
+  };
+
   const walkInFiltered = useMemo(() => {
     const q = walkInSearch.trim().toLowerCase();
     return products.filter((product) => {
-      if (walkInCategoryId !== "all" && product.categoryId !== walkInCategoryId) {
-        return false;
-      }
-      if (walkInSubcategoryId) {
-        const matches =
-          walkInSubcategoryId === "__none__"
-            ? product.subcategoryId == null
-            : product.subcategoryId === walkInSubcategoryId;
-        if (!matches) {
+      if (walkInPickerMode === "categories") {
+        if (
+          walkInCategoryId !== "all" &&
+          product.categoryId !== walkInCategoryId
+        ) {
+          return false;
+        }
+        if (walkInSubcategoryId) {
+          const matches =
+            walkInSubcategoryId === "__none__"
+              ? product.subcategoryId == null
+              : product.subcategoryId === walkInSubcategoryId;
+          if (!matches) {
+            return false;
+          }
+        }
+      } else if (groupFilterIds) {
+        if (!(product.groupIds ?? []).some((id) => groupFilterIds.has(id))) {
           return false;
         }
       }
@@ -1191,7 +1260,14 @@ export function DeliveryTicketEditor({
       }
       return true;
     });
-  }, [products, walkInSearch, walkInCategoryId, walkInSubcategoryId]);
+  }, [
+    products,
+    walkInSearch,
+    walkInPickerMode,
+    walkInCategoryId,
+    walkInSubcategoryId,
+    groupFilterIds,
+  ]);
 
   const walkInResults = walkInFiltered.slice(0, WALK_IN_RESULT_LIMIT);
 
@@ -1212,6 +1288,19 @@ export function DeliveryTicketEditor({
   function selectWalkInCategory(categoryId: string) {
     setWalkInCategoryId(categoryId);
     setWalkInSubcategoryId(null);
+  }
+
+  function selectWalkInPickerMode(mode: "categories" | "groups") {
+    setWalkInPickerMode(mode);
+    setWalkInCategoryId("all");
+    setWalkInSubcategoryId(null);
+    setWalkInGroupId(null);
+    setWalkInSubgroupId(null);
+  }
+
+  function selectWalkInGroup(groupId: string | null) {
+    setWalkInGroupId(groupId);
+    setWalkInSubgroupId(null);
   }
 
   function addWalkInLine(productId: string) {
@@ -3438,6 +3527,127 @@ export function DeliveryTicketEditor({
                 }
                 className="block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm placeholder:text-slate-400"
               />
+              {topLevelGroups.length > 0 ? (
+                <div
+                  role="group"
+                  aria-label="Filter products by"
+                  className="inline-flex overflow-hidden rounded-md border border-slate-200 text-[11px] font-medium"
+                >
+                  <button
+                    type="button"
+                    aria-pressed={walkInPickerMode === "categories"}
+                    onClick={() => selectWalkInPickerMode("categories")}
+                    className={
+                      walkInPickerMode === "categories"
+                        ? "bg-slate-900 px-2.5 py-1 text-white"
+                        : "px-2.5 py-1 text-slate-600 hover:bg-slate-50"
+                    }
+                  >
+                    Categories
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={walkInPickerMode === "groups"}
+                    onClick={() => selectWalkInPickerMode("groups")}
+                    className={
+                      walkInPickerMode === "groups"
+                        ? "bg-slate-900 px-2.5 py-1 text-white"
+                        : "border-l border-slate-200 px-2.5 py-1 text-slate-600 hover:bg-slate-50"
+                    }
+                  >
+                    Groups
+                  </button>
+                </div>
+              ) : null}
+              {walkInPickerMode === "groups" ? (
+                <>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => selectWalkInGroup(null)}
+                      className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+                        walkInGroupId == null
+                          ? "border-slate-900 bg-slate-900 text-white"
+                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      All{" "}
+                      <span
+                        className={
+                          walkInGroupId == null
+                            ? "text-slate-300"
+                            : "text-slate-400"
+                        }
+                      >
+                        {products.length}
+                      </span>
+                    </button>
+                    {topLevelGroups.map((group) => (
+                      <button
+                        key={group.id}
+                        type="button"
+                        onClick={() => selectWalkInGroup(group.id)}
+                        className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+                          walkInGroupId === group.id
+                            ? "border-slate-900 bg-slate-900 text-white"
+                            : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        {group.name}{" "}
+                        <span
+                          className={
+                            walkInGroupId === group.id
+                              ? "text-slate-300"
+                              : "text-slate-400"
+                          }
+                        >
+                          {countForGroup(group.id)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {walkInGroupId &&
+                  (subgroupsByParent.get(walkInGroupId) ?? []).length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] text-slate-400">
+                        Sub-group:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setWalkInSubgroupId(null)}
+                        className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${
+                          walkInSubgroupId == null
+                            ? "border-slate-300 bg-slate-100 text-slate-900"
+                            : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                        }`}
+                      >
+                        All
+                      </button>
+                      {(subgroupsByParent.get(walkInGroupId) ?? []).map(
+                        (subgroup) => (
+                          <button
+                            key={subgroup.id}
+                            type="button"
+                            onClick={() => setWalkInSubgroupId(subgroup.id)}
+                            className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${
+                              walkInSubgroupId === subgroup.id
+                                ? "border-slate-300 bg-slate-100 text-slate-900"
+                                : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+                            }`}
+                          >
+                            {subgroup.name}{" "}
+                            <span className="text-slate-400">
+                              {productCountByGroupId.get(subgroup.id) ?? 0}
+                            </span>
+                          </button>
+                        ),
+                      )}
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+              {walkInPickerMode === "categories" ? (
+              <>
               <div className="flex flex-wrap gap-1.5">
                 <button
                   type="button"
@@ -3515,6 +3725,8 @@ export function DeliveryTicketEditor({
                     </button>
                   ))}
                 </div>
+              ) : null}
+              </>
               ) : null}
               {walkInResults.length > 0 ? (
                 <>

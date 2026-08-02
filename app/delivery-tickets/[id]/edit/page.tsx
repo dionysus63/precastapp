@@ -30,7 +30,8 @@ export default async function EditDeliveryTicketPage({
   const { from } = await searchParams;
   const origin = from ? EDIT_ORIGINS[from] : undefined;
 
-  const [ticket, jobs, settings, priceListOptions] = await Promise.all([
+  const [ticket, jobs, settings, priceListOptions, productGroups] =
+    await Promise.all([
     withDatabaseRetry((prisma) =>
       prisma.deliveryTicket.findUnique({
         where: { id },
@@ -76,6 +77,12 @@ export default async function EditDeliveryTicketPage({
     listJobsWithQuotes(),
     getAppSettings(),
     loadPriceListOptionsForForms(),
+    withDatabaseRetry((prisma) =>
+      prisma.productGroup.findMany({
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        select: { id: true, name: true, parentId: true },
+      }),
+    ),
   ]);
 
   if (!ticket) {
@@ -205,6 +212,7 @@ export default async function EditDeliveryTicketPage({
           jobs={jobs}
           products={products}
           priceListOptions={priceListOptions}
+          productGroups={productGroups}
           fleetOptions={{
             drivers: settings.drivers,
             trailers: settings.trailers,

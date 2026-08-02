@@ -159,6 +159,39 @@ model ProductSubcategory {
   @@index([categoryId])
 }
 
+/// Ad-hoc product grouping for the walk-in picker. Unlike categories, a
+/// product can belong to any number of groups; groups nest one level
+/// (sub-groups reference their parent via parentId).
+model ProductGroup {
+  id        String   @id @default(cuid())
+  name      String
+  parentId  String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent   ProductGroup?        @relation("ProductGroupChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children ProductGroup[]       @relation("ProductGroupChildren")
+  members  ProductGroupMember[]
+
+  @@unique([parentId, name])
+  @@index([parentId])
+  @@index([sortOrder])
+}
+
+model ProductGroupMember {
+  id        String   @id @default(cuid())
+  groupId   String
+  productId String
+  createdAt DateTime @default(now())
+
+  group   ProductGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  product Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, productId])
+  @@index([productId])
+}
+
 model CastingSupplier {
   id        String                @id @default(cuid())
   name      String                @unique
@@ -230,6 +263,7 @@ model Product {
   structureTemplates        StructureTemplate[]         @relation("TemplateCasting")
   productCategory           ProductCategory             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   subcategory               ProductSubcategory?         @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
+  groupMemberships          ProductGroupMember[]
 
   @@index([categoryId])
   @@index([subcategoryId])

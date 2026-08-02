@@ -52,6 +52,12 @@ const settingSections = [
     description: "Product categories and subcategories used on the catalog forms.",
   },
   {
+    href: "/settings/product-groups",
+    title: "Product Groups",
+    description:
+      "Custom groups and sub-groups for the walk-in picker — a product can be in several.",
+  },
+  {
     href: "/settings/rings",
     title: "Ring Builder",
     description: "Top and bottom slab options shown per ring diameter and style.",

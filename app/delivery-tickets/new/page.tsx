@@ -6,6 +6,7 @@ import {
 import { listStockProductsForTicket } from "@/app/delivery-tickets/actions";
 import { getAppSettings } from "@/lib/app-settings";
 import { loadPriceListOptionsForForms } from "@/lib/price-list-service";
+import { withDatabaseRetry } from "@/lib/prisma";
 
 type NewDeliveryTicketPageProps = {
   searchParams: Promise<{
@@ -28,12 +29,19 @@ export default async function NewDeliveryTicketPage({
   searchParams,
 }: NewDeliveryTicketPageProps) {
   const { jobId, fulfillment, type, from } = await searchParams;
-  const [jobs, products, settings, priceListOptions] = await Promise.all([
-    listJobsWithQuotes(),
-    listStockProductsForTicket(),
-    getAppSettings(),
-    loadPriceListOptionsForForms(),
-  ]);
+  const [jobs, products, settings, priceListOptions, productGroups] =
+    await Promise.all([
+      listJobsWithQuotes(),
+      listStockProductsForTicket(),
+      getAppSettings(),
+      loadPriceListOptionsForForms(),
+      withDatabaseRetry((prisma) =>
+        prisma.productGroup.findMany({
+          orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+          select: { id: true, name: true, parentId: true },
+        }),
+      ),
+    ]);
 
   const defaultJobId = jobId && jobs.some((job) => job.id === jobId) ? jobId : undefined;
   const isPickup = fulfillment === "pickup";
@@ -78,6 +86,7 @@ export default async function NewDeliveryTicketPage({
           jobs={jobs}
           products={products}
           priceListOptions={priceListOptions}
+          productGroups={productGroups}
           defaultValues={defaultValues}
           fleetOptions={{
             drivers: settings.drivers,
