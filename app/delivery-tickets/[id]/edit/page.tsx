@@ -213,6 +213,7 @@ export default async function EditDeliveryTicketPage({
           products={products}
           priceListOptions={priceListOptions}
           productGroups={productGroups}
+          defaultTaxRatePercent={settings.defaultTaxRate}
           fleetOptions={{
             drivers: settings.drivers,
             trailers: settings.trailers,

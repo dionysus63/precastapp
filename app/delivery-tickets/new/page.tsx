@@ -87,6 +87,7 @@ export default async function NewDeliveryTicketPage({
           products={products}
           priceListOptions={priceListOptions}
           productGroups={productGroups}
+          defaultTaxRatePercent={settings.defaultTaxRate}
           defaultValues={defaultValues}
           fleetOptions={{
             drivers: settings.drivers,

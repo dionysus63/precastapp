@@ -32,6 +32,7 @@ import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warnin
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import type { QuoteLineFulfillment } from "@/lib/delivery-fulfillment";
 import { formatUsd, formatWeightLb } from "@/lib/format";
+import { computeMoneyTotals } from "@/lib/money";
 import {
   getDeliveryLinePrimaryLabel,
   getDeliveryLineSecondaryLabel,
@@ -110,6 +111,8 @@ export type DeliveryTicketEditorProps = {
   priceListOptions?: { id: string; name: string; isDefault: boolean }[];
   /** Product groups/sub-groups (Settings → Product Groups) for the picker. */
   productGroups?: { id: string; name: string; parentId: string | null }[];
+  /** Default sales tax %, for the walk-in totals (matches invoicing). */
+  defaultTaxRatePercent?: number;
   /** Where cancel / save-draft / preview-back return to — the page that
    * opened the editor (key is the preview page's `from` param). */
   returnTo?: { key: string; href: string };
@@ -295,6 +298,7 @@ export function DeliveryTicketEditor({
   products: initialProducts = [],
   priceListOptions = [],
   productGroups = [],
+  defaultTaxRatePercent = 0,
   fleetOptions,
   defaultValues,
   backHref,
@@ -1804,6 +1808,26 @@ export function DeliveryTicketEditor({
     const price = Number(line.unitPrice ?? "");
     return !line.unitPrice?.trim() || !Number.isFinite(price) || price < 0;
   }).length;
+  // Same per-line cent rounding + tax math the invoice will use (walk-in
+  // lines all bill taxable); unpriced lines are excluded like the subtotal.
+  const walkInMoney = (() => {
+    const pricedLines = walkInActiveLines.filter((line) => {
+      const price = Number(line.unitPrice ?? "");
+      return line.unitPrice?.trim() && Number.isFinite(price) && price >= 0;
+    });
+    const computed = computeMoneyTotals(
+      pricedLines.map((line) => ({
+        quantity: Number(line.quantity) || 0,
+        unitPrice: Number(line.unitPrice),
+        taxable: true,
+      })),
+      defaultTaxRatePercent,
+    );
+    return {
+      salesTax: computed.salesTax.toNumber(),
+      total: computed.total.toNumber(),
+    };
+  })();
   const cancelHref =
     mode === "edit" && ticketId
       ? `/delivery-tickets/${ticketId}`
@@ -3866,7 +3890,31 @@ export function DeliveryTicketEditor({
                       key={line.key}
                       className="rounded-lg border border-slate-200 p-2"
                     >
-                      <div className="flex items-start justify-between gap-2 text-xs">
+                      <div className="flex items-start gap-1.5 text-xs">
+                        <button
+                          type="button"
+                          aria-label={`Remove ${line.itemCode}`}
+                          title={`Remove ${line.itemCode}`}
+                          onClick={() => removeLine(line.key)}
+                          className="mt-px shrink-0 rounded p-0.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="h-3.5 w-3.5"
+                            aria-hidden="true"
+                          >
+                            <path d="M3 6h18" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            <path d="M10 11v6" />
+                            <path d="M14 11v6" />
+                          </svg>
+                        </button>
                         <span className="min-w-0">
                           <span className="font-semibold text-slate-900">
                             {line.itemCode}
@@ -3875,20 +3923,31 @@ export function DeliveryTicketEditor({
                             {line.description}
                           </span>
                         </span>
-                        <button
-                          type="button"
-                          aria-label={`Remove ${line.itemCode}`}
-                          onClick={() => removeLine(line.key)}
-                          className="shrink-0 text-sm leading-none text-slate-400 hover:text-red-600"
-                        >
-                          ×
-                        </button>
                       </div>
                       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
-                        <span className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                        <span className="flex items-center gap-1">
+                          <span className="mr-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                             Qty
                           </span>
+                          <button
+                            type="button"
+                            aria-label={`Decrease ${line.itemCode} quantity`}
+                            onClick={() => {
+                              const next = Math.max(
+                                0,
+                                (Number(line.quantity) || 0) - 1,
+                              );
+                              updateWalkInLine(
+                                line.key,
+                                "quantity",
+                                String(next),
+                              );
+                              markDirty();
+                            }}
+                            className="h-8 w-6 shrink-0 rounded-md text-sm font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                          >
+                            −
+                          </button>
                           <input
                             aria-label={`${line.itemCode} quantity`}
                             type="number"
@@ -3898,9 +3957,23 @@ export function DeliveryTicketEditor({
                             onChange={(event) =>
                               updateWalkInLine(line.key, "quantity", event.target.value)
                             }
-                            className={`w-14 ${inlineTableInputClass} text-center`}
+                            className={`w-9 ${inlineTableInputClass} !px-0 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
                           />
-                          <span>{line.unit}</span>
+                          <button
+                            type="button"
+                            aria-label={`Increase ${line.itemCode} quantity`}
+                            onClick={() => {
+                              updateWalkInLine(
+                                line.key,
+                                "quantity",
+                                String((Number(line.quantity) || 0) + 1),
+                              );
+                              markDirty();
+                            }}
+                            className="h-8 w-6 shrink-0 rounded-md text-sm font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                          >
+                            +
+                          </button>
                         </span>
                         <span className="flex items-center gap-1.5">
                           <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
@@ -3973,13 +4046,27 @@ export function DeliveryTicketEditor({
                   );
                 })}
 
-                <div className="flex items-baseline justify-between border-t border-slate-200 pt-2 text-xs">
-                  <span className="font-medium text-slate-700">
-                    Subtotal (before tax)
-                  </span>
-                  <span className="text-sm font-semibold text-slate-900">
-                    {formatUsd(walkInSubtotal)}
-                  </span>
+                <div className="space-y-0.5 border-t border-slate-200 pt-2 text-xs">
+                  <div className="flex items-baseline justify-end gap-2">
+                    <span className="text-slate-600">Subtotal</span>
+                    <span className="w-24 text-right font-medium text-slate-900">
+                      {formatUsd(walkInSubtotal)}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-end gap-2">
+                    <span className="text-slate-600">
+                      Tax ({defaultTaxRatePercent.toFixed(3).replace(/\.?0+$/, "")}%)
+                    </span>
+                    <span className="w-24 text-right font-medium text-slate-900">
+                      {formatUsd(walkInMoney.salesTax)}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-end gap-2 border-t border-slate-200 pt-1">
+                    <span className="font-semibold text-slate-900">Total</span>
+                    <span className="w-24 text-right text-sm font-semibold text-slate-900">
+                      {formatUsd(walkInMoney.total)}
+                    </span>
+                  </div>
                 </div>
                 {walkInMissingPriceCount > 0 ? (
                   <p className="text-[11px] text-amber-700">
@@ -3989,9 +4076,12 @@ export function DeliveryTicketEditor({
                   </p>
                 ) : null}
                 {totalWeight > 0 ? (
-                  <p className="text-[11px] text-slate-500">
-                    Total weight {formatWeight(totalWeight)}
-                  </p>
+                  <div className="flex items-baseline justify-end gap-2 text-[11px] text-slate-500">
+                    <span>Total weight</span>
+                    <span className="w-24 text-right">
+                      {formatWeight(totalWeight)}
+                    </span>
+                  </div>
                 ) : null}
               </div>
             )}
