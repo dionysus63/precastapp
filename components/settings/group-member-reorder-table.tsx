@@ -11,6 +11,7 @@ import {
   removeProductGroupMemberFormAction,
   reorderProductGroupMembers,
 } from "@/app/settings/product-groups/actions";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 
 type MemberRow = {
   id: string;
@@ -156,7 +157,17 @@ export function GroupMemberReorderTable({
             <span className="min-w-0 flex-1 truncate text-slate-600" title={row.name}>
               {row.name}
             </span>
-            <form action={removeProductGroupMemberFormAction}>
+            <form
+              action={async (formData: FormData) => {
+                // Optimistic removal + reload: in-place RSC refreshes drop
+                // off-localhost (see lib/reload-after-action.ts).
+                setRows((current) =>
+                  current.filter((entry) => entry.id !== row.id),
+                );
+                await removeProductGroupMemberFormAction(formData);
+                reloadAfterAction();
+              }}
+            >
               <input type="hidden" name="id" value={row.id} />
               <button
                 type="submit"

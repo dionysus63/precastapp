@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { addProductGroupMembersFormAction } from "@/app/settings/product-groups/actions";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 
 type PickerProduct = { id: string; productCode: string; name: string };
 
@@ -51,6 +52,9 @@ export function GroupProductPicker({
   async function submitSelected(formData: FormData) {
     await addProductGroupMembersFormAction(formData);
     setSelected(new Set());
+    // Full reload: the Next fork drops in-place RSC refreshes off-localhost,
+    // so the member list/markers would otherwise stay stale.
+    reloadAfterAction();
   }
 
   return (

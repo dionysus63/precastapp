@@ -7,6 +7,7 @@ import {
 } from "@/app/settings/product-groups/actions";
 import { GroupProductPicker } from "@/components/settings/group-product-picker";
 import { GroupMemberReorderTable } from "@/components/settings/group-member-reorder-table";
+import { ReloadOnSubmitForm } from "@/components/settings/reload-on-submit-form";
 import { withDatabaseRetry } from "@/lib/prisma";
 import {
   tableBodyClassName,
@@ -48,7 +49,7 @@ function GroupEditor({
       }
     >
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <form
+        <ReloadOnSubmitForm
           action={updateProductGroupFormAction}
           className="flex flex-wrap items-end gap-2"
         >
@@ -90,8 +91,8 @@ function GroupEditor({
           >
             Save
           </button>
-        </form>
-        <form action={deleteProductGroupFormAction}>
+        </ReloadOnSubmitForm>
+        <ReloadOnSubmitForm action={deleteProductGroupFormAction}>
           <input type="hidden" name="id" value={group.id} />
           <button
             type="submit"
@@ -99,7 +100,7 @@ function GroupEditor({
           >
             {isSubGroup ? "Delete sub-group" : "Delete group"}
           </button>
-        </form>
+        </ReloadOnSubmitForm>
       </div>
 
       <details className="group/add mt-3 rounded-lg border border-slate-200">
@@ -200,7 +201,7 @@ export default async function ProductGroupsPage() {
         title="New group"
         description="Leave the parent blank for a top-level group, or pick one to create a sub-group inside it."
       >
-        <form
+        <ReloadOnSubmitForm
           action={createProductGroupFormAction}
           className="flex flex-wrap items-end gap-2"
         >
@@ -261,7 +262,7 @@ export default async function ProductGroupsPage() {
           >
             Create
           </button>
-        </form>
+        </ReloadOnSubmitForm>
       </SectionCard>
 
       {topLevel.length === 0 ? (
