@@ -103,46 +103,33 @@ export async function addProductGroupMembersFormAction(
   revalidatePath(PAGE_PATH);
 }
 
-/** Moves a member one step left/right in its group's display order. */
-export async function moveProductGroupMemberFormAction(
-  formData: FormData,
+/** Persists a drag-reorder: members take the position of their id in
+ * `orderedMemberIds`; ids added concurrently keep their place at the end. */
+export async function reorderProductGroupMembers(
+  groupId: string,
+  orderedMemberIds: string[],
 ): Promise<void> {
   await requirePermission(AppPermission.SETTINGS_MANAGE);
-  const id = String(formData.get("id") ?? "").trim();
-  const direction = String(formData.get("direction") ?? "").trim();
-  if (!id || (direction !== "up" && direction !== "down")) {
+  if (!groupId.trim() || orderedMemberIds.length === 0) {
     return;
   }
   await withDatabaseRetry(async (client) => {
-    const member = await client.productGroupMember.findUnique({
-      where: { id },
-      select: { id: true, groupId: true },
-    });
-    if (!member) {
-      return;
-    }
-    // Renumber 0..n-1 first so legacy all-zero rows get distinct positions,
-    // then swap with the neighbor.
     const members = await client.productGroupMember.findMany({
-      where: { groupId: member.groupId },
+      where: { groupId },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       select: { id: true },
     });
-    const index = members.findIndex((entry) => entry.id === id);
-    const target = direction === "up" ? index - 1 : index + 1;
-    if (index < 0 || target < 0 || target >= members.length) {
-      return;
-    }
-    const reordered = [...members];
-    [reordered[index], reordered[target]] = [
-      reordered[target]!,
-      reordered[index]!,
-    ];
+    const position = new Map(orderedMemberIds.map((id, index) => [id, index]));
+    const ordered = [...members].sort((a, b) => {
+      const aPos = position.get(a.id) ?? orderedMemberIds.length;
+      const bPos = position.get(b.id) ?? orderedMemberIds.length;
+      return aPos - bPos;
+    });
     await client.$transaction(
-      reordered.map((entry, position) =>
+      ordered.map((entry, index) =>
         client.productGroupMember.update({
           where: { id: entry.id },
-          data: { sortOrder: position },
+          data: { sortOrder: index },
         }),
       ),
     );

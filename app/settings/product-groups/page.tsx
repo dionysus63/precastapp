@@ -3,11 +3,10 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import {
   createProductGroupFormAction,
   deleteProductGroupFormAction,
-  moveProductGroupMemberFormAction,
-  removeProductGroupMemberFormAction,
   updateProductGroupFormAction,
 } from "@/app/settings/product-groups/actions";
 import { GroupProductPicker } from "@/components/settings/group-product-picker";
+import { GroupMemberReorderTable } from "@/components/settings/group-member-reorder-table";
 import { withDatabaseRetry } from "@/lib/prisma";
 import {
   tableBodyClassName,
@@ -103,69 +102,53 @@ function GroupEditor({
         </form>
       </div>
 
-      <GroupProductPicker
-        groupId={group.id}
-        products={productOptions}
-        memberProductIds={group.members.map((member) => member.product.id)}
-      />
+      <details className="group/add mt-3 rounded-lg border border-slate-200">
+        <summary className="flex cursor-pointer select-none items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 [&::-webkit-details-marker]:hidden">
+          <span
+            aria-hidden="true"
+            className="inline-block text-slate-400 transition-transform group-open/add:rotate-90"
+          >
+            ▸
+          </span>
+          Add products
+        </summary>
+        <div className="border-t border-slate-100 px-3 py-2">
+          <GroupProductPicker
+            groupId={group.id}
+            products={productOptions}
+            memberProductIds={group.members.map((member) => member.product.id)}
+          />
+        </div>
+      </details>
 
-      {group.members.length === 0 ? (
-        <p className="mt-2 text-xs text-slate-400">No products yet.</p>
-      ) : (
-        <>
-          <p className="mt-2 text-[11px] text-slate-400">
-            Products appear on the walk-in screen in this order — use ‹ › to
+      <details className="group/order mt-2 rounded-lg border border-slate-200">
+        <summary className="flex cursor-pointer select-none items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 [&::-webkit-details-marker]:hidden">
+          <span
+            aria-hidden="true"
+            className="inline-block text-slate-400 transition-transform group-open/order:rotate-90"
+          >
+            ▸
+          </span>
+          Rearrange / edit
+          <span className="font-normal text-slate-400">
+            {group.members.length} product{group.members.length === 1 ? "" : "s"}
+          </span>
+        </summary>
+        <div className="border-t border-slate-100 px-3 py-2">
+          <p className="mb-2 text-[11px] text-slate-400">
+            Products appear on the walk-in screen in this order — drag ⋮⋮ to
             rearrange.
           </p>
-          <ul className="mt-1.5 flex flex-wrap gap-1.5">
-            {group.members.map((member, index) => (
-              <li
-                key={member.id}
-                className="flex items-center gap-0.5 rounded-full border border-slate-200 bg-slate-50 py-0.5 pl-1 pr-1 text-xs text-slate-700"
-                title={member.product.name}
-              >
-                <form action={moveProductGroupMemberFormAction}>
-                  <input type="hidden" name="id" value={member.id} />
-                  <input type="hidden" name="direction" value="up" />
-                  <button
-                    type="submit"
-                    disabled={index === 0}
-                    aria-label={`Move ${member.product.productCode} earlier`}
-                    className="rounded-full px-1 text-slate-400 hover:bg-slate-200 hover:text-slate-900 disabled:opacity-30"
-                  >
-                    ‹
-                  </button>
-                </form>
-                <span className="px-0.5 font-medium">
-                  {member.product.productCode}
-                </span>
-                <form action={moveProductGroupMemberFormAction}>
-                  <input type="hidden" name="id" value={member.id} />
-                  <input type="hidden" name="direction" value="down" />
-                  <button
-                    type="submit"
-                    disabled={index === group.members.length - 1}
-                    aria-label={`Move ${member.product.productCode} later`}
-                    className="rounded-full px-1 text-slate-400 hover:bg-slate-200 hover:text-slate-900 disabled:opacity-30"
-                  >
-                    ›
-                  </button>
-                </form>
-                <form action={removeProductGroupMemberFormAction}>
-                  <input type="hidden" name="id" value={member.id} />
-                  <button
-                    type="submit"
-                    aria-label={`Remove ${member.product.productCode}`}
-                    className="rounded-full px-1 text-slate-400 hover:bg-slate-200 hover:text-red-600"
-                  >
-                    ×
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+          <GroupMemberReorderTable
+            groupId={group.id}
+            members={group.members.map((member) => ({
+              id: member.id,
+              productCode: member.product.productCode,
+              name: member.product.name,
+            }))}
+          />
+        </div>
+      </details>
     </div>
   );
 }

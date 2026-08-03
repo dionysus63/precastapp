@@ -60,7 +60,7 @@ export function GroupProductPicker({
           htmlFor={`group-search-${groupId}`}
           className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500"
         >
-          Add products — click to select, then add
+          Click products to select, then add
         </label>
         <form action={submitSelected}>
           <input type="hidden" name="groupId" value={groupId} />

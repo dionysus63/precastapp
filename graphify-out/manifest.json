@@ -3820,13 +3820,13 @@
     "semantic_hash": ""
   },
   "app/settings/product-groups/actions.ts": {
-    "mtime": 1785766840.042042,
-    "ast_hash": "c4804605b3f96d38718a090a940a49ff",
+    "mtime": 1785767947.618848,
+    "ast_hash": "1b65becc90a351d41e58b9e327e72a7e",
     "semantic_hash": ""
   },
   "app/settings/product-groups/page.tsx": {
-    "mtime": 1785766862.5152376,
-    "ast_hash": "d73771466d861995ca309f473005b4a3",
+    "mtime": 1785767995.645985,
+    "ast_hash": "84760505385e744a112f2bb9a8e01ffe",
     "semantic_hash": ""
   },
   "prisma/migrations/20260801110624_product_groups/migration.sql": {
@@ -3835,8 +3835,8 @@
     "semantic_hash": ""
   },
   "components/settings/group-product-picker.tsx": {
-    "mtime": 1785684829.7688503,
-    "ast_hash": "01b7d8f92f22ae809a341b0c1d95a683",
+    "mtime": 1785768008.8850977,
+    "ast_hash": "cdfa4ac92ba78a308bb89d84b49892d6",
     "semantic_hash": ""
   },
   "app/invoices/pdf-actions.ts": {
@@ -3852,6 +3852,11 @@
   "prisma/migrations/20260802101945_group_member_sort/migration.sql": {
     "mtime": 1785766794.347998,
     "ast_hash": "aa215ab7662125755b321dccbf2d4d8d",
+    "semantic_hash": ""
+  },
+  "components/settings/group-member-reorder-table.tsx": {
+    "mtime": 1785767970.6162086,
+    "ast_hash": "91d2f9ab5df13787d267c5859e7801ae",
     "semantic_hash": ""
   }
 }
