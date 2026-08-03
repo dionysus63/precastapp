@@ -71,7 +71,8 @@ export async function deleteProductGroupFormAction(
   revalidatePath(PAGE_PATH);
 }
 
-/** Adds every checked product in one submit (duplicates are skipped). */
+/** Adds every checked product in one submit (duplicates are skipped),
+ * appended after the group's existing members. */
 export async function addProductGroupMembersFormAction(
   formData: FormData,
 ): Promise<void> {
@@ -84,12 +85,68 @@ export async function addProductGroupMembersFormAction(
   if (!groupId || productIds.length === 0) {
     return;
   }
-  await withDatabaseRetry((client) =>
-    client.productGroupMember.createMany({
-      data: productIds.map((productId) => ({ groupId, productId })),
+  await withDatabaseRetry(async (client) => {
+    const last = await client.productGroupMember.aggregate({
+      where: { groupId },
+      _max: { sortOrder: true },
+    });
+    const start = (last._max.sortOrder ?? -1) + 1;
+    await client.productGroupMember.createMany({
+      data: productIds.map((productId, index) => ({
+        groupId,
+        productId,
+        sortOrder: start + index,
+      })),
       skipDuplicates: true,
-    }),
-  );
+    });
+  });
+  revalidatePath(PAGE_PATH);
+}
+
+/** Moves a member one step left/right in its group's display order. */
+export async function moveProductGroupMemberFormAction(
+  formData: FormData,
+): Promise<void> {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
+  const id = String(formData.get("id") ?? "").trim();
+  const direction = String(formData.get("direction") ?? "").trim();
+  if (!id || (direction !== "up" && direction !== "down")) {
+    return;
+  }
+  await withDatabaseRetry(async (client) => {
+    const member = await client.productGroupMember.findUnique({
+      where: { id },
+      select: { id: true, groupId: true },
+    });
+    if (!member) {
+      return;
+    }
+    // Renumber 0..n-1 first so legacy all-zero rows get distinct positions,
+    // then swap with the neighbor.
+    const members = await client.productGroupMember.findMany({
+      where: { groupId: member.groupId },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: { id: true },
+    });
+    const index = members.findIndex((entry) => entry.id === id);
+    const target = direction === "up" ? index - 1 : index + 1;
+    if (index < 0 || target < 0 || target >= members.length) {
+      return;
+    }
+    const reordered = [...members];
+    [reordered[index], reordered[target]] = [
+      reordered[target]!,
+      reordered[index]!,
+    ];
+    await client.$transaction(
+      reordered.map((entry, position) =>
+        client.productGroupMember.update({
+          where: { id: entry.id },
+          data: { sortOrder: position },
+        }),
+      ),
+    );
+  });
   revalidatePath(PAGE_PATH);
 }
 

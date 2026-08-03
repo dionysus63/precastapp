@@ -48,8 +48,8 @@ export type TicketProductOption = {
   unitPrice: number | null;
   /** FOB-yard price from the price list; null = same as unitPrice. */
   pickupPrice: number | null;
-  /** ProductGroup ids (groups and sub-groups) this product belongs to. */
-  groupIds: string[];
+  /** Group/sub-group memberships with their in-group display order. */
+  groupMemberships: { groupId: string; sortOrder: number }[];
   currentStock: number | null;
   trackInventory: boolean;
   categoryId: string;
@@ -1194,7 +1194,7 @@ export async function listStockProductsForTicket(
         subcategoryId: true,
         productCategory: { select: { name: true, sortOrder: true } },
         subcategory: { select: { name: true, sortOrder: true } },
-        groupMemberships: { select: { groupId: true } },
+        groupMemberships: { select: { groupId: true, sortOrder: true } },
       },
     }),
   );
@@ -1240,7 +1240,10 @@ export async function listStockProductsForTicket(
         priceEntry?.pickupPrice != null
           ? Number(priceEntry.pickupPrice.toString())
           : null,
-      groupIds: product.groupMemberships.map((member) => member.groupId),
+      groupMemberships: product.groupMemberships.map((member) => ({
+        groupId: member.groupId,
+        sortOrder: member.sortOrder,
+      })),
       currentStock: product.trackInventory ? product.currentStockQuantity : null,
       trackInventory: product.trackInventory,
       categoryId: product.categoryId,

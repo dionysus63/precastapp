@@ -3,6 +3,7 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import {
   createProductGroupFormAction,
   deleteProductGroupFormAction,
+  moveProductGroupMemberFormAction,
   removeProductGroupMemberFormAction,
   updateProductGroupFormAction,
 } from "@/app/settings/product-groups/actions";
@@ -111,27 +112,59 @@ function GroupEditor({
       {group.members.length === 0 ? (
         <p className="mt-2 text-xs text-slate-400">No products yet.</p>
       ) : (
-        <ul className="mt-2 flex flex-wrap gap-1.5">
-          {group.members.map((member) => (
-            <li
-              key={member.id}
-              className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 py-0.5 pl-2.5 pr-1 text-xs text-slate-700"
-              title={member.product.name}
-            >
-              <span className="font-medium">{member.product.productCode}</span>
-              <form action={removeProductGroupMemberFormAction}>
-                <input type="hidden" name="id" value={member.id} />
-                <button
-                  type="submit"
-                  aria-label={`Remove ${member.product.productCode}`}
-                  className="rounded-full px-1 text-slate-400 hover:bg-slate-200 hover:text-red-600"
-                >
-                  ×
-                </button>
-              </form>
-            </li>
-          ))}
-        </ul>
+        <>
+          <p className="mt-2 text-[11px] text-slate-400">
+            Products appear on the walk-in screen in this order — use ‹ › to
+            rearrange.
+          </p>
+          <ul className="mt-1.5 flex flex-wrap gap-1.5">
+            {group.members.map((member, index) => (
+              <li
+                key={member.id}
+                className="flex items-center gap-0.5 rounded-full border border-slate-200 bg-slate-50 py-0.5 pl-1 pr-1 text-xs text-slate-700"
+                title={member.product.name}
+              >
+                <form action={moveProductGroupMemberFormAction}>
+                  <input type="hidden" name="id" value={member.id} />
+                  <input type="hidden" name="direction" value="up" />
+                  <button
+                    type="submit"
+                    disabled={index === 0}
+                    aria-label={`Move ${member.product.productCode} earlier`}
+                    className="rounded-full px-1 text-slate-400 hover:bg-slate-200 hover:text-slate-900 disabled:opacity-30"
+                  >
+                    ‹
+                  </button>
+                </form>
+                <span className="px-0.5 font-medium">
+                  {member.product.productCode}
+                </span>
+                <form action={moveProductGroupMemberFormAction}>
+                  <input type="hidden" name="id" value={member.id} />
+                  <input type="hidden" name="direction" value="down" />
+                  <button
+                    type="submit"
+                    disabled={index === group.members.length - 1}
+                    aria-label={`Move ${member.product.productCode} later`}
+                    className="rounded-full px-1 text-slate-400 hover:bg-slate-200 hover:text-slate-900 disabled:opacity-30"
+                  >
+                    ›
+                  </button>
+                </form>
+                <form action={removeProductGroupMemberFormAction}>
+                  <input type="hidden" name="id" value={member.id} />
+                  <button
+                    type="submit"
+                    aria-label={`Remove ${member.product.productCode}`}
+                    className="rounded-full px-1 text-slate-400 hover:bg-slate-200 hover:text-red-600"
+                  >
+                    ×
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );
@@ -144,7 +177,8 @@ export default async function ProductGroupsPage() {
         orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
         include: {
           members: {
-            orderBy: { product: { productCode: "asc" } },
+            // Display order — the walk-in picker lists them the same way.
+            orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
             select: {
               id: true,
               product: {

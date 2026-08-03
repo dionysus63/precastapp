@@ -70,8 +70,8 @@ type ProductOption = {
   unitPrice?: number | null;
   /** FOB-yard price; null = pickup bills the delivered unitPrice. */
   pickupPrice?: number | null;
-  /** ProductGroup ids this product belongs to (walk-in picker filters). */
-  groupIds?: string[];
+  /** Group memberships with in-group order (walk-in picker filters). */
+  groupMemberships?: { groupId: string; sortOrder: number }[];
   currentStock?: number | null;
   trackInventory?: boolean;
   categoryId: string;
@@ -1218,8 +1218,8 @@ export function DeliveryTicketEditor({
   const productCountByGroupId = useMemo(() => {
     const map = new Map<string, number>();
     for (const product of products) {
-      for (const groupId of product.groupIds ?? []) {
-        map.set(groupId, (map.get(groupId) ?? 0) + 1);
+      for (const membership of product.groupMemberships ?? []) {
+        map.set(membership.groupId, (map.get(membership.groupId) ?? 0) + 1);
       }
     }
     return map;
@@ -1231,13 +1231,15 @@ export function DeliveryTicketEditor({
     ];
     const idSet = new Set(ids);
     return products.filter((product) =>
-      (product.groupIds ?? []).some((id) => idSet.has(id)),
+      (product.groupMemberships ?? []).some((membership) =>
+        idSet.has(membership.groupId),
+      ),
     ).length;
   };
 
   const walkInFiltered = useMemo(() => {
     const q = walkInSearch.trim().toLowerCase();
-    return products.filter((product) => {
+    const filtered = products.filter((product) => {
       if (walkInPickerMode === "categories") {
         if (
           walkInCategoryId !== "all" &&
@@ -1255,7 +1257,11 @@ export function DeliveryTicketEditor({
           }
         }
       } else if (groupFilterIds) {
-        if (!(product.groupIds ?? []).some((id) => groupFilterIds.has(id))) {
+        if (
+          !(product.groupMemberships ?? []).some((membership) =>
+            groupFilterIds.has(membership.groupId),
+          )
+        ) {
           return false;
         }
       }
@@ -1264,6 +1270,18 @@ export function DeliveryTicketEditor({
       }
       return true;
     });
+    if (walkInPickerMode !== "groups" || !groupFilterIds) {
+      return filtered;
+    }
+    // A group filter is active: list products in the order set on the group
+    // (Settings → Product Groups); ties keep the catalog code order.
+    const rank = (product: ProductOption) =>
+      Math.min(
+        ...(product.groupMemberships ?? [])
+          .filter((membership) => groupFilterIds.has(membership.groupId))
+          .map((membership) => membership.sortOrder),
+      );
+    return [...filtered].sort((a, b) => rank(a) - rank(b));
   }, [
     products,
     walkInSearch,

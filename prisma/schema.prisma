@@ -183,6 +183,8 @@ model ProductGroupMember {
   id        String   @id @default(cuid())
   groupId   String
   productId String
+  /// Display order inside the group — drives the walk-in picker's ordering.
+  sortOrder Int      @default(0)
   createdAt DateTime @default(now())
 
   group   ProductGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
