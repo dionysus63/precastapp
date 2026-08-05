@@ -147,6 +147,9 @@ export type QuoteLineFulfillment = {
   /** Delivery-charge SERVICE line ("Delivery — Zone 2") — freight, so it
    * stays off customer-pickup tickets. */
   isDeliveryService: boolean;
+  /** Galley family total awaiting its End/Middle/CB breakdown — never
+   * shippable as-is. */
+  isGalleyFamilyTotal?: boolean;
 };
 
 /**
@@ -1152,6 +1155,50 @@ async function buildFulfillmentFromContext(
       line.itemCode,
       line.description,
     );
+
+    // Galley family totals never ship as-is: the quote's End/Middle/CB
+    // breakdown replaces them with real product lines first.
+    if (line.galleyFamilyCode && !line.productId) {
+      const quotedQty = Number(line.quantity);
+      result.push({
+        quoteLineItemId: line.id,
+        lineNumber: line.lineNumber,
+        lineType: line.lineType,
+        itemCode: line.itemCode,
+        description: toPlainDescription(line.description),
+        displayName: resolveDisplayName(line),
+        unit: line.unit || "EA",
+        weightEach: resolveWeightEach(line),
+        quotedQty,
+        shippedQty: 0,
+        remainingQty: quotedQty,
+        eligible: false,
+        eligibilityReason:
+          "Break down into End / Middle / CB on the quote first",
+        madeSoFarQty: null,
+        jobStructureId: null,
+        jobStructureStatus: null,
+        productId: null,
+        currentStock: null,
+        isDrainRing: false,
+        ringDiameterFeet: null,
+        poolHeightFeet: null,
+        drainRingStyle: "DRAIN",
+        drainRingOptions: [],
+        isCastingAssembly: false,
+        castingComponentOptions: [],
+        isAdsPipe: false,
+        adsPipeOptions: [],
+        isSplitStructure: false,
+        structurePieceOptions: [],
+        quotedUnitPrice,
+        pickupUnitPrice,
+        isDeliveryService,
+        isGalleyFamilyTotal: true,
+      });
+      continue;
+    }
+
     if (isQuoteLineDrainRing(line)) {
       const diameter = line.ringDiameterFeet
         ? Number(line.ringDiameterFeet)

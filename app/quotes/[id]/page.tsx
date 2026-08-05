@@ -3,6 +3,7 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { QuoteDetailContent } from "@/components/quotes/quote-detail-content";
 import { mapQuoteToDetailView } from "@/lib/quote-mapper";
 import { getAppSettings } from "@/lib/app-settings";
+import { buildGalleyBreakdownViews } from "@/lib/galley-service";
 import { buildQuoteAttachmentFilename } from "@/lib/quote-pdf-persist";
 import { submittalProductInclude } from "@/lib/submittal-package";
 import { withDatabaseRetry } from "@/lib/prisma";
@@ -102,6 +103,9 @@ export default async function QuoteDetailPage({
     buildQuoteAttachmentFilename(quote, `quote-${quote.quoteNumber}`, prisma),
   );
   const appSettings = await getAppSettings();
+  const galleyBreakdowns = await withDatabaseRetry((prisma) =>
+    buildGalleyBreakdownViews(prisma, quote),
+  );
 
   return (
     <DashboardShell title={detail.title} subtitle={detail.subtitle}>
@@ -110,6 +114,7 @@ export default async function QuoteDetailPage({
         pdfFileName={pdfFileName}
         autoOpenSend={send === "1"}
         defaultTaxRatePercent={appSettings.defaultTaxRate}
+        galleyBreakdowns={galleyBreakdowns}
       />
     </DashboardShell>
   );

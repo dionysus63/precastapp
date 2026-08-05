@@ -93,6 +93,16 @@ enum DrainRingStyle {
   SOLID
 }
 
+/// Position of a Storm Leaching Galley SKU within its height family
+/// (End / Middle / Catch Basin). Members of a family share a
+/// galleyFamilyCode (e.g. "LGD-40") plus price and weight, so quotes can
+/// carry a family total that is broken into types on award.
+enum GalleyType {
+  END
+  MIDDLE
+  CB
+}
+
 enum CastingSupplierOrigin {
   DOMESTIC
   IMPORTED
@@ -235,6 +245,9 @@ model Product {
   heightFeet           Decimal?        @db.Decimal(6, 2)
   ringDiameterFeet     Decimal?        @db.Decimal(6, 2)
   drainRingStyle       DrainRingStyle  @default(DRAIN)
+  /// Groups End/Middle/CB galley SKUs into one height family (e.g. "LGD-40").
+  galleyFamilyCode     String?
+  galleyType           GalleyType?
   isCasting                 Boolean          @default(false)
   castingRole               CastingRole?
   castingPieceRole          CastingPieceRole?
@@ -272,6 +285,7 @@ model Product {
   @@index([productKind])
   @@index([castingSoldAsUnit])
   @@index([isDrainRing, ringDiameterFeet, drainRingStyle])
+  @@index([galleyFamilyCode])
   @@index([isCasting])
   @@index([castingRole])
   @@index([castingSupplierId])
@@ -1217,6 +1231,9 @@ model QuoteLineItem {
   ringDiameterFeet Decimal?       @db.Decimal(6, 2)
   poolHeightFeet   Decimal?       @db.Decimal(6, 2)
   drainRingStyle        DrainRingStyle @default(DRAIN)
+  /// Galley family-total line (productId null): the quoted count for one
+  /// height family, broken into End/Middle/CB product lines on award.
+  galleyFamilyCode      String?
   structureConfigJson   Json?
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt

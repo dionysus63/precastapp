@@ -97,6 +97,8 @@ export type EditableQuoteLineItem = {
   ringDiameterFeet?: number | null;
   poolHeightFeet?: number | null;
   drainRingStyle?: "DRAIN" | "SANITARY" | "SOLID";
+  /** Galley family-total line (no productId): broken into types on award. */
+  galleyFamilyCode?: string | null;
   structureConfig?: QuoteStructureConfig | null;
   rectStructureConfig?: RectQuoteStructureConfig | null;
   costBreakdown?: CustomStructureCostItem[] | null;
@@ -184,6 +186,9 @@ export type QuoteFormProductOption = {
   isCastingComponent?: boolean;
   castingOrigin?: "DOMESTIC" | "IMPORTED" | null;
   castingSoldAsUnit?: boolean;
+  /** Synthetic galley family option (id is not a productId): quotes a
+   * family-total line that is broken into E/M/CB on award. */
+  galleyFamilyCode?: string | null;
 };
 
 export type QuotePipeProductOption = {

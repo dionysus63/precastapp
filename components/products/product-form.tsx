@@ -65,6 +65,8 @@ export type ProductFormValues = {
   heightFeet?: string;
   ringDiameterFeet?: string;
   drainRingStyle?: DrainRingStyle;
+  galleyFamilyCode?: string;
+  galleyType?: string;
   isCasting?: "yes" | "no";
   castingRole?: CastingRole | "";
   castingPieceRole?: CastingPieceRole | "";
@@ -767,6 +769,60 @@ export function ProductForm({
           </p>
         )}
       </div>
+
+      {productType === "STOCK_PRECAST" && productKind === "STANDARD" ? (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-medium text-slate-700">
+            Galley Family (optional)
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Storm Leaching Galley SKUs that share a height quote as one family
+            total, broken into End / Middle / CB on award. Leave blank for
+            everything else.
+          </p>
+          <div className="mt-4 grid gap-5 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="galleyFamilyCode"
+                className="block text-xs font-medium text-slate-700"
+              >
+                Family Code
+              </label>
+              <input
+                id="galleyFamilyCode"
+                name="galleyFamilyCode"
+                type="text"
+                defaultValue={defaultValues?.galleyFamilyCode ?? ""}
+                placeholder="LGD-40"
+                className={productInputClassName}
+              />
+              <p className="mt-2 text-xs text-slate-500">
+                Same code on all three SKUs of a height (e.g. LGD-40,
+                LGD-40-OT).
+              </p>
+            </div>
+            <div>
+              <label
+                htmlFor="galleyType"
+                className="block text-xs font-medium text-slate-700"
+              >
+                Galley Type
+              </label>
+              <select
+                id="galleyType"
+                name="galleyType"
+                defaultValue={defaultValues?.galleyType ?? ""}
+                className={productInputClassName}
+              >
+                <option value="">Not a galley</option>
+                <option value="END">One End</option>
+                <option value="MIDDLE">Middle</option>
+                <option value="CB">CB</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {productKind === "DRAIN_RING" ? (
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">

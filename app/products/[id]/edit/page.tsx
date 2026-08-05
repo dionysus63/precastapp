@@ -114,6 +114,8 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
                   ? product.ringDiameterFeet.toString()
                   : "",
                 drainRingStyle: product.drainRingStyle,
+                galleyFamilyCode: product.galleyFamilyCode ?? "",
+                galleyType: product.galleyType ?? "",
                 isCasting: product.isCasting ? "yes" : "no",
                 castingRole: product.castingRole ?? "",
                 castingPieceRole: product.castingPieceRole ?? "",

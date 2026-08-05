@@ -750,6 +750,7 @@ export function QuoteForm({
         ringDiameterFeet: line.ringDiameterFeet ?? null,
         poolHeightFeet: line.poolHeightFeet ?? null,
         drainRingStyle: line.drainRingStyle ?? "DRAIN",
+        galleyFamilyCode: line.galleyFamilyCode ?? null,
         structureConfigJson:
           line.type === "CUSTOM_STRUCTURE"
             ? serializeCustomStructureConfig(line.costBreakdown)
@@ -1279,16 +1280,24 @@ export function QuoteForm({
         id: createLineId(),
         lineNumber: 0,
         type: "STOCK_PRODUCT" as const,
-        typeLabel: quoteLineItemTypeLabels.STOCK_PRODUCT,
+        typeLabel: product.galleyFamilyCode
+          ? "Galley Total"
+          : quoteLineItemTypeLabels.STOCK_PRODUCT,
         item: product.code,
-        description: product.description,
+        // Family totals print the plain family name; the picker's
+        // "(End/Middle/CB split on award)" hint is internal.
+        description: product.galleyFamilyCode
+          ? product.name
+          : product.description,
         qty: String(qty),
         unit: product.unit,
         unitPrice: String(product.unitPrice),
         weight: product.weightLb > 0 ? String(product.weightLb) : "",
         yards: product.yards > 0 ? String(product.yards) : "",
         taxable: product.taxable,
-        productId: product.id,
+        // Family options are synthetic — their id is not a productId.
+        productId: product.galleyFamilyCode ? null : product.id,
+        galleyFamilyCode: product.galleyFamilyCode ?? null,
       })),
     );
   }

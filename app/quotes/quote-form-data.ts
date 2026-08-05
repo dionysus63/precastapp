@@ -33,6 +33,8 @@ export const QUOTE_PRODUCT_OPTION_SELECT = {
   castingRole: true,
   castingSoldAsUnit: true,
   manufacturerCode: true,
+  galleyFamilyCode: true,
+  galleyType: true,
   productCategory: {
     select: { name: true },
   },

@@ -37,6 +37,10 @@ import {
   parseDrainRingStyle,
   type DrainRingStyle,
 } from "@/lib/drain-ring-utils";
+import {
+  makeGalleyFamilyOptionId,
+  stripGalleyTypeSuffix,
+} from "@/lib/galley-utils";
 import { generateQuoteNumber } from "@/lib/quote-number";
 import { promoteJobStatus } from "@/lib/job-status-workflow";
 import { linkPlanSheetToQuote } from "@/app/quotes/plan-sheet-actions";
@@ -81,6 +85,8 @@ export type CreateQuoteLineItemInput = {
   ringDiameterFeet?: number | null;
   poolHeightFeet?: number | null;
   drainRingStyle?: DrainRingStyle;
+  /** Family-total galley line: productId stays null until award breakdown. */
+  galleyFamilyCode?: string | null;
   structureConfigJson?: Record<string, unknown> | null;
 };
 
@@ -203,6 +209,19 @@ function validateCreateQuoteInput(input: CreateQuoteInput) {
         `Line ${line.lineNumber}`,
       );
     }
+
+    if (line.galleyFamilyCode) {
+      if (line.productId) {
+        throw new Error(
+          `Line ${line.lineNumber}: a galley family total cannot also reference a specific product.`,
+        );
+      }
+      if (!Number.isInteger(line.quantity)) {
+        throw new Error(
+          `Line ${line.lineNumber}: galley quantity must be a whole number.`,
+        );
+      }
+    }
   }
 
   if (!QUOTE_STATUSES.includes(input.status)) {
@@ -211,6 +230,31 @@ function validateCreateQuoteInput(input: CreateQuoteInput) {
 
   if (!QUOTE_TYPES.includes(input.quoteType)) {
     throw new Error("Invalid quote type.");
+  }
+}
+
+/** Every family-total line must point at a family that still has active SKUs. */
+async function assertGalleyFamiliesExist(input: CreateQuoteInput) {
+  const codes = [
+    ...new Set(
+      input.lineItems
+        .map((line) => line.galleyFamilyCode)
+        .filter((code): code is string => Boolean(code)),
+    ),
+  ];
+  if (codes.length === 0) {
+    return;
+  }
+  const { loadGalleyFamilies } = await import("@/lib/galley-service");
+  const families = await withDatabaseRetry((client) =>
+    loadGalleyFamilies(client, codes),
+  );
+  for (const code of codes) {
+    if (!families.has(code)) {
+      throw new Error(
+        `Galley family "${code}" has no active products — check the product catalog.`,
+      );
+    }
   }
 }
 
@@ -314,6 +358,7 @@ export async function createQuote(
   const actor = await requirePermission(AppPermission.QUOTES_MANAGE);
   try {
     validateCreateQuoteInput(input);
+    await assertGalleyFamiliesExist(input);
 
     let quoteNumber = await generateQuoteNumber(prisma, {
       jobNumber: input.jobNumber,
@@ -445,6 +490,9 @@ export async function createQuote(
             drainRingStyle: line.isDrainRing
               ? parseDrainRingStyle(line.drainRingStyle ?? "DRAIN")
               : "DRAIN",
+            galleyFamilyCode: line.productId
+              ? null
+              : (line.galleyFamilyCode ?? null),
             structureConfigJson:
               line.structureConfigJson != null
                 ? (line.structureConfigJson as Prisma.InputJsonValue)
@@ -516,6 +564,7 @@ export async function updateQuote(
 
   try {
     validateCreateQuoteInput(input);
+    await assertGalleyFamiliesExist(input);
 
     const existing = await withDatabaseRetry((client) =>
       client.quote.findUnique({
@@ -784,6 +833,9 @@ export async function updateQuote(
                   drainRingStyle: line.isDrainRing
                     ? parseDrainRingStyle(line.drainRingStyle ?? "DRAIN")
                     : "DRAIN",
+                  galleyFamilyCode: line.productId
+                    ? null
+                    : (line.galleyFamilyCode ?? null),
                   structureConfigJson:
                     line.structureConfigJson != null
                       ? (line.structureConfigJson as Prisma.InputJsonValue)
@@ -1310,7 +1362,7 @@ export async function searchProductsForQuoteForm(
 
   if (kindFilter === "PHYSICAL") {
     // Match the previous page-level ordering: casting assemblies first.
-    return options.sort((a, b) => {
+    options.sort((a, b) => {
       if (a.isCastingAssembly && !b.isCastingAssembly) {
         return -1;
       }
@@ -1319,9 +1371,83 @@ export async function searchProductsForQuoteForm(
       }
       return a.code.localeCompare(b.code);
     });
+    return injectGalleyFamilyOptions(options, products);
   }
 
   return options;
+}
+
+/**
+ * Prepends one synthetic "family total" option ahead of each galley trio in
+ * the picker results. The estimator quotes the total count per height; the
+ * End/Middle/CB split happens on award. Individual SKUs stay listed for
+ * direct quoting.
+ */
+function injectGalleyFamilyOptions(
+  options: QuoteFormProductOption[],
+  products: Array<{
+    id: string;
+    name: string;
+    unit: string;
+    taxable: boolean;
+    galleyFamilyCode: string | null;
+    galleyType: string | null;
+  }>,
+): QuoteFormProductOption[] {
+  const familyByCode = new Map<
+    string,
+    { name: string; memberIds: string[] }
+  >();
+  for (const product of products) {
+    if (!product.galleyFamilyCode || !product.galleyType) {
+      continue;
+    }
+    const family = familyByCode.get(product.galleyFamilyCode) ?? {
+      name: stripGalleyTypeSuffix(product.name),
+      memberIds: [],
+    };
+    family.memberIds.push(product.id);
+    familyByCode.set(product.galleyFamilyCode, family);
+  }
+  if (familyByCode.size === 0) {
+    return options;
+  }
+
+  const optionById = new Map(options.map((option) => [option.id, option]));
+  const result: QuoteFormProductOption[] = [];
+  const injected = new Set<string>();
+  for (const option of options) {
+    const memberProduct = products.find((product) => product.id === option.id);
+    const familyCode = memberProduct?.galleyFamilyCode ?? null;
+    if (familyCode && !injected.has(familyCode)) {
+      injected.add(familyCode);
+      const family = familyByCode.get(familyCode)!;
+      const members = family.memberIds
+        .map((id) => optionById.get(id))
+        .filter((member): member is QuoteFormProductOption => Boolean(member));
+      // Members share price/weight by convention; max() keeps a stray
+      // mismatch from underquoting.
+      const unitPrice = Math.max(0, ...members.map((member) => member.unitPrice));
+      const weightLb = Math.max(0, ...members.map((member) => member.weightLb));
+      const yards = Math.max(0, ...members.map((member) => member.yards));
+      result.push({
+        id: makeGalleyFamilyOptionId(familyCode),
+        code: familyCode,
+        name: family.name,
+        description: `${family.name} — total count (End/Middle/CB split on award)`,
+        category: option.category,
+        subcategory: option.subcategory,
+        unit: option.unit,
+        unitPrice,
+        weightLb,
+        yards,
+        taxable: option.taxable,
+        galleyFamilyCode: familyCode,
+      });
+    }
+    result.push(option);
+  }
+  return result;
 }
 
 export async function reloadQuoteFormPriceOptions(priceListId: string | null) {

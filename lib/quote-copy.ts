@@ -42,6 +42,7 @@ type LineItemSource = {
   ringDiameterFeet: Prisma.Decimal | null;
   poolHeightFeet: Prisma.Decimal | null;
   drainRingStyle: string;
+  galleyFamilyCode?: string | null;
   structureConfigJson?: Prisma.JsonValue | null;
 };
 
@@ -144,6 +145,7 @@ export function mapLineItemForCreate(
     drainRingStyle: line.isDrainRing
       ? parseDrainRingStyle(line.drainRingStyle)
       : "DRAIN",
+    galleyFamilyCode: line.galleyFamilyCode ?? null,
     // Structure workbook configs must survive copies/revisions — losing them
     // would strand the drill-sheet workflow on the new quote's lines.
     ...(line.structureConfigJson != null

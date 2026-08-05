@@ -101,6 +101,7 @@ export type QuoteLineItemRecord = {
   ringDiameterFeet?: { toString(): string } | null;
   poolHeightFeet?: { toString(): string } | null;
   drainRingStyle?: DrainRingStyle;
+  galleyFamilyCode?: string | null;
   structureConfigJson?: unknown;
   jobStructureId?: string | null;
   product?: {
@@ -330,6 +331,10 @@ function formatQuoteLineTypeLabel(line: QuoteLineItemRecord): string {
   if (line.isDrainRing) {
     const style = formatDrainRingStyleLabel(line.drainRingStyle ?? "DRAIN");
     return `Ring (${style})`;
+  }
+
+  if (line.galleyFamilyCode && !line.productId) {
+    return "Galley Total";
   }
 
   return mapLineTypeLabel(line.lineType);
@@ -629,6 +634,10 @@ export function mapQuoteToFormInitialValues(
         ? Number.parseFloat(line.poolHeightFeet.toString())
         : null,
       drainRingStyle: (line.drainRingStyle ?? "DRAIN") as DrainRingStyle,
+      galleyFamilyCode:
+        line.galleyFamilyCode && !line.productId
+          ? line.galleyFamilyCode
+          : null,
       structureConfig:
         line.lineType === "CONFIGURABLE_STRUCTURE"
           ? parseStructureConfigJson(line.structureConfigJson)

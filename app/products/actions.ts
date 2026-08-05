@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import {
   Prisma,
   AppPermission,
+  GalleyType,
   ProductKind,
   ProductStatus,
   ProductType,
@@ -225,6 +226,42 @@ function createFormProfileReader(formData: FormData): ProfileFieldReader {
   };
 }
 
+/**
+ * Galley family tagging (Storm Leaching Galley E/M/CB trios). Both fields
+ * travel together: a family code without a type (or vice versa) is a data
+ * hazard for the quote-form family picker, so reject half-filled pairs.
+ * Non-standard kinds (rings, castings, pipe) never carry galley fields.
+ */
+function parseGalleyFieldsFromForm(
+  formData: FormData,
+  productKind: ProductKind,
+): { galleyFamilyCode: string | null; galleyType: GalleyType | null } {
+  if (productKind !== "STANDARD") {
+    return { galleyFamilyCode: null, galleyType: null };
+  }
+
+  const familyCode =
+    String(formData.get("galleyFamilyCode") ?? "").trim() || null;
+  const typeRaw = String(formData.get("galleyType") ?? "").trim();
+  const galleyType =
+    typeRaw === "END" || typeRaw === "MIDDLE" || typeRaw === "CB"
+      ? (typeRaw as GalleyType)
+      : null;
+
+  if (familyCode && !galleyType) {
+    throw new Error(
+      "Pick a galley type (One End / Middle / CB) or clear the family code.",
+    );
+  }
+  if (!familyCode && galleyType) {
+    throw new Error(
+      "Enter the galley family code (e.g. LGD-40) or set the type back to “Not a galley”.",
+    );
+  }
+
+  return { galleyFamilyCode: familyCode, galleyType };
+}
+
 function resolveProductKindFromForm(formData: FormData): ProductKind {
   const explicit = parseProductKind(String(formData.get("productKind") ?? ""));
   if (explicit) {
@@ -333,6 +370,8 @@ async function parseProductFormData(formData: FormData) {
     productType,
   );
 
+  const galley = parseGalleyFieldsFromForm(formData, productKind);
+
   return {
     productCode,
     name,
@@ -356,6 +395,8 @@ async function parseProductFormData(formData: FormData) {
     heightFeet: toDecimal(profile.heightFeet),
     ringDiameterFeet: toDecimal(profile.ringDiameterFeet),
     drainRingStyle: profile.drainRingStyle,
+    galleyFamilyCode: galley.galleyFamilyCode,
+    galleyType: galley.galleyType,
     isCasting: legacy.isCasting,
     castingRole: profile.castingRole,
     castingPieceRole: profile.castingPieceRole,

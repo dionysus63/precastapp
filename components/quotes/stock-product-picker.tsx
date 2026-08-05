@@ -211,6 +211,11 @@ export function StockProductPicker({
                         </div>
                         <p className="mt-0.5 text-xs leading-snug text-slate-600">
                           {product.description}
+                          {product.galleyFamilyCode ? (
+                            <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 ring-1 ring-inset ring-amber-200">
+                              Split on award
+                            </span>
+                          ) : null}
                           {product.castingOrigin ? (
                             <span className="ml-1.5 rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 ring-1 ring-inset ring-zinc-200">
                               {formatCastingSupplierOriginLabel(

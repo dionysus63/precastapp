@@ -23,7 +23,9 @@ import { JobStructureSubmittalActions } from "@/components/jobs/job-structure-su
 import { StructureManageLink } from "@/components/jobs/structure-manage-link";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { CustomStructureDetailBreakdown } from "@/components/quotes/custom-structure-cost-breakdown";
+import { GalleyBreakdownBanner } from "@/components/quotes/galley-breakdown";
 import type { QuoteDetailView } from "@/components/quotes/quote-utils";
+import type { GalleyBreakdownView } from "@/lib/galley-utils";
 import { isCategoryLineItem } from "@/lib/quotes/constants";
 
 import {
@@ -117,6 +119,8 @@ type QuoteDetailContentProps = {
   autoOpenSend?: boolean;
   /** App default rate — what "un-exempt" restores. */
   defaultTaxRatePercent: number;
+  /** Won-quote galley family breakdown state (empty for other statuses). */
+  galleyBreakdowns?: GalleyBreakdownView[];
 };
 
 export function QuoteDetailContent({
@@ -124,6 +128,7 @@ export function QuoteDetailContent({
   pdfFileName,
   autoOpenSend = false,
   defaultTaxRatePercent,
+  galleyBreakdowns = [],
 }: QuoteDetailContentProps) {
   const backHref = quote.jobId
     ? `/jobs/${quote.jobId}?tab=quotes`
@@ -458,6 +463,13 @@ export function QuoteDetailContent({
             Open {quote.supersededBy.quoteNumber} ({quote.supersededBy.revision})
           </Link>
         </div>
+      ) : null}
+
+      {!quote.supersededBy && galleyBreakdowns.length > 0 ? (
+        <GalleyBreakdownBanner
+          quoteId={quote.id}
+          families={galleyBreakdowns}
+        />
       ) : null}
 
       <SectionCard title="Line Items" noPadding>
