@@ -258,9 +258,19 @@ export async function seedLogoFromPdf(sourcePath: string) {
   return destPath;
 }
 
-export async function getCompanyLogoUpdatedAt(): Promise<number | null> {
-  const logoPath = await getCompanyLogoPath();
+export async function getCompanyLogoUpdatedAt(
+  logoPathFromSettings?: string | null,
+): Promise<number | null> {
+  const logoPath =
+    logoPathFromSettings !== undefined
+      ? logoPathFromSettings?.trim() || null
+      : await getCompanyLogoPath();
+
   if (!logoPath) {
+    return null;
+  }
+
+  if (!(await pathExists(logoPath))) {
     return null;
   }
 

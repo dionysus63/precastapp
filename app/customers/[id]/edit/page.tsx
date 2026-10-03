@@ -48,12 +48,14 @@ export default async function EditCustomerPage({ params }: EditCustomerPageProps
               defaultValues={{
                 id: customer.id,
                 name: customer.name,
-                customerType: customer.customerType,
                 status: customer.status,
                 primaryContactName: customer.primaryContactName ?? "",
                 phone: customer.phone ?? "",
                 email: customer.email ?? "",
-                billingAddress: customer.billingAddress ?? "",
+                address: customer.address ?? "",
+                town: customer.town ?? "",
+                state: customer.state ?? "",
+                zip: customer.zip ?? "",
                 notes: customer.notes ?? "",
               }}
             />

@@ -12,13 +12,6 @@ datasource db {
   provider = "postgresql"
 }
 
-enum CustomerType {
-  COMMERCIAL
-  RESIDENTIAL
-  CONTRACTOR
-  OTHER
-}
-
 enum CustomerStatus {
   ACTIVE
   INACTIVE
@@ -86,6 +79,11 @@ enum ProductDocumentType {
   OTHER
 }
 
+enum DrainRingStyle {
+  DRAIN
+  SANITARY
+}
+
 model Product {
   id                   String        @id @default(cuid())
   productCode          String        @unique
@@ -105,7 +103,11 @@ model Product {
   yardLocation         String?
   status               ProductStatus @default(ACTIVE)
   notes                String?
-  createdAt            DateTime      @default(now())
+  isDrainRing          Boolean         @default(false)
+  heightFeet           Decimal?        @db.Decimal(6, 2)
+  ringDiameterFeet     Decimal?        @db.Decimal(6, 2)
+  drainRingStyle       DrainRingStyle  @default(DRAIN)
+  createdAt            DateTime        @default(now())
   updatedAt            DateTime      @updatedAt
 
   documents               ProductDocument[]
@@ -117,6 +119,8 @@ model Product {
   productionLines         DailyProductionLine[]
   priceListItems          PriceListItem[]
   invoiceLineItems        InvoiceLineItem[]
+
+  @@index([isDrainRing, ringDiameterFeet, drainRingStyle])
 }
 
 model ProductDocument {
@@ -137,17 +141,19 @@ model ProductDocument {
 }
 
 model Customer {
-  id                  String         @id @default(cuid())
-  name                String
-  customerType        CustomerType   @default(CONTRACTOR)
-  status              CustomerStatus @default(ACTIVE)
-  primaryContactName  String?
-  phone               String?
-  email               String?
-  billingAddress      String?
-  notes               String?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
+  id                 String         @id @default(cuid())
+  name               String
+  status             CustomerStatus @default(ACTIVE)
+  primaryContactName String?
+  phone              String?
+  email              String?
+  address            String?
+  town               String?
+  state              String?
+  zip                String?
+  notes              String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
   contacts        Contact[]
   jobs            Job[]
@@ -230,6 +236,7 @@ model JobFile {
 
   job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
+  @@unique([jobId, filePath])
   @@index([jobId])
 }
 
@@ -481,6 +488,10 @@ model QuoteLineItem {
   statusNote     String?
   sortOrder      Int           @default(0)
   notes          String?
+  isDrainRing      Boolean        @default(false)
+  ringDiameterFeet Decimal?       @db.Decimal(6, 2)
+  poolHeightFeet   Decimal?       @db.Decimal(6, 2)
+  drainRingStyle   DrainRingStyle @default(DRAIN)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
@@ -527,7 +538,7 @@ enum DeliveryItemStatus {
 }
 
 /// Delivery ticket for scheduling and tracking job deliveries.
-/// Ticket numbers follow DT-YY-### format (e.g. DT-26-001); generation logic to be added later.
+/// Ticket numbers follow DT##### format (e.g. DT10001); global sequence starting at 10001.
 model DeliveryTicket {
   id                     String               @id @default(cuid())
   ticketNumber           String               @unique
@@ -627,7 +638,7 @@ model DeliveryTicketLineItem {
   @@index([jobStructureId])
 }
 
-/// Per-year sequence counter for delivery ticket numbers (DT-YY-###).
+/// Global sequence counter for delivery ticket numbers (year=0 row; DT10001+).
 model DeliveryTicketSequence {
   id         String   @id @default(cuid())
   year       Int      @unique

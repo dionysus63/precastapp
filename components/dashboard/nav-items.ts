@@ -12,7 +12,7 @@ export const navItems: NavItem[] = [
   { label: "Quotes", href: "/quotes" },
   { label: "Production", href: "/production" },
   { label: "Invoices", href: "/invoices" },
-  { label: "Delivery Tickets", href: "/delivery-tickets" },
+  { label: "Delivery Hub", href: "/delivery-tickets" },
   { label: "Inventory", href: "/inventory" },
   { label: "Files", href: "/files" },
   { label: "Settings", href: "/settings" },

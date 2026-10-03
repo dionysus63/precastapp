@@ -12,6 +12,10 @@ import {
   productTypeHelperText,
   productUnitFormOptions,
 } from "@/components/products/product-utils";
+import {
+  diameterSupportsSanitaryDrainRing,
+  drainRingStyleFormOptions,
+} from "@/lib/drain-ring-utils";
 
 export type ProductFormValues = {
   productCode?: string;
@@ -27,8 +31,14 @@ export type ProductFormValues = {
   trackInventory?: "yes" | "no";
   currentStockQuantity?: string;
   reorderLevel?: string;
+  isDrainRing?: "yes" | "no";
+  heightFeet?: string;
+  ringDiameterFeet?: string;
+  drainRingStyle?: "DRAIN" | "SANITARY";
   notes?: string;
 };
+
+const drainRingDiameterOptions = ["4", "6", "8", "10", "12"];
 
 type ProductFormProps = {
   action: (formData: FormData) => Promise<void>;
@@ -46,6 +56,14 @@ export function ProductForm({
   const [productType, setProductType] = useState<ProductType>(
     defaultValues?.productType ?? "STOCK",
   );
+  const [isDrainRing, setIsDrainRing] = useState(
+    defaultValues?.isDrainRing === "yes",
+  );
+  const [ringDiameterFeet, setRingDiameterFeet] = useState(
+    defaultValues?.ringDiameterFeet ?? "10",
+  );
+  const showSanitaryStyle =
+    isDrainRing && diameterSupportsSanitaryDrainRing(Number(ringDiameterFeet));
 
   return (
     <form action={action} className="space-y-5">
@@ -316,6 +334,110 @@ export function ProductForm({
             className={productInputClassName}
           />
         </div>
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <div>
+          <label
+            htmlFor="isDrainRing"
+            className="block text-xs font-medium text-slate-700"
+          >
+            Ring
+          </label>
+          <select
+            id="isDrainRing"
+            name="isDrainRing"
+            value={isDrainRing ? "yes" : "no"}
+            onChange={(event) => setIsDrainRing(event.target.value === "yes")}
+            className={productInputClassName}
+          >
+            <option value="no">No</option>
+            <option value="yes">Yes — stocked ring SKU</option>
+          </select>
+          <p className="mt-2 text-xs text-slate-500">
+            Rings are quoted by total pool height (linear feet) but stocked and
+            shipped as individual rings. Set the ring height and pool diameter
+            so deliveries can credit feet back to the quote.
+          </p>
+        </div>
+
+        {isDrainRing ? (
+          <div className="mt-4 grid gap-5 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="ringDiameterFeet"
+                className="block text-xs font-medium text-slate-700"
+              >
+                Pool Diameter (ft)
+              </label>
+              <select
+                id="ringDiameterFeet"
+                name="ringDiameterFeet"
+                value={ringDiameterFeet}
+                onChange={(event) => setRingDiameterFeet(event.target.value)}
+                className={productInputClassName}
+              >
+                {drainRingDiameterOptions.map((diameter) => (
+                  <option key={diameter} value={diameter}>
+                    {diameter}'
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {showSanitaryStyle ? (
+              <div>
+                <label
+                  htmlFor="drainRingStyle"
+                  className="block text-xs font-medium text-slate-700"
+                >
+                  Style
+                </label>
+                <select
+                  id="drainRingStyle"
+                  name="drainRingStyle"
+                  defaultValue={defaultValues?.drainRingStyle ?? "DRAIN"}
+                  className={productInputClassName}
+                >
+                  {drainRingStyleFormOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-xs text-slate-500">
+                  Sanitary rings are available for 8&apos; and 10&apos; diameters
+                  only.
+                </p>
+              </div>
+            ) : (
+              <input type="hidden" name="drainRingStyle" value="DRAIN" />
+            )}
+
+            <div>
+              <label
+                htmlFor="heightFeet"
+                className="block text-xs font-medium text-slate-700"
+              >
+                Ring Height (ft)
+              </label>
+              <input
+                id="heightFeet"
+                name="heightFeet"
+                type="number"
+                min="0"
+                step="0.5"
+                defaultValue={defaultValues?.heightFeet ?? ""}
+                placeholder="4"
+                className={productInputClassName}
+              />
+              <p className="mt-2 text-xs text-slate-500">
+                Whole-foot heights for most diameters; 8' rings may use 6"
+                (0.5') increments.
+              </p>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div>

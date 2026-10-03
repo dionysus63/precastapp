@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { AppSettings, PrismaClient } from "@/app/generated/prisma/client";
 import { Prisma } from "@/app/generated/prisma/client";
 import {
@@ -135,10 +136,10 @@ async function ensureAppSettingsRow(client: PrismaClient): Promise<AppSettings> 
   });
 }
 
-export async function getAppSettings(): Promise<AppSettingsView> {
+export const getAppSettings = cache(async (): Promise<AppSettingsView> => {
   const row = await withDatabaseRetry((client) => ensureAppSettingsRow(client));
   return mapAppSettingsRow(row);
-}
+});
 
 export async function getCompanyProfile(): Promise<CompanyProfile> {
   const settings = await getAppSettings();

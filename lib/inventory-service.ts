@@ -1,6 +1,8 @@
 import type { PrismaClient } from "@/app/generated/prisma/client";
 import { Prisma } from "@/app/generated/prisma/client";
 
+type DbClient = PrismaClient | Prisma.TransactionClient;
+
 export type ProductionLineInput = {
   productId: string;
   quantityProduced: number;
@@ -88,7 +90,7 @@ export async function saveDailyProductionEntry(
  * Deduct stock when a delivery ticket is marked DELIVERED.
  */
 export async function deductInventoryForDeliveredTicket(
-  client: PrismaClient,
+  client: DbClient,
   deliveryTicketId: string,
   deliveredAt: Date,
   createdBy?: string | null,
@@ -107,39 +109,37 @@ export async function deductInventoryForDeliveredTicket(
     throw new Error("Delivery ticket not found.");
   }
 
-  await client.$transaction(async (tx) => {
-    for (const line of ticket.lineItems) {
-      if (!line.productId || !line.product?.trackInventory) {
-        continue;
-      }
-
-      const qty = line.quantity;
-      const negQty = qty.mul(-1);
-
-      await tx.inventoryTransaction.create({
-        data: {
-          productId: line.productId,
-          quantityChange: negQty,
-          transactionType: "DELIVERY",
-          transactionDate: deliveredAt,
-          referenceType: "DELIVERY_TICKET_LINE_ITEM",
-          referenceId: line.id,
-          createdBy: createdBy ?? null,
-        },
-      });
-
-      const newStock = line.product.currentStockQuantity - Number(qty);
-      await tx.product.update({
-        where: { id: line.productId },
-        data: { currentStockQuantity: Math.max(0, newStock) },
-      });
-
-      await tx.deliveryTicketLineItem.update({
-        where: { id: line.id },
-        data: { status: "DELIVERED" },
-      });
+  for (const line of ticket.lineItems) {
+    if (!line.productId || !line.product?.trackInventory) {
+      continue;
     }
-  });
+
+    const qty = line.quantity;
+    const negQty = qty.mul(-1);
+
+    await client.inventoryTransaction.create({
+      data: {
+        productId: line.productId,
+        quantityChange: negQty,
+        transactionType: "DELIVERY",
+        transactionDate: deliveredAt,
+        referenceType: "DELIVERY_TICKET_LINE_ITEM",
+        referenceId: line.id,
+        createdBy: createdBy ?? null,
+      },
+    });
+
+    const newStock = line.product.currentStockQuantity - Number(qty);
+    await client.product.update({
+      where: { id: line.productId },
+      data: { currentStockQuantity: newStock },
+    });
+
+    await client.deliveryTicketLineItem.update({
+      where: { id: line.id },
+      data: { status: "DELIVERED" },
+    });
+  }
 }
 
 /**
@@ -190,7 +190,7 @@ export async function adjustInventory(
     const newStock = product.currentStockQuantity + input.quantityChange;
     await tx.product.update({
       where: { id: input.productId },
-      data: { currentStockQuantity: Math.max(0, newStock) },
+      data: { currentStockQuantity: newStock },
     });
   });
 }
@@ -199,61 +199,71 @@ export async function adjustInventory(
  * Reverse stock deductions when a delivered ticket is cancelled.
  */
 export async function reverseInventoryForTicket(
-  client: PrismaClient,
+  client: DbClient,
   deliveryTicketId: string,
   transactionDate: Date,
   createdBy?: string | null,
 ): Promise<void> {
-  const existing = await client.inventoryTransaction.findMany({
-    where: {
-      referenceType: "DELIVERY_TICKET_LINE_ITEM",
-      transactionType: "DELIVERY",
-      referenceId: {
-        in: (
-          await client.deliveryTicketLineItem.findMany({
-            where: { deliveryTicketId },
-            select: { id: true },
-          })
-        ).map((l) => l.id),
+  const lineItemIds = (
+    await client.deliveryTicketLineItem.findMany({
+      where: { deliveryTicketId },
+      select: { id: true },
+    })
+  ).map((l) => l.id);
+
+  const [deliveries, reversals] = await Promise.all([
+    client.inventoryTransaction.findMany({
+      where: {
+        referenceType: "DELIVERY_TICKET_LINE_ITEM",
+        transactionType: "DELIVERY",
+        referenceId: { in: lineItemIds },
       },
-    },
-  });
+    }),
+    client.inventoryTransaction.findMany({
+      where: {
+        referenceType: "DELIVERY_TICKET_LINE_ITEM",
+        transactionType: "REVERSAL",
+        referenceId: { in: lineItemIds },
+      },
+      select: { referenceId: true },
+    }),
+  ]);
 
-  if (existing.length === 0) {
-    return;
-  }
+  // Skip line items already reversed so re-running this after a partial
+  // failure (e.g. the ticket status update fails after reversal) doesn't
+  // double-credit stock.
+  const reversedIds = new Set(reversals.map((r) => r.referenceId));
+  const existing = deliveries.filter((txn) => !reversedIds.has(txn.referenceId));
 
-  await client.$transaction(async (tx) => {
-    for (const txn of existing) {
-      const reversalQty = txn.quantityChange.mul(-1);
+  for (const txn of existing) {
+    const reversalQty = txn.quantityChange.mul(-1);
 
-      await tx.inventoryTransaction.create({
+    await client.inventoryTransaction.create({
+      data: {
+        productId: txn.productId,
+        quantityChange: reversalQty,
+        transactionType: "REVERSAL",
+        transactionDate,
+        referenceType: txn.referenceType,
+        referenceId: txn.referenceId,
+        notes: `Reversal of delivery ticket ${deliveryTicketId}`,
+        createdBy: createdBy ?? null,
+      },
+    });
+
+    const product = await client.product.findUnique({
+      where: { id: txn.productId },
+      select: { currentStockQuantity: true },
+    });
+
+    if (product) {
+      await client.product.update({
+        where: { id: txn.productId },
         data: {
-          productId: txn.productId,
-          quantityChange: reversalQty,
-          transactionType: "REVERSAL",
-          transactionDate,
-          referenceType: txn.referenceType,
-          referenceId: txn.referenceId,
-          notes: `Reversal of delivery ticket ${deliveryTicketId}`,
-          createdBy: createdBy ?? null,
+          currentStockQuantity:
+            product.currentStockQuantity + Number(reversalQty),
         },
       });
-
-      const product = await tx.product.findUnique({
-        where: { id: txn.productId },
-        select: { currentStockQuantity: true },
-      });
-
-      if (product) {
-        await tx.product.update({
-          where: { id: txn.productId },
-          data: {
-            currentStockQuantity:
-              product.currentStockQuantity + Number(reversalQty),
-          },
-        });
-      }
     }
-  });
+  }
 }

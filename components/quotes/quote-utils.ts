@@ -523,7 +523,13 @@ export type EditableQuoteLineItem = {
   taxable: boolean;
   productId?: string | null;
   statusNote?: string | null;
+  isDrainRing?: boolean;
+  ringDiameterFeet?: number | null;
+  poolHeightFeet?: number | null;
+  drainRingStyle?: "DRAIN" | "SANITARY";
 };
+
+export const drainRingDiameterFeetOptions = [4, 6, 8, 10, 12];
 
 export type QuoteFormCustomerOption = {
   id: string;
@@ -580,6 +586,7 @@ export type QuoteFormProps = {
   configurableProducts: QuoteFormProductOption[];
   serviceOptions: QuoteFormServiceOption[];
   priceLists?: QuoteFormPriceListOption[];
+  initialJobId?: string;
   quoteDefaults?: {
     defaultTaxRate: number;
     defaultLeadTime: string | null;
@@ -779,6 +786,18 @@ export type QuoteDetailLineItem = {
   statusNotes: string;
 };
 
+export type QuoteRelatedStructure = {
+  id: string;
+  structureNumber: string;
+  description: string;
+  status: string;
+  statusLabel: string;
+  needsSubmittal: boolean;
+  documentCount: number;
+  jobId: string;
+  folderPath: string | null;
+};
+
 export type QuoteDetailView = {
   id: string;
   quoteNumber: string;
@@ -792,6 +811,7 @@ export type QuoteDetailView = {
   bidDueDate: string;
   revision: string;
   estimator: string;
+  jobId: string | null;
   jobNumber: string;
   projectName: string;
   projectAddress: string;
@@ -821,6 +841,7 @@ export type QuoteDetailView = {
     totalYards: string;
   };
   revisionHistory: { id: string; label: string }[];
+  relatedStructures: QuoteRelatedStructure[];
   relatedRecords: {
     jobNumber: string;
     customer: string;
@@ -845,6 +866,7 @@ export const sampleQuoteDetail: QuoteDetailView = {
   bidDueDate: "02/20/2026",
   revision: "R1",
   estimator: "Nick",
+  jobId: null,
   jobNumber: "26-002",
   projectName: "Suffolk Sewer Manholes",
   projectAddress: "Patchogue Road, Brookhaven, NY 11772",
@@ -946,6 +968,7 @@ export const sampleQuoteDetail: QuoteDetailView = {
     { id: "rev-3", label: "R1 revised after plan change" },
     { id: "rev-4", label: "R1 sent to customer" },
   ],
+  relatedStructures: [],
   relatedRecords: {
     jobNumber: "26-002",
     customer: "Town of Brookhaven",

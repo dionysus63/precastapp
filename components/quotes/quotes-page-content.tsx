@@ -56,7 +56,8 @@ function matchesDueDateFilter(bidDueDate: string, dueDateFilter: string) {
   }
 
   const due = parseQuoteDate(bidDueDate);
-  const today = new Date(2026, 1, 20);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
   const weekEnd = new Date(today);
   weekEnd.setDate(today.getDate() + 7);
   const monthEnd = new Date(today);

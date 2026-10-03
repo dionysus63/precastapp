@@ -45,29 +45,31 @@ export async function linkJobStructuresFromQuote(
   let created = 0;
 
   for (const line of quote.lineItems) {
-    const structure = await client.jobStructure.create({
-      data: {
-        jobId: quote.jobId,
-        quoteId: quote.id,
-        productId: line.productId,
-        structureType: mapLineTypeToStructureType(line.lineType),
-        structureNumber: line.itemCode,
-        description: line.description,
-        quantity: line.quantity,
-        unit: line.unit,
-        weight: line.weight,
-        yards: line.yards,
-        status: "NOT_SUBMITTED",
-        needsCutSheet:
-          line.lineType === "CONFIGURABLE_STRUCTURE" ||
-          line.lineType === "CUSTOM_STRUCTURE",
-        needsSubmittal: line.lineType === "CUSTOM_STRUCTURE",
-      },
-    });
+    await client.$transaction(async (tx) => {
+      const structure = await tx.jobStructure.create({
+        data: {
+          jobId: quote.jobId,
+          quoteId: quote.id,
+          productId: line.productId,
+          structureType: mapLineTypeToStructureType(line.lineType),
+          structureNumber: line.itemCode,
+          description: line.description,
+          quantity: line.quantity,
+          unit: line.unit,
+          weight: line.weight,
+          yards: line.yards,
+          status: "NOT_SUBMITTED",
+          needsCutSheet:
+            line.lineType === "CONFIGURABLE_STRUCTURE" ||
+            line.lineType === "CUSTOM_STRUCTURE",
+          needsSubmittal: line.lineType === "CUSTOM_STRUCTURE",
+        },
+      });
 
-    await client.quoteLineItem.update({
-      where: { id: line.id },
-      data: { jobStructureId: structure.id },
+      await tx.quoteLineItem.update({
+        where: { id: line.id },
+        data: { jobStructureId: structure.id },
+      });
     });
 
     created += 1;
@@ -84,13 +86,16 @@ export async function setJobStructureStatus(
   const now = new Date();
   const data: {
     status: StructureStatus;
+    submittedDate?: Date;
     approvedDate?: Date;
     productionDate?: Date;
     madeDate?: Date;
     shippedDate?: Date;
   } = { status };
 
-  if (status === "APPROVED") {
+  if (status === "SUBMITTED") {
+    data.submittedDate = now;
+  } else if (status === "APPROVED") {
     data.approvedDate = now;
   } else if (status === "IN_PRODUCTION") {
     data.productionDate = now;
@@ -106,10 +111,83 @@ export async function setJobStructureStatus(
   });
 }
 
+export async function submitJobStructureForApproval(
+  client: PrismaClient,
+  jobStructureId: string,
+): Promise<void> {
+  const structure = await client.jobStructure.findUnique({
+    where: { id: jobStructureId },
+    select: { status: true, needsSubmittal: true },
+  });
+
+  if (!structure) {
+    throw new Error("Structure was not found.");
+  }
+
+  if (structure.status !== "NOT_SUBMITTED") {
+    throw new Error("Only not-submitted structures can be marked as submitted.");
+  }
+
+  if (structure.needsSubmittal) {
+    const { countJobSpecificSubmittals } = await import(
+      "@/lib/job-structure-documents-service"
+    );
+    const submittalCount = await countJobSpecificSubmittals(
+      client,
+      jobStructureId,
+    );
+    if (submittalCount === 0) {
+      throw new Error(
+        "Upload at least one job-specific submittal before marking as submitted.",
+      );
+    }
+  }
+
+  await setJobStructureStatus(client, jobStructureId, "SUBMITTED");
+}
+
 export async function approveJobStructureForProduction(
   client: PrismaClient,
   jobStructureId: string,
 ): Promise<void> {
+  const structure = await client.jobStructure.findUnique({
+    where: { id: jobStructureId },
+    select: { status: true, needsSubmittal: true },
+  });
+
+  if (!structure) {
+    throw new Error("Structure was not found.");
+  }
+
+  if (structure.needsSubmittal && structure.status !== "SUBMITTED") {
+    throw new Error(
+      "Structure must be submitted before it can be approved for production.",
+    );
+  }
+
+  if (
+    !structure.needsSubmittal &&
+    structure.status !== "SUBMITTED" &&
+    structure.status !== "NOT_SUBMITTED"
+  ) {
+    throw new Error("Structure cannot be approved from its current status.");
+  }
+
+  if (structure.needsSubmittal) {
+    const { countJobSpecificSubmittals } = await import(
+      "@/lib/job-structure-documents-service"
+    );
+    const submittalCount = await countJobSpecificSubmittals(
+      client,
+      jobStructureId,
+    );
+    if (submittalCount === 0) {
+      throw new Error(
+        "Upload at least one job-specific submittal before approving for production.",
+      );
+    }
+  }
+
   await setJobStructureStatus(client, jobStructureId, "APPROVED");
 }
 

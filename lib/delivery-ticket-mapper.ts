@@ -56,6 +56,13 @@ function formatDate(value: Date | null): string {
   });
 }
 
+function formatDateIsoLocal(value: Date): string {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function formatWeight(value: { toString(): string } | null): string {
   if (!value) return "—";
   return `${Number(value).toLocaleString()} lb`;
@@ -182,6 +189,7 @@ export function mapDbDeliveryTicketToListRow(ticket: {
   projectName: string;
   customerName: string;
   deliveryDate: Date | null;
+  deliveryTime: string | null;
   truck: string | null;
   driver: string | null;
   status: string;
@@ -198,6 +206,10 @@ export function mapDbDeliveryTicketToListRow(ticket: {
     projectName: ticket.projectName,
     customer: ticket.customerName,
     deliveryDate: formatDate(ticket.deliveryDate),
+    deliveryDateIso: ticket.deliveryDate
+      ? formatDateIsoLocal(ticket.deliveryDate)
+      : null,
+    deliveryTime: ticket.deliveryTime,
     truck: ticket.truck ?? "—",
     driver: ticket.driver ?? "—",
     status: ticket.status as DeliveryTicketRow["status"],

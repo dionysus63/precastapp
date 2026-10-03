@@ -380,11 +380,20 @@ export async function ensureYearSequencesAction(): Promise<SettingsActionResult>
 
 export async function syncAllJobFilesFromSettingsAction(): Promise<SettingsActionResult> {
   try {
-    await withDatabaseRetry((client) => syncAllJobFilesFromDisk(client));
+    const result = await withDatabaseRetry((client) =>
+      syncAllJobFilesFromDisk(client),
+    );
     revalidatePath("/files");
     revalidatePath("/settings");
     revalidatePath("/settings/system");
-    return { success: "Job files synced from disk." };
+    if (result.errors.length > 0) {
+      return {
+        success: `Synced ${result.synced} job folder(s). ${result.errors.length} job(s) failed — ${result.errors[0]?.message ?? "see logs"}.`,
+      };
+    }
+    return {
+      success: `Job files synced from disk (${result.synced} job folder(s)${result.skipped > 0 ? `, ${result.skipped} skipped` : ""}).`,
+    };
   } catch (error) {
     return {
       error:

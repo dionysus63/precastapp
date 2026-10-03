@@ -12,6 +12,12 @@ import {
   uploadProductDocument,
 } from "@/lib/product-submittals-service";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
+import {
+  assertSanitaryDrainRingAllowed,
+  isRecognizedBulkRingStyle,
+  parseBulkRingStyle,
+  parseDrainRingStyle,
+} from "@/lib/drain-ring-utils";
 import { launchWindowsFile, launchWindowsFolder } from "@/lib/windows-explorer";
 import { getStockSubmittalsRoot } from "@/lib/app-settings";
 
@@ -133,6 +139,36 @@ function parseProductFormData(formData: FormData) {
     0,
   );
 
+  const isDrainRing = String(formData.get("isDrainRing") ?? "no") === "yes";
+  const heightFeet = isDrainRing
+    ? parseOptionalNonNegativeDecimal(formData, "heightFeet", "Ring height")
+    : null;
+  const ringDiameterFeet = isDrainRing
+    ? parseOptionalNonNegativeDecimal(
+        formData,
+        "ringDiameterFeet",
+        "Pool diameter",
+      )
+    : null;
+
+  if (isDrainRing && (!heightFeet || !ringDiameterFeet)) {
+    throw new Error(
+      "Rings require both a ring height and a pool diameter.",
+    );
+  }
+
+  const drainRingStyle = isDrainRing
+    ? parseDrainRingStyle(String(formData.get("drainRingStyle") ?? "DRAIN"))
+    : "DRAIN";
+
+  if (isDrainRing) {
+    assertSanitaryDrainRingAllowed(
+      ringDiameterFeet ? Number(ringDiameterFeet) : null,
+      drainRingStyle,
+      "Product",
+    );
+  }
+
   return {
     productCode,
     name,
@@ -149,6 +185,10 @@ function parseProductFormData(formData: FormData) {
     reorderLevel,
     status,
     notes,
+    isDrainRing,
+    heightFeet,
+    ringDiameterFeet,
+    drainRingStyle,
   };
 }
 
@@ -171,6 +211,10 @@ type BulkImportRow = {
   weight: string;
   yards: string;
   trackInventory: string;
+  isDrainRing?: string;
+  ringDiameterFeet?: string;
+  heightFeet?: string;
+  ringStyle?: string;
 };
 
 function parseBulkNumeric(
@@ -216,6 +260,57 @@ function mapBulkImportRow(row: BulkImportRow, lineNumber: number) {
   }
   const trackInventory = inventoryValue !== "no";
 
+  const drainRingValue = String(row.isDrainRing ?? "").trim().toLowerCase();
+  const isDrainRing = drainRingValue === "yes";
+  if (
+    row.isDrainRing?.trim() &&
+    drainRingValue !== "yes" &&
+    drainRingValue !== "no"
+  ) {
+    throw new Error(
+      `Line ${lineNumber}: Ring must be "Yes" or "No".`,
+    );
+  }
+
+  const heightFeet = isDrainRing
+    ? parseBulkNumeric(
+        String(row.heightFeet ?? ""),
+        "Ring height",
+        lineNumber,
+      )
+    : null;
+  const ringDiameterFeet = isDrainRing
+    ? parseBulkNumeric(
+        String(row.ringDiameterFeet ?? ""),
+        "Pool diameter",
+        lineNumber,
+      )
+    : null;
+
+  if (isDrainRing && (!heightFeet || !ringDiameterFeet)) {
+    throw new Error(
+      `Line ${lineNumber}: Rings require both a pool diameter and ring height.`,
+    );
+  }
+
+  const drainRingStyle = isDrainRing
+    ? parseBulkRingStyle(String(row.ringStyle ?? ""))
+    : "DRAIN";
+
+  if (row.ringStyle?.trim() && !isRecognizedBulkRingStyle(row.ringStyle)) {
+    throw new Error(
+      `Line ${lineNumber}: Style must be "DRAIN", "SAN", or legacy "Yes"/"No".`,
+    );
+  }
+
+  if (isDrainRing) {
+    assertSanitaryDrainRingAllowed(
+      ringDiameterFeet ? Number(ringDiameterFeet) : null,
+      drainRingStyle,
+      `Line ${lineNumber}`,
+    );
+  }
+
   return {
     productCode,
     name,
@@ -232,10 +327,18 @@ function mapBulkImportRow(row: BulkImportRow, lineNumber: number) {
     reorderLevel: 0,
     status: "ACTIVE" as ProductStatus,
     notes: null,
+    isDrainRing,
+    heightFeet,
+    ringDiameterFeet,
+    drainRingStyle,
   };
 }
 
-export async function importProducts(formData: FormData) {
+export type ImportProductsResult = { imported: number };
+
+export async function importProducts(
+  formData: FormData,
+): Promise<ImportProductsResult> {
   const raw = String(formData.get("products") ?? "").trim();
   if (!raw) {
     throw new Error("No products to import.");
@@ -291,7 +394,7 @@ export async function importProducts(formData: FormData) {
   }
 
   revalidatePath("/products");
-  redirect("/products");
+  return { imported: products.length };
 }
 
 export type ProductExplorerOpenResult = {

@@ -12,6 +12,7 @@ import {
   type QuoteStatus,
   type QuoteType,
   DEFAULT_QUOTE_TAX_RATE,
+  drainRingDiameterFeetOptions,
   calculateQuoteTotals,
   formatQuoteCurrency,
   formatQuoteWeight,
@@ -28,6 +29,13 @@ import {
   quoteTypeFormOptions,
   quoteWorkflowSteps,
 } from "@/components/quotes/quote-utils";
+import {
+  diameterSupportsSanitaryDrainRing,
+  drainRingStyleFormOptions,
+  formatDrainRingPoolDescription,
+  formatRingQuoteItemCode,
+  type DrainRingStyle,
+} from "@/lib/drain-ring-utils";
 
 const quoteTableInputClassName =
   "w-full min-w-[4rem] rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 shadow-sm";
@@ -57,8 +65,12 @@ export function QuoteForm({
   configurableProducts,
   serviceOptions,
   priceLists = [],
+  initialJobId,
   quoteDefaults,
 }: QuoteFormProps) {
+  const initialJob = initialJobId
+    ? jobs.find((job) => job.id === initialJobId)
+    : undefined;
   const estimatorOptions =
     quoteDefaults?.estimators?.length
       ? quoteDefaults.estimators
@@ -75,15 +87,23 @@ export function QuoteForm({
 
   const [isPending, startTransition] = useTransition();
   const [lineItems, setLineItems] = useState<EditableQuoteLineItem[]>([]);
-  const [customerId, setCustomerId] = useState("");
-  const [customerName, setCustomerName] = useState("");
-  const [jobId, setJobId] = useState("");
-  const [jobNumber, setJobNumber] = useState("");
-  const [projectName, setProjectName] = useState("");
-  const [projectAddress, setProjectAddress] = useState("");
-  const [contactName, setContactName] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
-  const [contactPhone, setContactPhone] = useState("");
+  const [customerId, setCustomerId] = useState(initialJob?.customerId ?? "");
+  const [customerName, setCustomerName] = useState(
+    initialJob?.customerName ?? "",
+  );
+  const [jobId, setJobId] = useState(initialJob?.id ?? "");
+  const [jobNumber, setJobNumber] = useState(initialJob?.jobNumber ?? "");
+  const [projectName, setProjectName] = useState(initialJob?.projectName ?? "");
+  const [projectAddress, setProjectAddress] = useState(
+    initialJob?.projectAddress ?? "",
+  );
+  const [contactName, setContactName] = useState(initialJob?.contactName ?? "");
+  const [contactEmail, setContactEmail] = useState(
+    initialJob?.contactEmail ?? "",
+  );
+  const [contactPhone, setContactPhone] = useState(
+    initialJob?.contactPhone ?? "",
+  );
   const [status, setStatus] = useState<QuoteStatus>("DRAFT");
   const [quoteType, setQuoteType] = useState<QuoteType>("MIXED");
   const [estimator, setEstimator] = useState(initialEstimator);
@@ -126,6 +146,16 @@ export function QuoteForm({
   const [customUnitPrice, setCustomUnitPrice] = useState("");
   const [customWeight, setCustomWeight] = useState("");
   const [customYards, setCustomYards] = useState("");
+
+  const [drainRingModalOpen, setDrainRingModalOpen] = useState(false);
+  const [drainRingDiameter, setDrainRingDiameter] = useState("10");
+  const [drainRingPoolHeight, setDrainRingPoolHeight] = useState("20");
+  const [drainRingPoolCount, setDrainRingPoolCount] = useState("1");
+  const [drainRingPricePerFoot, setDrainRingPricePerFoot] = useState("0");
+  const [drainRingStyle, setDrainRingStyle] = useState<DrainRingStyle>("DRAIN");
+  const showDrainRingSanitaryStyle = diameterSupportsSanitaryDrainRing(
+    Number(drainRingDiameter),
+  );
 
   const [selectedServiceItem, setSelectedServiceItem] = useState(
     serviceOptions[0]?.item ?? "Delivery",
@@ -237,6 +267,10 @@ export function QuoteForm({
         total: getLineItemTotal(line),
         statusNote: line.statusNote ?? null,
         notes: null,
+        isDrainRing: line.isDrainRing ?? false,
+        ringDiameterFeet: line.ringDiameterFeet ?? null,
+        poolHeightFeet: line.poolHeightFeet ?? null,
+        drainRingStyle: line.drainRingStyle ?? "DRAIN",
       })),
       totals,
     };
@@ -450,6 +484,57 @@ export function QuoteForm({
       taxable: serviceTaxable,
       productId: service?.id ?? null,
     });
+  }
+
+  function handleAddDrainRing() {
+    const diameter = Number(drainRingDiameter);
+    const poolHeight = Number(drainRingPoolHeight);
+    const poolCount = Number(drainRingPoolCount);
+    const pricePerFoot = Number(drainRingPricePerFoot);
+
+    if (!Number.isFinite(diameter) || diameter <= 0) {
+      showFlash("error", "Choose a pool diameter for the ring line.");
+      return;
+    }
+    if (!Number.isFinite(poolHeight) || poolHeight <= 0) {
+      showFlash("error", "Pool height must be greater than zero.");
+      return;
+    }
+    if (!Number.isFinite(poolCount) || poolCount <= 0) {
+      showFlash("error", "Pool count must be greater than zero.");
+      return;
+    }
+
+    const totalFeet = Math.round(poolHeight * poolCount * 100) / 100;
+    const style: DrainRingStyle =
+      showDrainRingSanitaryStyle && drainRingStyle === "SANITARY"
+        ? "SANITARY"
+        : "DRAIN";
+    addLineItem({
+      id: createLineId(),
+      lineNumber: lineItems.length + 1,
+      type: "STOCK_PRODUCT",
+      typeLabel: "Ring",
+      item: formatRingQuoteItemCode(diameter, style),
+      description: formatDrainRingPoolDescription({
+        poolCount,
+        poolHeight,
+        diameter,
+        style,
+      }),
+      qty: String(totalFeet),
+      unit: "LF",
+      unitPrice: pricePerFoot ? String(pricePerFoot) : "0",
+      weight: "",
+      yards: "",
+      taxable: true,
+      productId: null,
+      isDrainRing: true,
+      ringDiameterFeet: diameter,
+      poolHeightFeet: poolHeight,
+      drainRingStyle: style,
+    });
+    setDrainRingModalOpen(false);
   }
 
   function updateLineItem(
@@ -946,6 +1031,13 @@ export function QuoteForm({
                     {option.label}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => setDrainRingModalOpen(true)}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  Add Ring Pool
+                </button>
               </div>
 
               <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
@@ -1741,6 +1833,146 @@ export function QuoteForm({
                 </div>
               </>
             ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {drainRingModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-4 shadow-lg">
+            <h3 className="text-sm font-semibold text-slate-900">
+              Add Ring Pool
+            </h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Quote by total pool height. The line is stored in linear feet
+              (pool height x pool count) and fulfilled with individual rings of
+              this diameter.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Pool Diameter (ft)
+                </label>
+                <select
+                  value={drainRingDiameter}
+                  onChange={(event) => {
+                    setDrainRingDiameter(event.target.value);
+                    if (
+                      !diameterSupportsSanitaryDrainRing(
+                        Number(event.target.value),
+                      )
+                    ) {
+                      setDrainRingStyle("DRAIN");
+                    }
+                  }}
+                  className={quoteInputClassName}
+                >
+                  {drainRingDiameterFeetOptions.map((diameter) => (
+                    <option key={diameter} value={String(diameter)}>
+                      {diameter}'
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Pool Height (ft)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={drainRingPoolHeight}
+                  onChange={(event) =>
+                    setDrainRingPoolHeight(event.target.value)
+                  }
+                  className={quoteInputClassName}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Number of Pools
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={drainRingPoolCount}
+                  onChange={(event) => setDrainRingPoolCount(event.target.value)}
+                  className={quoteInputClassName}
+                />
+              </div>
+              {showDrainRingSanitaryStyle ? (
+                <div>
+                  <label className="block text-xs font-medium text-slate-700">
+                    Style
+                  </label>
+                  <select
+                    value={drainRingStyle}
+                    onChange={(event) =>
+                      setDrainRingStyle(event.target.value as DrainRingStyle)
+                    }
+                    className={quoteInputClassName}
+                  >
+                    {drainRingStyleFormOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Price per Foot
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={drainRingPricePerFoot}
+                  onChange={(event) =>
+                    setDrainRingPricePerFoot(event.target.value)
+                  }
+                  className={quoteInputClassName}
+                />
+              </div>
+            </div>
+            <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              {(() => {
+                const poolHeight = Number(drainRingPoolHeight);
+                const poolCount = Number(drainRingPoolCount);
+                const pricePerFoot = Number(drainRingPricePerFoot);
+                if (
+                  !Number.isFinite(poolHeight) ||
+                  !Number.isFinite(poolCount) ||
+                  poolHeight <= 0 ||
+                  poolCount <= 0
+                ) {
+                  return "Enter pool height and count to preview total feet.";
+                }
+                const totalFeet =
+                  Math.round(poolHeight * poolCount * 100) / 100;
+                const total = totalFeet * (pricePerFoot || 0);
+                return `${poolCount} pool(s) x ${poolHeight}' = ${totalFeet} LF · ${formatQuoteCurrency(total)}`;
+              })()}
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDrainRingModalOpen(false)}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAddDrainRing}
+                className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+              >
+                Add to Quote
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

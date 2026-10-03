@@ -14,6 +14,7 @@ import {
   getQuoteLineFulfillment,
   markDeliveryTicketDelivered,
 } from "@/lib/delivery-fulfillment";
+import { formatDrainRingStyleLabel } from "@/lib/drain-ring-utils";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
 
 export type DeliveryTicketLineInput = {
@@ -66,6 +67,14 @@ export type SaveDeliveryTicketInput = {
 
 function parseDate(value?: string | null): Date | null {
   if (!value?.trim()) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (match) {
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const date = new Date(year, month - 1, day);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }
@@ -90,6 +99,7 @@ async function validateLines(
       excludeTicketId,
     );
     const byId = new Map(fulfillment.map((line) => [line.quoteLineItemId, line]));
+    const drainRingFeetByLine = new Map<string, number>();
 
     for (const line of input.lines) {
       if (!line.quoteLineItemId) continue;
@@ -100,6 +110,29 @@ async function validateLines(
       if (line.quantity <= 0) {
         throw new Error(`Quantity must be greater than zero for ${line.itemCode}.`);
       }
+
+      if (meta.isDrainRing) {
+        const option = meta.drainRingOptions.find(
+          (entry) => entry.productId === line.productId,
+        );
+        if (!option) {
+          throw new Error(
+            `${line.itemCode} is not a valid ${formatDrainRingStyleLabel(meta.drainRingStyle).toLowerCase()} ring for ${meta.displayName}.`,
+          );
+        }
+        if (option.drainRingStyle !== meta.drainRingStyle) {
+          throw new Error(
+            `${line.itemCode} does not match the quoted ${formatDrainRingStyleLabel(meta.drainRingStyle).toLowerCase()} ring line.`,
+          );
+        }
+        drainRingFeetByLine.set(
+          line.quoteLineItemId,
+          (drainRingFeetByLine.get(line.quoteLineItemId) ?? 0) +
+            option.heightFeet * line.quantity,
+        );
+        continue;
+      }
+
       if (line.quantity > meta.remainingQty) {
         throw new Error(
           `Quantity for ${line.itemCode} exceeds remaining (${meta.remainingQty}).`,
@@ -111,6 +144,16 @@ async function validateLines(
         meta.jobStructureStatus !== "MADE"
       ) {
         throw new Error(`${line.itemCode} is not made yet (${meta.jobStructureStatus ?? "no structure"}).`);
+      }
+    }
+
+    for (const [quoteLineItemId, feet] of drainRingFeetByLine) {
+      const meta = byId.get(quoteLineItemId);
+      if (meta && feet > meta.remainingQty + 0.001) {
+        const over = Math.round((feet - meta.remainingQty) * 100) / 100;
+        throw new Error(
+          `${meta.displayName} exceeds remaining (${meta.remainingQty} LF) by ${over} LF.`,
+        );
       }
     }
   }
@@ -192,6 +235,10 @@ export async function createDeliveryTicket(input: SaveDeliveryTicketInput) {
     return { error: "Customer and project name are required." };
   }
 
+  if (input.status === "SCHEDULED" && !input.deliveryDate?.trim()) {
+    return { error: "Pick a delivery date before scheduling." };
+  }
+
   try {
     const ticket = await withDatabaseRetry(async (client) =>
       client.$transaction(async (tx) => {
@@ -234,6 +281,10 @@ export async function updateDeliveryTicket(
 ) {
   if (!input.customerName.trim() || !input.projectName.trim()) {
     return { error: "Customer and project name are required." };
+  }
+
+  if (input.status === "SCHEDULED" && !input.deliveryDate?.trim()) {
+    return { error: "Pick a delivery date before scheduling." };
   }
 
   try {

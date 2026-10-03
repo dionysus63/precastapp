@@ -24,6 +24,7 @@ export function FilesHub({
 }: FilesHubProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [search, setSearch] = useState(initialSearch);
   const [category, setCategory] = useState(initialCategory);
 
@@ -85,7 +86,17 @@ export function FilesHub({
           disabled={pending}
           onClick={() =>
             startTransition(async () => {
-              await syncAllFiles();
+              setSyncMessage(null);
+              const result = await syncAllFiles();
+              if (result.errors.length > 0) {
+                setSyncMessage(
+                  `Synced ${result.synced} job folder(s); ${result.errors.length} failed. First error: ${result.errors[0]?.message ?? "Unknown error"}`,
+                );
+              } else {
+                setSyncMessage(
+                  `Synced ${result.synced} job folder(s)${result.skipped > 0 ? ` (${result.skipped} skipped)` : ""}.`,
+                );
+              }
               router.refresh();
             })
           }
@@ -94,6 +105,10 @@ export function FilesHub({
           {pending ? "Syncing…" : "Sync all from disk"}
         </button>
       </div>
+
+      {syncMessage ? (
+        <p className="text-xs text-slate-600">{syncMessage}</p>
+      ) : null}
 
       {jobsMissingFolders.length > 0 ? (
         <SectionCard

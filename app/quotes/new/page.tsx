@@ -28,7 +28,14 @@ function formatJobAddress(job: {
   return parts.join(", ");
 }
 
-export default async function NewQuotePage() {
+type NewQuotePageProps = {
+  searchParams: Promise<{ jobId?: string }>;
+};
+
+export default async function NewQuotePage({
+  searchParams,
+}: NewQuotePageProps) {
+  const { jobId } = await searchParams;
   const appSettings = await getAppSettings();
   const defaultExpiration = defaultQuoteExpirationDate(
     appSettings.quoteValidityDays,
@@ -127,6 +134,7 @@ export default async function NewQuotePage() {
           )}
           serviceOptions={serviceOptions}
           priceLists={priceLists}
+          initialJobId={jobId}
           quoteDefaults={{
             defaultTaxRate: appSettings.defaultTaxRate,
             defaultLeadTime: appSettings.defaultLeadTime,

@@ -4,11 +4,20 @@ import { DeliveryTicketEditor } from "@/components/delivery-tickets/delivery-tic
 import { listJobsWithQuotes } from "@/app/operations/actions";
 import { getAppSettings } from "@/lib/app-settings";
 
-export default async function NewDeliveryTicketPage() {
+type NewDeliveryTicketPageProps = {
+  searchParams: Promise<{ jobId?: string }>;
+};
+
+export default async function NewDeliveryTicketPage({
+  searchParams,
+}: NewDeliveryTicketPageProps) {
+  const { jobId } = await searchParams;
   const [jobs, settings] = await Promise.all([
     listJobsWithQuotes(),
     getAppSettings(),
   ]);
+
+  const defaultJobId = jobId && jobs.some((job) => job.id === jobId) ? jobId : undefined;
 
   return (
     <DashboardShell
@@ -19,13 +28,14 @@ export default async function NewDeliveryTicketPage() {
         href="/delivery-tickets"
         className="text-xs font-medium text-slate-500 hover:text-slate-900"
       >
-        ← Back to Delivery Tickets
+        ← Back to Delivery Hub
       </Link>
 
       <div className="mt-4">
         <DeliveryTicketEditor
           mode="create"
           jobs={jobs}
+          defaultValues={defaultJobId ? { jobId: defaultJobId } : undefined}
           fleetOptions={{
             trucks: settings.trucks,
             drivers: settings.drivers,

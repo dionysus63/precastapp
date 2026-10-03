@@ -17,7 +17,6 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
       include: {
         lineItems: {
           orderBy: [{ sortOrder: "asc" }, { lineNumber: "asc" }],
-          where: { productId: { not: null } },
           include: {
             product: {
               include: {
@@ -28,6 +27,13 @@ export default async function QuoteDetailPage({ params }: QuoteDetailPageProps) 
                 },
               },
             },
+          },
+        },
+        jobStructures: {
+          orderBy: { structureNumber: "asc" },
+          include: {
+            _count: { select: { documents: true } },
+            job: { select: { id: true, folderPath: true } },
           },
         },
       },

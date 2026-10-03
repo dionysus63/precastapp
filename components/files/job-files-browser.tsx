@@ -29,6 +29,9 @@ type JobFilesBrowserProps = {
   folderPath: string | null;
   files: JobFileBrowserItem[];
   activeCategory: string;
+  basePath?: string;
+  baseQuery?: Record<string, string>;
+  lockedCategory?: string;
 };
 
 function formatDateTime(value: Date | string) {
@@ -50,6 +53,9 @@ export function JobFilesBrowser({
   folderPath,
   files,
   activeCategory,
+  basePath = `/files/jobs/${jobId}`,
+  baseQuery,
+  lockedCategory,
 }: JobFilesBrowserProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -57,7 +63,16 @@ export function JobFilesBrowser({
   const [openError, setOpenError] = useState<string | null>(null);
   const [openSuccess, setOpenSuccess] = useState<string | null>(null);
 
-  const category = activeCategory || "All";
+  const buildCategoryHref = (categoryValue?: string) => {
+    const params = new URLSearchParams(baseQuery);
+    if (categoryValue) {
+      params.set("category", categoryValue);
+    }
+    const queryString = params.toString();
+    return queryString ? `${basePath}?${queryString}` : basePath;
+  };
+
+  const category = lockedCategory || activeCategory || "All";
   const visibleFiles =
     category === "All"
       ? files
@@ -112,21 +127,23 @@ export function JobFilesBrowser({
         </div>
       </SectionCard>
 
-      <div className="flex flex-wrap gap-2">
-        <CategoryTab
-          label="All"
-          href={`/files/jobs/${jobId}`}
-          active={category === "All"}
-        />
-        {JOB_SUBFOLDERS.map((item) => (
+      {lockedCategory ? null : (
+        <div className="flex flex-wrap gap-2">
           <CategoryTab
-            key={item}
-            label={item}
-            href={`/files/jobs/${jobId}?category=${encodeURIComponent(item)}`}
-            active={category === item}
+            label="All"
+            href={buildCategoryHref()}
+            active={category === "All"}
           />
-        ))}
-      </div>
+          {JOB_SUBFOLDERS.map((item) => (
+            <CategoryTab
+              key={item}
+              label={item}
+              href={buildCategoryHref(item)}
+              active={category === item}
+            />
+          ))}
+        </div>
+      )}
 
       <SectionCard title="Upload file">
         <form

@@ -94,7 +94,7 @@ export function mapDbInvoiceToDetailView(invoice: {
     subtotal: formatMoney(invoice.subtotal),
     salesTax: formatMoney(invoice.salesTax),
     total: formatMoney(invoice.total),
-    taxRate: `${(Number(invoice.taxRate) * 100).toFixed(2)}%`,
+    taxRate: `${Number(invoice.taxRate).toFixed(2)}%`,
     lineItems: invoice.lineItems.map((line) => ({
       id: line.id,
       lineNumber: line.lineNumber,

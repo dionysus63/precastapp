@@ -28,13 +28,23 @@ function revalidateFilesPaths(jobId?: string) {
   revalidatePath("/files");
   if (jobId) {
     revalidatePath(`/files/jobs/${jobId}`);
+    revalidatePath(`/jobs/${jobId}`);
   }
   revalidatePath(`/jobs/${jobId}/edit`);
 }
 
-export async function syncAllFiles() {
-  await withDatabaseRetry((client) => syncAllJobFilesFromDisk(client));
+export type SyncAllFilesResult = {
+  synced: number;
+  skipped: number;
+  errors: { jobId: string; message: string }[];
+};
+
+export async function syncAllFiles(): Promise<SyncAllFilesResult> {
+  const result = await withDatabaseRetry((client) =>
+    syncAllJobFilesFromDisk(client),
+  );
   revalidatePath("/files");
+  return result;
 }
 
 export async function listRecentFiles(filters?: {

@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Prisma } from "@/app/generated/prisma/client";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
+import {
+  assertSanitaryDrainRingAllowed,
+  parseDrainRingStyle,
+  type DrainRingStyle,
+} from "@/lib/drain-ring-utils";
 
 const QUOTE_STATUSES = [
   "DRAFT",
@@ -50,6 +55,10 @@ export type CreateQuoteLineItemInput = {
   total: number;
   statusNote: string | null;
   notes: string | null;
+  isDrainRing?: boolean;
+  ringDiameterFeet?: number | null;
+  poolHeightFeet?: number | null;
+  drainRingStyle?: DrainRingStyle;
 };
 
 export type CreateQuoteInput = {
@@ -130,6 +139,15 @@ function validateCreateQuoteInput(input: CreateQuoteInput) {
 
     if (!QUOTE_LINE_TYPES.includes(line.lineType)) {
       throw new Error(`Line ${line.lineNumber}: invalid line type.`);
+    }
+
+    if (line.isDrainRing) {
+      const style = parseDrainRingStyle(line.drainRingStyle ?? "DRAIN");
+      assertSanitaryDrainRingAllowed(
+        line.ringDiameterFeet ?? null,
+        style,
+        `Line ${line.lineNumber}`,
+      );
     }
   }
 
@@ -236,6 +254,12 @@ export async function createQuote(
             statusNote: line.statusNote,
             sortOrder: line.lineNumber,
             notes: line.notes,
+            isDrainRing: line.isDrainRing ?? false,
+            ringDiameterFeet: toOptionalDecimal(line.ringDiameterFeet ?? null),
+            poolHeightFeet: toOptionalDecimal(line.poolHeightFeet ?? null),
+            drainRingStyle: line.isDrainRing
+              ? parseDrainRingStyle(line.drainRingStyle ?? "DRAIN")
+              : "DRAIN",
           })),
         },
       },

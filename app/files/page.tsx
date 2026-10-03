@@ -3,8 +3,6 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { FilesHub } from "@/components/files/files-hub";
 import { listJobsMissingFolders, listRecentFiles } from "@/app/files/actions";
 import { mapJobFileToListRow } from "@/lib/job-file-mapper";
-import { syncAllJobFilesFromDisk } from "@/lib/job-files-service";
-import { withDatabaseRetry } from "@/lib/prisma";
 
 type FilesPageProps = {
   searchParams: Promise<{ q?: string; category?: string }>;
@@ -15,8 +13,6 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
   const search = params.q?.trim() ?? "";
   const category =
     params.category && params.category !== "All" ? params.category : "";
-
-  await withDatabaseRetry((client) => syncAllJobFilesFromDisk(client));
 
   const [rawFiles, jobsMissingFolders] = await Promise.all([
     listRecentFiles({

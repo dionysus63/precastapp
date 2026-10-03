@@ -13,6 +13,8 @@ export type DeliveryTicketRow = {
   projectName: string;
   customer: string;
   deliveryDate: string;
+  deliveryDateIso: string | null;
+  deliveryTime: string | null;
   truck: string;
   driver: string;
   status: DeliveryTicketStatus;
@@ -119,6 +121,8 @@ export const placeholderDeliveryTickets: DeliveryTicketRow[] = [
     projectName: "Main Street Drainage",
     customer: "ABC Construction",
     deliveryDate: "02/18/2026",
+    deliveryDateIso: "2026-02-18",
+    deliveryTime: "07:00",
     truck: "Truck 3",
     driver: "Mike",
     status: "SCHEDULED",
@@ -133,6 +137,8 @@ export const placeholderDeliveryTickets: DeliveryTicketRow[] = [
     projectName: "Suffolk Sewer Manholes",
     customer: "Town of Brookhaven",
     deliveryDate: "02/19/2026",
+    deliveryDateIso: "2026-02-19",
+    deliveryTime: "06:30",
     truck: "Lowboy",
     driver: "Anthony",
     status: "LOADING",
@@ -147,6 +153,8 @@ export const placeholderDeliveryTickets: DeliveryTicketRow[] = [
     projectName: "Custom Valve Vault",
     customer: "Long Island Developers",
     deliveryDate: "02/21/2026",
+    deliveryDateIso: "2026-02-21",
+    deliveryTime: null,
     truck: "Truck 1",
     driver: "TBD",
     status: "DRAFT",

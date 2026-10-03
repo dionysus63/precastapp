@@ -26,7 +26,7 @@ export default async function DeliveryTicketsReconcilePage({
           href="/delivery-tickets"
           className="text-xs text-slate-600 hover:text-slate-900"
         >
-          ← Back to Delivery Tickets
+          ← Back to Delivery Hub
         </Link>
         <form method="get" className="flex items-center gap-2">
           <label htmlFor="date" className="text-xs text-slate-600">

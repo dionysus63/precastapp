@@ -4,8 +4,16 @@ import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createJobFoldersForJob } from "@/lib/job-folders";
+import {
+  deleteJobStructureDocument,
+  getJobStructureDocumentForOpen,
+  getJobStructureSubmittalDir,
+  uploadJobStructureDocument,
+} from "@/lib/job-structure-documents-service";
 import { launchWindowsFolder } from "@/lib/open-windows-folder";
-import { prisma } from "@/lib/prisma";
+import { prisma, withDatabaseRetry } from "@/lib/prisma";
+import { launchWindowsFile, launchWindowsFolder as launchFolder } from "@/lib/windows-explorer";
+import { assertPathUnderJobFolder } from "@/lib/job-path-security";
 import { Prisma } from "@/app/generated/prisma/client";
 
 const JOB_STATUSES = [
@@ -286,6 +294,74 @@ export async function updateJob(formData: FormData) {
   redirect("/jobs");
 }
 
+const STRUCTURE_TYPES = [
+  "STOCK_PRODUCT",
+  "CONFIGURABLE_PRODUCT",
+  "CUSTOM_STRUCTURE",
+] as const;
+
+type StructureType = (typeof STRUCTURE_TYPES)[number];
+
+function parseOptionalDecimal(formData: FormData, field: string) {
+  const raw = String(formData.get(field) ?? "").trim();
+  if (!raw) {
+    return null;
+  }
+
+  const value = Number(raw);
+  if (!Number.isFinite(value)) {
+    throw new Error(`Invalid ${field}.`);
+  }
+
+  return new Prisma.Decimal(raw);
+}
+
+export async function createJobStructure(formData: FormData) {
+  const jobId = String(formData.get("jobId") ?? "").trim();
+  if (!jobId) {
+    throw new Error("Job id is required.");
+  }
+
+  const job = await prisma.job.findUnique({
+    where: { id: jobId },
+    select: { id: true },
+  });
+
+  if (!job) {
+    throw new Error("Job was not found.");
+  }
+
+  const structureType = String(formData.get("structureType") ?? "").trim();
+  if (!STRUCTURE_TYPES.includes(structureType as StructureType)) {
+    throw new Error("Invalid structure type.");
+  }
+
+  const status = "NOT_SUBMITTED";
+
+  const structure = await prisma.jobStructure.create({
+    data: {
+      jobId,
+      structureType: structureType as StructureType,
+      status,
+      structureNumber:
+        String(formData.get("structureNumber") ?? "").trim() || null,
+      description: String(formData.get("description") ?? "").trim() || null,
+      unit: String(formData.get("unit") ?? "").trim() || null,
+      quantity: parseOptionalDecimal(formData, "quantity"),
+      weight: parseOptionalDecimal(formData, "weight"),
+      yards: parseOptionalDecimal(formData, "yards"),
+      needsCutSheet: formData.get("needsCutSheet") === "on",
+      needsSubmittal:
+        structureType === "CUSTOM_STRUCTURE" ||
+        formData.get("needsSubmittal") === "on",
+      notes: String(formData.get("notes") ?? "").trim() || null,
+    },
+  });
+
+  revalidatePath(`/jobs/${jobId}`);
+  redirect(`/jobs/${jobId}/structures/${structure.id}`);
+}
+
 export async function openJobFolder(jobId: string) {
   const job = await prisma.job.findUnique({
     where: { id: jobId },
@@ -353,10 +429,139 @@ export async function createJobFolder(jobId: string) {
     data: { folderPath },
   });
 
-  revalidatePath("/jobs");
   revalidatePath("/files");
   revalidatePath(`/files/jobs/${job.id}`);
   revalidatePath(`/jobs/${job.id}/edit`);
+  revalidatePath(`/jobs/${job.id}`);
+  revalidatePath("/production");
 
   return { jobNumber: job.jobNumber, folderPath };
+}
+
+export type JobStructureExplorerOpenResult = {
+  success: true;
+  path: string;
+};
+
+function revalidateJobStructurePaths(
+  jobId: string,
+  jobStructureId: string,
+  quoteId?: string | null,
+) {
+  revalidatePath("/production");
+  revalidatePath(`/jobs/${jobId}`);
+  revalidatePath(`/jobs/${jobId}/structures/${jobStructureId}`);
+  if (quoteId) {
+    revalidatePath(`/quotes/${quoteId}`);
+  }
+}
+
+export async function uploadJobStructureDocumentAction(formData: FormData) {
+  const jobStructureId = String(formData.get("jobStructureId") ?? "").trim();
+  const jobId = String(formData.get("jobId") ?? "").trim();
+  const documentType = String(
+    formData.get("documentType") ?? "JOB_SPECIFIC_SUBMITTAL",
+  ).trim();
+  const file = formData.get("file");
+
+  if (!jobStructureId || !jobId) {
+    throw new Error("Structure is required.");
+  }
+
+  if (!(file instanceof File) || file.size === 0) {
+    throw new Error("Choose a file to upload.");
+  }
+
+  const structure = await withDatabaseRetry((client) =>
+    client.jobStructure.findUnique({
+      where: { id: jobStructureId },
+      select: { quoteId: true },
+    }),
+  );
+
+  await withDatabaseRetry((client) =>
+    uploadJobStructureDocument(client, jobStructureId, documentType, file),
+  );
+
+  revalidateJobStructurePaths(jobId, jobStructureId, structure?.quoteId);
+}
+
+export async function openJobStructureDocument(
+  documentId: string,
+): Promise<JobStructureExplorerOpenResult & { documentName: string }> {
+  const document = await withDatabaseRetry((client) =>
+    getJobStructureDocumentForOpen(client, documentId),
+  );
+
+  if (process.platform !== "win32") {
+    throw new Error("Opening files is supported on Windows only.");
+  }
+
+  await launchWindowsFile(document.filePath);
+
+  return {
+    success: true,
+    path: document.filePath,
+    documentName: document.documentName,
+  };
+}
+
+export async function openJobStructureSubmittalsFolder(
+  jobStructureId: string,
+): Promise<JobStructureExplorerOpenResult> {
+  const structure = await withDatabaseRetry((client) =>
+    client.jobStructure.findUnique({
+      where: { id: jobStructureId },
+      include: { job: { select: { folderPath: true } } },
+    }),
+  );
+
+  if (!structure) {
+    throw new Error("Structure was not found.");
+  }
+
+  const jobFolderPath = structure.job?.folderPath?.trim();
+  if (!jobFolderPath) {
+    throw new Error("This job does not have a folder path yet.");
+  }
+
+  const folderPath = await withDatabaseRetry((client) =>
+    getJobStructureSubmittalDir(client, jobStructureId),
+  );
+  assertPathUnderJobFolder(jobFolderPath, folderPath);
+
+  if (process.platform !== "win32") {
+    throw new Error("Opening folders is supported on Windows only.");
+  }
+
+  await launchFolder(folderPath, { allowedRoot: jobFolderPath });
+
+  return { success: true, path: folderPath };
+}
+
+export async function deleteJobStructureDocumentAction(documentId: string) {
+  const document = await withDatabaseRetry((client) =>
+    client.jobStructureDocument.findUnique({
+      where: { id: documentId },
+      include: {
+        jobStructure: { select: { id: true, jobId: true, quoteId: true } },
+      },
+    }),
+  );
+
+  if (!document) {
+    throw new Error("Document was not found.");
+  }
+
+  await withDatabaseRetry((client) =>
+    deleteJobStructureDocument(client, documentId),
+  );
+
+  if (document.jobStructure.jobId) {
+    revalidateJobStructurePaths(
+      document.jobStructure.jobId,
+      document.jobStructure.id,
+      document.jobStructure.quoteId,
+    );
+  }
 }

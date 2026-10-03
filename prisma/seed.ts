@@ -29,8 +29,8 @@ async function main() {
   }
 
   await prisma.deliveryTicketSequence.upsert({
-    where: { year },
-    create: { year, lastNumber: 0 },
+    where: { year: 0 },
+    create: { year: 0, lastNumber: 10000 },
     update: {},
   });
 

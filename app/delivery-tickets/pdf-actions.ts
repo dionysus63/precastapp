@@ -1,6 +1,7 @@
 "use server";
 
 import path from "path";
+import { revalidatePath } from "next/cache";
 import { mapDbDeliveryTicketToDetailView } from "@/lib/delivery-ticket-mapper";
 import { buildDeliveryTicketPdfHtml } from "@/lib/delivery-ticket-pdf-html";
 import {
@@ -67,6 +68,17 @@ export async function generateDeliveryTicketPdf(
     const outputPath = await resolveQuotePdfOutputPath(outputDirectory, baseName);
 
     await writeQuotePdfFromHtml(html, outputPath);
+
+    await withDatabaseRetry((client) =>
+      client.deliveryTicket.update({
+        where: { id: ticketId },
+        data: { paperTicketPrinted: true },
+      }),
+    );
+
+    revalidatePath("/delivery-tickets");
+    revalidatePath(`/delivery-tickets/${ticketId}`);
+    revalidatePath(`/delivery-tickets/${ticketId}/preview`);
 
     if (ticket.jobId && jobFolderPath) {
       await withDatabaseRetry((client) =>

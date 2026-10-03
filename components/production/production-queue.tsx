@@ -1,6 +1,7 @@
 "use client";
 
-import { useTransition } from "react";
+import Link from "next/link";
+import { useState, useTransition } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import {
@@ -8,6 +9,7 @@ import {
   markStructureMade,
   startStructureProduction,
 } from "@/app/operations/actions";
+import { StructureManageLink } from "@/components/jobs/structure-manage-link";
 
 export type ProductionQueueItem = {
   id: string;
@@ -16,12 +18,28 @@ export type ProductionQueueItem = {
   status: string;
   quantity: string | null;
   unit: string | null;
+  jobId: string | null;
   jobNumber: string | null;
   projectName: string | null;
   quoteNumber: string | null;
   productCode: string | null;
   productName: string | null;
+  needsSubmittal: boolean;
 };
+
+function StructurePrimaryName({ item }: { item: ProductionQueueItem }) {
+  const label = item.structureNumber ?? item.productCode ?? "—";
+
+  if (item.jobId && item.structureNumber) {
+    return (
+      <StructureManageLink jobId={item.jobId} structureId={item.id}>
+        {label}
+      </StructureManageLink>
+    );
+  }
+
+  return <span>{label}</span>;
+}
 
 type ProductionQueueProps = {
   items: ProductionQueueItem[];
@@ -29,10 +47,15 @@ type ProductionQueueProps = {
 
 export function ProductionQueue({ items }: ProductionQueueProps) {
   const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
-  function runAction(action: () => Promise<unknown>) {
-    startTransition(() => {
-      void action();
+  function runAction(action: () => Promise<{ error?: string } | unknown>) {
+    setError(null);
+    startTransition(async () => {
+      const result = await action();
+      if (result && typeof result === "object" && "error" in result && result.error) {
+        setError(String(result.error));
+      }
     });
   }
 
@@ -42,6 +65,9 @@ export function ProductionQueue({ items }: ProductionQueueProps) {
       description="Configurable and custom structures approved or actively in production."
       noPadding
     >
+      {error ? (
+        <p className="px-4 py-2 text-xs font-medium text-red-600">{error}</p>
+      ) : null}
       {items.length === 0 ? (
         <p className="px-4 py-6 text-sm text-slate-500">
           No structures in production. Approve structures from a won quote to
@@ -65,7 +91,7 @@ export function ProductionQueue({ items }: ProductionQueueProps) {
                 <tr key={item.id} className="text-slate-800">
                   <td className="px-4 py-2">
                     <div className="font-medium text-slate-900">
-                      {item.structureNumber ?? item.productCode ?? "—"}
+                      <StructurePrimaryName item={item} />
                     </div>
                     <div className="text-slate-500">
                       {item.description ?? item.productName ?? "—"}
@@ -127,21 +153,84 @@ export function ProductionQueue({ items }: ProductionQueueProps) {
         </div>
       )}
       <div className="border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
-        To approve new structures, mark a quote as{" "}
-        <strong className="font-medium text-slate-700">WON</strong> and use{" "}
-        <strong className="font-medium text-slate-700">Link structures</strong>{" "}
-        on the quote detail page.
+        Approve submitted structures, then start production and mark them made.
+        Custom structures need submittals uploaded on the structure detail page
+        first.
       </div>
+    </SectionCard>
+  );
+}
+
+export function NeedsSubmittalPanel({
+  structures,
+}: {
+  structures: ProductionQueueItem[];
+}) {
+  return (
+    <SectionCard
+      title="Needs Submittal"
+      description="Custom structures waiting for a job-specific submittal upload."
+      noPadding
+    >
+      {structures.length === 0 ? (
+        <p className="px-4 py-6 text-sm text-slate-500">
+          No structures waiting for submittals.
+        </p>
+      ) : (
+        <ul className="divide-y divide-slate-100">
+          {structures.map((item) => (
+            <li
+              key={item.id}
+              className="flex items-center justify-between gap-3 px-4 py-3 text-xs"
+            >
+              <div>
+                <div className="font-medium text-slate-900">
+                  <StructureManageLink jobId={item.jobId} structureId={item.id}>
+                    {item.structureNumber ?? "Structure"}
+                  </StructureManageLink>
+                </div>
+                <div className="text-slate-500">
+                  {item.jobNumber ? `${item.jobNumber} — ` : ""}
+                  {item.description ?? "—"}
+                </div>
+              </div>
+              {item.jobId ? (
+                <Link
+                  href={`/jobs/${item.jobId}/structures/${item.id}#submittals`}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium hover:bg-slate-50"
+                >
+                  Add submittal
+                </Link>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
     </SectionCard>
   );
 }
 
 export function ApproveStructuresPanel({
   pendingStructures,
+  skippableStructures = [],
 }: {
   pendingStructures: ProductionQueueItem[];
+  skippableStructures?: ProductionQueueItem[];
 }) {
   const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const hasItems =
+    pendingStructures.length > 0 || skippableStructures.length > 0;
+
+  function approve(structureId: string) {
+    setError(null);
+    startTransition(async () => {
+      const result = await approveStructureForProduction(structureId);
+      if (result?.error) {
+        setError(result.error);
+      }
+    });
+  }
 
   return (
     <SectionCard
@@ -149,7 +238,10 @@ export function ApproveStructuresPanel({
       description="Submitted structures ready for production approval."
       noPadding
     >
-      {pendingStructures.length === 0 ? (
+      {error ? (
+        <p className="px-4 py-2 text-xs font-medium text-red-600">{error}</p>
+      ) : null}
+      {!hasItems ? (
         <p className="px-4 py-6 text-sm text-slate-500">None awaiting approval.</p>
       ) : (
         <ul className="divide-y divide-slate-100">
@@ -160,18 +252,54 @@ export function ApproveStructuresPanel({
             >
               <div>
                 <div className="font-medium text-slate-900">
-                  {item.structureNumber ?? "Structure"}
+                  <StructureManageLink jobId={item.jobId} structureId={item.id}>
+                    {item.structureNumber ?? "Structure"}
+                  </StructureManageLink>
                 </div>
                 <div className="text-slate-500">{item.description}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                {item.jobId ? (
+                  <Link
+                    href={`/jobs/${item.jobId}/structures/${item.id}#submittals`}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-medium hover:bg-slate-50"
+                  >
+                    View
+                  </Link>
+                ) : null}
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => approve(item.id)}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Approve for production
+                </button>
+              </div>
+            </li>
+          ))}
+          {skippableStructures.map((item) => (
+            <li
+              key={item.id}
+              className="flex items-center justify-between gap-3 px-4 py-3 text-xs"
+            >
+              <div>
+                <div className="font-medium text-slate-900">
+                  <StructureManageLink jobId={item.jobId} structureId={item.id}>
+                    {item.structureNumber ?? "Structure"}
+                  </StructureManageLink>
+                </div>
+                <div className="text-slate-500">
+                  {item.description}
+                  <span className="block text-[10px] text-slate-400">
+                    No submittal required
+                  </span>
+                </div>
               </div>
               <button
                 type="button"
                 disabled={pending}
-                onClick={() =>
-                  startTransition(() =>
-                    approveStructureForProduction(item.id),
-                  )
-                }
+                onClick={() => approve(item.id)}
                 className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-medium hover:bg-slate-50 disabled:opacity-50"
               >
                 Approve for production

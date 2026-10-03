@@ -98,7 +98,7 @@ export function DeliveryTicketDetailContent({
           href="/delivery-tickets"
           className="text-xs font-medium text-slate-500 hover:text-slate-900"
         >
-          ← Back to Delivery Tickets
+          ← Back to Delivery Hub
         </Link>
 
         <div className="flex flex-wrap gap-2">
@@ -109,7 +109,15 @@ export function DeliveryTicketDetailContent({
             Edit Ticket
           </Link>
           {ticketId ? (
-            <TicketPdfButton ticketId={ticketId} />
+            <>
+              <Link
+                href={`/delivery-tickets/${ticketId}/preview`}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Preview/Print
+              </Link>
+              <TicketPdfButton ticketId={ticketId} />
+            </>
           ) : (
             <button
               type="button"

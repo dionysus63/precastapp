@@ -146,10 +146,20 @@ export function JobsList({ jobs }: JobsListProps) {
                 filteredJobs.map((job) => (
                   <tr key={job.id} className="hover:bg-slate-50/60">
                     <td className="px-4 py-2.5 font-mono text-[11px] font-medium text-slate-900">
-                      {job.jobNumber}
+                      <Link
+                        href={`/jobs/${job.id}`}
+                        className="hover:text-slate-600 hover:underline"
+                      >
+                        {job.jobNumber}
+                      </Link>
                     </td>
                     <td className="px-4 py-2.5 font-medium text-slate-900">
-                      {job.projectName}
+                      <Link
+                        href={`/jobs/${job.id}`}
+                        className="hover:text-slate-600 hover:underline"
+                      >
+                        {job.projectName}
+                      </Link>
                     </td>
                     <td className="px-4 py-2.5 text-slate-700">{job.customer}</td>
                     <td className="px-4 py-2.5 text-slate-600">

@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 export async function generateMetadata(): Promise<Metadata> {
   try {
     const settings = await getAppSettings();
-    const logoUpdatedAt = await getCompanyLogoUpdatedAt();
+    const logoUpdatedAt = await getCompanyLogoUpdatedAt(settings.companyLogoPath);
     const logoUrl = logoUpdatedAt ? companyLogoApiUrl(logoUpdatedAt) : null;
 
     return {
