@@ -73,3 +73,6 @@ next-env.d.ts
 /example-*.pdf
 /render-example.html
 /template-content*.txt
+
+# graphify per-machine query timestamp
+/graphify-out/cache/last_query_stamp
