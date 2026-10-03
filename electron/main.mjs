@@ -34,6 +34,121 @@ function isAllowedNavigation(targetUrl, serverOrigin) {
   }
 }
 
+/**
+ * A server redeploy leaves this shell's HTTP cache full of stale Next
+ * HTML/chunks, and Chromium keeps serving them — clicking links then does
+ * nothing until the cache dirs under %APPDATA%\Precast Ops are hand-deleted
+ * (a plain restart never evicts them). Assets re-fetch over the LAN in well
+ * under a second, so dropping the cache is effectively free. Cookies and
+ * localStorage are left alone: login must survive.
+ */
+async function clearWebCache() {
+  const ses = session.defaultSession;
+  await ses.clearCache();
+  await ses.clearCodeCaches({ urls: [] });
+}
+
+// The server reports its Next build id at /api/build-id. Watching it means a
+// redeploy while the app is open also gets a fresh cache + reload, instead of
+// serving stale chunks until the next launch.
+const BUILD_ID_POLL_INTERVAL_MS = 5 * 60 * 1000;
+const BUILD_ID_FOCUS_MIN_GAP_MS = 60 * 1000;
+/** @type {string | null} */
+let lastSeenBuildId = null;
+let lastBuildIdCheckAt = 0;
+let buildIdCheckInFlight = false;
+
+function fetchServerBuildId(serverOrigin) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (/** @type {string | null} */ value) => {
+      if (!settled) {
+        settled = true;
+        resolve(value);
+      }
+    };
+    const request = net.request({
+      url: `${serverOrigin}/api/build-id`,
+      session: session.defaultSession,
+      useSessionCookies: true,
+    });
+    request.on("response", (response) => {
+      if (response.statusCode !== 200) {
+        response.on("data", () => {});
+        response.on("error", () => {});
+        finish(null);
+        return;
+      }
+      /** @type {Buffer[]} */
+      const chunks = [];
+      response.on("data", (chunk) => chunks.push(chunk));
+      response.on("end", () => {
+        const id = Buffer.concat(chunks).toString("utf8").trim();
+        finish(id && id.length <= 200 ? id : null);
+      });
+      response.on("error", () => finish(null));
+    });
+    request.on("error", () => finish(null));
+    request.end();
+  });
+}
+
+async function checkForNewServerBuild() {
+  if (buildIdCheckInFlight) {
+    return;
+  }
+  buildIdCheckInFlight = true;
+  lastBuildIdCheckAt = Date.now();
+  try {
+    let serverOrigin;
+    try {
+      serverOrigin = getServerOrigin();
+    } catch {
+      return;
+    }
+    const buildId = await fetchServerBuildId(serverOrigin);
+    if (!buildId) {
+      // Offline, or the server predates /api/build-id — try again later.
+      return;
+    }
+    if (lastSeenBuildId === null) {
+      lastSeenBuildId = buildId;
+      return;
+    }
+    if (buildId === lastSeenBuildId) {
+      return;
+    }
+    lastSeenBuildId = buildId;
+    console.log(
+      `[Precast Ops cache] server build changed (${buildId}); clearing cache and reloading`,
+    );
+    try {
+      await clearWebCache();
+    } catch (error) {
+      console.error(
+        "[Precast Ops cache]",
+        error instanceof Error ? error.message : error,
+      );
+    }
+    mainWindow?.webContents.reloadIgnoringCache();
+  } finally {
+    buildIdCheckInFlight = false;
+  }
+}
+
+function startBuildWatcher() {
+  // Baseline shortly after launch (the startup clearWebCache already made
+  // this launch fresh), then poll — and re-check when the user comes back to
+  // the window, since redeploys usually happen while it sits unfocused.
+  setTimeout(() => void checkForNewServerBuild(), 10_000);
+  setInterval(() => void checkForNewServerBuild(), BUILD_ID_POLL_INTERVAL_MS);
+  app.on("browser-window-focus", () => {
+    if (Date.now() - lastBuildIdCheckAt >= BUILD_ID_FOCUS_MIN_GAP_MS) {
+      void checkForNewServerBuild();
+    }
+  });
+}
+
 function showConnectionError(message) {
   dialog.showErrorBox(
     "Precast Ops — Cannot connect",
@@ -344,9 +459,20 @@ if (!gotLock) {
     }
   });
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     Menu.setApplicationMenu(buildApplicationMenu());
     registerDesktopBridge();
+
+    // Must finish before loadURL so the first page can't be served stale.
+    try {
+      await clearWebCache();
+    } catch (error) {
+      // A failed clear must not block launch; worst case is the old behavior.
+      console.error(
+        "[Precast Ops cache]",
+        error instanceof Error ? error.message : error,
+      );
+    }
 
     // Outlook draft downloads (.eml from Send Quote) open seamlessly: save
     // silently to temp and hand off to the default mail app — no save
@@ -369,6 +495,7 @@ if (!gotLock) {
     });
 
     createWindow();
+    startBuildWatcher();
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) {
