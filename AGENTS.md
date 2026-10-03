@@ -38,13 +38,14 @@ intended for public internet exposure.
 
 ## Authentication today
 
-- **Username-only sign-in** at `/login` (pick your account; no password yet)
+- **Two-step password sign-in** at `/login`: pick your account, then enter
+  your password (verified against `User.passwordHash` via `lib/auth/password.ts`,
+  scrypt-hashed)
+- **First sign-in sets a password** (min 8 characters); accounts flagged
+  `mustChangePassword` go through the same set-password step
 - **Database-backed sessions** (8-hour idle timeout, httpOnly cookie)
 - **Role-based permissions** with per-user grant/deny overrides
 - **Admin user management** at Settings → Users & Access (`USERS_MANAGE`)
-
-Password login is planned: the `User` model already has nullable `passwordHash`
-and `mustChangePassword` fields for a future upgrade.
 
 ## Authorization
 
@@ -52,8 +53,8 @@ and `mustChangePassword` fields for a future upgrade.
 - Server actions call `requirePermission(...)` before mutations
 - Sensitive disk operations require `FILES_MANAGE`
 
-Do not deploy this app to a publicly reachable host without adding password
-authentication and reviewing permission boundaries first.
+Do not deploy this app to a publicly reachable host without a full security
+review first (rate limiting, password policy, permission boundaries).
 
 # Project context
 
