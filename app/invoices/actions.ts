@@ -286,8 +286,9 @@ export async function updateDraftInvoice(input: UpdateDraftInvoiceInput) {
     // One transaction: the draft check, line writes, and totals commit or
     // roll back together, so a concurrent finalization can't interleave and
     // a mid-save failure can't leave lines and totals disagreeing.
-    await withDatabaseRetry((client) =>
+    const lineIds = await withDatabaseRetry((client) =>
       client.$transaction(async (tx) => {
+        const savedLineIds: string[] = [];
         const invoice = await tx.invoice.findUnique({
           where: { id: input.invoiceId },
           select: { status: true },
@@ -338,13 +339,16 @@ export async function updateDraftInvoice(input: UpdateDraftInvoiceInput) {
                 "A line on this invoice changed or was removed. Reload and try again.",
               );
             }
+            savedLineIds.push(line.id);
           } else {
-            await tx.invoiceLineItem.create({
+            const created = await tx.invoiceLineItem.create({
               data: {
                 ...data,
                 invoiceId: input.invoiceId,
               },
+              select: { id: true },
             });
+            savedLineIds.push(created.id);
           }
         }
 
@@ -368,13 +372,17 @@ export async function updateDraftInvoice(input: UpdateDraftInvoiceInput) {
         if (updatedInvoice.count === 0) {
           throw new Error("Paid or voided invoices cannot be edited.");
         }
+        return savedLineIds;
       }),
     );
 
     revalidatePath("/invoices");
     revalidatePath(`/invoices/${input.invoiceId}`);
     revalidatePath(`/invoices/${input.invoiceId}/edit`);
-    return { success: true };
+    // Saved line ids in input order: the editor stays open after a plain
+    // save, and new lines must carry their id into the next save or they're
+    // created a second time.
+    return { success: true, lineIds };
   } catch (error) {
     return {
       error:

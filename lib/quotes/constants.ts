@@ -36,11 +36,14 @@ export const quoteDueDateFilterOptions = [
   "Next 30 Days",
 ];
 
+/**
+ * Statuses the quote form can save. REVISED is set only by the Revise action,
+ * and WON is offered only when editing a saved quote (see quote-form).
+ */
 export const quoteStatusFormOptions: { value: QuoteStatus; label: string }[] = [
   { value: "DRAFT", label: "Draft" },
   { value: "IN_REVIEW", label: "In Review" },
   { value: "SENT", label: "Sent" },
-  { value: "REVISED", label: "Revised" },
   { value: "WON", label: "Won" },
   { value: "LOST", label: "Lost" },
   { value: "LOST_BC", label: "Lost-BC" },

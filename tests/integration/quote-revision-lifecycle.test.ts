@@ -676,4 +676,83 @@ describe("won quote revision lifecycle", () => {
     expect(structure.quoteId).toBe(fixture.sourceQuoteId);
     expect(progress.quoteId).toBe(fixture.sourceQuoteId);
   });
+
+  it("hands a sent quote back when its draft revision is deleted", async () => {
+    await prisma.quote.update({
+      where: { id: fixture.sourceQuoteId },
+      data: { status: "SENT" },
+    });
+    const revisionId = await createDraftRevision();
+    expect(
+      (await prisma.quote.findUniqueOrThrow({ where: { id: fixture.sourceQuoteId } }))
+        .status,
+    ).toBe("REVISED");
+
+    const result = await deleteQuote(revisionId);
+    expect(result).toEqual({ success: true });
+
+    const source = await prisma.quote.findUniqueOrThrow({
+      where: { id: fixture.sourceQuoteId },
+    });
+    expect(source.status).toBe("SENT");
+  });
+
+  it("refuses to delete a quote that has a newer revision", async () => {
+    await prisma.quote.update({
+      where: { id: fixture.sourceQuoteId },
+      data: { status: "SENT" },
+    });
+    const revisionId = await createDraftRevision();
+
+    const result = await deleteQuote(fixture.sourceQuoteId);
+    expect(result).toHaveProperty("error");
+    expect((result as { error: string }).error).toMatch(/newer revision/i);
+
+    const [source, revision] = await Promise.all([
+      prisma.quote.findUnique({ where: { id: fixture.sourceQuoteId } }),
+      prisma.quote.findUnique({ where: { id: revisionId } }),
+    ]);
+    expect(source?.status).toBe("REVISED");
+    expect(revision?.originalQuoteId).toBe(fixture.sourceQuoteId);
+  });
+
+  it("refuses to delete a quote that delivery tickets were created from", async () => {
+    await prisma.quote.update({
+      where: { id: fixture.sourceQuoteId },
+      data: { status: "LOST" },
+    });
+    const ticket = await prisma.deliveryTicket.create({
+      data: {
+        customerName: "Ticket customer",
+        projectName: "Ticket project",
+        quoteId: fixture.sourceQuoteId,
+        lineItems: {
+          create: {
+            lineNumber: 1,
+            lineType: "CUSTOM_STRUCTURE",
+            itemCode: "MH-1",
+            quantity: 1,
+            unit: "EA",
+            quoteLineItemId: fixture.sourceLineId,
+          },
+        },
+      },
+    });
+
+    try {
+      const result = await deleteQuote(fixture.sourceQuoteId);
+      expect(result).toHaveProperty("error");
+      expect((result as { error: string }).error).toMatch(
+        /delivery tickets or invoices/i,
+      );
+      expect(
+        await prisma.quote.findUnique({ where: { id: fixture.sourceQuoteId } }),
+      ).not.toBeNull();
+    } finally {
+      await prisma.deliveryTicketLineItem.deleteMany({
+        where: { deliveryTicketId: ticket.id },
+      });
+      await prisma.deliveryTicket.delete({ where: { id: ticket.id } });
+    }
+  });
 });

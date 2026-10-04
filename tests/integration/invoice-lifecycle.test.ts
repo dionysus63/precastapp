@@ -323,4 +323,53 @@ describe("draft invoice editing", () => {
     expect(invoice.lineItems).toHaveLength(1);
     expect(Number(invoice.total)).toBe(300);
   });
+
+  it("returns saved line ids so a second save doesn't duplicate new lines", async () => {
+    const { invoice, lineId } = await createTicketAndInvoice("D", 9914);
+    const lines: UpdateDraftInvoiceInput["lines"] = [
+      {
+        id: lineId,
+        lineNumber: 1,
+        lineType: "STOCK_PRODUCT",
+        itemCode: `${tag}-ITEM-D`,
+        description: "Original line D",
+        quantity: 1,
+        unit: "EA",
+        unitPrice: 100,
+        taxable: false,
+      },
+      {
+        lineNumber: 2,
+        lineType: "SERVICE",
+        itemCode: `${tag}-SVC-D`,
+        description: "Added service",
+        quantity: 1,
+        unit: "EA",
+        unitPrice: 40,
+        taxable: false,
+      },
+    ];
+
+    const first = await updateDraftInvoice(editInput(invoice.id, lines));
+    expect(first.error).toBeUndefined();
+    expect(first.lineIds).toHaveLength(2);
+    expect(first.lineIds![0]).toBe(lineId);
+
+    // The editor stays open and saves again, now carrying the returned ids.
+    const second = await updateDraftInvoice(
+      editInput(
+        invoice.id,
+        lines.map((line, index) => ({ ...line, id: first.lineIds![index] })),
+      ),
+    );
+    expect(second.error).toBeUndefined();
+    expect(second.lineIds).toEqual(first.lineIds);
+
+    const saved = await prisma.invoice.findUniqueOrThrow({
+      where: { id: invoice.id },
+      include: { lineItems: true },
+    });
+    expect(saved.lineItems).toHaveLength(2);
+    expect(Number(saved.total)).toBe(140);
+  });
 });

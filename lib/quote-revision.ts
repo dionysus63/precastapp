@@ -49,6 +49,74 @@ export async function assertRevisionKeepsOperationalJob(
   }
 }
 
+/**
+ * Bid-list bookkeeping when a contractor's quote is won outside the bid panel
+ * ("Mark Won", or saving the edit form as Won). Only one contractor can win a
+ * bid job: reject the win when another contractor's quote family already won
+ * it, otherwise record the winning bidder and mark the other contractors'
+ * open quotes Lost-BC, as awardJob does. Quotes that aren't bidder quotes
+ * (scopes, master quotes) are untouched — a job can hold several won scopes.
+ */
+export async function recordBidderWinInTransaction(
+  tx: TransactionClient,
+  quoteId: string,
+): Promise<void> {
+  const quote = await tx.quote.findUnique({
+    where: { id: quoteId },
+    select: { jobId: true, jobBidderId: true, originalQuoteId: true },
+  });
+  if (!quote?.jobId || !quote.jobBidderId) {
+    return;
+  }
+  const jobId = quote.jobId;
+
+  // Serialize competing wins on the same job (two contractors' quotes marked
+  // won at once each lock only their own quote row).
+  await tx.$queryRaw<Array<{ id: string }>>`
+    SELECT "id" FROM "Job" WHERE "id" = ${jobId} FOR UPDATE
+  `;
+
+  const rootId = quote.originalQuoteId ?? quoteId;
+  const family = await tx.quote.findMany({
+    where: { OR: [{ id: rootId }, { originalQuoteId: rootId }] },
+    select: { id: true },
+  });
+  const familyIds = family.map((member) => member.id);
+
+  const otherWinner = await tx.quote.findFirst({
+    where: {
+      jobId,
+      jobBidderId: { not: null },
+      status: "WON",
+      id: { notIn: familyIds },
+    },
+    select: { quoteNumber: true, customerName: true },
+  });
+  if (otherWinner) {
+    throw new Error(
+      `This job was already awarded to ${otherWinner.customerName} (${otherWinner.quoteNumber}). Only one contractor's quote can be won on a bid job.`,
+    );
+  }
+
+  await tx.jobBidder.updateMany({
+    where: { jobId, id: { not: quote.jobBidderId } },
+    data: { isWinner: false },
+  });
+  await tx.jobBidder.update({
+    where: { id: quote.jobBidderId },
+    data: { isWinner: true },
+  });
+  await tx.quote.updateMany({
+    where: {
+      jobId,
+      jobBidderId: { not: null },
+      id: { notIn: familyIds },
+      status: { in: ["DRAFT", "IN_REVIEW", "SENT", "REVISED"] },
+    },
+    data: { status: "LOST_BC" },
+  });
+}
+
 export async function supersedeOtherWonQuotesInFamily(
   tx: TransactionClient,
   quoteId: string,

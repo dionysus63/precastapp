@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
+  findExistingProductCodesAction,
   importProducts,
   validateCastingAssemblyImportCodesAction,
 } from "@/app/products/actions";
@@ -184,12 +185,15 @@ function presetPreviewColumns(preset: BulkImportPreset): Array<{
   ];
 }
 
-function rowStatusBadge(row: BulkProductPasteRow) {
+function rowStatusBadge(row: BulkProductPasteRow, updatesExisting: boolean) {
   if (!row.isValid) {
     return <StatusBadge label="Invalid" variant="danger" />;
   }
   if (row.needsTaxonomyCreate) {
     return <StatusBadge label="New taxonomy" variant="warning" />;
+  }
+  if (updatesExisting) {
+    return <StatusBadge label="Updates existing" variant="info" />;
   }
   return <StatusBadge label="Valid" variant="success" />;
 }
@@ -238,6 +242,10 @@ export function BulkPasteForm({
   const [importSummary, setImportSummary] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isValidatingCodes, startCodeValidation] = useTransition();
+  const [existingCodes, setExistingCodes] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const existingLookupId = useRef(0);
 
   const columnHeaders = useMemo(
     () => getBulkPasteHeaders(importPreset),
@@ -253,6 +261,13 @@ export function BulkPasteForm({
     [previewRows],
   );
   const invalidCount = previewRows.length - validCount;
+  const updateCount = useMemo(
+    () =>
+      previewRows.filter(
+        (row) => row.isValid && existingCodes.has(row.productCode.trim()),
+      ).length,
+    [existingCodes, previewRows],
+  );
   const needsSupplier = presetRequiresSupplier(importPreset);
   const expectedProductType = presetToProductType(importPreset);
 
@@ -294,6 +309,7 @@ export function BulkPasteForm({
     setHasParsed(true);
     setImportSummary(null);
     setErrorMessage(null);
+    lookUpExistingCodes(rows);
 
     const productKind = presetToProductKind(importPreset);
     if (productKind !== "CASTING_ASSEMBLY") {
@@ -344,6 +360,29 @@ export function BulkPasteForm({
     });
   }
 
+  // Rows whose code already exists update that product rather than creating
+  // one; the preview flags them so a re-paste is never a surprise.
+  function lookUpExistingCodes(rows: BulkProductPasteRow[]) {
+    const lookupId = ++existingLookupId.current;
+    setExistingCodes(new Set());
+    const codes = rows
+      .map((row) => row.productCode.trim())
+      .filter(Boolean);
+    if (codes.length === 0) {
+      return;
+    }
+    startCodeValidation(async () => {
+      try {
+        const found = await findExistingProductCodesAction(codes);
+        if (lookupId === existingLookupId.current) {
+          setExistingCodes(new Set(found));
+        }
+      } catch {
+        // The import result still reports how many products were updated.
+      }
+    });
+  }
+
   function handleLoadExample() {
     setPasteText(bulkPasteExamples[importPreset]);
     setPreviewRows([]);
@@ -387,6 +426,18 @@ export function BulkPasteForm({
         return;
       }
       createMissingTaxonomy = true;
+    }
+
+    if (updateCount > 0) {
+      const confirmed = await confirm({
+        title: "Update existing products?",
+        message: `${updateCount} row${updateCount === 1 ? "" : "s"} match${updateCount === 1 ? "es" : ""} an existing product code. Their name, category, unit, price and product details will be replaced (weight and yards only where filled in). Stock on hand, reorder level, status, cost, description and notes are kept.`,
+        confirmLabel: "Import & Update",
+        cancelLabel: "Cancel",
+      });
+      if (!confirmed) {
+        return;
+      }
     }
 
     const formData = new FormData();
@@ -646,7 +697,7 @@ export function BulkPasteForm({
       {hasParsed ? (
         <SectionCard
           title="Import Preview"
-          description={`${validCount} valid row${validCount === 1 ? "" : "s"}, ${invalidCount} with issues`}
+          description={`${validCount} valid row${validCount === 1 ? "" : "s"}${updateCount > 0 ? ` (${updateCount} update existing products)` : ""}, ${invalidCount} with issues`}
           noPadding
         >
           {previewRows.length === 0 ? (
@@ -685,7 +736,10 @@ export function BulkPasteForm({
                           }`}
                         >
                           {column.key === "status" ? (
-                            rowStatusBadge(row)
+                            rowStatusBadge(
+                              row,
+                              existingCodes.has(row.productCode.trim()),
+                            )
                           ) : (
                             column.getValue(row) || "—"
                           )}

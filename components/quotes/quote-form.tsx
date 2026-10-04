@@ -2138,11 +2138,13 @@ export function QuoteForm({
                       }
                       className={quoteCompactInputClassName}
                     >
-                      {quoteStatusFormOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
+                      {quoteStatusFormOptions
+                        .filter((option) => isEditing || option.value !== "WON")
+                        .map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
                     </select>
                   </div>
                   <div>

@@ -227,6 +227,13 @@ function validateCreateQuoteInput(input: CreateQuoteInput) {
   if (!QUOTE_STATUSES.includes(input.status)) {
     throw new Error("Invalid quote status.");
   }
+  // REVISED is only ever set by the Revise action; saving it from the form
+  // locks the quote with no newer revision to move on to.
+  if (input.status === "REVISED") {
+    throw new Error(
+      "Revised is set automatically when a quote is revised — pick another status.",
+    );
+  }
 
   if (!QUOTE_TYPES.includes(input.quoteType)) {
     throw new Error("Invalid quote type.");
@@ -358,6 +365,13 @@ export async function createQuote(
   const actor = await requirePermission(AppPermission.QUOTES_MANAGE);
   try {
     validateCreateQuoteInput(input);
+    // Creating a quote straight into WON skipped structure linking, job
+    // promotion and bid bookkeeping; winning goes through the saved quote.
+    if (input.status === "WON") {
+      throw new Error(
+        "Save the quote first, then use Mark Won so the job and its structures are set up.",
+      );
+    }
     await assertGalleyFamiliesExist(input);
 
     let quoteNumber = await generateQuoteNumber(prisma, {
@@ -634,6 +648,7 @@ export async function updateQuote(
         const {
           assertRevisionKeepsOperationalJob,
           lockQuoteForUpdate,
+          recordBidderWinInTransaction,
           supersedeOtherWonQuotesInFamily,
         } = await import("@/lib/quote-revision");
         await lockQuoteForUpdate(tx, quoteId);
@@ -860,6 +875,8 @@ export async function updateQuote(
         }
 
         if (input.status === "WON") {
+          await recordBidderWinInTransaction(tx, quoteId);
+
           supersededWonQuoteIds = await supersedeOtherWonQuotesInFamily(
             tx,
             quoteId,
@@ -943,8 +960,11 @@ export async function updateQuoteStatus(quoteId: string, status: QuoteStatusValu
       // creating structures must not leave the quote marked WON with a
       // partially linked line set.
       await client.$transaction(async (tx) => {
-        const { lockQuoteForUpdate, supersedeOtherWonQuotesInFamily } =
-          await import("@/lib/quote-revision");
+        const {
+          lockQuoteForUpdate,
+          recordBidderWinInTransaction,
+          supersedeOtherWonQuotesInFamily,
+        } = await import("@/lib/quote-revision");
         await lockQuoteForUpdate(tx, quoteId);
 
         const existing = await tx.quote.findUnique({
@@ -984,6 +1004,8 @@ export async function updateQuoteStatus(quoteId: string, status: QuoteStatusValu
         }
 
         if (status === "WON") {
+          await recordBidderWinInTransaction(tx, quoteId);
+
           // A won source remains the job's operational quote while this
           // revision is being prepared. Transfer that ownership only when the
           // replacement itself wins, in the same transaction as structure
@@ -1172,6 +1194,78 @@ export async function deleteQuote(quoteId: string): Promise<DeleteQuoteResult> {
   try {
     const result = await withDatabaseRetry((client) =>
       client.$transaction(async (tx) => {
+        const { lockQuoteForUpdate } = await import("@/lib/quote-revision");
+        await lockQuoteForUpdate(tx, quoteId);
+
+        // Authoritative re-check under the row lock (a Mark Won may have
+        // landed since the read above).
+        const locked = await tx.quote.findUnique({
+          where: { id: quoteId },
+          select: { status: true, originalQuoteId: true, revisionNumber: true },
+        });
+        if (!locked) {
+          throw new Error("Quote was not found.");
+        }
+        if (locked.status === "WON") {
+          throw new Error(
+            "Won quotes anchor the job's structures and progress — revise the quote or mark it Lost instead of deleting it.",
+          );
+        }
+
+        // Later revisions chain to this quote: their lines point back at its
+        // lines (previousLineItemId) and the family hangs off the root. Deleting
+        // it would split the family and lose what already shipped, so only the
+        // newest revision can be deleted.
+        const rootId = locked.originalQuoteId ?? quoteId;
+        const familyWhere = {
+          OR: [{ id: rootId }, { originalQuoteId: rootId }],
+        };
+        const newer = await tx.quote.findFirst({
+          where: { ...familyWhere, revisionNumber: { gt: locked.revisionNumber } },
+          orderBy: { revisionNumber: "desc" },
+          select: { quoteNumber: true },
+        });
+        if (newer) {
+          throw new Error(
+            `This quote has a newer revision (${newer.quoteNumber}). Only the latest revision can be deleted.`,
+          );
+        }
+
+        // Tickets and invoices price from the quote's lines; deleting them
+        // would silently re-bill at list price and drop shipped quantities.
+        const ticketLines = await tx.deliveryTicketLineItem.count({
+          where: { quoteLineItem: { quoteId } },
+        });
+        const tickets = await tx.deliveryTicket.count({ where: { quoteId } });
+        const invoiceLines = await tx.invoiceLineItem.count({
+          where: { quoteLineItem: { quoteId } },
+        });
+        const invoices = await tx.invoice.count({ where: { quoteId } });
+        if (ticketLines + tickets + invoiceLines + invoices > 0) {
+          throw new Error(
+            "Delivery tickets or invoices were created from this quote, so it has to stay on record — deleting it would cut them off from their quoted prices.",
+          );
+        }
+
+        // Revising a sent quote marks it REVISED straight away. Deleting that
+        // draft revision hands the family back to it as a sent quote again,
+        // otherwise it would be stuck: not editable, sendable or revisable.
+        let restoredQuoteId: string | null = null;
+        if (locked.revisionNumber > 0) {
+          const predecessor = await tx.quote.findFirst({
+            where: { ...familyWhere, revisionNumber: { lt: locked.revisionNumber } },
+            orderBy: { revisionNumber: "desc" },
+            select: { id: true, status: true },
+          });
+          if (predecessor?.status === "REVISED") {
+            await tx.quote.update({
+              where: { id: predecessor.id },
+              data: { status: "SENT" },
+            });
+            restoredQuoteId = predecessor.id;
+          }
+        }
+
         // Structures and plan sheets reachable only through this quote (no
         // job) would be orphaned by the SetNull FK — remove them with it.
         // Job-linked ones survive and just lose the quote link.
@@ -1185,6 +1279,7 @@ export async function deleteQuote(quoteId: string): Promise<DeleteQuoteResult> {
         return {
           structuresDeleted: structuresDeleted.count,
           planSheetsDeleted: planSheetsDeleted.count,
+          restoredQuoteId,
         };
       }),
     );
@@ -1200,10 +1295,14 @@ export async function deleteQuote(quoteId: string): Promise<DeleteQuoteResult> {
         status: quote.status,
         structuresDeleted: result.structuresDeleted,
         planSheetsDeleted: result.planSheetsDeleted,
+        restoredQuoteId: result.restoredQuoteId,
       },
     });
 
     revalidatePath("/quotes");
+    if (result.restoredQuoteId) {
+      revalidatePath(`/quotes/${result.restoredQuoteId}`);
+    }
     revalidatePath("/production");
     if (quote.jobId) {
       revalidatePath(`/jobs/${quote.jobId}`);

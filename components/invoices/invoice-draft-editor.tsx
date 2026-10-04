@@ -164,7 +164,25 @@ export function InvoiceDraftEditor({
         if (result?.error) setMessage(result.error);
         return;
       }
+      const sentKeys = lines.map((line) => line.clientKey);
+      const sentDeletedIds = input.deletedLineIds;
       const result = await updateDraftInvoice(input);
+      if (result.lineIds) {
+        // Give newly created lines their ids so the next save updates them
+        // instead of inserting them again.
+        const savedIds = result.lineIds;
+        setLines((current) =>
+          current.map((line) => {
+            const index = sentKeys.indexOf(line.clientKey);
+            return index >= 0 && !line.id
+              ? { ...line, id: savedIds[index] }
+              : line;
+          }),
+        );
+        setDeletedLineIds((ids) =>
+          ids.filter((id) => !sentDeletedIds.includes(id)),
+        );
+      }
       setMessage(result.error ?? (finalized ? "Invoice saved." : "Draft saved."));
     });
   };

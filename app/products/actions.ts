@@ -32,6 +32,7 @@ import {
   presetRequiresSupplier,
   presetToProductKind,
   presetToProductType,
+  productKindLabels,
   productKindToLegacyFlags,
   resolveInventorySettings,
   type BulkImportPreset,
@@ -692,6 +693,72 @@ function mapBulkImportRow(
   };
 }
 
+type MappedBulkImportProduct = Omit<
+  ReturnType<typeof mapBulkImportRow>,
+  "unitPrice"
+>;
+
+/**
+ * The fields a bulk paste may change on a product that already exists. A paste
+ * carries catalog data only, so stock, reorder level, inventory tracking,
+ * status, cost, description and notes are left alone — writing the mapped
+ * defaults reset on-hand stock to 0 without a ledger entry and revived
+ * discontinued products. Weight and yards are only written when the cell was
+ * filled in, so a blank column doesn't zero them.
+ */
+function bulkImportUpdateData(
+  product: MappedBulkImportProduct,
+  row: BulkImportRow,
+) {
+  const {
+    currentStockQuantity,
+    reorderLevel,
+    trackInventory,
+    status,
+    cost,
+    description,
+    notes,
+    weight,
+    yards,
+    ...catalog
+  } = product;
+  void currentStockQuantity;
+  void reorderLevel;
+  void trackInventory;
+  void status;
+  void cost;
+  void description;
+  void notes;
+
+  return {
+    ...catalog,
+    ...(String(row.weight ?? "").trim() ? { weight } : {}),
+    ...(String(row.yards ?? "").trim() ? { yards } : {}),
+  };
+}
+
+/** Which of these product codes already exist (bulk import preview). */
+export async function findExistingProductCodesAction(
+  productCodes: string[],
+): Promise<string[]> {
+  await requirePermission(AppPermission.PRODUCTS_MANAGE);
+
+  const codes = [
+    ...new Set(productCodes.map((code) => code.trim()).filter(Boolean)),
+  ];
+  if (codes.length === 0) {
+    return [];
+  }
+
+  const existing = await withDatabaseRetry((client) =>
+    client.product.findMany({
+      where: { productCode: { in: codes } },
+      select: { productCode: true },
+    }),
+  );
+  return existing.map((product) => product.productCode);
+}
+
 function parseBulkNumeric(
   raw: string,
   label: string,
@@ -986,9 +1053,31 @@ export async function importProducts(
 
   const existingProducts = await prisma.product.findMany({
     where: { productCode: { in: products.map((product) => product.productCode) } },
-    select: { productCode: true },
+    select: { productCode: true, productKind: true },
   });
-  const existingCodes = new Set(existingProducts.map((product) => product.productCode));
+  const existingKindByCode = new Map(
+    existingProducts.map((product) => [product.productCode, product.productKind]),
+  );
+  const existingCodes = new Set(existingKindByCode.keys());
+
+  // An import only updates products of the kind it imports: rewriting another
+  // kind's profile fields would silently turn, say, a precast product into a
+  // casting.
+  const kindConflicts = products.filter((product) => {
+    const existingKind = existingKindByCode.get(product.productCode);
+    return existingKind !== undefined && existingKind !== product.productKind;
+  });
+  if (kindConflicts.length > 0) {
+    const details = kindConflicts
+      .map(
+        (product) =>
+          `${product.productCode} (line ${rowsByProductCode.get(product.productCode)?.join(", ") ?? "?"}, already a ${productKindLabels[existingKindByCode.get(product.productCode)!]} product)`,
+      )
+      .join("; ");
+    throw new Error(
+      `These codes already exist as a different kind of product, so this import can't update them: ${details}. Edit them individually or remove them from the paste.`,
+    );
+  }
 
   const importedProductIds = await prisma.$transaction(async (tx) => {
     const productIds: string[] = [];
@@ -1004,7 +1093,7 @@ export async function importProducts(
       if (existing) {
         await tx.product.update({
           where: { id: existing.id },
-          data: productData,
+          data: bulkImportUpdateData(productData, rawRows[index]!),
         });
         productId = existing.id;
         if (productKind === "CASTING_ASSEMBLY" && !productData.castingSoldAsUnit) {
