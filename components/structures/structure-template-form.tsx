@@ -101,6 +101,8 @@ type StructureTemplateFormProps = {
   /** Rect wall/slab prices read and write this price list's entry. */
   priceListId?: string | null;
   priceListName?: string | null;
+  /** Drill sheets using this template: the shape is locked while any do. */
+  sheetCount?: number;
 };
 
 function uid() {
@@ -161,7 +163,9 @@ export function StructureTemplateForm({
   moldOptions = [],
   priceListId = null,
   priceListName = null,
+  sheetCount = 0,
 }: StructureTemplateFormProps) {
+  const shapeLocked = sheetCount > 0;
   const initial = defaultValue ?? defaultFormValue;
   const [name, setName] = useState(initial.name);
   const [agencyStandard, setAgencyStandard] = useState(initial.agencyStandard);
@@ -351,11 +355,18 @@ export function StructureTemplateForm({
                     setRectPdfSetId("");
                   }
                 }}
+                disabled={shapeLocked}
                 className={structureInputClassName}
               >
                 <option value="CIRCULAR">Circular</option>
                 <option value="RECTANGULAR">Rectangular</option>
               </select>
+              {shapeLocked ? (
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Locked: {sheetCount} drill sheet{sheetCount === 1 ? " uses" : "s use"}{" "}
+                  this template. Duplicate it to make a different shape.
+                </p>
+              ) : null}
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-700">

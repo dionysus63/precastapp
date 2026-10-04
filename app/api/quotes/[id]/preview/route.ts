@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import {
+  contentDisposition,
+  fileRouteErrorResponse,
+} from "@/lib/http-responses";
 import { QUOTE_PDF_INCLUDE } from "@/lib/quote-pdf-data";
 import { generateQuotePdfBytes } from "@/lib/quote-pdf-fill";
 import { buildQuoteAttachmentFilename } from "@/lib/quote-pdf-persist";
@@ -46,13 +50,14 @@ export async function GET(request: Request, context: RouteContext) {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+        "Content-Disposition": contentDisposition(
+          download ? "attachment" : "inline",
+          filename,
+        ),
         "Cache-Control": "private, no-store",
       },
     });
-  } catch {
-    return new NextResponse("Unauthorized or failed to generate preview.", {
-      status: 403,
-    });
+  } catch (error) {
+    return fileRouteErrorResponse(error, "Quote PDF");
   }
 }

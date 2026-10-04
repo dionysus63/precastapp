@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
   listJobFilesAction,
@@ -102,7 +101,6 @@ export function JobFilesBrowser({
   baseQuery,
   lockedCategory,
 }: JobFilesBrowserProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [displayFiles, setDisplayFiles] = useState(files);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -175,8 +173,9 @@ export function JobFilesBrowser({
     setOpenSuccess(null);
     startTransition(async () => {
       await syncJobFilesAction(jobId);
+      // The listing re-reads from the action; an in-place router refresh
+      // doesn't apply on the LAN and only left the transition hanging.
       await refreshDisplayedFiles();
-      router.refresh();
     });
   }
 
@@ -217,7 +216,6 @@ export function JobFilesBrowser({
             : `${fileCount} files uploaded.`,
         );
         await refreshDisplayedFiles();
-        router.refresh();
       } catch (err) {
         setUploadProgress(null);
         setUploadError(err instanceof Error ? err.message : "Upload failed.");

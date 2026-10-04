@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { randomId } from "@/lib/random-id";
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { saveProductionEntry } from "@/app/operations/actions";
 import { searchInventoryProducts } from "@/app/inventory/actions";
 import { FormTypeahead } from "@/components/common/form-typeahead";
 import { SectionCard } from "@/components/dashboard/section-card";
+import { navigateAfterAction } from "@/lib/reload-after-action";
 
 type ProductOption = {
   id: string;
@@ -37,7 +37,6 @@ function createRow(): ProductionLineRow {
 }
 
 export function ProductionEntryForm({ products }: ProductionEntryFormProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [lines, setLines] = useState<ProductionLineRow[]>([createRow()]);
@@ -75,8 +74,7 @@ export function ProductionEntryForm({ products }: ProductionEntryFormProps) {
         setError(result.error);
         return;
       }
-      router.push("/inventory");
-      router.refresh();
+      navigateAfterAction("/inventory");
     });
   }
 

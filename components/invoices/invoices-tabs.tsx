@@ -26,6 +26,7 @@ import {
   tableHeaderCellClassName,
   tableRowClassName,
 } from "@/lib/table-styles";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 
 export type ReconcileTabData = {
   allowed: boolean;
@@ -184,8 +185,16 @@ function DraftReviewTab({
     }
     startTransition(async () => {
       const result = await finalizeInvoices(ids, invoiceDate);
-      setMessage(result.error ?? `Finalized ${result.finalized ?? 0} invoice(s).`);
-      if (!result.error) setSelected(new Set());
+      if (result.error) {
+        setMessage(result.error);
+        return;
+      }
+      // Reload so finalized drafts leave the Drafts tab (revalidation alone
+      // doesn't reach the page on the LAN).
+      reloadAfterAction({
+        type: "success",
+        text: `Finalized ${result.finalized ?? 0} invoice(s).`,
+      });
     });
   };
 
@@ -414,7 +423,14 @@ function DraftReviewTab({
                                   const result = await deleteDraftInvoice(
                                     row.id,
                                   );
-                                  setMessage(result.error ?? "Draft deleted.");
+                                  if (result.error) {
+                                    setMessage(result.error);
+                                    return;
+                                  }
+                                  reloadAfterAction({
+                                    type: "success",
+                                    text: "Draft deleted.",
+                                  });
                                 });
                               }}
                               className="text-red-700 underline hover:text-red-900 disabled:opacity-50"
@@ -684,9 +700,14 @@ function FinalInvoicesTab({
                                     "@/app/invoices/actions"
                                   );
                                   const result = await markInvoicePaid(row.id);
-                                  setMessage(
-                                    result.error ?? "Marked paid.",
-                                  );
+                                  if (result.error) {
+                                    setMessage(result.error);
+                                    return;
+                                  }
+                                  reloadAfterAction({
+                                    type: "success",
+                                    text: "Marked paid.",
+                                  });
                                 });
                               }}
                               className="text-emerald-700 underline hover:text-emerald-900 disabled:opacity-50"
@@ -712,7 +733,14 @@ function FinalInvoicesTab({
                                     "@/app/invoices/actions"
                                   );
                                   const result = await voidInvoice(row.id);
-                                  setMessage(result.error ?? "Invoice voided.");
+                                  if (result.error) {
+                                    setMessage(result.error);
+                                    return;
+                                  }
+                                  reloadAfterAction({
+                                    type: "success",
+                                    text: "Invoice voided.",
+                                  });
                                 });
                               }}
                               className="text-red-700 underline hover:text-red-900 disabled:opacity-50"

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { BackButton } from "@/components/dashboard/back-button";
 import { useCallback, useState, useTransition } from "react";
 import {
@@ -47,13 +46,21 @@ export function DeliveryTicketPreviewContent({
   backHref,
   backLabel = "Back to Ticket",
   editHref,
-  completeOnPrint = false,
+  completeOnPrint: completeOnPrintInitially = false,
   payNow = false,
   paymentReceivedDefault = false,
-  existingInvoice = null,
+  existingInvoice: existingInvoiceInitially = null,
   directPrintPrinter = null,
 }: DeliveryTicketPreviewContentProps) {
-  const router = useRouter();
+  // Completing a walk-in sale flips this page into reprint mode from the
+  // action's result: printing is under way in this page, so it can't be
+  // reloaded, and an in-place refresh doesn't apply on the LAN.
+  const [completeOnPrint, setCompleteOnPrint] = useState(
+    completeOnPrintInitially,
+  );
+  const [existingInvoice, setExistingInvoice] = useState(
+    existingInvoiceInitially,
+  );
   const [previewCopy, setPreviewCopy] = useState(1);
   const [previewSheet, setPreviewSheet] = useState(1);
   const [sheetCount, setSheetCount] = useState(1);
@@ -168,8 +175,10 @@ export function DeliveryTicketPreviewContent({
         setCompleteMessage({ type: "error", text: result.error });
         return;
       }
-      if ("warning" in result && result.warning) {
-        setCompleteMessage({ type: "warning", text: result.warning });
+      const warning =
+        "warning" in result && result.warning ? result.warning : null;
+      if (warning) {
+        setCompleteMessage({ type: "warning", text: warning });
       }
       printCopies();
       // Pay-now counter flow: the completed sale's invoice prints in the
@@ -182,7 +191,13 @@ export function DeliveryTicketPreviewContent({
           `Sale complete (invoice${paidNote}) — `,
         );
       }
-      router.refresh();
+      setCompleteOnPrint(false);
+      if ("invoice" in result && result.invoice) {
+        setExistingInvoice({
+          id: result.invoice.id,
+          invoiceNumber: result.invoice.invoiceNumber,
+        });
+      }
     });
   }
 

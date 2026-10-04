@@ -20,28 +20,30 @@ export default async function EditDrillSheetPage({
 }: EditDrillSheetPageProps) {
   const { id } = await params;
 
-  const [
-    sheet,
-    {
-      templateOptions,
-      castingOptions,
-      jobOptions,
-      pipeOpeningSizes,
-      diameterConfigs,
-    },
-  ] = await Promise.all([
+  const [sheet, priceListId] = await Promise.all([
     prisma.jobStructure.findUnique({
       where: { id },
       include: drillSheetDetailInclude,
     }),
-    getPriceListIdForStructure(id).then((priceListId) =>
-      loadDrillSheetFormOptions(priceListId),
-    ),
+    getPriceListIdForStructure(id),
   ]);
 
   if (!sheet || !sheet.calc) {
     notFound();
   }
+
+  // The sheet's own template is offered even if it has since been retired.
+  const {
+    templateOptions,
+    castingOptions,
+    jobOptions,
+    pipeOpeningSizes,
+    diameterConfigs,
+  } = await loadDrillSheetFormOptions(priceListId, {
+    includeTemplateIds: sheet.structureTemplateId
+      ? [sheet.structureTemplateId]
+      : [],
+  });
 
   if (sheet.structureTemplate?.shape === "RECTANGULAR") {
     redirect(`/drill-sheets/rect/${id}/edit`);

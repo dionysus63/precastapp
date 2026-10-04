@@ -20,6 +20,7 @@ import {
   tableRowClassName,
   tableWrapperClassName,
 } from "@/lib/table-styles";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 const documentTypeOptions = [
   { value: "GENERIC_SUBMITTAL", label: "Generic Submittal" },
   { value: "SHOP_DRAWING", label: "Shop Drawing" },
@@ -65,7 +66,9 @@ export function ProductDocumentsSection({
       try {
         await uploadProductDocumentAction(formData);
         formRef.current?.reset();
-        setMessage({ success: "Document uploaded." });
+        // Reload so the list shows the change (revalidation alone doesn't
+        // reach the page on the LAN).
+        reloadAfterAction({ type: "success", text: "Document uploaded." });
       } catch (error) {
         setMessage({
           error:
@@ -80,8 +83,9 @@ export function ProductDocumentsSection({
     startTransition(async () => {
       try {
         const result = await scanProductDocumentsAction(productId);
-        setMessage({
-          success: `Scan complete: ${result.added} added, ${result.removed} removed.`,
+        reloadAfterAction({
+          type: "success",
+          text: `Scan complete: ${result.added} added, ${result.removed} removed.`,
         });
       } catch (error) {
         setMessage({
@@ -138,7 +142,7 @@ export function ProductDocumentsSection({
     startTransition(async () => {
       try {
         await deleteProductDocumentAction(documentId);
-        setMessage({ success: "Document deleted." });
+        reloadAfterAction({ type: "success", text: "Document deleted." });
       } catch (error) {
         setMessage({
           error:

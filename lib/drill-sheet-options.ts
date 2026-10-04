@@ -44,11 +44,28 @@ export type DrillSheetFormOptions = {
 
 export async function loadDrillSheetFormOptions(
   priceListId: string | null = null,
+  options: {
+    /**
+     * Templates to offer even when Inactive — the ones the sheets being
+     * edited already use. Without them an existing sheet on a retired
+     * template had no diameters to pick and could never be saved.
+     */
+    includeTemplateIds?: string[];
+  } = {},
 ): Promise<DrillSheetFormOptions> {
+  const includeTemplateIds = (options.includeTemplateIds ?? []).filter(Boolean);
   const [templates, castings, jobs, pipeOpeningSizes, diameterConfigs, pricing] =
     await Promise.all([
       prisma.structureTemplate.findMany({
-        where: { status: "ACTIVE", shape: "CIRCULAR" },
+        where: {
+          shape: "CIRCULAR",
+          OR: [
+            { status: "ACTIVE" },
+            ...(includeTemplateIds.length > 0
+              ? [{ id: { in: includeTemplateIds } }]
+              : []),
+          ],
+        },
         orderBy: { name: "asc" },
         include: {
           castingProduct: {
@@ -75,7 +92,10 @@ export async function loadDrillSheetFormOptions(
   const templateOptions: DrillSheetTemplateOption[] = templates.map(
     (template) => ({
       id: template.id,
-      name: template.name,
+      name:
+        template.status === "ACTIVE"
+          ? template.name
+          : `${template.name} (inactive)`,
       agencyStandard: template.agencyStandard,
       wallThicknessInches: Number(template.wallThicknessInches),
       baseSlabThicknessInches: Number(template.baseSlabThicknessInches),

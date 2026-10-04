@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { DeliveryTicketStatus } from "@/app/generated/prisma/client";
 import { updateDeliveryTicketStatus } from "@/app/delivery-tickets/actions";
@@ -10,6 +9,7 @@ import {
 } from "@/components/delivery-tickets/delivery-ticket-utils";
 import { deliveryTicketStatusVariant } from "@/lib/status-variants";
 import { StatusBadge } from "@/components/dashboard/status-badge";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 
 // Same palette as StatusBadge so the dropdown still reads as a status color.
 const VARIANT_SELECT_STYLES: Record<
@@ -43,7 +43,6 @@ const CONFIRM_MESSAGES: Partial<Record<DeliveryTicketStatus, string>> = {
  * clickable while the action and router refresh run; on error it reverts.
  */
 export function StatusSelect({ ticketId, status }: StatusSelectProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -88,10 +87,13 @@ export function StatusSelect({ ticketId, status }: StatusSelectProps) {
         setValue(previous);
         return;
       }
-      if ("warning" in result && result.warning) {
-        setWarning(result.warning);
-      }
-      router.refresh();
+      // Reload so the rest of the page (other loads, counts) reflects the
+      // change; a pay-now warning carries over instead of vanishing.
+      reloadAfterAction(
+        "warning" in result && result.warning
+          ? { type: "warning", text: result.warning }
+          : undefined,
+      );
     });
   }
 

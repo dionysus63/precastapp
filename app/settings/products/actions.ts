@@ -195,7 +195,7 @@ export async function updateProductSubcategoryFormAction(formData: FormData) {
 
 export async function deleteProductCategory(
   formData: FormData,
-): Promise<{ error: string } | void> {
+): Promise<{ error: string } | { success: true }> {
   await requirePermission(AppPermission.SETTINGS_MANAGE);
 
   const id = String(formData.get("id") ?? "").trim();
@@ -238,7 +238,9 @@ export async function deleteProductCategory(
     );
 
     revalidateProductTaxonomyPaths();
-    redirect("/settings/products?success=1");
+    // The caller navigates (a redirect back to this same page doesn't
+    // apply on the LAN — see lib/reload-after-action).
+    return { success: true };
   } catch (error) {
     if (isNextRedirectError(error)) {
       throw error;
@@ -258,7 +260,7 @@ export async function deleteProductCategory(
 
 export async function deleteProductSubcategory(
   formData: FormData,
-): Promise<{ error: string } | void> {
+): Promise<{ error: string } | { success: true }> {
   await requirePermission(AppPermission.SETTINGS_MANAGE);
 
   const id = String(formData.get("id") ?? "").trim();
@@ -288,7 +290,9 @@ export async function deleteProductSubcategory(
     );
 
     revalidateProductTaxonomyPaths();
-    redirect("/settings/products?success=1");
+    // The caller navigates (a redirect back to this same page doesn't
+    // apply on the LAN — see lib/reload-after-action).
+    return { success: true };
   } catch (error) {
     if (isNextRedirectError(error)) {
       throw error;

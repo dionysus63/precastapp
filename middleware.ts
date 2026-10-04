@@ -6,11 +6,11 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hasSession = Boolean(request.cookies.get(SESSION_COOKIE_NAME)?.value);
 
+  // The login page itself sends signed-in users home (it can check the
+  // session against the database; this can only see that a cookie exists).
+  // Redirecting here on a mere cookie looped forever on a dead one — after a
+  // password reset, deactivation or expiry — between "/" and "/login".
   if (pathname.startsWith("/login")) {
-    if (hasSession) {
-      return NextResponse.redirect(new URL("/", request.url));
-    }
-
     return NextResponse.next();
   }
 

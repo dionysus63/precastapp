@@ -49,6 +49,11 @@ export type DrillSheetFormOpening = {
 export type DrillSheetFormValues = {
   templateId: string;
   diameterId: string;
+  /**
+   * The sheet's saved inside diameter when its template no longer offers it
+   * (diameterId is then blank, so the user must pick one deliberately).
+   */
+  unmatchedDiameterFeet?: number | null;
   castingProductId: string;
   jobId: string;
   manholeNumber: string;
@@ -101,7 +106,14 @@ export function buildDrillSheetFormValues(
 
   return {
     templateId: sheet.structureTemplateId ?? "",
-    diameterId: matchedDiameter?.id ?? diameters[0]?.id ?? "",
+    // Never fall back to another size: that silently recomputed and repriced
+    // a 6' manhole as a 4' one on the next save. A sheet with no saved size
+    // yet still defaults to the template's first diameter.
+    diameterId:
+      matchedDiameter?.id ??
+      (insideDiameter == null ? (diameters[0]?.id ?? "") : ""),
+    unmatchedDiameterFeet:
+      insideDiameter != null && !matchedDiameter ? insideDiameter : null,
     castingProductId: sheet.castings[0]?.castingProductId ?? "",
     jobId: sheet.jobId ?? "",
     manholeNumber: sheet.structureNumber ?? "",

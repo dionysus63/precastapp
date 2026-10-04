@@ -555,16 +555,32 @@ export function DrillSheetForm({
               onChange={(e) => setDiameterId(e.target.value)}
               className={structureInputClassName}
             >
+              {diameterId === "" ? (
+                <option value="" disabled>
+                  — Pick a diameter —
+                </option>
+              ) : null}
               {selectedTemplate?.diameters.map((diameter) => (
                 <option key={diameter.id} value={diameter.id}>
                   {diameter.insideDiameterFeet}&apos; ID
                 </option>
               ))}
             </select>
-            {!diameterConfig ? (
+            {diameterId === "" &&
+            initialValues?.unmatchedDiameterFeet != null &&
+            templateId === initialValues.templateId ? (
               <p className="mt-1 text-[11px] text-amber-700">
-                No mold configured in Settings for this size.
+                This sheet was built at {initialValues.unmatchedDiameterFeet}&apos;
+                ID, which this template no longer offers. Pick the diameter to
+                recompute it with.
               </p>
+            ) : null}
+            {!diameterConfig ? (
+              diameterId ? (
+                <p className="mt-1 text-[11px] text-amber-700">
+                  No mold configured in Settings for this size.
+                </p>
+              ) : null
             ) : (
               <p className="mt-1 text-[11px] text-slate-500">
                 {diameterConfig.label ? `${diameterConfig.label} · ` : "Mold: "}

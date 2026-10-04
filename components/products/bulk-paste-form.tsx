@@ -1,9 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useTransition } from "react";
-import { toast } from "sonner";
 import {
   findExistingProductCodesAction,
   importProducts,
@@ -46,6 +44,7 @@ import {
   tableFlushWrapperClassName,
   tableRowClassName,
 } from "@/lib/table-styles";
+import { navigateAfterAction } from "@/lib/reload-after-action";
 const PROFILE_FIELD_KEYS = new Set([
   "ringDiameterFeet",
   "heightFeet",
@@ -227,7 +226,6 @@ export function BulkPasteForm({
   taxonomy,
   castingSuppliers,
 }: BulkPasteFormProps) {
-  const router = useRouter();
   const confirm = useConfirm();
   const defaultPriceListId =
     priceLists.find((list) => list.isDefault)?.id ?? priceLists[0]?.id ?? "";
@@ -498,13 +496,13 @@ export function BulkPasteForm({
           );
         }
         setImportSummary(summaryParts.join(". "));
-        toast.success(
-          `Imported ${result.imported} product${result.imported === 1 ? "" : "s"}${result.updated ? `, updated ${result.updated}` : ""}.`,
-        );
-        router.push(
+        navigateAfterAction(
           `/products?imported=${result.imported}&updated=${result.updated}`,
+          {
+            type: result.listsMissingProducts.length > 0 ? "warning" : "success",
+            text: `${summaryParts.join(". ")}.`,
+          },
         );
-        router.refresh();
       } catch (error) {
         setErrorMessage(
           error instanceof Error ? error.message : "Import failed.",

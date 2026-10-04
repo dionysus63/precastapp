@@ -8,6 +8,11 @@ import {
 import { buildDrillSheetPdfBytes } from "@/lib/drill-sheet-pdf-generate";
 import { rectSheetDetailInclude } from "@/lib/rect-sheet-detail";
 import { buildRectSheetPdfBytes } from "@/lib/rect-sheet-pdf-generate";
+import {
+  contentDisposition,
+  fileRouteErrorResponse,
+  headerSafe,
+} from "@/lib/http-responses";
 import { withDatabaseRetry } from "@/lib/prisma";
 
 type RouteContext = {
@@ -35,11 +40,11 @@ async function rectPreviewResponse(id: string): Promise<NextResponse> {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="drill-sheet-${label}.pdf"`,
+      "Content-Disposition": contentDisposition("inline", `drill-sheet-${label}.pdf`),
       "Cache-Control": "private, no-store",
       "X-Drill-Sheet-Pdf-Source": "rect-template",
-      "X-Drill-Sheet-Template-Variant": built.variantKey,
-      "X-Drill-Sheet-Template-Name": built.originalName,
+      "X-Drill-Sheet-Template-Variant": headerSafe(built.variantKey),
+      "X-Drill-Sheet-Template-Name": headerSafe(built.originalName),
     },
   });
 }
@@ -92,24 +97,26 @@ export async function GET(_request: Request, context: RouteContext) {
     const label = detail.meta.manholeNumber || sheet.id;
     const headers: Record<string, string> = {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="drill-sheet-${label}.pdf"`,
+      "Content-Disposition": contentDisposition("inline", `drill-sheet-${label}.pdf`),
       "Cache-Control": "private, no-store",
       "X-Drill-Sheet-Pdf-Source": built.source,
       "X-Drill-Sheet-Computed-Variant": built.computedVariant.key,
     };
 
     if (built.templateVariant) {
-      headers["X-Drill-Sheet-Template-Variant"] = built.templateVariant.key;
-      headers["X-Drill-Sheet-Template-Name"] = built.templateVariant.originalName;
+      headers["X-Drill-Sheet-Template-Variant"] = headerSafe(
+        built.templateVariant.key,
+      );
+      headers["X-Drill-Sheet-Template-Name"] = headerSafe(
+        built.templateVariant.originalName,
+      );
     }
 
     return new NextResponse(Buffer.from(built.bytes), {
       status: 200,
       headers,
     });
-  } catch {
-    return new NextResponse("Unauthorized or failed to generate preview.", {
-      status: 403,
-    });
+  } catch (error) {
+    return fileRouteErrorResponse(error, "Drill sheet preview");
   }
 }

@@ -166,6 +166,23 @@ export async function updateStructureTemplate(
         }
       }
 
+      // Sheets are computed for the template's shape; flipping it would send
+      // every existing sheet down the other shape's path with no dimensions.
+      // (The structure import refuses this too.)
+      const existing = await tx.structureTemplate.findUnique({
+        where: { id: templateId },
+        select: { shape: true, _count: { select: { jobStructures: true } } },
+      });
+      if (
+        existing &&
+        existing.shape !== payload.shape &&
+        existing._count.jobStructures > 0
+      ) {
+        throw new Error(
+          `This template's shape can't change while ${existing._count.jobStructures} drill sheet${existing._count.jobStructures === 1 ? " uses" : "s use"} it. Duplicate it and change the copy instead.`,
+        );
+      }
+
       await tx.structureTemplateDiameter.deleteMany({
         where: { templateId },
       });
@@ -300,14 +317,33 @@ export async function duplicateStructureTemplate(templateId: string) {
   redirect(`/structures/${newTemplateId}`);
 }
 
-export async function deleteStructureTemplate(templateId: string) {
+/**
+ * Refused while drill sheets use the template: the link is SetNull, so the
+ * sheets would drop out of the workbook, fall back to "needs a drill sheet"
+ * (blocking production approval), lose their shape (rect sheets render as
+ * circular) and become uneditable. Retiring a template is "Inactive".
+ */
+export async function deleteStructureTemplate(
+  templateId: string,
+): Promise<{ error: string } | void> {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
 
-  await prisma.structureTemplate
-    .delete({ where: { id: templateId } })
-    .catch((error) => {
-      throw translatePrismaError(error);
+  const sheetCount = await prisma.$transaction(async (tx) => {
+    const count = await tx.jobStructure.count({
+      where: { structureTemplateId: templateId },
     });
+    if (count === 0) {
+      await tx.structureTemplate.delete({ where: { id: templateId } });
+    }
+    return count;
+  }).catch((error) => {
+    throw translatePrismaError(error);
+  });
+  if (sheetCount > 0) {
+    return {
+      error: `${sheetCount} drill sheet${sheetCount === 1 ? " uses" : "s use"} this template, so it can't be deleted. Set its status to Inactive to retire it instead.`,
+    };
+  }
 
   revalidatePath("/structures");
   redirect("/structures");

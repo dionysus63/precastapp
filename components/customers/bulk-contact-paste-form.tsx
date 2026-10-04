@@ -1,9 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { toast } from "sonner";
 import {
   checkBulkContactDbState,
   importContacts,
@@ -28,6 +26,7 @@ import {
   tableHeaderCellClassName,
   tableRowClassName,
 } from "@/lib/table-styles";
+import { navigateAfterAction } from "@/lib/reload-after-action";
 
 function parseBulkContactPaste(text: string): BulkContactPasteRow[] {
   const lines = text
@@ -59,7 +58,6 @@ function parseBulkContactPaste(text: string): BulkContactPasteRow[] {
 }
 
 export function BulkContactPasteForm() {
-  const router = useRouter();
   const [pasteText, setPasteText] = useState("");
   const [previewRows, setPreviewRows] = useState<BulkContactPasteRow[]>([]);
   const [hasParsed, setHasParsed] = useState(false);
@@ -164,11 +162,10 @@ export function BulkContactPasteForm() {
         setImportComplete(true);
         const skipped =
           result.skippedUnknownCustomer + result.skippedExisting;
-        toast.success(
-          `Imported ${result.imported} contact${result.imported === 1 ? "" : "s"}${skipped > 0 ? ` (${skipped} skipped)` : ""}.`,
-        );
-        router.push("/customers");
-        router.refresh();
+        navigateAfterAction("/customers", {
+          type: "success",
+          text: `Imported ${result.imported} contact${result.imported === 1 ? "" : "s"}${skipped > 0 ? ` (${skipped} skipped)` : ""}.`,
+        });
       } catch (error) {
         setErrorMessage(
           error instanceof Error ? error.message : "Import failed.",

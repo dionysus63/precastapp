@@ -1,12 +1,12 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
   updateTicketDriver,
   updateTicketTrailer,
   type UpdateTicketDriverResult,
 } from "@/app/delivery-tickets/actions";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 
 type FleetAssignSelectProps = {
   ticketId: string;
@@ -30,7 +30,6 @@ function FleetAssignSelect({
   ariaLabel,
   action,
 }: FleetAssignSelectProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [value, setValue] = useState(assigned ?? "");
@@ -56,7 +55,7 @@ function FleetAssignSelect({
         setValue(previous);
         return;
       }
-      router.refresh();
+      reloadAfterAction();
     });
   }
 

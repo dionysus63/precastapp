@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import { contentDisposition, fileRouteErrorResponse } from "@/lib/http-responses";
 import { DELIVERY_TICKET_PDF_INCLUDE } from "@/lib/delivery-ticket-pdf-data";
 import {
   generateDeliveryTicketCopyPdfBytes,
@@ -53,13 +54,11 @@ export async function GET(request: Request, context: RouteContext) {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="delivery-ticket-${ticket.ticketNumber}${filenameSuffix}.pdf"`,
+        "Content-Disposition": contentDisposition("inline", `delivery-ticket-${ticket.ticketNumber}${filenameSuffix}.pdf`),
         "Cache-Control": "private, no-store",
       },
     });
-  } catch {
-    return new NextResponse("Unauthorized or failed to generate preview.", {
-      status: 403,
-    });
+  } catch (error) {
+    return fileRouteErrorResponse(error, "Delivery ticket PDF");
   }
 }

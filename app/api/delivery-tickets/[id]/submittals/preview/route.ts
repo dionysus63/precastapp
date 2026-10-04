@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import { contentDisposition, fileRouteErrorResponse } from "@/lib/http-responses";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { buildSubmittalPackagePdfBytesForDeliveryTicket } from "@/lib/submittal-package";
 
@@ -21,18 +22,14 @@ export async function GET(_request: Request, context: RouteContext) {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="submittals-${result.ticketNumber}.pdf"`,
+        "Content-Disposition": contentDisposition("inline", `submittals-${result.ticketNumber}.pdf`),
         "Cache-Control": "private, no-store",
       },
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to generate preview.";
-    if (message === "Delivery ticket not found.") {
-      return new NextResponse(message, { status: 404 });
+    if (error instanceof Error && error.message === "Delivery ticket not found.") {
+      return new NextResponse(error.message, { status: 404 });
     }
-    return new NextResponse("Unauthorized or failed to generate preview.", {
-      status: 403,
-    });
+    return fileRouteErrorResponse(error, "Submittal package");
   }
 }

@@ -21,6 +21,7 @@ import {
   tableRowClassName,
   tableWrapperClassName,
 } from "@/lib/table-styles";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 const documentTypeOptions = [
   { value: "JOB_SPECIFIC_SUBMITTAL", label: "Job-Specific Submittal" },
   { value: "APPROVED_SUBMITTAL", label: "Approved Submittal" },
@@ -60,7 +61,9 @@ export function JobStructureDocumentsSection({
       try {
         await uploadJobStructureDocumentAction(formData);
         formRef.current?.reset();
-        setMessage({ success: "Document uploaded." });
+        // Reload so the list shows the change (revalidation alone doesn't
+        // reach the page on the LAN).
+        reloadAfterAction({ type: "success", text: "Document uploaded." });
       } catch (error) {
         setMessage({
           error:
@@ -116,7 +119,7 @@ export function JobStructureDocumentsSection({
     startTransition(async () => {
       try {
         await deleteJobStructureDocumentAction(documentId);
-        setMessage({ success: "Document deleted." });
+        reloadAfterAction({ type: "success", text: "Document deleted." });
       } catch (error) {
         setMessage({
           error:

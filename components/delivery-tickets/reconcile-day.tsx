@@ -20,6 +20,7 @@ import {
   tableFlushWrapperClassName,
   tableHeaderCellClassName,
 } from "@/lib/table-styles";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 export type ReconcileTicket = {
   id: string;
   ticketNumber: string;
@@ -112,7 +113,15 @@ function TicketQuickActions({
             onClick={() => {
               startTransition(async () => {
                 const result = await deliverTicket(ticket.id);
-                setMessage(result.error ?? result.warning ?? "Marked delivered.");
+                if (result.error) {
+                  setMessage(result.error);
+                  return;
+                }
+                reloadAfterAction(
+                  result.warning
+                    ? { type: "warning", text: result.warning }
+                    : { type: "success", text: "Marked delivered." },
+                );
               });
             }}
             className="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
@@ -137,7 +146,11 @@ function TicketQuickActions({
               }
               startTransition(async () => {
                 const result = await cancelTicketFromReconcile(ticket.id);
-                setMessage(result.error ?? "Ticket cancelled.");
+                if (result.error) {
+                  setMessage(result.error);
+                  return;
+                }
+                reloadAfterAction({ type: "success", text: "Ticket cancelled." });
               });
             }}
             className="rounded border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] text-red-800 hover:bg-red-100 disabled:opacity-50"
@@ -165,7 +178,11 @@ function TicketQuickActions({
           onClick={() => {
             startTransition(async () => {
               const result = await moveTicketDeliveryDate(ticket.id, moveDate);
-              setMessage(result.error ?? "Date updated.");
+              if (result.error) {
+                setMessage(result.error);
+                return;
+              }
+              reloadAfterAction({ type: "success", text: "Date updated." });
             });
           }}
           className="rounded border border-slate-200 px-2 py-0.5 text-[11px] hover:bg-slate-50 disabled:opacity-50"
@@ -333,7 +350,13 @@ export function ReconcileDay({
           );
         }
         parts.push(...result.warnings);
-        setDeliverAllMessage(parts.join(" "));
+        reloadAfterAction({
+          type:
+            result.failed.length > 0 || result.warnings.length > 0
+              ? "warning"
+              : "success",
+          text: parts.join(" "),
+        });
       });
     })();
   }
@@ -430,7 +453,14 @@ export function ReconcileDay({
                   } else if (canManageInvoices) {
                     parts.push("No new draft invoices were created.");
                   }
-                  setResultMessage(parts.join(" "));
+                  reloadAfterAction({
+                    type:
+                      result.conversionResult &&
+                      result.conversionResult.skipped.length > 0
+                        ? "warning"
+                        : "success",
+                    text: parts.join(" "),
+                  });
                 });
               }}
               className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white disabled:opacity-50"

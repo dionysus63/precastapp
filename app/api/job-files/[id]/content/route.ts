@@ -3,6 +3,10 @@ import path from "path";
 import { NextResponse } from "next/server";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import {
+  contentDisposition,
+  fileRouteErrorResponse,
+} from "@/lib/http-responses";
 import { getJobFileForOpen } from "@/lib/job-files-service";
 import { withDatabaseRetry } from "@/lib/prisma";
 
@@ -31,17 +35,19 @@ export async function GET(_request: Request, context: RouteContext) {
     const extension = path.extname(file.fileName).toLowerCase();
     const contentType = INLINE_CONTENT_TYPES[extension];
     const bytes = await readFile(file.filePath);
-    const safeName = file.fileName.replace(/"/g, "");
 
     return new NextResponse(Buffer.from(bytes), {
       status: 200,
       headers: {
         "Content-Type": contentType ?? "application/octet-stream",
-        "Content-Disposition": `${contentType ? "inline" : "attachment"}; filename="${safeName}"`,
+        "Content-Disposition": contentDisposition(
+          contentType ? "inline" : "attachment",
+          file.fileName,
+        ),
         "Cache-Control": "private, no-store",
       },
     });
-  } catch {
-    return new NextResponse("Unauthorized or file not found.", { status: 403 });
+  } catch (error) {
+    return fileRouteErrorResponse(error, "Opening the file");
   }
 }

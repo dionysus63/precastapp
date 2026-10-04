@@ -45,6 +45,7 @@ import {
   RECT_TOP_SLAB_MARKER_FIELD,
   RECT_WEIGHT_PIECE_LINES,
 } from "@/lib/rect-template-pdf-fields";
+import { toWinAnsiText } from "@/lib/pdf-text";
 
 const LINE_WIDTH_PT = 0.8;
 const OPENING_LINE_WIDTH_PT = 1;
@@ -1971,7 +1972,10 @@ export async function fillRectSheetTemplatePdf(
   const form = doc.getForm();
   const font = await doc.embedFont(StandardFonts.Helvetica);
 
-  for (const [name, value] of Object.entries(fieldMap)) {
+  for (const [name, rawValue] of Object.entries(fieldMap)) {
+    // WinAnsi-safe first: measuring a value with ″ or ⅝ threw, and the
+    // catch below then left the field silently blank.
+    const value = toWinAnsiText(rawValue);
     try {
       const field = form.getTextField(name);
       // Acrobat-authored fields often use auto-size ("0 Tf"); pdf-lib then

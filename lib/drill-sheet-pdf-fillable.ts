@@ -6,6 +6,7 @@ import {
   StandardFonts,
 } from "pdf-lib";
 import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
+import { toWinAnsiText } from "@/lib/pdf-text";
 import type { DrillSheetPreviewMeta } from "@/components/drill-sheets/drill-sheet-preview";
 import { type DrillSheetResult, formatPipeDescription } from "@/lib/drill-sheet";
 
@@ -63,7 +64,7 @@ function drawField(
 
   const field = form.createTextField(fieldName);
   if (value) {
-    field.setText(value);
+    field.setText(toWinAnsiText(value));
   }
   if (options.multiline) {
     field.enableMultiline();
@@ -230,7 +231,7 @@ export async function appendDrillSheetFillablePage(
       ctx.used.add(fieldName);
       const field = form.createTextField(fieldName);
       if (value) {
-        field.setText(value);
+        field.setText(toWinAnsiText(value));
       }
       field.setFontSize(9);
       field.addToPage(page, {

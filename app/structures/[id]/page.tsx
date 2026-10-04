@@ -41,6 +41,7 @@ export default async function EditStructureTemplatePage({
       include: {
         diameters: { orderBy: { sortOrder: "asc" } },
         rectSizes: { orderBy: { sortOrder: "asc" } },
+        _count: { select: { jobStructures: true } },
       },
     }),
     loadCastingProductOptions(),
@@ -168,6 +169,7 @@ export default async function EditStructureTemplatePage({
           moldOptions={moldOptions}
           priceListId={selectedPriceList?.id ?? null}
           priceListName={selectedPriceList?.name ?? null}
+          sheetCount={template._count.jobStructures}
         />
       </div>
 

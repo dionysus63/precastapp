@@ -7,6 +7,7 @@ import {
   deleteProductSubcategory,
 } from "@/app/settings/products/actions";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { navigateAfterAction } from "@/lib/reload-after-action";
 
 type DeleteProductCategoryButtonProps = {
   categoryId: string;
@@ -53,10 +54,12 @@ export function DeleteProductCategoryButton({
     startTransition(async () => {
       setError(null);
       const result = await deleteProductCategory(formData);
-      if (result?.error) {
+      if ("error" in result) {
         setError(result.error);
         toast.error(result.error);
+        return;
       }
+      navigateAfterAction("/settings/products?success=1");
     });
   }
 
@@ -120,10 +123,12 @@ export function DeleteProductSubcategoryButton({
     startTransition(async () => {
       setError(null);
       const result = await deleteProductSubcategory(formData);
-      if (result?.error) {
+      if ("error" in result) {
         setError(result.error);
         toast.error(result.error);
+        return;
       }
+      navigateAfterAction("/settings/products?success=1");
     });
   }
 

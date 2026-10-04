@@ -88,6 +88,8 @@ export async function createDrillSheetsFromQuote(quoteId: string) {
 
 export type CompleteRectDrillSheetsResult = {
   created: number;
+  /** Placeholders that now have a drill sheet (the grid drops these rows). */
+  createdIds: string[];
   errors: string[];
 };
 
@@ -115,6 +117,7 @@ export async function completeRectDrillSheets(
   }
 
   const errors: string[] = [];
+  const createdIds: string[] = [];
   let created = 0;
 
   for (const entry of entries) {
@@ -160,6 +163,7 @@ export async function completeRectDrillSheets(
         upgradeJobStructureId: structure.id,
       });
       created += 1;
+      createdIds.push(structure.id);
     } catch (error) {
       errors.push(
         `${label}: ${error instanceof Error ? error.message : "could not create the drill sheet."}`,
@@ -176,5 +180,5 @@ export async function completeRectDrillSheets(
     }
   }
 
-  return { created, errors };
+  return { created, createdIds, errors };
 }

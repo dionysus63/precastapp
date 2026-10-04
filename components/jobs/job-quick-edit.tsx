@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
   updateJobCustomerAction,
@@ -39,7 +38,6 @@ export function JobStatusSelect({
   statusValue: string;
   statusVariant: JobStatusVariant;
 }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [status, setStatus] = useState(statusValue);
   const [lastServerStatus, setLastServerStatus] = useState(statusValue);
@@ -58,7 +56,7 @@ export function JobStatusSelect({
     startTransition(async () => {
       try {
         await updateJobStatusAction(jobId, nextStatus);
-        router.refresh();
+        reloadAfterAction();
       } catch (caught) {
         setStatus(previous);
         setError(

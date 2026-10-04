@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import {
   getSendQuoteDefaults,
@@ -8,6 +7,7 @@ import {
   type SendQuoteRecipientOption,
 } from "@/app/quotes/send-actions";
 import { quoteInputClassName } from "@/components/quotes/quote-utils";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 
 type SendQuoteButtonProps = {
   quoteId: string;
@@ -33,7 +33,6 @@ export function SendQuoteButton({
   buttonClassName = "rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50",
   defaultOpen = false,
 }: SendQuoteButtonProps) {
-  const router = useRouter();
   const [open, setOpen] = useState(defaultOpen && !disabled);
   const [pending, startTransition] = useTransition();
   const [loadingDefaults, setLoadingDefaults] = useState(defaultOpen && !disabled);
@@ -182,10 +181,13 @@ export function SendQuoteButton({
           `Outlook draft opened for ${result.to}. Review and hit Send in Outlook.`,
         );
       }
-      router.refresh();
+      // The quote is now SENT: reload once the confirmation has been seen so
+      // the page shows the sent status and actions (an in-place refresh
+      // doesn't apply on the LAN).
       window.setTimeout(() => {
         setOpen(false);
         setSuccess(null);
+        reloadAfterAction();
       }, 2500);
     });
   }

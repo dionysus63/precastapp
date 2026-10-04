@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import {
+  contentDisposition,
+  fileRouteErrorResponse,
+  headerSafe,
+} from "@/lib/http-responses";
 import { buildJobDrillSheetsPdfBytes } from "@/lib/job-drill-sheets-pdf";
 
 type RouteContext = {
@@ -27,23 +32,24 @@ export async function GET(request: Request, context: RouteContext) {
 
     const headers: Record<string, string> = {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `${asDownload ? "attachment" : "inline"}; filename="drill-sheets-${built.jobNumber}.pdf"`,
+      "Content-Disposition": contentDisposition(
+        asDownload ? "attachment" : "inline",
+        `drill-sheets-${built.jobNumber}.pdf`,
+      ),
       "Cache-Control": "private, no-store",
       "X-Drill-Sheets-Included": String(built.included.length),
     };
     if (built.skipped.length > 0) {
-      headers["X-Drill-Sheets-Skipped"] = built.skipped
-        .map((entry) => entry.structureNumber)
-        .join(",");
+      headers["X-Drill-Sheets-Skipped"] = headerSafe(
+        built.skipped.map((entry) => entry.structureNumber).join(","),
+      );
     }
 
     return new NextResponse(Buffer.from(built.bytes), {
       status: 200,
       headers,
     });
-  } catch {
-    return new NextResponse("Unauthorized or failed to generate preview.", {
-      status: 403,
-    });
+  } catch (error) {
+    return fileRouteErrorResponse(error, "Job drill-sheet packet");
   }
 }

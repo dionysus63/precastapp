@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { randomId } from "@/lib/random-id";
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { savePurchaseReceipt } from "@/app/inventory/actions";
 import { SectionCard } from "@/components/dashboard/section-card";
@@ -15,6 +14,7 @@ import {
   receivingCategoryDefaultSupplier,
   receivingCategoryLabels,
 } from "@/lib/receiving-utils";
+import { navigateAfterAction } from "@/lib/reload-after-action";
 
 type PipeProductOption = {
   id: string;
@@ -67,7 +67,6 @@ export function PipeReceiptForm({
   lockedPurchaseOrder = null,
   openPurchaseOrders = [],
 }: PipeReceiptFormProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [selectedPurchaseOrderId, setSelectedPurchaseOrderId] = useState(
@@ -126,8 +125,7 @@ export function PipeReceiptForm({
         setError(result.error);
         return;
       }
-      router.push(result.returnPath ?? returnPath);
-      router.refresh();
+      navigateAfterAction(result.returnPath ?? returnPath);
     });
   }
 

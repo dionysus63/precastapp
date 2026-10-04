@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import { contentDisposition, fileRouteErrorResponse } from "@/lib/http-responses";
 import { loadJobDeliverySchedule } from "@/lib/delivery-schedule-data";
 import {
   buildDeliverySchedulePdfHtml,
@@ -47,13 +48,11 @@ export async function GET(request: Request, context: RouteContext) {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="delivery-schedule-${jobNumberPart}-${variant}.pdf"`,
+        "Content-Disposition": contentDisposition("inline", `delivery-schedule-${jobNumberPart}-${variant}.pdf`),
         "Cache-Control": "private, no-store",
       },
     });
-  } catch {
-    return new NextResponse("Unauthorized or failed to generate schedule.", {
-      status: 403,
-    });
+  } catch (error) {
+    return fileRouteErrorResponse(error, "Delivery schedule PDF");
   }
 }

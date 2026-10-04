@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import {
   addCustomerContact,
   deleteCustomerContact,
@@ -98,10 +97,8 @@ export function CustomerContactsPanel({
   customerId,
   contacts,
 }: CustomerContactsPanelProps) {
-  const router = useRouter();
-  const [refreshing, startRefreshTransition] = useTransition();
   const [saving, setSaving] = useState(false);
-  const pending = saving || refreshing;
+  const pending = saving;
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -152,13 +149,9 @@ export function CustomerContactsPanel({
       setSuccess(message);
     }
     resetForm();
-    // router.refresh() must run in its OWN transition: calling it after an
-    // await inside the action's transition fetches the fresh RSC payload but
-    // never commits it to the visible tree in production builds — the
-    // "contact doesn't appear until you navigate away and back" bug.
-    startRefreshTransition(() => {
-      router.refresh();
-    });
+    // The table already shows the mutation's returned rows. No router
+    // refresh: on the LAN it never commits, and its pending transition kept
+    // the panel's buttons disabled (see lib/reload-after-action).
   }
 
   /** Runs a mutation, applies its returned rows, then refreshes the rest. */

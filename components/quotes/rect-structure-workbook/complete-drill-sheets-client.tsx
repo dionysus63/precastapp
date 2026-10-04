@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
+import { navigateAfterAction } from "@/lib/reload-after-action";
 import type {
   RectSheetCastingOption,
   RectSheetOpeningSizeOption,
@@ -45,7 +45,6 @@ export function CompleteDrillSheetsClient({
   castings,
   openingSizes,
 }: CompleteDrillSheetsClientProps) {
-  const router = useRouter();
   const options: RectWorkbookOptions = useMemo(
     () => ({ templates, castings, openingSizes }),
     [templates, castings, openingSizes],
@@ -112,22 +111,32 @@ export function CompleteDrillSheetsClient({
     startTransition(async () => {
       try {
         const result = await completeRectDrillSheets(quoteId, payload);
+        // Drop the rows that now have drill sheets straight from the action's
+        // result (a refresh can't re-seed this state, and a reload would lose
+        // edits on the rows still being detailed).
+        const createdIds = new Set(result.createdIds);
+        const remaining = rows.filter(
+          (row) => !row.lineItemId || !createdIds.has(row.lineItemId),
+        );
+        setRows(remaining);
+        setSelectedRowIds(
+          (current) =>
+            new Set([...current].filter((id) => remaining.some((row) => row.id === id))),
+        );
         if (result.errors.length > 0) {
           setMessage({
             error: `${result.created} drill sheet${result.created === 1 ? "" : "s"} created; problems: ${result.errors.join(" · ")}`,
           });
-          router.refresh();
           return;
         }
-        if (result.created === rows.length) {
+        if (remaining.length === 0) {
           // Everything completed — back to where the user came from.
-          router.push(returnPath);
+          navigateAfterAction(returnPath);
           return;
         }
         setMessage({
-          success: `${result.created} drill sheet${result.created === 1 ? "" : "s"} created. ${rows.length - result.created} still need detail.`,
+          success: `${result.created} drill sheet${result.created === 1 ? "" : "s"} created. ${remaining.length} still need detail.`,
         });
-        router.refresh();
       } catch (error) {
         setMessage({
           error:

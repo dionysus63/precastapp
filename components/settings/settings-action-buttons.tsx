@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
   ensureYearSequencesAction,
@@ -9,6 +8,7 @@ import {
   testStockSubmittalsRootWriteAccessAction,
 } from "@/app/settings/actions";
 import { SettingsFeedback } from "@/components/settings/settings-form-fields";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 
 export function JobsRootTestButton() {
   const [pending, startTransition] = useTransition();
@@ -63,7 +63,6 @@ export function StockSubmittalsRootTestButton() {
 }
 
 export function SystemMaintenancePanel() {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ error?: string; success?: string }>(
     {},
@@ -74,7 +73,7 @@ export function SystemMaintenancePanel() {
       const result = await action();
       setMessage(result);
       if (result.success) {
-        router.refresh();
+        reloadAfterAction({ type: "success", text: result.success });
       }
     });
   }

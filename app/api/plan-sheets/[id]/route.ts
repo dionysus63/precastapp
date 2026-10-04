@@ -1,6 +1,10 @@
 import { readFile } from "fs/promises";
 import { NextResponse } from "next/server";
 import { getPlanSheetForOpen } from "@/app/quotes/plan-sheet-actions";
+import {
+  contentDisposition,
+  fileRouteErrorResponse,
+} from "@/lib/http-responses";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -16,13 +20,11 @@ export async function GET(_request: Request, context: RouteContext) {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${planSheet.originalName.replace(/"/g, "")}"`,
+        "Content-Disposition": contentDisposition("inline", planSheet.originalName),
         "Cache-Control": "private, no-store",
       },
     });
-  } catch {
-    return new NextResponse("Unauthorized or plan sheet not found.", {
-      status: 403,
-    });
+  } catch (error) {
+    return fileRouteErrorResponse(error, "Opening the plan sheet");
   }
 }

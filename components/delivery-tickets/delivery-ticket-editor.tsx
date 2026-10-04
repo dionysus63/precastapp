@@ -59,6 +59,7 @@ import {
   tableHeaderCellClassName,
   tableInlineInputClassName,
 } from "@/lib/table-styles";
+import { navigateAfterAction } from "@/lib/reload-after-action";
 type JobOption = DeliveryTicketJobSearchOption;
 
 type ProductOption = {
@@ -1794,8 +1795,7 @@ export function DeliveryTicketEditor({
             : destination === "walkIns"
               ? returnTo.href
               : `/delivery-tickets/${result.ticketId}`;
-        router.push(href);
-        router.refresh();
+        navigateAfterAction(href);
       }
     });
   }

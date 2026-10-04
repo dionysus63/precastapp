@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { navigateAfterAction } from "@/lib/reload-after-action";
 import {
   approveStructureForProduction,
   uploadStructureSubmittalFile,
@@ -75,8 +75,8 @@ export function BulkAttachBoard({
   groups: BulkAttachJobGroup[];
   initialMode: BulkAttachMode;
 }) {
-  const router = useRouter();
   const [mode, setMode] = useState<BulkAttachMode>(initialMode);
+  const submittedSinceLoad = useRef(false);
   // Uploading is rarely the whole job — the queues are status-driven, so by
   // default an upload also marks the structure submitted (Awaiting approval).
   const [markSubmitted, setMarkSubmitted] = useState(true);
@@ -104,10 +104,17 @@ export function BulkAttachBoard({
   }
 
   function selectMode(id: BulkAttachMode) {
-    setMode(id);
-    setDraggingTile(null);
     const url = new URL(window.location.href);
     url.searchParams.set("mode", id);
+    // Structures marked submitted here only join the Approvals list in fresh
+    // server data, and an in-place refresh doesn't apply on the LAN — so
+    // switching over after a submission loads the page anew.
+    if (submittedSinceLoad.current && id === "approvals") {
+      navigateAfterAction(url.toString());
+      return;
+    }
+    setMode(id);
+    setDraggingTile(null);
     window.history.replaceState(null, "", url.toString());
   }
 
@@ -200,9 +207,10 @@ export function BulkAttachBoard({
       uploaded,
     });
     if (submitted) {
-      // The structure just became approval-eligible; refresh so the
-      // Approvals tab picks it up without a manual reload.
-      router.refresh();
+      // The structure just became approval-eligible; the Approvals tab
+      // reloads to pick it up (selectMode). Reloading here would wipe the
+      // other tiles' results mid-batch.
+      submittedSinceLoad.current = true;
     }
   }
 

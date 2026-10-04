@@ -26,6 +26,7 @@ export function DraftBatchPreviewContent() {
   // Load the batch PDF once; page flips only re-render from the cached doc.
   useEffect(() => {
     let cancelled = false;
+    let loadingTask: { destroy(): Promise<void> } | null = null;
 
     async function loadDocument() {
       try {
@@ -41,9 +42,11 @@ export function DraftBatchPreviewContent() {
               "Could not load the draft batch PDF.",
           );
         }
-        const pdf = await pdfjs.getDocument({
+        const task = pdfjs.getDocument({
           data: await response.arrayBuffer(),
-        }).promise;
+        });
+        loadingTask = task;
+        const pdf = await task.promise;
         if (cancelled) {
           return;
         }
@@ -64,6 +67,8 @@ export function DraftBatchPreviewContent() {
     void loadDocument();
     return () => {
       cancelled = true;
+      // Frees the parsed document and its worker thread.
+      void loadingTask?.destroy();
     };
   }, []);
 
@@ -76,9 +81,12 @@ export function DraftBatchPreviewContent() {
     }
 
     let cancelled = false;
+    let renderTask: { cancel(): void } | null = null;
 
     async function renderPage() {
       setIsLoading(true);
+      // A failed or cancelled earlier render must not keep hiding the canvas.
+      setError(null);
       try {
         const page = await pdf!.getPage(
           Math.min(Math.max(activePage, 1), pageCount),
@@ -96,12 +104,14 @@ export function DraftBatchPreviewContent() {
         }
         context.fillStyle = "#ffffff";
         context.fillRect(0, 0, canvas!.width, canvas!.height);
-        await page.render({
+        const render = page.render({
           canvasContext: context,
           viewport,
           canvas: canvas!,
           background: "#ffffff",
-        }).promise;
+        });
+        renderTask = render;
+        await render.promise;
       } catch (renderError) {
         if (!cancelled) {
           setError(
@@ -120,6 +130,7 @@ export function DraftBatchPreviewContent() {
     void renderPage();
     return () => {
       cancelled = true;
+      renderTask?.cancel();
     };
   }, [activePage, pageCount]);
 

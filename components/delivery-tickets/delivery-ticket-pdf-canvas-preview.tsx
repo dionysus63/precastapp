@@ -30,6 +30,8 @@ export function DeliveryTicketPdfCanvasPreview({
     }
 
     let cancelled = false;
+    let loadingTask: { destroy(): Promise<void> } | null = null;
+    let renderTask: { cancel(): void } | null = null;
 
     async function renderPage() {
       setIsRendering(true);
@@ -44,11 +46,15 @@ export function DeliveryTicketPdfCanvasPreview({
           { credentials: "same-origin" },
         );
         if (!response.ok) {
-          throw new Error("Could not load delivery ticket PDF.");
+          throw new Error(
+            (await response.text()) || "Could not load delivery ticket PDF.",
+          );
         }
 
         const pdfBytes = await response.arrayBuffer();
-        const pdf = await pdfjs.getDocument({ data: pdfBytes }).promise;
+        const task = pdfjs.getDocument({ data: pdfBytes });
+        loadingTask = task;
+        const pdf = await task.promise;
 
         if (cancelled) {
           return;
@@ -74,12 +80,14 @@ export function DeliveryTicketPdfCanvasPreview({
         context.fillStyle = "#ffffff";
         context.fillRect(0, 0, canvas!.width, canvas!.height);
 
-        await page.render({
+        const render = page.render({
           canvasContext: context,
           viewport,
           canvas: canvas!,
           background: "#ffffff",
-        }).promise;
+        });
+        renderTask = render;
+        await render.promise;
       } catch (renderError) {
         if (!cancelled) {
           onSheetCountChange?.(1);
@@ -100,6 +108,9 @@ export function DeliveryTicketPdfCanvasPreview({
 
     return () => {
       cancelled = true;
+      renderTask?.cancel();
+      // Frees the parsed document and its worker thread.
+      void loadingTask?.destroy();
     };
   }, [ticketId, activeCopy, activeSheet, onSheetCountChange]);
 

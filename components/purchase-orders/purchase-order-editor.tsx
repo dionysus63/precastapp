@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { randomId } from "@/lib/random-id";
-import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import {
   createPurchaseOrder,
@@ -22,6 +21,7 @@ import {
   tableHeaderCellClassName,
   tableInlineInputClassName,
 } from "@/lib/table-styles";
+import { navigateAfterAction, reloadAfterAction } from "@/lib/reload-after-action";
 type VendorOption = {
   id: string;
   name: string;
@@ -80,7 +80,6 @@ export function PurchaseOrderEditor({
   purchaseOrderId,
   initial,
 }: PurchaseOrderEditorProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [vendorId, setVendorId] = useState(initial?.vendorId ?? "");
@@ -169,11 +168,12 @@ export function PurchaseOrderEditor({
       }
 
       if (mode === "create" && "id" in result && result.id) {
-        router.push(`/purchase-orders/${result.id}`);
+        navigateAfterAction(`/purchase-orders/${result.id}`);
       } else if (purchaseOrderId) {
-        router.push(`/purchase-orders/${purchaseOrderId}`);
+        navigateAfterAction(`/purchase-orders/${purchaseOrderId}`);
+      } else {
+        reloadAfterAction();
       }
-      router.refresh();
     });
   }
 

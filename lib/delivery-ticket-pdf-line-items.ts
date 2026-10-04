@@ -1,5 +1,6 @@
 import type { PDFPage, PDFFont } from "pdf-lib";
 import { rgb } from "pdf-lib";
+import { toWinAnsiText } from "@/lib/pdf-text";
 import { richTextToPlainText } from "@/lib/rich-text";
 import {
   COL_DESC_WIDTH,
@@ -23,6 +24,11 @@ export type DeliveryTicketDrawLineItem = {
   unit: string;
   productCode: string;
   description: string;
+  /**
+   * Already-wrapped plain description lines, used instead of
+   * description — set on the pieces of a row too tall for one page.
+   */
+  descriptionLines?: string[];
 };
 
 export type LineItemPageSlice = {
@@ -36,7 +42,7 @@ export function wrapText(
   fontSize: number,
   maxWidth: number,
 ): string[] {
-  const trimmed = text.trim();
+  const trimmed = toWinAnsiText(text).trim();
   if (!trimmed) {
     return [];
   }
@@ -91,7 +97,8 @@ export function measureDescriptionLines(
   fontSize: number,
   maxWidth: number,
 ): string[] {
-  const plainText = richTextToPlainText(description);
+  // After decoding: entities like &#8243; only become ″ here.
+  const plainText = toWinAnsiText(richTextToPlainText(description));
   if (!plainText.trim()) {
     return [];
   }
@@ -120,12 +127,8 @@ export function measureRowHeight(
   font: PDFFont,
   layout: DeliveryTicketTableLayout = DEFAULT_TABLE_LAYOUT,
 ): number {
-  const descLines = measureDescriptionLines(
-    item.description,
-    font,
-    layout.fontSize,
-    COL_DESC_WIDTH,
-  );
+  const descLines = (item.descriptionLines ??
+    measureDescriptionLines(item.description, font, layout.fontSize, COL_DESC_WIDTH));
 
   const lineCount = Math.max(1, descLines.length);
   return (
@@ -141,14 +144,54 @@ function measureTotalsRowHeight(
   return layout.lineHeight + TOTALS_ROW_PADDING;
 }
 
-export function paginateLineItems(
+/**
+ * Splits any row taller than a page into page-sized pieces (rows never break
+ * across pages, so a long pasted note used to run off the bottom and lose its
+ * tail). The first piece keeps the code and quantity; the rest carry only
+ * description lines. Sized to leave room for the totals row, so a piece fits
+ * on any page.
+ */
+function splitOversizedRows(
   items: DeliveryTicketDrawLineItem[],
+  font: PDFFont,
+  layout: DeliveryTicketTableLayout,
+): DeliveryTicketDrawLineItem[] {
+  const usable =
+    layout.tableTopY -
+    layout.tableBottomY -
+    measureTotalsRowHeight(layout) -
+    layout.rowPadding -
+    measureSeparatorHeight();
+  const maxLines = Math.max(1, Math.floor(usable / layout.lineHeight));
+
+  return items.flatMap((item) => {
+    const lines =
+      item.descriptionLines ??
+      measureDescriptionLines(item.description, font, layout.fontSize, COL_DESC_WIDTH);
+    if (lines.length <= maxLines) {
+      return [item];
+    }
+    const pieces: DeliveryTicketDrawLineItem[] = [];
+    for (let start = 0; start < lines.length; start += maxLines) {
+      const chunk = lines.slice(start, start + maxLines);
+      pieces.push(
+        start === 0
+          ? { ...item, descriptionLines: chunk }
+          : { qty: "", unit: "", productCode: "", description: "", descriptionLines: chunk },
+      );
+    }
+    return pieces;
+  });
+}
+
+export function paginateLineItems(  items: DeliveryTicketDrawLineItem[],
   font: PDFFont,
   layout: DeliveryTicketTableLayout = DEFAULT_TABLE_LAYOUT,
 ): LineItemPageSlice[] {
   if (items.length === 0) {
     return [{ items: [], isLastPage: true }];
   }
+  items = splitOversizedRows(items, font, layout);
 
   const pages: LineItemPageSlice[] = [];
   let currentItems: DeliveryTicketDrawLineItem[] = [];
@@ -208,7 +251,7 @@ function drawTextAt(
   if (!text.trim()) {
     return;
   }
-  page.drawText(text, {
+  page.drawText(toWinAnsiText(text), {
     x,
     y,
     size: fontSize,
@@ -230,7 +273,7 @@ function drawCenteredInColumn(
     return;
   }
 
-  const textWidth = font.widthOfTextAtSize(text, fontSize);
+  const textWidth = font.widthOfTextAtSize(toWinAnsiText(text), fontSize);
   const x = colX + Math.max(0, (colWidth - textWidth) / 2);
   drawTextAt(page, font, text, x, y, fontSize);
 }
@@ -255,12 +298,8 @@ export function drawLineItemRow(
   topY: number,
   layout: DeliveryTicketTableLayout = DEFAULT_TABLE_LAYOUT,
 ): number {
-  const descLines = measureDescriptionLines(
-    item.description,
-    font,
-    layout.fontSize,
-    COL_DESC_WIDTH,
-  );
+  const descLines = (item.descriptionLines ??
+    measureDescriptionLines(item.description, font, layout.fontSize, COL_DESC_WIDTH));
   const lineCount = Math.max(1, descLines.length);
   const textHeight = lineCount * layout.lineHeight;
   const rowHeight = textHeight + layout.rowPadding + measureSeparatorHeight();
@@ -272,7 +311,8 @@ export function drawLineItemRow(
   let codeFontSize = layout.fontSize;
   while (
     codeFontSize > 6 &&
-    font.widthOfTextAtSize(item.productCode, codeFontSize) > itemNumWidth
+    font.widthOfTextAtSize(toWinAnsiText(item.productCode), codeFontSize) >
+      itemNumWidth
   ) {
     codeFontSize -= 0.5;
   }
@@ -286,15 +326,18 @@ export function drawLineItemRow(
   );
   // Quantities print with their unit ("3 ea", "160 lf") so the yard doesn't
   // have to guess whether a number is pieces or footage.
-  drawCenteredInColumn(
-    page,
-    font,
-    `${item.qty} ${item.unit.trim().toLowerCase() || "ea"}`,
-    COL_QTY_X,
-    COL_QTY_WIDTH,
-    firstLineY,
-    layout.fontSize,
-  );
+  // Continuation pieces of a split row carry no quantity.
+  if (item.qty.trim()) {
+    drawCenteredInColumn(
+      page,
+      font,
+      `${item.qty} ${item.unit.trim().toLowerCase() || "ea"}`,
+      COL_QTY_X,
+      COL_QTY_WIDTH,
+      firstLineY,
+      layout.fontSize,
+    );
+  }
 
   if (descLines.length === 0) {
     const separatorY = topY - textHeight - layout.rowPadding;

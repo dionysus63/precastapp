@@ -28,6 +28,8 @@ export function QuotePdfCanvasPreview({
     }
 
     let cancelled = false;
+    let loadingTask: { destroy(): Promise<void> } | null = null;
+    let renderTask: { cancel(): void } | null = null;
 
     async function renderPage() {
       setIsRendering(true);
@@ -41,11 +43,13 @@ export function QuotePdfCanvasPreview({
           credentials: "same-origin",
         });
         if (!response.ok) {
-          throw new Error("Could not load quote PDF.");
+          throw new Error((await response.text()) || "Could not load quote PDF.");
         }
 
         const pdfBytes = await response.arrayBuffer();
-        const pdf = await pdfjs.getDocument({ data: pdfBytes }).promise;
+        const task = pdfjs.getDocument({ data: pdfBytes });
+        loadingTask = task;
+        const pdf = await task.promise;
 
         if (cancelled) {
           return;
@@ -71,12 +75,14 @@ export function QuotePdfCanvasPreview({
         context.fillStyle = "#ffffff";
         context.fillRect(0, 0, canvas!.width, canvas!.height);
 
-        await page.render({
+        const render = page.render({
           canvasContext: context,
           viewport,
           canvas: canvas!,
           background: "#ffffff",
-        }).promise;
+        });
+        renderTask = render;
+        await render.promise;
       } catch (renderError) {
         if (!cancelled) {
           onSheetCountChange?.(1);
@@ -97,6 +103,9 @@ export function QuotePdfCanvasPreview({
 
     return () => {
       cancelled = true;
+      renderTask?.cancel();
+      // Frees the parsed document and its worker thread.
+      void loadingTask?.destroy();
     };
   }, [quoteId, activeSheet, onSheetCountChange]);
 

@@ -1,9 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { toast } from "sonner";
 import {
   checkBulkCustomerDbDuplicates,
   importCustomers,
@@ -27,6 +25,7 @@ import {
   tableHeaderCellClassName,
   tableRowClassName,
 } from "@/lib/table-styles";
+import { navigateAfterAction } from "@/lib/reload-after-action";
 function parseBulkPaste(text: string): BulkCustomerPasteRow[] {
   const lines = text
     .split(/\r?\n/)
@@ -67,7 +66,6 @@ function parseBulkPaste(text: string): BulkCustomerPasteRow[] {
 }
 
 export function BulkPasteForm() {
-  const router = useRouter();
   const [pasteText, setPasteText] = useState("");
   const [previewRows, setPreviewRows] = useState<BulkCustomerPasteRow[]>([]);
   const [hasParsed, setHasParsed] = useState(false);
@@ -166,11 +164,10 @@ export function BulkPasteForm() {
         setErrorMessage(null);
         const result = await importCustomers(formData);
         setImportComplete(true);
-        toast.success(
-          `Imported ${result.imported} customer${result.imported === 1 ? "" : "s"}.`,
-        );
-        router.push(`/customers?imported=${result.imported}`);
-        router.refresh();
+        navigateAfterAction(`/customers?imported=${result.imported}`, {
+          type: "success",
+          text: `Imported ${result.imported} customer${result.imported === 1 ? "" : "s"}.`,
+        });
       } catch (error) {
         setErrorMessage(
           error instanceof Error ? error.message : "Import failed.",

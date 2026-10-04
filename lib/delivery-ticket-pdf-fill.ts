@@ -10,6 +10,7 @@ import {
   type PDFPage,
 } from "pdf-lib";
 import { removeFlattenLeftovers } from "@/lib/pdf-flatten-cleanup";
+import { setPdfFieldText } from "@/lib/pdf-text";
 import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import {
   buildDeliveryTicketFormData,
@@ -117,7 +118,10 @@ function fillAcroFormFields(
       continue;
     }
 
-    field.setText(value);
+    // WinAnsi-safe text, and every template field's MaxLen=100 lifted for
+    // long values (it threw ExceededMaxLengthError); shrink-to-fit except
+    // Terms, which has its own fitter below.
+    setPdfFieldText(field, value, { font, fit: name !== "Terms" });
   }
 
   fitTermsField(form, font);

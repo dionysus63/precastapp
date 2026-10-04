@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { randomId } from "@/lib/random-id";
-import { useRouter } from "next/navigation";
 import {
   Fragment,
   useCallback,
@@ -39,6 +38,7 @@ import {
   tableRowClassName,
   tableWrapperClassName,
 } from "@/lib/table-styles";
+import { navigateAfterAction } from "@/lib/reload-after-action";
 
 type ExistingTicketSummary = {
   id: string;
@@ -555,7 +555,6 @@ export function BulkLoadPlanner({
   loadCapacityLbs,
   savedPlan = null,
 }: BulkLoadPlannerProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -1538,8 +1537,7 @@ export function BulkLoadPlanner({
         return;
       }
       setSaved(true);
-      router.push(`/delivery-tickets/schedule?jobId=${jobId}`);
-      router.refresh();
+      navigateAfterAction(`/delivery-tickets/schedule?jobId=${jobId}`);
     });
   }
 

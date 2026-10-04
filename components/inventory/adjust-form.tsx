@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { randomId } from "@/lib/random-id";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -8,6 +7,7 @@ import { saveInventoryAdjustment, searchInventoryProducts } from "@/app/inventor
 import { FormTypeahead } from "@/components/common/form-typeahead";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { navigateAfterAction } from "@/lib/reload-after-action";
 
 type ProductOption = {
   id: string;
@@ -23,7 +23,6 @@ type AdjustFormProps = {
 };
 
 export function AdjustForm({ products, defaultProductId }: AdjustFormProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [submissionKey] = useState(() => randomId());
   const initialProduct =
@@ -47,9 +46,10 @@ export function AdjustForm({ products, defaultProductId }: AdjustFormProps) {
               toast.error(result.error);
               return;
             }
-            toast.success("Stock adjustment saved.");
-            router.push(productId ? `/inventory/${productId}` : "/inventory");
-            router.refresh();
+            navigateAfterAction(
+              productId ? `/inventory/${productId}` : "/inventory",
+              { type: "success", text: "Stock adjustment saved." },
+            );
           });
         }}
         className="grid max-w-lg gap-4"

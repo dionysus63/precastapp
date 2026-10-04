@@ -9,6 +9,7 @@ import {
   type PDFForm,
 } from "pdf-lib";
 import { removeFlattenLeftovers } from "@/lib/pdf-flatten-cleanup";
+import { setPdfFieldText } from "@/lib/pdf-text";
 import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import {
   buildQuoteFormData,
@@ -183,13 +184,6 @@ function fillAcroFormFields(
       continue;
     }
 
-    // Template fields may carry a maxLength; the form is flattened, so the
-    // cap only serves to crash on long values — drop it instead.
-    const maxLength = field.getMaxLength();
-    if (maxLength !== undefined && value.length > maxLength) {
-      field.setMaxLength(undefined);
-    }
-
     // The meta strip (Date / Valid Until / …) is centered, but the
     // continuation template shipped with M_Date left-aligned; normalize
     // here instead of re-authoring the binary template.
@@ -197,7 +191,12 @@ function fillAcroFormFields(
       field.setAlignment(TextAlignment.Center);
     }
 
-    field.setText(value);
+    // WinAnsi-safe text, no maxLength crash, shrink-to-fit (the address
+    // pair has its own two-line fitter below).
+    setPdfFieldText(field, value, {
+      font,
+      fit: !(ADDRESS_FIELD_NAMES as readonly string[]).includes(name),
+    });
   }
 
   fitProjectAddressFields(form, font);

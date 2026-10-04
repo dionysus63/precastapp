@@ -21,6 +21,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("server-only", () => ({}));
 
 import { deleteDrillSheet } from "@/app/drill-sheets/actions";
+import { deleteStructureTemplate } from "@/app/structures/actions";
 import { deliverAllTicketsForDay, deliverTicket } from "@/app/operations/actions";
 import { markDeliveryTicketDelivered } from "@/lib/delivery-fulfillment";
 import { prisma } from "@/lib/prisma";
@@ -148,5 +149,46 @@ describe("structure delete guard", () => {
     const deleted = await deleteDrillSheet(fresh.id);
     expect(deleted).toBeUndefined();
     expect(await prisma.jobStructure.findUnique({ where: { id: fresh.id } })).toBeNull();
+  });
+});
+
+describe("structure template delete guard", () => {
+  it("keeps a template that drill sheets use; deletes an unused one", async () => {
+    const used = await prisma.structureTemplate.create({
+      data: { name: `${tag} used template`, shape: "CIRCULAR" },
+    });
+    const unused = await prisma.structureTemplate.create({
+      data: { name: `${tag} unused template`, shape: "CIRCULAR" },
+    });
+    await prisma.jobStructure.create({
+      data: {
+        jobId,
+        structureType: "CONFIGURABLE_PRODUCT",
+        structureNumber: "MH-TPL",
+        quantity: 1,
+        unit: "EA",
+        structureTemplateId: used.id,
+      },
+    });
+
+    try {
+      const refused = await deleteStructureTemplate(used.id);
+      expect(refused).toEqual({
+        error: expect.stringMatching(/1 drill sheet uses this template/),
+      });
+      expect(
+        await prisma.structureTemplate.findUnique({ where: { id: used.id } }),
+      ).not.toBeNull();
+
+      expect(await deleteStructureTemplate(unused.id)).toBeUndefined();
+      expect(
+        await prisma.structureTemplate.findUnique({ where: { id: unused.id } }),
+      ).toBeNull();
+    } finally {
+      await prisma.jobStructure.deleteMany({ where: { structureTemplateId: used.id } });
+      await prisma.structureTemplate.deleteMany({
+        where: { name: { startsWith: tag } },
+      });
+    }
   });
 });

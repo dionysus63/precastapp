@@ -19,7 +19,62 @@
  * hundred milliseconds and is always correct. Panels that can render the
  * action's returned data directly (e.g. the customer contacts panel) should
  * keep doing that — it is instant and equally reliable.
+ *
+ * Pass `flash` to show a message on the reloaded page (a toast, via
+ * AppProviders) — otherwise a success note or warning set just before the
+ * reload disappears before anyone can read it.
  */
-export function reloadAfterAction(): void {
+export function reloadAfterAction(flash?: FlashMessage): void {
+  storeFlashMessage(flash);
   window.location.reload();
+}
+
+/**
+ * Go to another page after a mutation, as a full navigation. Same reason as
+ * reloadAfterAction: `router.push()` + `router.refresh()` can render the
+ * destination from a stale client cache on the LAN.
+ */
+export function navigateAfterAction(href: string, flash?: FlashMessage): void {
+  storeFlashMessage(flash);
+  window.location.assign(href);
+}
+
+export type FlashMessage = {
+  type: "success" | "info" | "warning" | "error";
+  text: string;
+};
+
+const FLASH_STORAGE_KEY = "precastapp:flash";
+
+function storeFlashMessage(flash: FlashMessage | undefined): void {
+  if (!flash?.text) {
+    return;
+  }
+  try {
+    window.sessionStorage.setItem(FLASH_STORAGE_KEY, JSON.stringify(flash));
+  } catch {
+    // Storage unavailable (private mode, quota): the action still succeeded.
+  }
+}
+
+/** Read and clear the message stored by the last reload/navigation, if any. */
+export function takeFlashMessage(): FlashMessage | null {
+  try {
+    const raw = window.sessionStorage.getItem(FLASH_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+    window.sessionStorage.removeItem(FLASH_STORAGE_KEY);
+    const parsed = JSON.parse(raw) as Partial<FlashMessage>;
+    if (typeof parsed.text !== "string" || !parsed.text) {
+      return null;
+    }
+    const type =
+      parsed.type === "info" || parsed.type === "warning" || parsed.type === "error"
+        ? parsed.type
+        : "success";
+    return { type, text: parsed.text };
+  } catch {
+    return null;
+  }
 }

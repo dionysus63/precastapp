@@ -20,6 +20,7 @@ import {
 import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import type { DrillSheetPreviewMeta } from "@/components/drill-sheets/drill-sheet-preview";
 import { angleToClockPosition } from "@/lib/drill-sheet-diagram";
+import { toWinAnsiText } from "@/lib/pdf-text";
 import {
   type ComputedOpening,
   type DrillSheetResult,
@@ -1063,15 +1064,16 @@ export async function fillDrillSheetTemplatePdf(
       }
     }
 
+    const text = toWinAnsiText(value);
     try {
-      field.setText(value);
+      field.setText(text);
       filledFields.push(field);
     } catch {
       // Field may carry a maxLength from the authoring tool; lift it rather
       // than truncating engineering values.
       try {
         field.removeMaxLength();
-        field.setText(value);
+        field.setText(text);
         filledFields.push(field);
       } catch {
         // Leave the field blank rather than failing the whole sheet.

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import { fileRouteErrorResponse } from "@/lib/http-responses";
 import { buildDraftInvoiceCoverHtml } from "@/lib/draft-invoice-cover-html";
 import { generateDraftInvoicesBatchPdfBytes } from "@/lib/invoice-pdf-fill";
 import { INVOICE_PDF_INCLUDE } from "@/lib/invoice-pdf-data";
@@ -82,10 +83,6 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Failed to generate draft invoice batch PDF.";
-    return new NextResponse(message, { status: 403 });
+    return fileRouteErrorResponse(error, "Draft invoice batch PDF");
   }
 }

@@ -190,6 +190,7 @@ export function StructureWorkbookPlanTakeoff({
 
   useEffect(() => {
     let cancelled = false;
+    let loadingTask: { destroy(): Promise<void> } | null = null;
 
     async function loadPdf() {
       setIsRendering(true);
@@ -204,11 +205,13 @@ export function StructureWorkbookPlanTakeoff({
           credentials: "same-origin",
         });
         if (!response.ok) {
-          throw new Error("Could not load plan PDF.");
+          throw new Error((await response.text()) || "Could not load plan PDF.");
         }
 
         const pdfBytes = await response.arrayBuffer();
-        const pdf = await pdfjs.getDocument({ data: pdfBytes }).promise;
+        const task = pdfjs.getDocument({ data: pdfBytes });
+        loadingTask = task;
+        const pdf = await task.promise;
         if (cancelled) {
           return;
         }
@@ -229,6 +232,8 @@ export function StructureWorkbookPlanTakeoff({
     void loadPdf();
     return () => {
       cancelled = true;
+      // Frees the parsed document and its worker thread.
+      void loadingTask?.destroy();
       pdfRef.current = null;
     };
   }, [planSheetId]);
@@ -242,6 +247,7 @@ export function StructureWorkbookPlanTakeoff({
     }
 
     let cancelled = false;
+    let renderTask: { cancel(): void } | null = null;
 
     async function renderPage() {
       setIsRendering(true);
@@ -273,12 +279,14 @@ export function StructureWorkbookPlanTakeoff({
         context.fillStyle = "#ffffff";
         context.fillRect(0, 0, canvas!.width, canvas!.height);
 
-        await page.render({
+        const render = page.render({
           canvasContext: context,
           viewport,
           canvas: canvas!,
           background: "#ffffff",
-        }).promise;
+        });
+        renderTask = render;
+        await render.promise;
       } catch (error) {
         if (!cancelled) {
           setLoadError(
@@ -295,6 +303,7 @@ export function StructureWorkbookPlanTakeoff({
     void renderPage();
     return () => {
       cancelled = true;
+      renderTask?.cancel();
     };
   }, [pageNumber, renderToken]);
 

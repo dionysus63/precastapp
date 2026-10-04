@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { randomId } from "@/lib/random-id";
-import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { savePurchaseReceipt } from "@/app/inventory/actions";
 import { SectionCard } from "@/components/dashboard/section-card";
@@ -17,6 +16,7 @@ import {
   type CastingPieceRole,
 } from "@/lib/casting-utils";
 import { formatCastingReceiptLabel } from "@/lib/casting-service";
+import { navigateAfterAction } from "@/lib/reload-after-action";
 
 type ProductOption = {
   id: string;
@@ -97,7 +97,6 @@ export function PurchaseReceiptForm({
   lockedPurchaseOrder = null,
   openPurchaseOrders = [],
 }: PurchaseReceiptFormProps) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [supplierId, setSupplierId] = useState("");
@@ -219,8 +218,7 @@ export function PurchaseReceiptForm({
         setError(result.error);
         return;
       }
-      router.push(result.returnPath ?? returnPath);
-      router.refresh();
+      navigateAfterAction(result.returnPath ?? returnPath);
     });
   }
 

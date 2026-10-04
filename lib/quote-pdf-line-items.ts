@@ -1,5 +1,6 @@
 import type { PDFPage, PDFFont } from "pdf-lib";
 import { rgb } from "pdf-lib";
+import { toWinAnsiText } from "@/lib/pdf-text";
 import { richTextToPlainText } from "@/lib/rich-text";
 import {
   COL_DESC_WIDTH,
@@ -37,6 +38,11 @@ export type QuoteDrawLineItem = {
   isNoteLine?: boolean;
   /** Zero-height marker: pagination starts a new page here. */
   isPageBreak?: boolean;
+  /**
+   * Already-wrapped plain description lines, used instead of
+   * description — set on the pieces of a row too tall for one page.
+   */
+  descriptionLines?: string[];
 };
 
 export type QuoteLineItemPageSlice = {
@@ -50,7 +56,7 @@ export function wrapText(
   fontSize: number,
   maxWidth: number,
 ): string[] {
-  const normalized = text.trim().replace(/\s+/g, " ");
+  const normalized = toWinAnsiText(text).trim().replace(/\s+/g, " ");
   if (!normalized) {
     return [];
   }
@@ -109,7 +115,8 @@ function measureDescriptionLines(
   fontSize: number,
   maxWidth: number,
 ): string[] {
-  const plainText = richTextToPlainText(description);
+  // After decoding: entities like &#8243; only become ″ here.
+  const plainText = toWinAnsiText(richTextToPlainText(description));
   if (!plainText.trim()) {
     return [];
   }
@@ -129,8 +136,69 @@ function measureDescriptionLines(
   return lines;
 }
 
+/** A row's description lines: pre-wrapped pieces, else wrapped now. */
+function descriptionLinesFor(
+  item: QuoteDrawLineItem,
+  font: PDFFont,
+  fontSize: number,
+): string[] {
+  return (
+    item.descriptionLines ??
+    measureDescriptionLines(item.description, font, fontSize, COL_DESC_WIDTH)
+  );
+}
+
 function measureSeparatorHeight(): number {
   return ROW_SEPARATOR_THICKNESS + ROW_SEPARATOR_GAP;
+}
+
+/**
+ * Splits any row taller than a page into page-sized pieces (rows never break
+ * across pages, so a long pasted exclusions note used to run off the bottom
+ * and lose its tail). The first piece keeps the item, quantity and prices;
+ * the rest carry only description lines. Sized for the totals page, the
+ * shorter of the two layouts, so a piece fits wherever it lands.
+ */
+function splitOversizedRows(
+  items: QuoteDrawLineItem[],
+  font: PDFFont,
+): QuoteDrawLineItem[] {
+  const layout = MAIN_TABLE_LAYOUT;
+  const maxLines = Math.max(
+    1,
+    Math.floor(
+      (availableHeight(layout) - layout.rowPadding - measureSeparatorHeight()) /
+        layout.lineHeight,
+    ),
+  );
+
+  return items.flatMap((item) => {
+    if (item.isPageBreak || measureRowHeight(item, font, layout) <= availableHeight(layout)) {
+      return [item];
+    }
+    const lines = descriptionLinesFor(item, font, layout.fontSize);
+    if (lines.length <= maxLines) {
+      return [item];
+    }
+    const pieces: QuoteDrawLineItem[] = [];
+    for (let start = 0; start < lines.length; start += maxLines) {
+      const chunk = lines.slice(start, start + maxLines);
+      pieces.push(
+        start === 0
+          ? { ...item, descriptionLines: chunk }
+          : {
+              item: "",
+              qty: "",
+              unitPrice: "",
+              total: "",
+              description: "",
+              descriptionLines: chunk,
+              isNoteLine: true,
+            },
+      );
+    }
+    return pieces;
+  });
 }
 
 export function measureRowHeight(
@@ -142,12 +210,7 @@ export function measureRowHeight(
     return 0;
   }
   if (item.isCategoryLine || item.isNoteLine) {
-    const descLines = measureDescriptionLines(
-      item.description,
-      font,
-      layout.fontSize,
-      COL_DESC_WIDTH,
-    );
+    const descLines = descriptionLinesFor(item, font, layout.fontSize);
     const lineCount = Math.max(1, descLines.length);
     return (
       lineCount * layout.lineHeight +
@@ -156,12 +219,7 @@ export function measureRowHeight(
     );
   }
 
-  const descLines = measureDescriptionLines(
-    item.description,
-    font,
-    layout.fontSize,
-    COL_DESC_WIDTH,
-  );
+  const descLines = descriptionLinesFor(item, font, layout.fontSize);
   const itemLines = wrapText(
     item.item,
     font,
@@ -211,7 +269,7 @@ export function paginateQuoteLineItems(
   // Split at forced breaks (markers consumed; empty segments from leading
   // or doubled breaks produce no blank pages).
   const segments: QuoteDrawLineItem[][] = [[]];
-  for (const item of items) {
+  for (const item of splitOversizedRows(items, font)) {
     if (item.isPageBreak) {
       segments.push([]);
     } else {
@@ -305,7 +363,7 @@ function drawTextAt(
   if (!text.trim()) {
     return;
   }
-  page.drawText(text, {
+  page.drawText(toWinAnsiText(text), {
     x,
     y,
     size: fontSize,
@@ -326,7 +384,7 @@ function drawCenteredInColumn(
   if (!text.trim()) {
     return;
   }
-  const textWidth = font.widthOfTextAtSize(text, fontSize);
+  const textWidth = font.widthOfTextAtSize(toWinAnsiText(text), fontSize);
   const x = colX + Math.max(0, (colWidth - textWidth) / 2);
   drawTextAt(page, font, text, x, y, fontSize);
 }
@@ -343,7 +401,7 @@ function drawRightAlignedInColumn(
   if (!text.trim()) {
     return;
   }
-  const textWidth = font.widthOfTextAtSize(text, fontSize);
+  const textWidth = font.widthOfTextAtSize(toWinAnsiText(text), fontSize);
   const x = colX + Math.max(0, colWidth - textWidth - CELL_INSET);
   drawTextAt(page, font, text, x, y, fontSize);
 }
@@ -392,12 +450,7 @@ export function drawLineItemRow(
     // Full-width text rows: categories emphasize their first line
     // (bold + underline); notes print as plain text.
     const emphasizeTitle = Boolean(item.isCategoryLine);
-    const descLines = measureDescriptionLines(
-      item.description,
-      font,
-      layout.fontSize,
-      COL_DESC_WIDTH,
-    );
+    const descLines = descriptionLinesFor(item, font, layout.fontSize);
     const lineCount = Math.max(1, descLines.length);
     const textHeight = lineCount * layout.lineHeight;
     const rowHeight = textHeight + layout.rowPadding + measureSeparatorHeight();
@@ -434,12 +487,7 @@ export function drawLineItemRow(
     return topY - rowHeight;
   }
 
-  const descLines = measureDescriptionLines(
-    item.description,
-    font,
-    layout.fontSize,
-    COL_DESC_WIDTH,
-  );
+  const descLines = descriptionLinesFor(item, font, layout.fontSize);
   const itemLines = wrapText(
     item.item,
     font,

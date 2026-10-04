@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/session";
+import {
+  contentDisposition,
+  fileRouteErrorResponse,
+} from "@/lib/http-responses";
 import { withDatabaseRetry } from "@/lib/prisma";
 
 type RouteContext = {
@@ -35,11 +39,11 @@ export async function GET(_request: Request, context: RouteContext) {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${fileName.replace(/"/g, "")}"`,
+        "Content-Disposition": contentDisposition("inline", fileName),
         "Cache-Control": "private, no-store",
       },
     });
-  } catch {
-    return new NextResponse("Could not load vendor quote.", { status: 500 });
+  } catch (error) {
+    return fileRouteErrorResponse(error, "Loading the vendor quote");
   }
 }

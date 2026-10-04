@@ -1,11 +1,10 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { reviseQuote } from "@/app/quotes/actions";
+import { navigateAfterAction } from "@/lib/reload-after-action";
 
 export function ReviseQuoteButton({ quoteId }: { quoteId: string }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   return (
@@ -19,8 +18,7 @@ export function ReviseQuoteButton({ quoteId }: { quoteId: string }) {
             window.alert(result.error);
             return;
           }
-          router.push(`/quotes/${result.newQuoteId}`);
-          router.refresh();
+          navigateAfterAction(`/quotes/${result.newQuoteId}`);
         })
       }
       className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"

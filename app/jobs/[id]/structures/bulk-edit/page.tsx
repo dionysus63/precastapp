@@ -30,11 +30,14 @@ export default async function JobStructuresBulkEditPage({
     notFound();
   }
 
-  const [data, circularFormOptions, rectFormOptions] = await Promise.all([
+  const [data, rectFormOptions] = await Promise.all([
     withDatabaseRetry((client) => loadJobStructuresForBulkEdit(client, id)),
-    loadDrillSheetFormOptions(),
     loadRectSheetFormOptions(),
   ]);
+  // Sheets on a since-retired template keep it available to edit against.
+  const circularFormOptions = await loadDrillSheetFormOptions(null, {
+    includeTemplateIds: data.circular.map((row) => row.values.templateId),
+  });
 
   return (
     <DashboardShell

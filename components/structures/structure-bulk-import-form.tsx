@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   importPipeOpenings,
@@ -27,6 +26,7 @@ import {
   tableHeaderCellClassName,
   tableRowClassName,
 } from "@/lib/table-styles";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 
 const CASTING_COLUMN_INDEX: Partial<Record<StructureImportType, number>> = {
   "circular-templates": 12,
@@ -37,7 +37,6 @@ const textareaClassName =
   "mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-[11px] text-slate-900 focus:border-slate-400 focus:outline-none";
 
 export function StructureBulkImportForm() {
-  const router = useRouter();
   const [importType, setImportType] =
     useState<StructureImportType>("circular-templates");
   const [pasteText, setPasteText] = useState("");
@@ -147,13 +146,17 @@ export function StructureBulkImportForm() {
         setResult(imported);
         const summary = `${imported.created} created, ${imported.updated} updated`;
         if (imported.errors.length > 0) {
+          // Stay put: the per-row errors listed here are what the user needs
+          // next, and a reload would clear them.
           toast.warning(
             `Imported with ${imported.errors.length} error${imported.errors.length === 1 ? "" : "s"} (${summary}).`,
           );
         } else {
-          toast.success(`Import complete: ${summary}.`);
+          reloadAfterAction({
+            type: "success",
+            text: `Import complete: ${summary}.`,
+          });
         }
-        router.refresh();
       } catch (error) {
         setErrorMessage(
           error instanceof Error ? error.message : "Import failed.",

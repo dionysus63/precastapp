@@ -6,8 +6,10 @@ import {
   StandardFonts,
   rgb,
   degrees,
+  type PDFFont,
 } from "pdf-lib";
 import { removeFlattenLeftovers } from "@/lib/pdf-flatten-cleanup";
+import { setPdfFieldText } from "@/lib/pdf-text";
 import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import { getAppSettings } from "@/lib/app-settings";
 import { dedupeSharedPdfObjects } from "@/lib/pdf-dedupe";
@@ -134,6 +136,7 @@ export async function readInvoiceContinuationTemplateBytes(): Promise<Uint8Array
 function fillAcroFormFields(
   doc: PDFDocument,
   data: Record<string, string>,
+  font: PDFFont,
 ): void {
   const form = doc.getForm();
 
@@ -148,7 +151,8 @@ function fillAcroFormFields(
       continue;
     }
 
-    field.setText(value);
+    // WinAnsi-safe text, no maxLength crash, shrink-to-fit (Bill To lines).
+    setPdfFieldText(field, value, { font });
   }
 
   form.flatten();
@@ -175,10 +179,10 @@ async function buildInvoicePageBytes(
   showDraftWatermark: boolean,
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.load(templateBytes);
-  fillAcroFormFields(doc, formData);
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  fillAcroFormFields(doc, formData, font);
 
   const page = doc.getPage(0);
-  const font = await doc.embedFont(StandardFonts.Helvetica);
   const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
 
   drawInvoiceLineItemsOnPage(page, font, boldFont, slice);

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTransition } from "react";
 import { deleteStructureTemplate } from "@/app/structures/actions";
 
 type DeleteStructureTemplateButtonProps = {
@@ -9,26 +10,31 @@ type DeleteStructureTemplateButtonProps = {
 export function DeleteStructureTemplateButton({
   templateId,
 }: DeleteStructureTemplateButtonProps) {
-  const action = deleteStructureTemplate.bind(null, templateId);
+  const [pending, startTransition] = useTransition();
 
   return (
-    <form
-      action={action}
-      onSubmit={(event) => {
+    <button
+      type="button"
+      disabled={pending}
+      onClick={() => {
         const confirmed = window.confirm(
-          "Delete this template? Drill sheets that used it keep their saved values. This cannot be undone.",
+          "Delete this template? This cannot be undone.",
         );
         if (!confirmed) {
-          event.preventDefault();
+          return;
         }
+        startTransition(async () => {
+          // Success redirects to the list; a template still used by drill
+          // sheets comes back as an error.
+          const result = await deleteStructureTemplate(templateId);
+          if (result?.error) {
+            window.alert(result.error);
+          }
+        });
       }}
+      className="rounded-lg border border-red-200 px-4 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
     >
-      <button
-        type="submit"
-        className="rounded-lg border border-red-200 px-4 py-2 text-xs font-semibold text-red-700 hover:bg-red-50"
-      >
-        Delete Template
-      </button>
-    </form>
+      {pending ? "Deleting…" : "Delete Template"}
+    </button>
   );
 }
