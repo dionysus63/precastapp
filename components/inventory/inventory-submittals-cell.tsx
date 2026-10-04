@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { openProductSubmittalsFolder } from "@/app/products/actions";
+import { unwrapAction } from "@/lib/action-result";
 
 type InventorySubmittalsCellProps = {
   productId: string;
@@ -20,7 +21,7 @@ export function InventorySubmittalsCell({
     setMessage(null);
     startTransition(async () => {
       try {
-        const result = await openProductSubmittalsFolder(productId);
+        const result = await unwrapAction(openProductSubmittalsFolder(productId));
         setMessage(result.path);
       } catch (error) {
         setMessage(

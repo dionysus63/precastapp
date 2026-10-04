@@ -1,4 +1,5 @@
 import { Prisma } from "@/app/generated/prisma/client";
+import { parseLocalDay } from "@/lib/date-only";
 import {
   computeDrillSheet,
   type DrillSheetInput,
@@ -287,7 +288,10 @@ export function buildCalcData(
   insideDiameterFeet: number,
   pricing: LoadedDrillSheet["pricing"],
 ) {
-  const sheetDate = payload.date ? new Date(`${payload.date}T00:00:00`) : null;
+  const sheetDate = payload.date ? parseLocalDay(payload.date) : null;
+  if (payload.date && !sheetDate) {
+    throw new Error("Invalid sheet date.");
+  }
   return {
     contractorName: payload.contractor || null,
     projectName: payload.project || null,

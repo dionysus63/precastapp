@@ -1,4 +1,5 @@
 import type { PurchaseOrder, PurchaseOrderLine, Vendor } from "@/app/generated/prisma/client";
+import { formatCalendarDateShort } from "@/lib/date-only";
 import { purchaseOrderStatusLabels } from "@/lib/purchase-order-utils";
 import { formatReceivingCategoryLabel } from "@/lib/receiving-utils";
 import { purchaseOrderStatusVariant } from "@/lib/status-variants";
@@ -51,11 +52,7 @@ export function mapPurchaseOrderListRow(po: PoWithVendor) {
     poNumber: po.poNumber,
     vendorName: po.vendor.name,
     orderDate: po.orderDate,
-    orderDateLabel: po.orderDate.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }),
+    orderDateLabel: formatCalendarDateShort(po.orderDate),
     category: po.category,
     categoryLabel: po.category
       ? formatReceivingCategoryLabel(po.category)
@@ -90,11 +87,7 @@ export function mapPurchaseOrderDetail(po: PoWithVendor) {
     ...listRow,
     expectedDate: po.expectedDate,
     expectedDateLabel: po.expectedDate
-      ? po.expectedDate.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        })
+      ? formatCalendarDateShort(po.expectedDate)
       : null,
     notes: po.notes ?? null,
     enteredBy: po.enteredBy ?? null,

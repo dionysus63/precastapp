@@ -109,6 +109,9 @@ describe("password reset and claim protection", () => {
     const formData = new FormData();
     formData.set("id", workerId);
     const result = await resetUserPassword(formData);
+    if ("error" in result) {
+      throw new Error(result.error);
+    }
     tempPassword = result.tempPassword;
 
     // Readable format, satisfies the minimum length rule.

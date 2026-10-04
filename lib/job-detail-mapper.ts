@@ -30,6 +30,7 @@ import {
 import { quoteStatusLabels, type QuoteStatus } from "@/components/quotes/quote-utils";
 import { OPEN_STATUSES } from "@/lib/quotes/list-summary";
 import { formatDateShort, formatUsd, formatWeightLb } from "@/lib/format";
+import { addLocalDays } from "@/lib/date-only";
 import { jobStatusVariant, quoteStatusVariant } from "@/lib/status-variants";
 import {
   deliveryTicketStatusLabels,
@@ -561,10 +562,7 @@ export function buildJobOverview(
     });
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const weekEnd = new Date(today);
-  weekEnd.setDate(today.getDate() + 7);
+  const weekEnd = addLocalDays(new Date(), 7);
   const bidsDueSoon = quotes.filter(
     (quote) =>
       OPEN_STATUSES.includes(quote.status as QuoteStatus) &&

@@ -1,5 +1,6 @@
 "use client";
 
+import { localTodayInput } from "@/lib/date-only";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -413,7 +414,7 @@ export function QuoteForm({
   // New quotes default to today (local time, not UTC — an evening quote
   // shouldn't be dated tomorrow); editing keeps the stored date.
   const [quoteDate, setQuoteDate] = useState(
-    initialValues?.quoteDate ?? new Date().toLocaleDateString("en-CA"),
+    initialValues?.quoteDate ?? localTodayInput(),
   );
   const [expirationDate, setExpirationDate] = useState(
     initialValues?.expirationDate || initialExpirationDate,

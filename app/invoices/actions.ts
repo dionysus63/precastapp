@@ -11,11 +11,13 @@ import { Prisma } from "@/app/generated/prisma/client";
 import { getAppSettings } from "@/lib/app-settings";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { requirePermission } from "@/lib/auth/session";
+import { parseLocalDay, startOfLocalDay } from "@/lib/date-only";
 import { invoiceDueDateFromDelivery } from "@/lib/invoicing-service";
 import { computeMoneyTotals } from "@/lib/money";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { computeDeliveryAmount } from "@/lib/quotes/money-rules";
 import { buildPageInfo } from "@/lib/list-params";
+import { returnActionError } from "@/lib/server/action-errors";
 
 export type DraftInvoiceLineInput = {
   id?: string;
@@ -38,12 +40,7 @@ export type UpdateDraftInvoiceInput = {
 };
 
 function parseInvoiceDate(value: string | null | undefined): Date | null {
-  const trimmed = value?.trim();
-  if (!trimmed) return null;
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
-  if (!match) return null;
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  return Number.isNaN(date.getTime()) ? null : date;
+  return value ? parseLocalDay(value) : null;
 }
 
 function computeInvoiceFinancials(
@@ -107,8 +104,7 @@ export async function finalizeInvoices(
     return { error: "Select at least one draft invoice to finalize." };
   }
 
-  const invoiceDate = parseInvoiceDate(invoiceDateRaw) ?? new Date();
-  invoiceDate.setHours(0, 0, 0, 0);
+  const invoiceDate = parseInvoiceDate(invoiceDateRaw) ?? startOfLocalDay();
 
   try {
     const result = await withDatabaseRetry(async (client) => {
@@ -303,7 +299,12 @@ export async function reopenVoidedInvoice(invoiceId: string) {
 
 export async function updateDraftInvoice(input: UpdateDraftInvoiceInput) {
   await requirePermission(AppPermission.INVOICES_MANAGE);
-  await requireEditableInvoice(input.invoiceId);
+  const editable = await returnActionError(() =>
+    requireEditableInvoice(input.invoiceId),
+  );
+  if ("error" in editable) {
+    return { error: editable.error };
+  }
 
   if (input.lines.length === 0) {
     return { error: "At least one line item is required." };

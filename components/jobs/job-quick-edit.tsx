@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
+  searchContractorsForJob,
   updateJobCustomerAction,
   updateJobStatusAction,
 } from "@/app/jobs/actions";
@@ -9,6 +10,7 @@ import {
   jobStatusFormOptions,
   type JobStatusVariant,
 } from "@/components/jobs/job-utils";
+import { unwrapAction } from "@/lib/action-result";
 import { reloadAfterAction } from "@/lib/reload-after-action";
 
 export type AssignableCustomer = {
@@ -55,7 +57,7 @@ export function JobStatusSelect({
     setError(null);
     startTransition(async () => {
       try {
-        await updateJobStatusAction(jobId, nextStatus);
+        await unwrapAction(updateJobStatusAction(jobId, nextStatus));
         reloadAfterAction();
       } catch (caught) {
         setStatus(previous);
@@ -96,18 +98,50 @@ export function JobCustomerEditor({
   jobNumber,
   customerId: serverCustomerId,
   customerName,
-  customers,
 }: {
   jobId: string;
   jobNumber: string;
   customerId: string | null;
   customerName: string;
-  customers: AssignableCustomer[];
 }) {
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [matches, setMatches] = useState<AssignableCustomer[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  // Search on the server (debounced) instead of shipping every customer to
+  // the page; the picker only ever shows the first few matches anyway.
+  useEffect(() => {
+    if (!editing) {
+      return;
+    }
+    let cancelled = false;
+    const handle = setTimeout(() => {
+      setSearching(true);
+      searchContractorsForJob(query)
+        .then((results) => {
+          if (!cancelled) {
+            setMatches(results.slice(0, 8));
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setError("Could not search contractors.");
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setSearching(false);
+          }
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [editing, query]);
 
   const displayName =
     customerName && customerName !== "Unassigned" ? customerName : null;
@@ -116,7 +150,7 @@ export function JobCustomerEditor({
     setError(null);
     startTransition(async () => {
       try {
-        await updateJobCustomerAction(jobId, nextId);
+        await unwrapAction(updateJobCustomerAction(jobId, nextId));
         setEditing(false);
         setQuery("");
         reloadAfterAction();
@@ -158,15 +192,6 @@ export function JobCustomerEditor({
       </span>
     );
   }
-
-  const trimmedQuery = query.trim().toLowerCase();
-  const matches = (
-    trimmedQuery
-      ? customers.filter((customer) =>
-          customer.name.toLowerCase().includes(trimmedQuery),
-        )
-      : customers
-  ).slice(0, 8);
 
   return (
     <div className="relative">
@@ -229,7 +254,7 @@ export function JobCustomerEditor({
             ))}
             {matches.length === 0 ? (
               <p className="px-3 py-2 text-xs text-slate-400">
-                No contractors match.
+                {searching ? "Searching…" : "No contractors match."}
               </p>
             ) : null}
           </>

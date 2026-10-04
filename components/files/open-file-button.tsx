@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { openJobFile } from "@/app/files/actions";
+import { unwrapAction } from "@/lib/action-result";
 import { completeExplorerOpen } from "@/lib/open-on-client";
 
 type OpenFileButtonProps = {
@@ -20,7 +21,7 @@ export function OpenFileButton({ fileId, fileName }: OpenFileButtonProps) {
     setPending(true);
 
     try {
-      const result = await openJobFile(fileId);
+      const result = await unwrapAction(openJobFile(fileId));
       const feedback = await completeExplorerOpen(result, result.fileName);
       if (feedback.error) setError(feedback.error);
       else setSuccess(feedback.success ?? null);

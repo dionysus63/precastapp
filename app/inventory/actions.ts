@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 import { AppPermission, type ReceivingCategory } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import {
+  calendarDateFromLocalDay,
+  parseCalendarDate,
+  parseLocalDay,
+} from "@/lib/date-only";
+import {
   adjustInventory,
   isDuplicateSubmission,
   savePurchaseReceiptEntry,
@@ -72,8 +77,8 @@ export async function saveInventoryAdjustment(formData: FormData) {
     return { error: "Adjustment quantity must be a whole number." };
   }
 
-  const transactionDate = dateRaw ? new Date(`${dateRaw}T00:00:00`) : new Date();
-  if (Number.isNaN(transactionDate.getTime())) {
+  const transactionDate = dateRaw ? parseLocalDay(dateRaw) : new Date();
+  if (!transactionDate) {
     return { error: "Invalid adjustment date." };
   }
 
@@ -153,8 +158,12 @@ export async function savePurchaseReceipt(formData: FormData) {
     lines.push({ productId, quantityReceived: qty });
   }
 
-  const receiptDate = dateRaw ? new Date(`${dateRaw}T00:00:00`) : new Date();
-  if (Number.isNaN(receiptDate.getTime())) {
+  // receiptDate is a @db.Date column: UTC midnight of the chosen (or
+  // today's local) day. `new Date()` was already tomorrow after 8pm Eastern.
+  const receiptDate = dateRaw
+    ? parseCalendarDate(dateRaw)
+    : calendarDateFromLocalDay();
+  if (!receiptDate) {
     return { error: "Invalid receipt date." };
   }
 

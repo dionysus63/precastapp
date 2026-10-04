@@ -11,6 +11,7 @@ import type {
 } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { getDefaultContactForRole } from "@/lib/customer-contacts";
+import { parseLocalDay } from "@/lib/date-only";
 import {
   allocateDeliveryTicketNumber,
   ensureTicketNumberAssigned,
@@ -126,13 +127,9 @@ export type SaveDeliveryTicketInput = {
 
 function parseDate(value?: string | null): Date | null {
   if (!value?.trim()) return null;
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
-  if (match) {
-    const year = Number(match[1]);
-    const month = Number(match[2]);
-    const day = Number(match[3]);
-    const date = new Date(year, month - 1, day);
-    return Number.isNaN(date.getTime()) ? null : date;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    // deliveryDate is a day value: local midnight.
+    return parseLocalDay(value);
   }
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;

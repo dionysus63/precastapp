@@ -8,6 +8,7 @@ import { cloneQuoteForBidder } from "@/lib/quote-clone";
 import { isQuoteNumberConflict } from "@/lib/quote-number";
 import { isAwardableQuoteStatus, isRemovableBidderQuoteStatus } from "@/lib/job-bid-utils";
 import { withDatabaseRetry } from "@/lib/prisma";
+import { translatePrismaError } from "@/lib/server/action-errors";
 
 export async function addJobBidder(jobId: string, customerId: string) {
   await requirePermission(AppPermission.JOBS_MANAGE);
@@ -61,7 +62,7 @@ export async function addJobBidder(jobId: string, customerId: string) {
   } catch (error) {
     return {
       error:
-        error instanceof Error ? error.message : "Could not add bidder.",
+        error instanceof Error ? translatePrismaError(error).message : "Could not add bidder.",
     };
   }
 }
@@ -114,7 +115,7 @@ export async function removeJobBidder(jobBidderId: string) {
   } catch (error) {
     return {
       error:
-        error instanceof Error ? error.message : "Could not remove bidder.",
+        error instanceof Error ? translatePrismaError(error).message : "Could not remove bidder.",
     };
   }
 }
@@ -221,7 +222,7 @@ export async function generateQuotesFromMaster(
     return {
       error:
         error instanceof Error
-          ? error.message
+          ? translatePrismaError(error).message
           : "Could not generate quotes.",
     };
   }
@@ -346,21 +347,7 @@ export async function awardJob(
   } catch (error) {
     return {
       error:
-        error instanceof Error ? error.message : "Could not award job.",
+        error instanceof Error ? translatePrismaError(error).message : "Could not award job.",
     };
   }
-}
-
-export async function listCustomersForBidList() {
-  await requirePermission(AppPermission.JOBS_MANAGE);
-  return withDatabaseRetry((client) =>
-    client.customer.findMany({
-      where: { status: "ACTIVE" },
-      orderBy: { name: "asc" },
-      select: {
-        id: true,
-        name: true,
-      },
-    }),
-  );
 }

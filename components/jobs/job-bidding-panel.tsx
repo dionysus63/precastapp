@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
+import { searchContractorsForJob } from "@/app/jobs/actions";
 import {
   addJobBidder,
   awardJob,
@@ -10,6 +11,7 @@ import {
 } from "@/app/jobs/bid-actions";
 import { isAwardableQuoteStatus } from "@/lib/job-bid-utils";
 import { reloadAfterAction } from "@/lib/reload-after-action";
+import { FormTypeahead } from "@/components/common/form-typeahead";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import type {
@@ -32,7 +34,8 @@ type JobBiddingPanelProps = {
   isAwarded: boolean;
   bidders: JobBidderRow[];
   masterQuoteOptions: JobMasterQuoteOption[];
-  customers: JobBidListCustomerOption[];
+  /** Searching and adding contractors needs Jobs: manage. */
+  canAddBidders: boolean;
 };
 
 function buildDefaultContactMap(bidders: JobBidderRow[]) {
@@ -92,12 +95,14 @@ export function JobBiddingPanel({
   isAwarded,
   bidders,
   masterQuoteOptions,
-  customers,
+  canAddBidders,
 }: JobBiddingPanelProps) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [selectedCustomer, setSelectedCustomer] =
+    useState<JobBidListCustomerOption | null>(null);
+  const selectedCustomerId = selectedCustomer?.id ?? "";
   const [templateQuoteId, setTemplateQuoteId] = useState(
     masterQuoteOptions[0]?.id ?? "",
   );
@@ -129,13 +134,18 @@ export function JobBiddingPanel({
     });
   }
 
-  const existingCustomerIds = useMemo(
-    () => new Set(bidders.map((bidder) => bidder.customerId)),
-    [bidders],
-  );
-
-  const availableCustomers = customers.filter(
-    (customer) => !existingCustomerIds.has(customer.id),
+  // Searched on the server so the page never loads the whole customer table;
+  // contractors already on the bid list are left out of the results.
+  const bidderCustomerIdsKey = bidders
+    .map((bidder) => bidder.customerId)
+    .join(",");
+  const searchAvailableCustomers = useCallback(
+    (query: string) =>
+      searchContractorsForJob(query, {
+        activeOnly: true,
+        excludeIds: bidderCustomerIdsKey ? bidderCustomerIdsKey.split(",") : [],
+      }),
+    [bidderCustomerIdsKey],
   );
 
   const awardableBidders = bidders.filter(
@@ -171,7 +181,7 @@ export function JobBiddingPanel({
         setError(result.error);
         return;
       }
-      setSelectedCustomerId("");
+      setSelectedCustomer(null);
       refreshAfterAction("Contractor added to bid list.");
     });
   }
@@ -262,28 +272,32 @@ export function JobBiddingPanel({
       >
         {!isAwarded ? (
           <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-slate-50/60 px-4 py-2.5">
-            <select
-              aria-label="Contractor to add to the bid list"
-              value={selectedCustomerId}
-              onChange={(event) => setSelectedCustomerId(event.target.value)}
-              disabled={pending}
-              className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-900 shadow-sm"
-            >
-              <option value="">Add contractor…</option>
-              {availableCustomers.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              disabled={pending || !selectedCustomerId}
-              onClick={handleAddBidder}
-              className="rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
-            >
-              Add
-            </button>
+            {canAddBidders ? (
+              <>
+                <div className="w-64">
+                  <FormTypeahead<JobBidListCustomerOption>
+                    inputId="bid-list-add-contractor"
+                    selectedLabel={selectedCustomer?.name ?? ""}
+                    placeholder="Add contractor…"
+                    searchItems={searchAvailableCustomers}
+                    itemKey={(customer) => customer.id}
+                    itemLabel={(customer) => customer.name}
+                    onSelect={setSelectedCustomer}
+                    emptyLabel="No contractors match."
+                    disabled={pending}
+                    inputClassName="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-900 shadow-sm"
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={pending || !selectedCustomerId}
+                  onClick={handleAddBidder}
+                  className="rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+                >
+                  Add
+                </button>
+              </>
+            ) : null}
             {masterQuoteOptions.length > 0 ? (
               <>
                 <span

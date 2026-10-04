@@ -1,7 +1,8 @@
 import * as XLSX from "xlsx";
+import { localTodayInput } from "@/lib/date-only";
 
 export function buildExportFilename(prefix: string): string {
-  const date = new Date().toISOString().slice(0, 10);
+  const date = localTodayInput();
   return `${prefix}-${date}.xlsx`;
 }
 

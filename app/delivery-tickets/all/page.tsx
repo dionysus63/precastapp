@@ -6,6 +6,7 @@ import {
   mapDbDeliveryTicketToListRow,
 } from "@/lib/delivery-ticket-mapper";
 import { getAppSettings } from "@/lib/app-settings";
+import { addLocalDays, startOfLocalDay } from "@/lib/date-only";
 import { withDatabaseRetry } from "@/lib/prisma";
 import {
   buildDeliveryFilterOptions,
@@ -22,12 +23,6 @@ import type { Prisma } from "@/app/generated/prisma/client";
 const VALID_DELIVERY_STATUSES = new Set<string>(
   deliveryTicketStatusFormOptions.map((option) => option.value),
 );
-
-function startOfToday() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today;
-}
 
 export default async function AllDeliveryTicketsPage({
   searchParams,
@@ -73,16 +68,14 @@ export default async function AllDeliveryTicketsPage({
   }
 
   if (dateParam && dateParam !== "All") {
-    const today = startOfToday();
+    const today = startOfLocalDay();
     if (dateParam === "Past Due") {
       and.push({ deliveryDate: { lt: today } });
     } else if (dateParam === "Today") {
-      const tomorrow = new Date(today);
-      tomorrow.setDate(today.getDate() + 1);
+      const tomorrow = addLocalDays(today, 1);
       and.push({ deliveryDate: { gte: today, lt: tomorrow } });
     } else if (dateParam === "This Week" || dateParam === "Next 7 Days") {
-      const weekEnd = new Date(today);
-      weekEnd.setDate(today.getDate() + 7);
+      const weekEnd = addLocalDays(today, 7);
       and.push({ deliveryDate: { gte: today, lte: weekEnd } });
     }
   }

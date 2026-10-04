@@ -230,7 +230,11 @@ export async function assertStructurePricingCompleteForDefault(
   }
 }
 
-/** Copies every structure price entry from one list to another (upsert). */
+/**
+ * Copies every structure price entry from one list to another. The target is
+ * normally a brand-new list, so entries are bulk-inserted; any the target
+ * already has are updated in place.
+ */
 export async function copyStructurePriceEntries(
   targetPriceListId: string,
   sourcePriceListId: string,
@@ -238,91 +242,127 @@ export async function copyStructurePriceEntries(
 ): Promise<void> {
   const diameterRows = await client.diameterPriceListEntry.findMany({
     where: { priceListId: sourcePriceListId },
+    select: { diameterConfigId: true, wallPricePerFoot: true, basePrice: true },
   });
-  for (const row of diameterRows) {
-    await client.diameterPriceListEntry.upsert({
+  const existingDiameters = new Set(
+    (
+      await client.diameterPriceListEntry.findMany({
+        where: { priceListId: targetPriceListId },
+        select: { diameterConfigId: true },
+      })
+    ).map((row) => row.diameterConfigId),
+  );
+  await client.diameterPriceListEntry.createMany({
+    data: diameterRows
+      .filter((row) => !existingDiameters.has(row.diameterConfigId))
+      .map((row) => ({ priceListId: targetPriceListId, ...row })),
+  });
+  for (const { diameterConfigId, ...prices } of diameterRows.filter((row) =>
+    existingDiameters.has(row.diameterConfigId),
+  )) {
+    await client.diameterPriceListEntry.update({
       where: {
         priceListId_diameterConfigId: {
           priceListId: targetPriceListId,
-          diameterConfigId: row.diameterConfigId,
+          diameterConfigId,
         },
       },
-      create: {
-        priceListId: targetPriceListId,
-        diameterConfigId: row.diameterConfigId,
-        wallPricePerFoot: row.wallPricePerFoot,
-        basePrice: row.basePrice,
-      },
-      update: {
-        wallPricePerFoot: row.wallPricePerFoot,
-        basePrice: row.basePrice,
-      },
+      data: prices,
     });
   }
 
   const rectTemplateRows = await client.rectTemplatePriceListEntry.findMany({
     where: { priceListId: sourcePriceListId },
+    select: {
+      templateId: true,
+      wallPricePerFoot: true,
+      topSlabPrice: true,
+      baseSlabPrice: true,
+    },
   });
-  for (const row of rectTemplateRows) {
-    await client.rectTemplatePriceListEntry.upsert({
+  const existingTemplates = new Set(
+    (
+      await client.rectTemplatePriceListEntry.findMany({
+        where: { priceListId: targetPriceListId },
+        select: { templateId: true },
+      })
+    ).map((row) => row.templateId),
+  );
+  await client.rectTemplatePriceListEntry.createMany({
+    data: rectTemplateRows
+      .filter((row) => !existingTemplates.has(row.templateId))
+      .map((row) => ({ priceListId: targetPriceListId, ...row })),
+  });
+  for (const { templateId, ...prices } of rectTemplateRows.filter((row) =>
+    existingTemplates.has(row.templateId),
+  )) {
+    await client.rectTemplatePriceListEntry.update({
       where: {
-        priceListId_templateId: {
-          priceListId: targetPriceListId,
-          templateId: row.templateId,
-        },
+        priceListId_templateId: { priceListId: targetPriceListId, templateId },
       },
-      create: {
-        priceListId: targetPriceListId,
-        templateId: row.templateId,
-        wallPricePerFoot: row.wallPricePerFoot,
-        topSlabPrice: row.topSlabPrice,
-        baseSlabPrice: row.baseSlabPrice,
-      },
-      update: {
-        wallPricePerFoot: row.wallPricePerFoot,
-        topSlabPrice: row.topSlabPrice,
-        baseSlabPrice: row.baseSlabPrice,
-      },
+      data: prices,
     });
   }
 
   const pipeOpeningRows = await client.pipeOpeningPriceListEntry.findMany({
     where: { priceListId: sourcePriceListId },
+    select: { pipeOpeningSizeId: true, pricePerBoot: true },
   });
-  for (const row of pipeOpeningRows) {
-    await client.pipeOpeningPriceListEntry.upsert({
+  const existingPipeOpenings = new Set(
+    (
+      await client.pipeOpeningPriceListEntry.findMany({
+        where: { priceListId: targetPriceListId },
+        select: { pipeOpeningSizeId: true },
+      })
+    ).map((row) => row.pipeOpeningSizeId),
+  );
+  await client.pipeOpeningPriceListEntry.createMany({
+    data: pipeOpeningRows
+      .filter((row) => !existingPipeOpenings.has(row.pipeOpeningSizeId))
+      .map((row) => ({ priceListId: targetPriceListId, ...row })),
+  });
+  for (const { pipeOpeningSizeId, pricePerBoot } of pipeOpeningRows.filter(
+    (row) => existingPipeOpenings.has(row.pipeOpeningSizeId),
+  )) {
+    await client.pipeOpeningPriceListEntry.update({
       where: {
         priceListId_pipeOpeningSizeId: {
           priceListId: targetPriceListId,
-          pipeOpeningSizeId: row.pipeOpeningSizeId,
+          pipeOpeningSizeId,
         },
       },
-      create: {
-        priceListId: targetPriceListId,
-        pipeOpeningSizeId: row.pipeOpeningSizeId,
-        pricePerBoot: row.pricePerBoot,
-      },
-      update: { pricePerBoot: row.pricePerBoot },
+      data: { pricePerBoot },
     });
   }
 
   const rectOpeningRows = await client.rectOpeningPriceListEntry.findMany({
     where: { priceListId: sourcePriceListId },
+    select: { rectOpeningSizeId: true, pricePerOpening: true },
   });
-  for (const row of rectOpeningRows) {
-    await client.rectOpeningPriceListEntry.upsert({
+  const existingRectOpenings = new Set(
+    (
+      await client.rectOpeningPriceListEntry.findMany({
+        where: { priceListId: targetPriceListId },
+        select: { rectOpeningSizeId: true },
+      })
+    ).map((row) => row.rectOpeningSizeId),
+  );
+  await client.rectOpeningPriceListEntry.createMany({
+    data: rectOpeningRows
+      .filter((row) => !existingRectOpenings.has(row.rectOpeningSizeId))
+      .map((row) => ({ priceListId: targetPriceListId, ...row })),
+  });
+  for (const { rectOpeningSizeId, pricePerOpening } of rectOpeningRows.filter(
+    (row) => existingRectOpenings.has(row.rectOpeningSizeId),
+  )) {
+    await client.rectOpeningPriceListEntry.update({
       where: {
         priceListId_rectOpeningSizeId: {
           priceListId: targetPriceListId,
-          rectOpeningSizeId: row.rectOpeningSizeId,
+          rectOpeningSizeId,
         },
       },
-      create: {
-        priceListId: targetPriceListId,
-        rectOpeningSizeId: row.rectOpeningSizeId,
-        pricePerOpening: row.pricePerOpening,
-      },
-      update: { pricePerOpening: row.pricePerOpening },
+      data: { pricePerOpening },
     });
   }
 }

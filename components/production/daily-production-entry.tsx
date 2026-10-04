@@ -9,6 +9,11 @@ import type {
   DailyProductionStockProduct,
   DailyProductionStructureRow,
 } from "@/lib/daily-production-service";
+import {
+  addLocalDays,
+  localTodayInput,
+  toLocalDayInput,
+} from "@/lib/date-only";
 import { randomId } from "@/lib/random-id";
 import { reloadAfterAction } from "@/lib/reload-after-action";
 
@@ -27,16 +32,6 @@ type DailyProductionEntryProps = {
   products: DailyProductionStockProduct[];
   categories: TaxonomyCategory[];
 };
-
-function shiftDate(iso: string, days: number): string {
-  const base = new Date(`${iso}T00:00:00Z`);
-  base.setUTCDate(base.getUTCDate() + days);
-  return base.toISOString().slice(0, 10);
-}
-
-function localToday(): string {
-  return new Date().toLocaleDateString("en-CA");
-}
 
 const qtyInputClassName =
   "w-20 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900";
@@ -218,14 +213,16 @@ export function DailyProductionEntry({
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          onClick={() => changeDate(shiftDate(localToday(), -1))}
+          onClick={() =>
+            changeDate(toLocalDayInput(addLocalDays(new Date(), -1)))
+          }
           className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
         >
           Yesterday
         </button>
         <button
           type="button"
-          onClick={() => changeDate(localToday())}
+          onClick={() => changeDate(localTodayInput())}
           className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
         >
           Today

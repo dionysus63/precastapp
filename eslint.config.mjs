@@ -36,6 +36,37 @@ const eslintConfig = defineConfig([
           destructuredArrayIgnorePattern: "^_",
         },
       ],
+      // In-place RSC refreshes leave stale screens on the office LAN (see
+      // lib/reload-after-action.ts): reload/navigate, or render the action's
+      // returned data, instead.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "CallExpression[callee.property.name='refresh'][callee.object.name=/^router$/i]",
+          message:
+            "router.refresh() leaves stale screens on the office LAN. Use reloadAfterAction()/navigateAfterAction() from @/lib/reload-after-action, or render the action's returned data.",
+        },
+        {
+          selector:
+            "CallExpression[callee.property.name='refresh'][callee.object.callee.name='useRouter']",
+          message:
+            "useRouter().refresh() leaves stale screens on the office LAN. Use reloadAfterAction()/navigateAfterAction() from @/lib/reload-after-action.",
+        },
+      ],
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "next/cache",
+              importNames: ["refresh"],
+              message:
+                "Server-side refresh() fails on the office LAN like router.refresh(). Return data, or have the client call reloadAfterAction().",
+            },
+          ],
+        },
+      ],
     },
   },
 ]);

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { scanAllProductSubmittalsAction } from "@/app/products/actions";
+import { unwrapAction } from "@/lib/action-result";
 
 export function ScanSubmittalsButton() {
   const [pending, startTransition] = useTransition();
@@ -14,7 +15,7 @@ export function ScanSubmittalsButton() {
     setMessage({});
     startTransition(async () => {
       try {
-        const result = await scanAllProductSubmittalsAction();
+        const result = await unwrapAction(scanAllProductSubmittalsAction());
         setMessage({
           success: `Matched ${result.productsWithFiles} product${result.productsWithFiles === 1 ? "" : "s"}: ${result.added} added, ${result.removed} removed.`,
         });

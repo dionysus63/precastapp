@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { unwrapAction } from "@/lib/action-result";
 import { reloadAfterAction } from "@/lib/reload-after-action";
 import {
   createSheetPdfSetAction,
@@ -154,7 +155,7 @@ export function SheetPdfSetManager({
     setMessage({});
     startTransition(async () => {
       try {
-        await action();
+        await unwrapAction(action());
         setMessage({ success });
         reloadAfterAction();
       } catch (error) {
@@ -213,7 +214,7 @@ export function SheetPdfSetManager({
             disabled={pending || !newName.trim()}
             onClick={() =>
               run(async () => {
-                await createSheetPdfSetAction(newName, newShape);
+                await unwrapAction(createSheetPdfSetAction(newName, newShape));
                 setNewName("");
               }, "PDF set created.")
             }

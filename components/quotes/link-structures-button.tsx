@@ -2,11 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { linkStructuresForWonQuote } from "@/app/operations/actions";
+import { isActionError } from "@/lib/action-result";
 import { reloadAfterAction } from "@/lib/reload-after-action";
 
 export function LinkStructuresButton({ quoteId }: { quoteId: string }) {
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <div className="flex items-center gap-2">
@@ -15,7 +17,13 @@ export function LinkStructuresButton({ quoteId }: { quoteId: string }) {
         disabled={pending}
         onClick={() =>
           startTransition(async () => {
+            setError(null);
             const result = await linkStructuresForWonQuote(quoteId);
+            if (isActionError(result)) {
+              setMessage(null);
+              setError(result.error);
+              return;
+            }
             if (result.count === 0) {
               setMessage("No structures needed linking");
               return;
@@ -32,6 +40,9 @@ export function LinkStructuresButton({ quoteId }: { quoteId: string }) {
       </button>
       {message ? (
         <span className="text-[11px] text-emerald-700">{message}</span>
+      ) : null}
+      {error ? (
+        <span className="text-[11px] text-red-600">{error}</span>
       ) : null}
     </div>
   );

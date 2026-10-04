@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { Prisma, AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { returnActionError } from "@/lib/server/action-errors";
 
 type PipeOpeningPayload = {
   /** Combined material/type description, e.g. "PVC SDR35". */
@@ -81,8 +82,13 @@ function combinedMaterial(row: { pipeMaterial: string; pipeType: string }) {
     .toLowerCase();
 }
 
+/** Errors come back as `{ error }` (see returnActionError). */
 export async function savePipeOpeningSizes(formData: FormData) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
+  return returnActionError(() => savePipeOpeningSizesOrThrow(formData));
+}
+
+async function savePipeOpeningSizesOrThrow(formData: FormData) {
   const priceListId = String(formData.get("priceListId") ?? "").trim();
   const entries = parsePipeOpeningsPayload(formData);
 

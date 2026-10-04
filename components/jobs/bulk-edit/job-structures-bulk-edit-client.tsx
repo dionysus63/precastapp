@@ -10,6 +10,7 @@ import {
   bulkUpdateDrillSheets,
   bulkUpdateRectSheets,
 } from "@/app/jobs/bulk-structure-actions";
+import { unwrapAction } from "@/lib/action-result";
 import type { RectSheetFormValues } from "@/components/drill-sheets/rect-sheet-form";
 import type { DrillSheetFormValues } from "@/lib/drill-sheet-detail";
 import type {
@@ -183,10 +184,10 @@ export function JobStructuresBulkEditClient({
       try {
         const [circularResults, rectResults] = await Promise.all([
           circularInputs.length > 0
-            ? bulkUpdateDrillSheets(jobId, circularInputs)
+            ? unwrapAction(bulkUpdateDrillSheets(jobId, circularInputs))
             : Promise.resolve<BulkSheetRowResult[]>([]),
           rectInputs.length > 0
-            ? bulkUpdateRectSheets(jobId, rectInputs)
+            ? unwrapAction(bulkUpdateRectSheets(jobId, rectInputs))
             : Promise.resolve<BulkSheetRowResult[]>([]),
         ]);
 

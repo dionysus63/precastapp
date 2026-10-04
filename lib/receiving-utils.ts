@@ -1,4 +1,8 @@
 import type { ReceivingCategory } from "@/app/generated/prisma/client";
+import {
+  calendarDateFromLocalDay,
+  formatCalendarDateShort,
+} from "@/lib/date-only";
 
 export type { ReceivingCategory };
 
@@ -96,6 +100,18 @@ export function castingOriginForCategory(
 
 export type DeliveryStaleness = "none" | "fresh" | "recent" | "stale" | "overdue";
 
+/**
+ * Whole days from a receipt's @db.Date (UTC midnight) to the office's local
+ * today. Local `setHours(0, 0, 0, 0)` on the UTC-midnight value landed on the
+ * previous evening, so a receipt dated today read as "Yesterday".
+ */
+export function receiptDaysAgo(receiptDate: Date, now: Date = new Date()): number {
+  const today = calendarDateFromLocalDay(now);
+  return Math.floor(
+    (today.getTime() - new Date(receiptDate).getTime()) / (1000 * 60 * 60 * 24),
+  );
+}
+
 export function getDeliveryStaleness(
   receiptDate: Date | null | undefined,
 ): DeliveryStaleness {
@@ -103,13 +119,7 @@ export function getDeliveryStaleness(
     return "none";
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const receipt = new Date(receiptDate);
-  receipt.setHours(0, 0, 0, 0);
-  const daysAgo = Math.floor(
-    (today.getTime() - receipt.getTime()) / (1000 * 60 * 60 * 24),
-  );
+  const daysAgo = receiptDaysAgo(receiptDate);
 
   if (daysAgo <= 0) {
     return "fresh";
@@ -130,13 +140,7 @@ export function formatRelativeDeliveryDate(
     return "No deliveries yet";
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const receipt = new Date(receiptDate);
-  receipt.setHours(0, 0, 0, 0);
-  const daysAgo = Math.floor(
-    (today.getTime() - receipt.getTime()) / (1000 * 60 * 60 * 24),
-  );
+  const daysAgo = receiptDaysAgo(receiptDate);
 
   if (daysAgo <= 0) {
     return "Today";
@@ -158,11 +162,7 @@ export function formatRelativeDeliveryDate(
     const months = Math.floor(daysAgo / 30);
     return `${months} month${months === 1 ? "" : "s"} ago`;
   }
-  return receiptDate.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatCalendarDateShort(receiptDate);
 }
 
 export function stalenessBadgeVariant(
@@ -197,12 +197,14 @@ export function stalenessCardAccent(
   }
 }
 
+/** "Sun, Oct 4, 2026" for a receipt's @db.Date (UTC midnight) value. */
 export function formatReceiptDate(receiptDate: Date): string {
   return receiptDate.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   });
 }
 

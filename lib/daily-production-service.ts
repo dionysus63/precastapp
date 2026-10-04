@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@/app/generated/prisma/client";
 import { Prisma } from "@/app/generated/prisma/client";
+import { calendarDateFromLocalDay, parseCalendarDate } from "@/lib/date-only";
 import { formatQuantity } from "@/lib/format";
 
 /** In-production structure row for the Daily Production page. */
@@ -150,19 +151,12 @@ export async function getProductionDayEntries(
     }));
 }
 
-/** Parse a yyyy-mm-dd string the same way the entry writers do. */
+/**
+ * A yyyy-mm-dd search param as a productionDate (@db.Date, UTC midnight),
+ * falling back to the office's local today.
+ */
 export function parseProductionDate(value: string | undefined): Date {
-  const raw = (value ?? "").trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-    const parsed = new Date(raw);
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed;
-    }
-  }
-  const today = new Date();
-  return new Date(
-    Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()),
-  );
+  return parseCalendarDate(value ?? "") ?? calendarDateFromLocalDay();
 }
 
 /** Stock product row for the browse-by-category grid. */

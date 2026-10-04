@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { isActionError, type ActionError } from "@/lib/action-result";
 import { randomId } from "@/lib/random-id";
+import { localTodayInput } from "@/lib/date-only";
 import { formatFeetInchesShort } from "@/lib/drill-sheet";
 import { useMemo, useState } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
@@ -122,7 +124,8 @@ export type RectSheetFormValues = {
 };
 
 type RectSheetFormProps = {
-  action: (formData: FormData) => Promise<void>;
+  /** Returns `{ error }` on failure (shown above the buttons). */
+  action: (formData: FormData) => Promise<void | ActionError>;
   templates: RectSheetTemplateOption[];
   castings: RectSheetCastingOption[];
   jobs: DrillSheetJobOption[];
@@ -183,6 +186,7 @@ export function RectSheetForm({
     : templates[0];
 
   const [templateId, setTemplateId] = useState(initialTemplate?.id ?? "");
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [castingProductId, setCastingProductId] = useState(
     defaultValues?.castingProductId ??
       initialTemplate?.defaultCastingProductId ??
@@ -197,7 +201,7 @@ export function RectSheetForm({
   const [contractor, setContractor] = useState(defaultValues?.contractor ?? "");
   const [project, setProject] = useState(defaultValues?.project ?? "");
   const [date, setDate] = useState(
-    defaultValues?.date ?? new Date().toISOString().slice(0, 10),
+    defaultValues?.date ?? localTodayInput(),
   );
   const [inspection, setInspection] = useState(defaultValues?.inspection ?? "");
   const [approvedBy, setApprovedBy] = useState(defaultValues?.approvedBy ?? "");
@@ -440,7 +444,16 @@ export function RectSheetForm({
   }
 
   return (
-    <form action={action} className="space-y-4">
+    <form
+      action={async (formData) => {
+        setSaveError(null);
+        const result = await action(formData);
+        if (isActionError(result)) {
+          setSaveError(result.error);
+        }
+      }}
+      className="space-y-4"
+    >
       <input type="hidden" name="payload" value={payloadJson} />
       {expectedUpdatedAt ? (
         <input type="hidden" name="expectedUpdatedAt" value={expectedUpdatedAt} />
@@ -1083,6 +1096,12 @@ export function RectSheetForm({
           )}
         </div>
       </div>
+
+      {saveError ? (
+        <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+          {saveError}
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap justify-end gap-2 rounded-xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm">
         <Link

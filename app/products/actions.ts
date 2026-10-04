@@ -58,7 +58,7 @@ import {
   getPriceListsMissingProducts,
   upsertProductPriceListItem,
 } from "@/lib/price-list-service";
-import { validateTaxonomySelection, resolveTaxonomyByNamesForImport, ensureTaxonomyForBulkImport } from "@/lib/product-taxonomy.server";
+import { validateTaxonomySelection, resolveTaxonomiesByNamesForImport, ensureTaxonomyForBulkImport } from "@/lib/product-taxonomy.server";
 import {
   getEnum,
   getNonNegativeInt,
@@ -974,27 +974,26 @@ async function importProductsOrThrow(
   }
 
   const rowsByProductCode = new Map<string, number[]>();
-  const products = await Promise.all(
-    parsed.map(async (row, index) => {
-      const bulkRow = row as BulkImportRow;
-      const taxonomy = await resolveTaxonomyByNamesForImport(
-        String(bulkRow.category ?? "").trim(),
-        String(bulkRow.subcategory ?? "").trim() || null,
-        productType,
-      );
-      const mapped = mapBulkImportRow(
-        importPreset,
-        bulkRow,
-        index + 1,
-        taxonomy,
-        supplierId,
-      );
-      const lineNumbers = rowsByProductCode.get(mapped.productCode) ?? [];
-      lineNumbers.push(index + 1);
-      rowsByProductCode.set(mapped.productCode, lineNumbers);
-      return mapped;
-    }),
+  const taxonomies = await resolveTaxonomiesByNamesForImport(
+    rawRows.map((row) => ({
+      category: String(row.category ?? "").trim(),
+      subcategory: String(row.subcategory ?? "").trim() || null,
+    })),
+    productType,
   );
+  const products = rawRows.map((bulkRow, index) => {
+    const mapped = mapBulkImportRow(
+      importPreset,
+      bulkRow,
+      index + 1,
+      taxonomies[index]!,
+      supplierId,
+    );
+    const lineNumbers = rowsByProductCode.get(mapped.productCode) ?? [];
+    lineNumbers.push(index + 1);
+    rowsByProductCode.set(mapped.productCode, lineNumbers);
+    return mapped;
+  });
 
   for (const product of products) {
     if (product.unitPrice != null) {
@@ -1052,8 +1051,11 @@ async function importProductsOrThrow(
 
   const existingProducts = await prisma.product.findMany({
     where: { productCode: { in: products.map((product) => product.productCode) } },
-    select: { productCode: true, productKind: true },
+    select: { id: true, productCode: true, productKind: true },
   });
+  const existingIdByCode = new Map(
+    existingProducts.map((product) => [product.productCode, product.id]),
+  );
   const existingKindByCode = new Map(
     existingProducts.map((product) => [product.productCode, product.productKind]),
   );
@@ -1083,18 +1085,18 @@ async function importProductsOrThrow(
 
     for (let index = 0; index < products.length; index += 1) {
       const { unitPrice, ...productData } = products[index];
-      const existing = await tx.product.findUnique({
-        where: { productCode: productData.productCode },
-        select: { id: true },
-      });
+      // Looked up once above; product codes are unique and the paste has no
+      // duplicates, so the map is still accurate inside the transaction
+      // (a concurrent create of the same code fails on the unique index).
+      const existingId = existingIdByCode.get(productData.productCode);
 
       let productId: string;
-      if (existing) {
+      if (existingId) {
         await tx.product.update({
-          where: { id: existing.id },
+          where: { id: existingId },
           data: bulkImportUpdateData(productData, rawRows[index]!),
         });
-        productId = existing.id;
+        productId = existingId;
         if (productKind === "CASTING_ASSEMBLY" && !productData.castingSoldAsUnit) {
           await saveCastingBom(tx, productId, assemblyBoms[index] ?? []);
         } else if (productKind === "CASTING_ASSEMBLY") {
@@ -1200,21 +1202,29 @@ async function scanProductDocumentsActionOrThrow(productId: string) {
   return result;
 }
 
+/** Errors come back as `{ error }` (see returnActionError). */
 export async function scanAllProductSubmittalsAction() {
   await requirePermission(AppPermission.PRODUCTS_MANAGE);
-  const result = await withDatabaseRetry((client) =>
-    scanAllProductSubmittals(client),
-  );
+  return returnActionError(async () => {
+    const result = await withDatabaseRetry((client) =>
+      scanAllProductSubmittals(client),
+    );
 
-  revalidatePath("/products");
-  revalidatePath("/inventory");
-  return result;
+    revalidatePath("/products");
+    revalidatePath("/inventory");
+    return result;
+  });
 }
 
-export async function openProductDocument(
+/** Errors come back as `{ error }` (see returnActionError). */
+export async function openProductDocument(documentId: string) {
+  await requirePermission(AppPermission.FILES_VIEW);
+  return returnActionError(() => openProductDocumentOrThrow(documentId));
+}
+
+async function openProductDocumentOrThrow(
   documentId: string,
 ): Promise<ProductExplorerOpenResult & { documentName: string }> {
-  await requirePermission(AppPermission.FILES_VIEW);
   const document = await withDatabaseRetry((client) =>
     getProductDocumentForOpen(client, documentId),
   );
@@ -1236,10 +1246,15 @@ export async function openProductDocument(
   };
 }
 
-export async function openProductSubmittalsFolder(
+/** Errors come back as `{ error }` (see returnActionError). */
+export async function openProductSubmittalsFolder(productId: string) {
+  await requirePermission(AppPermission.FILES_VIEW);
+  return returnActionError(() => openProductSubmittalsFolderOrThrow(productId));
+}
+
+async function openProductSubmittalsFolderOrThrow(
   productId: string,
 ): Promise<ProductExplorerOpenResult> {
-  await requirePermission(AppPermission.FILES_VIEW);
   const product = await withDatabaseRetry((client) =>
     client.product.findUnique({
       where: { id: productId },

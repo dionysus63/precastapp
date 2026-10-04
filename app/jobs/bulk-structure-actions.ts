@@ -12,6 +12,7 @@ import {
   updateRectJobStructureFromPayload,
 } from "@/lib/rect-sheet-persistence";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
+import { returnActionError } from "@/lib/server/action-errors";
 
 export type BulkSheetRowInput = {
   structureId: string;
@@ -94,35 +95,43 @@ async function runBulkUpdate(
   return results;
 }
 
+/** Errors come back as `{ error }` (see returnActionError); per-row
+ * failures are in the row results. */
 export async function bulkUpdateDrillSheets(
   jobId: string,
   rows: BulkSheetRowInput[],
-): Promise<BulkSheetRowResult[]> {
+) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
-  return runBulkUpdate(jobId, rows, async (row) => {
-    const payload = parseDrillSheetPayloadData(row.payload);
-    // The grid edits structures in place — never let a row detach from its job.
-    payload.jobId = jobId;
-    await updateJobStructureFromPayload(
-      row.structureId,
-      payload,
-      row.expectedUpdatedAt,
-    );
-  });
+  return returnActionError(() =>
+    runBulkUpdate(jobId, rows, async (row) => {
+      const payload = parseDrillSheetPayloadData(row.payload);
+      // The grid edits structures in place — never let a row detach from its job.
+      payload.jobId = jobId;
+      await updateJobStructureFromPayload(
+        row.structureId,
+        payload,
+        row.expectedUpdatedAt,
+      );
+    }),
+  );
 }
 
+/** Errors come back as `{ error }` (see returnActionError); per-row
+ * failures are in the row results. */
 export async function bulkUpdateRectSheets(
   jobId: string,
   rows: BulkSheetRowInput[],
-): Promise<BulkSheetRowResult[]> {
+) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
-  return runBulkUpdate(jobId, rows, async (row) => {
-    const payload = parseRectSheetPayloadData(row.payload);
-    payload.jobId = jobId;
-    await updateRectJobStructureFromPayload(
-      row.structureId,
-      payload,
-      row.expectedUpdatedAt,
-    );
-  });
+  return returnActionError(() =>
+    runBulkUpdate(jobId, rows, async (row) => {
+      const payload = parseRectSheetPayloadData(row.payload);
+      payload.jobId = jobId;
+      await updateRectJobStructureFromPayload(
+        row.structureId,
+        payload,
+        row.expectedUpdatedAt,
+      );
+    }),
+  );
 }

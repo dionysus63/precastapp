@@ -5,6 +5,7 @@ import type {
   ReceivingCategory,
 } from "@/app/generated/prisma/client";
 import { Prisma } from "@/app/generated/prisma/client";
+import { calendarDateToLocalNoon } from "@/lib/date-only";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -272,7 +273,8 @@ export async function savePurchaseReceiptEntry(
       productId: receiptLine.productId,
       quantityChange: receiptLine.quantityReceived,
       transactionType: "PURCHASE_RECEIPT" as const,
-      transactionDate: input.receiptDate,
+      // receiptDate is a @db.Date (UTC midnight); the ledger is a timestamp.
+      transactionDate: calendarDateToLocalNoon(input.receiptDate),
       referenceType: "PURCHASE_RECEIPT_LINE" as const,
       referenceId: receiptLine.id,
       createdBy: input.enteredBy ?? null,
@@ -386,7 +388,7 @@ export async function saveDailyProductionEntry(
             productId: productionLine.productId,
             quantityChange: productionLine.quantityProduced,
             transactionType: "PRODUCTION" as const,
-            transactionDate: productionDayTimestamp(input.productionDate),
+            transactionDate: calendarDateToLocalNoon(input.productionDate),
             referenceType: "DAILY_PRODUCTION_LINE" as const,
             referenceId: productionLine.id,
             createdBy: input.enteredBy ?? null,
@@ -398,7 +400,7 @@ export async function saveDailyProductionEntry(
         await applyStructureProductionLines(
           tx,
           entry.id,
-          productionDayTimestamp(input.productionDate),
+          calendarDateToLocalNoon(input.productionDate),
           structureLines,
         );
       }
@@ -408,21 +410,6 @@ export async function saveDailyProductionEntry(
     // Generous ceiling for big production days; the batched writes above keep
     // normal entries far under it.
     { timeout: 30_000 },
-  );
-}
-
-/**
- * A production day ("2026-10-03", parsed as UTC midnight — right for the
- * entry's date-only column) as a timestamp for made dates and the ledger:
- * local noon of that calendar day. Stored as UTC midnight, those timestamp
- * columns displayed in local time as the day before.
- */
-export function productionDayTimestamp(productionDate: Date): Date {
-  return new Date(
-    productionDate.getUTCFullYear(),
-    productionDate.getUTCMonth(),
-    productionDate.getUTCDate(),
-    12,
   );
 }
 

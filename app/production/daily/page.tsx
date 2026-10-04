@@ -7,6 +7,7 @@ import {
   parseProductionDate,
 } from "@/lib/daily-production-service";
 import { requireAuth } from "@/lib/auth/session";
+import { toCalendarDateInput } from "@/lib/date-only";
 import { listProductTaxonomy } from "@/lib/product-taxonomy.server";
 import { withDatabaseRetry } from "@/lib/prisma";
 
@@ -20,7 +21,7 @@ export default async function DailyProductionPage({
   const { date } = await searchParams;
   const user = await requireAuth();
   const productionDate = parseProductionDate(date);
-  const dateIso = productionDate.toISOString().slice(0, 10);
+  const dateIso = toCalendarDateInput(productionDate);
 
   const [structures, dayEntries, products, taxonomy] = await Promise.all([
     withDatabaseRetry((client) => getStructuresInProductionForDaily(client)),

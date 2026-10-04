@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { isActionError, type ActionError } from "@/lib/action-result";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { SubmitButton } from "@/components/ui/submit-button";
 
 type ResetPasswordButtonProps = {
   userId: string;
-  action: (formData: FormData) => Promise<{ tempPassword: string }>;
+  action: (formData: FormData) => Promise<{ tempPassword: string } | ActionError>;
 };
 
 export function ResetPasswordButton({
@@ -15,6 +16,7 @@ export function ResetPasswordButton({
 }: ResetPasswordButtonProps) {
   const confirm = useConfirm();
   const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <div className="mt-4 space-y-3">
@@ -32,7 +34,12 @@ export function ResetPasswordButton({
           if (!ok) {
             return;
           }
+          setError(null);
           const result = await action(new FormData(form));
+          if (isActionError(result)) {
+            setError(result.error);
+            return;
+          }
           setTempPassword(result.tempPassword);
         }}
       >
@@ -41,6 +48,12 @@ export function ResetPasswordButton({
           Reset Password
         </SubmitButton>
       </form>
+
+      {error ? (
+        <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+          {error}
+        </p>
+      ) : null}
 
       {tempPassword ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">

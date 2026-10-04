@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import { parseLocalDay } from "@/lib/date-only";
 import { contentDisposition, fileRouteErrorResponse } from "@/lib/http-responses";
 import { generateDraftInvoicesBatchPdfBytes } from "@/lib/invoice-pdf-fill";
 import { INVOICE_PDF_INCLUDE } from "@/lib/invoice-pdf-data";
@@ -10,11 +11,7 @@ import { withDatabaseRetry } from "@/lib/prisma";
 const MAX_BATCH_INVOICES = 200;
 
 function parseDateParam(value: string | null): Date | null {
-  if (!value) return null;
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
-  if (!match) return null;
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  return Number.isNaN(date.getTime()) ? null : date;
+  return value ? parseLocalDay(value) : null;
 }
 
 /**

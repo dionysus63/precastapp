@@ -3,6 +3,7 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { PurchaseOrderEditor } from "@/components/purchase-orders/purchase-order-editor";
 import { listVendorsForPurchaseOrderForm } from "@/app/purchase-orders/actions";
 import { canEditPurchaseOrder } from "@/lib/purchase-order-utils";
+import { toCalendarDateInput } from "@/lib/date-only";
 import { withDatabaseRetry } from "@/lib/prisma";
 
 import { BackButton } from "@/components/dashboard/back-button";
@@ -47,9 +48,9 @@ export default async function EditPurchaseOrderPage({
         initial={{
           vendorId: purchaseOrder.vendorId,
           category: purchaseOrder.category ?? "",
-          orderDate: purchaseOrder.orderDate.toISOString().slice(0, 10),
+          orderDate: toCalendarDateInput(purchaseOrder.orderDate),
           expectedDate: purchaseOrder.expectedDate
-            ? purchaseOrder.expectedDate.toISOString().slice(0, 10)
+            ? toCalendarDateInput(purchaseOrder.expectedDate)
             : "",
           notes: purchaseOrder.notes ?? "",
           enteredBy: purchaseOrder.enteredBy ?? "",

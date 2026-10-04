@@ -5,6 +5,10 @@ import { redirect } from "next/navigation";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import {
+  returnActionError,
+  translatePrismaError,
+} from "@/lib/server/action-errors";
 import { findJobStructureDeleteBlockers } from "@/lib/job-structure-workflow";
 import {
   createJobStructureFromPayload,
@@ -17,17 +21,22 @@ import {
   updateRectJobStructureFromPayload,
 } from "@/lib/rect-sheet-persistence";
 
+// The save actions below report failures as `{ error }` (see
+// returnActionError) and redirect on success.
+
 export async function createDrillSheet(formData: FormData) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
-  const payload = parseDrillSheetPayload(formData);
+  return returnActionError(async () => {
+    const payload = parseDrillSheetPayload(formData);
 
-  const createdId = await createJobStructureFromPayload(payload, {
-    jobId: payload.jobId,
-    structureNumber: payload.manholeNumber || null,
+    const createdId = await createJobStructureFromPayload(payload, {
+      jobId: payload.jobId,
+      structureNumber: payload.manholeNumber || null,
+    });
+
+    revalidatePath("/drill-sheets");
+    redirect(`/drill-sheets/${createdId}`);
   });
-
-  revalidatePath("/drill-sheets");
-  redirect(`/drill-sheets/${createdId}`);
 }
 
 export async function updateDrillSheet(
@@ -35,31 +44,35 @@ export async function updateDrillSheet(
   formData: FormData,
 ) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
-  const payload = parseDrillSheetPayload(formData);
-  const expectedUpdatedAtRaw = String(
-    formData.get("expectedUpdatedAt") ?? "",
-  ).trim();
+  return returnActionError(async () => {
+    const payload = parseDrillSheetPayload(formData);
+    const expectedUpdatedAtRaw = String(
+      formData.get("expectedUpdatedAt") ?? "",
+    ).trim();
 
-  await updateJobStructureFromPayload(
-    drillSheetId,
-    payload,
-    expectedUpdatedAtRaw,
-  );
+    await updateJobStructureFromPayload(
+      drillSheetId,
+      payload,
+      expectedUpdatedAtRaw,
+    );
 
-  revalidatePath("/drill-sheets");
-  revalidatePath(`/drill-sheets/${drillSheetId}`);
-  revalidatePath(`/drill-sheets/${drillSheetId}/edit`);
-  redirect(`/drill-sheets/${drillSheetId}`);
+    revalidatePath("/drill-sheets");
+    revalidatePath(`/drill-sheets/${drillSheetId}`);
+    revalidatePath(`/drill-sheets/${drillSheetId}/edit`);
+    redirect(`/drill-sheets/${drillSheetId}`);
+  });
 }
 
 export async function createRectSheet(formData: FormData) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
-  const payload = parseRectSheetPayload(formData);
+  return returnActionError(async () => {
+    const payload = parseRectSheetPayload(formData);
 
-  const createdId = await createRectJobStructureFromPayload(payload);
+    const createdId = await createRectJobStructureFromPayload(payload);
 
-  revalidatePath("/drill-sheets");
-  redirect(`/drill-sheets/${createdId}`);
+    revalidatePath("/drill-sheets");
+    redirect(`/drill-sheets/${createdId}`);
+  });
 }
 
 export async function updateRectSheet(
@@ -67,21 +80,23 @@ export async function updateRectSheet(
   formData: FormData,
 ) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
-  const payload = parseRectSheetPayload(formData);
-  const expectedUpdatedAtRaw = String(
-    formData.get("expectedUpdatedAt") ?? "",
-  ).trim();
+  return returnActionError(async () => {
+    const payload = parseRectSheetPayload(formData);
+    const expectedUpdatedAtRaw = String(
+      formData.get("expectedUpdatedAt") ?? "",
+    ).trim();
 
-  await updateRectJobStructureFromPayload(
-    jobStructureId,
-    payload,
-    expectedUpdatedAtRaw,
-  );
+    await updateRectJobStructureFromPayload(
+      jobStructureId,
+      payload,
+      expectedUpdatedAtRaw,
+    );
 
-  revalidatePath("/drill-sheets");
-  revalidatePath(`/drill-sheets/${jobStructureId}`);
-  revalidatePath(`/drill-sheets/rect/${jobStructureId}/edit`);
-  redirect(`/drill-sheets/${jobStructureId}`);
+    revalidatePath("/drill-sheets");
+    revalidatePath(`/drill-sheets/${jobStructureId}`);
+    revalidatePath(`/drill-sheets/rect/${jobStructureId}/edit`);
+    redirect(`/drill-sheets/${jobStructureId}`);
+  });
 }
 
 /**
@@ -94,6 +109,15 @@ export async function upgradeRectSheetFromPlaceholder(
   formData: FormData,
 ) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
+  return returnActionError(() =>
+    upgradeRectSheetFromPlaceholderOrThrow(jobStructureId, formData),
+  );
+}
+
+async function upgradeRectSheetFromPlaceholderOrThrow(
+  jobStructureId: string,
+  formData: FormData,
+) {
   const payload = parseRectSheetPayload(formData);
   const expectedUpdatedAtRaw = String(
     formData.get("expectedUpdatedAt") ?? "",
@@ -138,13 +162,18 @@ export async function deleteDrillSheet(
 
   // A drill sheet IS its job structure, so this uses the same guard as the
   // job's bulk structure delete.
-  const blockers = await prisma.$transaction(async (tx) => {
-    const found = await findJobStructureDeleteBlockers(tx, [drillSheetId]);
-    if (found.length === 0) {
-      await tx.jobStructure.delete({ where: { id: drillSheetId } });
-    }
-    return found;
-  });
+  let blockers: string[];
+  try {
+    blockers = await prisma.$transaction(async (tx) => {
+      const found = await findJobStructureDeleteBlockers(tx, [drillSheetId]);
+      if (found.length === 0) {
+        await tx.jobStructure.delete({ where: { id: drillSheetId } });
+      }
+      return found;
+    });
+  } catch (error) {
+    return { error: translatePrismaError(error).message };
+  }
   if (blockers.length > 0) {
     return {
       error: `This structure can't be deleted: ${blockers.join("; ")}. Its production and delivery records depend on it.`,

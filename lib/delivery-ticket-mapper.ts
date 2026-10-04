@@ -4,6 +4,11 @@ import {
   deliveryTicketStatusLabels,
   ticketNumberLabel,
 } from "@/components/delivery-tickets/delivery-ticket-utils";
+import {
+  addLocalDays,
+  startOfLocalDay,
+  toLocalDayInput,
+} from "@/lib/date-only";
 import { formatWeightLb } from "@/lib/format";
 import { deliveryTicketStatusVariant } from "@/lib/status-variants";
 import type { Prisma } from "@/app/generated/prisma/client";
@@ -81,13 +86,6 @@ function formatDate(value: Date | null): string {
     day: "2-digit",
     year: "numeric",
   });
-}
-
-function formatDateIsoLocal(value: Date): string {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, "0");
-  const day = String(value.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
 }
 
 export function mapDbDeliveryTicketToDetailView(
@@ -213,7 +211,7 @@ export function mapDbDeliveryTicketToListRow(ticket: {
     customer: ticket.customerName,
     deliveryDate: formatDate(ticket.deliveryDate),
     deliveryDateIso: ticket.deliveryDate
-      ? formatDateIsoLocal(ticket.deliveryDate)
+      ? toLocalDayInput(ticket.deliveryDate)
       : null,
     deliveryTime: ticket.deliveryTime,
     driver: ticket.driver ?? "—",
@@ -228,16 +226,12 @@ export function mapDbDeliveryTicketToListRow(ticket: {
 export function computeDeliveryTicketSummaryStats(
   tickets: { status: string; deliveryDate: Date | null }[],
 ) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const weekEnd = new Date(today);
-  weekEnd.setDate(weekEnd.getDate() + 7);
+  const today = startOfLocalDay();
+  const weekEnd = addLocalDays(today, 7);
 
   const isToday = (date: Date | null) => {
     if (!date) return false;
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
-    return d.getTime() === today.getTime();
+    return startOfLocalDay(new Date(date)).getTime() === today.getTime();
   };
 
   const scheduledToday = tickets.filter(

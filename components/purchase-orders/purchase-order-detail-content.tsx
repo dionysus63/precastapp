@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/dashboard/status-badge";
 import { VendorQuotePreview } from "@/components/purchase-orders/vendor-quote-preview";
 import { purchaseOrderReceivePercent } from "@/lib/purchase-order-utils";
 import { formatUsd } from "@/lib/format";
+import { formatCalendarDateShort } from "@/lib/date-only";
 
 import {
   tableBodyClassName,
@@ -233,11 +234,7 @@ export function PurchaseOrderDetailContent({
           <ul className="space-y-2 text-xs text-slate-700">
             {purchaseOrder.receipts.map((receipt) => (
               <li key={receipt.id}>
-                {receipt.receiptDate.toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+                {formatCalendarDateShort(receipt.receiptDate)}
                 {receipt.enteredBy ? ` · ${receipt.enteredBy}` : ""}
               </li>
             ))}

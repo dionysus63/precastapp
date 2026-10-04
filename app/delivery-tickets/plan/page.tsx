@@ -5,6 +5,7 @@ import {
   type DraftLoadColumn,
 } from "@/components/delivery-tickets/bulk-load-planner";
 import { getAppSettings } from "@/lib/app-settings";
+import { toLocalDayInput } from "@/lib/date-only";
 import { withDatabaseRetry } from "@/lib/prisma";
 import {
   buildQuoteLineAliasMap,
@@ -397,7 +398,7 @@ export default async function PlanLoadsPage({ searchParams }: PlanLoadsPageProps
             ticketNumber: ticketNumberLabel(ticket.ticketNumber),
             status: ticket.status,
             deliveryDate: ticket.deliveryDate
-              ? ticket.deliveryDate.toISOString().slice(0, 10)
+              ? toLocalDayInput(ticket.deliveryDate)
               : null,
             loadSequence: ticket.loadSequence,
             totalWeight:

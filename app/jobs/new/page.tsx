@@ -6,8 +6,10 @@ import { prisma } from "@/lib/prisma";
 
 import { BackButton } from "@/components/dashboard/back-button";
 export default async function NewJobPage() {
+  // First page of the customer picker; it searches the server as you type.
   const customers = await prisma.customer.findMany({
     orderBy: { name: "asc" },
+    take: 20,
     select: { id: true, name: true },
   });
 

@@ -1,4 +1,5 @@
 import type { QuoteStatus } from "@/components/quotes/quote-utils";
+import { toLocalDayInput } from "@/lib/date-only";
 
 /** Jobs still alive — the default view on the jobs list. */
 export const OPEN_JOB_STATUSES = [
@@ -360,7 +361,8 @@ export function formatJobDateInput(value: Date | string | null | undefined) {
     return "";
   }
 
-  return date.toISOString().slice(0, 10);
+  // Day value (local midnight, or an evening "now" stamp for awardedDate).
+  return toLocalDayInput(date);
 }
 
 export function groupJobRelatedQuotes(quotes: JobRelatedQuote[]): JobQuoteGroup[] {

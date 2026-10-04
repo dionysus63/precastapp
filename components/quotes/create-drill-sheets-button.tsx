@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { createDrillSheetsFromQuote } from "@/app/quotes/structure-actions";
+import { unwrapAction } from "@/lib/action-result";
 import { reloadAfterAction } from "@/lib/reload-after-action";
 
 type CreateDrillSheetsButtonProps = {
@@ -36,7 +37,9 @@ export function CreateDrillSheetsButton({
               setMessage(null);
               setError(null);
               try {
-                const result = await createDrillSheetsFromQuote(quoteId);
+                const result = await unwrapAction(
+                  createDrillSheetsFromQuote(quoteId),
+                );
                 setMessage(
                   result.created > 0
                     ? `${result.created} drill sheet${result.created === 1 ? "" : "s"} created`

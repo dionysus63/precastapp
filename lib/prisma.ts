@@ -37,13 +37,18 @@ function resetPrismaState() {
 function createPool() {
   const pool = new Pool({
     connectionString: resolveDatabaseUrl(process.env.DATABASE_URL),
-    max: 10,
+    // Detail pages fan out 9-12 parallel queries; one server, one app, so
+    // this stays far below PostgreSQL's max_connections (100).
+    max: 20,
     connectionTimeoutMillis: 10_000,
     idleTimeoutMillis: 60_000,
   });
 
-  pool.on("error", () => {
-    resetPrismaState();
+  // An idle client died (e.g. PostgreSQL restarted). pg has already removed
+  // it from the pool and opens fresh connections on demand; ending the whole
+  // pool here would kill queries other requests have in flight.
+  pool.on("error", (error) => {
+    console.warn("[db] idle PostgreSQL connection dropped:", error.message);
   });
 
   return pool;
@@ -54,7 +59,13 @@ function createPrismaClient() {
   globalForPrisma.pool = pool;
 
   const adapter = new PrismaPg(pool);
-  return new PrismaClient({ adapter });
+  return new PrismaClient({
+    adapter,
+    // Safety net over Prisma's 5s default: bulk actions (imports, price-list
+    // copies, awards) grow with the data and must not roll back half-done
+    // work just because the office's catalog got bigger.
+    transactionOptions: { maxWait: 10_000, timeout: 60_000 },
+  });
 }
 
 const REQUIRED_APP_SETTINGS_FIELDS = [
@@ -171,8 +182,9 @@ export async function withDatabaseRetry<T>(
       throw error;
     }
 
-    resetPrismaState();
-
+    // Retry on the same pool: pg discards the broken connection and dials a
+    // new one. Resetting the pool would end connections that concurrent
+    // requests are still using.
     try {
       return await operation(getPrismaClient());
     } catch (retryError) {

@@ -8,6 +8,7 @@ import {
   type ReceivingCategory,
 } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import { parseCalendarDate } from "@/lib/date-only";
 import { sanitizeFileName, resolveUniqueFilePath } from "@/lib/file-upload-utils";
 import {
   resolvePurchaseOrderDirectory,
@@ -28,13 +29,13 @@ import { withDatabaseRetry } from "@/lib/prisma";
 import { assertUploadAllowed } from "@/lib/upload-validation";
 import { translatePrismaError } from "@/lib/server/action-errors";
 
+/** orderDate / expectedDate are @db.Date columns: UTC midnight. */
 function parseDate(value: string | null | undefined): Date | null {
   const trimmed = value?.trim();
   if (!trimmed) {
     return null;
   }
-  const date = new Date(`${trimmed}T00:00:00`);
-  return Number.isNaN(date.getTime()) ? null : date;
+  return parseCalendarDate(trimmed);
 }
 
 function parseLinesFromFormData(formData: FormData): PurchaseOrderLineInput[] {

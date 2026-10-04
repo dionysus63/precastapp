@@ -13,7 +13,6 @@ import { QuotePoInline } from "@/components/quotes/quote-po-inline";
 import {
   JobCustomerEditor,
   JobStatusSelect,
-  type AssignableCustomer,
 } from "@/components/jobs/job-quick-edit";
 import { JobDrillSheetsPdfButtons } from "@/components/drill-sheets/job-drill-sheets-pdf-buttons";
 import { MarkAllSubmittedButton } from "@/components/drill-sheets/mark-all-submitted-button";
@@ -45,7 +44,6 @@ type JobDetailContentProps = {
   detail: JobDetailView;
   activeTab: JobDetailTab;
   isFavorited: boolean;
-  assignableCustomers: AssignableCustomer[];
   children: ReactNode;
 };
 
@@ -160,7 +158,6 @@ export function JobDetailContent({
   detail,
   activeTab,
   isFavorited,
-  assignableCustomers,
   children,
 }: JobDetailContentProps) {
   const tabCounts: Partial<Record<JobDetailTab, number>> = {
@@ -235,7 +232,6 @@ export function JobDetailContent({
               jobNumber={detail.jobNumber}
               customerId={detail.customerId}
               customerName={detail.customer}
-              customers={assignableCustomers}
             />
             {detail.poQuoteId ? (
               <span className="rounded-lg border border-slate-200 bg-slate-50/60 px-2 py-1 text-xs text-slate-700">

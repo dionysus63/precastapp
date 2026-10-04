@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PlanSheetRecord } from "@/app/quotes/plan-sheet-actions";
 import { savePlanSheetMarkup } from "@/app/quotes/plan-sheet-actions";
+import { isActionError } from "@/lib/action-result";
 import { SectionCard } from "@/components/dashboard/section-card";
 import type { DrillSheetTemplateOption } from "@/components/drill-sheets/drill-sheet-form";
 import { CircularImportDialog } from "@/components/quotes/structure-workbook/circular-import-dialog";
@@ -179,6 +180,8 @@ export function StructureWorkbook({
   );
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [markupSaveError, setMarkupSaveError] = useState<string | null>(null);
+  const [applying, setApplying] = useState(false);
 
   // Detailing flow: the quote's job may already carry built drill sheets.
   const effectiveJobId =
@@ -234,9 +237,13 @@ export function StructureWorkbook({
         clearTimeout(markupSaveTimer.current);
       }
       markupSaveTimer.current = setTimeout(() => {
-        void savePlanSheetMarkup(planSheetId, nextMarkup).catch(() => {
-          // Session copy remains; user can retry by editing markup again.
-        });
+        // The session copy survives a failed save, and the next markup edit
+        // (or Apply) saves again — but say so instead of failing silently.
+        savePlanSheetMarkup(planSheetId, nextMarkup)
+          .then((result) =>
+            setMarkupSaveError(isActionError(result) ? result.error : null),
+          )
+          .catch(() => setMarkupSaveError("Could not reach the server."));
       }, 800);
     },
     [],
@@ -476,7 +483,7 @@ export function StructureWorkbook({
   const effectiveReturnPath =
     readWorkbookSession(quoteId)?.returnPath ?? returnPath;
 
-  const handleApply = () => {
+  const handleApply = async () => {
     const committed = commitAllWorkbookRowPrices(rows, options, workbookMode);
     setRows(committed);
     persistSession(committed);
@@ -498,15 +505,33 @@ export function StructureWorkbook({
       )
       .filter((line): line is EditableQuoteLineItem => line != null);
 
+    // Save the plan markup before handing the lines to the quote: once we
+    // navigate away a failed save would go unnoticed and the markup is lost.
+    if (planSheet?.id) {
+      if (markupSaveTimer.current) {
+        clearTimeout(markupSaveTimer.current);
+        markupSaveTimer.current = null;
+      }
+      setApplying(true);
+      let saveError: string | null;
+      try {
+        const result = await savePlanSheetMarkup(planSheet.id, markup);
+        saveError = isActionError(result) ? result.error : null;
+      } catch {
+        saveError = "Could not reach the server.";
+      }
+      setApplying(false);
+      setMarkupSaveError(saveError);
+      if (saveError) {
+        return;
+      }
+    }
+
     writeWorkbookApplyPayload(quoteId, {
       lineItems: [...workbookLineItems, ...rectPassthroughLines],
       returnPath: effectiveReturnPath,
       planSheetId: planSheet?.id ?? null,
     });
-
-    if (planSheet?.id) {
-      void savePlanSheetMarkup(planSheet.id, markup);
-    }
 
     persistSession(committed);
     router.push(effectiveReturnPath);
@@ -773,13 +798,25 @@ export function StructureWorkbook({
       </SectionCard>
       )}
 
+      {markupSaveError ? (
+        <p
+          role="alert"
+          className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+        >
+          Plan markup wasn&apos;t saved: {markupSaveError} It&apos;s kept in
+          this browser and saves again with your next markup change or when
+          you apply.
+        </p>
+      ) : null}
+
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          onClick={handleApply}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+          onClick={() => void handleApply()}
+          disabled={applying}
+          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
         >
-          Apply to Quote
+          {applying ? "Saving markup…" : "Apply to Quote"}
         </button>
         <button
           type="button"

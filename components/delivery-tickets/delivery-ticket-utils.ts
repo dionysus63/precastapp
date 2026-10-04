@@ -1,3 +1,4 @@
+import { addLocalDays, startOfLocalDay } from "@/lib/date-only";
 import { richTextToPlainText } from "@/lib/rich-text";
 
 export type DeliveryTicketStatus =
@@ -393,12 +394,9 @@ export function matchesDeliveryDateFilter(
   }
 
   const delivery = parseDeliveryDate(deliveryDate);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const weekEnd = new Date(today);
-  weekEnd.setDate(today.getDate() + 7);
-  const nextWeekEnd = new Date(today);
-  nextWeekEnd.setDate(today.getDate() + 7);
+  const today = startOfLocalDay();
+  const weekEnd = addLocalDays(today, 7);
+  const nextWeekEnd = addLocalDays(today, 7);
 
   if (dateFilter === "Today") {
     return (

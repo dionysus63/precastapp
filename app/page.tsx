@@ -6,6 +6,7 @@ import { SummaryCard } from "@/components/dashboard/summary-card";
 import { quoteStatusLabels, type QuoteStatus } from "@/components/quotes/quote-utils";
 import { jobStatusLabels } from "@/components/jobs/job-utils";
 import { withDatabaseRetry } from "@/lib/prisma";
+import { addLocalDays, startOfLocalDay } from "@/lib/date-only";
 import { formatUsd } from "@/lib/format";
 
 import {
@@ -26,8 +27,7 @@ function CompactTable({ children }: { children: React.ReactNode }) {
 }
 
 export default async function Home() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = startOfLocalDay();
 
   const [
     openQuotesCount,
@@ -102,7 +102,7 @@ export default async function Home() {
           status: { in: ["SCHEDULED", "LOADING", "IN_TRANSIT"] },
           deliveryDate: {
             gte: today,
-            lt: new Date(today.getTime() + 86400000),
+            lt: addLocalDays(today, 1),
           },
         },
       }),

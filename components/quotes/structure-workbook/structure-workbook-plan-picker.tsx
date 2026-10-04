@@ -7,6 +7,7 @@ import {
   uploadPlanSheet,
   type PlanSheetRecord,
 } from "@/app/quotes/plan-sheet-actions";
+import { unwrapAction } from "@/lib/action-result";
 
 type StructureWorkbookPlanPickerProps = {
   quoteId?: string;
@@ -63,7 +64,7 @@ export function StructureWorkbookPlanPicker({
         if (jobId) {
           formData.set("jobId", jobId);
         }
-        const planSheet = await uploadPlanSheet(formData);
+        const planSheet = await unwrapAction(uploadPlanSheet(formData));
         onPlanSheetReady(planSheet);
       } catch (uploadError) {
         setError(
@@ -84,7 +85,9 @@ export function StructureWorkbookPlanPicker({
     setError(null);
     startTransition(async () => {
       try {
-        const planSheet = await selectJobPlanSheet(jobId, filePath, quoteId);
+        const planSheet = await unwrapAction(
+          selectJobPlanSheet(jobId, filePath, quoteId),
+        );
         onPlanSheetReady(planSheet);
       } catch (selectError) {
         setError(

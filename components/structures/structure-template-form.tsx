@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { isActionError, type ActionError } from "@/lib/action-result";
 import { randomId } from "@/lib/random-id";
 import { useMemo, useState } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
@@ -87,7 +88,8 @@ export type TemplateMoldOption = {
 };
 
 type StructureTemplateFormProps = {
-  action: (formData: FormData) => Promise<void>;
+  /** Returns `{ error }` on failure (shown above the buttons). */
+  action: (formData: FormData) => Promise<void | ActionError>;
   cancelHref: string;
   submitLabel: string;
   defaultValue?: StructureTemplateFormValue;
@@ -223,6 +225,7 @@ export function StructureTemplateForm({
   const [rectWidthInches, setRectWidthInches] = useState(
     initial.rectSizes[0]?.insideWidthInches ?? "",
   );
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const isRect = shape === "RECTANGULAR";
   // Sets are shape-specific: only offer the matching ones.
@@ -291,7 +294,16 @@ export function StructureTemplateForm({
   ]);
 
   return (
-    <form action={action} className="space-y-3">
+    <form
+      action={async (formData) => {
+        setSaveError(null);
+        const result = await action(formData);
+        if (isActionError(result)) {
+          setSaveError(result.error);
+        }
+      }}
+      className="space-y-3"
+    >
       <input type="hidden" name="payload" value={payloadJson} />
       {priceListId ? (
         <input type="hidden" name="priceListId" value={priceListId} />
@@ -836,6 +848,12 @@ export function StructureTemplateForm({
         </div>
       </SectionCard>
       )}
+
+      {saveError ? (
+        <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+          {saveError}
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap justify-end gap-2 rounded-xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm">
         <Link

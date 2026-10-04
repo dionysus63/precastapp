@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getAccessibleHome } from "@/lib/auth/permissions";
 import type { AuthUser } from "@/lib/auth/permissions";
-import { productionDayTimestamp } from "@/lib/inventory-service";
+import { calendarDateToLocalNoon } from "@/lib/date-only";
 import { parseRolePermissionsFromStorage } from "@/lib/role-permissions-settings";
 
 describe("role permissions storage", () => {
@@ -25,10 +25,10 @@ describe("getAccessibleHome", () => {
   });
 });
 
-describe("productionDayTimestamp", () => {
+describe("production day timestamp (calendarDateToLocalNoon)", () => {
   it("keeps the production day's calendar date in local time", () => {
     // How the daily production form's "2026-10-03" is parsed (UTC midnight).
-    const stamp = productionDayTimestamp(new Date("2026-10-03"));
+    const stamp = calendarDateToLocalNoon(new Date("2026-10-03"));
     expect([stamp.getFullYear(), stamp.getMonth() + 1, stamp.getDate()]).toEqual([
       2026, 10, 3,
     ]);

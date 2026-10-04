@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { randomId } from "@/lib/random-id";
+import { localTodayInput } from "@/lib/date-only";
 import { useRouter } from "next/navigation";
 import {
   Fragment,
@@ -149,13 +150,6 @@ const inlineTableInputClass = tableInlineInputClassName;
 
 const WALK_IN_RESULT_LIMIT = 50;
 const DASHBOARD_HEADER_HEIGHT = 74;
-
-function todayDateInputValue(): string {
-  const date = new Date();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${date.getFullYear()}-${month}-${day}`;
-}
 
 function initialFleetSelect(value: string | null | undefined, options: string[]) {
   if (!value) {
@@ -395,7 +389,7 @@ export function DeliveryTicketEditor({
     initialQuoteId(defaultValues?.jobId ?? "", defaultValues?.quoteId, jobs),
   );
   const [deliveryDate, setDeliveryDate] = useState(
-    defaultValues?.deliveryDate ?? todayDateInputValue(),
+    defaultValues?.deliveryDate ?? localTodayInput(),
   );
   const [fulfillment, setFulfillment] = useState<QuoteLineFulfillment[]>([]);
   // Quantity per quote line sitting on OTHER open tickets (scheduled/draft,

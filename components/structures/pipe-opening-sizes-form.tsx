@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { isActionError, type ActionError } from "@/lib/action-result";
 import { randomId } from "@/lib/random-id";
 import { useMemo, useState } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
@@ -26,7 +27,8 @@ export type PipeOpeningRow = {
 };
 
 type PipeOpeningSizesFormProps = {
-  action: (formData: FormData) => Promise<void>;
+  /** Returns `{ error }` on failure (shown above the buttons). */
+  action: (formData: FormData) => Promise<void | ActionError>;
   defaultRows: PipeOpeningRow[];
   /** Price/Boot reads and writes this list's entries; blank = no entry. */
   priceListId: string;
@@ -59,6 +61,7 @@ export function PipeOpeningSizesForm({
   const [rows, setRows] = useState<PipeOpeningRow[]>(
     defaultRows.length > 0 ? defaultRows : [createRow()],
   );
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const payloadJson = useMemo(
     () =>
@@ -87,7 +90,16 @@ export function PipeOpeningSizesForm({
   }
 
   return (
-    <form action={action} className="space-y-4">
+    <form
+      action={async (formData) => {
+        setSaveError(null);
+        const result = await action(formData);
+        if (isActionError(result)) {
+          setSaveError(result.error);
+        }
+      }}
+      className="space-y-4"
+    >
       <input type="hidden" name="payload" value={payloadJson} />
       <input type="hidden" name="priceListId" value={priceListId} />
 
@@ -253,6 +265,12 @@ export function PipeOpeningSizesForm({
           </table>
         </div>
       </SectionCard>
+
+      {saveError ? (
+        <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+          {saveError}
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap justify-end gap-2 rounded-xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm">
         <Link

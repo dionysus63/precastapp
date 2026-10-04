@@ -61,7 +61,7 @@ export async function createProductCategoryFormAction(formData: FormData) {
     );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Could not create category.";
+      error instanceof Error ? translatePrismaError(error).message : "Could not create category.";
     redirect(`/settings/products?error=${encodeURIComponent(message)}`);
   }
 
@@ -117,7 +117,7 @@ export async function updateProductCategoryFormAction(formData: FormData) {
     );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Could not update category.";
+      error instanceof Error ? translatePrismaError(error).message : "Could not update category.";
     redirect(`/settings/products?error=${encodeURIComponent(message)}`);
   }
 
@@ -151,7 +151,7 @@ export async function createProductSubcategoryFormAction(formData: FormData) {
     );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Could not create subcategory.";
+      error instanceof Error ? translatePrismaError(error).message : "Could not create subcategory.";
     redirect(`/settings/products?error=${encodeURIComponent(message)}`);
   }
 
@@ -185,7 +185,7 @@ export async function updateProductSubcategoryFormAction(formData: FormData) {
     );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Could not update subcategory.";
+      error instanceof Error ? translatePrismaError(error).message : "Could not update subcategory.";
     redirect(`/settings/products?error=${encodeURIComponent(message)}`);
   }
 

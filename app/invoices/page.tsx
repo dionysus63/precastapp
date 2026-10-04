@@ -15,6 +15,7 @@ import {
 import { AppPermission } from "@/app/generated/prisma/client";
 import { getCurrentUser } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
+import { localTodayInput } from "@/lib/date-only";
 import {
   buildPageInfo,
   parsePageParam,
@@ -71,7 +72,7 @@ export default async function InvoicesPage({
 
   if (initialTab === "reconcile") {
     // Local date, not UTC — an evening visit should still open today's day.
-    const today = new Date().toLocaleDateString("en-CA");
+    const today = localTodayInput();
     const viewAll = parseStringParam(params.all) === "1";
     const viewUnreconciled = parseStringParam(params.unreconciled) === "1";
     const dateParam = parseDateParam(params.date);

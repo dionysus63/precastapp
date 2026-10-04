@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { unwrapAction } from "@/lib/action-result";
 import {
   importPipeOpenings,
   importRectOpenings,
@@ -136,12 +137,12 @@ export function StructureBulkImportForm() {
         setErrorMessage(null);
         let imported: StructureImportResult;
         if (importType === "rect-openings") {
-          imported = await importRectOpenings(formData);
+          imported = await unwrapAction(importRectOpenings(formData));
         } else if (importType === "pipe-openings") {
-          imported = await importPipeOpenings(formData);
+          imported = await unwrapAction(importPipeOpenings(formData));
         } else {
           formData.set("type", importType);
-          imported = await importStructureTemplates(formData);
+          imported = await unwrapAction(importStructureTemplates(formData));
         }
         setResult(imported);
         const summary = `${imported.created} created, ${imported.updated} updated`;

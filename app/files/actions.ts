@@ -20,6 +20,7 @@ import {
   launchWindowsFolder,
 } from "@/lib/windows-explorer";
 import { withDatabaseRetry } from "@/lib/prisma";
+import { returnActionError } from "@/lib/server/action-errors";
 
 export type ExplorerOpenResult = {
   success: true;
@@ -102,6 +103,10 @@ export async function listJobFilesAction(
 
 export async function uploadJobFileAction(formData: FormData) {
   await requirePermission(AppPermission.FILES_MANAGE);
+  return returnActionError(() => uploadJobFileOrThrow(formData));
+}
+
+async function uploadJobFileOrThrow(formData: FormData) {
   const jobId = String(formData.get("jobId") ?? "").trim();
   const folderCategory = String(formData.get("folderCategory") ?? "").trim();
   const file = formData.get("file");
@@ -123,46 +128,58 @@ export async function uploadJobFileAction(formData: FormData) {
   );
 
   revalidateFilesPaths(jobId);
+  return { success: true as const };
 }
 
-export async function openJobFile(fileId: string): Promise<
-  ExplorerOpenResult & { fileName: string }
-> {
+export async function openJobFile(
+  fileId: string,
+): Promise<(ExplorerOpenResult & { fileName: string }) | { error: string }> {
   await requirePermission(AppPermission.FILES_VIEW);
-  const file = await withDatabaseRetry((client) =>
-    getJobFileForOpen(client, fileId),
-  );
+  return returnActionError(async () => {
+    const file = await withDatabaseRetry((client) =>
+      getJobFileForOpen(client, fileId),
+    );
 
-  assertPathUnderJobFolder(file.job.folderPath!, file.filePath);
-  const launch = await launchWindowsFile(file.filePath);
+    assertPathUnderJobFolder(file.job.folderPath!, file.filePath);
+    const launch = await launchWindowsFile(file.filePath);
 
-  return {
-    success: true,
-    path: launch.clientOpenPath,
-    launched: launch.launched,
-    fileName: file.fileName,
-  };
+    return {
+      success: true as const,
+      path: launch.clientOpenPath,
+      launched: launch.launched,
+      fileName: file.fileName,
+    };
+  });
 }
 
 export async function openJobFolderCategory(
   jobId: string,
   category: string,
-): Promise<ExplorerOpenResult> {
+): Promise<ExplorerOpenResult | { error: string }> {
   await requirePermission(AppPermission.FILES_VIEW);
-  const job = await withDatabaseRetry((client) =>
-    assertJobFolderPath(client, jobId),
-  );
+  return returnActionError(async () => {
+    const job = await withDatabaseRetry((client) =>
+      assertJobFolderPath(client, jobId),
+    );
 
-  const categoryPath = resolveCategoryPath(job.folderPath, category);
-  assertPathUnderJobFolder(job.folderPath, categoryPath);
-  await assertPathAccessible(categoryPath, "directory");
-  const launch = await launchWindowsFolder(categoryPath);
+    const categoryPath = resolveCategoryPath(job.folderPath, category);
+    assertPathUnderJobFolder(job.folderPath, categoryPath);
+    await assertPathAccessible(categoryPath, "directory");
+    const launch = await launchWindowsFolder(categoryPath);
 
-  return { success: true, path: launch.clientOpenPath, launched: launch.launched };
+    return {
+      success: true as const,
+      path: launch.clientOpenPath,
+      launched: launch.launched,
+    };
+  });
 }
 
 export async function syncJobFilesAction(jobId: string) {
   await requirePermission(AppPermission.FILES_MANAGE);
-  await withDatabaseRetry((client) => syncJobFilesFromDisk(client, jobId));
-  revalidateFilesPaths(jobId);
+  return returnActionError(async () => {
+    await withDatabaseRetry((client) => syncJobFilesFromDisk(client, jobId));
+    revalidateFilesPaths(jobId);
+    return { success: true as const };
+  });
 }

@@ -15,6 +15,11 @@ import {
   type ReconcileTicket,
 } from "@/components/delivery-tickets/reconcile-day";
 import { printPdfUrl } from "@/lib/print-pdf-url";
+import {
+  addLocalDays,
+  localTodayInput,
+  toLocalDayInput,
+} from "@/lib/date-only";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import type { PageInfo } from "@/lib/list-params";
 
@@ -79,7 +84,7 @@ function groupByDeliveryDate(rows: InvoiceListRow[]): Map<string, InvoiceListRow
   const groups = new Map<string, InvoiceListRow[]>();
   for (const row of rows) {
     const key = row.deliveryDate
-      ? new Date(row.deliveryDate).toISOString().slice(0, 10)
+      ? toLocalDayInput(new Date(row.deliveryDate))
       : "No delivery date";
     const existing = groups.get(key) ?? [];
     existing.push(row);
@@ -137,9 +142,8 @@ function DraftReviewTab({
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [showPaid, setShowPaid] = useState(false);
-  const [invoiceDate, setInvoiceDate] = useState(
-    new Date().toISOString().slice(0, 10),
-  );
+  // Office-local today: toISOString() was already tomorrow after 8pm.
+  const [invoiceDate, setInvoiceDate] = useState(localTodayInput);
   const [fromInput, setFromInput] = useState(draftFrom);
   const [toInput, setToInput] = useState(draftTo);
   const isFiltered = Boolean(draftFrom || draftTo);
@@ -542,9 +546,7 @@ function FinalInvoicesTab({
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   // Local date, not UTC — an evening print should default to today.
-  const [printDay, setPrintDay] = useState(
-    new Date().toLocaleDateString("en-CA"),
-  );
+  const [printDay, setPrintDay] = useState(localTodayInput);
   const [printPending, setPrintPending] = useState(false);
 
   async function printAllForDay() {
@@ -825,10 +827,8 @@ function ReconcileTab({
         <button
           type="button"
           onClick={() => {
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
             // Local date, not UTC — matches how the page resolves "today".
-            const date = yesterday.toLocaleDateString("en-CA");
+            const date = toLocalDayInput(addLocalDays(new Date(), -1));
             setFromInput(date);
             setToInput("");
             setParams({ date, dateTo: null, all: null, unreconciled: null });

@@ -1,6 +1,7 @@
 import { cache } from "react";
 import type { AppSettings, PrismaClient } from "@/app/generated/prisma/client";
 import { Prisma } from "@/app/generated/prisma/client";
+import { addLocalDays } from "@/lib/date-only";
 import {
   JOB_SUBFOLDERS,
   JOBS_ROOT,
@@ -338,16 +339,7 @@ export function formatLinesList(items: string[]): string {
   return items.join("\n");
 }
 
+/** Local midnight `validityDays` after the office's today (a day value). */
 export function defaultQuoteExpirationDate(validityDays: number): Date {
-  const date = new Date();
-  date.setDate(date.getDate() + validityDays);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-export function defaultInvoiceDueDate(dueDays: number): Date {
-  const date = new Date();
-  date.setDate(date.getDate() + dueDays);
-  date.setHours(0, 0, 0, 0);
-  return date;
+  return addLocalDays(new Date(), validityDays);
 }

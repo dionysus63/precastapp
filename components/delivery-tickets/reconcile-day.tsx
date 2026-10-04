@@ -21,6 +21,8 @@ import {
   tableHeaderCellClassName,
 } from "@/lib/table-styles";
 import { reloadAfterAction } from "@/lib/reload-after-action";
+import { isActionError } from "@/lib/action-result";
+import { toLocalDayInput } from "@/lib/date-only";
 export type ReconcileTicket = {
   id: string;
   ticketNumber: string;
@@ -93,7 +95,7 @@ function TicketQuickActions({
   const [pending, startTransition] = useTransition();
   const [moveDate, setMoveDate] = useState(
     ticket.deliveryDate
-      ? ticket.deliveryDate.toISOString().slice(0, 10)
+      ? toLocalDayInput(ticket.deliveryDate)
       : reconcileDate,
   );
   const [message, setMessage] = useState<string | null>(null);
@@ -426,7 +428,7 @@ export function ReconcileDay({
               onClick={() => {
                 startTransition(async () => {
                   const result = await confirmDeliveryDayReconciliation(date);
-                  if (result.error) {
+                  if (isActionError(result)) {
                     setResultMessage(result.error);
                     return;
                   }

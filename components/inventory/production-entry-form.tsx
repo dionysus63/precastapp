@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { randomId } from "@/lib/random-id";
+import { localTodayInput } from "@/lib/date-only";
 import { useState, useTransition } from "react";
 import { saveProductionEntry } from "@/app/operations/actions";
 import { searchInventoryProducts } from "@/app/inventory/actions";
@@ -94,7 +95,7 @@ export function ProductionEntryForm({ products }: ProductionEntryFormProps) {
               name="productionDate"
               type="date"
               required
-              defaultValue={new Date().toISOString().slice(0, 10)}
+              defaultValue={localTodayInput()}
               className={inputClass}
             />
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { isActionError, type ActionError } from "@/lib/action-result";
 import { randomId } from "@/lib/random-id";
 import { structureTableInputClassName } from "@/components/structures/structure-utils";
 
@@ -23,7 +24,8 @@ export type DiameterConfigRow = {
 };
 
 type StructureDiameterConfigFormProps = {
-  action: (formData: FormData) => Promise<void>;
+  /** Returns `{ error }` on failure (shown above the save button). */
+  action: (formData: FormData) => Promise<void | ActionError>;
   defaultRows: DiameterConfigRow[];
   /** Price columns read/write this list's entries; blank = no entry. */
   priceListId: string;
@@ -74,6 +76,7 @@ export function StructureDiameterConfigForm({
   const [rows, setRows] = useState<DiameterConfigRow[]>(
     defaultRows.length > 0 ? defaultRows : [createRow()],
   );
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const payloadJson = useMemo(
     () =>
@@ -103,7 +106,16 @@ export function StructureDiameterConfigForm({
   }
 
   return (
-    <form action={action} className="space-y-4">
+    <form
+      action={async (formData) => {
+        setSaveError(null);
+        const result = await action(formData);
+        if (isActionError(result)) {
+          setSaveError(result.error);
+        }
+      }}
+      className="space-y-4"
+    >
       <input type="hidden" name="payload" value={payloadJson} />
       <input type="hidden" name="priceListId" value={priceListId} />
 
@@ -273,6 +285,12 @@ export function StructureDiameterConfigForm({
         with 4&quot; walls is 7.33&apos; inside) and check the Outside Ø
         column.
       </p>
+
+      {saveError ? (
+        <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+          {saveError}
+        </p>
+      ) : null}
 
       <div className="flex justify-end">
         <button

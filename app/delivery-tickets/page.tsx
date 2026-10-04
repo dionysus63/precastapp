@@ -8,21 +8,15 @@ import {
   mapDbDeliveryTicketToListRow,
 } from "@/lib/delivery-ticket-mapper";
 import { getAppSettings } from "@/lib/app-settings";
+import { addLocalDays, startOfLocalDay } from "@/lib/date-only";
 import { withDatabaseRetry } from "@/lib/prisma";
 
 // The dispatcher calendar / today panel only need recent + upcoming tickets.
 // Bounding by recency keeps these panels fast as historical tickets accumulate.
 const SCHEDULE_LOOKBACK_DAYS = 56;
 
-function startOfToday() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today;
-}
-
 export default async function DeliveryTicketsPage() {
-  const scheduleCutoff = startOfToday();
-  scheduleCutoff.setDate(scheduleCutoff.getDate() - SCHEDULE_LOOKBACK_DAYS);
+  const scheduleCutoff = addLocalDays(startOfLocalDay(), -SCHEDULE_LOOKBACK_DAYS);
 
   const [scheduleRecords, settings, draftRecords] = await withDatabaseRetry(
     (prisma) =>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useTransition, type FormEvent } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { createJobStructure } from "@/app/jobs/actions";
 import {
@@ -20,6 +20,22 @@ export function JobStructureForm({ jobId, jobNumber }: JobStructureFormProps) {
     useState<StructureType>("CONFIGURABLE_PRODUCT");
   const [needsSubmittal, setNeedsSubmittal] = useState(false);
   const [needsCutSheet, setNeedsCutSheet] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, startSubmit] = useTransition();
+
+  // The action returns `{ error }` on failure (redirects on success), which
+  // a plain `<form action>` would ignore.
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    setSubmitError(null);
+    startSubmit(async () => {
+      const result = await createJobStructure(formData);
+      if (result?.error) {
+        setSubmitError(result.error);
+      }
+    });
+  }
 
   function handleStructureTypeChange(next: StructureType) {
     setStructureType(next);
@@ -30,7 +46,7 @@ export function JobStructureForm({ jobId, jobNumber }: JobStructureFormProps) {
   }
 
   return (
-    <form action={createJobStructure} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <input type="hidden" name="jobId" value={jobId} />
 
       <SectionCard
@@ -204,6 +220,15 @@ export function JobStructureForm({ jobId, jobNumber }: JobStructureFormProps) {
         />
       </SectionCard>
 
+      {submitError ? (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-900"
+        >
+          {submitError}
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap justify-end gap-2 rounded-xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm">
         <Link
           href={`/jobs/${jobId}?tab=production`}
@@ -213,9 +238,10 @@ export function JobStructureForm({ jobId, jobNumber }: JobStructureFormProps) {
         </Link>
         <button
           type="submit"
-          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+          disabled={isSubmitting}
+          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
         >
-          Save Structure
+          {isSubmitting ? "Saving…" : "Save Structure"}
         </button>
       </div>
     </form>

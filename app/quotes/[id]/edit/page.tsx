@@ -12,6 +12,7 @@ import {
   defaultQuoteExpirationDate,
   getAppSettings,
 } from "@/lib/app-settings";
+import { toLocalDayInput } from "@/lib/date-only";
 import { requireAuth } from "@/lib/auth/session";
 import { canEditQuote } from "@/lib/quotes/edit-rules";
 import { mapQuoteToFormInitialValues } from "@/lib/quote-mapper";
@@ -125,7 +126,7 @@ export default async function EditQuotePage({ params }: EditQuotePageProps) {
           quoteDefaults={{
             defaultTaxRate: appSettings.defaultTaxRate,
             defaultLeadTime: appSettings.defaultLeadTime,
-            defaultExpirationDate: defaultExpiration.toISOString().slice(0, 10),
+            defaultExpirationDate: toLocalDayInput(defaultExpiration),
             estimators: appSettings.estimators,
             paymentTerms: appSettings.paymentTerms,
             defaultEstimator: user.displayName,

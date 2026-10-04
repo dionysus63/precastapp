@@ -2,6 +2,7 @@
 
 import { useState, useTransition, type MouseEvent } from "react";
 import { toggleJobFavorite } from "@/app/jobs/actions";
+import { unwrapAction } from "@/lib/action-result";
 
 type JobFavoriteStarProps = {
   jobId: string;
@@ -24,7 +25,7 @@ export function JobFavoriteStar({
 
     startTransition(async () => {
       try {
-        const result = await toggleJobFavorite(jobId);
+        const result = await unwrapAction(toggleJobFavorite(jobId));
         setFavorited(result.favorited);
       } catch {
         setFavorited(!nextFavorited);

@@ -37,7 +37,6 @@ import { hasPermission, type AuthUser } from "@/lib/auth/permissions";
 import { AppPermission, type Prisma } from "@/app/generated/prisma/client";
 import { isDeliveryServiceLine } from "@/lib/quotes/money-rules";
 import { withDatabaseRetry } from "@/lib/prisma";
-import { listCustomersForBidList } from "@/app/jobs/bid-actions";
 
 const CONSTRUCTION_PLANS_CATEGORY = "01 Construction Plans";
 
@@ -117,7 +116,7 @@ export async function JobTabContent({
       ? await hasPermission(user, AppPermission.JOBS_MANAGE)
       : false;
 
-    const [bidders, quotes, bidListCustomers] = await Promise.all([
+    const [bidders, quotes] = await Promise.all([
       withDatabaseRetry((prisma) =>
         prisma.jobBidder.findMany({
           where: { jobId },
@@ -144,7 +143,6 @@ export async function JobTabContent({
           include: { _count: { select: { lineItems: true } } },
         }),
       ),
-      canManageBidList ? listCustomersForBidList() : Promise.resolve([]),
     ]);
 
     return (
@@ -153,10 +151,7 @@ export async function JobTabContent({
         isAwarded={detail.biddingSummary.isAwarded}
         bidders={mapJobBidders(bidders)}
         masterQuoteOptions={mapJobMasterQuoteOptions(quotes)}
-        customers={bidListCustomers.map((customer) => ({
-          id: customer.id,
-          name: customer.name,
-        }))}
+        canAddBidders={canManageBidList}
       />
     );
   }

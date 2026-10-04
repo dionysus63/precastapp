@@ -66,6 +66,8 @@ function mapStructure(row: {
   };
 }
 
+const QUEUE_LIMIT = 250;
+
 const structureInclude = {
   job: {
     select: {
@@ -86,6 +88,29 @@ export default async function ProductionPage({
 }) {
   const { tab } = await searchParams;
 
+  // Each queue loads at most QUEUE_LIMIT rows to keep the board fast; the
+  // counts below are the true totals, so the board can say when a queue is
+  // showing only part of its rows instead of silently dropping them.
+  const approvedWhere = { status: "APPROVED" } as const;
+  const inProductionWhere = { status: "IN_PRODUCTION" } as const;
+  const readyToShipWhere = { status: "MADE" } as const;
+  const awaitingWhere = { status: "SUBMITTED" } as const;
+  const needsSubmittalWhere = {
+    status: "NOT_SUBMITTED",
+    needsSubmittal: true,
+  } as const;
+  // Genuinely approval-ready: excludes quote-only placeholders, which get
+  // their own "Needs drill sheet" queue.
+  const skippableApprovalWhere = {
+    status: "NOT_SUBMITTED",
+    needsSubmittal: false,
+    NOT: needsDrillSheetWhere,
+  } as const;
+  const needsDrillSheetQueueWhere = {
+    status: "NOT_SUBMITTED",
+    ...needsDrillSheetWhere,
+  } as const;
+
   const [
     approvedQueue,
     inProductionQueue,
@@ -94,66 +119,61 @@ export default async function ProductionPage({
     needsSubmittal,
     skippableApproval,
     needsDrillSheet,
+    totals,
   ] = await Promise.all([
     withDatabaseRetry((prisma) =>
       prisma.jobStructure.findMany({
-        where: { status: "APPROVED" },
+        where: approvedWhere,
         orderBy: [{ approvedDate: "asc" }, { createdAt: "asc" }],
-        take: 200,
+        take: QUEUE_LIMIT,
         include: structureInclude,
       }),
     ),
     withDatabaseRetry((prisma) =>
       prisma.jobStructure.findMany({
-        where: { status: "IN_PRODUCTION" },
+        where: inProductionWhere,
         orderBy: [{ productionDate: "asc" }, { createdAt: "asc" }],
-        take: 200,
+        take: QUEUE_LIMIT,
         include: structureInclude,
       }),
     ),
     withDatabaseRetry((prisma) =>
       prisma.jobStructure.findMany({
-        where: { status: "MADE" },
+        where: readyToShipWhere,
         orderBy: [{ madeDate: "asc" }, { createdAt: "asc" }],
-        take: 200,
+        take: QUEUE_LIMIT,
         include: structureInclude,
       }),
     ),
     withDatabaseRetry((prisma) =>
       prisma.jobStructure.findMany({
-        where: { status: "SUBMITTED" },
+        where: awaitingWhere,
         orderBy: { submittedDate: "desc" },
-        take: 100,
+        take: QUEUE_LIMIT,
         include: structureInclude,
       }),
     ),
     withDatabaseRetry((prisma) =>
       prisma.jobStructure.findMany({
-        where: { status: "NOT_SUBMITTED", needsSubmittal: true },
+        where: needsSubmittalWhere,
         orderBy: { createdAt: "desc" },
-        take: 100,
+        take: QUEUE_LIMIT,
         include: structureInclude,
       }),
     ),
     withDatabaseRetry((prisma) =>
       prisma.jobStructure.findMany({
-        // Genuinely approval-ready: excludes quote-only placeholders, which
-        // get their own "Needs drill sheet" queue below.
-        where: {
-          status: "NOT_SUBMITTED",
-          needsSubmittal: false,
-          NOT: needsDrillSheetWhere,
-        },
+        where: skippableApprovalWhere,
         orderBy: { createdAt: "desc" },
-        take: 100,
+        take: QUEUE_LIMIT,
         include: structureInclude,
       }),
     ),
     withDatabaseRetry((prisma) =>
       prisma.jobStructure.findMany({
-        where: { status: "NOT_SUBMITTED", ...needsDrillSheetWhere },
+        where: needsDrillSheetQueueWhere,
         orderBy: { createdAt: "desc" },
-        take: 100,
+        take: QUEUE_LIMIT,
         include: {
           ...structureInclude,
           quoteLineItems: {
@@ -163,7 +183,28 @@ export default async function ProductionPage({
         },
       }),
     ),
+    // One connection for all seven counts.
+    withDatabaseRetry((prisma) =>
+      prisma.$transaction([
+        prisma.jobStructure.count({ where: approvedWhere }),
+        prisma.jobStructure.count({ where: inProductionWhere }),
+        prisma.jobStructure.count({ where: readyToShipWhere }),
+        prisma.jobStructure.count({ where: needsSubmittalWhere }),
+        prisma.jobStructure.count({ where: needsDrillSheetQueueWhere }),
+        prisma.jobStructure.count({ where: awaitingWhere }),
+        prisma.jobStructure.count({ where: skippableApprovalWhere }),
+      ]),
+    ),
   ]);
+  const [
+    approvedTotal,
+    inProductionTotal,
+    readyToShipTotal,
+    needsSubmittalTotal,
+    needsDrillSheetTotal,
+    awaitingTotal,
+    skippableApprovalTotal,
+  ] = totals;
 
   const awaitingApproval: ProductionQueueItem[] = [
     ...awaiting.map(mapStructure),
@@ -205,6 +246,14 @@ export default async function ProductionPage({
         needsSubmittal={needsSubmittal.map(mapStructure)}
         needsDrillSheet={needsDrillSheetItems}
         awaitingApproval={awaitingApproval}
+        totals={{
+          approved: approvedTotal,
+          "in-production": inProductionTotal,
+          "ready-to-ship": readyToShipTotal,
+          "needs-submittal": needsSubmittalTotal,
+          "needs-drill-sheet": needsDrillSheetTotal,
+          "awaiting-approval": awaitingTotal + skippableApprovalTotal,
+        }}
         initialTab={tab}
       />
     </DashboardShell>

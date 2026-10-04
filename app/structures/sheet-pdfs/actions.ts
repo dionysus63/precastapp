@@ -14,7 +14,11 @@ import {
 } from "@/lib/rect-pdf-set-service";
 import { rectVariantExpectedFieldNames } from "@/lib/rect-template-pdf-fields";
 import { prisma } from "@/lib/prisma";
-import { translatePrismaError } from "@/lib/server/action-errors";
+import type { ActionError } from "@/lib/action-result";
+import {
+  returnActionError,
+  translatePrismaError,
+} from "@/lib/server/action-errors";
 
 function parseBooleanField(value: FormDataEntryValue | null): boolean {
   return value === "true" || value === "1" || value === "on";
@@ -25,52 +29,63 @@ function revalidate() {
   revalidatePath("/structures/sheet-pdfs");
 }
 
+// Every action below reports failures as `{ error }` (see returnActionError).
+
 export async function createSheetPdfSetAction(
   name: string,
   shape: "CIRCULAR" | "RECTANGULAR",
-): Promise<void> {
+): Promise<void | ActionError> {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
-  const trimmed = name.trim();
-  if (!trimmed) {
-    throw new Error("Set name is required.");
-  }
-  const normalizedShape = shape === "CIRCULAR" ? "CIRCULAR" : "RECTANGULAR";
-  try {
-    await prisma.rectSheetPdfSet.create({
-      data: { name: trimmed, shape: normalizedShape },
-    });
-  } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      throw new Error("A PDF set with that name already exists.");
+  return returnActionError(async () => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      throw new Error("Set name is required.");
     }
-    throw translatePrismaError(error);
-  }
-  revalidate();
+    const normalizedShape = shape === "CIRCULAR" ? "CIRCULAR" : "RECTANGULAR";
+    try {
+      await prisma.rectSheetPdfSet.create({
+        data: { name: trimmed, shape: normalizedShape },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        throw new Error("A PDF set with that name already exists.");
+      }
+      throw translatePrismaError(error);
+    }
+    revalidate();
+  });
 }
 
 export async function renameSheetPdfSetAction(
   id: string,
   name: string,
-): Promise<void> {
+): Promise<void | ActionError> {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
-  const trimmed = name.trim();
-  if (!trimmed) {
-    throw new Error("Set name is required.");
-  }
-  await prisma.rectSheetPdfSet
-    .update({ where: { id }, data: { name: trimmed } })
-    .catch((error) => {
-      throw translatePrismaError(error);
-    });
-  revalidate();
+  return returnActionError(async () => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      throw new Error("Set name is required.");
+    }
+    await prisma.rectSheetPdfSet
+      .update({ where: { id }, data: { name: trimmed } })
+      .catch((error) => {
+        throw translatePrismaError(error);
+      });
+    revalidate();
+  });
 }
 
-export async function deleteSheetPdfSetAction(id: string): Promise<void> {
+export async function deleteSheetPdfSetAction(
+  id: string,
+): Promise<void | ActionError> {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
+  return returnActionError(() => deleteSheetPdfSetOrThrow(id));
+}
 
+async function deleteSheetPdfSetOrThrow(id: string): Promise<void> {
   const usedBy = await prisma.structureTemplate.count({
     where: { rectPdfSetId: id },
   });
@@ -95,9 +110,14 @@ export async function deleteSheetPdfSetAction(id: string): Promise<void> {
 
 export async function uploadSheetPdfSetFileAction(
   formData: FormData,
-): Promise<{ coverage: TemplatePdfFieldCoverage }> {
+): Promise<{ coverage: TemplatePdfFieldCoverage } | ActionError> {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
+  return returnActionError(() => uploadSheetPdfSetFileOrThrow(formData));
+}
 
+async function uploadSheetPdfSetFileOrThrow(
+  formData: FormData,
+): Promise<{ coverage: TemplatePdfFieldCoverage }> {
   const setId = String(formData.get("setId") ?? "").trim();
   const file = formData.get("file");
 
@@ -145,8 +165,12 @@ export async function uploadSheetPdfSetFileAction(
   return { coverage };
 }
 
-export async function deleteSheetPdfSetFileAction(id: string): Promise<void> {
+export async function deleteSheetPdfSetFileAction(
+  id: string,
+): Promise<void | ActionError> {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
-  await deleteRectPdfSetFile(prisma, id);
-  revalidate();
+  return returnActionError(async () => {
+    await deleteRectPdfSetFile(prisma, id);
+    revalidate();
+  });
 }

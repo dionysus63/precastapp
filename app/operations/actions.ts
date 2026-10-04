@@ -3,6 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { AppPermission, type PrismaClient } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import {
+  addLocalDays,
+  calendarDateFromLocalDay,
+  parseCalendarDate,
+  parseLocalDay,
+  toCalendarDateInput,
+  toLocalDayInput,
+} from "@/lib/date-only";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { PHYSICAL_PRODUCT_TYPES } from "@/lib/product-types";
 import {
@@ -28,12 +36,15 @@ import {
   maybeCreatePayNowInvoiceForTicket,
 } from "@/lib/invoicing-service";
 import { hasPermission } from "@/lib/auth/permissions";
+import { returnActionError } from "@/lib/server/action-errors";
 
+/**
+ * A reconcile day ("yyyy-mm-dd") as local midnight, for deliveryDate ranges.
+ * DeliveryDayReconciliation.reconciliationDate is a @db.Date: convert with
+ * calendarDateFromLocalDay before querying or writing it.
+ */
 function parseReconciliationDate(value: string): Date | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
-  if (!match) return null;
-  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  return Number.isNaN(date.getTime()) ? null : date;
+  return parseLocalDay(value);
 }
 
 async function revalidateStructurePaths(
@@ -54,12 +65,14 @@ async function revalidateStructurePaths(
 
 export async function linkStructuresForWonQuote(quoteId: string) {
   await requirePermission(AppPermission.PRODUCTION_MANAGE);
-  return withDatabaseRetry(async (client) => {
-    const count = await linkJobStructuresFromQuote(client, quoteId);
-    revalidatePath("/production");
-    revalidatePath(`/quotes/${quoteId}`);
-    return { count };
-  });
+  return returnActionError(() =>
+    withDatabaseRetry(async (client) => {
+      const count = await linkJobStructuresFromQuote(client, quoteId);
+      revalidatePath("/production");
+      revalidatePath(`/quotes/${quoteId}`);
+      return { count };
+    }),
+  );
 }
 
 /**
@@ -243,8 +256,8 @@ export async function saveProductionEntry(formData: FormData) {
     return { error: "Production date is required." };
   }
 
-  const productionDate = new Date(productionDateRaw);
-  if (Number.isNaN(productionDate.getTime())) {
+  const productionDate = parseCalendarDate(productionDateRaw);
+  if (!productionDate) {
     return { error: "Invalid production date." };
   }
 
@@ -447,8 +460,8 @@ export async function saveDailyProductionDay(input: DailyProductionSaveInput) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.productionDate)) {
     return { error: "Production date is required." };
   }
-  const productionDate = new Date(input.productionDate);
-  if (Number.isNaN(productionDate.getTime())) {
+  const productionDate = parseCalendarDate(input.productionDate);
+  if (!productionDate) {
     return { error: "Invalid production date." };
   }
   if (input.stockLines.length === 0 && input.structureLines.length === 0) {
@@ -687,76 +700,78 @@ export async function confirmDeliveryDayReconciliation(dateRaw: string) {
   const end = new Date(start);
   end.setHours(23, 59, 59, 999);
 
-  const conversionResult = await withDatabaseRetry(async (client) => {
-    // Confirmation is stamped with the signed-in user; the old free-text
-    // confirmed-by/notes inputs are gone.
-    await client.deliveryDayReconciliation.upsert({
-      where: { reconciliationDate: start },
-      create: {
-        reconciliationDate: start,
-        confirmedBy: user.displayName,
-        confirmedAt: new Date(),
-      },
-      update: {
-        confirmedBy: user.displayName,
-        confirmedAt: new Date(),
-      },
+  return returnActionError(async () => {
+    const conversionResult = await withDatabaseRetry(async (client) => {
+      // Confirmation is stamped with the signed-in user; the old free-text
+      // confirmed-by/notes inputs are gone.
+      await client.deliveryDayReconciliation.upsert({
+        where: { reconciliationDate: calendarDateFromLocalDay(start) },
+        create: {
+          reconciliationDate: calendarDateFromLocalDay(start),
+          confirmedBy: user.displayName,
+          confirmedAt: new Date(),
+        },
+        update: {
+          confirmedBy: user.displayName,
+          confirmedAt: new Date(),
+        },
+      });
+
+      if (await hasPermission(user, AppPermission.INVOICES_MANAGE)) {
+        const [scheduledTickets, deliveredOtherDayTickets] = await Promise.all([
+          client.deliveryTicket.findMany({
+            where: { deliveryDate: { gte: start, lte: end } },
+            select: {
+              id: true,
+              status: true,
+              invoice: { select: { id: true } },
+            },
+          }),
+          client.deliveryTicket.findMany({
+            where: {
+              status: "DELIVERED",
+              deliveredAt: { gte: start, lte: end },
+              OR: [
+                { deliveryDate: { lt: start } },
+                { deliveryDate: { gt: end } },
+                { deliveryDate: null },
+              ],
+            },
+            select: {
+              id: true,
+              status: true,
+              invoice: { select: { id: true } },
+            },
+          }),
+        ]);
+
+        const ticketIds = collectDeliveredUninvoicedTicketIds(
+          scheduledTickets.map((ticket) => ({
+            id: ticket.id,
+            status: ticket.status,
+            hasInvoice: Boolean(ticket.invoice),
+          })),
+          deliveredOtherDayTickets.map((ticket) => ({
+            id: ticket.id,
+            status: ticket.status,
+            hasInvoice: Boolean(ticket.invoice),
+          })),
+        );
+
+        return batchConvertDeliveredTicketsToInvoices(client, ticketIds);
+      }
+
+      return null;
     });
 
-    if (await hasPermission(user, AppPermission.INVOICES_MANAGE)) {
-      const [scheduledTickets, deliveredOtherDayTickets] = await Promise.all([
-        client.deliveryTicket.findMany({
-          where: { deliveryDate: { gte: start, lte: end } },
-          select: {
-            id: true,
-            status: true,
-            invoice: { select: { id: true } },
-          },
-        }),
-        client.deliveryTicket.findMany({
-          where: {
-            status: "DELIVERED",
-            deliveredAt: { gte: start, lte: end },
-            OR: [
-              { deliveryDate: { lt: start } },
-              { deliveryDate: { gt: end } },
-              { deliveryDate: null },
-            ],
-          },
-          select: {
-            id: true,
-            status: true,
-            invoice: { select: { id: true } },
-          },
-        }),
-      ]);
-
-      const ticketIds = collectDeliveredUninvoicedTicketIds(
-        scheduledTickets.map((ticket) => ({
-          id: ticket.id,
-          status: ticket.status,
-          hasInvoice: Boolean(ticket.invoice),
-        })),
-        deliveredOtherDayTickets.map((ticket) => ({
-          id: ticket.id,
-          status: ticket.status,
-          hasInvoice: Boolean(ticket.invoice),
-        })),
-      );
-
-      return batchConvertDeliveredTicketsToInvoices(client, ticketIds);
-    }
-
-    return null;
+    revalidatePath("/delivery-tickets/reconcile");
+    revalidatePath("/invoices");
+    return {
+      success: true as const,
+      conversionResult,
+      invoicesCreated: conversionResult?.created ?? 0,
+    };
   });
-
-  revalidatePath("/delivery-tickets/reconcile");
-  revalidatePath("/invoices");
-  return {
-    success: true as const,
-    conversionResult,
-    invoicesCreated: conversionResult?.created ?? 0,
-  };
 }
 
 export async function getQuoteFulfillmentForTicket(
@@ -979,7 +994,7 @@ export async function listTicketsForReconciliation(date: string) {
           select: RECONCILE_TICKET_SELECT,
         }),
         client.deliveryDayReconciliation.findUnique({
-          where: { reconciliationDate: start },
+          where: { reconciliationDate: calendarDateFromLocalDay(start) },
         }),
       ]);
 
@@ -995,10 +1010,6 @@ export async function listTicketsForReconciliation(date: string) {
 const RECONCILE_RANGE_MAX_DAYS = 92;
 /** View-all mode loads at most this many tickets before cutting older days. */
 const RECONCILE_VIEW_ALL_TICKET_CAP = 500;
-
-function reconcileDayKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
 
 /**
  * Tickets grouped per delivery day for the reconcile range / view-all modes.
@@ -1024,8 +1035,7 @@ export async function listTicketsForReconciliationRange(options: {
     const spanDays =
       Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
     if (spanDays > RECONCILE_RANGE_MAX_DAYS) {
-      end = new Date(start);
-      end.setDate(end.getDate() + RECONCILE_RANGE_MAX_DAYS - 1);
+      end = addLocalDays(start, RECONCILE_RANGE_MAX_DAYS - 1);
       truncated = true;
     }
   }
@@ -1055,7 +1065,9 @@ export async function listTicketsForReconciliationRange(options: {
 
     const buckets = new Map<string, typeof tickets>();
     for (const ticket of tickets) {
-      const key = reconcileDayKey(ticket.deliveryDate!);
+      // deliveryDate is a local day: an evening timestamp's ISO date is
+      // already tomorrow, so key by the local day the range query used.
+      const key = toLocalDayInput(ticket.deliveryDate!);
       const existing = buckets.get(key);
       if (existing) {
         existing.push(ticket);
@@ -1071,7 +1083,7 @@ export async function listTicketsForReconciliationRange(options: {
     }
 
     const dayDates = [...buckets.keys()]
-      .map((key) => parseReconciliationDate(key))
+      .map((key) => parseCalendarDate(key))
       .filter((value): value is Date => value !== null);
     const reconciliations =
       dayDates.length > 0
@@ -1081,7 +1093,7 @@ export async function listTicketsForReconciliationRange(options: {
         : [];
     const reconciliationByKey = new Map(
       reconciliations.map((record) => [
-        reconcileDayKey(record.reconciliationDate),
+        toCalendarDateInput(record.reconciliationDate),
         record,
       ]),
     );

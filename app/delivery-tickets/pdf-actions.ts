@@ -5,6 +5,7 @@ import path from "path";
 import { revalidatePath } from "next/cache";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import { localTodayInput } from "@/lib/date-only";
 import { DELIVERY_TICKET_PDF_INCLUDE } from "@/lib/delivery-ticket-pdf-data";
 import { generateDeliveryTicketPdfBytes } from "@/lib/delivery-ticket-pdf-fill";
 import {
@@ -237,8 +238,7 @@ export async function saveDeliverySchedulePdf(
     const html = await buildDeliverySchedulePdfHtml(schedule, "internal");
     const pdfBytes = await renderPdfBytesFromHtml(html);
 
-    const now = new Date();
-    const datePart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const datePart = localTodayInput();
     const baseName = [
       "Delivery Schedule",
       sanitizeFilenamePart(schedule.job.jobNumber),

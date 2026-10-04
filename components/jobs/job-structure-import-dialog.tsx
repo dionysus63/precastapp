@@ -14,6 +14,7 @@ import {
 import { parseRectStructureImport } from "@/lib/quotes/rect-structure-import";
 import { commitWorkbookRowPrice } from "@/lib/quotes/structure-workbook";
 import { computeRectWorkbookRow } from "@/lib/quotes/rect-structure-workbook";
+import { unwrapAction } from "@/lib/action-result";
 import { reloadAfterAction } from "@/lib/reload-after-action";
 
 type ImportOptions = Awaited<ReturnType<typeof loadJobStructureImportOptions>>;
@@ -238,9 +239,11 @@ export function JobStructureImportButton({ jobId }: { jobId: string }) {
     }
     setImporting(true);
     try {
-      const outcome = await importJobStructuresFromConfigs(
-        jobId,
-        importable.map((structure) => structure.entry),
+      const outcome = await unwrapAction(
+        importJobStructuresFromConfigs(
+          jobId,
+          importable.map((structure) => structure.entry),
+        ),
       );
       setResult(outcome);
       if (outcome.created > 0) {

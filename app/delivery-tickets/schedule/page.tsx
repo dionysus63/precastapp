@@ -7,7 +7,7 @@ import {
 import { SchedulePrintActions } from "@/components/delivery-tickets/schedule-print-actions";
 import { getAppSettings } from "@/lib/app-settings";
 import { loadJobDeliverySchedule } from "@/lib/delivery-schedule-data";
-import { formatDateIso } from "@/lib/delivery-dispatch-utils";
+import { toLocalDayInput } from "@/lib/date-only";
 import { deliveryTicketStatusVariant } from "@/lib/status-variants";
 import { ticketNumberLabel } from "@/components/delivery-tickets/delivery-ticket-utils";
 import { formatQuantity } from "@/lib/format";
@@ -73,7 +73,7 @@ export default async function ScheduleLoadsPage({
       .join(", "),
     totalItems: ticket.totalItems ?? ticket.lineItems.length,
     totalWeight: ticket.totalWeight != null ? Number(ticket.totalWeight) : null,
-    deliveryDate: ticket.deliveryDate ? formatDateIso(ticket.deliveryDate) : "",
+    deliveryDate: ticket.deliveryDate ? toLocalDayInput(ticket.deliveryDate) : "",
     deliveryTime: ticket.deliveryTime ?? "",
     trailer: ticket.trailer ?? "",
     driver: ticket.driver ?? "",

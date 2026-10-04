@@ -6,6 +6,7 @@ import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { parseCastingSupplierOrigin } from "@/lib/casting-utils";
 import { withDatabaseRetry } from "@/lib/prisma";
+import { translatePrismaError } from "@/lib/server/action-errors";
 
 function revalidateCastingSupplierPaths() {
   revalidatePath("/settings/casting-suppliers");
@@ -49,7 +50,7 @@ export async function createCastingSupplierFormAction(formData: FormData) {
     );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Could not create supplier.";
+      error instanceof Error ? translatePrismaError(error).message : "Could not create supplier.";
     redirect(`/settings/casting-suppliers?error=${encodeURIComponent(message)}`);
   }
 
@@ -102,7 +103,7 @@ export async function updateCastingSupplierFormAction(formData: FormData) {
     );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Could not update supplier.";
+      error instanceof Error ? translatePrismaError(error).message : "Could not update supplier.";
     redirect(`/settings/casting-suppliers?error=${encodeURIComponent(message)}`);
   }
 

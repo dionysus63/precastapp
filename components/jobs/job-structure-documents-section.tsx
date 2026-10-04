@@ -7,6 +7,7 @@ import {
   openJobStructureSubmittalsFolder,
   uploadJobStructureDocumentAction,
 } from "@/app/jobs/actions";
+import { unwrapAction } from "@/lib/action-result";
 import { completeExplorerOpen } from "@/lib/open-on-client";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { CreateJobFolderButton } from "@/components/jobs/create-job-folder-button";
@@ -80,7 +81,9 @@ export function JobStructureDocumentsSection({
     setMessage({});
     startTransition(async () => {
       try {
-        const result = await openJobStructureSubmittalsFolder(jobStructureId);
+        const result = await unwrapAction(
+          openJobStructureSubmittalsFolder(jobStructureId),
+        );
         setMessage(await completeExplorerOpen(result, result.path));
       } catch (error) {
         setMessage({
@@ -95,7 +98,7 @@ export function JobStructureDocumentsSection({
     setRowMessages((current) => ({ ...current, [documentId]: {} }));
     startTransition(async () => {
       try {
-        const result = await openJobStructureDocument(documentId);
+        const result = await unwrapAction(openJobStructureDocument(documentId));
         const feedback = await completeExplorerOpen(result, result.documentName);
         setRowMessages((current) => ({
           ...current,

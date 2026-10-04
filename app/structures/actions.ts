@@ -5,7 +5,10 @@ import { redirect } from "next/navigation";
 import { Prisma, AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
-import { translatePrismaError } from "@/lib/server/action-errors";
+import {
+  returnActionError,
+  translatePrismaError,
+} from "@/lib/server/action-errors";
 import {
   assertPdfSetMatchesShape,
   buildNestedCreate,
@@ -110,8 +113,13 @@ async function saveRectPriceEntry(
   }
 }
 
+/** Errors come back as `{ error }` (see returnActionError). */
 export async function createStructureTemplate(formData: FormData) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
+  return returnActionError(() => createStructureTemplateOrThrow(formData));
+}
+
+async function createStructureTemplateOrThrow(formData: FormData) {
   const payload = parseTemplatePayload(formData);
   await assertPdfSetMatchesShape(payload);
   await assertDiametersHaveMolds(payload);
@@ -132,11 +140,21 @@ export async function createStructureTemplate(formData: FormData) {
   redirect("/structures");
 }
 
+/** Errors come back as `{ error }` (see returnActionError). */
 export async function updateStructureTemplate(
   templateId: string,
   formData: FormData,
 ) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
+  return returnActionError(() =>
+    updateStructureTemplateOrThrow(templateId, formData),
+  );
+}
+
+async function updateStructureTemplateOrThrow(
+  templateId: string,
+  formData: FormData,
+) {
   const payload = parseTemplatePayload(formData);
   await assertPdfSetMatchesShape(payload);
   await assertDiametersHaveMolds(payload);
@@ -328,17 +346,20 @@ export async function deleteStructureTemplate(
 ): Promise<{ error: string } | void> {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
 
-  const sheetCount = await prisma.$transaction(async (tx) => {
-    const count = await tx.jobStructure.count({
-      where: { structureTemplateId: templateId },
+  let sheetCount: number;
+  try {
+    sheetCount = await prisma.$transaction(async (tx) => {
+      const count = await tx.jobStructure.count({
+        where: { structureTemplateId: templateId },
+      });
+      if (count === 0) {
+        await tx.structureTemplate.delete({ where: { id: templateId } });
+      }
+      return count;
     });
-    if (count === 0) {
-      await tx.structureTemplate.delete({ where: { id: templateId } });
-    }
-    return count;
-  }).catch((error) => {
-    throw translatePrismaError(error);
-  });
+  } catch (error) {
+    return { error: translatePrismaError(error).message };
+  }
   if (sheetCount > 0) {
     return {
       error: `${sheetCount} drill sheet${sheetCount === 1 ? " uses" : "s use"} this template, so it can't be deleted. Set its status to Inactive to retire it instead.`,

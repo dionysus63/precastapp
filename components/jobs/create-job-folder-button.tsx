@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createJobFolder } from "@/app/jobs/actions";
+import { unwrapAction } from "@/lib/action-result";
 import { reloadAfterAction } from "@/lib/reload-after-action";
 
 type CreateJobFolderButtonProps = {
@@ -17,7 +18,7 @@ export function CreateJobFolderButton({ jobId }: CreateJobFolderButtonProps) {
     setPending(true);
 
     try {
-      await createJobFolder(jobId);
+      await unwrapAction(createJobFolder(jobId));
       reloadAfterAction();
     } catch (err) {
       setError(

@@ -18,15 +18,19 @@ export default async function EditJobPage({ params }: EditJobPageProps) {
   const { id } = await params;
 
   // Independent queries — run in parallel.
-  const [job, customers] = await Promise.all([
+  // The customer picker searches the server as you type; it only needs its
+  // first page of options plus the job's current customer.
+  const [job, firstCustomers] = await Promise.all([
     withDatabaseRetry((prisma) =>
       prisma.job.findUnique({
         where: { id },
+        include: { customer: { select: { id: true, name: true } } },
       }),
     ),
     withDatabaseRetry((prisma) =>
       prisma.customer.findMany({
         orderBy: { name: "asc" },
+        take: 20,
         select: { id: true, name: true },
       }),
     ),
@@ -35,6 +39,13 @@ export default async function EditJobPage({ params }: EditJobPageProps) {
   if (!job) {
     notFound();
   }
+
+  const customers = job.customer
+    ? [
+        job.customer,
+        ...firstCustomers.filter((customer) => customer.id !== job.customer!.id),
+      ]
+    : firstCustomers;
 
   let recentFiles: ReturnType<typeof mapJobFileRecordToRow>[] = [];
 

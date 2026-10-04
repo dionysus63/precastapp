@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { AppPermission } from "@/app/generated/prisma/client";
+import type { ActionError } from "@/lib/action-result";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { returnActionError } from "@/lib/server/action-errors";
 import {
   getImportTypeDefinition,
   parseBooleanCell,
@@ -188,10 +190,17 @@ async function importTemplates(
   return result;
 }
 
+/** Errors come back as `{ error }` (see returnActionError). */
 export async function importStructureTemplates(
   formData: FormData,
-): Promise<StructureImportResult> {
+): Promise<StructureImportResult | ActionError> {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
+  return returnActionError(() => importStructureTemplatesOrThrow(formData));
+}
+
+async function importStructureTemplatesOrThrow(
+  formData: FormData,
+): Promise<StructureImportResult> {
   const type = String(formData.get("type") ?? "") as StructureImportType;
   getImportTypeDefinition(type);
   if (type !== "circular-templates" && type !== "rect-templates") {
@@ -204,10 +213,17 @@ export async function importStructureTemplates(
   );
 }
 
+/** Errors come back as `{ error }` (see returnActionError). */
 export async function importRectOpenings(
   formData: FormData,
-): Promise<StructureImportResult> {
+): Promise<StructureImportResult | ActionError> {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
+  return returnActionError(() => importRectOpeningsOrThrow(formData));
+}
+
+async function importRectOpeningsOrThrow(
+  formData: FormData,
+): Promise<StructureImportResult> {
   const rows = parseRowsPayload(formData);
   const result: StructureImportResult = {
     created: 0,
@@ -270,10 +286,17 @@ export async function importRectOpenings(
   return result;
 }
 
+/** Errors come back as `{ error }` (see returnActionError). */
 export async function importPipeOpenings(
   formData: FormData,
-): Promise<StructureImportResult> {
+): Promise<StructureImportResult | ActionError> {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
+  return returnActionError(() => importPipeOpeningsOrThrow(formData));
+}
+
+async function importPipeOpeningsOrThrow(
+  formData: FormData,
+): Promise<StructureImportResult> {
   const rows = parseRowsPayload(formData);
   const result: StructureImportResult = {
     created: 0,

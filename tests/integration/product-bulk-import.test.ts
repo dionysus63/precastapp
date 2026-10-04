@@ -172,6 +172,34 @@ describe("importProducts", () => {
     expect(ring.productKind).toBe("DRAIN_RING");
     expect(ring.name).toBe(`${tag} drain ring`);
   });
+
+  it("imports a large paste without exhausting the pool or the transaction", async () => {
+    // Taxonomy used to be resolved with several queries per row, all fired
+    // at once against the 10-connection pool, inside a 5s transaction.
+    const rows = Array.from({ length: 400 }, (_, index) => ({
+      productCode: `${tag}-BULK-${String(index).padStart(3, "0")}`,
+      productName: `${tag} bulk ${index}`,
+      unitPrice: String(100 + index),
+    }));
+
+    // Own list, so the coverage assertions below still see only the base rows.
+    const bulkList = await prisma.priceList.create({
+      data: { name: `${tag} bulk list` },
+    });
+    const form = importForm(rows);
+    form.set("priceListId", bulkList.id);
+
+    const result = await importProducts(form);
+    expect(result).toMatchObject({ imported: 400, updated: 0 });
+
+    const priced = await prisma.priceListItem.count({
+      where: {
+        priceListId: bulkList.id,
+        product: { productCode: { startsWith: `${tag}-BULK-` } },
+      },
+    });
+    expect(priced).toBe(400);
+  }, 60_000);
 });
 
 describe("price list copy and coverage", () => {
@@ -195,6 +223,31 @@ describe("price list copy and coverage", () => {
     });
     expect(Number(copied.unitPrice)).toBe(275);
     expect(Number(copied.pickupPrice)).toBe(230);
+  });
+
+  it("bulk-copies into a list that already prices some products, updating those", async () => {
+    const target = await prisma.priceList.create({
+      data: { name: `${tag} partial` },
+    });
+    await prisma.priceListItem.create({
+      data: { priceListId: target.id, productId: existingProductId, unitPrice: 1 },
+    });
+
+    const sourceCount = await prisma.priceListItem.count({
+      where: { priceListId },
+    });
+    await copyPriceListItems(target.id, priceListId);
+
+    expect(
+      await prisma.priceListItem.count({ where: { priceListId: target.id } }),
+    ).toBe(sourceCount);
+    const overwritten = await prisma.priceListItem.findUniqueOrThrow({
+      where: {
+        priceListId_productId: { priceListId: target.id, productId: existingProductId },
+      },
+    });
+    expect(Number(overwritten.unitPrice)).toBe(275);
+    expect(Number(overwritten.pickupPrice)).toBe(230);
   });
 
   it("counts only active products toward a list's coverage", async () => {

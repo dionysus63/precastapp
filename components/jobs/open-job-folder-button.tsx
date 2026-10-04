@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { openJobFolder } from "@/app/jobs/actions";
+import { unwrapAction } from "@/lib/action-result";
 import { completeExplorerOpen } from "@/lib/open-on-client";
 
 type OpenJobFolderButtonProps = {
@@ -23,7 +24,7 @@ export function OpenJobFolderButton({
     setPending(true);
 
     try {
-      const result = await openJobFolder(jobId);
+      const result = await unwrapAction(openJobFolder(jobId));
       const feedback = await completeExplorerOpen(result, result.path);
       if (feedback.error) setError(feedback.error);
       else setSuccess(feedback.success ?? null);

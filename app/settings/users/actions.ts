@@ -18,7 +18,11 @@ import { writeAuditLog } from "@/lib/auth/audit";
 import { hashPassword, validatePasswordStrength, verifyPassword } from "@/lib/auth/password";
 import { requireAuth, requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
-import { translatePrismaError } from "@/lib/server/action-errors";
+import {
+  returnActionError,
+  translatePrismaError,
+} from "@/lib/server/action-errors";
+import type { ActionError } from "@/lib/action-result";
 import type { ActionFormResult } from "@/components/ui/action-form";
 
 const USERNAME_PATTERN = /^[a-z0-9._-]+$/;
@@ -325,8 +329,15 @@ function generateTempPassword(): string {
  */
 export async function resetUserPassword(
   formData: FormData,
-): Promise<{ tempPassword: string }> {
+): Promise<{ tempPassword: string } | ActionError> {
   const actor = await requirePermission(AppPermission.USERS_MANAGE);
+  return returnActionError(() => resetUserPasswordOrThrow(actor.id, formData));
+}
+
+async function resetUserPasswordOrThrow(
+  actorId: string,
+  formData: FormData,
+): Promise<{ tempPassword: string }> {
   const id = String(formData.get("id") ?? "").trim();
 
   if (!id) {
@@ -351,7 +362,7 @@ export async function resetUserPassword(
   });
 
   await writeAuditLog({
-    userId: actor.id,
+    userId: actorId,
     action: "user.reset_password",
     entityType: "User",
     entityId: user.id,

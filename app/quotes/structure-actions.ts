@@ -6,12 +6,17 @@ import { requirePermission } from "@/lib/auth/session";
 import { createJobStructureFromQuoteConfig } from "@/lib/drill-sheet-persistence";
 import { createRectJobStructureFromQuoteConfig } from "@/lib/rect-sheet-persistence";
 import { prisma } from "@/lib/prisma";
+import { returnActionError } from "@/lib/server/action-errors";
 import { parseStructureConfigJson } from "@/lib/quotes/structure-workbook";
 import { parseRectStructureConfigJson } from "@/lib/quotes/rect-structure-workbook";
 
+/** Errors come back as `{ error }` (see returnActionError). */
 export async function createDrillSheetsFromQuote(quoteId: string) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
+  return returnActionError(() => createDrillSheetsFromQuoteOrThrow(quoteId));
+}
 
+async function createDrillSheetsFromQuoteOrThrow(quoteId: string) {
   const quote = await prisma.quote.findUnique({
     where: { id: quoteId },
     include: {

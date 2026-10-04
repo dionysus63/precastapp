@@ -5,6 +5,7 @@ import {
   importCustomJobStructures,
   type JobStructureImportResult,
 } from "@/app/jobs/structure-import-actions";
+import { unwrapAction } from "@/lib/action-result";
 import { reloadAfterAction } from "@/lib/reload-after-action";
 import {
   customGridFromTsv,
@@ -88,9 +89,11 @@ export function JobCustomStructureImportButton({ jobId }: { jobId: string }) {
     }
     setImporting(true);
     try {
-      const outcome = await importCustomJobStructures(
-        jobId,
-        rows.map((row) => row.entry),
+      const outcome = await unwrapAction(
+        importCustomJobStructures(
+          jobId,
+          rows.map((row) => row.entry),
+        ),
       );
       setResult(outcome);
       if (outcome.created > 0) {

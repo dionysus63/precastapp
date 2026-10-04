@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { randomId } from "@/lib/random-id";
+import { localTodayInput } from "@/lib/date-only";
 import { useMemo, useState, useTransition } from "react";
 import {
   createPurchaseOrder,
@@ -257,7 +258,7 @@ export function PurchaseOrderEditor({
                   type="date"
                   required
                   defaultValue={
-                    initial?.orderDate ?? new Date().toISOString().slice(0, 10)
+                    initial?.orderDate ?? localTodayInput()
                   }
                   className={inputClass}
                 />

@@ -147,8 +147,13 @@ async function allocateJobNumber(
   };
 }
 
+/** Errors come back as `{ error }` (see returnActionError); success redirects. */
 export async function createJob(formData: FormData) {
   await requirePermission(AppPermission.JOBS_MANAGE);
+  return returnActionError(() => createJobOrThrow(formData));
+}
+
+async function createJobOrThrow(formData: FormData): Promise<void> {
   const data = parseJobFormData(formData);
   const customer = await resolveCustomerName(
     data.customerId,
@@ -227,8 +232,13 @@ export async function createJob(formData: FormData) {
   redirect(`/jobs/${job.id}`);
 }
 
+/** Errors come back as `{ error }` (see returnActionError); success redirects. */
 export async function updateJob(formData: FormData) {
   await requirePermission(AppPermission.JOBS_MANAGE);
+  return returnActionError(() => updateJobOrThrow(formData));
+}
+
+async function updateJobOrThrow(formData: FormData): Promise<void> {
   const id = String(formData.get("id") ?? "").trim();
   if (!id) {
     throw new Error("Job id is required.");
@@ -279,9 +289,13 @@ export async function updateJob(formData: FormData) {
   redirect("/jobs");
 }
 
-/** Inline status change from the jobs list. */
+/** Inline status change from the jobs list. Errors come back as `{ error }`. */
 export async function updateJobStatusAction(jobId: string, status: string) {
   await requirePermission(AppPermission.JOBS_MANAGE);
+  return returnActionError(() => updateJobStatusOrThrow(jobId, status));
+}
+
+async function updateJobStatusOrThrow(jobId: string, status: string) {
   if (!JOB_STATUSES.includes(status as JobStatus)) {
     throw new Error("Invalid job status.");
   }
@@ -309,13 +323,20 @@ export async function updateJobStatusAction(jobId: string, status: string) {
   revalidatePath(`/jobs/${jobId}`);
 }
 
-/** Inline contractor (customer) change from the jobs list. */
+/** Inline contractor (customer) change from the jobs list. Errors come back
+ * as `{ error }`. */
 export async function updateJobCustomerAction(
   jobId: string,
   customerId: string | null,
 ) {
   await requirePermission(AppPermission.JOBS_MANAGE);
+  return returnActionError(() => updateJobCustomerOrThrow(jobId, customerId));
+}
 
+async function updateJobCustomerOrThrow(
+  jobId: string,
+  customerId: string | null,
+) {
   const job = await prisma.job.findUnique({
     where: { id: jobId },
     select: { id: true },
@@ -359,8 +380,13 @@ function parseOptionalDecimal(formData: FormData, field: string) {
   return new Prisma.Decimal(raw);
 }
 
+/** Errors come back as `{ error }` (see returnActionError); success redirects. */
 export async function createJobStructure(formData: FormData) {
   await requirePermission(AppPermission.JOBS_MANAGE);
+  return returnActionError(() => createJobStructureOrThrow(formData));
+}
+
+async function createJobStructureOrThrow(formData: FormData): Promise<void> {
   const jobId = String(formData.get("jobId") ?? "").trim();
   if (!jobId) {
     throw new Error("Job id is required.");
@@ -411,8 +437,13 @@ export async function createJobStructure(formData: FormData) {
   redirect(`/jobs/${jobId}/structures/${structure.id}`);
 }
 
+/** Errors come back as `{ error }` (see returnActionError). */
 export async function openJobFolder(jobId: string) {
   await requirePermission(AppPermission.FILES_MANAGE);
+  return returnActionError(() => openJobFolderOrThrow(jobId));
+}
+
+async function openJobFolderOrThrow(jobId: string) {
   const job = await prisma.job.findUnique({
     where: { id: jobId },
     select: { folderPath: true, jobNumber: true },
@@ -447,8 +478,13 @@ export async function openJobFolder(jobId: string) {
   };
 }
 
+/** Errors come back as `{ error }` (see returnActionError). */
 export async function createJobFolder(jobId: string) {
   await requirePermission(AppPermission.FILES_MANAGE);
+  return returnActionError(() => createJobFolderOrThrow(jobId));
+}
+
+async function createJobFolderOrThrow(jobId: string) {
   const job = await prisma.job.findUnique({
     where: { id: jobId },
     select: {
@@ -553,10 +589,15 @@ async function uploadJobStructureDocumentActionOrThrow(formData: FormData) {
   revalidateJobStructurePaths(jobId, jobStructureId, structure?.quoteId);
 }
 
-export async function openJobStructureDocument(
+/** Errors come back as `{ error }` (see returnActionError). */
+export async function openJobStructureDocument(documentId: string) {
+  await requirePermission(AppPermission.FILES_MANAGE);
+  return returnActionError(() => openJobStructureDocumentOrThrow(documentId));
+}
+
+async function openJobStructureDocumentOrThrow(
   documentId: string,
 ): Promise<JobStructureExplorerOpenResult & { documentName: string }> {
-  await requirePermission(AppPermission.FILES_MANAGE);
   const document = await withDatabaseRetry((client) =>
     getJobStructureDocumentForOpen(client, documentId),
   );
@@ -575,10 +616,17 @@ export async function openJobStructureDocument(
   };
 }
 
-export async function openJobStructureSubmittalsFolder(
+/** Errors come back as `{ error }` (see returnActionError). */
+export async function openJobStructureSubmittalsFolder(jobStructureId: string) {
+  await requirePermission(AppPermission.FILES_MANAGE);
+  return returnActionError(() =>
+    openJobStructureSubmittalsFolderOrThrow(jobStructureId),
+  );
+}
+
+async function openJobStructureSubmittalsFolderOrThrow(
   jobStructureId: string,
 ): Promise<JobStructureExplorerOpenResult> {
-  await requirePermission(AppPermission.FILES_MANAGE);
   const structure = await withDatabaseRetry((client) =>
     client.jobStructure.findUnique({
       where: { id: jobStructureId },
@@ -642,10 +690,16 @@ async function deleteJobStructureDocumentActionOrThrow(documentId: string) {
   }
 }
 
-export async function toggleJobFavorite(
+/** Errors come back as `{ error }` (see returnActionError). */
+export async function toggleJobFavorite(jobId: string) {
+  const user = await requirePermission(AppPermission.JOBS_VIEW);
+  return returnActionError(() => toggleJobFavoriteOrThrow(user.id, jobId));
+}
+
+async function toggleJobFavoriteOrThrow(
+  userId: string,
   jobId: string,
 ): Promise<{ favorited: boolean }> {
-  const user = await requirePermission(AppPermission.JOBS_VIEW);
   const trimmedJobId = jobId.trim();
 
   if (!trimmedJobId) {
@@ -664,7 +718,7 @@ export async function toggleJobFavorite(
   const existing = await prisma.jobFavorite.findUnique({
     where: {
       userId_jobId: {
-        userId: user.id,
+        userId,
         jobId: trimmedJobId,
       },
     },
@@ -679,7 +733,7 @@ export async function toggleJobFavorite(
 
   await prisma.jobFavorite.create({
     data: {
-      userId: user.id,
+      userId,
       jobId: trimmedJobId,
     },
   });
@@ -705,6 +759,36 @@ export async function searchCustomersForJobForm(
       where: trimmed
         ? { name: { contains: trimmed, mode: "insensitive" } }
         : {},
+      orderBy: { name: "asc" },
+      take: 20,
+      select: { id: true, name: true },
+    }),
+  );
+}
+
+/**
+ * Server-side contractor search for the job header's contractor picker and
+ * the bid list, so neither ships the whole customer table to the browser.
+ * `activeOnly` keeps prospects out (bid list); otherwise only inactive
+ * customers are hidden. `excludeIds` drops contractors already on the list.
+ */
+export async function searchContractorsForJob(
+  query: string,
+  options: { activeOnly?: boolean; excludeIds?: string[] } = {},
+): Promise<JobFormCustomerOption[]> {
+  await requirePermission(AppPermission.JOBS_MANAGE);
+
+  const trimmed = query.trim();
+  const excludeIds = (options.excludeIds ?? []).filter(Boolean);
+  return withDatabaseRetry((client) =>
+    client.customer.findMany({
+      where: {
+        status: options.activeOnly ? "ACTIVE" : { not: "INACTIVE" },
+        ...(trimmed
+          ? { name: { contains: trimmed, mode: "insensitive" as const } }
+          : {}),
+        ...(excludeIds.length > 0 ? { id: { notIn: excludeIds } } : {}),
+      },
       orderBy: { name: "asc" },
       take: 20,
       select: { id: true, name: true },

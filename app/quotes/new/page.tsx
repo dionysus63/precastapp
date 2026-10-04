@@ -11,6 +11,7 @@ import {
   defaultQuoteExpirationDate,
   getAppSettings,
 } from "@/lib/app-settings";
+import { toLocalDayInput } from "@/lib/date-only";
 import { listProductTaxonomy } from "@/lib/product-taxonomy.server";
 import { requireAuth } from "@/lib/auth/session";
 import { withDatabaseRetry } from "@/lib/prisma";
@@ -97,7 +98,7 @@ export default async function NewQuotePage({
           quoteDefaults={{
             defaultTaxRate: appSettings.defaultTaxRate,
             defaultLeadTime: appSettings.defaultLeadTime,
-            defaultExpirationDate: defaultExpiration.toISOString().slice(0, 10),
+            defaultExpirationDate: toLocalDayInput(defaultExpiration),
             estimators: appSettings.estimators,
             paymentTerms: appSettings.paymentTerms,
             defaultEstimator: user.displayName,

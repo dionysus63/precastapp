@@ -10,6 +10,8 @@ import {
   QuoteType,
 } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import { parseLocalDay } from "@/lib/date-only";
+import { translatePrismaError } from "@/lib/server/action-errors";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
 import {
@@ -142,8 +144,8 @@ function parseOptionalDate(value: string | null) {
     return null;
   }
 
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) {
+  const date = parseLocalDay(value);
+  if (!date) {
     throw new Error("Invalid date value.");
   }
 
@@ -559,7 +561,7 @@ export async function createQuote(
     return {
       error:
         error instanceof Error
-          ? error.message
+          ? translatePrismaError(error).message
           : "Could not save quote. Please try again.",
     };
   }
@@ -938,7 +940,7 @@ export async function updateQuote(
     return {
       error:
         error instanceof Error
-          ? error.message
+          ? translatePrismaError(error).message
           : "Could not update quote. Please try again.",
     };
   }
@@ -1066,7 +1068,7 @@ export async function updateQuoteStatus(quoteId: string, status: QuoteStatusValu
   } catch (error) {
     return {
       error:
-        error instanceof Error ? error.message : "Could not update quote status.",
+        error instanceof Error ? translatePrismaError(error).message : "Could not update quote status.",
     };
   }
 }
@@ -1103,7 +1105,7 @@ export async function updateQuoteCustomerPo(
   } catch (error) {
     return {
       error:
-        error instanceof Error ? error.message : "Could not save the PO.",
+        error instanceof Error ? translatePrismaError(error).message : "Could not save the PO.",
     };
   }
 }
@@ -1159,7 +1161,7 @@ export async function setQuoteTaxExempt(
   } catch (error) {
     return {
       error:
-        error instanceof Error ? error.message : "Could not update the tax.",
+        error instanceof Error ? translatePrismaError(error).message : "Could not update the tax.",
     };
   }
 }
@@ -1311,7 +1313,7 @@ export async function deleteQuote(quoteId: string): Promise<DeleteQuoteResult> {
   } catch (error) {
     return {
       error:
-        error instanceof Error ? error.message : "Could not delete the quote.",
+        error instanceof Error ? translatePrismaError(error).message : "Could not delete the quote.",
     };
   }
 }
@@ -1609,7 +1611,7 @@ export async function reviseQuote(
     return {
       error:
         error instanceof Error
-          ? error.message
+          ? translatePrismaError(error).message
           : "Could not revise quote. Please try again.",
     };
   }

@@ -50,7 +50,7 @@ export default async function JobDetailPage({
   // Lightweight always-on load: base job row, relation counts for the tab
   // badges, and the skinny relation slices needed by the stats cards and
   // overview summary. Full relations load per tab inside JobTabContent.
-  const [job, favoriteJobIds, assignableCustomers] = await Promise.all([
+  const [job, favoriteJobIds] = await Promise.all([
     withDatabaseRetry((prisma) =>
       prisma.job.findUnique({
         where: { id },
@@ -91,14 +91,6 @@ export default async function JobDetailPage({
       }),
     ),
     user ? getFavoriteJobIdsForUser(user.id) : Promise.resolve([]),
-    // Options for the header's quick contractor select.
-    withDatabaseRetry((prisma) =>
-      prisma.customer.findMany({
-        where: { status: { not: "INACTIVE" } },
-        orderBy: { name: "asc" },
-        select: { id: true, name: true },
-      }),
-    ),
   ]);
 
   if (!job) {
@@ -122,7 +114,6 @@ export default async function JobDetailPage({
         detail={detail}
         activeTab={activeTab}
         isFavorited={favoriteJobIds.includes(id)}
-        assignableCustomers={assignableCustomers}
       >
         <Suspense
           key={`${activeTab}:${category ?? ""}`}

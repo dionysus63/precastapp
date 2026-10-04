@@ -30,6 +30,7 @@ import {
 } from "@/lib/upload-validation";
 import { sanitizeFileName } from "@/lib/file-upload-utils";
 import { withDatabaseRetry } from "@/lib/prisma";
+import { returnActionError } from "@/lib/server/action-errors";
 
 const CONSTRUCTION_PLANS = "01 Construction Plans";
 
@@ -140,9 +141,13 @@ async function saveUploadedPlanPdf(
   };
 }
 
+/** Errors come back as `{ error }` (see returnActionError). */
 export async function uploadPlanSheet(formData: FormData) {
   await requirePermission(AppPermission.QUOTES_MANAGE);
+  return returnActionError(() => uploadPlanSheetOrThrow(formData));
+}
 
+async function uploadPlanSheetOrThrow(formData: FormData) {
   const file = formData.get("file");
   if (!(file instanceof File)) {
     throw new Error("Choose a PDF plan sheet to upload.");
@@ -173,13 +178,23 @@ export async function uploadPlanSheet(formData: FormData) {
   return mapPlanSheetRow(planSheet);
 }
 
+/** Errors come back as `{ error }` (see returnActionError). */
 export async function selectJobPlanSheet(
   jobId: string,
   filePath: string,
   quoteId?: string | null,
 ) {
   await requirePermission(AppPermission.QUOTES_MANAGE);
+  return returnActionError(() =>
+    selectJobPlanSheetOrThrow(jobId, filePath, quoteId),
+  );
+}
 
+async function selectJobPlanSheetOrThrow(
+  jobId: string,
+  filePath: string,
+  quoteId?: string | null,
+) {
   const job = await withDatabaseRetry((client) =>
     assertJobFolderPath(client, jobId),
   );
@@ -229,16 +244,19 @@ export async function savePlanSheetMarkup(
 ) {
   await requirePermission(AppPermission.QUOTES_MANAGE);
 
-  const updated = await withDatabaseRetry((client) =>
-    client.planSheet.update({
-      where: { id: planSheetId },
-      data: {
-        markupJson: markup as unknown as Prisma.InputJsonValue,
-      },
-    }),
-  );
+  // Returned, not thrown: the workbook shows why an autosave failed.
+  return returnActionError(async () => {
+    const updated = await withDatabaseRetry((client) =>
+      client.planSheet.update({
+        where: { id: planSheetId },
+        data: {
+          markupJson: markup as unknown as Prisma.InputJsonValue,
+        },
+      }),
+    );
 
-  return mapPlanSheetRow(updated);
+    return mapPlanSheetRow(updated);
+  });
 }
 
 export async function linkPlanSheetToQuote(

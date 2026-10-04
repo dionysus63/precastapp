@@ -1,3 +1,5 @@
+import { parseLocalDay } from "@/lib/date-only";
+
 export function getRequiredString(
   formData: FormData,
   field: string,
@@ -50,8 +52,9 @@ export function getOptionalDate(
     return null;
   }
 
-  const date = new Date(`${raw}T00:00:00`);
-  if (Number.isNaN(date.getTime())) {
+  // A day value: local midnight (see lib/date-only.ts).
+  const date = parseLocalDay(raw);
+  if (!date) {
     throw new Error(`Invalid ${label ?? field}.`);
   }
 

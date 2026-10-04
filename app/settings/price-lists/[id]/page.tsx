@@ -9,12 +9,14 @@ import {
   upsertPriceListItemFormAction,
 } from "@/app/settings/actions";
 import { PriceListSettingsForm } from "@/components/settings/price-list-settings-form";
+import { ActionForm } from "@/components/ui/action-form";
 import {
   getMissingProductsForPriceList,
   getPriceListCompleteness,
 } from "@/lib/price-list-service";
 import { getStructurePricingCompleteness } from "@/lib/structure-pricing";
 import { withDatabaseRetry } from "@/lib/prisma";
+import { toLocalDayInput } from "@/lib/date-only";
 
 import {
   tableBodyClassName,
@@ -114,7 +116,7 @@ export default async function PriceListDetailPage({
               id: priceList.id,
               name: priceList.name,
               effectiveDate: priceList.effectiveDate
-                ? priceList.effectiveDate.toISOString().slice(0, 10)
+                ? toLocalDayInput(priceList.effectiveDate)
                 : "",
               isDefault: priceList.isDefault,
               fobDefault: priceList.fobDefault ?? "",
@@ -124,7 +126,7 @@ export default async function PriceListDetailPage({
         </SectionCard>
 
         <SectionCard title="Add or update item">
-          <form action={upsertPriceListItemFormAction} className="grid max-w-2xl gap-3 sm:grid-cols-4">
+          <ActionForm action={upsertPriceListItemFormAction} className="grid max-w-2xl gap-3 sm:grid-cols-4">
             <input type="hidden" name="priceListId" value={priceList.id} />
             <div className="sm:col-span-2">
               <label htmlFor="productId" className="text-xs font-medium text-slate-700">
@@ -185,7 +187,7 @@ export default async function PriceListDetailPage({
                 Save item
               </button>
             </div>
-          </form>
+          </ActionForm>
         </SectionCard>
 
         {missingProducts.length > 0 ? (
@@ -210,7 +212,7 @@ export default async function PriceListDetailPage({
                         <div className="text-slate-500">{product.name}</div>
                       </td>
                       <td className={tableCellClassName}>
-                        <form
+                        <ActionForm
                           action={upsertPriceListItemFormAction}
                           className="flex items-end gap-2"
                         >
@@ -240,7 +242,7 @@ export default async function PriceListDetailPage({
                           >
                             Add
                           </button>
-                        </form>
+                        </ActionForm>
                       </td>
                     </tr>
                   ))}
@@ -310,7 +312,7 @@ export default async function PriceListDetailPage({
                         </form>
                       </td>
                       <td className={tableCellClassName}>
-                        <form action={deletePriceListItemFormAction}>
+                        <ActionForm action={deletePriceListItemFormAction}>
                           <input type="hidden" name="id" value={item.id} />
                           <input type="hidden" name="priceListId" value={priceList.id} />
                           <button
@@ -319,7 +321,7 @@ export default async function PriceListDetailPage({
                           >
                             Remove
                           </button>
-                        </form>
+                        </ActionForm>
                       </td>
                     </tr>
                   ))}

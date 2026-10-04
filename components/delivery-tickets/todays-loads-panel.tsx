@@ -4,6 +4,7 @@ import { DriverSelect, TrailerSelect } from "@/components/delivery-tickets/fleet
 import { StatusSelect } from "@/components/delivery-tickets/status-select";
 import { type DeliveryTicketRow } from "@/components/delivery-tickets/delivery-ticket-utils";
 import { getTodaysScheduledLoads } from "@/lib/delivery-dispatch-utils";
+import { addLocalDays } from "@/lib/date-only";
 
 import {
   tableBodyClassName,
@@ -27,10 +28,8 @@ export function TodaysLoadsPanel({
   trailers,
   day = "today",
 }: TodaysLoadsPanelProps) {
-  const reference = new Date();
-  if (day === "tomorrow") {
-    reference.setDate(reference.getDate() + 1);
-  }
+  const reference =
+    day === "tomorrow" ? addLocalDays(new Date(), 1) : new Date();
   const todaysLoads = getTodaysScheduledLoads(tickets, reference);
   const dayLabel = reference.toLocaleDateString("en-US", {
     weekday: "short",

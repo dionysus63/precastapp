@@ -126,6 +126,64 @@ export async function resolveTaxonomyByNamesForImport(
   };
 }
 
+/**
+ * resolveTaxonomyByNamesForImport for a whole paste: one taxonomy fetch and
+ * one validation per distinct category/subcategory pair, instead of several
+ * queries per row (hundreds of rows used to exhaust the connection pool).
+ * Throws the first row's error, prefixed with its line number.
+ */
+export async function resolveTaxonomiesByNamesForImport(
+  rows: Array<{ category: string; subcategory: string | null }>,
+  expectedProductType: ProductType,
+): Promise<Array<{ categoryId: string; subcategoryId: string | null }>> {
+  const taxonomy = await fetchActiveProductTaxonomy();
+  const byPair = new Map<
+    string,
+    Promise<{ categoryId: string; subcategoryId: string | null }>
+  >();
+
+  const resolvePair = (category: string, subcategory: string | null) => {
+    const key = `${category.toLowerCase()}\u0000${(subcategory ?? "").toLowerCase()}`;
+    let pending = byPair.get(key);
+    if (!pending) {
+      const resolved = resolveTaxonomyByNames(
+        taxonomy,
+        category,
+        subcategory,
+        expectedProductType,
+      );
+      pending =
+        resolved.errors.length > 0
+          ? Promise.reject(new Error(resolved.errors.join(" ")))
+          : validateTaxonomySelection(
+              resolved.categoryId,
+              resolved.subcategoryId,
+              expectedProductType,
+            ).then((validated) => ({
+              categoryId: validated.categoryId,
+              subcategoryId: validated.subcategoryId,
+            }));
+      // Rejections are surfaced per row below; don't let a shared one go
+      // unhandled while other rows are still being resolved.
+      pending.catch(() => undefined);
+      byPair.set(key, pending);
+    }
+    return pending;
+  };
+
+  const results: Array<{ categoryId: string; subcategoryId: string | null }> =
+    [];
+  for (const [index, row] of rows.entries()) {
+    try {
+      results.push(await resolvePair(row.category, row.subcategory));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Line ${index + 1}: ${message}`);
+    }
+  }
+  return results;
+}
+
 export async function ensureTaxonomyForBulkImport(
   rows: Array<{ category: string; subcategory: string | null }>,
   expectedProductType: ProductType,

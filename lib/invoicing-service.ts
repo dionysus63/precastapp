@@ -3,6 +3,7 @@ import type { PrismaClient } from "@/app/generated/prisma/client";
 import { Prisma } from "@/app/generated/prisma/client";
 import { getDefaultPriceListId } from "@/lib/price-list-service";
 import { getAppSettings } from "@/lib/app-settings";
+import { startOfLocalDay } from "@/lib/date-only";
 import { deriveInvoiceNumberFromTicket } from "@/lib/delivery-ticket-number";
 import {
   removeAdsJointTypeSuffix,
@@ -149,8 +150,7 @@ export function invoiceDueDateFromDelivery(
   deliveryDate: Date | null | undefined,
   fallback: Date,
 ): Date {
-  const base = new Date(deliveryDate ?? fallback);
-  base.setHours(0, 0, 0, 0);
+  const base = startOfLocalDay(new Date(deliveryDate ?? fallback));
   const day = base.getDate();
   const result = new Date(base.getFullYear(), base.getMonth() + 1, 1);
   const lastDay = new Date(

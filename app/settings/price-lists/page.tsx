@@ -3,8 +3,10 @@ import { SettingsShell } from "@/components/settings/settings-shell";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { createPriceListFormAction } from "@/app/settings/actions";
+import { ActionForm } from "@/components/ui/action-form";
 import { getPriceListCompleteness } from "@/lib/price-list-service";
 import { withDatabaseRetry } from "@/lib/prisma";
+import { formatDateShort } from "@/lib/format";
 
 import {
   tableBodyClassName,
@@ -55,7 +57,7 @@ export default async function PriceListsPage() {
                       <td className={`${tableCellClassName} font-medium`}>{list.name}</td>
                       <td className={tableCellClassName}>
                         {list.effectiveDate
-                          ? new Date(list.effectiveDate).toLocaleDateString()
+                          ? formatDateShort(new Date(list.effectiveDate))
                           : "—"}
                       </td>
                       <td className={tableCellClassName}>
@@ -98,7 +100,7 @@ export default async function PriceListsPage() {
         </SectionCard>
 
         <SectionCard title="New price list">
-          <form action={createPriceListFormAction} className="grid gap-3">
+          <ActionForm action={createPriceListFormAction} className="grid gap-3">
             <div>
               <label htmlFor="name" className="text-xs font-medium text-slate-700">
                 Name
@@ -172,7 +174,7 @@ export default async function PriceListsPage() {
             >
               Create
             </button>
-          </form>
+          </ActionForm>
         </SectionCard>
       </div>
     </SettingsShell>

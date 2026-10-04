@@ -1,4 +1,9 @@
 import type { DeliveryTicketRow } from "@/components/delivery-tickets/delivery-ticket-utils";
+import {
+  localTodayInput,
+  startOfLocalDay,
+  toLocalDayInput,
+} from "@/lib/date-only";
 
 export type WeekdayColumn = {
   date: Date;
@@ -9,19 +14,6 @@ export type WeekdayColumn = {
 
 const DISPATCH_STATUSES = new Set(["SCHEDULED", "LOADING", "IN_TRANSIT"]);
 
-export function formatDateIso(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-export function startOfDay(date: Date): Date {
-  const copy = new Date(date);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
-}
-
 /**
  * Rolling dispatch window: the reference day itself (even on a weekend),
  * followed by the next business days (Mon–Fri) until `count` columns exist.
@@ -30,16 +22,16 @@ export function getDispatchDays(
   reference = new Date(),
   count = 5,
 ): WeekdayColumn[] {
-  const actualTodayIso = formatDateIso(startOfDay(new Date()));
+  const actualTodayIso = localTodayInput();
   const days: WeekdayColumn[] = [];
 
-  const cursor = startOfDay(reference);
+  const cursor = startOfLocalDay(reference);
   while (days.length < count) {
     const isFirstColumn = days.length === 0;
     const weekday = cursor.getDay();
     if (isFirstColumn || (weekday !== 0 && weekday !== 6)) {
       const date = new Date(cursor);
-      const dateIso = formatDateIso(date);
+      const dateIso = toLocalDayInput(date);
       days.push({
         date,
         dateIso,
@@ -141,7 +133,7 @@ export function getTodaysScheduledLoads(
   tickets: DeliveryTicketRow[],
   reference = new Date(),
 ): DeliveryTicketRow[] {
-  const todayIso = formatDateIso(startOfDay(reference));
+  const todayIso = toLocalDayInput(reference);
   return tickets
     .filter(
       (ticket) =>

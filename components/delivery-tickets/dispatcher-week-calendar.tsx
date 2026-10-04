@@ -4,6 +4,7 @@ import Link from "next/link";
 import { memo, useMemo, useState } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import type { DeliveryTicketRow } from "@/components/delivery-tickets/delivery-ticket-utils";
+import { addLocalDays } from "@/lib/date-only";
 import {
   formatWeekRangeLabel,
   getDispatchDays,
@@ -15,9 +16,7 @@ type DispatcherWeekCalendarProps = {
 };
 
 function getReferenceDateForWeekOffset(weekOffset: number): Date {
-  const date = new Date();
-  date.setDate(date.getDate() + weekOffset * 7);
-  return date;
+  return addLocalDays(new Date(), weekOffset * 7);
 }
 
 export const DispatcherWeekCalendar = memo(function DispatcherWeekCalendar({

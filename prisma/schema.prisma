@@ -458,6 +458,9 @@ model Job {
   // Dashboard "recent activity" sorts by updatedAt; trigram indexes back the
   // jobs list's ILIKE %term% search fields.
   @@index([updatedAt])
+  // Customer filter dropdown (ordered by name) and newest-first job pickers.
+  @@index([customerName])
+  @@index([createdAt])
   @@index([jobNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Job_jobNumber_trgm_idx")
   @@index([projectName(ops: raw("gin_trgm_ops"))], type: Gin, map: "Job_projectName_trgm_idx")
   @@index([customerName(ops: raw("gin_trgm_ops"))], type: Gin, map: "Job_customerName_trgm_idx")
@@ -508,6 +511,8 @@ model JobFile {
 
   @@unique([jobId, filePath])
   @@index([jobId])
+  // /files searches file names across every job.
+  @@index([fileName(ops: raw("gin_trgm_ops"))], type: Gin, map: "JobFile_fileName_trgm_idx")
 }
 
 enum StructureShape {
@@ -900,6 +905,9 @@ model JobStructure {
   @@index([productId])
   @@index([structureTemplateId])
   @@index([status])
+  // Production queues (status + age) and the drill-sheets list sort.
+  @@index([status, createdAt])
+  @@index([createdAt])
 }
 
 /// Named shipping piece of a structure that leaves the yard in parts (e.g. a
@@ -1175,6 +1183,8 @@ model Quote {
   // The quotes list default-sorts by updatedAt; trigram indexes back its
   // ILIKE %term% search fields.
   @@index([updatedAt])
+  // Quotes list estimator filter.
+  @@index([estimator])
   @@index([quoteNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Quote_quoteNumber_trgm_idx")
   @@index([jobNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "Quote_jobNumber_trgm_idx")
   @@index([customerName(ops: raw("gin_trgm_ops"))], type: Gin, map: "Quote_customerName_trgm_idx")
@@ -1368,6 +1378,12 @@ model DeliveryTicket {
   @@index([yearTwoDigit])
   @@index([ticketType])
   @@index([fulfillmentMethod])
+  // Day reconciliation, recency sorts, the job-number filter dropdown and
+  // the paid walk-in count on every /invoices load.
+  @@index([status, deliveredAt])
+  @@index([updatedAt])
+  @@index([jobNumber])
+  @@index([ticketType, paymentMethod])
   // Trigram indexes back the tickets list's ILIKE %term% search fields.
   @@index([ticketNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "DeliveryTicket_ticketNumber_trgm_idx")
   @@index([jobNumber(ops: raw("gin_trgm_ops"))], type: Gin, map: "DeliveryTicket_jobNumber_trgm_idx")
@@ -1542,6 +1558,7 @@ model DailyProductionStructureLine {
 
   @@index([productionEntryId])
   @@index([jobStructureId])
+  @@index([jobStructurePieceId])
 }
 
 /// A parked load-plan grid for a quote — laid out in the bulk planner but
@@ -1749,6 +1766,10 @@ model Invoice {
   @@index([customerId])
   @@index([status])
   @@index([invoiceDate])
+  // List sort (createdAt) and the customer page's OR-by-name lookups.
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([customerName])
 }
 
 model InvoiceLineItem {

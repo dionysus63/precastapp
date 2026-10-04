@@ -177,21 +177,32 @@ export async function copyPriceListItems(
     select: { productId: true, unitPrice: true, pickupPrice: true },
   });
 
-  for (const item of sourceItems) {
-    await client.priceListItem.upsert({
+  // One bulk insert instead of an upsert per product: a catalog of a few
+  // thousand items must fit comfortably inside the transaction. Rows the
+  // target already has (none, for a freshly created list) are updated.
+  const existing = new Set(
+    (
+      await client.priceListItem.findMany({
+        where: { priceListId: targetPriceListId },
+        select: { productId: true },
+      })
+    ).map((row) => row.productId),
+  );
+
+  await client.priceListItem.createMany({
+    data: sourceItems
+      .filter((item) => !existing.has(item.productId))
+      .map((item) => ({ priceListId: targetPriceListId, ...item })),
+  });
+  for (const item of sourceItems.filter((row) => existing.has(row.productId))) {
+    await client.priceListItem.update({
       where: {
         priceListId_productId: {
           priceListId: targetPriceListId,
           productId: item.productId,
         },
       },
-      create: {
-        priceListId: targetPriceListId,
-        productId: item.productId,
-        unitPrice: item.unitPrice,
-        pickupPrice: item.pickupPrice,
-      },
-      update: { unitPrice: item.unitPrice, pickupPrice: item.pickupPrice },
+      data: { unitPrice: item.unitPrice, pickupPrice: item.pickupPrice },
     });
   }
 

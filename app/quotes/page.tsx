@@ -2,6 +2,7 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { QuotesPageContent } from "@/components/quotes/quotes-page-content";
 import { QuotesSummarySection } from "@/components/quotes/quotes-page-sections";
 import { getAppSettings } from "@/lib/app-settings";
+import { addLocalDays, startOfLocalDay } from "@/lib/date-only";
 import { mapQuoteToRow } from "@/lib/quote-mapper";
 import { withDatabaseRetry } from "@/lib/prisma";
 import {
@@ -41,12 +42,6 @@ const QUOTE_LIST_SELECT = {
   quoteDate: true,
   createdAt: true,
 } satisfies Prisma.QuoteSelect;
-
-function startOfToday() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today;
-}
 
 /**
  * The status param accepts pseudo-values for the pipeline tabs (OPEN, CLOSED,
@@ -118,16 +113,14 @@ export default async function QuotesPage({
   }
 
   if (dueDateParam && dueDateParam !== "All") {
-    const today = startOfToday();
+    const today = startOfLocalDay();
     if (dueDateParam === "Overdue") {
       baseAnd.push({ bidDueDate: { lt: today } });
     } else if (dueDateParam === "Due This Week") {
-      const weekEnd = new Date(today);
-      weekEnd.setDate(today.getDate() + 7);
+      const weekEnd = addLocalDays(today, 7);
       baseAnd.push({ bidDueDate: { gte: today, lte: weekEnd } });
     } else if (dueDateParam === "Next 30 Days") {
-      const monthEnd = new Date(today);
-      monthEnd.setDate(today.getDate() + 30);
+      const monthEnd = addLocalDays(today, 30);
       baseAnd.push({ bidDueDate: { gte: today, lte: monthEnd } });
     }
   }
@@ -140,9 +133,8 @@ export default async function QuotesPage({
     ? { AND: [...baseAnd, statusWhere] }
     : baseWhere;
 
-  const today = startOfToday();
-  const weekEnd = new Date(today);
-  weekEnd.setDate(today.getDate() + 7);
+  const today = startOfLocalDay();
+  const weekEnd = addLocalDays(today, 7);
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
   const nextMonthStart = new Date(today.getFullYear(), today.getMonth() + 1, 1);
 

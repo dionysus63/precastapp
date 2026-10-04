@@ -8,6 +8,7 @@ import {
   syncJobFilesAction,
   uploadJobFileAction,
 } from "@/app/files/actions";
+import { isActionError, unwrapAction } from "@/lib/action-result";
 import { completeExplorerOpen } from "@/lib/open-on-client";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { FileUploadDropzone } from "@/components/files/file-upload-dropzone";
@@ -153,7 +154,9 @@ export function JobFilesBrowser({
     setOpenSuccess(null);
     startTransition(async () => {
       try {
-        const result = await openJobFolderCategory(jobId, category);
+        const result = await unwrapAction(
+          openJobFolderCategory(jobId, category),
+        );
         const feedback = await completeExplorerOpen(result, result.path);
         if (feedback.error) {
           setOpenError(feedback.error);
@@ -172,7 +175,11 @@ export function JobFilesBrowser({
     setOpenError(null);
     setOpenSuccess(null);
     startTransition(async () => {
-      await syncJobFilesAction(jobId);
+      const result = await syncJobFilesAction(jobId);
+      if (isActionError(result)) {
+        setOpenError(result.error);
+        return;
+      }
       // The listing re-reads from the action; an in-place router refresh
       // doesn't apply on the LAN and only left the transition hanging.
       await refreshDisplayedFiles();
@@ -205,7 +212,7 @@ export function JobFilesBrowser({
           formData.set("jobId", jobId);
           formData.set("folderCategory", uploadCategory);
           formData.set("file", file);
-          await uploadJobFileAction(formData);
+          await unwrapAction(uploadJobFileAction(formData));
         }
 
         setSelectedFiles([]);

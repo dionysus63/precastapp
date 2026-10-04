@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { Prisma, AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { returnActionError } from "@/lib/server/action-errors";
 
 type DiameterConfigPayload = {
   label: string | null;
@@ -93,8 +94,13 @@ function parsePrice(raw: string, label: string): number {
   return value;
 }
 
+/** Errors come back as `{ error }` (see returnActionError). */
 export async function saveStructureDiameterConfigs(formData: FormData) {
   await requirePermission(AppPermission.SETTINGS_MANAGE);
+  return returnActionError(() => saveStructureDiameterConfigsOrThrow(formData));
+}
+
+async function saveStructureDiameterConfigsOrThrow(formData: FormData) {
   const priceListId = String(formData.get("priceListId") ?? "").trim();
   const entries = parseDiameterConfigPayload(formData);
 

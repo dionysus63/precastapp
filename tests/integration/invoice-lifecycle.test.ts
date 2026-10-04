@@ -182,23 +182,22 @@ describe("draft invoice editing", () => {
   // Invoice A is VOID by this point (finalized -> paid -> voided above).
   // Drafts and final unpaid (SENT) invoices are editable; paid/void never.
   it("rejects edits to a paid or voided invoice", async () => {
-    await expect(
-      updateDraftInvoice(
-        editInput(invoiceAId, [
-          {
-            id: lineAId,
-            lineNumber: 1,
-            lineType: "STOCK_PRODUCT",
-            itemCode: "HACK",
-            description: "",
-            quantity: 1,
-            unit: "EA",
-            unitPrice: 1,
-            taxable: false,
-          },
-        ]),
-      ),
-    ).rejects.toThrow(/paid or voided/i);
+    const result = await updateDraftInvoice(
+      editInput(invoiceAId, [
+        {
+          id: lineAId,
+          lineNumber: 1,
+          lineType: "STOCK_PRODUCT",
+          itemCode: "HACK",
+          description: "",
+          quantity: 1,
+          unit: "EA",
+          unitPrice: 1,
+          taxable: false,
+        },
+      ]),
+    );
+    expect(result.error).toMatch(/paid or voided/i);
   });
 
   it("rejects a line id belonging to another invoice and rolls back atomically", async () => {

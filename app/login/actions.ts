@@ -68,12 +68,7 @@ function parsePasswordFields(formData: FormData) {
 
 async function getActiveUserForLogin(userId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
-
-  if (!user || !user.isActive) {
-    throw new Error("That user account is not available.");
-  }
-
-  return user;
+  return user?.isActive ? user : null;
 }
 
 export async function signInWithPassword(
@@ -85,7 +80,12 @@ export async function signInWithPassword(
     return { error: "Password is required." };
   }
 
+  // Returned, not thrown: a thrown message never reaches the user in
+  // production (e.g. picking an account deactivated since the list loaded).
   const user = await getActiveUserForLogin(userId);
+  if (!user) {
+    return { error: "That user account is not available." };
+  }
 
   if (!user.passwordHash) {
     return {

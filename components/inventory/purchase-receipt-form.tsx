@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { randomId } from "@/lib/random-id";
+import { localTodayInput } from "@/lib/date-only";
 import { useMemo, useState, useTransition } from "react";
 import { savePurchaseReceipt } from "@/app/inventory/actions";
 import { SectionCard } from "@/components/dashboard/section-card";
@@ -282,7 +283,7 @@ export function PurchaseReceiptForm({
               name="receiptDate"
               type="date"
               required
-              defaultValue={new Date().toISOString().slice(0, 10)}
+              defaultValue={localTodayInput()}
               className={inputClass}
             />
           </div>

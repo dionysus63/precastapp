@@ -3,6 +3,7 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { formatCastingPieceRoleLabel } from "@/lib/casting-utils";
+import { formatCalendarDateShort } from "@/lib/date-only";
 import { parseStringParam, type RawSearchParams } from "@/lib/list-params";
 import {
   formatReceivingCategoryLabel,
@@ -144,11 +145,7 @@ export default async function InventoryReceiptsPage({
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-semibold text-slate-900">
-                        {receipt.receiptDate.toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
+                        {formatCalendarDateShort(receipt.receiptDate)}
                         {receipt.batchLabel ? ` · ${receipt.batchLabel}` : ""}
                       </p>
                       <StatusBadge

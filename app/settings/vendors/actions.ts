@@ -6,6 +6,7 @@ import { AppPermission, type ReceivingCategory } from "@/app/generated/prisma/cl
 import { requirePermission } from "@/lib/auth/session";
 import { parseReceivingCategory } from "@/lib/receiving-utils";
 import { withDatabaseRetry } from "@/lib/prisma";
+import { translatePrismaError } from "@/lib/server/action-errors";
 
 function revalidateVendorPaths() {
   revalidatePath("/settings/vendors");
@@ -51,7 +52,7 @@ export async function createVendorFormAction(formData: FormData) {
     );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Could not create vendor.";
+      error instanceof Error ? translatePrismaError(error).message : "Could not create vendor.";
     redirect(`/settings/vendors?error=${encodeURIComponent(message)}`);
   }
 
@@ -106,7 +107,7 @@ export async function updateVendorFormAction(formData: FormData) {
     );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Could not update vendor.";
+      error instanceof Error ? translatePrismaError(error).message : "Could not update vendor.";
     redirect(`/settings/vendors?error=${encodeURIComponent(message)}`);
   }
 

@@ -67,6 +67,8 @@ const TABS: {
   detailHeader: string;
   emptyMessage: string;
   hint: string | null;
+  /** Which end of the queue a capped list keeps (matches the page query). */
+  shows: "oldest" | "newest";
 }[] = [
   {
     id: "approved",
@@ -76,6 +78,7 @@ const TABS: {
     detailHeader: "Approval",
     emptyMessage: "No approved structures waiting to start production.",
     hint: "Click Start when fabrication begins to move a structure into active production.",
+    shows: "oldest",
   },
   {
     id: "in-production",
@@ -85,6 +88,7 @@ const TABS: {
     detailHeader: "Started",
     emptyMessage: "No structures currently in production.",
     hint: "Check Made when fabrication is complete and the structure is ready to ship.",
+    shows: "oldest",
   },
   {
     id: "ready-to-ship",
@@ -94,6 +98,7 @@ const TABS: {
     detailHeader: "Made",
     emptyMessage: "No structures waiting to ship.",
     hint: "Schedule loads from the Delivery Hub. Structures move to shipped when their ticket is marked delivered.",
+    shows: "oldest",
   },
   {
     id: "needs-submittal",
@@ -103,6 +108,7 @@ const TABS: {
     detailHeader: "Submittal",
     emptyMessage: "No structures waiting for submittals.",
     hint: null,
+    shows: "newest",
   },
   {
     id: "needs-drill-sheet",
@@ -113,6 +119,7 @@ const TABS: {
     detailHeader: "Quoted",
     emptyMessage: "No structures waiting on drill sheets.",
     hint: "Create drill sheet opens the sheet editor pre-filled from the quote. Saving upgrades the structure in place — quote link, status, and documents are kept.",
+    shows: "newest",
   },
   {
     id: "awaiting-approval",
@@ -122,6 +129,7 @@ const TABS: {
     detailHeader: "Submitted",
     emptyMessage: "None awaiting approval.",
     hint: null,
+    shows: "newest",
   },
 ];
 
@@ -172,6 +180,7 @@ export function ProductionBoard({
   needsSubmittal,
   needsDrillSheet,
   awaitingApproval,
+  totals,
   initialTab,
 }: {
   approved: ProductionQueueItem[];
@@ -180,6 +189,8 @@ export function ProductionBoard({
   needsSubmittal: ProductionQueueItem[];
   needsDrillSheet: ProductionQueueItem[];
   awaitingApproval: ProductionQueueItem[];
+  /** True queue sizes; the item arrays are capped by the page. */
+  totals: Record<ProductionTabId, number>;
   initialTab?: string;
 }) {
   const itemsByTab: Record<ProductionTabId, ProductionQueueItem[]> = useMemo(
@@ -430,7 +441,7 @@ export function ProductionBoard({
       <div className="flex flex-wrap gap-1.5">
         {TABS.map((entry) => {
           const isActive = entry.id === activeTab;
-          const count = itemsByTab[entry.id].length;
+          const count = Math.max(totals[entry.id], itemsByTab[entry.id].length);
           return (
             <button
               key={entry.id}
@@ -487,6 +498,12 @@ export function ProductionBoard({
         {actionError ? (
           <p className="border-b border-red-100 bg-red-50 px-4 py-2 text-xs font-medium text-red-700">
             {actionError}
+          </p>
+        ) : null}
+        {totals[tab.id] > items.length ? (
+          <p className="border-b border-amber-100 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+            Showing the {tab.shows} {items.length} of {totals[tab.id]}{" "}
+            structures in this queue.
           </p>
         ) : null}
         {groups.length === 0 ? (

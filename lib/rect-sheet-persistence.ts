@@ -8,6 +8,7 @@ import {
 } from "@/lib/rect-structure";
 import type { RectQuoteStructureConfig } from "@/lib/quotes/rect-structure-workbook";
 import { decimal, parseNum } from "@/lib/drill-sheet-persistence";
+import { localTodayInput, parseLocalDay } from "@/lib/date-only";
 import { prisma } from "@/lib/prisma";
 import {
   getPriceListIdForStructure,
@@ -291,7 +292,10 @@ export function buildRectCalcData(
   result: RectStructureResult,
   pricing: LoadedRectSheet["pricing"],
 ) {
-  const sheetDate = payload.date ? new Date(`${payload.date}T00:00:00`) : null;
+  const sheetDate = payload.date ? parseLocalDay(payload.date) : null;
+  if (payload.date && !sheetDate) {
+    throw new Error("Invalid sheet date.");
+  }
   return {
     contractorName: payload.contractor || null,
     projectName: payload.project || null,
@@ -454,7 +458,7 @@ export async function createRectJobStructureFromQuoteConfig(
     structureNumber: options.structureNumber ?? "",
     contractor: options.contractorName ?? "",
     project: options.projectName ?? "",
-    date: new Date().toISOString().slice(0, 10),
+    date: localTodayInput(),
     inspection: "",
     approvedBy: "",
     rimElevation: String(config.rimElevation),

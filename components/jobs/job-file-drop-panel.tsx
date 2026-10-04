@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { uploadJobFileAction } from "@/app/files/actions";
+import { unwrapAction } from "@/lib/action-result";
 import { printPdfUrl } from "@/lib/print-pdf-url";
 import { reloadAfterAction } from "@/lib/reload-after-action";
 import { SectionCard } from "@/components/dashboard/section-card";
@@ -69,7 +70,7 @@ export function JobFileDropPanel({
         formData.set("jobId", jobId);
         formData.set("folderCategory", folderCategory);
         formData.set("file", dropped);
-        await uploadJobFileAction(formData);
+        await unwrapAction(uploadJobFileAction(formData));
         setProgress(null);
         reloadAfterAction();
       } catch (err) {

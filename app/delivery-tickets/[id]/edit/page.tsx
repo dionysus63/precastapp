@@ -6,7 +6,7 @@ import { listStockProductsForTicket } from "@/app/delivery-tickets/actions";
 import { getAppSettings } from "@/lib/app-settings";
 import { loadPriceListOptionsForForms } from "@/lib/price-list-service";
 import { withDatabaseRetry } from "@/lib/prisma";
-import { formatDateIso } from "@/lib/delivery-dispatch-utils";
+import { toLocalDayInput } from "@/lib/date-only";
 import { castingAssemblyEditorKey } from "@/lib/casting-utils";
 import { explodeAssemblyTicketLine } from "@/lib/casting-ticket-lines";
 type EditDeliveryTicketPageProps = {
@@ -235,7 +235,7 @@ export default async function EditDeliveryTicketPage({
             projectName: ticket.projectName,
             deliveryAddress: ticket.deliveryAddress,
             deliveryDate: ticket.deliveryDate
-              ? formatDateIso(ticket.deliveryDate)
+              ? toLocalDayInput(ticket.deliveryDate)
               : null,
             deliveryTime: ticket.deliveryTime,
             driver: ticket.driver,

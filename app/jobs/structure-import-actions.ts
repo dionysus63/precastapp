@@ -11,6 +11,7 @@ import {
   loadRectSheetFormOptions,
 } from "@/lib/drill-sheet-options";
 import { prisma } from "@/lib/prisma";
+import { returnActionError } from "@/lib/server/action-errors";
 import { parseStructureConfigJson } from "@/lib/quotes/structure-workbook";
 import { parseRectStructureConfigJson } from "@/lib/quotes/rect-structure-workbook";
 
@@ -53,14 +54,23 @@ export type JobStructureImportResult = {
  * involved. Each entry carries a full-detail workbook config; quote-only
  * rows never reach this action (the dialog filters them with a message).
  * When the job is quoted later, quote-won linking adopts these structures
- * by item code instead of duplicating them.
+ * by item code instead of duplicating them. Errors come back as `{ error }`
+ * (see returnActionError); per-entry problems are in `errors`.
  */
 export async function importJobStructuresFromConfigs(
   jobId: string,
   entries: JobStructureImportEntry[],
-): Promise<JobStructureImportResult> {
+) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
+  return returnActionError(() =>
+    importJobStructuresFromConfigsOrThrow(jobId, entries),
+  );
+}
 
+async function importJobStructuresFromConfigsOrThrow(
+  jobId: string,
+  entries: JobStructureImportEntry[],
+): Promise<JobStructureImportResult> {
   const job = await prisma.job.findUnique({
     where: { id: jobId },
     select: { id: true, customerName: true, projectName: true },
@@ -151,14 +161,22 @@ export async function importJobStructuresFromConfigs(
  * Bulk-create CUSTOM structures on a job — plain tracked pieces with a
  * number, description, and quantity (e.g. a sound wall's ~50 piece types
  * covering 1,500 pieces). No template or drill sheet; submittals attach as
- * uploads and the pieces run the normal production workflow.
+ * uploads and the pieces run the normal production workflow. Errors come
+ * back as `{ error }` (see returnActionError); per-entry problems are in
+ * `errors`.
  */
 export async function importCustomJobStructures(
   jobId: string,
   entries: CustomImportEntry[],
-): Promise<JobStructureImportResult> {
+) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
+  return returnActionError(() => importCustomJobStructuresOrThrow(jobId, entries));
+}
 
+async function importCustomJobStructuresOrThrow(
+  jobId: string,
+  entries: CustomImportEntry[],
+): Promise<JobStructureImportResult> {
   const job = await prisma.job.findUnique({
     where: { id: jobId },
     select: { id: true },

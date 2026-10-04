@@ -5,6 +5,7 @@ import path from "path";
 import { revalidatePath } from "next/cache";
 import { AppPermission, Prisma } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import { parseLocalDay } from "@/lib/date-only";
 import { syncAllJobFilesFromDisk } from "@/lib/job-files-service";
 import {
   getAppSettings,
@@ -30,6 +31,9 @@ import {
   verifySettingsResetPassword,
 } from "@/lib/settings-reset-password";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
+import type { AuthUser } from "@/lib/auth/permissions";
+import { returnActionError } from "@/lib/server/action-errors";
+import type { ActionFormResult } from "@/components/ui/action-form";
 import {
   assertPriceListCompleteForDefault,
   copyPriceListItems,
@@ -85,19 +89,33 @@ async function updateAppSettings(
   }
 }
 
-export async function createPriceListFormAction(formData: FormData): Promise<void> {
+// For ActionForm: a failure (e.g. "set as default" on an incomplete list)
+// shows inline instead of being dropped.
+
+export async function createPriceListFormAction(
+  formData: FormData,
+): Promise<ActionFormResult> {
   await requirePermission(AppPermission.SETTINGS_MANAGE);
-  await createPriceList(formData);
+  const result = await createPriceList(formData);
+  return result.error
+    ? { error: result.error }
+    : { success: "Price list created." };
 }
 
-export async function upsertPriceListItemFormAction(formData: FormData): Promise<void> {
+export async function upsertPriceListItemFormAction(
+  formData: FormData,
+): Promise<ActionFormResult> {
   await requirePermission(AppPermission.SETTINGS_MANAGE);
-  await upsertPriceListItem(formData);
+  const result = await upsertPriceListItem(formData);
+  return result.error ? { error: result.error } : { success: "Price saved." };
 }
 
-export async function deletePriceListItemFormAction(formData: FormData): Promise<void> {
+export async function deletePriceListItemFormAction(
+  formData: FormData,
+): Promise<ActionFormResult> {
   await requirePermission(AppPermission.SETTINGS_MANAGE);
-  await deletePriceListItem(formData);
+  const result = await deletePriceListItem(formData);
+  return result.error ? { error: result.error } : { success: "Item removed." };
 }
 
 export async function createPriceList(formData: FormData) {
@@ -113,9 +131,10 @@ export async function createPriceList(formData: FormData) {
     return { error: "Name is required." };
   }
 
-  const effectiveDate = effectiveDateRaw
-    ? new Date(`${effectiveDateRaw}T00:00:00`)
-    : null;
+  const effectiveDate = effectiveDateRaw ? parseLocalDay(effectiveDateRaw) : null;
+  if (effectiveDateRaw && !effectiveDate) {
+    return { error: "Invalid effective date." };
+  }
 
   try {
     await withDatabaseRetry((client) =>
@@ -171,9 +190,10 @@ export async function updatePriceListSettings(
     return { error: "Name is required." };
   }
 
-  const effectiveDate = effectiveDateRaw
-    ? new Date(`${effectiveDateRaw}T00:00:00`)
-    : null;
+  const effectiveDate = effectiveDateRaw ? parseLocalDay(effectiveDateRaw) : null;
+  if (effectiveDateRaw && !effectiveDate) {
+    return { error: "Invalid effective date." };
+  }
 
   try {
     await withDatabaseRetry((client) =>
@@ -1013,6 +1033,13 @@ export async function clearAllProductsFormAction(
   formData: FormData,
 ): Promise<SettingsActionResult> {
   const user = await requirePermission(AppPermission.SETTINGS_MANAGE);
+  return returnActionError(() => clearAllProductsOrThrow(user, formData));
+}
+
+async function clearAllProductsOrThrow(
+  user: AuthUser,
+  formData: FormData,
+): Promise<SettingsActionResult> {
   const resetPassword = parseResetPassword(formData);
 
   if (!verifySettingsResetPassword(resetPassword)) {
@@ -1070,6 +1097,13 @@ export async function setAllTrackedStockFormAction(
   formData: FormData,
 ): Promise<SettingsActionResult> {
   const user = await requirePermission(AppPermission.SETTINGS_MANAGE);
+  return returnActionError(() => setAllTrackedStockOrThrow(user, formData));
+}
+
+async function setAllTrackedStockOrThrow(
+  user: AuthUser,
+  formData: FormData,
+): Promise<SettingsActionResult> {
   const resetPassword = parseResetPassword(formData);
 
   if (!verifySettingsResetPassword(resetPassword)) {
@@ -1145,6 +1179,13 @@ export async function clearAllCustomersFormAction(
   formData: FormData,
 ): Promise<SettingsActionResult> {
   const user = await requirePermission(AppPermission.SETTINGS_MANAGE);
+  return returnActionError(() => clearAllCustomersOrThrow(user, formData));
+}
+
+async function clearAllCustomersOrThrow(
+  user: AuthUser,
+  formData: FormData,
+): Promise<SettingsActionResult> {
   const resetPassword = parseResetPassword(formData);
 
   if (!verifySettingsResetPassword(resetPassword)) {
@@ -1183,6 +1224,13 @@ export async function clearAllStructuresFormAction(
   formData: FormData,
 ): Promise<SettingsActionResult> {
   const user = await requirePermission(AppPermission.SETTINGS_MANAGE);
+  return returnActionError(() => clearAllStructuresOrThrow(user, formData));
+}
+
+async function clearAllStructuresOrThrow(
+  user: AuthUser,
+  formData: FormData,
+): Promise<SettingsActionResult> {
   const resetPassword = parseResetPassword(formData);
 
   if (!verifySettingsResetPassword(resetPassword)) {
@@ -1220,6 +1268,13 @@ export async function clearAllJobsFormAction(
   formData: FormData,
 ): Promise<SettingsActionResult> {
   const user = await requirePermission(AppPermission.SETTINGS_MANAGE);
+  return returnActionError(() => clearAllJobsOrThrow(user, formData));
+}
+
+async function clearAllJobsOrThrow(
+  user: AuthUser,
+  formData: FormData,
+): Promise<SettingsActionResult> {
   const resetPassword = parseResetPassword(formData);
 
   if (!verifySettingsResetPassword(resetPassword)) {
@@ -1289,6 +1344,13 @@ export async function clearAllQuotesFormAction(
   formData: FormData,
 ): Promise<SettingsActionResult> {
   const user = await requirePermission(AppPermission.SETTINGS_MANAGE);
+  return returnActionError(() => clearAllQuotesOrThrow(user, formData));
+}
+
+async function clearAllQuotesOrThrow(
+  user: AuthUser,
+  formData: FormData,
+): Promise<SettingsActionResult> {
   const resetPassword = parseResetPassword(formData);
 
   if (!verifySettingsResetPassword(resetPassword)) {
@@ -1346,6 +1408,13 @@ export async function clearAllDeliveryTicketsFormAction(
   formData: FormData,
 ): Promise<SettingsActionResult> {
   const user = await requirePermission(AppPermission.SETTINGS_MANAGE);
+  return returnActionError(() => clearAllDeliveryTicketsOrThrow(user, formData));
+}
+
+async function clearAllDeliveryTicketsOrThrow(
+  user: AuthUser,
+  formData: FormData,
+): Promise<SettingsActionResult> {
   const resetPassword = parseResetPassword(formData);
 
   if (!verifySettingsResetPassword(resetPassword)) {

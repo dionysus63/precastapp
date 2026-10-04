@@ -1,6 +1,7 @@
 "use client";
 
 import { randomId } from "@/lib/random-id";
+import { localTodayInput } from "@/lib/date-only";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { saveInventoryAdjustment, searchInventoryProducts } from "@/app/inventory/actions";
@@ -111,7 +112,7 @@ export function AdjustForm({ products, defaultProductId }: AdjustFormProps) {
             id="transactionDate"
             name="transactionDate"
             type="date"
-            defaultValue={new Date().toISOString().slice(0, 10)}
+            defaultValue={localTodayInput()}
             className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
           />
         </div>

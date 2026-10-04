@@ -33,6 +33,11 @@ import {
 } from "@/lib/format";
 import { quoteStatusVariant } from "@/lib/status-variants";
 import { stripRevisionSuffix } from "@/lib/quote-number";
+import {
+  addLocalDays,
+  startOfLocalDay,
+  toLocalDayInput,
+} from "@/lib/date-only";
 
 export type QuoteRecord = {
   id: string;
@@ -227,7 +232,7 @@ function toQuoteFormDateValue(date: Date | null | undefined): string {
     return "";
   }
 
-  return date.toISOString().slice(0, 10);
+  return toLocalDayInput(date);
 }
 
 function toQuoteFormNumberValue(
@@ -368,13 +373,11 @@ function bidDueUrgencyFor(
   if (!bidDueDate || !OPEN_STATUSES.includes(status)) {
     return null;
   }
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = startOfLocalDay();
   if (bidDueDate < today) {
     return "overdue";
   }
-  const weekEnd = new Date(today);
-  weekEnd.setDate(today.getDate() + 7);
+  const weekEnd = addLocalDays(today, 7);
   return bidDueDate <= weekEnd ? "soon" : null;
 }
 

@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition, type FormEvent } from "react";
 import { searchCustomersForJobForm } from "@/app/jobs/actions";
 import { FormTypeahead } from "@/components/common/form-typeahead";
-import { SubmitButton } from "@/components/ui/submit-button";
+import { Button } from "@/components/ui/button";
 import {
   jobInputClassName,
   jobStatusFormOptions,
@@ -36,7 +36,8 @@ export type JobFormValues = {
 };
 
 type JobFormProps = {
-  action: (formData: FormData) => Promise<void>;
+  /** Returns `{ error }` on failure; redirects on success. */
+  action: (formData: FormData) => Promise<{ error: string } | void>;
   customers: JobCustomerOption[];
   defaultJobYear: number;
   submitLabel?: string;
@@ -61,9 +62,25 @@ export function JobForm({
   );
   const [customerId, setCustomerId] = useState(defaultValues?.customerId ?? "");
   const [customerLabel, setCustomerLabel] = useState(initialCustomer?.name ?? "");
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, startSubmit] = useTransition();
+
+  // A submit handler rather than `<form action>`: the action's returned
+  // error has to be shown, and a failed save keeps what was typed.
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    setSubmitError(null);
+    startSubmit(async () => {
+      const result = await action(formData);
+      if (result?.error) {
+        setSubmitError(result.error);
+      }
+    });
+  }
 
   return (
-    <form action={action} className="space-y-5">
+    <form onSubmit={handleSubmit} className="space-y-5">
       {defaultValues?.id ? (
         <input type="hidden" name="id" value={defaultValues.id} />
       ) : null}
@@ -361,6 +378,15 @@ export function JobForm({
         />
       </div>
 
+      {submitError ? (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-900"
+        >
+          {submitError}
+        </div>
+      ) : null}
+
       <div className="flex justify-end gap-2 border-t border-slate-100 pt-5">
         <Link
           href={cancelHref}
@@ -368,7 +394,9 @@ export function JobForm({
         >
           Cancel
         </Link>
-        <SubmitButton pendingLabel="Saving…">{submitLabel}</SubmitButton>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Saving…" : submitLabel}
+        </Button>
       </div>
     </form>
   );

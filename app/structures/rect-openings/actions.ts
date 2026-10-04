@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { Prisma, AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { returnActionError } from "@/lib/server/action-errors";
 
 type RectOpeningPayload = {
   /** Combined material/type description, e.g. "PVC SDR35". */
@@ -73,8 +74,13 @@ function parseRectOpeningsPayload(formData: FormData): RectOpeningPayload[] {
   return result;
 }
 
+/** Errors come back as `{ error }` (see returnActionError). */
 export async function saveRectOpeningSizes(formData: FormData) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
+  return returnActionError(() => saveRectOpeningSizesOrThrow(formData));
+}
+
+async function saveRectOpeningSizesOrThrow(formData: FormData) {
   const priceListId = String(formData.get("priceListId") ?? "").trim();
   const entries = parseRectOpeningsPayload(formData);
 
