@@ -10,7 +10,7 @@ import {
 import type { ContactRoleValue } from "@/components/customers/customer-utils";
 import { mapContactToRow } from "@/lib/customer-mapper";
 import { withDatabaseRetry } from "@/lib/prisma";
-import { translatePrismaError } from "@/lib/server/action-errors";
+import { translatePrismaError, returnActionError } from "@/lib/server/action-errors";
 
 import { isValidEmail } from "@/lib/validation/email";
 
@@ -391,7 +391,12 @@ export type ImportContactsResult = {
   skippedExisting: number;
 };
 
-export async function importContacts(
+/** Errors come back as `{ error }` (see returnActionError). */
+export async function importContacts(formData: FormData) {
+  return returnActionError(() => importContactsOrThrow(formData));
+}
+
+async function importContactsOrThrow(
   formData: FormData,
 ): Promise<ImportContactsResult> {
   await requirePermission(AppPermission.CUSTOMERS_MANAGE);

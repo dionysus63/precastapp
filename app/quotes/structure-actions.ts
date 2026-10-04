@@ -113,7 +113,8 @@ export async function completeRectDrillSheets(
     select: { id: true, jobId: true, customerName: true, projectName: true },
   });
   if (!quote) {
-    throw new Error("Quote not found.");
+    // Returned, not thrown: a thrown message shows only as a generic error.
+    return { created: 0, createdIds: [], errors: ["Quote not found."] };
   }
 
   const errors: string[] = [];

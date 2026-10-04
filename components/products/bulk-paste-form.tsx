@@ -480,6 +480,10 @@ export function BulkPasteForm({
       try {
         setErrorMessage(null);
         const result = await importProducts(formData);
+        if ("error" in result) {
+          setErrorMessage(result.error);
+          return;
+        }
         const summaryParts = [
           `${result.imported} product${result.imported === 1 ? "" : "s"} imported`,
         ];

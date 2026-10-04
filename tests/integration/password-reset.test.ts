@@ -182,18 +182,20 @@ describe("password reset and claim protection", () => {
     badForm.set("currentPassword", "wrong-current!");
     badForm.set("newPassword", "my-new-password-1");
     badForm.set("confirmPassword", "my-new-password-1");
-    await expect(changeMyPassword(badForm)).rejects.toThrow(
-      /current password is incorrect/i,
-    );
+    // Returned, not thrown, so the message reaches the user in production.
+    expect(await changeMyPassword(badForm)).toEqual({
+      error: "Current password is incorrect.",
+    });
 
     // The temp password authorizes the change.
     const formData = new FormData();
     formData.set("currentPassword", tempPassword);
     formData.set("newPassword", "my-new-password-1");
     formData.set("confirmPassword", "my-new-password-1");
-    await expect(changeMyPassword(formData)).rejects.toThrow(
-      "REDIRECT:/profile",
-    );
+    expect(await changeMyPassword(formData)).toEqual({
+      success: "Password changed.",
+      redirectTo: "/",
+    });
 
     const updated = await prisma.user.findUniqueOrThrow({
       where: { id: workerId },

@@ -1,4 +1,5 @@
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { ActionForm } from "@/components/ui/action-form";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { customerInputClassName } from "@/components/customers/customer-form";
 import {
@@ -29,7 +30,7 @@ export default async function ProfilePage() {
       ) : null}
 
       <SectionCard title="Profile Details">
-        <form action={updateMyProfile} className="max-w-xl space-y-5">
+        <ActionForm action={updateMyProfile} className="max-w-xl space-y-5">
           <div>
             <label className="block text-xs font-medium text-slate-700">
               Username
@@ -93,11 +94,11 @@ export default async function ProfilePage() {
               Save Profile
             </button>
           </div>
-        </form>
+        </ActionForm>
       </SectionCard>
 
       <SectionCard title="Change Password">
-        <form action={changeMyPassword} className="max-w-xl space-y-5">
+        <ActionForm action={changeMyPassword} className="max-w-xl space-y-5">
           <div>
             <label
               htmlFor="currentPassword"
@@ -159,7 +160,7 @@ export default async function ProfilePage() {
               Change Password
             </button>
           </div>
-        </form>
+        </ActionForm>
       </SectionCard>
     </DashboardShell>
   );

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { requireAuthForPath } from "@/lib/auth/session";
 import { QuotePreviewContent } from "@/components/quotes/quote-preview-content";
 import { canEditQuote } from "@/lib/quotes/edit-rules";
 import { canSendQuote } from "@/lib/quotes/send-rules";
@@ -11,6 +12,8 @@ type QuotePreviewPageProps = {
 
 export default async function QuotePreviewPage({ params }: QuotePreviewPageProps) {
   const { id } = await params;
+  // Outside DashboardShell, so the route's permission is checked here.
+  await requireAuthForPath(`/quotes/${id}/preview`);
 
   const quote = await withDatabaseRetry((prisma) =>
     prisma.quote.findUnique({

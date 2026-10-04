@@ -200,16 +200,42 @@ export async function getJobStructureDocumentForOpen(
   return document;
 }
 
+/**
+ * Removes a document row, and its file when that file is safely inside the
+ * job folder. A missing file (moved or deleted in Explorer) or a renamed job
+ * folder no longer blocks the delete: the row would otherwise linger forever
+ * and keep counting as a submittal.
+ */
 export async function deleteJobStructureDocument(
   client: PrismaClient,
   documentId: string,
 ) {
-  const document = await getJobStructureDocumentForOpen(client, documentId);
+  const document = await client.jobStructureDocument.findUnique({
+    where: { id: documentId },
+    include: {
+      jobStructure: { include: { job: { select: { folderPath: true } } } },
+    },
+  });
+  if (!document) {
+    throw new Error("Document was not found.");
+  }
 
-  try {
-    await unlink(document.filePath);
-  } catch {
-    // File may already be gone on disk; still remove the DB row.
+  const jobFolderPath = document.jobStructure.job?.folderPath?.trim();
+  let insideJobFolder = false;
+  if (jobFolderPath) {
+    try {
+      assertPathUnderJobFolder(jobFolderPath, document.filePath);
+      insideJobFolder = true;
+    } catch {
+      // Outside the (possibly renamed) job folder: never touch the file.
+    }
+  }
+  if (insideJobFolder) {
+    try {
+      await unlink(document.filePath);
+    } catch {
+      // File may already be gone on disk; still remove the DB row.
+    }
   }
 
   await client.jobStructureDocument.delete({ where: { id: documentId } });

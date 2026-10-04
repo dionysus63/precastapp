@@ -3,16 +3,23 @@
 import { randomInt } from "crypto";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import {
   AppPermission,
   UserRole,
 } from "@/app/generated/prisma/client";
-import { SESSION_COOKIE_NAME } from "@/lib/auth/constants";
+import { getRoleDefaults } from "@/lib/app-settings";
+import {
+  SESSION_COOKIE_NAME,
+  getEffectivePermissionsForUser,
+  type PermissionKey,
+  type UserRoleKey,
+} from "@/lib/auth/constants";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { hashPassword, validatePasswordStrength, verifyPassword } from "@/lib/auth/password";
 import { requireAuth, requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { translatePrismaError } from "@/lib/server/action-errors";
+import type { ActionFormResult } from "@/components/ui/action-form";
 
 const USERNAME_PATTERN = /^[a-z0-9._-]+$/;
 
@@ -42,114 +49,40 @@ function parseUserRole(value: string): UserRole {
   return value as UserRole;
 }
 
-export async function createUser(formData: FormData) {
+export async function createUser(formData: FormData): Promise<ActionFormResult> {
   const actor = await requirePermission(AppPermission.USERS_MANAGE);
+  try {
 
-  const username = String(formData.get("username") ?? "")
-    .trim()
-    .toLowerCase();
-  const displayName = String(formData.get("displayName") ?? "").trim();
-  const initials = String(formData.get("initials") ?? "")
-    .trim()
-    .toUpperCase();
-  const email = String(formData.get("email") ?? "").trim() || null;
-  const role = parseUserRole(String(formData.get("role") ?? "").trim());
-  const isActive = formData.get("isActive") === "on";
-  const grantedPermissions = parseGrantedPermissions(formData);
-  const deniedPermissions = parseDeniedPermissions(formData);
+    const username = String(formData.get("username") ?? "")
+      .trim()
+      .toLowerCase();
+    const displayName = String(formData.get("displayName") ?? "").trim();
+    const initials = String(formData.get("initials") ?? "")
+      .trim()
+      .toUpperCase();
+    const email = String(formData.get("email") ?? "").trim() || null;
+    const role = parseUserRole(String(formData.get("role") ?? "").trim());
+    const isActive = formData.get("isActive") === "on";
+    const grantedPermissions = parseGrantedPermissions(formData);
+    const deniedPermissions = parseDeniedPermissions(formData);
 
-  if (!username || !USERNAME_PATTERN.test(username)) {
-    throw new Error(
-      "Username is required and may only contain lowercase letters, numbers, dots, dashes, and underscores.",
-    );
-  }
-
-  if (!displayName) {
-    throw new Error("Display name is required.");
-  }
-
-  if (!initials || initials.length < 2 || initials.length > 3) {
-    throw new Error("Initials must be 2 or 3 characters.");
-  }
-
-  const user = await prisma.user.create({
-    data: {
-      username,
-      displayName,
-      initials,
-      email,
-      role,
-      isActive,
-      grantedPermissions,
-      deniedPermissions,
-    },
-  });
-
-  await writeAuditLog({
-    userId: actor.id,
-    action: "user.create",
-    entityType: "User",
-    entityId: user.id,
-    summary: `Created user ${user.displayName}`,
-  });
-
-  revalidatePath("/settings/users");
-  redirect(`/settings/users/${user.id}`);
-}
-
-export async function updateUser(formData: FormData) {
-  const actor = await requirePermission(AppPermission.USERS_MANAGE);
-
-  const id = String(formData.get("id") ?? "").trim();
-  if (!id) {
-    throw new Error("User id is required.");
-  }
-
-  const displayName = String(formData.get("displayName") ?? "").trim();
-  const initials = String(formData.get("initials") ?? "")
-    .trim()
-    .toUpperCase();
-  const email = String(formData.get("email") ?? "").trim() || null;
-  const role = parseUserRole(String(formData.get("role") ?? "").trim());
-  const isActive = formData.get("isActive") === "on";
-  const grantedPermissions = parseGrantedPermissions(formData);
-  const deniedPermissions = parseDeniedPermissions(formData);
-
-  if (!displayName) {
-    throw new Error("Display name is required.");
-  }
-
-  if (!initials || initials.length < 2 || initials.length > 3) {
-    throw new Error("Initials must be 2 or 3 characters.");
-  }
-
-  const expectedUpdatedAtRaw = String(
-    formData.get("expectedUpdatedAt") ?? "",
-  ).trim();
-
-  const user = await prisma.$transaction(async (tx) => {
-    if (expectedUpdatedAtRaw) {
-      // Permission arrays are replaced wholesale, so a stale save would
-      // silently discard another admin's changes (optimistic concurrency).
-      const current = await tx.user.findUnique({
-        where: { id },
-        select: { updatedAt: true },
-      });
-      const expected = new Date(expectedUpdatedAtRaw);
-      if (
-        !current ||
-        Number.isNaN(expected.getTime()) ||
-        current.updatedAt.getTime() !== expected.getTime()
-      ) {
-        throw new Error(
-          "This user was changed by someone else while you were editing. Refresh the page to load the latest version, then re-apply your changes.",
-        );
-      }
+    if (!username || !USERNAME_PATTERN.test(username)) {
+      throw new Error(
+        "Username is required and may only contain lowercase letters, numbers, dots, dashes, and underscores.",
+      );
     }
 
-    return tx.user.update({
-      where: { id },
+    if (!displayName) {
+      throw new Error("Display name is required.");
+    }
+
+    if (!initials || initials.length < 2 || initials.length > 3) {
+      throw new Error("Initials must be 2 or 3 characters.");
+    }
+
+    const user = await prisma.user.create({
       data: {
+        username,
         displayName,
         initials,
         email,
@@ -159,100 +92,217 @@ export async function updateUser(formData: FormData) {
         deniedPermissions,
       },
     });
-  });
 
-  await writeAuditLog({
-    userId: actor.id,
-    action: "user.update",
-    entityType: "User",
-    entityId: user.id,
-    summary: `Updated user ${user.displayName}`,
-  });
-
-  revalidatePath("/settings/users");
-  revalidatePath(`/settings/users/${user.id}`);
-  redirect(`/settings/users/${user.id}`);
-}
-
-export async function deactivateUser(formData: FormData) {
-  const actor = await requirePermission(AppPermission.USERS_MANAGE);
-  const id = String(formData.get("id") ?? "").trim();
-  if (!id) {
-    throw new Error("User id is required.");
-  }
-
-  if (id === actor.id) {
-    throw new Error("You cannot deactivate your own account.");
-  }
-
-  // Deactivation and session revocation commit together: a partial failure
-  // must not leave a deactivated user with a still-valid session.
-  const user = await prisma.$transaction(async (tx) => {
-    const updated = await tx.user.update({
-      where: { id },
-      data: { isActive: false },
+    await writeAuditLog({
+      userId: actor.id,
+      action: "user.create",
+      entityType: "User",
+      entityId: user.id,
+      summary: `Created user ${user.displayName}`,
     });
-    await tx.session.deleteMany({ where: { userId: id } });
-    return updated;
-  });
 
-  await writeAuditLog({
-    userId: actor.id,
-    action: "user.deactivate",
-    entityType: "User",
-    entityId: user.id,
-    summary: `Deactivated user ${user.displayName}`,
-  });
-
-  revalidatePath("/settings/users");
+    revalidatePath("/settings/users");
+    return { success: `Created ${user.displayName}.`, redirectTo: `/settings/users/${user.id}` };
+  } catch (error) {
+    return { error: translatePrismaError(error).message };
+  }
 }
 
-export async function reactivateUser(formData: FormData) {
+export async function updateUser(formData: FormData): Promise<ActionFormResult> {
   const actor = await requirePermission(AppPermission.USERS_MANAGE);
-  const id = String(formData.get("id") ?? "").trim();
-  if (!id) {
-    throw new Error("User id is required.");
+  try {
+
+    const id = String(formData.get("id") ?? "").trim();
+    if (!id) {
+      throw new Error("User id is required.");
+    }
+
+    const displayName = String(formData.get("displayName") ?? "").trim();
+    const initials = String(formData.get("initials") ?? "")
+      .trim()
+      .toUpperCase();
+    const email = String(formData.get("email") ?? "").trim() || null;
+    const role = parseUserRole(String(formData.get("role") ?? "").trim());
+    const isActive = formData.get("isActive") === "on";
+    const grantedPermissions = parseGrantedPermissions(formData);
+    const deniedPermissions = parseDeniedPermissions(formData);
+
+    if (!displayName) {
+      throw new Error("Display name is required.");
+    }
+
+    if (!initials || initials.length < 2 || initials.length > 3) {
+      throw new Error("Initials must be 2 or 3 characters.");
+    }
+
+    const expectedUpdatedAtRaw = String(
+      formData.get("expectedUpdatedAt") ?? "",
+    ).trim();
+
+    // No one can lock themselves out: deactivating or demoting your own account
+    // (and you are necessarily a Users & Access holder to be here) could leave
+    // nobody able to manage users. Changes to other accounts can't, since you
+    // keep the permission.
+    if (id === actor.id) {
+      if (!isActive) {
+        throw new Error("You cannot deactivate your own account.");
+      }
+      const ownPermissions = getEffectivePermissionsForUser({
+        role: role as UserRoleKey,
+        grantedPermissions: grantedPermissions as PermissionKey[],
+        deniedPermissions: deniedPermissions as PermissionKey[],
+        roleDefaults: await getRoleDefaults(),
+      });
+      if (!ownPermissions.includes(AppPermission.USERS_MANAGE)) {
+        throw new Error(
+          "You cannot remove your own Users & Access permission — another admin has to change your account.",
+        );
+      }
+    }
+
+    const user = await prisma.$transaction(async (tx) => {
+      if (expectedUpdatedAtRaw) {
+        // Permission arrays are replaced wholesale, so a stale save would
+        // silently discard another admin's changes (optimistic concurrency).
+        const current = await tx.user.findUnique({
+          where: { id },
+          select: { updatedAt: true },
+        });
+        const expected = new Date(expectedUpdatedAtRaw);
+        if (
+          !current ||
+          Number.isNaN(expected.getTime()) ||
+          current.updatedAt.getTime() !== expected.getTime()
+        ) {
+          throw new Error(
+            "This user was changed by someone else while you were editing. Refresh the page to load the latest version, then re-apply your changes.",
+          );
+        }
+      }
+
+      return tx.user.update({
+        where: { id },
+        data: {
+          displayName,
+          initials,
+          email,
+          role,
+          isActive,
+          grantedPermissions,
+          deniedPermissions,
+        },
+      });
+    });
+
+    await writeAuditLog({
+      userId: actor.id,
+      action: "user.update",
+      entityType: "User",
+      entityId: user.id,
+      summary: `Updated user ${user.displayName}`,
+    });
+
+    revalidatePath("/settings/users");
+    revalidatePath(`/settings/users/${user.id}`);
+    return { success: `Saved ${user.displayName}.` };
+  } catch (error) {
+    return { error: translatePrismaError(error).message };
   }
-
-  const user = await prisma.user.update({
-    where: { id },
-    data: { isActive: true },
-  });
-
-  await writeAuditLog({
-    userId: actor.id,
-    action: "user.reactivate",
-    entityType: "User",
-    entityId: user.id,
-    summary: `Reactivated user ${user.displayName}`,
-  });
-
-  revalidatePath("/settings/users");
 }
 
-export async function updateMyProfile(formData: FormData) {
+export async function deactivateUser(formData: FormData): Promise<ActionFormResult> {
+  const actor = await requirePermission(AppPermission.USERS_MANAGE);
+  try {
+    const id = String(formData.get("id") ?? "").trim();
+    if (!id) {
+      throw new Error("User id is required.");
+    }
+
+    if (id === actor.id) {
+      throw new Error("You cannot deactivate your own account.");
+    }
+
+    // Deactivation and session revocation commit together: a partial failure
+    // must not leave a deactivated user with a still-valid session.
+    const user = await prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id },
+        data: { isActive: false },
+      });
+      await tx.session.deleteMany({ where: { userId: id } });
+      return updated;
+    });
+
+    await writeAuditLog({
+      userId: actor.id,
+      action: "user.deactivate",
+      entityType: "User",
+      entityId: user.id,
+      summary: `Deactivated user ${user.displayName}`,
+    });
+
+    revalidatePath("/settings/users");
+    return { success: `Deactivated ${user.displayName}.` };
+  } catch (error) {
+    return { error: translatePrismaError(error).message };
+  }
+}
+
+export async function reactivateUser(formData: FormData): Promise<ActionFormResult> {
+  const actor = await requirePermission(AppPermission.USERS_MANAGE);
+  try {
+    const id = String(formData.get("id") ?? "").trim();
+    if (!id) {
+      throw new Error("User id is required.");
+    }
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: { isActive: true },
+    });
+
+    await writeAuditLog({
+      userId: actor.id,
+      action: "user.reactivate",
+      entityType: "User",
+      entityId: user.id,
+      summary: `Reactivated user ${user.displayName}`,
+    });
+
+    revalidatePath("/settings/users");
+    return { success: `Reactivated ${user.displayName}.` };
+  } catch (error) {
+    return { error: translatePrismaError(error).message };
+  }
+}
+
+export async function updateMyProfile(formData: FormData): Promise<ActionFormResult> {
   const user = await requireAuth();
+  try {
 
-  const displayName = String(formData.get("displayName") ?? "").trim();
-  const initials = String(formData.get("initials") ?? "")
-    .trim()
-    .toUpperCase();
+    const displayName = String(formData.get("displayName") ?? "").trim();
+    const initials = String(formData.get("initials") ?? "")
+      .trim()
+      .toUpperCase();
 
-  if (!displayName) {
-    throw new Error("Display name is required.");
+    if (!displayName) {
+      throw new Error("Display name is required.");
+    }
+
+    if (!initials || initials.length < 2 || initials.length > 3) {
+      throw new Error("Initials must be 2 or 3 characters.");
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { displayName, initials },
+    });
+
+    revalidatePath("/profile");
+    return { success: "Profile saved." };
+  } catch (error) {
+    return { error: translatePrismaError(error).message };
   }
-
-  if (!initials || initials.length < 2 || initials.length > 3) {
-    throw new Error("Initials must be 2 or 3 characters.");
-  }
-
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { displayName, initials },
-  });
-
-  revalidatePath("/profile");
-  redirect("/profile");
 }
 
 /** Unambiguous alphabet (no 0/O, 1/I/L) for read-aloud temp passwords. */
@@ -313,63 +363,67 @@ export async function resetUserPassword(
   return { tempPassword };
 }
 
-export async function changeMyPassword(formData: FormData) {
+export async function changeMyPassword(formData: FormData): Promise<ActionFormResult> {
   const user = await requireAuth();
+  try {
 
-  const currentPassword = String(formData.get("currentPassword") ?? "");
-  const newPassword = String(formData.get("newPassword") ?? "");
-  const confirmPassword = String(formData.get("confirmPassword") ?? "");
+    const currentPassword = String(formData.get("currentPassword") ?? "");
+    const newPassword = String(formData.get("newPassword") ?? "");
+    const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
-  if (!currentPassword || !newPassword || !confirmPassword) {
-    throw new Error("All password fields are required.");
-  }
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      throw new Error("All password fields are required.");
+    }
 
-  if (newPassword !== confirmPassword) {
-    throw new Error("New passwords do not match.");
-  }
+    if (newPassword !== confirmPassword) {
+      throw new Error("New passwords do not match.");
+    }
 
-  const strengthError = validatePasswordStrength(newPassword);
-  if (strengthError) {
-    throw new Error(strengthError);
-  }
+    const strengthError = validatePasswordStrength(newPassword);
+    if (strengthError) {
+      throw new Error(strengthError);
+    }
 
-  if (!user.passwordHash) {
-    throw new Error("Set your password from the sign-in screen first.");
-  }
+    if (!user.passwordHash) {
+      throw new Error("Set your password from the sign-in screen first.");
+    }
 
-  const isValid = await verifyPassword(currentPassword, user.passwordHash);
-  if (!isValid) {
-    throw new Error("Current password is incorrect.");
-  }
+    const isValid = await verifyPassword(currentPassword, user.passwordHash);
+    if (!isValid) {
+      throw new Error("Current password is incorrect.");
+    }
 
-  const passwordHash = await hashPassword(newPassword);
+    const passwordHash = await hashPassword(newPassword);
 
-  // Revoke every other session for this user: after a password change (e.g.
-  // rotating away from a temp password) only the current device stays in.
-  const cookieStore = await cookies();
-  const currentToken = cookieStore.get(SESSION_COOKIE_NAME)?.value ?? "";
+    // Revoke every other session for this user: after a password change (e.g.
+    // rotating away from a temp password) only the current device stays in.
+    const cookieStore = await cookies();
+    const currentToken = cookieStore.get(SESSION_COOKIE_NAME)?.value ?? "";
 
-  await prisma.$transaction(async (tx) => {
-    await tx.user.update({
-      where: { id: user.id },
-      data: {
-        passwordHash,
-        mustChangePassword: false,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash,
+          mustChangePassword: false,
+        },
+      });
+      await tx.session.deleteMany({
+        where: { userId: user.id, token: { not: currentToken } },
+      });
     });
-    await tx.session.deleteMany({
-      where: { userId: user.id, token: { not: currentToken } },
+
+    await writeAuditLog({
+      userId: user.id,
+      action: "auth.change_password",
+      entityType: "User",
+      entityId: user.id,
+      summary: `${user.displayName} changed their password`,
     });
-  });
 
-  await writeAuditLog({
-    userId: user.id,
-    action: "auth.change_password",
-    entityType: "User",
-    entityId: user.id,
-    summary: `${user.displayName} changed their password`,
-  });
-
-  revalidatePath("/profile");
-  redirect("/profile");
+    revalidatePath("/profile");
+    return { success: "Password changed.", redirectTo: "/" };
+  } catch (error) {
+    return { error: translatePrismaError(error).message };
+  }
 }

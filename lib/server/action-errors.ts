@@ -53,3 +53,23 @@ export function isNextRedirectError(error: unknown): boolean {
     String((error as { digest?: string }).digest).startsWith("NEXT_REDIRECT")
   );
 }
+
+/**
+ * Runs a server action body and returns a thrown error as `{ error }`. A
+ * message thrown out of a server action never reaches the user in
+ * production — React replaces it with a generic "an error occurred" — so
+ * validation like "Duplicate product code(s)…" has to come back as data.
+ * Next's redirects (e.g. a lost session) still propagate.
+ */
+export async function returnActionError<T>(
+  run: () => Promise<T>,
+): Promise<T | { error: string }> {
+  try {
+    return await run();
+  } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+    return { error: translatePrismaError(error).message };
+  }
+}

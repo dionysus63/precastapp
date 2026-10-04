@@ -21,6 +21,11 @@ import { writeAuditLog } from "@/lib/auth/audit";
 import { isValidEmail } from "@/lib/validation/email";
 import { parseRolePermissionsFromFormData } from "@/lib/role-permissions-settings";
 import {
+  getEffectivePermissionsForUser,
+  type PermissionKey,
+  type UserRoleKey,
+} from "@/lib/auth/constants";
+import {
   isSettingsResetConfigured,
   verifySettingsResetPassword,
 } from "@/lib/settings-reset-password";
@@ -635,6 +640,21 @@ export async function updateRolePermissionsFormAction(
 ): Promise<SettingsActionResult> {
   const actor = await requirePermission(AppPermission.USERS_MANAGE);
   const rolePermissions = parseRolePermissionsFromFormData(formData);
+
+  // Whoever saves keeps Users & Access, so someone can always undo a mistake
+  // (unchecking it on your own role would otherwise lock everyone out).
+  const actorKeepsUsersManage = getEffectivePermissionsForUser({
+    role: actor.role as UserRoleKey,
+    grantedPermissions: actor.grantedPermissions as PermissionKey[],
+    deniedPermissions: actor.deniedPermissions as PermissionKey[],
+    roleDefaults: rolePermissions,
+  }).includes(AppPermission.USERS_MANAGE);
+  if (!actorKeepsUsersManage) {
+    return {
+      error:
+        "This would remove your own Users & Access permission. Keep it on your role, or have it granted to your account first.",
+    };
+  }
 
   const result = await updateAppSettings({
     rolePermissions,

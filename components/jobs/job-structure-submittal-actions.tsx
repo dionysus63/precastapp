@@ -35,7 +35,10 @@ export function JobStructureSubmittalActions({
     setMessage(null);
     startTransition(async () => {
       try {
-        await uploadJobStructureDocumentAction(formData);
+        const outcome = await uploadJobStructureDocumentAction(formData);
+        if (outcome && "error" in outcome) {
+          throw new Error(outcome.error);
+        }
         formRef.current?.reset();
         setMessage("Uploaded.");
         reloadAfterAction();

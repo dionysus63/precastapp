@@ -11,6 +11,7 @@ import {
 import { listProductTaxonomy } from "@/lib/product-taxonomy.server";
 import { getDefaultPriceListId, loadPriceListOptionsForForms } from "@/lib/price-list-service";
 import { prisma } from "@/lib/prisma";
+import { loadProductEditVersion } from "@/lib/product-edit-version";
 
 import { BackButton } from "@/components/dashboard/back-button";
 type EditProductPageProps = {
@@ -20,7 +21,14 @@ type EditProductPageProps = {
 export default async function EditProductPage({ params }: EditProductPageProps) {
   const { id } = await params;
 
-  const [product, taxonomy, castingSuppliers, priceLists, defaultPriceListId] =
+  const [
+    product,
+    taxonomy,
+    castingSuppliers,
+    priceLists,
+    defaultPriceListId,
+    editVersion,
+  ] =
     await Promise.all([
       prisma.product.findUnique({
         where: { id },
@@ -36,6 +44,7 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
       listActiveCastingSuppliers(prisma),
       loadPriceListOptionsForForms(),
       getDefaultPriceListId(prisma),
+      loadProductEditVersion(prisma, id),
     ]);
 
   if (!product) {
@@ -85,7 +94,7 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
               taxonomy={taxonomy}
               priceLists={priceLists}
               productId={product.id}
-              expectedUpdatedAt={product.updatedAt.toISOString()}
+              expectedUpdatedAt={editVersion ?? undefined}
               castingSuppliers={castingSuppliers}
               castingComponents={castingComponents}
               defaultValues={{

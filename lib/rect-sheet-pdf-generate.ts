@@ -13,6 +13,7 @@ import {
   selectRectTemplateVariant,
 } from "@/lib/rect-template-pdf";
 import { rectTemplateVariantKey } from "@/lib/structure-template-pdf-service";
+import { getPriceListIdForStructure } from "@/lib/structure-pricing";
 
 export type RectSheetPdfBuildResult =
   | {
@@ -35,6 +36,8 @@ export async function buildRectSheetPdfBytes(
   const formValues = buildRectSheetFormValues(sheet);
   const { result, casting } = await loadAndComputeRectSheet(
     rectPayloadFromFormValues(formValues),
+    // Same list the sheet was saved and quoted on.
+    { priceListId: await getPriceListIdForStructure(sheet.id) },
   );
 
   const meta: RectSheetPreviewMeta = {

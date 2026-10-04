@@ -59,7 +59,10 @@ export function JobStructureDocumentsSection({
     setMessage({});
     startTransition(async () => {
       try {
-        await uploadJobStructureDocumentAction(formData);
+        const outcome = await uploadJobStructureDocumentAction(formData);
+        if (outcome && "error" in outcome) {
+          throw new Error(outcome.error);
+        }
         formRef.current?.reset();
         // Reload so the list shows the change (revalidation alone doesn't
         // reach the page on the LAN).
@@ -118,7 +121,10 @@ export function JobStructureDocumentsSection({
     setMessage({});
     startTransition(async () => {
       try {
-        await deleteJobStructureDocumentAction(documentId);
+        const outcome = await deleteJobStructureDocumentAction(documentId);
+        if (outcome && "error" in outcome) {
+          throw new Error(outcome.error);
+        }
         reloadAfterAction({ type: "success", text: "Document deleted." });
       } catch (error) {
         setMessage({

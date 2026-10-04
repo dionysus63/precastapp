@@ -127,7 +127,9 @@ export async function generateDrillSheetPdf(
       return { success: false, error: "Drill sheet not found." };
     }
     if (shapeRow.structureTemplate?.shape === "RECTANGULAR") {
-      return generateRectSheetPdf(drillSheetId);
+      // Awaited so its failures land in the catch below as { success: false }
+      // instead of crashing the page into the error screen.
+      return await generateRectSheetPdf(drillSheetId);
     }
 
     const sheet = await withDatabaseRetry((prisma) =>

@@ -33,7 +33,7 @@ export function DeliveryTicketSubmittalPreviewContent({
   const [sheetCount, setSheetCount] = useState(1);
   const [isPrinting, startPrintingTransition] = useTransition();
   const [printMessage, setPrintMessage] = useState<
-    { type: "error" | "success"; text: string } | null
+    { type: "error" | "warning" | "success"; text: string } | null
   >(null);
 
   const handleSheetCountChange = useCallback((count: number) => {
@@ -59,10 +59,18 @@ export function DeliveryTicketSubmittalPreviewContent({
         setPrintMessage({ type: "error", text: result.error });
         return;
       }
-      setPrintMessage({
-        type: "success",
-        text: `Sent ${ticketNumber} submittals to ${result.printer}.`,
-      });
+      // Printed, but the driver's package is incomplete — say what's missing.
+      setPrintMessage(
+        result.warning
+          ? {
+              type: "warning",
+              text: `Sent ${ticketNumber} submittals to ${result.printer}, but the package is incomplete. ${result.warning}`,
+            }
+          : {
+              type: "success",
+              text: `Sent ${ticketNumber} submittals to ${result.printer}.`,
+            },
+      );
     });
   }
 
@@ -102,7 +110,9 @@ export function DeliveryTicketSubmittalPreviewContent({
             className={`mx-auto max-w-[8.5in] border-t px-4 py-3 text-sm ${
               printMessage.type === "error"
                 ? "border-red-100 bg-red-50 text-red-800"
-                : "border-emerald-100 bg-emerald-50 text-emerald-900"
+                : printMessage.type === "warning"
+                  ? "border-amber-100 bg-amber-50 text-amber-900"
+                  : "border-emerald-100 bg-emerald-50 text-emerald-900"
             }`}
           >
             {printMessage.text}

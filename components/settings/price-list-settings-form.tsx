@@ -40,7 +40,15 @@ export function PriceListSettingsForm({ priceList }: PriceListSettingsFormProps)
   }
 
   return (
-    <form action={handleSubmit} className="grid max-w-lg gap-3">
+    // onSubmit, not a function `action`: React resets a form after a function
+    // action runs, which wiped the typed values whenever a save failed.
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        handleSubmit(new FormData(event.currentTarget));
+      }}
+      className="grid max-w-lg gap-3"
+    >
       <input type="hidden" name="id" value={priceList.id} />
       <div>
         <label

@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma";
 import {
   isNextRedirectError,
   translatePrismaError,
+  returnActionError,
 } from "@/lib/server/action-errors";
 import {
   getEnum,
@@ -284,7 +285,12 @@ function mapBulkImportRow(row: BulkImportRow, lineNumber: number): CustomerRecor
 
 export type ImportCustomersResult = { imported: number };
 
-export async function importCustomers(
+/** Errors come back as `{ error }` (see returnActionError). */
+export async function importCustomers(formData: FormData) {
+  return returnActionError(() => importCustomersOrThrow(formData));
+}
+
+async function importCustomersOrThrow(
   formData: FormData,
 ): Promise<ImportCustomersResult> {
   await requirePermission(AppPermission.CUSTOMERS_MANAGE);

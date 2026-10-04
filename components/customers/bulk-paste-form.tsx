@@ -163,6 +163,10 @@ export function BulkPasteForm() {
       try {
         setErrorMessage(null);
         const result = await importCustomers(formData);
+        if ("error" in result) {
+          setErrorMessage(result.error);
+          return;
+        }
         setImportComplete(true);
         navigateAfterAction(`/customers?imported=${result.imported}`, {
           type: "success",

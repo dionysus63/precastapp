@@ -113,8 +113,8 @@ type ProductFormProps = {
   priceLists?: PriceListOption[];
   defaultValues?: ProductFormValues;
   productId?: string;
-  /** ISO updatedAt of the product when the edit page loaded it — rejects
-   * stale saves (optimistic concurrency). */
+  /** Edit fingerprint when the page loaded (lib/product-edit-version) —
+   * rejects stale saves (optimistic concurrency); stock moves don't count. */
   expectedUpdatedAt?: string;
 };
 
@@ -386,10 +386,18 @@ export function ProductForm({
   }
 
   return (
-    <form action={handleSubmit} className="space-y-5">
+    // onSubmit, not a function `action`: React resets a form after a function
+    // action runs, which wiped every typed field whenever a save failed.
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        handleSubmit(new FormData(event.currentTarget));
+      }}
+      className="space-y-5"
+    >
       {productId ? <input type="hidden" name="id" value={productId} /> : null}
       {expectedUpdatedAt ? (
-        <input type="hidden" name="expectedUpdatedAt" value={expectedUpdatedAt} />
+        <input type="hidden" name="expectedVersion" value={expectedUpdatedAt} />
       ) : null}
       <div>
         <label

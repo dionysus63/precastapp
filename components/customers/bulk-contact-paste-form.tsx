@@ -159,6 +159,10 @@ export function BulkContactPasteForm() {
       try {
         setErrorMessage(null);
         const result = await importContacts(formData);
+        if ("error" in result) {
+          setErrorMessage(result.error);
+          return;
+        }
         setImportComplete(true);
         const skipped =
           result.skippedUnknownCustomer + result.skippedExisting;

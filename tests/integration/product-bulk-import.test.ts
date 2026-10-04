@@ -120,8 +120,7 @@ describe("importProducts", () => {
         },
       ]),
     );
-    expect(result.imported).toBe(1);
-    expect(result.updated).toBe(1);
+    expect(result).toMatchObject({ imported: 1, updated: 1 });
 
     const updated = await prisma.product.findUniqueOrThrow({
       where: { id: existingProductId },
@@ -152,17 +151,20 @@ describe("importProducts", () => {
   });
 
   it("refuses to turn an existing product of another kind into this import's kind", async () => {
-    await expect(
-      importProducts(
-        importForm([
-          {
-            productCode: `${tag}-RING`,
-            productName: `${tag} not a ring`,
-            unitPrice: "10",
-          },
-        ]),
-      ),
-    ).rejects.toThrow(/different kind of product/i);
+    // Returned, not thrown: a thrown message is replaced by a generic one in
+    // production builds.
+    const result = await importProducts(
+      importForm([
+        {
+          productCode: `${tag}-RING`,
+          productName: `${tag} not a ring`,
+          unitPrice: "10",
+        },
+      ]),
+    );
+    expect(result).toEqual({
+      error: expect.stringMatching(/different kind of product/i),
+    });
 
     const ring = await prisma.product.findUniqueOrThrow({
       where: { productCode: `${tag}-RING` },

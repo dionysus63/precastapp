@@ -34,7 +34,12 @@ export type GenerateDeliveryTicketPdfResult =
   | { success: false; error: string };
 
 export type PrintDeliveryTicketDirectResult =
-  | { success: true; printer: string }
+  | {
+      success: true;
+      printer: string;
+      /** Something printed, but not everything (e.g. submittals skipped). */
+      warning?: string;
+    }
   | { success: false; error: string };
 
 /**
@@ -120,15 +125,36 @@ export async function printDeliveryTicketSubmittalsDirect(
     const { buildSubmittalPackagePdfBytesForDeliveryTicket } = await import(
       "@/lib/submittal-package"
     );
-    const { pdfBytes } = await withDatabaseRetry((client) =>
+    const { pdfBytes, missing, skipped } = await withDatabaseRetry((client) =>
       buildSubmittalPackagePdfBytesForDeliveryTicket(client, ticketId),
     );
+    // The driver's package must not silently lack documents — and an empty
+    // one isn't worth sending to the printer at all.
+    const { PDFDocument } = await import("pdf-lib");
+    const pageCount = (await PDFDocument.load(pdfBytes)).getPageCount();
+    const notes = [
+      missing.length > 0 ? `No submittal on file for: ${missing.join(", ")}.` : null,
+      skipped.length > 0
+        ? `Couldn't include (unreadable or protected): ${skipped.join("; ")}.`
+        : null,
+    ].filter((note): note is string => Boolean(note));
+    if (pageCount === 0) {
+      return {
+        success: false,
+        error: `Nothing to print — this ticket's submittal package is empty. ${notes.join(" ")}`.trim(),
+      };
+    }
+
     await printPdfBytesOnServer(pdfBytes, {
       printer,
       monochrome: settings.submittalPrintColorMode === "monochrome",
     });
 
-    return { success: true, printer };
+    return {
+      success: true,
+      printer,
+      ...(notes.length > 0 ? { warning: notes.join(" ") } : {}),
+    };
   } catch (error) {
     const message =
       error instanceof Error

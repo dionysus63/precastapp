@@ -9,6 +9,7 @@ import {
 } from "@/app/generated/prisma/client";
 import { Prisma } from "@/app/generated/prisma/client";
 import { getAppSettings } from "@/lib/app-settings";
+import { writeAuditLog } from "@/lib/auth/audit";
 import { requirePermission } from "@/lib/auth/session";
 import { invoiceDueDateFromDelivery } from "@/lib/invoicing-service";
 import { computeMoneyTotals } from "@/lib/money";
@@ -252,6 +253,50 @@ export async function voidInvoice(invoiceId: string) {
     return {
       error:
         error instanceof Error ? error.message : "Could not void invoice.",
+    };
+  }
+}
+
+/**
+ * Undo a void: the invoice comes back as a DRAFT with its number, ticket and
+ * lines intact, to be corrected and finalized again. (A voided invoice keeps
+ * its delivery ticket — one invoice per ticket, numbered from it — so without
+ * this a void, e.g. to fix a price, left the delivery unbillable.) For a
+ * fresh invoice priced from scratch, delete the reopened draft and convert
+ * the ticket again.
+ */
+export async function reopenVoidedInvoice(invoiceId: string) {
+  const user = await requirePermission(AppPermission.INVOICES_MANAGE);
+  try {
+    const invoice = await withDatabaseRetry((client) =>
+      client.invoice.findUnique({
+        where: { id: invoiceId },
+        select: { invoiceNumber: true },
+      }),
+    );
+    const reopened = await withDatabaseRetry((client) =>
+      client.invoice.updateMany({
+        where: { id: invoiceId, status: "VOID" },
+        data: { status: "DRAFT" },
+      }),
+    );
+    if (reopened.count === 0 || !invoice) {
+      return { error: "Only voided invoices can be reopened." };
+    }
+    await writeAuditLog({
+      userId: user.id,
+      action: "invoice.reopen",
+      entityType: "Invoice",
+      entityId: invoiceId,
+      summary: `${user.displayName} reopened voided invoice ${invoice.invoiceNumber} as a draft`,
+    });
+    revalidatePath("/invoices");
+    revalidatePath(`/invoices/${invoiceId}`);
+    return { success: true };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "Could not reopen the invoice.",
     };
   }
 }

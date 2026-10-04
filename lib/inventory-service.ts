@@ -386,7 +386,7 @@ export async function saveDailyProductionEntry(
             productId: productionLine.productId,
             quantityChange: productionLine.quantityProduced,
             transactionType: "PRODUCTION" as const,
-            transactionDate: input.productionDate,
+            transactionDate: productionDayTimestamp(input.productionDate),
             referenceType: "DAILY_PRODUCTION_LINE" as const,
             referenceId: productionLine.id,
             createdBy: input.enteredBy ?? null,
@@ -398,7 +398,7 @@ export async function saveDailyProductionEntry(
         await applyStructureProductionLines(
           tx,
           entry.id,
-          input.productionDate,
+          productionDayTimestamp(input.productionDate),
           structureLines,
         );
       }
@@ -408,6 +408,21 @@ export async function saveDailyProductionEntry(
     // Generous ceiling for big production days; the batched writes above keep
     // normal entries far under it.
     { timeout: 30_000 },
+  );
+}
+
+/**
+ * A production day ("2026-10-03", parsed as UTC midnight — right for the
+ * entry's date-only column) as a timestamp for made dates and the ledger:
+ * local noon of that calendar day. Stored as UTC midnight, those timestamp
+ * columns displayed in local time as the day before.
+ */
+export function productionDayTimestamp(productionDate: Date): Date {
+  return new Date(
+    productionDate.getUTCFullYear(),
+    productionDate.getUTCMonth(),
+    productionDate.getUTCDate(),
+    12,
   );
 }
 
@@ -684,7 +699,9 @@ export async function adjustInventory(
 }
 
 /**
- * Reverse stock deductions when a delivered ticket is cancelled.
+ * Reverse stock deductions when a delivered ticket is undone (back to
+ * scheduled, or cancelled), and reopen its lines so a later re-delivery
+ * deducts again.
  */
 export async function reverseInventoryForTicket(
   client: DbClient,
@@ -708,6 +725,7 @@ export async function reverseInventoryForTicket(
       transactionType: "DELIVERY",
       referenceId: { in: lineItemIds },
     },
+    orderBy: { createdAt: "asc" },
   });
   const reversals = await client.inventoryTransaction.findMany({
     where: {
@@ -715,14 +733,34 @@ export async function reverseInventoryForTicket(
       transactionType: "REVERSAL",
       referenceId: { in: lineItemIds },
     },
-    select: { referenceId: true },
+    select: { referenceId: true, productId: true },
   });
 
-  // Skip line items already reversed so re-running this after a partial
-  // failure (e.g. the ticket status update fails after reversal) doesn't
-  // double-credit stock.
-  const reversedIds = new Set(reversals.map((r) => r.referenceId));
-  const existing = deliveries.filter((txn) => !reversedIds.has(txn.referenceId));
+  // Pair each reversal with one delivery of the same line and product, and
+  // reverse only the unmatched ones: re-running after a partial failure
+  // doesn't double-credit, while a ticket delivered, undone and delivered
+  // again is credited again on its second undo.
+  const reversedCounts = new Map<string, number>();
+  for (const reversal of reversals) {
+    const key = `${reversal.referenceId}:${reversal.productId}`;
+    reversedCounts.set(key, (reversedCounts.get(key) ?? 0) + 1);
+  }
+  const existing = deliveries.filter((txn) => {
+    const key = `${txn.referenceId}:${txn.productId}`;
+    const remaining = reversedCounts.get(key) ?? 0;
+    if (remaining > 0) {
+      reversedCounts.set(key, remaining - 1);
+      return false;
+    }
+    return true;
+  });
+
+  // Deduction skips lines already marked DELIVERED (its idempotency guard),
+  // so reopen them for a re-delivery.
+  await client.deliveryTicketLineItem.updateMany({
+    where: { deliveryTicketId, status: "DELIVERED" },
+    data: { status: "NOT_READY" },
+  });
 
   for (const txn of existing) {
     const reversalQty = txn.quantityChange.mul(-1);

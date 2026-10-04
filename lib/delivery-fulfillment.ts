@@ -1801,30 +1801,59 @@ export async function markDeliveryTicketDelivered(
 }
 
 /**
- * Cancel a previously delivered ticket and restore inventory.
+ * Undo a delivery: back to SCHEDULED (delivered by mistake / not actually
+ * delivered) or straight to CANCELLED. Restores the deducted stock, reopens
+ * the lines so a re-delivery deducts again, and puts shipped structures back
+ * to MADE. Refused while the ticket has a live (non-void) invoice — void or
+ * delete that first, since billing depends on the delivery.
  */
-export async function cancelDeliveredTicket(
+export async function undoTicketDelivery(
   client: PrismaClient,
   deliveryTicketId: string,
+  to: "SCHEDULED" | "CANCELLED",
+  createdBy?: string | null,
 ): Promise<void> {
-  const ticket = await client.deliveryTicket.findUnique({
-    where: { id: deliveryTicketId },
-  });
-
-  if (!ticket) {
-    throw new Error("Delivery ticket not found.");
-  }
-
-  if (ticket.status !== "DELIVERED") {
-    throw new Error("Only delivered tickets can be reversed this way.");
-  }
-
   await client.$transaction(async (tx) => {
-    await reverseInventoryForTicket(tx, deliveryTicketId, new Date());
-
-    await tx.deliveryTicket.update({
-      where: { id: deliveryTicketId },
-      data: { status: "CANCELLED" },
+    // Compare-and-set: only a ticket that is still DELIVERED is undone, once.
+    const claimed = await tx.deliveryTicket.updateMany({
+      where: { id: deliveryTicketId, status: "DELIVERED" },
+      data: { status: to, deliveredAt: null },
     });
+    if (claimed.count === 0) {
+      throw new Error("Only delivered tickets can be undone.");
+    }
+
+    const invoice = await tx.invoice.findUnique({
+      where: { deliveryTicketId },
+      select: { invoiceNumber: true, status: true },
+    });
+    if (invoice && invoice.status !== "VOID") {
+      throw new Error(
+        `Invoice ${invoice.invoiceNumber} bills this delivery — void it (or delete the draft) before undoing the delivery.`,
+      );
+    }
+
+    await reverseInventoryForTicket(tx, deliveryTicketId, new Date(), createdBy);
+
+    // Structures this ticket shipped go back to the yard. A split structure
+    // was SHIPPED only once every piece delivered, so losing this ticket's
+    // pieces un-ships it too.
+    const structureLines = await tx.deliveryTicketLineItem.findMany({
+      where: {
+        deliveryTicketId,
+        jobStructureId: { not: null },
+        lineType: { in: ["CONFIGURABLE_STRUCTURE", "CUSTOM_STRUCTURE"] },
+      },
+      select: { jobStructureId: true },
+    });
+    const structureIds = [
+      ...new Set(structureLines.map((line) => line.jobStructureId!)),
+    ];
+    if (structureIds.length > 0) {
+      await tx.jobStructure.updateMany({
+        where: { id: { in: structureIds }, status: "SHIPPED" },
+        data: { status: "MADE", shippedDate: null },
+      });
+    }
   });
 }

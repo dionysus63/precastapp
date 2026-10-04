@@ -19,6 +19,7 @@ import {
   rectSheetDetailInclude,
 } from "@/lib/rect-sheet-detail";
 import { loadAndComputeRectSheet } from "@/lib/rect-sheet-persistence";
+import { getPriceListIdForStructure } from "@/lib/structure-pricing";
 import { prisma } from "@/lib/prisma";
 
 import { BackButton } from "@/components/dashboard/back-button";
@@ -152,9 +153,12 @@ async function RectSheetDetail({ id }: { id: string }) {
 
   // Recompute through the exact pipeline the save actions use so the detail
   // view always matches the stored inputs (and picks up catalog fixes).
+  // Priced from the structure's quote list, like the save and edit paths —
+  // not the default list, which showed a different price than was quoted.
   const formValues = buildRectSheetFormValues(sheet);
   const { result, casting } = await loadAndComputeRectSheet(
     rectPayloadFromFormValues(formValues),
+    { priceListId: await getPriceListIdForStructure(id) },
   );
   const navEntries = await loadJobSheetNav(sheet.jobId);
 

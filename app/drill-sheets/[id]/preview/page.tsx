@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { requireAuthForPath } from "@/lib/auth/session";
 import { DrillSheetPreviewContent } from "@/components/drill-sheets/drill-sheet-preview-content";
 import {
   buildDrillSheetDetail,
@@ -14,6 +15,8 @@ export default async function DrillSheetPreviewPage({
   params,
 }: DrillSheetPreviewPageProps) {
   const { id } = await params;
+  // Outside DashboardShell, so the route's permission is checked here.
+  await requireAuthForPath(`/drill-sheets/${id}/preview`);
 
   const sheet = await prisma.jobStructure.findUnique({
     where: { id },

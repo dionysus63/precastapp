@@ -1,16 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import {
   deleteDraftInvoice,
   finalizeInvoices,
   markInvoicePaid,
+  reopenVoidedInvoice,
   voidInvoice,
 } from "@/app/invoices/actions";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { printPdfUrl } from "@/lib/print-pdf-url";
+import {
+  navigateAfterAction,
+  reloadAfterAction,
+} from "@/lib/reload-after-action";
 
 type InvoiceDetailActionsProps = {
   invoiceId: string;
@@ -26,8 +30,22 @@ export function InvoiceDetailActions({
   canManage,
 }: InvoiceDetailActionsProps) {
   const confirm = useConfirm();
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
+
+  /** Run a status action, then reload so the page shows the new status. */
+  function runAndReload(
+    action: () => Promise<{ error?: string }>,
+    successText: string,
+  ) {
+    startTransition(async () => {
+      const result = await action();
+      if (result.error) {
+        window.alert(result.error);
+        return;
+      }
+      reloadAfterAction({ type: "success", text: successText });
+    });
+  }
 
   if (!canManage && status !== "DRAFT" && status !== "SENT" && status !== "PAID") {
     return (
@@ -71,9 +89,10 @@ export function InvoiceDetailActions({
               ) {
                 return;
               }
-              startTransition(async () => {
-                await finalizeInvoices([invoiceId]);
-              });
+              runAndReload(
+                () => finalizeInvoices([invoiceId]),
+                `Invoice ${invoiceNumber} finalized.`,
+              );
             }}
             className="rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50"
           >
@@ -95,9 +114,14 @@ export function InvoiceDetailActions({
               }
               startTransition(async () => {
                 const result = await deleteDraftInvoice(invoiceId);
-                if (!result.error) {
-                  router.push("/invoices");
+                if (result.error) {
+                  window.alert(result.error);
+                  return;
                 }
+                navigateAfterAction("/invoices", {
+                  type: "success",
+                  text: `Draft ${invoiceNumber} deleted.`,
+                });
               });
             }}
             className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[11px] font-semibold text-red-800 hover:bg-red-100 disabled:opacity-50"
@@ -108,33 +132,33 @@ export function InvoiceDetailActions({
       ) : null}
       {canManage && status === "SENT" ? (
         <>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={async () => {
+          <Link
+            href={`/invoices/${invoiceId}/edit`}
+            onClick={async (event) => {
+              event.preventDefault();
               if (
-                !(await confirm({
+                await confirm({
                   title: "Edit final invoice?",
                   message: `Invoice ${invoiceNumber} is final. Changes will alter what the customer is billed — are you sure?`,
                   confirmLabel: "Edit invoice",
-                }))
+                })
               ) {
-                return;
+                navigateAfterAction(`/invoices/${invoiceId}/edit`);
               }
-              router.push(`/invoices/${invoiceId}/edit`);
             }}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
           >
             Edit invoice
-          </button>
+          </Link>
           <button
             type="button"
             disabled={pending}
-            onClick={() => {
-              startTransition(async () => {
-                await markInvoicePaid(invoiceId);
-              });
-            }}
+            onClick={() =>
+              runAndReload(
+                () => markInvoicePaid(invoiceId),
+                `Invoice ${invoiceNumber} marked paid.`,
+              )
+            }
             className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
           >
             Mark paid
@@ -146,22 +170,47 @@ export function InvoiceDetailActions({
               if (
                 !(await confirm({
                   title: "Void invoice?",
-                  message: `Void invoice ${invoiceNumber}?`,
+                  message: `Void invoice ${invoiceNumber}? To correct a price or quantity, use Edit invoice instead. A voided invoice can be reopened as a draft later.`,
                   confirmLabel: "Void invoice",
                   variant: "danger",
                 }))
               ) {
                 return;
               }
-              startTransition(async () => {
-                await voidInvoice(invoiceId);
-              });
+              runAndReload(
+                () => voidInvoice(invoiceId),
+                `Invoice ${invoiceNumber} voided.`,
+              );
             }}
             className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[11px] font-semibold text-red-800 hover:bg-red-100 disabled:opacity-50"
           >
             Void
           </button>
         </>
+      ) : null}
+      {canManage && status === "VOID" ? (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={async () => {
+            if (
+              !(await confirm({
+                title: "Reopen invoice?",
+                message: `Reopen voided invoice ${invoiceNumber} as a draft? It keeps its number and delivery ticket; correct it and finalize again.`,
+                confirmLabel: "Reopen as draft",
+              }))
+            ) {
+              return;
+            }
+            runAndReload(
+              () => reopenVoidedInvoice(invoiceId),
+              `Invoice ${invoiceNumber} reopened as a draft.`,
+            );
+          }}
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        >
+          Reopen as draft
+        </button>
       ) : null}
     </div>
   );

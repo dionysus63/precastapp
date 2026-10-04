@@ -577,10 +577,12 @@ export async function updateRectJobStructureFromPayload(
         jobId: payload.jobId ?? null,
         structureNumber: payload.structureNumber || null,
         description: `${sizeLabel}${template.name}`,
+        // Leave a hand-entered weight alone when pick weights can't be
+        // computed (same as the circular save) instead of wiping it.
         weight:
           result.weights.heaviestLbs != null
             ? new Prisma.Decimal(String(result.weights.heaviestLbs))
-            : null,
+            : undefined,
         calc: existing.calc ? { update: calcData } : { create: calcData },
         dimensions: existing.dimensions
           ? { update: dimensionData }

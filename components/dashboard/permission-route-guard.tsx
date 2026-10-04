@@ -23,7 +23,12 @@ export function PermissionRouteGuard({
 
   useEffect(() => {
     if (!canAccessPathWithPermissions(permissions, pathname)) {
-      router.replace(getDefaultHomeForRole(role));
+      // Fall back to the dashboard when the role's home is off-limits too,
+      // or this would bounce forever.
+      const home = getDefaultHomeForRole(role);
+      router.replace(
+        canAccessPathWithPermissions(permissions, home) ? home : "/",
+      );
     }
   }, [pathname, permissions, role, router]);
 

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { ActionForm, type ActionFormResult } from "@/components/ui/action-form";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { customerInputClassName } from "@/components/customers/customer-form";
 import {
@@ -29,7 +30,7 @@ export type UserPermissionsFormValues = {
 };
 
 type UserPermissionsFormProps = {
-  action: (formData: FormData) => Promise<void>;
+  action: (formData: FormData) => Promise<ActionFormResult>;
   cancelHref: string;
   submitLabel: string;
   defaultValues: UserPermissionsFormValues;
@@ -126,7 +127,7 @@ export function UserPermissionsForm({
   }
 
   return (
-    <form action={action} className="space-y-6">
+    <ActionForm action={action} className="space-y-6">
       {defaultValues.id ? (
         <input type="hidden" name="id" value={defaultValues.id} />
       ) : null}
@@ -345,6 +346,6 @@ export function UserPermissionsForm({
         </Link>
         <SubmitButton pendingLabel="Saving…">{submitLabel}</SubmitButton>
       </div>
-    </form>
+    </ActionForm>
   );
 }

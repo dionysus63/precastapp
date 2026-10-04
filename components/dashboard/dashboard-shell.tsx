@@ -10,8 +10,9 @@ import {
 } from "@/lib/company-logo";
 import {
   canAccessPathWithPermissions,
-  getDefaultHome,
+  getAccessibleHome,
 } from "@/lib/auth/permissions";
+import { SessionKeepAlive } from "./session-keep-alive";
 import type { PermissionKey, UserRoleKey } from "@/lib/auth/constants";
 import {
   getCurrentUser,
@@ -45,8 +46,13 @@ export async function DashboardShell({
   // are caller-controlled, and a missing header must fail closed rather
   // than fall back to "/" (which has no permission requirement).
   const pathname = headerList.get("x-pathname");
+  // A temporary password must be replaced before anything else: everything
+  // but the profile page (where it's changed) sends the user there.
+  if (user.mustChangePassword && pathname !== "/profile") {
+    redirect("/profile");
+  }
   if (!pathname || !canAccessPathWithPermissions(permissions as PermissionKey[], pathname)) {
-    redirect(getDefaultHome(user));
+    redirect(getAccessibleHome(user, permissions));
   }
 
   const fullSettings = await getAppSettings();
@@ -63,6 +69,7 @@ export async function DashboardShell({
         role={user.role as UserRoleKey}
         permissions={permissions as PermissionKey[]}
       />
+      <SessionKeepAlive />
       <Sidebar
         appTitle={settings.appTitle}
         logoUrl={logoUrl}

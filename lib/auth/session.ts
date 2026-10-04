@@ -7,7 +7,7 @@ import { SESSION_COOKIE_NAME } from "@/lib/auth/constants";
 import { pruneOldAuditLogs, writeAuditLog } from "@/lib/auth/audit";
 import {
   canAccessPath,
-  getDefaultHome,
+  getAccessibleHome,
   getEffectivePermissions,
   hasPermission,
   type AuthUser,
@@ -172,7 +172,7 @@ export async function requireAuthForPath(pathname: string): Promise<AuthUser> {
   const user = await requireAuth();
 
   if (!(await canAccessPath(user, pathname))) {
-    redirect(getDefaultHome(user));
+    redirect(getAccessibleHome(user, await getEffectivePermissions(user)));
   }
 
   return user;

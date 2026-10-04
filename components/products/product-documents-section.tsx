@@ -64,7 +64,10 @@ export function ProductDocumentsSection({
     setMessage({});
     startTransition(async () => {
       try {
-        await uploadProductDocumentAction(formData);
+        const outcome = await uploadProductDocumentAction(formData);
+        if (outcome && "error" in outcome) {
+          throw new Error(outcome.error);
+        }
         formRef.current?.reset();
         // Reload so the list shows the change (revalidation alone doesn't
         // reach the page on the LAN).
@@ -83,6 +86,9 @@ export function ProductDocumentsSection({
     startTransition(async () => {
       try {
         const result = await scanProductDocumentsAction(productId);
+        if ("error" in result) {
+          throw new Error(result.error);
+        }
         reloadAfterAction({
           type: "success",
           text: `Scan complete: ${result.added} added, ${result.removed} removed.`,
@@ -141,7 +147,10 @@ export function ProductDocumentsSection({
     setMessage({});
     startTransition(async () => {
       try {
-        await deleteProductDocumentAction(documentId);
+        const outcome = await deleteProductDocumentAction(documentId);
+        if (outcome && "error" in outcome) {
+          throw new Error(outcome.error);
+        }
         reloadAfterAction({ type: "success", text: "Document deleted." });
       } catch (error) {
         setMessage({

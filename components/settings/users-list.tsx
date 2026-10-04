@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ActionForm } from "@/components/ui/action-form";
 import { deactivateUser, reactivateUser } from "@/app/settings/users/actions";
 import type { UserRoleKey } from "@/lib/auth/constants";
 import { ROLE_LABELS } from "@/lib/auth/constants";
@@ -92,7 +93,7 @@ export function UsersList({ users }: UsersListProps) {
                     Edit
                   </Link>
                   {user.isActive ? (
-                    <form action={deactivateUser}>
+                    <ActionForm action={deactivateUser}>
                       <input type="hidden" name="id" value={user.id} />
                       <button
                         type="submit"
@@ -100,9 +101,9 @@ export function UsersList({ users }: UsersListProps) {
                       >
                         Deactivate
                       </button>
-                    </form>
+                    </ActionForm>
                   ) : (
-                    <form action={reactivateUser}>
+                    <ActionForm action={reactivateUser}>
                       <input type="hidden" name="id" value={user.id} />
                       <button
                         type="submit"
@@ -110,7 +111,7 @@ export function UsersList({ users }: UsersListProps) {
                       >
                         Reactivate
                       </button>
-                    </form>
+                    </ActionForm>
                   )}
                 </div>
               </td>

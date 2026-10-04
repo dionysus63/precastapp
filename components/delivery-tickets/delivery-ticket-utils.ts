@@ -166,7 +166,8 @@ export const deliveryTicketStatusFlow: Record<
   SCHEDULED: ["IN_TRANSIT", "DELIVERED", "CANCELLED"],
   LOADING: ["IN_TRANSIT", "DELIVERED", "CANCELLED"],
   IN_TRANSIT: ["DELIVERED", "CANCELLED"],
-  DELIVERED: [],
+  // Undo a delivery (restores stock); refused while a live invoice bills it.
+  DELIVERED: ["SCHEDULED", "CANCELLED"],
   CANCELLED: [],
 };
 

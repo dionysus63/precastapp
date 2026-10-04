@@ -41,9 +41,9 @@ export function parseRolePermissionsFromStorage(
       .filter((entry): entry is string => typeof entry === "string")
       .filter(isPermissionKey);
 
-    if (parsed.length > 0) {
-      result[roleKey] = parsed;
-    }
+    // An empty list is a deliberate "no permissions" — it must not fall back
+    // to the role's defaults, which silently undid the admin's revocation.
+    result[roleKey] = parsed;
   }
 
   result.ADMIN = [...ALL_PERMISSION_KEYS];

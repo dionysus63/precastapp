@@ -23,6 +23,7 @@ import { prisma, withDatabaseRetry } from "@/lib/prisma";
 import {
   isNextRedirectError,
   translatePrismaError,
+  returnActionError,
 } from "@/lib/server/action-errors";
 import {
   parseAndValidateProductProfile,
@@ -52,6 +53,7 @@ import {
   type CastingBomRowInput,
 } from "@/lib/casting-utils";
 import { launchWindowsFile, launchWindowsFolder } from "@/lib/windows-explorer";
+import { loadProductEditVersion } from "@/lib/product-edit-version";
 import {
   getPriceListsMissingProducts,
   upsertProductPriceListItem,
@@ -481,24 +483,16 @@ export async function updateProduct(
     // the InventoryTransaction history.
     void currentStockQuantity;
 
-    const expectedUpdatedAtRaw = String(
-      formData.get("expectedUpdatedAt") ?? "",
-    ).trim();
+    const expectedVersion = String(formData.get("expectedVersion") ?? "").trim();
 
     await prisma.$transaction(async (tx) => {
-      if (expectedUpdatedAtRaw) {
+      if (expectedVersion) {
         // The casting BOM is replaced wholesale below, so a stale save would
         // silently discard another admin's edits (optimistic concurrency).
-        const current = await tx.product.findUnique({
-          where: { id },
-          select: { updatedAt: true },
-        });
-        const expected = new Date(expectedUpdatedAtRaw);
-        if (
-          !current ||
-          Number.isNaN(expected.getTime()) ||
-          current.updatedAt.getTime() !== expected.getTime()
-        ) {
+        // Compared on the edited fields only — stock moves don't count.
+        await tx.$queryRaw`SELECT "id" FROM "Product" WHERE "id" = ${id} FOR UPDATE`;
+        const currentVersion = await loadProductEditVersion(tx, id);
+        if (currentVersion !== expectedVersion) {
           throw new Error(
             "This product was changed by someone else while you were editing. Refresh the page to load the latest version, then re-apply your changes.",
           );
@@ -904,7 +898,12 @@ export type ImportProductsResult = {
   listsMissingProducts: Array<{ id: string; name: string; missingCount: number }>;
 };
 
-export async function importProducts(
+/** Errors come back as `{ error }` (see returnActionError). */
+export async function importProducts(formData: FormData) {
+  return returnActionError(() => importProductsOrThrow(formData));
+}
+
+async function importProductsOrThrow(
   formData: FormData,
 ): Promise<ImportProductsResult> {
   await requirePermission(AppPermission.PRODUCTS_MANAGE);
@@ -1160,7 +1159,12 @@ function revalidateProductPaths(productId: string) {
   revalidatePath(`/inventory/${productId}`);
 }
 
+/** Errors come back as `{ error }` (see returnActionError). */
 export async function uploadProductDocumentAction(formData: FormData) {
+  return returnActionError(() => uploadProductDocumentActionOrThrow(formData));
+}
+
+async function uploadProductDocumentActionOrThrow(formData: FormData) {
   await requirePermission(AppPermission.PRODUCTS_MANAGE);
   const productId = String(formData.get("productId") ?? "").trim();
   const documentType = String(formData.get("documentType") ?? "GENERIC_SUBMITTAL").trim();
@@ -1181,7 +1185,12 @@ export async function uploadProductDocumentAction(formData: FormData) {
   revalidateProductPaths(productId);
 }
 
+/** Errors come back as `{ error }` (see returnActionError). */
 export async function scanProductDocumentsAction(productId: string) {
+  return returnActionError(() => scanProductDocumentsActionOrThrow(productId));
+}
+
+async function scanProductDocumentsActionOrThrow(productId: string) {
   await requirePermission(AppPermission.PRODUCTS_MANAGE);
   const result = await withDatabaseRetry((client) =>
     scanProductDocuments(client, productId),
@@ -1255,7 +1264,12 @@ export async function openProductSubmittalsFolder(
   return { success: true, path: launch.clientOpenPath, launched: launch.launched };
 }
 
+/** Errors come back as `{ error }` (see returnActionError). */
 export async function deleteProductDocumentAction(documentId: string) {
+  return returnActionError(() => deleteProductDocumentActionOrThrow(documentId));
+}
+
+async function deleteProductDocumentActionOrThrow(documentId: string) {
   await requirePermission(AppPermission.PRODUCTS_MANAGE);
   const document = await withDatabaseRetry((client) =>
     client.productDocument.findUnique({

@@ -2,7 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { writeAuditLog } from "@/lib/auth/audit";
-import { getDefaultHome } from "@/lib/auth/permissions";
+import {
+  getAccessibleHome,
+  getEffectivePermissions,
+} from "@/lib/auth/permissions";
 import { verifyPassword } from "@/lib/auth/password";
 import {
   deleteCurrentSession,
@@ -104,5 +107,7 @@ export async function signInWithPassword(
     redirect("/profile");
   }
 
-  redirect(getDefaultHome(signedInUser));
+  redirect(
+    getAccessibleHome(signedInUser, await getEffectivePermissions(signedInUser)),
+  );
 }

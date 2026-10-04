@@ -17,7 +17,7 @@ import {
 } from "@/lib/delivery-ticket-number";
 import {
   buildQuoteLineAliasMap,
-  cancelDeliveredTicket,
+  undoTicketDelivery,
   getQuoteLineageQuoteIds,
   getQuoteLineFulfillmentAndScheduled,
   markDeliveryTicketDelivered,
@@ -1305,7 +1305,7 @@ export async function updateDeliveryTicketStatus(
   ticketId: string,
   status: DeliveryTicketStatus,
 ) {
-  await requirePermission(AppPermission.DELIVERY_MANAGE);
+  const actor = await requirePermission(AppPermission.DELIVERY_MANAGE);
   try {
     const ticket = await withDatabaseRetry((client) =>
       client.deliveryTicket.findUnique({
@@ -1336,9 +1336,12 @@ export async function updateDeliveryTicketStatus(
       } else if (invoiceResult.invoiceId) {
         revalidatePath("/invoices");
       }
-    } else if (status === "CANCELLED" && ticket.status === "DELIVERED") {
+    } else if (
+      ticket.status === "DELIVERED" &&
+      (status === "SCHEDULED" || status === "CANCELLED")
+    ) {
       await withDatabaseRetry((client) =>
-        cancelDeliveredTicket(client, ticketId),
+        undoTicketDelivery(client, ticketId, status, actor.displayName),
       );
     } else {
       await withDatabaseRetry((client) =>

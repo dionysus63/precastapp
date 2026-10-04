@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { requireAuthForPath } from "@/lib/auth/session";
 import { DeliveryTicketSubmittalPreviewContent } from "@/components/delivery-tickets/delivery-ticket-submittal-preview-content";
 import { getAppSettings } from "@/lib/app-settings";
 import { withDatabaseRetry } from "@/lib/prisma";
@@ -13,6 +14,8 @@ export default async function DeliveryTicketSubmittalPreviewPage({
   searchParams,
 }: DeliveryTicketSubmittalPreviewPageProps) {
   const { id } = await params;
+  // Outside DashboardShell, so the route's permission is checked here.
+  await requireAuthForPath(`/delivery-tickets/${id}/submittals/preview`);
   const { from } = await searchParams;
   const fromWalkIns = from === "walk-ins";
   const fromHub = from === "hub";

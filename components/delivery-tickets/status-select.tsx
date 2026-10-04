@@ -37,6 +37,14 @@ const CONFIRM_MESSAGES: Partial<Record<DeliveryTicketStatus, string>> = {
   CANCELLED: "Cancel this load? It disappears from dispatch panels.",
 };
 
+/** Leaving DELIVERED undoes the delivery — say what that does. */
+const UNDO_CONFIRM_MESSAGES: Partial<Record<DeliveryTicketStatus, string>> = {
+  SCHEDULED:
+    "Undo this delivery? Inventory is put back, its structures return to Made, and the load goes back to Scheduled.",
+  CANCELLED:
+    "Undo this delivery and cancel the load? Inventory is put back and its structures return to Made.",
+};
+
 /**
  * Dispatch quick status change, e.g. from the Today's Loads panel.
  * Optimistic: the picked status shows immediately and the control stays
@@ -70,7 +78,8 @@ export function StatusSelect({ ticketId, status }: StatusSelectProps) {
     if (next === value) {
       return;
     }
-    const confirmMessage = CONFIRM_MESSAGES[next];
+    const confirmMessage =
+      value === "DELIVERED" ? UNDO_CONFIRM_MESSAGES[next] : CONFIRM_MESSAGES[next];
     if (confirmMessage && !window.confirm(confirmMessage)) {
       // No state change means no re-render — reset the DOM select.
       event.target.value = value;

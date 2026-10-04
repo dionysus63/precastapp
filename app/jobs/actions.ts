@@ -16,7 +16,7 @@ import { launchWindowsFile, launchWindowsFolder as launchFolder } from "@/lib/wi
 import { assertPathUnderJobFolder } from "@/lib/job-path-security";
 import { AppPermission, JobStatus, Prisma } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
-import { translatePrismaError } from "@/lib/server/action-errors";
+import { translatePrismaError, returnActionError } from "@/lib/server/action-errors";
 import {
   getEnum,
   getOptionalDate,
@@ -517,7 +517,12 @@ function revalidateJobStructurePaths(
   }
 }
 
+/** Errors come back as `{ error }` (see returnActionError). */
 export async function uploadJobStructureDocumentAction(formData: FormData) {
+  return returnActionError(() => uploadJobStructureDocumentActionOrThrow(formData));
+}
+
+async function uploadJobStructureDocumentActionOrThrow(formData: FormData) {
   await requirePermission(AppPermission.JOBS_MANAGE);
   const jobStructureId = String(formData.get("jobStructureId") ?? "").trim();
   const jobId = String(formData.get("jobId") ?? "").trim();
@@ -604,7 +609,12 @@ export async function openJobStructureSubmittalsFolder(
   return { success: true, path: launch.clientOpenPath, launched: launch.launched };
 }
 
+/** Errors come back as `{ error }` (see returnActionError). */
 export async function deleteJobStructureDocumentAction(documentId: string) {
+  return returnActionError(() => deleteJobStructureDocumentActionOrThrow(documentId));
+}
+
+async function deleteJobStructureDocumentActionOrThrow(documentId: string) {
   await requirePermission(AppPermission.JOBS_MANAGE);
   const document = await withDatabaseRetry((client) =>
     client.jobStructureDocument.findUnique({
