@@ -41,7 +41,7 @@ export async function DashboardShell({
 
   const permissions = await getUserPermissions(user);
   const headerList = await headers();
-  // Only x-pathname is trusted: middleware overwrites it on every matched
+  // Only x-pathname is trusted: proxy.ts overwrites it on every matched
   // request, so it cannot be spoofed. No referer/next-url fallbacks — those
   // are caller-controlled, and a missing header must fail closed rather
   // than fall back to "/" (which has no permission requirement).

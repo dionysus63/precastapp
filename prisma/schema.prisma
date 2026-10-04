@@ -627,6 +627,7 @@ model RectSheetPdfSetFile {
   setId        String
   hasTopSlab   Boolean
   hasBaseSlab  Boolean
+  /// Relative to storage/rect-pdf-sets: "<setId>/<variant>.pdf".
   filePath     String
   originalName String
   fileSize     Int?

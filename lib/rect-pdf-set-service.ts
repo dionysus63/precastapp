@@ -19,17 +19,46 @@ export type RectSheetPdfSetFileRecord = {
   updatedAt: Date;
 };
 
+type SetFileKey = Pick<
+  RectSheetPdfSetFileRecord,
+  "setId" | "hasTopSlab" | "hasBaseSlab"
+>;
+
+/**
+ * Uploaded set PDFs live in git-ignored storage, never in a git-tracked
+ * folder: the server writing into tracked paths made deploys' `git pull`
+ * collide with production uploads.
+ */
 export function getRectPdfSetsRoot(): string {
+  return path.join(process.cwd(), "storage", "rect-pdf-sets");
+}
+
+/**
+ * Where sets were stored before they moved to storage/. Read-only fallback:
+ * deploy-app.ps1 copies it into storage/ (scripts/migrate-rect-pdf-sets.mjs),
+ * and five of its files are still tracked in git.
+ */
+export function getLegacyRectPdfSetsRoot(): string {
   return path.join(process.cwd(), "assets", "templates", "rect-pdf-sets");
 }
 
-function assertPathUnderRoot(root: string, filePath: string): void {
+/** Path relative to the sets root; what RectSheetPdfSetFile.filePath stores. */
+export function rectPdfSetRelativePath(key: SetFileKey): string {
+  return `${key.setId}/${rectTemplateVariantKey(key.hasTopSlab, key.hasBaseSlab)}.pdf`;
+}
+
+function resolveUnderRoot(root: string, key: SetFileKey): string {
   const resolvedRoot = path.resolve(root);
-  const resolvedPath = path.resolve(filePath);
+  const resolvedPath = path.resolve(resolvedRoot, rectPdfSetRelativePath(key));
   const relative = path.relative(resolvedRoot, resolvedPath);
   if (relative.startsWith("..") || path.isAbsolute(relative)) {
     throw new Error("File path is outside the allowed PDF sets directory.");
   }
+  return resolvedPath;
+}
+
+function isMissingFile(error: unknown): boolean {
+  return (error as NodeJS.ErrnoException)?.code === "ENOENT";
 }
 
 export async function saveRectPdfSetFile(
@@ -48,49 +77,28 @@ export async function saveRectPdfSetFile(
     throw new Error("PDF set not found.");
   }
 
-  const root = getRectPdfSetsRoot();
-  const setDir = path.join(root, setId);
-  await mkdir(setDir, { recursive: true });
+  const key = { setId, ...variant };
+  const outputPath = resolveUnderRoot(getRectPdfSetsRoot(), key);
+  await mkdir(path.dirname(outputPath), { recursive: true });
 
-  const outputPath = path.normalize(
-    path.join(
-      setDir,
-      `${rectTemplateVariantKey(variant.hasTopSlab, variant.hasBaseSlab)}.pdf`,
-    ),
-  );
-  assertPathUnderRoot(root, outputPath);
-
-  const uniqueWhere = {
-    setId_hasTopSlab_hasBaseSlab: { setId, ...variant },
-  };
-
-  const existing = await client.rectSheetPdfSetFile.findUnique({
-    where: uniqueWhere,
-  });
-  if (existing) {
-    try {
-      await unlink(existing.filePath);
-    } catch {
-      // Previous file may already be gone.
-    }
-  }
-
+  // Same variant always maps to the same file, so this overwrites any
+  // previous upload in place.
   const buffer = Buffer.from(await file.arrayBuffer());
   await writeFile(outputPath, buffer);
 
+  const filePath = rectPdfSetRelativePath(key);
   const originalName = sanitizeFileName(file.name);
 
   return client.rectSheetPdfSetFile.upsert({
-    where: uniqueWhere,
+    where: { setId_hasTopSlab_hasBaseSlab: key },
     create: {
-      setId,
-      ...variant,
-      filePath: outputPath,
+      ...key,
+      filePath,
       originalName,
       fileSize: buffer.length,
     },
     update: {
-      filePath: outputPath,
+      filePath,
       originalName,
       fileSize: buffer.length,
     },
@@ -106,10 +114,9 @@ export async function deleteRectPdfSetFile(
     throw new Error("PDF set file not found.");
   }
 
-  const root = getRectPdfSetsRoot();
-  assertPathUnderRoot(root, row.filePath);
+  // Only storage/ is ours to delete from; a legacy copy may be tracked in git.
   try {
-    await unlink(row.filePath);
+    await unlink(resolveUnderRoot(getRectPdfSetsRoot(), row));
   } catch {
     // File may already be removed from disk.
   }
@@ -118,10 +125,16 @@ export async function deleteRectPdfSetFile(
 }
 
 export async function readRectPdfSetFileBytes(
-  row: Pick<RectSheetPdfSetFileRecord, "filePath">,
+  row: SetFileKey,
 ): Promise<Uint8Array> {
-  const root = getRectPdfSetsRoot();
-  assertPathUnderRoot(root, row.filePath);
-  const buffer = await readFile(row.filePath);
+  let buffer: Buffer;
+  try {
+    buffer = await readFile(resolveUnderRoot(getRectPdfSetsRoot(), row));
+  } catch (error) {
+    if (!isMissingFile(error)) {
+      throw error;
+    }
+    buffer = await readFile(resolveUnderRoot(getLegacyRectPdfSetsRoot(), row));
+  }
   return new Uint8Array(buffer);
 }

@@ -33,6 +33,10 @@ Write-Host "`n== prisma migrate deploy ==" -ForegroundColor Cyan
 npx prisma migrate deploy
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+Write-Host "`n== migrate uploaded files to storage/ ==" -ForegroundColor Cyan
+node scripts/migrate-rect-pdf-sets.mjs
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 Write-Host "`n== prisma generate ==" -ForegroundColor Cyan
 npx prisma generate
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

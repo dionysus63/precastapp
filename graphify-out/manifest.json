@@ -186,9 +186,9 @@
     "semantic_hash": ""
   },
   "components/dashboard/dashboard-shell.tsx": {
-    "mtime": 1791128337.9654856,
-    "seen": 1791128943.675518,
-    "ast_hash": "06c5dbc908755ac76c8edcb0cfc1cd83",
+    "mtime": 1791142942.283573,
+    "seen": 1791143240.9298973,
+    "ast_hash": "b01914dff7b47a1ede47583d9728f865",
     "semantic_hash": ""
   },
   "components/dashboard/header.tsx": {
@@ -396,9 +396,9 @@
     "semantic_hash": ""
   },
   "next.config.ts": {
-    "mtime": 1791046825.7628791,
-    "seen": 1791086286.7677908,
-    "ast_hash": "d545bea1195eca81b7c834abb08fbaf4",
+    "mtime": 1791142942.4842694,
+    "seen": 1791143240.9636497,
+    "ast_hash": "8f5636e9d92cb1c9f28d6bb92a6beeb6",
     "semantic_hash": ""
   },
   "package.json": {
@@ -1307,12 +1307,6 @@
     "ast_hash": "2a3a9e7d72285130e0caa241dde8706c",
     "semantic_hash": ""
   },
-  "middleware.ts": {
-    "mtime": 1791125405.7495017,
-    "seen": 1791126843.0759995,
-    "ast_hash": "4c78560a5b6d259d56ee47d9fb6cdfe7",
-    "semantic_hash": ""
-  },
   "prisma/migrations/20260621100000_job_file_path_unique/migration.sql": {
     "mtime": 1782065667.2554064,
     "ast_hash": "",
@@ -1754,9 +1748,9 @@
     "semantic_hash": ""
   },
   "scripts/deploy/deploy-app.ps1": {
-    "mtime": 1791046825.8653965,
-    "seen": 1791086286.7677908,
-    "ast_hash": "821cadb7ddd920240727d3c8865b8865",
+    "mtime": 1791142979.5336692,
+    "seen": 1791143240.9646487,
+    "ast_hash": "3773cca08b187f2806d2ca494e5340e3",
     "semantic_hash": ""
   },
   "scripts/deploy/install-prerequisites.ps1": {
@@ -1790,9 +1784,9 @@
     "semantic_hash": ""
   },
   "docs/DEPLOYMENT.md": {
-    "mtime": 1791046824.8824196,
-    "seen": 1791086286.7677908,
-    "ast_hash": "ddec8c94bae279169dba1d26ded64c79",
+    "mtime": 1791143211.3902168,
+    "seen": 1791143240.9746497,
+    "ast_hash": "6d58f69b5cbb0cfd20138602992e078a",
     "semantic_hash": ""
   },
   "docs/deployment-server-info.md": {
@@ -1832,8 +1826,8 @@
     "semantic_hash": ""
   },
   "public/pdf.worker.min.mjs": {
-    "mtime": 1791131260.5926342,
-    "seen": 1791131612.3894327,
+    "mtime": 1791142486.435119,
+    "seen": 1791143240.9636497,
     "ast_hash": "6a28c227ac2be2e92bc7b508d69b2a1f",
     "semantic_hash": ""
   },
@@ -1874,8 +1868,8 @@
     "semantic_hash": ""
   },
   "electron/config.default.json": {
-    "mtime": 1791046824.8864233,
-    "seen": 1791086286.7677908,
+    "mtime": 1791141961.0333083,
+    "seen": 1791143240.9470592,
     "ast_hash": "5776055838998b3aa232f60681ed5b90",
     "semantic_hash": ""
   },
@@ -3286,9 +3280,9 @@
     "semantic_hash": ""
   },
   "lib/rect-pdf-set-service.ts": {
-    "mtime": 1791046825.748863,
-    "seen": 1791086286.7677908,
-    "ast_hash": "59728bd115dc8599c757e581e8d44fea",
+    "mtime": 1791142958.372495,
+    "seen": 1791143240.9606497,
+    "ast_hash": "7d992f92047dd5044adaa5aa2131403b",
     "semantic_hash": ""
   },
   "prisma/migrations/20260706150000_rect_pdf_sets_and_slab_pricing/migration.sql": {
@@ -3802,9 +3796,9 @@
     "semantic_hash": ""
   },
   "tests/unit/route-permissions.test.ts": {
-    "mtime": 1791046825.910225,
-    "seen": 1791086286.7677908,
-    "ast_hash": "0d7777584d99bf8589935cd16747cca0",
+    "mtime": 1791142942.3257027,
+    "seen": 1791143240.9736495,
+    "ast_hash": "e456032981a51de05341f0df327e9532",
     "semantic_hash": ""
   },
   "app/api/invoices/final-batch/pdf/route.ts": {
@@ -3848,9 +3842,9 @@
     "semantic_hash": ""
   },
   "app/updates/[...file]/route.ts": {
-    "mtime": 1791046824.7396348,
-    "seen": 1791086286.7677908,
-    "ast_hash": "c17616748586304b883e487fa47caf9e",
+    "mtime": 1791142942.3932776,
+    "seen": 1791143240.9278967,
+    "ast_hash": "b6034ee5adae82fa4440425f5af8f6ae",
     "semantic_hash": ""
   },
   "lib/open-on-client.ts": {
@@ -4661,12 +4655,6 @@
     "ast_hash": "d0386c8f425b817317286cc873f46561",
     "semantic_hash": ""
   },
-  "tests/unit/middleware.test.ts": {
-    "mtime": 1791126761.9594548,
-    "seen": 1791126843.0860047,
-    "ast_hash": "b8d6016722ae870120446e32ac51985f",
-    "semantic_hash": ""
-  },
   "tests/unit/pdf-text.test.ts": {
     "mtime": 1791126475.950575,
     "seen": 1791126843.0860047,
@@ -4719,6 +4707,30 @@
     "mtime": 1791131139.263392,
     "seen": 1791131612.34004,
     "ast_hash": "877b2bf79fe04c15a77c5b28e68e0fcf",
+    "semantic_hash": ""
+  },
+  "proxy.ts": {
+    "mtime": 1791142942.117139,
+    "seen": 1791143240.9636497,
+    "ast_hash": "8c25b88f4565094a33dce92d8db24121",
+    "semantic_hash": ""
+  },
+  "scripts/migrate-rect-pdf-sets.mjs": {
+    "mtime": 1791142984.771307,
+    "seen": 1791143240.9666507,
+    "ast_hash": "365ae7c55bd6fe81564631f637bac056",
+    "semantic_hash": ""
+  },
+  "tests/unit/proxy.test.ts": {
+    "mtime": 1791142942.2524123,
+    "seen": 1791143240.972649,
+    "ast_hash": "0883587a148fbe6a6842ab318a081fc1",
+    "semantic_hash": ""
+  },
+  "tests/unit/rect-pdf-set-service.test.ts": {
+    "mtime": 1791143027.802188,
+    "seen": 1791143240.9736495,
+    "ast_hash": "3616e50a67da20de14aeb5e396f84924",
     "semantic_hash": ""
   }
 }

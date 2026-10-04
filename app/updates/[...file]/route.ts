@@ -12,7 +12,7 @@ import { NextResponse } from "next/server";
  * already known to the build are served by the static layer and never
  * reach this route; new ones land here.
  *
- * No auth (matching the middleware bypass): the updater runs before login.
+ * No auth (matching the proxy.ts bypass): the updater runs before login.
  */
 
 const UPDATES_DIR = path.join(process.cwd(), "public", "updates");

@@ -9,7 +9,7 @@ import {
  * Regression tests for the page-permission map behind DashboardShell.
  *
  * DashboardShell authorizes with canAccessPathWithPermissions against the
- * middleware-forwarded x-pathname header (and fails closed when the header
+ * proxy-forwarded x-pathname header (and fails closed when the header
  * is missing). These tests pin the map itself: role defaults must not
  * silently gain access to pages outside their area.
  */

@@ -369,7 +369,7 @@ Use the server hostname or `\\192.168.1.20\C$\Apps\precastapp\public\updates` if
 New-Item -ItemType Directory -Path C:\Apps\precastapp\public\updates -Force
 ```
 
-Also `git pull` on the server so middleware allows `/updates` without login (if you haven’t already).
+Also `git pull` on the server so `proxy.ts` allows `/updates` without login (if you haven’t already).
 
 **Step 4 — Any PC:** verify the feed is live:
 
@@ -421,6 +421,7 @@ Register a Windows Scheduled Task to run that script nightly.
 | Server URL change only | **Staff PCs** | Edit `%APPDATA%\Precast Ops\config.json` |
 | Schema changes | **Server** | `npx prisma migrate deploy` + `npx prisma generate` (via `deploy-app.ps1`) |
 | Database backup | **Server** | `backup-database.ps1` on a schedule |
+| Uploaded sheet PDF sets | **Server** | `C:\Apps\precastapp\storage\` (git-ignored, not in the DB backup) — include it in file backups |
 | Job files | File share | Existing share backup policy |
 | Re-index files | **Server** | `npm run db:sync-files` after bulk moves |
 

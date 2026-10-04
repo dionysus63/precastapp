@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
       // Construction plans and submittals are often multi-MB PDFs/DWGs.
       bodySizeLimit: "100mb",
     },
-    // Request body is buffered by middleware/proxy before Server Actions (default 10MB).
+    // Request body is buffered by proxy.ts before Server Actions (default 10MB).
     proxyClientMaxBodySize: "100mb",
   },
 };
