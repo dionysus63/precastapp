@@ -34,8 +34,14 @@ export default async function CustomerDetailPage({
     notFound();
   }
 
+  // Linked records, plus older unlinked ones that only carry the name. A
+  // record linked to a different customer with the same name is theirs, not
+  // this customer's.
   const relatedWhere = {
-    OR: [{ customerId: customer.id }, { customerName: customer.name }],
+    OR: [
+      { customerId: customer.id },
+      { customerId: null, customerName: customer.name },
+    ],
   };
 
   // Independent of each other — run in parallel. The lists are capped (years

@@ -99,7 +99,7 @@ afterAll(async () => {
   await prisma.deliveryTicket.deleteMany({
     where: { customerName: `${tag} Contractor` },
   });
-  await prisma.quote.deleteMany({ where: { quoteNumber: `${tag}-Q1` } });
+  await prisma.quote.deleteMany({ where: { quoteNumber: { startsWith: tag } } });
   await prisma.product.deleteMany({
     where: { galleyFamilyCode: familyCode },
   });
@@ -255,5 +255,127 @@ describe("applyGalleyBreakdown", () => {
     expect(String((result as { error: string }).error)).toMatch(
       /delivery tickets or invoices/,
     );
+  });
+});
+
+describe("applyGalleyBreakdown money and lineage guards", () => {
+  async function createGalleyQuote(
+    suffix: string,
+    lines: Array<{
+      type?: "END" | "MIDDLE" | "CB";
+      quantity: number;
+      unitPrice: number;
+      previousLineItemId?: string;
+    }>,
+  ) {
+    return prisma.quote.create({
+      data: {
+        quoteNumber: `${tag}-${suffix}`,
+        customerName: `${tag} Contractor`,
+        projectName: `${tag} project`,
+        status: "DRAFT",
+        lineItems: {
+          create: lines.map((line, index) => ({
+            lineNumber: index + 1,
+            sortOrder: index + 1,
+            lineType: "STOCK_PRODUCT" as const,
+            itemCode: line.type
+              ? `${familyCode}-${line.type === "END" ? "E" : line.type === "MIDDLE" ? "M" : "CB"}`
+              : familyCode,
+            productId: line.type ? productIdByType.get(line.type) : null,
+            galleyFamilyCode: line.type ? null : familyCode,
+            quantity: line.quantity,
+            unit: "EA",
+            unitPrice: line.unitPrice,
+            taxable: false,
+            total: line.quantity * line.unitPrice,
+            previousLineItemId: line.previousLineItemId ?? null,
+          })),
+        },
+      },
+      include: { lineItems: { orderBy: { sortOrder: "asc" } } },
+    });
+  }
+
+  it("refuses a breakdown that would change the money total", async () => {
+    // Family total of 10 @ $500 plus a CB pair quoted separately @ $650.
+    const quote = await createGalleyQuote("PRICED", [
+      { quantity: 10, unitPrice: 500 },
+      { type: "CB", quantity: 2, unitPrice: 650 },
+    ]);
+
+    const result = await applyGalleyBreakdown(quote.id, familyCode, {
+      END: 2,
+      MIDDLE: 8,
+      CB: 2,
+    });
+    expect(result).toHaveProperty("error");
+    expect((result as { error: string }).error).toMatch(/priced differently/);
+
+    const lines = await prisma.quoteLineItem.findMany({
+      where: { quoteId: quote.id },
+    });
+    expect(lines).toHaveLength(2);
+  });
+
+  it("keeps each galley type's revision lineage when re-balancing", async () => {
+    const earlier = await createGalleyQuote("LINEAGE-R0", [
+      { type: "END", quantity: 2, unitPrice: 706 },
+      { type: "MIDDLE", quantity: 8, unitPrice: 706 },
+    ]);
+    const [earlierEnd, earlierMiddle] = earlier.lineItems;
+    const revision = await createGalleyQuote("LINEAGE-R1", [
+      { type: "END", quantity: 2, unitPrice: 706, previousLineItemId: earlierEnd!.id },
+      {
+        type: "MIDDLE",
+        quantity: 8,
+        unitPrice: 706,
+        previousLineItemId: earlierMiddle!.id,
+      },
+    ]);
+
+    const result = await applyGalleyBreakdown(revision.id, familyCode, {
+      END: 4,
+      MIDDLE: 6,
+      CB: 0,
+    });
+    expect(result).toEqual({ ok: true });
+
+    const lines = await prisma.quoteLineItem.findMany({
+      where: { quoteId: revision.id },
+      orderBy: { sortOrder: "asc" },
+    });
+    expect(
+      lines.map((line) => [line.itemCode, Number(line.quantity), line.previousLineItemId]),
+    ).toEqual([
+      [`${familyCode}-E`, 4, earlierEnd!.id],
+      [`${familyCode}-M`, 6, earlierMiddle!.id],
+    ]);
+
+    // Once the earlier revision's line ships, the mix is pinned here too.
+    await prisma.deliveryTicket.create({
+      data: {
+        customerName: `${tag} Contractor`,
+        projectName: `${tag} project`,
+        lineItems: {
+          create: {
+            lineNumber: 1,
+            lineType: "STOCK_PRODUCT",
+            itemCode: `${familyCode}-M`,
+            quantity: 2,
+            unit: "EA",
+            quoteLineItemId: earlierMiddle!.id,
+            productId: earlierMiddle!.productId,
+          },
+        },
+      },
+    });
+    const pinned = await applyGalleyBreakdown(revision.id, familyCode, {
+      END: 2,
+      MIDDLE: 8,
+      CB: 0,
+    });
+    expect(pinned).toHaveProperty("error");
+    expect((pinned as { error: string }).error).toMatch(/earlier revision/);
   });
 });

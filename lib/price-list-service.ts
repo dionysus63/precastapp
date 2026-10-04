@@ -75,8 +75,10 @@ export async function getPriceListCompleteness(
   // to a single pg connection — concurrent queries on it are unsupported
   // (deprecated in pg 8, removed in pg 9).
   const totalActiveProducts = await getActiveProductCount(client);
+  // Only active products count toward coverage: entries for discontinued
+  // products would otherwise mask active products that have no price.
   const listedCount = await client.priceListItem.count({
-    where: { priceListId },
+    where: { priceListId, product: { status: "ACTIVE" } },
   });
 
   const missingCount = Math.max(0, totalActiveProducts - listedCount);
@@ -168,9 +170,11 @@ export async function copyPriceListItems(
   sourcePriceListId: string,
   client: DbClient = prisma,
 ): Promise<number> {
+  // The pickup price travels with the delivered price: without it, pickup
+  // tickets on the new list silently bill the full delivered price.
   const sourceItems = await client.priceListItem.findMany({
     where: { priceListId: sourcePriceListId },
-    select: { productId: true, unitPrice: true },
+    select: { productId: true, unitPrice: true, pickupPrice: true },
   });
 
   for (const item of sourceItems) {
@@ -185,8 +189,9 @@ export async function copyPriceListItems(
         priceListId: targetPriceListId,
         productId: item.productId,
         unitPrice: item.unitPrice,
+        pickupPrice: item.pickupPrice,
       },
-      update: { unitPrice: item.unitPrice },
+      update: { unitPrice: item.unitPrice, pickupPrice: item.pickupPrice },
     });
   }
 

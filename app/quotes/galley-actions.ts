@@ -31,7 +31,9 @@ export type ApplyGalleyBreakdownResult = { error: string } | { ok: true };
  * Replaces a quote's galley lines for one family with typed product lines
  * matching `counts`. Handles both the initial breakdown (family-total line
  * present) and later re-balancing (typed lines only), keeping the total
- * count — and therefore the quote total — unchanged.
+ * count — and therefore the quote total — unchanged. Refuses when the
+ * family's lines are priced differently (one template price can't preserve
+ * the total) and keeps each line's revision lineage.
  */
 export async function applyGalleyBreakdown(
   quoteId: string,
@@ -145,19 +147,55 @@ export async function applyGalleyBreakdown(
           throw new Error(validationError);
         }
 
-        // Anything already scheduled or billed pins the current mix.
+        // Every replacement line is priced from one template, so the family's
+        // lines must already share a price and taxability — otherwise the
+        // breakdown would quietly change the quote total.
+        const prices = [
+          ...new Set(affectedLines.map((line) => line.unitPrice.toFixed(2))),
+        ];
+        if (prices.length > 1) {
+          throw new Error(
+            `The ${familyCode} lines are priced differently (${prices.map((price) => `$${price}`).join(", ")}) — breaking them down would change the quote total. Give them one price first.`,
+          );
+        }
+        if (new Set(affectedLines.map((line) => line.taxable)).size > 1) {
+          throw new Error(
+            `The ${familyCode} lines mix taxable and non-taxable — make them match before breaking them down.`,
+          );
+        }
+
+        // Anything already scheduled or billed pins the current mix — on this
+        // quote's lines or on the earlier revisions they were copied from
+        // (fulfillment counts shipped quantities through that lineage).
         const affectedIds = affectedLines.map((line) => line.id);
+        const lineageIds = new Set<string>();
+        let frontier = affectedLines
+          .map((line) => line.previousLineItemId)
+          .filter((id): id is string => Boolean(id));
+        for (let depth = 0; frontier.length > 0 && depth < 10; depth += 1) {
+          for (const id of frontier) {
+            lineageIds.add(id);
+          }
+          const parents = await tx.quoteLineItem.findMany({
+            where: { id: { in: frontier } },
+            select: { previousLineItemId: true },
+          });
+          frontier = parents
+            .map((parent) => parent.previousLineItemId)
+            .filter((id): id is string => Boolean(id) && !lineageIds.has(id!));
+        }
+        const pinnedIds = [...affectedIds, ...lineageIds];
         // Sequential awaits: transaction clients are pinned to one pg
         // connection — no concurrent queries.
         const ticketRefs = await tx.deliveryTicketLineItem.count({
-          where: { quoteLineItemId: { in: affectedIds } },
+          where: { quoteLineItemId: { in: pinnedIds } },
         });
         const invoiceRefs = await tx.invoiceLineItem.count({
-          where: { quoteLineItemId: { in: affectedIds } },
+          where: { quoteLineItemId: { in: pinnedIds } },
         });
         if (ticketRefs > 0 || invoiceRefs > 0) {
           throw new Error(
-            "These galley lines already have delivery tickets or invoices against them — the mix can no longer be changed here.",
+            "These galley lines (or the earlier revision they came from) already have delivery tickets or invoices against them — the mix can no longer be changed here.",
           );
         }
 
@@ -185,8 +223,14 @@ export async function applyGalleyBreakdown(
               `No active ${galleyTypeLabels[type]} product for ${familyCode}.`,
             );
           }
+          // Keep revision lineage: a typed line inherits the ancestor of the
+          // line it replaces (same galley type), else the family total's.
+          const replaced =
+            typedLines.find((line) => line.product?.galleyType === type) ??
+            familyTotalLines[0];
           replacements.push({
             quoteId,
+            previousLineItemId: replaced?.previousLineItemId ?? null,
             lineNumber: 0,
             lineType: "STOCK_PRODUCT",
             productId: member.productId,
@@ -207,6 +251,26 @@ export async function applyGalleyBreakdown(
             notes: template.notes,
             sortOrder: 0,
           });
+        }
+
+        // Money invariant: the family's extended amount is unchanged.
+        const amountBefore = affectedLines.reduce(
+          (sum, line) => sum.add(line.quantity.mul(line.unitPrice)),
+          new Prisma.Decimal(0),
+        );
+        const amountAfter = replacements.reduce(
+          (sum, line) =>
+            sum.add(
+              new Prisma.Decimal(line.quantity as Prisma.Decimal).mul(
+                line.unitPrice as Prisma.Decimal,
+              ),
+            ),
+          new Prisma.Decimal(0),
+        );
+        if (!amountBefore.equals(amountAfter)) {
+          throw new Error(
+            `This breakdown would change the ${familyCode} amount from $${amountBefore.toFixed(2)} to $${amountAfter.toFixed(2)} — it was not applied.`,
+          );
         }
 
         const createdIds: string[] = [];

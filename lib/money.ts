@@ -5,6 +5,11 @@ const MONEY_DP = 2;
 
 export type { DecimalLike } from "@/lib/decimal";
 
+/** A unit price as it will be stored: rounded to cents. */
+export function roundUnitPrice(unitPrice: DecimalLike): DecimalInstance {
+  return toDecimal(unitPrice).toDecimalPlaces(MONEY_DP);
+}
+
 export type MoneyLineInput = {
   quantity: DecimalLike;
   unitPrice: DecimalLike;
@@ -25,6 +30,12 @@ export type ComputedMoneyTotals = {
  * `Decimal` (never JS floats) and every persisted figure is rounded to
  * cents with a single, shared rounding policy so a quote and the invoice it
  * becomes agree to the penny.
+ *
+ * Unit prices are rounded to cents before extending, because that's how
+ * they are stored (Decimal(12,2)): a computed price like 18.375 is saved as
+ * 18.38, and the stored line total must equal quantity × stored price or
+ * the PDF shows arithmetic that doesn't add up and any later recompute from
+ * the saved lines drifts the total.
  *
  * Tax is computed on the summed taxable extended amount (not per line) and
  * rounded once, matching the existing invoice behavior.
@@ -47,7 +58,7 @@ export function computeMoneyTotals(
 
   for (const line of lines) {
     const lineTotal = toDecimal(line.quantity)
-      .mul(toDecimal(line.unitPrice))
+      .mul(roundUnitPrice(line.unitPrice))
       .toDecimalPlaces(MONEY_DP);
     lineTotals.push(lineTotal);
     subtotal = subtotal.add(lineTotal);

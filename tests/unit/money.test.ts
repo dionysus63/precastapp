@@ -68,19 +68,30 @@ describe("computeMoneyTotals", () => {
   });
 
   it("rounds each extended line total to cents before summing", () => {
-    // 3 × $0.333 = $0.999 → line rounds to $1.00; subtotal is the sum of
+    // 1.5 × $10.33 = $15.495 → line rounds to $15.50; subtotal is the sum of
     // rounded lines, matching what the PDF itemizes.
     const result = asNumbers(
       computeMoneyTotals(
         [
-          { quantity: 3, unitPrice: 0.333, taxable: true },
-          { quantity: 3, unitPrice: 0.333, taxable: true },
+          { quantity: 1.5, unitPrice: 10.33, taxable: true },
+          { quantity: 1.5, unitPrice: 10.33, taxable: true },
         ],
         0,
       ),
     );
-    expect(result.lineTotals).toEqual([1, 1]);
-    expect(result.subtotal).toBe(2);
+    expect(result.lineTotals).toEqual([15.5, 15.5]);
+    expect(result.subtotal).toBe(31);
+  });
+
+  it("rounds the unit price to cents first, as it is stored", () => {
+    // A cost breakdown can produce $18.375; the column stores $18.38, so the
+    // line must be 4 × $18.38 = $73.52 — not 4 × 18.375 = $73.50, which the
+    // stored price can't reproduce on a later recompute.
+    const result = asNumbers(
+      computeMoneyTotals([{ quantity: 4, unitPrice: 18.375, taxable: false }], 0),
+    );
+    expect(result.lineTotals).toEqual([73.52]);
+    expect(result.total).toBe(73.52);
   });
 
   it("computes tax once on the summed taxable amount, not per line", () => {

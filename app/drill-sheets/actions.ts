@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
+import { findJobStructureDeleteBlockers } from "@/lib/job-structure-workflow";
 import {
   createJobStructureFromPayload,
   parseDrillSheetPayload,
@@ -130,9 +131,27 @@ export async function upgradeRectSheetFromPlaceholder(
   redirect(`/drill-sheets/${jobStructureId}`);
 }
 
-export async function deleteDrillSheet(drillSheetId: string) {
+export async function deleteDrillSheet(
+  drillSheetId: string,
+): Promise<{ error: string } | void> {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
-  await prisma.jobStructure.delete({ where: { id: drillSheetId } });
+
+  // A drill sheet IS its job structure, so this uses the same guard as the
+  // job's bulk structure delete.
+  const blockers = await prisma.$transaction(async (tx) => {
+    const found = await findJobStructureDeleteBlockers(tx, [drillSheetId]);
+    if (found.length === 0) {
+      await tx.jobStructure.delete({ where: { id: drillSheetId } });
+    }
+    return found;
+  });
+  if (blockers.length > 0) {
+    return {
+      error: `This structure can't be deleted: ${blockers.join("; ")}. Its production and delivery records depend on it.`,
+    };
+  }
+
   revalidatePath("/drill-sheets");
+  revalidatePath("/production");
   redirect("/drill-sheets");
 }

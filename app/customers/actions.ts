@@ -183,15 +183,23 @@ export async function deleteCustomer(
   }
 
   try {
-    // The count check and the delete run in one transaction so a job created
-    // between them can't slip through; the FK constraint (P2003) is the
-    // backstop either way.
+    // Jobs, quotes, tickets and invoices all point at the customer with
+    // SetNull, so the database would quietly detach them (an invoice would
+    // lose its Bill To). Check every one, under a row lock so a record
+    // created mid-delete waits and then fails its foreign-key check instead
+    // of being detached. Bid-list entries are Restrict (P2003 below).
     await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "Customer" WHERE "id" = ${id} FOR UPDATE`;
       const customer = await tx.customer.findUnique({
         where: { id },
         include: {
           _count: {
-            select: { jobs: true },
+            select: {
+              jobs: true,
+              quotes: true,
+              deliveryTickets: true,
+              invoices: true,
+            },
           },
         },
       });
@@ -200,8 +208,19 @@ export async function deleteCustomer(
         throw new Error("Customer not found.");
       }
 
-      if (customer._count.jobs > 0) {
-        throw new Error("Cannot delete a customer that has jobs assigned.");
+      const { jobs, quotes, deliveryTickets, invoices } = customer._count;
+      const attached = [
+        [jobs, "job"],
+        [quotes, "quote"],
+        [deliveryTickets, "delivery ticket"],
+        [invoices, "invoice"],
+      ]
+        .filter(([count]) => Number(count) > 0)
+        .map(([count, label]) => `${count} ${label}${count === 1 ? "" : "s"}`);
+      if (attached.length > 0) {
+        throw new Error(
+          `This customer has ${attached.join(", ")} and can't be deleted. Mark it Inactive instead.`,
+        );
       }
 
       await tx.customer.delete({ where: { id } });
@@ -219,7 +238,7 @@ export async function deleteCustomer(
     ) {
       return {
         error:
-          "This customer has jobs or quotes attached and can't be deleted.",
+          "This customer is on a job's bid list and can't be deleted. Mark it Inactive instead.",
       };
     }
     return { error: translatePrismaError(error).message };
@@ -307,9 +326,14 @@ export async function importCustomers(
   // so this action keeps throwing (with translated Prisma messages).
   const imported = await prisma.$transaction(async (tx) => {
     // Skip rows whose name already exists (a resubmitted paste should not
-    // duplicate customers).
+    // duplicate customers). Case-insensitive, matching the batch check above:
+    // "ACME CORP" is the same customer as "Acme Corp".
     const existing = await tx.customer.findMany({
-      where: { name: { in: customers.map((row) => row.name) } },
+      where: {
+        OR: customers.map((row) => ({
+          name: { equals: row.name, mode: "insensitive" as const },
+        })),
+      },
       select: { name: true },
     });
     const existingNames = new Set(

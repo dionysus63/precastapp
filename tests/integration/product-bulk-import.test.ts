@@ -17,6 +17,10 @@ vi.mock("next/cache", () => ({
 vi.mock("server-only", () => ({}));
 
 import { importProducts } from "@/app/products/actions";
+import {
+  copyPriceListItems,
+  getPriceListCompleteness,
+} from "@/lib/price-list-service";
 import { prisma } from "@/lib/prisma";
 
 const tag = `BULKIMPORT-${Date.now()}`;
@@ -88,8 +92,10 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await prisma.priceListItem.deleteMany({ where: { priceListId } });
-  await prisma.priceList.delete({ where: { id: priceListId } });
+  await prisma.priceListItem.deleteMany({
+    where: { priceList: { name: { startsWith: tag } } },
+  });
+  await prisma.priceList.deleteMany({ where: { name: { startsWith: tag } } });
   await prisma.product.deleteMany({
     where: { productCode: { startsWith: tag } },
   });
@@ -163,5 +169,35 @@ describe("importProducts", () => {
     });
     expect(ring.productKind).toBe("DRAIN_RING");
     expect(ring.name).toBe(`${tag} drain ring`);
+  });
+});
+
+describe("price list copy and coverage", () => {
+  it("copies pickup prices along with delivered prices", async () => {
+    await prisma.priceListItem.update({
+      where: {
+        priceListId_productId: { priceListId, productId: existingProductId },
+      },
+      data: { pickupPrice: 230 },
+    });
+    const copy = await prisma.priceList.create({
+      data: { name: `${tag} copy` },
+    });
+
+    await copyPriceListItems(copy.id, priceListId);
+
+    const copied = await prisma.priceListItem.findUniqueOrThrow({
+      where: {
+        priceListId_productId: { priceListId: copy.id, productId: existingProductId },
+      },
+    });
+    expect(Number(copied.unitPrice)).toBe(275);
+    expect(Number(copied.pickupPrice)).toBe(230);
+  });
+
+  it("counts only active products toward a list's coverage", async () => {
+    // The list prices the (inactive) existing product and the new active one.
+    const completeness = await getPriceListCompleteness(priceListId);
+    expect(completeness.listedCount).toBe(1);
   });
 });

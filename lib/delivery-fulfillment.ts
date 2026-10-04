@@ -1671,8 +1671,12 @@ export async function getQuoteLineFulfillmentAndScheduled(
   return { fulfillment, scheduled };
 }
 
+const CANCELLED_TICKET_DELIVER_ERROR =
+  "This ticket was cancelled — it can't be marked delivered. Reload to see its current status.";
+
 /**
  * Mark ticket DELIVERED: deduct stock, ship structures, set timestamps.
+ * Refuses a CANCELLED ticket.
  */
 export async function markDeliveryTicketDelivered(
   client: PrismaClient,
@@ -1697,15 +1701,22 @@ export async function markDeliveryTicketDelivered(
   if (ticket.status === "DELIVERED") {
     return;
   }
+  if (ticket.status === "CANCELLED") {
+    throw new Error(CANCELLED_TICKET_DELIVER_ERROR);
+  }
 
   const deliveredAt = new Date();
 
   await client.$transaction(async (tx) => {
     // Atomic compare-and-set: only one concurrent caller can flip the ticket
-    // out of its non-DELIVERED state. The losing transaction sees count === 0
-    // (after the winner commits) and stops, so stock is never deducted twice.
+    // out of a live state. The losing transaction sees count === 0 (after the
+    // winner commits) and stops, so stock is never deducted twice. CANCELLED
+    // is excluded too: a stale page must not deliver a cancelled ticket.
     const claimed = await tx.deliveryTicket.updateMany({
-      where: { id: deliveryTicketId, status: { not: "DELIVERED" } },
+      where: {
+        id: deliveryTicketId,
+        status: { notIn: ["DELIVERED", "CANCELLED"] },
+      },
       data: {
         status: "DELIVERED",
         deliveredAt,
@@ -1714,6 +1725,13 @@ export async function markDeliveryTicketDelivered(
     });
 
     if (claimed.count === 0) {
+      const current = await tx.deliveryTicket.findUnique({
+        where: { id: deliveryTicketId },
+        select: { status: true },
+      });
+      if (current?.status === "CANCELLED") {
+        throw new Error(CANCELLED_TICKET_DELIVER_ERROR);
+      }
       return;
     }
 

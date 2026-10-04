@@ -56,6 +56,12 @@ function formatDateOnly(value: Date | null): string {
   });
 }
 
+const BULK_DELIVERABLE_STATUSES = new Set<string>([
+  "SCHEDULED",
+  "LOADING",
+  "IN_TRANSIT",
+]);
+
 function getMismatchFlags(ticket: ReconcileTicket): string[] {
   const flags: string[] = [];
   if (
@@ -290,8 +296,10 @@ export function ReconcileDay({
   const deliveredCount = allTickets.filter(
     (ticket) => ticket.status === "DELIVERED",
   ).length;
-  const openTickets = scheduledTickets.filter(
-    (ticket) => ticket.status !== "DELIVERED" && ticket.status !== "CANCELLED",
+  // Matches deliverAllTicketsForDay: drafts (abandoned counter tickets,
+  // unconfirmed planner loads) are left for a deliberate per-ticket click.
+  const openTickets = scheduledTickets.filter((ticket) =>
+    BULK_DELIVERABLE_STATUSES.has(ticket.status),
   );
 
   function handleDeliverAll() {

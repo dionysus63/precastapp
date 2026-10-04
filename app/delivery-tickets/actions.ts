@@ -1343,15 +1343,24 @@ export async function updateDeliveryTicketStatus(
     } else {
       await withDatabaseRetry((client) =>
         client.$transaction(async (tx) => {
+          // Compare-and-set against the status the transition was validated
+          // from: if someone delivered (or cancelled) the ticket meanwhile, a
+          // stale page must not overwrite it — e.g. CANCELLED over DELIVERED
+          // would leave stock deducted with no way back.
+          const changed = await tx.deliveryTicket.updateMany({
+            where: { id: ticketId, status: ticket.status },
+            data: { status },
+          });
+          if (changed.count === 0) {
+            throw new Error(
+              "This ticket's status changed since the page loaded. Reload and try again.",
+            );
+          }
           // Planner drafts defer numbering: the number issues the moment
           // the ticket leaves DRAFT for a live status (never on cancel).
           if (status !== "DRAFT" && status !== "CANCELLED") {
             await ensureTicketNumberAssigned(tx, ticketId);
           }
-          await tx.deliveryTicket.update({
-            where: { id: ticketId },
-            data: { status },
-          });
         }),
       );
     }

@@ -11,6 +11,7 @@ import {
 } from "@/lib/inventory-service";
 import {
   approveJobStructureForProduction,
+  findJobStructureDeleteBlockers,
   linkJobStructuresFromQuote,
   markJobStructureMade,
   setJobStructureStatus,
@@ -374,10 +375,11 @@ export async function bulkSetJobStructureStatuses(
 }
 
 /**
- * Deletes selected structures from a job. All-or-nothing: structures already
- * on a delivery ticket block the whole delete (removing them would orphan the
- * ticket lines), so nothing disappears half-way. Quote lines linked to a
- * deleted structure stay on the quote but lose their structure link.
+ * Deletes selected structures from a job. All-or-nothing: structures on a
+ * delivery ticket or with production history block the whole delete
+ * (findJobStructureDeleteBlockers), so nothing disappears half-way. Quote
+ * lines linked to a deleted structure stay on the quote but lose their
+ * structure link.
  */
 export async function bulkDeleteJobStructures(
   jobId: string,
@@ -389,36 +391,30 @@ export async function bulkDeleteJobStructures(
   }
   try {
     let deleted = 0;
-    await withDatabaseRetry(async (client) => {
-      const structures = await client.jobStructure.findMany({
-        where: { id: { in: structureIds }, jobId },
-        select: {
-          id: true,
-          structureNumber: true,
-          _count: { select: { deliveryTicketLineItems: true } },
-        },
-      });
-      if (structures.length !== structureIds.length) {
-        throw new Error("Some selected structures are no longer on this job.");
-      }
-      const onTickets = structures.filter(
-        (structure) => structure._count.deliveryTicketLineItems > 0,
-      );
-      if (onTickets.length > 0) {
-        throw new Error(
-          `On delivery tickets and cannot be deleted: ${onTickets
-            .map((structure) => structure.structureNumber ?? "(unnumbered)")
-            .join(", ")}. Deselect them and try again.`,
-        );
-      }
-      const result = await client.jobStructure.deleteMany({
-        where: { id: { in: structureIds }, jobId },
-      });
-      deleted = result.count;
-      revalidatePath("/production");
-      revalidatePath(`/jobs/${jobId}`);
-      revalidatePath("/drill-sheets");
-    });
+    await withDatabaseRetry((client) =>
+      client.$transaction(async (tx) => {
+        const structures = await tx.jobStructure.findMany({
+          where: { id: { in: structureIds }, jobId },
+          select: { id: true },
+        });
+        if (structures.length !== structureIds.length) {
+          throw new Error("Some selected structures are no longer on this job.");
+        }
+        const blockers = await findJobStructureDeleteBlockers(tx, structureIds);
+        if (blockers.length > 0) {
+          throw new Error(
+            `Can't delete: ${blockers.join("; ")}. Deselect them and try again.`,
+          );
+        }
+        const result = await tx.jobStructure.deleteMany({
+          where: { id: { in: structureIds }, jobId },
+        });
+        deleted = result.count;
+      }),
+    );
+    revalidatePath("/production");
+    revalidatePath(`/jobs/${jobId}`);
+    revalidatePath("/drill-sheets");
     return { success: true as const, deleted };
   } catch (error) {
     return {
@@ -510,13 +506,31 @@ export async function deliverTicket(
 ) {
   await requirePermission(AppPermission.DELIVERY_MANAGE);
   try {
+    // The flag only decides how the pay-now invoice is created, so it may
+    // only change before completion. A reprint of a completed sale must not
+    // flip it: the existing invoice wouldn't follow, leaving the ticket
+    // saying "paid" next to an unpaid invoice (or the reverse).
+    let paymentFlagIgnored = false;
     if (options.paymentReceived !== undefined) {
-      await withDatabaseRetry((client) =>
-        client.deliveryTicket.update({
-          where: { id: deliveryTicketId },
+      const updated = await withDatabaseRetry((client) =>
+        client.deliveryTicket.updateMany({
+          where: {
+            id: deliveryTicketId,
+            status: { notIn: ["DELIVERED", "CANCELLED"] },
+          },
           data: { paymentReceived: options.paymentReceived },
         }),
       );
+      if (updated.count === 0) {
+        const current = await withDatabaseRetry((client) =>
+          client.deliveryTicket.findUnique({
+            where: { id: deliveryTicketId },
+            select: { paymentReceived: true },
+          }),
+        );
+        paymentFlagIgnored =
+          current != null && current.paymentReceived !== options.paymentReceived;
+      }
     }
     await withDatabaseRetry((client) =>
       markDeliveryTicketDelivered(client, deliveryTicketId),
@@ -545,7 +559,9 @@ export async function deliverTicket(
       invoice,
       warning: invoiceResult.error
         ? `Ticket completed, but the pay-now invoice could not be created: ${invoiceResult.error}`
-        : null,
+        : paymentFlagIgnored
+          ? "This sale was already completed, so its payment status wasn't changed. Record the payment on the invoice instead."
+          : null,
     };
   } catch (error) {
     // The DB blocks negative stock; translate the raw constraint failure for
@@ -620,11 +636,14 @@ export async function deliverAllTicketsForDay(
   const end = new Date(start);
   end.setHours(23, 59, 59, 999);
 
+  // Live tickets only: a DRAFT dated today is an abandoned counter ticket or
+  // an unconfirmed planner load — completing it deducts stock and can bill a
+  // pay-now invoice, so drafts take a deliberate per-ticket click.
   const openTickets = await withDatabaseRetry((client) =>
     client.deliveryTicket.findMany({
       where: {
         deliveryDate: { gte: start, lte: end },
-        status: { notIn: ["DELIVERED", "CANCELLED"] },
+        status: { in: ["SCHEDULED", "LOADING", "IN_TRANSIT"] },
       },
       orderBy: { ticketNumber: "asc" },
       select: { id: true, ticketNumber: true },

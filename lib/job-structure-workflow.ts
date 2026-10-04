@@ -372,3 +372,73 @@ export async function markJobStructureShipped(
 ): Promise<void> {
   await setJobStructureStatus(client, jobStructureId, "SHIPPED");
 }
+
+type StructureDeleteClient = Pick<
+  PrismaClient,
+  "jobStructure" | "deliveryTicketLineItem"
+>;
+
+const PRODUCTION_STATUS_LABELS: Partial<Record<StructureStatus, string>> = {
+  IN_PRODUCTION: "in production",
+  MADE: "made",
+  SHIPPED: "shipped",
+};
+
+/**
+ * Why each of these structures can't be deleted — empty when all can. A
+ * structure on a delivery ticket (itself or one of its pieces) or with
+ * production history is the record that tickets, invoices and the yard log
+ * hang off: deleting it cascades the production log away and silently
+ * unlinks ticket lines, which breaks split-structure billing.
+ */
+export async function findJobStructureDeleteBlockers(
+  client: StructureDeleteClient,
+  structureIds: string[],
+): Promise<string[]> {
+  if (structureIds.length === 0) {
+    return [];
+  }
+
+  const structures = await client.jobStructure.findMany({
+    where: { id: { in: structureIds } },
+    select: {
+      id: true,
+      structureNumber: true,
+      status: true,
+      _count: { select: { productionLogLines: true } },
+    },
+  });
+  const ticketLines = await client.deliveryTicketLineItem.findMany({
+    where: {
+      OR: [
+        { jobStructureId: { in: structureIds } },
+        { jobStructurePiece: { jobStructureId: { in: structureIds } } },
+      ],
+    },
+    select: {
+      jobStructureId: true,
+      jobStructurePiece: { select: { jobStructureId: true } },
+    },
+  });
+  const onTicket = new Set(
+    ticketLines.flatMap((line) => [
+      line.jobStructureId,
+      line.jobStructurePiece?.jobStructureId,
+    ]),
+  );
+
+  return structures.flatMap((structure) => {
+    const label = structure.structureNumber ?? "(unnumbered)";
+    if (onTicket.has(structure.id)) {
+      return [`${label} is on a delivery ticket`];
+    }
+    const statusLabel = PRODUCTION_STATUS_LABELS[structure.status];
+    if (statusLabel) {
+      return [`${label} is ${statusLabel}`];
+    }
+    if (structure._count.productionLogLines > 0) {
+      return [`${label} has production logged`];
+    }
+    return [];
+  });
+}

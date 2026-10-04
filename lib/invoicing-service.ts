@@ -10,6 +10,7 @@ import {
 } from "@/lib/delivery-ticket-pdf-data";
 import { computeMoneyTotals } from "@/lib/money";
 import { computeDeliveryAmount } from "@/lib/quotes/money-rules";
+import { richTextToPlainText } from "@/lib/rich-text";
 
 function mapDeliveryLineTypeToInvoiceLineType(
   lineType: string,
@@ -198,9 +199,23 @@ async function resolveUnitPrice(
   preloaded?: UnitPriceLookups,
 ): Promise<{ unitPrice: Prisma.Decimal; taxable: boolean; resolved: boolean }> {
   // A price entered on the ticket line itself wins: it's the number the
-  // customer agreed to when the item was added mid-job.
+  // customer agreed to when the item was added mid-job (or the pickup price
+  // on a quoted line). Only the price is overridden — a quoted line keeps
+  // the quote's taxability.
   if (ticketLine.unitPrice != null) {
-    return { unitPrice: ticketLine.unitPrice, taxable: true, resolved: true };
+    let taxable = true;
+    if (ticketLine.quoteLineItemId) {
+      const quoteLine =
+        preloaded?.quoteLines.get(ticketLine.quoteLineItemId) ??
+        (preloaded
+          ? null
+          : await client.quoteLineItem.findUnique({
+              where: { id: ticketLine.quoteLineItemId },
+              select: { taxable: true },
+            }));
+      taxable = quoteLine?.taxable ?? true;
+    }
+    return { unitPrice: ticketLine.unitPrice, taxable, resolved: true };
   }
 
   if (ticketLine.quoteLineItemId) {
@@ -264,6 +279,159 @@ async function resolveUnitPrice(
   // No quote line or price-list entry. Signal unresolved so the caller can
   // fail closed instead of billing at $0.
   return { unitPrice: new Prisma.Decimal(0), taxable: true, resolved: false };
+}
+
+type CastingSetCharge = {
+  /** The ticket piece line the charge is listed after. */
+  anchorTicketLineId: string;
+  quoteLineItemId: string;
+  productId: string | null;
+  itemCode: string;
+  description: string;
+  sets: number;
+  unitPrice: Prisma.Decimal;
+  taxable: boolean;
+};
+
+/** Sets started by these pieces: a set counts once any of its pieces ships. */
+function castingSetsStarted(
+  piecesByComponent: Map<string, number>,
+  perSetByComponent: Map<string, number>,
+): number {
+  let started = 0;
+  for (const [componentId, pieces] of piecesByComponent) {
+    const perSet = perSetByComponent.get(componentId) ?? 1;
+    started = Math.max(started, Math.ceil(pieces / perSet));
+  }
+  return started;
+}
+
+/**
+ * Casting assemblies ship a partial set as component piece lines that point
+ * at the assembly's quote line (lib/casting-ticket-lines). Priced like any
+ * quoted line, every piece billed the full per-set price. A set is billed
+ * once instead — by the invoice that ships its first piece, mirroring split
+ * structures: the piece lines bill $0 "(partial set)" and one extra line
+ * bills the sets started at the set price.
+ *
+ * Sets started = max over components of ceil(pieces ÷ per-set qty), counted
+ * over this ticket plus the same quote line's piece lines on tickets already
+ * invoiced (non-void); the difference is this invoice's charge. Pieces with
+ * an agreed per-line price (pickup repricing) keep that price.
+ */
+async function resolveCastingPartialSetCharges(
+  tx: Prisma.TransactionClient,
+  deliveryTicketId: string,
+  ticketLines: Array<{
+    id: string;
+    quoteLineItemId: string | null;
+    productId: string | null;
+    jobStructureId: string | null;
+    unitPrice: Prisma.Decimal | null;
+    quantity: Prisma.Decimal;
+  }>,
+): Promise<{ pieceLineIds: Set<string>; charges: CastingSetCharge[] }> {
+  const candidates = ticketLines.filter(
+    (line) =>
+      line.quoteLineItemId &&
+      line.productId &&
+      !line.jobStructureId &&
+      line.unitPrice == null,
+  );
+  const pieceLineIds = new Set<string>();
+  const charges: CastingSetCharge[] = [];
+  if (candidates.length === 0) {
+    return { pieceLineIds, charges };
+  }
+
+  const quoteLines = await tx.quoteLineItem.findMany({
+    where: {
+      id: { in: [...new Set(candidates.map((line) => line.quoteLineItemId!))] },
+      product: { productKind: "CASTING_ASSEMBLY", castingSoldAsUnit: false },
+    },
+    select: {
+      id: true,
+      productId: true,
+      itemCode: true,
+      description: true,
+      unitPrice: true,
+      taxable: true,
+      product: {
+        select: {
+          castingAssemblyComponents: {
+            select: { componentId: true, quantity: true },
+          },
+        },
+      },
+    },
+  });
+
+  for (const quoteLine of quoteLines) {
+    const perSetByComponent = new Map(
+      (quoteLine.product?.castingAssemblyComponents ?? []).map((row) => [
+        row.componentId,
+        row.quantity,
+      ]),
+    );
+    const pieceLines = candidates.filter(
+      (line) =>
+        line.quoteLineItemId === quoteLine.id &&
+        line.productId !== quoteLine.productId &&
+        perSetByComponent.has(line.productId!),
+    );
+    if (pieceLines.length === 0) {
+      continue;
+    }
+
+    const earlierPieces = await tx.deliveryTicketLineItem.findMany({
+      where: {
+        quoteLineItemId: quoteLine.id,
+        productId: { in: [...perSetByComponent.keys()] },
+        jobStructureId: null,
+        unitPrice: null,
+        deliveryTicketId: { not: deliveryTicketId },
+        deliveryTicket: { invoice: { is: { status: { not: "VOID" } } } },
+      },
+      select: { productId: true, quantity: true },
+    });
+
+    const before = new Map<string, number>();
+    for (const line of earlierPieces) {
+      before.set(
+        line.productId!,
+        (before.get(line.productId!) ?? 0) + Number(line.quantity),
+      );
+    }
+    const after = new Map(before);
+    for (const line of pieceLines) {
+      pieceLineIds.add(line.id);
+      after.set(
+        line.productId!,
+        (after.get(line.productId!) ?? 0) + Number(line.quantity),
+      );
+    }
+
+    const sets =
+      castingSetsStarted(after, perSetByComponent) -
+      castingSetsStarted(before, perSetByComponent);
+    if (sets > 0) {
+      const name =
+        richTextToPlainText(quoteLine.description ?? "").trim() ||
+        quoteLine.itemCode;
+      charges.push({
+        anchorTicketLineId: pieceLines[pieceLines.length - 1]!.id,
+        quoteLineItemId: quoteLine.id,
+        productId: quoteLine.productId,
+        itemCode: quoteLine.itemCode,
+        description: `${name} (set${sets === 1 ? "" : "s"} shipped in pieces)`,
+        sets,
+        unitPrice: quoteLine.unitPrice,
+        taxable: quoteLine.taxable,
+      });
+    }
+  }
+
+  return { pieceLineIds, charges };
 }
 
 type UnitPriceLookups = {
@@ -590,30 +758,73 @@ export async function convertDeliveryTicketToInvoice(
       }
     }
 
-    // Authoritative Decimal totals with shared cent-rounding (matches quotes).
-    const computed = computeMoneyTotals(
-      resolvedLines.map((entry) => ({
+    // A casting set shipped in pieces is billed once, on its own line
+    // (resolveCastingPartialSetCharges); the piece lines themselves are $0.
+    const castingSets = await resolveCastingPartialSetCharges(
+      tx,
+      deliveryTicketId,
+      current.lineItems,
+    );
+    for (const entry of resolvedLines) {
+      if (castingSets.pieceLineIds.has(entry.line.id)) {
+        entry.unitPrice = new Prisma.Decimal(0);
+        entry.description = entry.description
+          ? `${entry.description} (partial set)`
+          : "(partial set)";
+      }
+    }
+
+    let extraLineNumber = Math.max(
+      0,
+      ...current.lineItems.map((line) => line.lineNumber),
+    );
+    const drafts = resolvedLines.flatMap((entry) => [
+      {
+        lineNumber: entry.line.lineNumber,
+        lineType: entry.line.lineType,
+        quoteLineItemId: entry.line.quoteLineItemId,
+        deliveryTicketLineItemId: entry.line.id as string | null,
+        productId: entry.line.productId,
+        itemCode: entry.line.itemCode,
+        description: entry.description,
         quantity: entry.line.quantity,
+        unit: entry.line.unit,
         unitPrice: entry.unitPrice,
         taxable: entry.taxable,
+        sortOrder: entry.line.sortOrder,
+      },
+      ...castingSets.charges
+        .filter((charge) => charge.anchorTicketLineId === entry.line.id)
+        .map((charge) => ({
+          lineNumber: (extraLineNumber += 1),
+          lineType: entry.line.lineType,
+          quoteLineItemId: charge.quoteLineItemId,
+          deliveryTicketLineItemId: null,
+          productId: charge.productId,
+          itemCode: charge.itemCode,
+          description: charge.description as string | null,
+          quantity: new Prisma.Decimal(charge.sets),
+          unit: "EA",
+          unitPrice: charge.unitPrice,
+          taxable: charge.taxable,
+          sortOrder: entry.line.sortOrder,
+        })),
+    ]);
+
+    // Authoritative Decimal totals with shared cent-rounding (matches quotes).
+    const computed = computeMoneyTotals(
+      drafts.map((draft) => ({
+        quantity: draft.quantity,
+        unitPrice: draft.unitPrice,
+        taxable: draft.taxable,
       })),
       taxRate,
     );
 
-    const lineData = resolvedLines.map((entry, index) => ({
-      lineNumber: entry.line.lineNumber,
-      lineType: mapDeliveryLineTypeToInvoiceLineType(entry.line.lineType),
-      quoteLineItemId: entry.line.quoteLineItemId,
-      deliveryTicketLineItemId: entry.line.id,
-      productId: entry.line.productId,
-      itemCode: entry.line.itemCode,
-      description: entry.description,
-      quantity: entry.line.quantity,
-      unit: entry.line.unit,
-      unitPrice: entry.unitPrice,
-      taxable: entry.taxable,
+    const lineData = drafts.map((draft, index) => ({
+      ...draft,
+      lineType: mapDeliveryLineTypeToInvoiceLineType(draft.lineType),
       total: computed.lineTotals[index],
-      sortOrder: entry.line.sortOrder,
     }));
 
     const deliveryAmount = computeDeliveryAmount(

@@ -1,3 +1,4 @@
+import { roundUnitPrice } from "@/lib/money";
 import type { CustomStructureCostItem } from "@/lib/quotes/types";
 
 export const CUSTOM_STRUCTURE_CONFIG_KIND = "CUSTOM_STRUCTURE" as const;
@@ -51,7 +52,8 @@ export function resolveCustomStructureUnitPrice(
   costItems: CustomStructureCostItem[] | null | undefined,
 ): string {
   if (hasCostBreakdown(costItems)) {
-    return String(sumCostBreakdown(costItems));
+    // Cents, as the line's price is stored (a 1.5 × 12.25 row is 18.375).
+    return roundUnitPrice(sumCostBreakdown(costItems)).toString();
   }
   return unitPrice || "0";
 }
