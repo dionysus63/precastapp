@@ -58,8 +58,6 @@ async function exists(filePath: string) {
 
 const storagePath = () =>
   path.join(cwd, "storage", "rect-pdf-sets", SET_ID, "topslab-nobase.pdf");
-const legacyPath = () =>
-  path.join(cwd, "assets", "templates", "rect-pdf-sets", SET_ID, "topslab-nobase.pdf");
 
 describe("rect PDF set storage", () => {
   it("writes uploads to git-ignored storage/ and records a relative path", async () => {
@@ -72,29 +70,12 @@ describe("rect PDF set storage", () => {
     );
 
     expect(await readFile(storagePath(), "utf8")).toContain("new");
-    expect(await exists(legacyPath())).toBe(false);
     expect(upsert.mock.calls[0][0].create.filePath).toBe(
       `${SET_ID}/topslab-nobase.pdf`,
     );
   });
 
-  it("reads storage/ first and falls back to the legacy folder", async () => {
-    await mkdir(path.dirname(legacyPath()), { recursive: true });
-    await writeFile(legacyPath(), "legacy");
-    expect(Buffer.from(await readRectPdfSetFileBytes(KEY)).toString()).toBe(
-      "legacy",
-    );
-
-    await mkdir(path.dirname(storagePath()), { recursive: true });
-    await writeFile(storagePath(), "stored");
-    expect(Buffer.from(await readRectPdfSetFileBytes(KEY)).toString()).toBe(
-      "stored",
-    );
-  });
-
-  it("deletes from storage/ only, never the (git-tracked) legacy copy", async () => {
-    await mkdir(path.dirname(legacyPath()), { recursive: true });
-    await writeFile(legacyPath(), "legacy");
+  it("deletes the stored file and its row", async () => {
     await mkdir(path.dirname(storagePath()), { recursive: true });
     await writeFile(storagePath(), "stored");
 
@@ -102,7 +83,6 @@ describe("rect PDF set storage", () => {
     await deleteRectPdfSetFile(client, "file1");
 
     expect(await exists(storagePath())).toBe(false);
-    expect(await exists(legacyPath())).toBe(true);
     expect(remove).toHaveBeenCalledWith({ where: { id: "file1" } });
   });
 

@@ -33,15 +33,6 @@ export function getRectPdfSetsRoot(): string {
   return path.join(process.cwd(), "storage", "rect-pdf-sets");
 }
 
-/**
- * Where sets were stored before they moved to storage/. Read-only fallback:
- * deploy-app.ps1 copies it into storage/ (scripts/migrate-rect-pdf-sets.mjs),
- * and five of its files are still tracked in git.
- */
-export function getLegacyRectPdfSetsRoot(): string {
-  return path.join(process.cwd(), "assets", "templates", "rect-pdf-sets");
-}
-
 /** Path relative to the sets root; what RectSheetPdfSetFile.filePath stores. */
 export function rectPdfSetRelativePath(key: SetFileKey): string {
   return `${key.setId}/${rectTemplateVariantKey(key.hasTopSlab, key.hasBaseSlab)}.pdf`;
@@ -55,10 +46,6 @@ function resolveUnderRoot(root: string, key: SetFileKey): string {
     throw new Error("File path is outside the allowed PDF sets directory.");
   }
   return resolvedPath;
-}
-
-function isMissingFile(error: unknown): boolean {
-  return (error as NodeJS.ErrnoException)?.code === "ENOENT";
 }
 
 export async function saveRectPdfSetFile(
@@ -114,7 +101,6 @@ export async function deleteRectPdfSetFile(
     throw new Error("PDF set file not found.");
   }
 
-  // Only storage/ is ours to delete from; a legacy copy may be tracked in git.
   try {
     await unlink(resolveUnderRoot(getRectPdfSetsRoot(), row));
   } catch {
@@ -127,14 +113,6 @@ export async function deleteRectPdfSetFile(
 export async function readRectPdfSetFileBytes(
   row: SetFileKey,
 ): Promise<Uint8Array> {
-  let buffer: Buffer;
-  try {
-    buffer = await readFile(resolveUnderRoot(getRectPdfSetsRoot(), row));
-  } catch (error) {
-    if (!isMissingFile(error)) {
-      throw error;
-    }
-    buffer = await readFile(resolveUnderRoot(getLegacyRectPdfSetsRoot(), row));
-  }
+  const buffer = await readFile(resolveUnderRoot(getRectPdfSetsRoot(), row));
   return new Uint8Array(buffer);
 }
