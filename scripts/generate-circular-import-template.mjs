@@ -1,9 +1,13 @@
 // Regenerates public/templates/circular-structure-import.xlsx — the blank
 // spreadsheet for bulk-importing circular structures into the quote
 // workbook. Run: node scripts/generate-circular-import-template.mjs
+import * as fs from "node:fs";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import xlsx from "xlsx";
+
+// SheetJS 0.20's ES module build doesn't load fs itself; writeFile needs it.
+xlsx.set_fs(fs);
 
 const OPENING_GROUPS = 6;
 

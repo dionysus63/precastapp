@@ -1,9 +1,13 @@
 // Regenerates public/templates/custom-structure-import.xlsx — the blank
 // spreadsheet for bulk-adding CUSTOM structures (plain tracked pieces) to a
 // job. Run: node scripts/generate-custom-import-template.mjs
+import * as fs from "node:fs";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import xlsx from "xlsx";
+
+// SheetJS 0.20's ES module build doesn't load fs itself; writeFile needs it.
+xlsx.set_fs(fs);
 
 const HEADERS = [
   "Structure #",

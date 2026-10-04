@@ -1,5 +1,6 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import xlsx from "xlsx";
 import {
   circularGridFromTsv,
@@ -174,9 +175,7 @@ describe("parseCircularStructureImport", () => {
   it("parses the shipped template's Example sheet end to end", () => {
     // Guards the generator (scripts/generate-circular-import-template.mjs)
     // and the parser against drifting apart.
-    const workbook = xlsx.readFile(
-      path.resolve("public", "templates", "circular-structure-import.xlsx"),
-    );
+    const workbook = xlsx.read(readFileSync(path.resolve("public", "templates", "circular-structure-import.xlsx")));
     const grid = xlsx.utils.sheet_to_json<(string | number | null)[]>(
       workbook.Sheets["Example"],
       { header: 1, defval: "" },

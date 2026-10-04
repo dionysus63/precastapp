@@ -1,9 +1,13 @@
 // Regenerates public/templates/rect-structure-import.xlsx — the blank
 // spreadsheet for bulk-importing rectangular structures into the quote
 // workbook. Run: node scripts/generate-rect-import-template.mjs
+import * as fs from "node:fs";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import xlsx from "xlsx";
+
+// SheetJS 0.20's ES module build doesn't load fs itself; writeFile needs it.
+xlsx.set_fs(fs);
 
 const OPENING_GROUPS = 6;
 
