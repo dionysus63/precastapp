@@ -24,6 +24,7 @@ import type { QuoteLineFulfillment } from "@/lib/delivery-fulfillment";
 import { buildDrainRingDiameterGroups } from "@/components/delivery-tickets/drain-ring-matrix-utils";
 import { collapseCastingTicketLines } from "@/lib/casting-ticket-lines";
 import { navigateAfterAction } from "@/lib/reload-after-action";
+import { describeActionFailure } from "@/lib/action-result";
 import {
   computeOverQuoteEntries,
   computeWalkInSummary,
@@ -856,12 +857,11 @@ export function DeliveryTicketEditor({
             ? await updateDeliveryTicket(ticketId, payload)
             : await createDeliveryTicket(payload);
       } catch (caught) {
-        // Thrown action errors / network failures: show them instead of
-        // failing silently; the transition ends so the buttons re-enable.
+        // Thrown action errors / network failures (including a page left open
+        // across a server update): show them instead of failing silently;
+        // the transition ends so the buttons re-enable.
         setError(
-          caught instanceof Error
-            ? caught.message
-            : "Could not save the delivery ticket.",
+          describeActionFailure(caught, "Could not save the delivery ticket."),
         );
         return;
       }

@@ -34,9 +34,67 @@ export function isActionError(value: unknown): value is ActionError {
 export async function unwrapAction<T>(
   pending: Promise<T>,
 ): Promise<Exclude<T, ActionError>> {
-  const result = await pending;
+  let result: T;
+  try {
+    result = await pending;
+  } catch (error) {
+    if (isStaleDeploymentError(error)) {
+      notifyStaleDeployment();
+      throw new Error(STALE_DEPLOYMENT_MESSAGE);
+    }
+    throw error;
+  }
   if (isActionError(result)) {
     throw new Error(result.error);
   }
   return result as Exclude<T, ActionError>;
+}
+
+// ---------------------------------------------------------------------------
+// Pages left open across a server update
+// ---------------------------------------------------------------------------
+
+/**
+ * Shown when a save fails because the page was loaded from an older build:
+ * its server actions no longer exist on the updated server, so nothing on
+ * this screen can be saved until the page is reloaded.
+ */
+export const STALE_DEPLOYMENT_MESSAGE =
+  "Precast Ops was updated while this page was open, so it can't save. Reload the page and enter your changes again.";
+
+/** Window event fired when a server action hits a newer deployment. */
+export const STALE_DEPLOYMENT_EVENT = "precast:stale-deployment";
+
+/**
+ * Next throws `UnrecognizedActionError` ("Server Action … was not found on
+ * the server") when the server no longer has the action this page calls.
+ */
+export function isStaleDeploymentError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  return (
+    error.name === "UnrecognizedActionError" ||
+    /Server Action .* was not found on the server|Failed to find Server Action/i.test(
+      error.message,
+    )
+  );
+}
+
+export function notifyStaleDeployment(): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(STALE_DEPLOYMENT_EVENT));
+  }
+}
+
+/** A caught action failure as text for the screen. */
+export function describeActionFailure(
+  error: unknown,
+  fallback: string,
+): string {
+  if (isStaleDeploymentError(error)) {
+    notifyStaleDeployment();
+    return STALE_DEPLOYMENT_MESSAGE;
+  }
+  return error instanceof Error && error.message ? error.message : fallback;
 }

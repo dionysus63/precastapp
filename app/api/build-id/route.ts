@@ -4,7 +4,9 @@ import { NextResponse } from "next/server";
 
 // The desktop shell polls this to detect a server redeploy (new `next build`)
 // so it can drop its HTTP cache — stale cached chunks otherwise break
-// navigation until the cache is hand-deleted. Deliberately unauthenticated:
+// navigation until the cache is hand-deleted. Every page also polls it
+// (components/ui/app-version-watcher.tsx) so a page left open across a
+// deploy reloads or warns instead of failing to save. Deliberately unauthenticated:
 // the build id is the only thing a caller learns, and the login page already
 // exposes the build's asset hashes.
 

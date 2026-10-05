@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { Toaster, toast } from "sonner";
+import { AppVersionWatcher } from "@/components/ui/app-version-watcher";
 import { ConfirmDialogProvider } from "@/components/ui/confirm-dialog";
 import { takeFlashMessage } from "@/lib/reload-after-action";
 
@@ -26,6 +27,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       {children}
       <Toaster position="top-right" richColors closeButton />
       <FlashToast />
+      <AppVersionWatcher />
     </ConfirmDialogProvider>
   );
 }
