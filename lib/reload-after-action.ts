@@ -1,5 +1,7 @@
 "use client";
 
+import { allowUnload } from "@/lib/unsaved-changes";
+
 /**
  * Reload the page after a successful server-action mutation.
  *
@@ -26,6 +28,10 @@
  */
 export function reloadAfterAction(flash?: FlashMessage): void {
   storeFlashMessage(flash);
+  // The work was just saved: don't let a screen's "unsaved changes" guard
+  // block the page load. The desktop shell cancels a guarded unload
+  // silently, which left editors sitting there after a successful save.
+  allowUnload();
   window.location.reload();
 }
 
@@ -36,6 +42,7 @@ export function reloadAfterAction(flash?: FlashMessage): void {
  */
 export function navigateAfterAction(href: string, flash?: FlashMessage): void {
   storeFlashMessage(flash);
+  allowUnload(); // see reloadAfterAction
   window.location.assign(href);
 }
 
