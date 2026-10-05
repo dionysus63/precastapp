@@ -2,7 +2,6 @@
 
 import { localTodayInput } from "@/lib/date-only";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   useCallback,
@@ -15,22 +14,12 @@ import {
 import {
   createQuote,
   getCustomerForQuoteForm,
-  searchCustomersForQuoteForm,
-  searchJobsForQuoteForm,
   searchProductsForQuoteForm,
   reloadQuoteFormPriceOptions,
   updateQuote,
   type CreateQuoteInput,
   type QuoteSaveDestination,
 } from "@/app/quotes/actions";
-import {
-  lookupShippingRate,
-  lookupShippingRateAtPoint,
-  suggestShippingAddresses,
-  type ShippingLookupResult,
-} from "@/app/shipping/actions";
-import { AddressAutocomplete } from "@/components/shipping/address-autocomplete";
-import type { AddressSuggestion } from "@/lib/shipping/geocode";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning";
 import {
@@ -47,52 +36,17 @@ import {
   DEFAULT_QUOTE_TAX_RATE,
   DEFAULT_QUOTE_CUSTOMER_NAME,
   calculateQuoteTotals,
-  formatQuoteCurrency,
-  formatQuoteWeight,
-  formatQuoteYards,
-  getLineItemTotal,
-  isCategoryLineItem,
-  isNonBillableLineItem,
-  resolveQuoteLineQuantityForStorage,
-  parseQuoteNumber,
   pickDefaultCustomerContact,
   type QuoteFormCustomerContactOption,
-  quoteCompactInputClassName,
   quoteEstimatorFormOptions,
-  quoteInputClassName,
   quoteLineItemTypeLabels,
   quoteLineItemTypeOptions,
-  quoteStatusFormOptions,
   quoteTermsFormOptions,
-  quoteTypeFormOptions,
 } from "@/components/quotes/quote-utils";
-import { QuoteFormTypeahead } from "@/components/quotes/quote-form-typeahead";
 import { BackButton } from "@/components/dashboard/back-button";
-import {
-  StockProductPicker,
-  type StagedStockProduct,
-} from "@/components/quotes/stock-product-picker";
-import { QuoteLineItemsTable } from "@/components/quotes/quote-line-items-table";
-import {
-  CustomStructureCostBreakdown,
-  CustomStructurePricingFooter,
-} from "@/components/quotes/custom-structure-cost-breakdown";
-import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import type { StagedStockProduct } from "@/components/quotes/stock-product-picker";
 import type { ProductTaxonomyCategory } from "@/lib/product-taxonomy";
 import type { RingBuilderConfig } from "@/lib/ring-builder-settings";
-import {
-  plainTextToRichText,
-  richTextHasContent,
-  sanitizeRichText,
-} from "@/lib/rich-text";
-import {
-  loadJobCustomStructureImportCandidates,
-  type JobCustomStructureImportCandidate,
-} from "@/app/quotes/job-sheet-import-actions";
-import {
-  customGridFromTsv,
-  parseCustomStructureImport,
-} from "@/lib/custom-structure-import";
 import {
   clearWorkbookApplyPayload,
   mergeWorkbookLineItems,
@@ -102,20 +56,52 @@ import {
   type QuoteFormWorkbookSnapshot,
 } from "@/lib/quotes/structure-workbook";
 import { clearRectWorkbookSession } from "@/lib/quotes/rect-structure-workbook";
-import {
-  createCostItemId,
-  resolveCustomStructureUnitPrice,
-  serializeCustomStructureConfig,
-} from "@/lib/quotes/custom-structure";
-import type { CustomStructureCostItem, QuotePipeProductOption } from "@/lib/quotes/types";
-import {
-  buildPipeUnitPricesDescription,
-  isPipeUnitPricesLineItem,
-  mergePipeUnitPriceEntries,
-  parsePipeUnitPricesDescription,
-  type PipeQuoteProductType,
-  type PipeUnitPriceEntry,
+import type { QuotePipeProductOption } from "@/lib/quotes/types";
+import type {
+  PipeQuoteProductType,
+  PipeUnitPriceEntry,
 } from "@/lib/pipe-quote-utils";
+import {
+  applyPipeUnitPrices,
+  createBlankLine,
+  moveLineByStep,
+  moveLineToIndex,
+  stagedStockProductsToLineItems,
+} from "@/components/quotes/quote-form/line-item-ops";
+import {
+  buildQuoteLineItemsInput,
+  buildWorkbookReturnPath,
+  createDefaultCustomStructureRow,
+  createLineId,
+  productMeasureInputValue,
+  renumberLineItems,
+  validateQuoteForm,
+  type AddLineModalType,
+  type FlashMessage,
+} from "@/components/quotes/quote-form/quote-form-utils";
+import { useQuoteDeliveryPricing } from "@/components/quotes/quote-form/use-quote-delivery-pricing";
+import { useCustomStructureBuilder } from "@/components/quotes/quote-form/use-custom-structure-builder";
+import { useCustomStructureLineEditor } from "@/components/quotes/quote-form/use-custom-structure-line-editor";
+import { QuoteFormLeaveDialog } from "@/components/quotes/quote-form/quote-form-leave-dialog";
+import { QuoteFormStickyHeader } from "@/components/quotes/quote-form/quote-form-sticky-header";
+import { QuoteLineItemsSection } from "@/components/quotes/quote-form/quote-line-items-section";
+import {
+  QuoteJobContactFields,
+  QuoteMetaFields,
+  QuotePricingFields,
+} from "@/components/quotes/quote-form/quote-details-fields";
+import {
+  QuoteDeliveryPricingPanel,
+  QuoteNotesTermsSection,
+} from "@/components/quotes/quote-form/quote-notes-terms-section";
+import { CustomStructureImportDialog } from "@/components/quotes/quote-form/custom-structure-import-dialog";
+import { AddCustomStructurePanel } from "@/components/quotes/quote-form/add-custom-structure-panel";
+import {
+  AddConfigurableStructurePanel,
+  AddServicePanel,
+  AddStockProductPanel,
+} from "@/components/quotes/quote-form/add-line-panels";
+import { EditCustomStructureDialog } from "@/components/quotes/quote-form/edit-custom-structure-dialog";
 
 // Client-only and rarely opened, so keep the ring builder out of the main
 // quote-form chunk and load it on first use.
@@ -131,8 +117,6 @@ const PipeModal = dynamic(
   () => import("@/components/quotes/pipe-modal").then((mod) => mod.PipeModal),
   { ssr: false },
 );
-
-type AddLineModalType = Exclude<QuoteLineItemType, "MISC" | "CATEGORY">;
 
 type QuoteFormProps = {
   /**
@@ -174,48 +158,6 @@ type QuoteFormProps = {
   backHref?: string;
   backLabel?: string;
 };
-
-type CustomStructureRow = {
-  id: string;
-  structureNumber: string;
-  description: string;
-  qty: string;
-  unitPrice: string;
-  weight: string;
-  yards: string;
-  costItems: CustomStructureCostItem[];
-};
-
-type FlashMessage = {
-  type: "success" | "info" | "error";
-  text: string;
-};
-
-function createLineId() {
-  return `line-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function createDefaultCustomStructureRow(
-  existingRows: CustomStructureRow[],
-): CustomStructureRow {
-  return {
-    id: createLineId(),
-    structureNumber: `CS-${existingRows.length + 1}`,
-    description: "",
-    qty: "1",
-    unitPrice: "",
-    weight: "",
-    yards: "",
-    costItems: [],
-  };
-}
-
-function renumberLineItems(items: EditableQuoteLineItem[]) {
-  return items.map((item, index) => ({
-    ...item,
-    lineNumber: index + 1,
-  }));
-}
 
 export function QuoteForm({
   initialCustomer = null,
@@ -295,6 +237,8 @@ export function QuoteForm({
   // customer and refreshed whenever the user selects a different customer.
   const [selectedCustomer, setSelectedCustomer] =
     useState<QuoteFormCustomerOption | null>(initialCustomer);
+  // Sequence number of the latest job-customer lookup (see handleJobSelect).
+  const jobCustomerLookupRef = useRef(0);
   const [customerName, setCustomerName] = useState(
     initialValues?.customerName ??
       initialCustomer?.name ??
@@ -429,29 +373,6 @@ export function QuoteForm({
   const [leadTime, setLeadTime] = useState(
     initialValues?.leadTime || initialLeadTime,
   );
-  const [deliveryNotes, setDeliveryNotes] = useState(
-    initialValues?.deliveryNotes ?? "",
-  );
-  const [shippingHint, setShippingHint] = useState<{
-    zoneName: string;
-    ratePerLoad: number;
-    color: string;
-    distanceMiles: number | null;
-    truckCapacityLbs: number | null;
-  } | null>(null);
-  const [shippingStatus, setShippingStatus] = useState<
-    "idle" | "loading" | "matched" | "outside" | "error"
-  >("idle");
-  const shippingLookupSeq = useRef(0);
-  const lastShippingAddress = useRef("");
-  const lastAutoDeliveryNotes = useRef("");
-  // Editable delivery pricing: blank loads field means "auto from weight".
-  const [deliveryLoadsInput, setDeliveryLoadsInput] = useState("");
-  const [maxLoadLbsInput, setMaxLoadLbsInput] = useState("");
-  const [pricePerLoadInput, setPricePerLoadInput] = useState("");
-  const maxLoadLbsDirty = useRef(false);
-  // State (not a ref): the "add vs update" button label below renders from it.
-  const [deliveryLineId, setDeliveryLineId] = useState<string | null>(null);
   const [termsAndConditions, setTermsAndConditions] = useState(
     initialValues?.termsAndConditions || initialTerms,
   );
@@ -501,27 +422,14 @@ export function QuoteForm({
   const [structureWeight, setStructureWeight] = useState("");
   const [structureYards, setStructureYards] = useState("");
 
-  const [customStructureRows, setCustomStructureRows] = useState<
-    CustomStructureRow[]
-  >(() => [createDefaultCustomStructureRow([])]);
-
-  // "Import from job structures" picker inside the custom-structure modal.
-  const [customImport, setCustomImport] = useState<{
-    loading: boolean;
-    error: string | null;
-    candidates: JobCustomStructureImportCandidate[];
-    unchecked: Set<string>;
-  } | null>(null);
-
-  // "Paste from Excel" bulk add inside the custom-structure modal.
-  const [customPasteOpen, setCustomPasteOpen] = useState(false);
-  const [customPasteText, setCustomPasteText] = useState("");
-  const [customPasteError, setCustomPasteError] = useState<string | null>(null);
-
-  const [editingCustomStructureLineId, setEditingCustomStructureLineId] =
-    useState<string | null>(null);
-  const [editingCustomStructureDraft, setEditingCustomStructureDraft] =
-    useState<CustomStructureRow | null>(null);
+  const {
+    editingCustomStructureDraft,
+    updateEditingCustomStructureDraft,
+    updateEditingCustomStructureCostItems,
+    openEditCustomStructureLine,
+    closeEditCustomStructureLine,
+    handleSaveEditedCustomStructure,
+  } = useCustomStructureLineEditor({ setLineItems });
 
   const [ringBuilderModalOpen, setRingBuilderModalOpen] = useState(false);
   const [pipeModalType, setPipeModalType] = useState<PipeQuoteProductType | null>(
@@ -587,6 +495,31 @@ export function QuoteForm({
     };
   }, [priceListId]);
 
+  const {
+    deliveryNotes,
+    setDeliveryNotes,
+    shippingHint,
+    shippingStatus,
+    deliveryLoadsInput,
+    setDeliveryLoadsInput,
+    maxLoadLbsInput,
+    handleMaxLoadLbsInputChange,
+    pricePerLoadInput,
+    setPricePerLoadInput,
+    deliveryLineId,
+    autoDeliveryLoads,
+    deliveryTotal,
+    runShippingLookup,
+    handleAddressSuggestionSelect,
+    applyDeliveryLineItem,
+  } = useQuoteDeliveryPricing({
+    initialDeliveryNotes: initialValues?.deliveryNotes ?? "",
+    totalWeight: totals.totalWeight,
+    serviceOptions: serviceOptionsState,
+    setLineItems,
+    setProjectAddress,
+  });
+
   function applyContactSelection(contact: QuoteFormCustomerContactOption | null) {
     if (!contact) {
       setContactId("");
@@ -641,56 +574,6 @@ export function QuoteForm({
     setFlashMessage({ type, text });
   }
 
-  function validateQuote(): string | null {
-    if (!customerId && !customerName.trim()) {
-      return "Customer is required. Select a customer or enter a customer name.";
-    }
-
-    if (!jobId && !projectName.trim()) {
-      return "Project name or job is required.";
-    }
-
-    if (lineItems.length === 0) {
-      return "Add at least one line item.";
-    }
-
-    const billableLines = lineItems.filter(
-      (line) => !isNonBillableLineItem(line.type),
-    );
-    if (billableLines.length === 0) {
-      return "Add at least one billable line item (not only categories, notes, or page breaks).";
-    }
-
-    if (taxRatePercent < 0) {
-      return "Tax rate cannot be negative.";
-    }
-
-    for (const line of lineItems) {
-      if (line.type === "PAGE_BREAK") {
-        continue;
-      }
-      if (line.type === "CATEGORY" || line.type === "NOTE") {
-        if (!line.description.trim()) {
-          return `Line ${line.lineNumber}: ${line.type === "NOTE" ? "note text" : "category name"} is required.`;
-        }
-        continue;
-      }
-
-      const qty = parseQuoteNumber(line.qty);
-      const unitPrice = parseQuoteNumber(line.unitPrice);
-
-      if (qty <= 0) {
-        return `Line ${line.lineNumber}: quantity must be greater than 0.`;
-      }
-
-      if (unitPrice < 0) {
-        return `Line ${line.lineNumber}: unit price cannot be negative.`;
-      }
-    }
-
-    return null;
-  }
-
   function buildCreateQuoteInput(): CreateQuoteInput {
     return {
       customerId: customerId || null,
@@ -723,46 +606,20 @@ export function QuoteForm({
       deliveryNotes: deliveryNotes.trim() || null,
       expectedUpdatedAt,
       planSheetId,
-      lineItems: lineItems.map((line) => ({
-        // Real DB id when editing an existing row; client-generated ids for
-        // new rows are ignored server-side. Carries production links and
-        // revision lineage across the save.
-        existingLineItemId: line.id,
-        lineNumber: line.lineNumber,
-        lineType: line.type,
-        productId: line.productId ?? null,
-        itemCode: line.item,
-        description: line.description,
-        quantity: resolveQuoteLineQuantityForStorage(
-          line.type,
-          parseQuoteNumber(line.qty),
-        ),
-        unit: line.unit,
-        unitPrice: parseQuoteNumber(line.unitPrice),
-        weight: line.weight.trim()
-          ? parseQuoteNumber(line.weight)
-          : null,
-        yards: line.yards.trim() ? parseQuoteNumber(line.yards) : null,
-        taxable: line.taxable,
-        total: isCategoryLineItem(line.type) ? 0 : getLineItemTotal(line),
-        statusNote: line.statusNote ?? null,
-        notes: null,
-        isDrainRing: line.isDrainRing ?? false,
-        ringDiameterFeet: line.ringDiameterFeet ?? null,
-        poolHeightFeet: line.poolHeightFeet ?? null,
-        drainRingStyle: line.drainRingStyle ?? "DRAIN",
-        galleyFamilyCode: line.galleyFamilyCode ?? null,
-        structureConfigJson:
-          line.type === "CUSTOM_STRUCTURE"
-            ? serializeCustomStructureConfig(line.costBreakdown)
-            : (line.structureConfig ?? line.rectStructureConfig ?? null),
-      })),
+      lineItems: buildQuoteLineItemsInput(lineItems),
       totals,
     };
   }
 
   function handleSaveDraft(afterSave: QuoteSaveDestination = "detail") {
-    const validationError = validateQuote();
+    const validationError = validateQuoteForm({
+      customerId,
+      customerName,
+      jobId,
+      projectName,
+      lineItems,
+      taxRatePercent,
+    });
     if (validationError) {
       showFlash("error", validationError);
       return;
@@ -789,6 +646,8 @@ export function QuoteForm({
   }
 
   function handleCustomerSelect(customer: QuoteFormCustomerOption | null) {
+    // A manual pick wins over any job-customer lookup still in flight.
+    jobCustomerLookupRef.current += 1;
     setCustomerId(customer?.id ?? "");
     setSelectedCustomer(customer);
     setCustomerLocked(true);
@@ -829,163 +688,9 @@ export function QuoteForm({
     }
   }
 
-  function applyShippingResult(seq: number, result: ShippingLookupResult) {
-    if (seq !== shippingLookupSeq.current) return;
-    if ("error" in result) {
-      setShippingHint(null);
-      setShippingStatus("error");
-      return;
-    }
-    if (!result.zone) {
-      setShippingHint(null);
-      setShippingStatus("outside");
-      return;
-    }
-    setShippingHint({
-      zoneName: result.zone.name,
-      ratePerLoad: result.zone.ratePerLoad,
-      color: result.zone.color,
-      distanceMiles: result.distanceMiles,
-      truckCapacityLbs: result.truckCapacityLbs,
-    });
-    setShippingStatus("matched");
-    // Prefill the editable delivery pricing for the new zone; a new
-    // address means the old per-load price and loads override are stale.
-    setPricePerLoadInput(String(result.zone.ratePerLoad));
-    setDeliveryLoadsInput("");
-    if (!maxLoadLbsDirty.current && result.truckCapacityLbs) {
-      setMaxLoadLbsInput(String(result.truckCapacityLbs));
-    }
-  }
-
-  function runShippingLookup(address: string) {
-    const query = address.trim();
-    if (!query) {
-      lastShippingAddress.current = "";
-      setShippingHint(null);
-      setShippingStatus("idle");
-      return;
-    }
-    if (query === lastShippingAddress.current) {
-      return;
-    }
-    lastShippingAddress.current = query;
-    const seq = ++shippingLookupSeq.current;
-    setShippingStatus("loading");
-    // Like getCustomerForQuoteForm above: not routed through the save
-    // transition so it can't flip the Save button into its pending state.
-    void lookupShippingRate(query)
-      .then((result) => applyShippingResult(seq, result))
-      .catch(() => {
-        if (seq !== shippingLookupSeq.current) return;
-        setShippingHint(null);
-        setShippingStatus("error");
-      });
-  }
-
-  function handleAddressSuggestionSelect(suggestion: AddressSuggestion) {
-    setProjectAddress(suggestion.label);
-    // The suggestion carries its own coordinates, so skip the geocode that
-    // would otherwise fire when focus leaves the field.
-    lastShippingAddress.current = suggestion.label;
-    const seq = ++shippingLookupSeq.current;
-    setShippingStatus("loading");
-    void lookupShippingRateAtPoint({
-      lat: suggestion.latitude,
-      lng: suggestion.longitude,
-      label: suggestion.label,
-    })
-      .then((result) => applyShippingResult(seq, result))
-      .catch(() => {
-        if (seq !== shippingLookupSeq.current) return;
-        setShippingHint(null);
-        setShippingStatus("error");
-      });
-  }
-
-  const maxLoadLbs = parseQuoteNumber(maxLoadLbsInput);
-  const autoDeliveryLoads =
-    maxLoadLbs > 0 && totals.totalWeight > 0
-      ? Math.max(1, Math.ceil(totals.totalWeight / maxLoadLbs))
-      : null;
-  const deliveryLoads = deliveryLoadsInput.trim()
-    ? Math.max(0, Math.round(parseQuoteNumber(deliveryLoadsInput)))
-    : autoDeliveryLoads;
-  const pricePerLoad = pricePerLoadInput.trim()
-    ? parseQuoteNumber(pricePerLoadInput)
-    : null;
-  const deliveryTotal =
-    deliveryLoads !== null && deliveryLoads > 0 && pricePerLoad !== null
-      ? deliveryLoads * pricePerLoad
-      : null;
-
-  // Keep the delivery note in sync with the zone and the editable pricing
-  // fields, but never overwrite text the user typed themselves.
-  useEffect(() => {
-    if (!shippingHint && pricePerLoad === null) return;
-    const zonePart = shippingHint ? `${shippingHint.zoneName} — ` : "";
-    let note: string;
-    if (deliveryLoads !== null && deliveryLoads > 0 && pricePerLoad !== null) {
-      const rateText = formatQuoteCurrency(pricePerLoad);
-      note = `Delivery: ${zonePart}est. ${deliveryLoads} load${deliveryLoads === 1 ? "" : "s"} @ ${rateText}/load`;
-    } else if (pricePerLoad !== null) {
-      note = `Delivery: ${zonePart}${formatQuoteCurrency(pricePerLoad)}/load`;
-    } else {
-      return;
-    }
-    setDeliveryNotes((current) => {
-      const trimmed = current.trim();
-      if (trimmed && trimmed !== lastAutoDeliveryNotes.current) {
-        return current;
-      }
-      lastAutoDeliveryNotes.current = note;
-      return note;
-    });
-  }, [shippingHint, deliveryLoads, pricePerLoad]);
-
-  function applyDeliveryLineItem() {
-    if (deliveryLoads === null || deliveryLoads <= 0 || pricePerLoad === null) {
-      return;
-    }
-    const serviceOption = serviceOptionsState.find((entry) =>
-      entry.item.toLowerCase().includes("delivery"),
-    );
-    const lineId = deliveryLineId ?? createLineId();
-    setDeliveryLineId(lineId);
-    setLineItems((current) => {
-      const line: EditableQuoteLineItem = {
-        id: lineId,
-        lineNumber: current.length + 1,
-        type: serviceOption?.lineType ?? "SERVICE",
-        typeLabel:
-          quoteLineItemTypeLabels[serviceOption?.lineType ?? "SERVICE"],
-        item: serviceOption?.item ?? "Delivery",
-        description: shippingHint
-          ? `Delivery — ${shippingHint.zoneName}`
-          : serviceOption?.description || "Delivery",
-        qty: String(deliveryLoads),
-        unit: serviceOption?.unit ?? "EA",
-        unitPrice: String(pricePerLoad),
-        weight: "",
-        yards: "",
-        taxable: serviceOption?.taxable ?? false,
-      };
-      const existingIndex = current.findIndex((entry) => entry.id === line.id);
-      if (existingIndex >= 0) {
-        const next = [...current];
-        next[existingIndex] = {
-          ...next[existingIndex],
-          description: line.description,
-          qty: line.qty,
-          unitPrice: line.unitPrice,
-        };
-        return next;
-      }
-      return renumberLineItems([...current, line]);
-    });
-  }
-
   function handleJobSelect(job: QuoteFormJobOption | null) {
+    // Any newer job pick supersedes an in-flight customer lookup.
+    const lookupId = ++jobCustomerLookupRef.current;
     setJobId(job?.id ?? "");
 
     if (!job) {
@@ -1009,9 +714,24 @@ export function QuoteForm({
         // offers that customer's contacts, matching the old preloaded lookup.
         // Not routed through the save transition: it must not flip the Save
         // button into its pending state.
-        void getCustomerForQuoteForm(job.customerId).then((customer) => {
-          setSelectedCustomer(customer);
-        });
+        // Only the response for the most recent pick may apply, so a slow
+        // lookup for an earlier job can't overwrite this job's customer.
+        void getCustomerForQuoteForm(job.customerId).then(
+          (customer) => {
+            if (lookupId === jobCustomerLookupRef.current) {
+              setSelectedCustomer(customer);
+            }
+          },
+          () => {
+            // Failed lookup: keep the current customer/contacts as they are.
+            if (lookupId === jobCustomerLookupRef.current) {
+              showFlash(
+                "error",
+                "Couldn't load the job customer's contacts. Try selecting the job again.",
+              );
+            }
+          },
+        );
       }
 
       if (job.contactName) {
@@ -1028,6 +748,38 @@ export function QuoteForm({
     }
   }
 
+  function closeAddModal() {
+    setAddModalType(null);
+  }
+
+  function addLineItems(items: EditableQuoteLineItem[]) {
+    setLineItems((current) =>
+      renumberLineItems([...current, ...items]),
+    );
+    closeAddModal();
+  }
+
+  const {
+    customStructureRows,
+    setCustomStructureRows,
+    customImport,
+    setCustomImport,
+    customPasteOpen,
+    setCustomPasteOpen,
+    customPasteText,
+    setCustomPasteText,
+    customPasteError,
+    setCustomPasteError,
+    updateCustomStructureRow,
+    updateCustomStructureRowCostItems,
+    duplicateCustomStructureRow,
+    customStructureNumbersInUse,
+    openCustomStructureImport,
+    importCustomStructureCandidates,
+    handleCustomStructurePaste,
+    handleAddCustomStructure,
+  } = useCustomStructureBuilder({ lineItems, jobId, showFlash, addLineItems });
+
   function openAddModal(type: AddLineModalType) {
     setActiveLineType(type);
     setAddModalType(type);
@@ -1038,8 +790,8 @@ export function QuoteForm({
         product ? `${product.description} ${structureNumber}`.trim() : "",
       );
       setStructureUnitPrice(product ? String(product.unitPrice) : "");
-      setStructureWeight(product ? String(product.weightLb) : "");
-      setStructureYards(product ? String(product.yards) : "");
+      setStructureWeight(product ? productMeasureInputValue(product.weightLb) : "");
+      setStructureYards(product ? productMeasureInputValue(product.yards) : "");
     }
 
     if (type === "CUSTOM_STRUCTURE") {
@@ -1062,17 +814,6 @@ export function QuoteForm({
     }
   }
 
-  function closeAddModal() {
-    setAddModalType(null);
-  }
-
-  function addLineItems(items: EditableQuoteLineItem[]) {
-    setLineItems((current) =>
-      renumberLineItems([...current, ...items]),
-    );
-    closeAddModal();
-  }
-
   function handleAddRingBuilderItems(items: EditableQuoteLineItem[]) {
     addLineItems(items);
     setRingBuilderModalOpen(false);
@@ -1084,63 +825,8 @@ export function QuoteForm({
   }
 
   function handleAddPipeUnitPrices(entries: PipeUnitPriceEntry[]) {
-    setLineItems((current) => {
-      const existingIndex = current.findIndex(isPipeUnitPricesLineItem);
-      let next = [...current];
-
-      if (existingIndex >= 0) {
-        const existing = current[existingIndex]!;
-        const parsed = parsePipeUnitPricesDescription(existing.description);
-        const merged = mergePipeUnitPriceEntries(
-          parsed?.entries ?? [],
-          entries,
-        );
-        const updatedLine: EditableQuoteLineItem = {
-          ...existing,
-          description: buildPipeUnitPricesDescription(merged),
-        };
-        next = next.filter((_, index) => index !== existingIndex);
-        next.push(updatedLine);
-      } else {
-        next.push({
-          id: createLineId(),
-          lineNumber: current.length + 1,
-          type: "CATEGORY",
-          typeLabel: quoteLineItemTypeLabels.CATEGORY,
-          item: "",
-          description: buildPipeUnitPricesDescription(entries),
-          qty: "1",
-          unit: "",
-          unitPrice: "0",
-          weight: "",
-          yards: "",
-          taxable: false,
-        });
-      }
-
-      return renumberLineItems(next);
-    });
+    setLineItems((current) => applyPipeUnitPrices(current, entries));
     setPipeModalType(null);
-  }
-
-  function buildWorkbookReturnPath(): string {
-    if (quoteId) {
-      return `/quotes/${quoteId}/edit`;
-    }
-
-    const params = new URLSearchParams();
-    if (jobId) {
-      params.set("jobId", jobId);
-    }
-    if (customerId) {
-      params.set("customerId", customerId);
-    }
-    if (jobBidderId) {
-      params.set("bidderId", jobBidderId);
-    }
-
-    const query = params.toString();
-    return query ? `/quotes/new?${query}` : "/quotes/new";
   }
 
   function buildWorkbookFormSnapshot(): QuoteFormWorkbookSnapshot {
@@ -1164,7 +850,12 @@ export function QuoteForm({
   }
 
   function openStructureWorkbook() {
-    const returnPath = buildWorkbookReturnPath();
+    const returnPath = buildWorkbookReturnPath({
+      quoteId,
+      jobId,
+      customerId,
+      jobBidderId,
+    });
     const workbookPath = quoteId
       ? `/quotes/${quoteId}/edit/structures`
       : "/quotes/new/structures";
@@ -1180,7 +871,12 @@ export function QuoteForm({
   }
 
   function openRectStructureWorkbook() {
-    const returnPath = buildWorkbookReturnPath();
+    const returnPath = buildWorkbookReturnPath({
+      quoteId,
+      jobId,
+      customerId,
+      jobBidderId,
+    });
     const workbookPath = quoteId
       ? `/quotes/${quoteId}/edit/rect-structures`
       : "/quotes/new/rect-structures";
@@ -1209,20 +905,7 @@ export function QuoteForm({
     setLineItems((current) =>
       renumberLineItems([
         ...current,
-        {
-          id: createLineId(),
-          lineNumber: current.length + 1,
-          type: "CATEGORY",
-          typeLabel: quoteLineItemTypeLabels.CATEGORY,
-          item: "",
-          description: "",
-          qty: "1",
-          unit: "",
-          unitPrice: "0",
-          weight: "",
-          yards: "",
-          taxable: false,
-        },
+        createBlankLine("CATEGORY", current.length + 1),
       ]),
     );
   }
@@ -1231,20 +914,7 @@ export function QuoteForm({
     setLineItems((current) =>
       renumberLineItems([
         ...current,
-        {
-          id: createLineId(),
-          lineNumber: current.length + 1,
-          type: "NOTE",
-          typeLabel: quoteLineItemTypeLabels.NOTE,
-          item: "",
-          description: "",
-          qty: "1",
-          unit: "",
-          unitPrice: "0",
-          weight: "",
-          yards: "",
-          taxable: false,
-        },
+        createBlankLine("NOTE", current.length + 1),
       ]),
     );
   }
@@ -1253,20 +923,7 @@ export function QuoteForm({
     setLineItems((current) =>
       renumberLineItems([
         ...current,
-        {
-          id: createLineId(),
-          lineNumber: current.length + 1,
-          type: "PAGE_BREAK",
-          typeLabel: quoteLineItemTypeLabels.PAGE_BREAK,
-          item: "",
-          description: "",
-          qty: "1",
-          unit: "",
-          unitPrice: "0",
-          weight: "",
-          yards: "",
-          taxable: false,
-        },
+        createBlankLine("PAGE_BREAK", current.length + 1),
       ]),
     );
   }
@@ -1276,31 +933,7 @@ export function QuoteForm({
       return;
     }
 
-    addLineItems(
-      items.map(({ product, qty }) => ({
-        id: createLineId(),
-        lineNumber: 0,
-        type: "STOCK_PRODUCT" as const,
-        typeLabel: product.galleyFamilyCode
-          ? "Galley Total"
-          : quoteLineItemTypeLabels.STOCK_PRODUCT,
-        item: product.code,
-        // Family totals print the plain family name; the picker's
-        // "(End/Middle/CB split on award)" hint is internal.
-        description: product.galleyFamilyCode
-          ? product.name
-          : product.description,
-        qty: String(qty),
-        unit: product.unit,
-        unitPrice: String(product.unitPrice),
-        weight: product.weightLb > 0 ? String(product.weightLb) : "",
-        yards: product.yards > 0 ? String(product.yards) : "",
-        taxable: product.taxable,
-        // Family options are synthetic — their id is not a productId.
-        productId: product.galleyFamilyCode ? null : product.id,
-        galleyFamilyCode: product.galleyFamilyCode ?? null,
-      })),
-    );
+    addLineItems(stagedStockProductsToLineItems(items));
   }
 
   function handleAddConfigurableStructure() {
@@ -1327,330 +960,6 @@ export function QuoteForm({
       productId: product.id,
       statusNote: "Cut sheet required after award.",
     });
-  }
-
-  function updateCustomStructureRow(
-    id: string,
-    field: keyof Omit<CustomStructureRow, "id" | "costItems">,
-    value: string,
-  ) {
-    setCustomStructureRows((current) =>
-      current.map((row) =>
-        row.id === id ? { ...row, [field]: value } : row,
-      ),
-    );
-  }
-
-  function updateCustomStructureRowCostItems(
-    id: string,
-    costItems: CustomStructureCostItem[],
-  ) {
-    setCustomStructureRows((current) =>
-      current.map((row) => (row.id === id ? { ...row, costItems } : row)),
-    );
-  }
-
-  function duplicateCustomStructureRow(id: string) {
-    setCustomStructureRows((current) => {
-      const source = current.find((row) => row.id === id);
-      if (!source) {
-        return current;
-      }
-      const duplicate: CustomStructureRow = {
-        ...source,
-        id: createLineId(),
-        structureNumber: `CS-${current.length + 1}`,
-        costItems: source.costItems.map((item) => ({
-          ...item,
-          id: createCostItemId(),
-        })),
-      };
-      const index = current.findIndex((row) => row.id === id);
-      const next = [...current];
-      next.splice(index + 1, 0, duplicate);
-      return next;
-    });
-  }
-
-  function updateEditingCustomStructureDraft(
-    field: keyof Omit<CustomStructureRow, "id" | "costItems">,
-    value: string,
-  ) {
-    setEditingCustomStructureDraft((current) =>
-      current ? { ...current, [field]: value } : current,
-    );
-  }
-
-  function updateEditingCustomStructureCostItems(
-    costItems: CustomStructureCostItem[],
-  ) {
-    setEditingCustomStructureDraft((current) =>
-      current ? { ...current, costItems } : current,
-    );
-  }
-
-  const openEditCustomStructureLine = useCallback(
-    (line: EditableQuoteLineItem) => {
-      setEditingCustomStructureLineId(line.id);
-      setEditingCustomStructureDraft({
-        id: line.id,
-        structureNumber: line.item,
-        description: line.description,
-        qty: line.qty,
-        unitPrice: line.unitPrice,
-        weight: line.weight,
-        yards: line.yards,
-        costItems: line.costBreakdown?.map((item) => ({ ...item })) ?? [],
-      });
-    },
-    [],
-  );
-
-  function closeEditCustomStructureLine() {
-    setEditingCustomStructureLineId(null);
-    setEditingCustomStructureDraft(null);
-  }
-
-  function handleSaveEditedCustomStructure() {
-    if (!editingCustomStructureDraft || !editingCustomStructureLineId) {
-      return;
-    }
-
-    const draft = editingCustomStructureDraft;
-    const resolvedUnitPrice = resolveCustomStructureUnitPrice(
-      draft.unitPrice,
-      draft.costItems,
-    );
-    const costBreakdown = draft.costItems.length > 0 ? draft.costItems : null;
-
-    setLineItems((current) =>
-      current.map((line) =>
-        line.id === editingCustomStructureLineId
-          ? {
-              ...line,
-              item: draft.structureNumber.trim() || line.item,
-              description: sanitizeRichText(draft.description),
-              qty: draft.qty || "1",
-              unitPrice: resolvedUnitPrice,
-              weight: draft.weight,
-              yards: draft.yards,
-              costBreakdown,
-            }
-          : line,
-      ),
-    );
-    closeEditCustomStructureLine();
-  }
-
-  function isBlankCustomStructureRow(row: CustomStructureRow): boolean {
-    return (
-      !richTextHasContent(row.description) &&
-      !row.unitPrice.trim() &&
-      !row.weight.trim() &&
-      !row.yards.trim() &&
-      row.costItems.length === 0
-    );
-  }
-
-  /** Structure numbers already on this quote (editor rows + added lines). */
-  function customStructureNumbersInUse(): Set<string> {
-    const used = new Set<string>();
-    for (const row of customStructureRows) {
-      if (!isBlankCustomStructureRow(row) && row.structureNumber.trim()) {
-        used.add(row.structureNumber.trim().toLowerCase());
-      }
-    }
-    for (const line of lineItems) {
-      if (line.type === "CUSTOM_STRUCTURE" && line.item.trim()) {
-        used.add(line.item.trim().toLowerCase());
-      }
-    }
-    return used;
-  }
-
-  async function openCustomStructureImport() {
-    setCustomImport({
-      loading: true,
-      error: null,
-      candidates: [],
-      unchecked: new Set(),
-    });
-    try {
-      const candidates = await loadJobCustomStructureImportCandidates(jobId);
-      setCustomImport({
-        loading: false,
-        error: null,
-        candidates,
-        unchecked: new Set(),
-      });
-    } catch (error) {
-      setCustomImport({
-        loading: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Could not load the job's structures.",
-        candidates: [],
-        unchecked: new Set(),
-      });
-    }
-  }
-
-  function importCustomStructureCandidates() {
-    if (!customImport) {
-      return;
-    }
-    const used = customStructureNumbersInUse();
-    const picked = customImport.candidates.filter(
-      (candidate) =>
-        !customImport.unchecked.has(candidate.structureNumber) &&
-        !used.has(candidate.structureNumber.toLowerCase()),
-    );
-    setCustomImport(null);
-    if (picked.length === 0) {
-      showFlash("info", "Nothing new to import from the job.");
-      return;
-    }
-    const importedRows: CustomStructureRow[] = picked.map((candidate) => ({
-      id: createLineId(),
-      structureNumber: candidate.structureNumber,
-      description: candidate.description
-        ? plainTextToRichText(candidate.description)
-        : "",
-      qty: candidate.qty,
-      unitPrice: "",
-      weight: candidate.weight,
-      yards: candidate.yards,
-      costItems: [],
-    }));
-    setCustomStructureRows((current) => [
-      ...current.filter((row) => !isBlankCustomStructureRow(row)),
-      ...importedRows,
-    ]);
-    showFlash(
-      "info",
-      `Added ${importedRows.length} structure${importedRows.length === 1 ? "" : "s"} from the job — fill in prices, then Add to Quote.`,
-    );
-  }
-
-  /** Bulk add: pasted Excel rows (with prices) become editable structure rows. */
-  function handleCustomStructurePaste() {
-    const parsed = parseCustomStructureImport(customGridFromTsv(customPasteText));
-    if (!parsed.headerFound) {
-      setCustomPasteError(
-        'Couldn\'t find the header row — include column headings like "Structure #", "Description", "Qty", "Unit Price", "Weight", "Yards".',
-      );
-      return;
-    }
-
-    const used = customStructureNumbersInUse();
-    const skippedDuplicates: string[] = [];
-    const pastedRows: CustomStructureRow[] = [];
-    for (const row of parsed.rows) {
-      if (used.has(row.entry.structureNumber.toLowerCase())) {
-        skippedDuplicates.push(row.entry.structureNumber);
-        continue;
-      }
-      pastedRows.push({
-        id: createLineId(),
-        structureNumber: row.entry.structureNumber,
-        description: plainTextToRichText(row.entry.description),
-        qty: String(row.entry.quantity),
-        unitPrice:
-          row.entry.unitPriceEach != null ? String(row.entry.unitPriceEach) : "",
-        weight:
-          row.entry.weightEachLbs != null ? String(row.entry.weightEachLbs) : "",
-        yards: row.entry.yardsEach != null ? String(row.entry.yardsEach) : "",
-        costItems: [],
-      });
-    }
-
-    if (pastedRows.length === 0) {
-      const problems: string[] = [];
-      if (parsed.errors.length > 0) {
-        problems.push(
-          `${parsed.errors.length} row${parsed.errors.length === 1 ? "" : "s"} had errors (first: row ${parsed.errors[0].rowNumber} — ${parsed.errors[0].message})`,
-        );
-      }
-      if (skippedDuplicates.length > 0) {
-        problems.push(
-          `${skippedDuplicates.length} already on this quote (${skippedDuplicates.slice(0, 3).join(", ")}${skippedDuplicates.length > 3 ? "…" : ""})`,
-        );
-      }
-      setCustomPasteError(
-        problems.length > 0
-          ? `No rows added: ${problems.join("; ")}.`
-          : "No structure rows found below the header row.",
-      );
-      return;
-    }
-
-    setCustomStructureRows((current) => [
-      ...current.filter((row) => !isBlankCustomStructureRow(row)),
-      ...pastedRows,
-    ]);
-    setCustomPasteOpen(false);
-    setCustomPasteText("");
-    setCustomPasteError(null);
-
-    const notes: string[] = [];
-    if (parsed.errors.length > 0) {
-      notes.push(
-        `${parsed.errors.length} row${parsed.errors.length === 1 ? "" : "s"} skipped (first: row ${parsed.errors[0].rowNumber} — ${parsed.errors[0].message})`,
-      );
-    }
-    if (skippedDuplicates.length > 0) {
-      notes.push(
-        `${skippedDuplicates.length} duplicate${skippedDuplicates.length === 1 ? "" : "s"} already on this quote`,
-      );
-    }
-    showFlash(
-      notes.length > 0 ? "info" : "success",
-      `Added ${pastedRows.length} structure${pastedRows.length === 1 ? "" : "s"} from the paste${notes.length > 0 ? ` — ${notes.join("; ")}` : ""}. Review below, then Add to Quote.`,
-    );
-  }
-
-  function handleAddCustomStructure() {
-    const items: EditableQuoteLineItem[] = [];
-
-    for (const row of customStructureRows) {
-      const hasContent =
-        richTextHasContent(row.description) ||
-        row.structureNumber.trim() ||
-        row.unitPrice.trim() ||
-        row.weight.trim() ||
-        row.yards.trim();
-
-      if (!hasContent) {
-        continue;
-      }
-
-      items.push({
-        id: createLineId(),
-        lineNumber: 0,
-        type: "CUSTOM_STRUCTURE",
-        typeLabel: quoteLineItemTypeLabels.CUSTOM_STRUCTURE,
-        item: row.structureNumber.trim() || "Custom Structure",
-        description: sanitizeRichText(row.description),
-        qty: row.qty || "1",
-        unit: "EA",
-        unitPrice: resolveCustomStructureUnitPrice(row.unitPrice, row.costItems),
-        weight: row.weight,
-        yards: row.yards,
-        taxable: true,
-        costBreakdown: row.costItems.length > 0 ? row.costItems : null,
-      });
-    }
-
-    if (items.length === 0) {
-      showFlash(
-        "error",
-        "Enter at least one custom structure with a structure number, description, or pricing details.",
-      );
-      return;
-    }
-
-    addLineItems(items);
   }
 
   function handleAddService() {
@@ -1696,39 +1005,12 @@ export function QuoteForm({
   }, []);
 
   const moveLineItem = useCallback((id: string, direction: "up" | "down") => {
-    setLineItems((current) => {
-      const index = current.findIndex((line) => line.id === id);
-      if (index < 0) {
-        return current;
-      }
-
-      const target = direction === "up" ? index - 1 : index + 1;
-      if (target < 0 || target >= current.length) {
-        return current;
-      }
-
-      const next = [...current];
-      [next[index], next[target]] = [next[target], next[index]];
-      return renumberLineItems(next);
-    });
+    setLineItems((current) => moveLineByStep(current, id, direction));
   }, []);
 
   /** Drag-drop / jump-to-position: place the line at an exact index. */
   const moveLineItemToIndex = useCallback((id: string, targetIndex: number) => {
-    setLineItems((current) => {
-      const index = current.findIndex((line) => line.id === id);
-      if (index < 0) {
-        return current;
-      }
-      const clamped = Math.max(0, Math.min(current.length - 1, targetIndex));
-      if (clamped === index) {
-        return current;
-      }
-      const next = [...current];
-      const [moved] = next.splice(index, 1);
-      next.splice(clamped, 0, moved);
-      return renumberLineItems(next);
-    });
+    setLineItems((current) => moveLineToIndex(current, id, targetIndex));
   }, []);
 
   function handleServiceOptionChange(item: string) {
@@ -1753,8 +1035,8 @@ export function QuoteForm({
         `${product.description} ${structureNumber}`.trim(),
       );
       setStructureUnitPrice(String(product.unitPrice));
-      setStructureWeight(product.weightLb > 0 ? String(product.weightLb) : "");
-      setStructureYards(product.yards > 0 ? String(product.yards) : "");
+      setStructureWeight(productMeasureInputValue(product.weightLb));
+      setStructureYards(productMeasureInputValue(product.yards));
     }
   }
 
@@ -1774,50 +1056,19 @@ export function QuoteForm({
     ) : null}
 
     {showLeaveConfirm && backHref ? (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-        <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-lg">
-          <h3 className="text-sm font-semibold text-slate-900">
-            Save your changes?
-          </h3>
-          <p className="mt-1 text-xs text-slate-600">
-            This quote has unsaved changes. Save them before leaving, or
-            discard them?
-          </p>
-          <div className="mt-4 flex flex-wrap justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setShowLeaveConfirm(false)}
-              disabled={isPending}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Keep Editing
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setShowLeaveConfirm(false);
-                setIsDirty(false);
-                router.push(backHref);
-              }}
-              disabled={isPending}
-              className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
-            >
-              Discard Changes
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setShowLeaveConfirm(false);
-                handleSaveDraft();
-              }}
-              disabled={isPending}
-              className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
-            >
-              {isPending ? "Saving…" : "Save Changes"}
-            </button>
-          </div>
-        </div>
-      </div>
+      <QuoteFormLeaveDialog
+        isPending={isPending}
+        onKeepEditing={() => setShowLeaveConfirm(false)}
+        onDiscard={() => {
+          setShowLeaveConfirm(false);
+          setIsDirty(false);
+          router.push(backHref);
+        }}
+        onSave={() => {
+          setShowLeaveConfirm(false);
+          handleSaveDraft();
+        }}
+      />
     ) : null}
 
     <form
@@ -1839,1039 +1090,151 @@ export function QuoteForm({
         </div>
       ) : null}
 
-      <div className="sticky top-[4.5rem] z-[9] -mx-5 mb-4 border-b border-slate-200/80 bg-white/95 px-5 py-2 shadow-sm backdrop-blur">
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_7rem]">
-          <div>
-            <label
-              htmlFor="sticky-customer"
-              className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-            >
-              Customer
-            </label>
-            <div className="space-y-1">
-              <QuoteFormTypeahead
-                inputId="sticky-customer"
-                selectedLabel={customerId ? customerName : ""}
-                placeholder="Search customers"
-                initialItems={selectedCustomer ? [selectedCustomer] : []}
-                searchItems={searchCustomersForQuoteForm}
-                itemKey={(customer) => customer.id}
-                itemLabel={(customer) => customer.name}
-                onSelect={handleCustomerSelect}
-                clearLabel="No linked customer"
-                emptyLabel="No customers match."
-                inputClassName={quoteCompactInputClassName}
-              />
-              {!customerId ? (
-                <input
-                  type="text"
-                  value={customerName}
-                  onChange={(event) => setCustomerName(event.target.value)}
-                  placeholder="Or type customer name"
-                  className={quoteCompactInputClassName}
-                />
-              ) : null}
-            </div>
-          </div>
-          <div>
-            <label
-              htmlFor="sticky-projectName"
-              className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-            >
-              Project Name
-            </label>
-            <input
-              id="sticky-projectName"
-              name="projectName"
-              type="text"
-              value={projectName}
-              onChange={(event) => setProjectName(event.target.value)}
-              placeholder="Main Street Drainage"
-              className={quoteCompactInputClassName}
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="sticky-scopeLabel"
-              className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-            >
-              Scope / Area
-            </label>
-            <input
-              id="sticky-scopeLabel"
-              name="scopeLabel"
-              type="text"
-              value={scopeLabel}
-              onChange={(event) => setScopeLabel(event.target.value)}
-              placeholder="Area A — Structural"
-              className={quoteCompactInputClassName}
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="sticky-jobNumber"
-              className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-            >
-              Job Number
-            </label>
-            <input
-              id="sticky-jobNumber"
-              name="jobNumber"
-              type="text"
-              value={jobNumber}
-              onChange={(event) => setJobNumber(event.target.value)}
-              placeholder="26-001"
-              className={quoteCompactInputClassName}
-            />
-          </div>
-        </div>
-
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-slate-100 pt-2">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-            <span className="text-slate-500">
-              Subtotal{" "}
-              <span className="font-medium text-slate-700">
-                {formatQuoteCurrency(totals.subtotal)}
-              </span>
-            </span>
-            <span className="text-slate-500">
-              Tax{" "}
-              <span className="font-medium text-slate-700">
-                {formatQuoteCurrency(totals.salesTax)}
-              </span>
-            </span>
-            <span className="text-slate-700">
-              Total{" "}
-              <span className="text-sm font-semibold text-slate-900">
-                {formatQuoteCurrency(totals.total)}
-              </span>
-            </span>
-            <span className="text-slate-500">
-              Weight{" "}
-              <span className="font-medium text-slate-700">
-                {formatQuoteWeight(totals.totalWeight)}
-              </span>
-            </span>
-            <span className="text-slate-500">
-              Yards{" "}
-              <span className="font-medium text-slate-700">
-                {formatQuoteYards(totals.totalYards)}
-              </span>
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => handleSaveDraft()}
-              disabled={isPending}
-              className="rounded-md bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isPending
-                ? "Saving..."
-                : isEditing
-                  ? "Save Changes"
-                  : "Save Draft"}
-            </button>
-            <button
-              type="button"
-              onClick={handleSaveAndPreview}
-              disabled={isPending}
-              className="rounded-md border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isPending ? "Saving..." : "Preview PDF"}
-            </button>
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={() => handleSaveDraft("send")}
-              title="Save the quote, then open the send dialog"
-              className="rounded-md border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isPending ? "Saving..." : "Send Quote"}
-            </button>
-            <Link
-              href={isEditing ? `/quotes/${quoteId}` : "/quotes"}
-              className="rounded-md border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Cancel
-            </Link>
-          </div>
-        </div>
-      </div>
+      <QuoteFormStickyHeader
+        customerId={customerId}
+        customerName={customerName}
+        selectedCustomer={selectedCustomer}
+        onCustomerSelect={handleCustomerSelect}
+        onCustomerNameChange={setCustomerName}
+        projectName={projectName}
+        onProjectNameChange={setProjectName}
+        scopeLabel={scopeLabel}
+        onScopeLabelChange={setScopeLabel}
+        jobNumber={jobNumber}
+        onJobNumberChange={setJobNumber}
+        totals={totals}
+        isPending={isPending}
+        isEditing={isEditing}
+        quoteId={quoteId}
+        onSaveDraft={handleSaveDraft}
+        onSaveAndPreview={handleSaveAndPreview}
+      />
 
       <div className="space-y-4">
-          <SectionCard
-            title="Quote Line Items"
-            description="Add stock products, structures, and services to the quote."
-          >
-            <div className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                {quoteLineItemTypeOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => openAddModal(option.value as AddLineModalType)}
-                    className={`rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors ${
-                      activeLineType === option.value
-                        ? "border-slate-900 bg-slate-900 text-white"
-                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setRingBuilderModalOpen(true)}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-                >
-                  Add Rings
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPipeModalType("ADS_PIPE")}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-                >
-                  Add ADS Pipe
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPipeModalType("PRECAST_PIPE")}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-                >
-                  Add RCP Pipe
-                </button>
-                <button
-                  type="button"
-                  onClick={openStructureWorkbook}
-                  className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-800 transition-colors hover:bg-sky-100"
-                >
-                  Circular Structure Workbook
-                </button>
-                <button
-                  type="button"
-                  onClick={openRectStructureWorkbook}
-                  className="rounded-lg border border-teal-200 bg-teal-50 px-3 py-1.5 text-[11px] font-semibold text-teal-800 transition-colors hover:bg-teal-100"
-                >
-                  Rectangular Structure Workbook
-                </button>
-                <button
-                  type="button"
-                  onClick={addCategoryLine}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-                >
-                  Add Category
-                </button>
-                <button
-                  type="button"
-                  onClick={addNoteLine}
-                  title="A text-only row on the printed quote — no quantity or price."
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-                >
-                  Add Note
-                </button>
-                <button
-                  type="button"
-                  onClick={addPageBreakLine}
-                  title="Everything after this line starts on a new page of the printed quote."
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-                >
-                  Add Page Break
-                </button>
-              </div>
-
-              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                {activeHint}
-              </p>
-
-              <QuoteLineItemsTable
-                lineItems={lineItems}
-                onUpdateLine={updateLineItem}
-                onRemoveLine={removeLineItem}
-                onMoveLine={moveLineItem}
-                onMoveLineTo={moveLineItemToIndex}
-                onEditCustomStructure={openEditCustomStructureLine}
-              />
-            </div>
-          </SectionCard>
+          <QuoteLineItemsSection
+            activeLineType={activeLineType}
+            activeHint={activeHint}
+            onOpenAddModal={openAddModal}
+            onOpenRingBuilder={() => setRingBuilderModalOpen(true)}
+            onOpenPipeModal={setPipeModalType}
+            onOpenStructureWorkbook={openStructureWorkbook}
+            onOpenRectStructureWorkbook={openRectStructureWorkbook}
+            onAddCategoryLine={addCategoryLine}
+            onAddNoteLine={addNoteLine}
+            onAddPageBreakLine={addPageBreakLine}
+            lineItems={lineItems}
+            onUpdateLine={updateLineItem}
+            onRemoveLine={removeLineItem}
+            onMoveLine={moveLineItem}
+            onMoveLineTo={moveLineItemToIndex}
+            onEditCustomStructure={openEditCustomStructureLine}
+          />
 
         <div className="grid items-start gap-4 xl:grid-cols-2">
           <SectionCard title="Quote Details">
             <div className="space-y-3">
-              <div>
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                  Quote
-                </p>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                  <div>
-                    <label className="block text-[10px] font-medium uppercase tracking-wide text-slate-500">
-                      Quote Number
-                    </label>
-                    <input
-                      readOnly
-                      value="Auto assigned after saving"
-                      className="block w-full rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600 shadow-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-medium uppercase tracking-wide text-slate-500">
-                      Revision
-                    </label>
-                    <input
-                      readOnly
-                      value="R0"
-                      className="block w-full rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600 shadow-sm"
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="status"
-                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-                    >
-                      Quote Status
-                    </label>
-                    <select
-                      id="status"
-                      name="status"
-                      value={status}
-                      onChange={(event) =>
-                        setStatus(event.target.value as QuoteStatus)
-                      }
-                      className={quoteCompactInputClassName}
-                    >
-                      {quoteStatusFormOptions
-                        .filter((option) => isEditing || option.value !== "WON")
-                        .map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="quoteType"
-                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-                    >
-                      Quote Type
-                    </label>
-                    <select
-                      id="quoteType"
-                      name="quoteType"
-                      value={quoteType}
-                      onChange={(event) =>
-                        setQuoteType(event.target.value as QuoteType)
-                      }
-                      className={quoteCompactInputClassName}
-                    >
-                      {quoteTypeFormOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="estimator"
-                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-                    >
-                      Estimator
-                    </label>
-                    <select
-                      id="estimator"
-                      name="estimator"
-                      value={estimator}
-                      onChange={(event) => setEstimator(event.target.value)}
-                      className={quoteCompactInputClassName}
-                    >
-                      {estimatorOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="bidDueDate"
-                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-                    >
-                      Bid Due Date
-                    </label>
-                    <input
-                      id="bidDueDate"
-                      name="bidDueDate"
-                      type="date"
-                      value={bidDueDate}
-                      onChange={(event) => setBidDueDate(event.target.value)}
-                      className={quoteCompactInputClassName}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="quoteDate"
-                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-                    >
-                      Quote Date
-                    </label>
-                    <input
-                      id="quoteDate"
-                      name="quoteDate"
-                      type="date"
-                      value={quoteDate}
-                      onChange={(event) => setQuoteDate(event.target.value)}
-                      className={quoteCompactInputClassName}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="expirationDate"
-                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-                    >
-                      Expiration Date
-                    </label>
-                    <input
-                      id="expirationDate"
-                      name="expirationDate"
-                      type="date"
-                      value={expirationDate}
-                      onChange={(event) =>
-                        setExpirationDate(event.target.value)
-                      }
-                      className={quoteCompactInputClassName}
-                    />
-                  </div>
-                </div>
-              </div>
+              <QuoteMetaFields
+                isEditing={isEditing}
+                status={status}
+                onStatusChange={setStatus}
+                quoteType={quoteType}
+                onQuoteTypeChange={setQuoteType}
+                estimator={estimator}
+                onEstimatorChange={setEstimator}
+                estimatorOptions={estimatorOptions}
+                bidDueDate={bidDueDate}
+                onBidDueDateChange={setBidDueDate}
+                quoteDate={quoteDate}
+                onQuoteDateChange={setQuoteDate}
+                expirationDate={expirationDate}
+                onExpirationDateChange={setExpirationDate}
+              />
 
-              <div className="border-t border-slate-100 pt-3">
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                  Job &amp; Contact
-                </p>
-                <div className="space-y-2">
-                  <div className="grid gap-2 lg:grid-cols-2">
-                    <div>
-                      <div className="mb-0.5 flex items-center justify-between gap-2">
-                        <label
-                          htmlFor="job"
-                          className="text-[10px] font-medium uppercase tracking-wide text-slate-500"
-                        >
-                          Job
-                        </label>
-                        <Link
-                          href="/jobs/new"
-                          className="text-[10px] font-semibold text-slate-600 hover:text-slate-900 hover:underline"
-                        >
-                          Create New Job
-                        </Link>
-                      </div>
-                      <QuoteFormTypeahead
-                        inputId="job"
-                        selectedLabel={
-                          jobId
-                            ? selectedJobLabel ||
-                              [jobNumber, projectName]
-                                .filter(Boolean)
-                                .join(" - ")
-                            : ""
-                        }
-                        placeholder="Search by job number, project, or customer"
-                        initialItems={initialJob ? [initialJob] : []}
-                        searchItems={searchJobsForQuoteForm}
-                        itemKey={(job) => job.id}
-                        itemLabel={(job) => job.label}
-                        onSelect={(job) => {
-                          setSelectedJobLabel(job?.label ?? "");
-                          handleJobSelect(job);
-                        }}
-                        clearLabel="No linked job"
-                        emptyLabel="No jobs match."
-                        inputClassName={quoteCompactInputClassName}
-                      />
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="projectAddress"
-                        className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-                      >
-                        Project Address
-                      </label>
-                      <AddressAutocomplete
-                        inputId="projectAddress"
-                        value={projectAddress}
-                        onChangeText={setProjectAddress}
-                        onSelectSuggestion={handleAddressSuggestionSelect}
-                        onSettled={() => runShippingLookup(projectAddress)}
-                        suggest={suggestShippingAddresses}
-                        placeholder="120 Main Street, Riverhead, NY"
-                        inputClassName={quoteCompactInputClassName}
-                      />
-                      {shippingStatus !== "idle" ? (
-                        <p className="mt-1 text-[11px]">
-                          {shippingStatus === "loading" ? (
-                            <span className="text-slate-400">
-                              Checking shipping zone…
-                            </span>
-                          ) : shippingStatus === "matched" && shippingHint ? (
-                            <span className="font-medium text-slate-600">
-                              <span
-                                className="mr-1 inline-block h-2 w-2 rounded-full align-middle"
-                                style={{
-                                  backgroundColor: shippingHint.color,
-                                }}
-                              />
-                              {shippingHint.zoneName} —{" "}
-                              {formatQuoteCurrency(shippingHint.ratePerLoad)}
-                              /load
-                              {shippingHint.distanceMiles !== null
-                                ? ` (${shippingHint.distanceMiles.toFixed(0)} mi)`
-                                : ""}
-                            </span>
-                          ) : shippingStatus === "outside" ? (
-                            <span className="text-amber-600">
-                              Outside shipping zones — price delivery manually
-                            </span>
-                          ) : (
-                            <span className="text-slate-400">
-                              Shipping zone lookup unavailable
-                            </span>
-                          )}
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
+              <QuoteJobContactFields
+                jobId={jobId}
+                selectedJobLabel={selectedJobLabel}
+                jobNumber={jobNumber}
+                projectName={projectName}
+                initialJob={initialJob}
+                onJobSelect={(job) => {
+                  setSelectedJobLabel(job?.label ?? "");
+                  handleJobSelect(job);
+                }}
+                projectAddress={projectAddress}
+                onProjectAddressChange={setProjectAddress}
+                onAddressSuggestionSelect={handleAddressSuggestionSelect}
+                onAddressSettled={() => runShippingLookup(projectAddress)}
+                shippingStatus={shippingStatus}
+                shippingHint={shippingHint}
+                customerId={customerId}
+                selectedCustomer={selectedCustomer}
+                contactId={contactId}
+                onContactPickerChange={handleContactPickerChange}
+                clearContactLinkIfCustomized={clearContactLinkIfCustomized}
+                contactName={contactName}
+                onContactNameChange={setContactName}
+                contactEmail={contactEmail}
+                onContactEmailChange={setContactEmail}
+                contactPhone={contactPhone}
+                onContactPhoneChange={setContactPhone}
+                contactTitle={contactTitle}
+                onContactTitleChange={setContactTitle}
+              />
 
-                  <div>
-                    <label
-                      htmlFor="quoteContactPicker"
-                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-                    >
-                      Contact
-                    </label>
-                    <select
-                      id="quoteContactPicker"
-                      value={contactId}
-                      onChange={(event) =>
-                        handleContactPickerChange(event.target.value)
-                      }
-                      disabled={!customerId}
-                      className={quoteCompactInputClassName}
-                    >
-                      <option value="">
-                        {customerId
-                          ? "Custom / enter manually"
-                          : "Select a customer first"}
-                      </option>
-                      {selectedCustomer?.contacts.map((contact) => (
-                        <option key={contact.id} value={contact.id}>
-                          {contact.name}
-                          {contact.title ? ` — ${contact.title}` : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                    <div>
-                      <label
-                        htmlFor="contactName"
-                        className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-                      >
-                        Contact Name
-                      </label>
-                      <input
-                        id="contactName"
-                        name="contactName"
-                        type="text"
-                        value={contactName}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          clearContactLinkIfCustomized({ name: value }, contactId);
-                          setContactName(value);
-                        }}
-                        className={quoteCompactInputClassName}
-                      />
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="contactEmail"
-                        className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-                      >
-                        Contact Email
-                      </label>
-                      <input
-                        id="contactEmail"
-                        name="contactEmail"
-                        type="email"
-                        value={contactEmail}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          clearContactLinkIfCustomized(
-                            { email: value },
-                            contactId,
-                          );
-                          setContactEmail(value);
-                        }}
-                        className={quoteCompactInputClassName}
-                      />
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="contactPhone"
-                        className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-                      >
-                        Contact Phone
-                      </label>
-                      <input
-                        id="contactPhone"
-                        name="contactPhone"
-                        type="tel"
-                        value={contactPhone}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          clearContactLinkIfCustomized(
-                            { phone: value },
-                            contactId,
-                          );
-                          setContactPhone(value);
-                        }}
-                        className={quoteCompactInputClassName}
-                      />
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="contactTitle"
-                        className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-                      >
-                        Contact Role
-                      </label>
-                      <input
-                        id="contactTitle"
-                        name="contactTitle"
-                        type="text"
-                        value={contactTitle}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          clearContactLinkIfCustomized(
-                            { title: value },
-                            contactId,
-                          );
-                          setContactTitle(value);
-                        }}
-                        placeholder="Estimator, PM, etc."
-                        className={quoteCompactInputClassName}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t border-slate-100 pt-3">
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                  Pricing
-                </p>
-                <div className="grid gap-2 sm:grid-cols-3">
-                  <div>
-                    <label
-                      htmlFor="priceList"
-                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-                    >
-                      Price List
-                    </label>
-                    <select
-                      id="priceList"
-                      name="priceList"
-                      value={priceListId}
-                      onChange={(event) => handlePriceListChange(event.target.value)}
-                      className={quoteCompactInputClassName}
-                      required
-                    >
-                      {priceLists.map((priceList) => (
-                        <option key={priceList.id} value={priceList.id}>
-                          {priceList.name}
-                          {priceList.isDefault ? " (default)" : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="taxRate"
-                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-                    >
-                      Tax Rate
-                    </label>
-                    <input
-                      id="taxRate"
-                      name="taxRate"
-                      type="text"
-                      value={taxRate}
-                      onChange={(event) => setTaxRate(event.target.value)}
-                      className={quoteCompactInputClassName}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="customerPo"
-                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-                    >
-                      Customer PO
-                    </label>
-                    <input
-                      id="customerPo"
-                      name="customerPo"
-                      type="text"
-                      value={customerPo}
-                      onChange={(event) => setCustomerPo(event.target.value)}
-                      placeholder="Optional"
-                      className={quoteCompactInputClassName}
-                    />
-                  </div>
-                </div>
-              </div>
+              <QuotePricingFields
+                priceLists={priceLists}
+                priceListId={priceListId}
+                onPriceListChange={handlePriceListChange}
+                taxRate={taxRate}
+                onTaxRateChange={setTaxRate}
+                customerPo={customerPo}
+                onCustomerPoChange={setCustomerPo}
+              />
             </div>
           </SectionCard>
 
-          <SectionCard title="Notes and Terms">
-            <div className="grid gap-5">
-              <div>
-                <label
-                  htmlFor="internalNotes"
-                  className="block text-xs font-medium text-slate-700"
-                >
-                  Internal Notes
-                </label>
-                <textarea
-                  id="internalNotes"
-                  name="internalNotes"
-                  rows={3}
-                  value={internalNotes}
-                  onChange={(event) => setInternalNotes(event.target.value)}
-                  className={quoteInputClassName}
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="customerNotes"
-                  className="block text-xs font-medium text-slate-700"
-                >
-                  Customer-Facing Notes
-                </label>
-                <textarea
-                  id="customerNotes"
-                  name="customerNotes"
-                  rows={3}
-                  value={customerNotes}
-                  onChange={(event) => setCustomerNotes(event.target.value)}
-                  className={quoteInputClassName}
-                />
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs font-semibold text-slate-700">
-                    Delivery Pricing
-                  </p>
-                  {shippingHint ? (
-                    <p className="text-[11px] font-medium text-slate-600">
-                      <span
-                        className="mr-1 inline-block h-2 w-2 rounded-full align-middle"
-                        style={{ backgroundColor: shippingHint.color }}
-                      />
-                      {shippingHint.zoneName}
-                      {shippingHint.distanceMiles !== null
-                        ? ` — ${shippingHint.distanceMiles.toFixed(0)} mi from yard`
-                        : ""}
-                    </p>
-                  ) : (
-                    <p className="text-[11px] text-slate-400">
-                      No zone matched — enter a project address in Quote
-                      Details or price manually
-                    </p>
-                  )}
-                </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-4">
-                  <div>
-                    <label
-                      htmlFor="deliveryLoads"
-                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-                    >
-                      Loads
-                    </label>
-                    <input
-                      id="deliveryLoads"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={deliveryLoadsInput}
-                      onChange={(event) =>
-                        setDeliveryLoadsInput(event.target.value)
-                      }
-                      placeholder={
-                        autoDeliveryLoads !== null
-                          ? String(autoDeliveryLoads)
-                          : "—"
-                      }
-                      className={quoteCompactInputClassName}
-                    />
-                    <p className="mt-0.5 text-[10px] text-slate-400">
-                      {deliveryLoadsInput.trim()
-                        ? autoDeliveryLoads !== null
-                          ? `auto would be ${autoDeliveryLoads}`
-                          : "manual"
-                        : "blank = auto from weight"}
-                    </p>
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="maxLoadLbs"
-                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-                    >
-                      Max Weight / Load (lb)
-                    </label>
-                    <input
-                      id="maxLoadLbs"
-                      type="text"
-                      inputMode="numeric"
-                      value={maxLoadLbsInput}
-                      onChange={(event) => {
-                        maxLoadLbsDirty.current = true;
-                        setMaxLoadLbsInput(event.target.value);
-                      }}
-                      placeholder="80,000"
-                      className={quoteCompactInputClassName}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="pricePerLoad"
-                      className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
-                    >
-                      Price / Load ($)
-                    </label>
-                    <input
-                      id="pricePerLoad"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={pricePerLoadInput}
-                      onChange={(event) =>
-                        setPricePerLoadInput(event.target.value)
-                      }
-                      className={quoteCompactInputClassName}
-                    />
-                  </div>
-                  <div>
-                    <p className="block text-[10px] font-medium uppercase tracking-wide text-slate-500">
-                      Delivery Total
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">
-                      {deliveryTotal !== null
-                        ? formatQuoteCurrency(deliveryTotal)
-                        : "—"}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={applyDeliveryLineItem}
-                      disabled={deliveryTotal === null}
-                      className="mt-1 rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-40"
-                    >
-                      {lineItems.some(
-                        (entry) => entry.id === deliveryLineId,
-                      )
-                        ? "Update delivery line"
-                        : "Add as line item"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid gap-5 sm:grid-cols-3">
-                <div>
-                  <label
-                    htmlFor="fob"
-                    className="block text-xs font-medium text-slate-700"
-                  >
-                    F.O.B.
-                  </label>
-                  <input
-                    id="fob"
-                    name="fob"
-                    type="text"
-                    value={fob}
-                    onChange={(event) => setFob(event.target.value)}
-                    placeholder="Factory"
-                    className={quoteInputClassName}
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="terms"
-                    className="block text-xs font-medium text-slate-700"
-                  >
-                    Terms and Conditions
-                  </label>
-                  <select
-                    id="terms"
-                    name="terms"
-                    value={termsAndConditions}
-                    onChange={(event) =>
-                      setTermsAndConditions(event.target.value)
-                    }
-                    className={quoteInputClassName}
-                  >
-                    <option value="">Select terms…</option>
-                    {paymentTermOptions.map((terms) => (
-                      <option key={terms} value={terms}>
-                        {terms}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label
-                    htmlFor="leadTime"
-                    className="block text-xs font-medium text-slate-700"
-                  >
-                    Lead Time
-                  </label>
-                  <input
-                    id="leadTime"
-                    name="leadTime"
-                    type="text"
-                    value={leadTime}
-                    onChange={(event) => setLeadTime(event.target.value)}
-                    placeholder="4–6 weeks ARO"
-                    className={quoteInputClassName}
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="deliveryNotes"
-                    className="block text-xs font-medium text-slate-700"
-                  >
-                    Delivery Notes
-                  </label>
-                  <input
-                    id="deliveryNotes"
-                    name="deliveryNotes"
-                    type="text"
-                    value={deliveryNotes}
-                    onChange={(event) => setDeliveryNotes(event.target.value)}
-                    placeholder="Site delivery, crane required"
-                    className={quoteInputClassName}
-                  />
-                </div>
-              </div>
-            </div>
-          </SectionCard>
+          <QuoteNotesTermsSection
+            internalNotes={internalNotes}
+            onInternalNotesChange={setInternalNotes}
+            customerNotes={customerNotes}
+            onCustomerNotesChange={setCustomerNotes}
+            deliveryPricing={
+              <QuoteDeliveryPricingPanel
+                shippingHint={shippingHint}
+                deliveryLoadsInput={deliveryLoadsInput}
+                onDeliveryLoadsInputChange={setDeliveryLoadsInput}
+                autoDeliveryLoads={autoDeliveryLoads}
+                maxLoadLbsInput={maxLoadLbsInput}
+                onMaxLoadLbsInputChange={handleMaxLoadLbsInputChange}
+                pricePerLoadInput={pricePerLoadInput}
+                onPricePerLoadInputChange={setPricePerLoadInput}
+                deliveryTotal={deliveryTotal}
+                hasDeliveryLine={lineItems.some(
+                  (entry) => entry.id === deliveryLineId,
+                )}
+                onApplyDeliveryLine={applyDeliveryLineItem}
+              />
+            }
+            fob={fob}
+            onFobChange={setFob}
+            termsAndConditions={termsAndConditions}
+            onTermsAndConditionsChange={setTermsAndConditions}
+            paymentTermOptions={paymentTermOptions}
+            leadTime={leadTime}
+            onLeadTimeChange={setLeadTime}
+            deliveryNotes={deliveryNotes}
+            onDeliveryNotesChange={setDeliveryNotes}
+          />
         </div>
       </div>
 
       {customImport ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="custom-structure-import-title"
-            className="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-xl border border-slate-200 bg-white shadow-xl"
-          >
-            <div className="border-b border-slate-100 px-5 py-4">
-              <h3
-                id="custom-structure-import-title"
-                className="text-sm font-semibold text-slate-900"
-              >
-                Import custom structures from the job
-              </h3>
-              <p className="mt-0.5 text-xs text-slate-500">
-                Structures no quote has picked up yet. Item codes match
-                structure numbers, so winning this quote links the lines back
-                to these exact structures — statuses and production progress
-                stay put.
-              </p>
-            </div>
-            <div className="flex-1 overflow-y-auto px-5 py-3">
-              {customImport.loading ? (
-                <p className="py-4 text-xs text-slate-500">Loading…</p>
-              ) : customImport.error ? (
-                <p className="py-4 text-xs font-medium text-red-600">
-                  {customImport.error}
-                </p>
-              ) : customImport.candidates.length === 0 ? (
-                <p className="py-4 text-xs text-slate-500">
-                  No unlinked custom structures on this job.
-                </p>
-              ) : (
-                <div className="divide-y divide-slate-100">
-                  {customImport.candidates.map((candidate) => {
-                    const alreadyUsed = customStructureNumbersInUse().has(
-                      candidate.structureNumber.toLowerCase(),
-                    );
-                    return (
-                      <label
-                        key={candidate.structureNumber}
-                        className={`flex items-center gap-3 py-1.5 text-xs ${
-                          alreadyUsed ? "text-slate-400" : "text-slate-700"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          disabled={alreadyUsed}
-                          checked={
-                            !alreadyUsed &&
-                            !customImport.unchecked.has(
-                              candidate.structureNumber,
-                            )
-                          }
-                          onChange={(event) =>
-                            setCustomImport((current) => {
-                              if (!current) return current;
-                              const unchecked = new Set(current.unchecked);
-                              if (event.target.checked) {
-                                unchecked.delete(candidate.structureNumber);
-                              } else {
-                                unchecked.add(candidate.structureNumber);
-                              }
-                              return { ...current, unchecked };
-                            })
-                          }
-                          className="h-3.5 w-3.5 rounded border-slate-300"
-                        />
-                        <span className="w-24 shrink-0 font-semibold text-slate-900">
-                          {candidate.structureNumber}
-                        </span>
-                        <span className="w-14 shrink-0">×{candidate.qty}</span>
-                        <span className="min-w-0 flex-1 truncate text-slate-500">
-                          {candidate.description || "—"}
-                        </span>
-                        <span className="shrink-0 text-[11px] text-slate-400">
-                          {alreadyUsed ? "already on quote" : candidate.statusLabel}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-5 py-3">
-              <button
-                type="button"
-                onClick={() => setCustomImport(null)}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={customImport.loading || customImport.candidates.length === 0}
-                onClick={importCustomStructureCandidates}
-                className="rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
-              >
-                Add to editor
-              </button>
-            </div>
-          </div>
-        </div>
+        <CustomStructureImportDialog
+          customImport={customImport}
+          setCustomImport={setCustomImport}
+          customStructureNumbersInUse={customStructureNumbersInUse}
+          onImport={importCustomStructureCandidates}
+        />
       ) : null}
 
       {addModalType ? (
@@ -2886,672 +1249,90 @@ export function QuoteForm({
             }`}
           >
             {addModalType === "CUSTOM_STRUCTURE" ? (
-              <>
-                <div className="border-b border-slate-100 px-4 py-4">
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Add Custom Structure
-                  </h3>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Job-specific structures with optional internal cost breakdown.
-                    Breakdown totals auto-calculate the unit price.
-                  </p>
-                </div>
-                <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-xs font-medium text-slate-700">
-                      {customStructureRows.length} structure
-                      {customStructureRows.length === 1 ? "" : "s"}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {jobId ? (
-                        <button
-                          type="button"
-                          onClick={() => void openCustomStructureImport()}
-                          className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 hover:bg-sky-100"
-                        >
-                          Import from job structures
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCustomPasteOpen((current) => !current);
-                          setCustomPasteError(null);
-                        }}
-                        className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 hover:bg-sky-100"
-                      >
-                        Paste from Excel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setCustomStructureRows((current) => [
-                            ...current,
-                            createDefaultCustomStructureRow(current),
-                          ])
-                        }
-                        className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
-                      >
-                        Add another structure
-                      </button>
-                    </div>
-                  </div>
-                  {customPasteOpen ? (
-                    <div className="rounded-xl border border-sky-200 bg-sky-50/40 p-3">
-                      <p className="text-[11px] font-medium text-slate-700">
-                        Paste cells from Excel — include the header row.
-                        Recognized columns: Structure #, Description, Qty, Unit
-                        Price, Weight, Yards.
-                      </p>
-                      <textarea
-                        rows={5}
-                        value={customPasteText}
-                        onChange={(event) => {
-                          setCustomPasteText(event.target.value);
-                          setCustomPasteError(null);
-                        }}
-                        placeholder={
-                          "Structure #\tDescription\tQty\tUnit Price\tWeight\tYards\nCS-1\tCustom 8'x12' valve vault\t2\t32500\t28500\t9.2"
-                        }
-                        className="mt-2 block w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 font-mono text-[11px] text-slate-900"
-                      />
-                      {customPasteError ? (
-                        <p className="mt-2 text-[11px] font-medium text-red-600">
-                          {customPasteError}
-                        </p>
-                      ) : null}
-                      <div className="mt-2 flex gap-2">
-                        <button
-                          type="button"
-                          onClick={handleCustomStructurePaste}
-                          disabled={!customPasteText.trim()}
-                          className="rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-40"
-                        >
-                          Add pasted structures
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCustomPasteOpen(false);
-                            setCustomPasteError(null);
-                          }}
-                          className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                  {customStructureRows.map((row, rowIndex) => (
-                    <div
-                      key={row.id}
-                      className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="grid flex-1 gap-3 sm:grid-cols-[minmax(8rem,1fr)_5rem]">
-                          <div>
-                            <label className="block text-[11px] font-medium text-slate-700">
-                              Structure #
-                            </label>
-                            <input
-                              type="text"
-                              value={row.structureNumber}
-                              onChange={(event) =>
-                                updateCustomStructureRow(
-                                  row.id,
-                                  "structureNumber",
-                                  event.target.value,
-                                )
-                              }
-                              className={`${quoteInputClassName} mt-1`}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[11px] font-medium text-slate-700">
-                              Qty
-                            </label>
-                            <input
-                              type="text"
-                              value={row.qty}
-                              onChange={(event) =>
-                                updateCustomStructureRow(
-                                  row.id,
-                                  "qty",
-                                  event.target.value,
-                                )
-                              }
-                              className={`${quoteInputClassName} mt-1`}
-                            />
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => duplicateCustomStructureRow(row.id)}
-                            className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
-                          >
-                            Duplicate
-                          </button>
-                          {customStructureRows.length > 1 ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setCustomStructureRows((current) =>
-                                  current.filter((entry) => entry.id !== row.id),
-                                )
-                              }
-                              className="rounded-lg border border-red-200 px-2 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-50"
-                            >
-                              Remove
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-medium text-slate-700">
-                          Description
-                        </label>
-                        <div className="mt-1">
-                          <RichTextEditor
-                            value={row.description}
-                            onChange={(value) =>
-                              updateCustomStructureRow(
-                                row.id,
-                                "description",
-                                value,
-                              )
-                            }
-                            placeholder="Custom 8'x12' valve vault with aluminum hatch"
-                            minHeightClassName="min-h-[5.5rem]"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div>
-                          <label className="block text-[11px] font-medium text-slate-700">
-                            Weight (lb)
-                          </label>
-                          <input
-                            type="text"
-                            value={row.weight}
-                            onChange={(event) =>
-                              updateCustomStructureRow(
-                                row.id,
-                                "weight",
-                                event.target.value,
-                              )
-                            }
-                            placeholder="28500"
-                            className={`${quoteInputClassName} mt-1`}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-medium text-slate-700">
-                            Yards
-                          </label>
-                          <input
-                            type="text"
-                            value={row.yards}
-                            onChange={(event) =>
-                              updateCustomStructureRow(
-                                row.id,
-                                "yards",
-                                event.target.value,
-                              )
-                            }
-                            placeholder="9.2"
-                            className={`${quoteInputClassName} mt-1`}
-                          />
-                          <p className="mt-1 text-[11px] text-slate-500">
-                            Used for production and delivery planning.
-                          </p>
-                        </div>
-                      </div>
-
-                      <CustomStructureCostBreakdown
-                        items={row.costItems}
-                        onChange={(costItems) =>
-                          updateCustomStructureRowCostItems(row.id, costItems)
-                        }
-                      />
-
-                      <CustomStructurePricingFooter
-                        qty={row.qty}
-                        unitPrice={row.unitPrice}
-                        costItems={row.costItems}
-                        onUnitPriceChange={(value) =>
-                          updateCustomStructureRow(row.id, "unitPrice", value)
-                        }
-                      />
-
-                      {rowIndex < customStructureRows.length - 1 ? (
-                        <div className="border-b border-slate-100 pt-1" />
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-4 py-3">
-                  <p className="text-xs text-slate-600">
-                    Combined total:{" "}
-                    <span className="font-semibold text-slate-900">
-                      {formatQuoteCurrency(
-                        customStructureRows.reduce((sum, row) => {
-                          const unitPrice = parseQuoteNumber(
-                            resolveCustomStructureUnitPrice(
-                              row.unitPrice,
-                              row.costItems,
-                            ),
-                          );
-                          return (
-                            sum + unitPrice * parseQuoteNumber(row.qty || "1")
-                          );
-                        }, 0),
-                      )}
-                    </span>
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={closeAddModal}
-                      className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAddCustomStructure}
-                      className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
-                    >
-                      Add to Quote
-                    </button>
-                  </div>
-                </div>
-              </>
+              <AddCustomStructurePanel
+                jobId={jobId}
+                customStructureRows={customStructureRows}
+                setCustomStructureRows={setCustomStructureRows}
+                onOpenImport={openCustomStructureImport}
+                customPasteOpen={customPasteOpen}
+                setCustomPasteOpen={setCustomPasteOpen}
+                customPasteText={customPasteText}
+                setCustomPasteText={setCustomPasteText}
+                customPasteError={customPasteError}
+                setCustomPasteError={setCustomPasteError}
+                onPaste={handleCustomStructurePaste}
+                updateCustomStructureRow={updateCustomStructureRow}
+                updateCustomStructureRowCostItems={
+                  updateCustomStructureRowCostItems
+                }
+                duplicateCustomStructureRow={duplicateCustomStructureRow}
+                onCancel={closeAddModal}
+                onAdd={handleAddCustomStructure}
+              />
             ) : null}
 
             {addModalType === "STOCK_PRODUCT" ? (
-              <>
-                <div className="border-b border-slate-100 px-4 py-4">
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Add Stock Structures
-                  </h3>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Browse by category, set quantities on everything you need
-                    — across categories too — then add them all at once.
-                  </p>
-                </div>
-                <StockProductPicker
-                  taxonomy={taxonomy}
-                  priceListId={priceListId || null}
-                  onAdd={handleAddStockProducts}
-                  onCancel={closeAddModal}
-                />
-              </>
+              <AddStockProductPanel
+                taxonomy={taxonomy}
+                priceListId={priceListId || null}
+                onAdd={handleAddStockProducts}
+                onCancel={closeAddModal}
+              />
             ) : null}
 
             {addModalType === "CONFIGURABLE_STRUCTURE" ? (
-              <>
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Add Configurable Structure
-                </h3>
-                <p className="mt-1 text-xs text-slate-500">
-                  Based on a product template with job-specific details.
-                </p>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-medium text-slate-700">
-                      Product Template
-                    </label>
-                    <QuoteFormTypeahead
-                      selectedLabel={
-                        selectedConfigurableProduct
-                          ? `${selectedConfigurableProduct.code} — ${selectedConfigurableProduct.description}`
-                          : ""
-                      }
-                      placeholder="Search by product code or name"
-                      searchItems={searchConfigurableProducts}
-                      itemKey={(product) => product.id}
-                      itemLabel={(product) =>
-                        `${product.code} — ${product.description}`
-                      }
-                      onSelect={handleConfigurableProductChange}
-                      emptyLabel="No active configurable products match. Add products in the Products module first."
-                      inputClassName={quoteInputClassName}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700">
-                      Structure Number
-                    </label>
-                    <input
-                      type="text"
-                      value={structureNumber}
-                      onChange={(event) => {
-                        setStructureNumber(event.target.value);
-                        if (selectedConfigurableProduct) {
-                          setStructureDescription(
-                            `${selectedConfigurableProduct.description} ${event.target.value}`.trim(),
-                          );
-                        }
-                      }}
-                      className={quoteInputClassName}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700">
-                      Quantity
-                    </label>
-                    <input
-                      type="text"
-                      value={structureQty}
-                      onChange={(event) => setStructureQty(event.target.value)}
-                      className={quoteInputClassName}
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-medium text-slate-700">
-                      Description
-                    </label>
-                    <input
-                      type="text"
-                      value={structureDescription}
-                      onChange={(event) =>
-                        setStructureDescription(event.target.value)
-                      }
-                      className={quoteInputClassName}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700">
-                      Unit Price
-                    </label>
-                    <input
-                      type="text"
-                      value={structureUnitPrice}
-                      onChange={(event) =>
-                        setStructureUnitPrice(event.target.value)
-                      }
-                      placeholder="14250"
-                      className={quoteInputClassName}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700">
-                      Weight (lb)
-                    </label>
-                    <input
-                      type="text"
-                      value={structureWeight}
-                      onChange={(event) => setStructureWeight(event.target.value)}
-                      placeholder="18200"
-                      className={quoteInputClassName}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700">
-                      Yards
-                    </label>
-                    <input
-                      type="text"
-                      value={structureYards}
-                      onChange={(event) => setStructureYards(event.target.value)}
-                      placeholder="5.8"
-                      className={quoteInputClassName}
-                    />
-                  </div>
-                </div>
-                <div className="mt-4 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={closeAddModal}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAddConfigurableStructure}
-                    disabled={!selectedConfigurableProduct}
-                    className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Add to Quote
-                  </button>
-                </div>
-              </>
+              <AddConfigurableStructurePanel
+                selectedConfigurableProduct={selectedConfigurableProduct}
+                searchConfigurableProducts={searchConfigurableProducts}
+                onProductChange={handleConfigurableProductChange}
+                structureNumber={structureNumber}
+                onStructureNumberChange={setStructureNumber}
+                structureQty={structureQty}
+                onStructureQtyChange={setStructureQty}
+                structureDescription={structureDescription}
+                onStructureDescriptionChange={setStructureDescription}
+                structureUnitPrice={structureUnitPrice}
+                onStructureUnitPriceChange={setStructureUnitPrice}
+                structureWeight={structureWeight}
+                onStructureWeightChange={setStructureWeight}
+                structureYards={structureYards}
+                onStructureYardsChange={setStructureYards}
+                onCancel={closeAddModal}
+                onAdd={handleAddConfigurableStructure}
+              />
             ) : null}
 
             {addModalType === "SERVICE" ? (
-              <>
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Add Service / Misc Item
-                </h3>
-                <p className="mt-1 text-xs text-slate-500">
-                  Non-inventory service or miscellaneous charge.
-                </p>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-medium text-slate-700">
-                      Service
-                    </label>
-                    <select
-                      value={selectedServiceItem}
-                      onChange={(event) =>
-                        handleServiceOptionChange(event.target.value)
-                      }
-                      className={quoteInputClassName}
-                    >
-                      {serviceOptionsState.map((service) => (
-                        <option key={service.item} value={service.item}>
-                          {service.item}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-medium text-slate-700">
-                      Description
-                    </label>
-                    <input
-                      type="text"
-                      value={serviceDescription}
-                      onChange={(event) =>
-                        setServiceDescription(event.target.value)
-                      }
-                      className={quoteInputClassName}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700">
-                      Quantity
-                    </label>
-                    <input
-                      type="text"
-                      value={serviceQty}
-                      onChange={(event) => setServiceQty(event.target.value)}
-                      className={quoteInputClassName}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700">
-                      Unit
-                    </label>
-                    <input
-                      type="text"
-                      value={serviceUnit}
-                      onChange={(event) => setServiceUnit(event.target.value)}
-                      className={quoteInputClassName}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700">
-                      Unit Price
-                    </label>
-                    <input
-                      type="text"
-                      value={serviceUnitPrice}
-                      onChange={(event) =>
-                        setServiceUnitPrice(event.target.value)
-                      }
-                      className={quoteInputClassName}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700">
-                      Taxable
-                    </label>
-                    <select
-                      value={serviceTaxable ? "yes" : "no"}
-                      onChange={(event) =>
-                        setServiceTaxable(event.target.value === "yes")
-                      }
-                      className={quoteInputClassName}
-                    >
-                      <option value="yes">Yes</option>
-                      <option value="no">No</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="mt-4 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={closeAddModal}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAddService}
-                    className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
-                  >
-                    Add to Quote
-                  </button>
-                </div>
-              </>
+              <AddServicePanel
+                serviceOptions={serviceOptionsState}
+                selectedServiceItem={selectedServiceItem}
+                onServiceOptionChange={handleServiceOptionChange}
+                serviceDescription={serviceDescription}
+                onServiceDescriptionChange={setServiceDescription}
+                serviceQty={serviceQty}
+                onServiceQtyChange={setServiceQty}
+                serviceUnit={serviceUnit}
+                onServiceUnitChange={setServiceUnit}
+                serviceUnitPrice={serviceUnitPrice}
+                onServiceUnitPriceChange={setServiceUnitPrice}
+                serviceTaxable={serviceTaxable}
+                onServiceTaxableChange={setServiceTaxable}
+                onCancel={closeAddModal}
+                onAdd={handleAddService}
+              />
             ) : null}
           </div>
         </div>
       ) : null}
 
       {editingCustomStructureDraft ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-          <div className="flex max-h-[90vh] w-full max-w-5xl flex-col rounded-xl border border-slate-200 bg-white shadow-lg">
-            <div className="border-b border-slate-100 px-4 py-4">
-              <h3 className="text-sm font-semibold text-slate-900">
-                Edit Custom Structure
-              </h3>
-              <p className="mt-1 text-xs text-slate-500">
-                Update structure details, internal cost breakdown, and pricing.
-              </p>
-            </div>
-            <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="block text-xs font-medium text-slate-700">
-                    Structure Number
-                  </label>
-                  <input
-                    type="text"
-                    value={editingCustomStructureDraft.structureNumber}
-                    onChange={(event) =>
-                      updateEditingCustomStructureDraft(
-                        "structureNumber",
-                        event.target.value,
-                      )
-                    }
-                    className={quoteInputClassName}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-700">
-                    Quantity
-                  </label>
-                  <input
-                    type="text"
-                    value={editingCustomStructureDraft.qty}
-                    onChange={(event) =>
-                      updateEditingCustomStructureDraft("qty", event.target.value)
-                    }
-                    className={quoteInputClassName}
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-medium text-slate-700">
-                    Description
-                  </label>
-                  <RichTextEditor
-                    value={editingCustomStructureDraft.description}
-                    onChange={(value) =>
-                      updateEditingCustomStructureDraft("description", value)
-                    }
-                    minHeightClassName="min-h-[7rem]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-700">
-                    Weight (lb)
-                  </label>
-                  <input
-                    type="text"
-                    value={editingCustomStructureDraft.weight}
-                    onChange={(event) =>
-                      updateEditingCustomStructureDraft(
-                        "weight",
-                        event.target.value,
-                      )
-                    }
-                    className={quoteInputClassName}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-700">
-                    Yards
-                  </label>
-                  <input
-                    type="text"
-                    value={editingCustomStructureDraft.yards}
-                    onChange={(event) =>
-                      updateEditingCustomStructureDraft("yards", event.target.value)
-                    }
-                    className={quoteInputClassName}
-                  />
-                </div>
-              </div>
-
-              <CustomStructureCostBreakdown
-                items={editingCustomStructureDraft.costItems}
-                onChange={updateEditingCustomStructureCostItems}
-              />
-
-              <CustomStructurePricingFooter
-                qty={editingCustomStructureDraft.qty}
-                unitPrice={editingCustomStructureDraft.unitPrice}
-                costItems={editingCustomStructureDraft.costItems}
-                onUnitPriceChange={(value) =>
-                  updateEditingCustomStructureDraft("unitPrice", value)
-                }
-              />
-            </div>
-            <div className="flex justify-end gap-2 border-t border-slate-100 px-4 py-3">
-              <button
-                type="button"
-                onClick={closeEditCustomStructureLine}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveEditedCustomStructure}
-                className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
-              >
-                Save Changes
-              </button>
-            </div>
-          </div>
-        </div>
+        <EditCustomStructureDialog
+          draft={editingCustomStructureDraft}
+          onFieldChange={updateEditingCustomStructureDraft}
+          onCostItemsChange={updateEditingCustomStructureCostItems}
+          onCancel={closeEditCustomStructureLine}
+          onSave={handleSaveEditedCustomStructure}
+        />
       ) : null}
 
       {ringBuilderModalOpen ? (

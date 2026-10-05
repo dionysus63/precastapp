@@ -1,17 +1,17 @@
 # Graph Report - precastapp  (2026-10-04)
 
 ## Corpus Check
-- 782 files · ~496,678 words
+- 820 files · ~507,937 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 11 file(s) not represented in the graph (top: (none) 3, .mdc 2, .example 1)
 
 ## Summary
-- 8941 nodes · 27098 edges · 220 communities (167 shown, 53 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 239 edges (avg confidence: 0.93)
+- 9071 nodes · 27776 edges · 218 communities (172 shown, 46 thin omitted)
+- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 282 edges (avg confidence: 0.92)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `22b75ebb`
+- Built from commit: `5656047b`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -27,51 +27,51 @@
 - ContentObject
 - rect-template-pdf.ts
 - delivery-ticket-editor.tsx
-- .parse
+- .add
 - drill-sheet-template-pdf.ts
 - QuoteForm
 - quote-form.tsx
 - company-logo.ts
-- drill-sheets/[id]/page.tsx
+- rect-sheet-detail.ts
 - IntegerObject
 - product-form.tsx
 - product-kinds.ts
 - compilerOptions
 - .createDocumentHandler
-- .getTextContent
+- .push
 - rect-sheet-persistence.ts
-- Jbig2Stream
 - OptionObject
-- delivery-tickets/pdf-actions.ts
-- galley-actions.ts
-- delivery-ticket-pdf-line-items.ts
+- FormatError
 - print-pdf-url.ts
-- users/actions.ts
+- galley-service.ts
+- delivery-ticket-pdf-line-items.ts
+- drain-ring-matrix-utils.ts
+- getStringOption
 - drill-sheet-preview.tsx
 - scripts
-- template_Value
+- addLocalDays
 - build
-- Job Structure Production Workflow
-- returnActionError
-- invoices/actions.ts
-- delivery-ticket-pdf-pickup.ts
-- withDatabaseRetry
+- ref_fs
+- jobs/actions.ts
+- formatUsd
+- formatQuoteCurrency
+- operations/actions.ts
 - drill-sheet.ts
 - .success
-- prisma
-- ChunkedStreamManager
+- quote-form-utils.ts
+- pipe-modal.tsx
 - import/actions.ts
-- drill-sheet-form.tsx
+- quote-lines-table.tsx
 - shipping/actions.ts
 - XMLParserBase
-- auth/constants.ts
+- users/actions.ts
 - dependencies
 - customer-mapper.ts
-- structures/actions.ts
+- price-list-service.ts
 - bulk-load-planner.tsx
 - postcss.config.mjs
 - customer-name-similarity.ts
-- rect-sheet-detail-view.tsx
+- job-structure-documents-service.ts
 - quote-mapper.ts
 - Handy Commands — Precast App
 - devDependencies
@@ -81,143 +81,141 @@
 - quote-pdf-line-items.ts
 - job-detail-mapper.ts
 - delivery-ticket-detail-content.tsx
-- casting-utils.ts
+- date-only.ts
 - delivery-ticket-pdf-fill.ts
-- navigateAfterAction
+- jobs/[id]/edit/page.tsx
 - SectionCard
-- BulkPasteForm
-- import-rect-sheet-pdfs.ts
+- unreachable
+- sheet-pdfs/actions.ts
 - delivery-fulfillment.ts
-- inventory/page.tsx
-- randomId
+- quotes/page.tsx
+- navigateAfterAction
 - calibrate-rect-templates.ts
 - AGENTS.md
-- quote-utils.ts
-- invoicing-service.ts
+- use-quote-line-editing.ts
+- jobs/page.tsx
 - XhtmlObject
-- ._bindElement
+- template_Value
 - purchase-orders/actions.ts
-- FormatError
-- app_generated_prisma_client_prisma
-- circular-structure-import.ts
-- settings/actions.ts
+- Stream
+- withDatabaseRetry
+- job-sheet-import-actions.ts
+- requirePermission
 - plan-sheet-actions.ts
 - quotes/actions.ts
 - AnnotationBorderStyle
 - input.tsx
 - Precast Ops desktop updates
-- rect-sheet-detail.ts
-- bid-actions.ts
+- MathClamp
+- inventory-service.ts
 - XmlObject
-- quote-pdf-fill.ts
-- files/actions.ts
+- quote-pdf-data.ts
+- job-progress.ts
 - structure-workbook.tsx
 - product-taxonomy.server.ts
 - generate-invoice-templates.ts
 - send-actions.ts
-- XhtmlNamespace
-- requirePermission
-- react
-- structure-utils.ts
+- contentDisposition
+- job-bidding-panel.tsx
+- returnActionError
+- rect-sheet-form.tsx
 - quote-form-data.ts
 - windows-explorer.ts
-- TextMeasure
-- price-list-service.ts
+- delivery-ticket-preview-content.tsx
+- casting-service.ts
 - shipping-zones-manager.tsx
 - Office deployment — single Windows server + UNC job folders
 - Office rollout checklist
-- app_generated_prisma_client
+- invoices/actions.ts
 - reloadAfterAction
-- drill-sheets/pdf-actions.ts
-- delivery-ticket-pdf-html.ts
+- delivery-tickets/pdf-actions.ts
+- job-structure-import-dialog.tsx
 - .get
-- getStringOption
+- .getUint16
 - delivery-schedule-pdf-html.ts
-- seed.ts
+- app_generated_prisma_client_prismaclient
 - Deployment server info checklist
 - app-settings.ts
 - Troubleshooting
 - invoice-pdf-fill.ts
 - structure-workbook-plan-takeoff.tsx
 - Precast Ops
-- bulk-attach-board.tsx
-- stringToBytes
-- printPdfUrl
-- .find
+- job-structure-detail-mapper.ts
+- CipherTransformFactory
+- pdfjs-dist
+- FontFinder
 - JpegImage
 - calculateSHA512
-- receiving-utils.ts
-- Builder
-- ref_fs
+- delivery-dispatch-utils.ts
+- drill-sheet-preview-content.tsx
+- render-example-sheets.ts
 - ring-builder-modal.tsx
-- structure-template-pdf-service.ts
-- job-structure-import-dialog.tsx
-- SimpleDOMNode
-- product-groups/page.tsx
-- FontSelector
+- ColorSpace
+- printPdfUrl
+- Glyph
+- product-groups/actions.ts
+- casting-ticket-lines.ts
 - signature_Signature
 - main.mjs
-- session-keep-alive.tsx
-- draft-invoice-cover-html.ts
+- getCurrentUser
+- pdf-dedupe.ts
 - submittal-package.ts
-- job-sheet-import-actions.ts
-- Br
+- layout.tsx
+- CalRGBCS
 - TextState
-- .push
+- Dict
 - ExclGroup
 - ChunkedStream
 - StringObject
 - walk-ins-board.tsx
-- PageSet
-- Html
+- ref_crypto
+- quote-preview-content.tsx
 - CMap
-- Stipple
-- reconcile/page.tsx
+- SimpleGlyph
+- .makeHexColor
 - zone-map.tsx
 - NullOptimizer
-- $i
+- BulkContactPasteForm
 - .#Ne
 - package.json
-- prisma.ts
-- .add
+- DashboardShell
+- GlobalImageCache
 - product-export.ts
-- BulkContactPasteForm
-- custom-structure-import.ts
-- outlook-draft.ts
+- test-db.ts
+- ToUnicodeMap
+- [...file]/route.ts
+- DeviceRgbCS
+- build-id/route.ts
+- QuotePdfDragChip
+- use-custom-structure-builder.ts
 - Stylesheet
-- Datasets
-- product-mapper.ts
-- XFAAttribute
-- contentDisposition
-- generate-circular-import-template.mjs
-- pdf-text.ts
-- MetadataParser
-- PageArea
-- Root
+- app/products/page.tsx
+- next
+- rect-structure-import.ts
 - rect-bulk-grid.tsx
 - .checkAndRepair
 - ConfigNamespace
-- CalRGBCS
+- LabCS
 - xdp_Xdp
-- next
-- ColorSpace
+- react
+- Annotation
 - SingleIntersector
 - process-app-icon.ps1
 - Phase 6 — Electron client (staff PCs)
 - warn
 - allowScripts
 - Security posture: internal, trusted-network tool
-- util_assert
+- PDFImage
 
 ## God Nodes (most connected - your core abstractions)
 1. `withDatabaseRetry()` - 350 edges
-2. `requirePermission()` - 336 edges
+2. `requirePermission()` - 337 edges
 3. `XFAObject` - 208 edges
-4. `next` - 201 edges
-5. `SectionCard()` - 195 edges
+4. `SectionCard()` - 207 edges
+5. `next` - 204 edges
 6. `warn()` - 175 edges
-7. `DashboardShell()` - 163 edges
-8. `react` - 156 edges
+7. `react` - 173 edges
+8. `DashboardShell()` - 163 edges
 9. `ConfigNamespace` - 141 edges
 10. `reloadAfterAction()` - 137 edges
 
@@ -226,29 +224,29 @@
   AGENTS.md → app/login/actions.ts
 - `Quote → JobStructure linking` --references--> `linkJobStructuresFromQuote()`  [INFERRED]
   docs/STRUCTURE_PRODUCTION_WORKFLOW.md → lib/job-structure-workflow.ts
-- `RootLayout()` --calls--> `AppProviders()`  [EXTRACTED]
-  app/layout.tsx → components/ui/app-providers.tsx
-- `PurchaseOrdersPage()` --indirect_call--> `mapPurchaseOrderListRow()`  [INFERRED]
-  app/purchase-orders/page.tsx → lib/purchase-order-mapper.ts
-- `QuotesPage()` --indirect_call--> `mapQuoteToRow()`  [INFERRED]
-  app/quotes/page.tsx → lib/quote-mapper.ts
+- `handleDiscardSavedPlan()` --calls--> `discardSavedLoadPlan()`  [EXTRACTED]
+  components/delivery-tickets/bulk-load-planner.tsx → app/delivery-tickets/actions.ts
+- `removeSplit()` --calls--> `unsplitStructure()`  [EXTRACTED]
+  components/delivery-tickets/delivery-ticket-editor/use-structure-split.ts → app/delivery-tickets/actions.ts
+- `AllDeliveryTicketsPage()` --indirect_call--> `mapDbDeliveryTicketToListRow()`  [INFERRED]
+  app/delivery-tickets/all/page.tsx → lib/delivery-ticket-mapper.ts
 
 ## Import Cycles
 - None detected.
 
-## Communities (220 total, 53 thin omitted)
+## Communities (218 total, 46 thin omitted)
 
 ### Community 0 - "app/products/actions.ts"
-Cohesion: 0.07
-Nodes (53): parseCustomerFormData(), parseJobFormData(), parseJobUpdateFormData(), assertAllAssemblyComponentCodesExist(), BulkImportRow, bulkImportUpdateData(), collectAssemblyBomImportRows(), collectReferencedComponentCodes() (+45 more)
+Cohesion: 0.06
+Nodes (54): assertAllAssemblyComponentCodesExist(), BulkImportRow, bulkImportUpdateData(), collectAssemblyBomImportRows(), collectReferencedComponentCodes(), createFormProfileReader(), createProduct(), importProductsOrThrow() (+46 more)
 
 ### Community 1 - "rect-structure.ts"
 Cohesion: 0.09
-Nodes (38): SumpMode, annotateRectOpeningSections(), ComputedRectSection, computeHorizontalGeometry(), computeRectDefaultSumpFeet(), computeRectPricing(), computeRectStructure(), computeRectWallHeightFeet() (+30 more)
+Nodes (39): SumpMode, annotateRectOpeningSections(), ComputedRectSection, computeHorizontalGeometry(), computeRectDefaultSumpFeet(), computeRectPricing(), computeRectStructure(), computeRectWallHeightFeet() (+31 more)
 
 ### Community 2 - "pdf.worker.min.mjs"
 Cohesion: 0.01
-Nodes (232): 14(), 291(), 463(), 750(), 812(), 835(), 837(), 944() (+224 more)
+Nodes (217): 14(), 291(), 750(), 981(), Ac, addChildren(), ah, al (+209 more)
 
 ### Community 3 - "LocaleSetNamespace"
 Cohesion: 0.03
@@ -256,55 +254,55 @@ Nodes (24): CalendarSymbols, CurrencySymbol, CurrencySymbols, DatePattern, DateP
 
 ### Community 5 - "XFAObject"
 Cohesion: 0.01
-Nodes (72): Arc, Assist, Barcode, BatchOutput, Bind, BindItems, Bookend, Break (+64 more)
+Nodes (71): Arc, Assist, Barcode, Bind, BindItems, Bookend, Break, BreakAfter (+63 more)
 
 ### Community 6 - ".getOperatorList"
 Cohesion: 0.04
-Nodes (29): addCachedImageOps(), argIsDict(), CheckedOperatorList, EvalState, fetchBinaryData(), getLookupTableFactory(), getNewAnnotationsMap(), getStandardFontName() (+21 more)
+Nodes (34): addCachedImageOps(), argIsDict(), BaseLocalCache, CheckedOperatorList, EvalState, fetchBinaryData(), generateFont(), getFamilyName() (+26 more)
 
 ### Community 7 - "structure-workbook.ts"
-Cohesion: 0.15
-Nodes (28): applyDefaultsToBlankRow(), buildDrillSheetOpeningsInput(), clearWorkbookApplyPayload(), computePenetrationsBootsPrice(), computeWorkbookRowPrice(), ensureRowOpenings(), ensureRowPenetrations(), formatPenetrationsSummary() (+20 more)
+Cohesion: 0.11
+Nodes (42): groupToneClasses(), pipeSizesForMaterial(), RowOpeningsEditor(), RowPenetrationsEditor(), StructureWorkbookGrid(), StructureWorkbookGridProps, uniquePipeMaterials(), applyDefaultsToBlankRow() (+34 more)
 
 ### Community 9 - "rect-structure-workbook.ts"
-Cohesion: 0.07
-Nodes (59): completeRectDrillSheets(), CompleteDrillSheetsClient(), handleCreate(), groupToneClasses(), RectDefaultsPanel(), RectStructureWorkbook(), addRows(), duplicateSelected() (+51 more)
+Cohesion: 0.08
+Nodes (52): groupToneClasses(), RectDefaultsPanel(), RectStructureWorkbook(), addRows(), duplicateSelected(), handleApply(), handleModeChange(), importRows() (+44 more)
 
 ### Community 10 - "ContentObject"
 Cohesion: 0.02
-Nodes (24): AlwaysEmbed, BehaviorOverride, BooleanElement, ContentObject, DateElement, DateTime, DateTimeSymbols, Decimal (+16 more)
+Nodes (26): handleDeliverAll(), save(), AlwaysEmbed, BehaviorOverride, BooleanElement, ContentObject, DateElement, DateTime (+18 more)
 
 ### Community 11 - "rect-template-pdf.ts"
-Cohesion: 0.07
-Nodes (47): sectionJointHeightsFeet(), baseOffsetText(), BLACK, buildFlaps(), buildRectSheetFieldMap(), CalloutLayout, calloutSlotTops(), consumeMarkerField() (+39 more)
+Cohesion: 0.05
+Nodes (72): aboveFloorText(), fmtElevation(), InfoRow(), placementText(), RectSheetDetailView(), RectSheetDetailViewProps, Stat(), wholeInches() (+64 more)
 
 ### Community 12 - "delivery-ticket-editor.tsx"
-Cohesion: 0.03
-Nodes (100): DeliveryTicketJobSearchOption, SaveDeliveryTicketInput, searchCustomersForWalkInTicket(), searchJobsForDeliveryTicket(), splitStructureForShipping(), unsplitStructure(), DeliveryTicketEditor(), addExtraCustomLine() (+92 more)
+Cohesion: 0.10
+Nodes (41): DeliveryTicketLineInput, getQuoteFulfillmentWithOpenLoads(), DeliveryTicketEditor(), addExtraCustomLine(), addExtraProduct(), addWalkInLine(), applyPickupListPrices(), buildPayload() (+33 more)
 
-### Community 13 - ".parse"
-Cohesion: 0.05
-Nodes (21): CFF, CFFCharset, CFFDict, CFFEncoding, CFFFDSelect, CFFHeader, CFFParser, parseOperand() (+13 more)
+### Community 13 - ".add"
+Cohesion: 0.03
+Nodes (29): CFFCompiler, CFFDict, CFFFDSelect, CFFIndex, CFFOffsetTracker, CFFParser, parseOperand(), CFFPrivateDict (+21 more)
 
 ### Community 14 - "drill-sheet-template-pdf.ts"
-Cohesion: 0.04
-Nodes (76): DrillSheetPreviewMeta, ComputedOpening, DrillSheetResult, appendDrillSheetFillablePage(), BORDER, drawField(), feet(), FieldContext (+68 more)
+Cohesion: 0.07
+Nodes (43): applyTemplateFieldFonts(), baseSectionHeightFeet(), buildDiagramLayout(), buildDrillSheetFieldMap(), classifyDaFont(), consumeMarkerField(), decimalFeet(), DiagramLayout (+35 more)
 
 ### Community 15 - "QuoteForm"
-Cohesion: 0.05
-Nodes (64): loadJobCustomStructureImportCandidates(), toPlainNumberString(), createDefaultCustomStructureRow(), createLineId(), QuoteForm(), addCategoryLine(), addLineItem(), addLineItems() (+56 more)
+Cohesion: 0.08
+Nodes (43): createBlankLine(), moveLineByStep(), moveLineToIndex(), stagedStockProductsToLineItems(), buildWorkbookReturnPath(), createLineId(), renumberLineItems(), validateQuoteForm() (+35 more)
 
 ### Community 16 - "quote-form.tsx"
-Cohesion: 0.04
-Nodes (71): QuoteSaveDestination, createDefaultQuoteRow(), createRowId(), PipeModal(), handleAddQuoteLines(), handleAddUnitPricesToDescription(), handleClose(), resetModal() (+63 more)
+Cohesion: 0.07
+Nodes (32): QuoteSaveDestination, AddConfigurableStructurePanel(), AddServicePanel(), AddStockProductPanel(), ContactOverride, QuoteJobContactFields(), QuoteMetaFields(), QuotePricingFields() (+24 more)
 
 ### Community 17 - "company-logo.ts"
-Cohesion: 0.10
-Nodes (35): GET(), geistMono, geistSans, generateMetadata(), RootLayout(), CompanySettingsPage(), COMPANY_LOGO_FILENAME, companyLogoApiUrl() (+27 more)
+Cohesion: 0.11
+Nodes (32): GET(), COMPANY_LOGO_FILENAME, DEFAULT_SEED_LOGO_PDF_PATH, getCompanyLogoDataUri(), getCompanyLogoPath(), getCompanyLogoUpdatedAt(), hasCompanyLogo(), pathExists() (+24 more)
 
-### Community 18 - "drill-sheets/[id]/page.tsx"
-Cohesion: 0.09
-Nodes (31): GET(), rectPreviewResponse(), RouteContext, DrillSheetDetailPage(), DrillSheetDetailPageProps, loadJobSheetNav(), RectSheetDetail(), DrillSheetPreviewPage() (+23 more)
+### Community 18 - "rect-sheet-detail.ts"
+Cohesion: 0.15
+Nodes (23): DrillSheetDetailPage(), DrillSheetDetailPageProps, loadJobSheetNav(), RectSheetDetail(), DeleteDrillSheetButton(), DeleteDrillSheetButtonProps, DrillSheetJobNav(), JobSheetNavEntry (+15 more)
 
 ### Community 19 - "IntegerObject"
 Cohesion: 0.05
@@ -312,11 +310,11 @@ Nodes (13): AdjustData, AdobeExtensionLevel, CompressObjectStream, Copies, Curre
 
 ### Community 20 - "product-form.tsx"
 Cohesion: 0.07
-Nodes (34): CastingComponentPickerOption, CastingSupplierOption, drainRingDiameterOptions, ProductForm(), handleCategoryChange(), handleProductKindChange(), handleProductTypeChange(), handleRingDiameterChange() (+26 more)
+Nodes (34): CastingComponentPickerOption, CastingSupplierOption, drainRingDiameterOptions, ProductForm(), handleCategoryChange(), handleProductKindChange(), handleProductTypeChange(), ProductFormProps (+26 more)
 
 ### Community 21 - "product-kinds.ts"
-Cohesion: 0.08
-Nodes (34): parseCastingBomPayload(), parseBulkPaste(), parseAdsPipeJointType(), parseCastingPieceRole(), formatSanitaryDrainRingDiametersLabel(), isRecognizedBulkRingStyle(), BulkImportPreset, bulkImportPresetLabels (+26 more)
+Cohesion: 0.06
+Nodes (53): findExistingProductCodesAction(), importProducts(), BulkPasteForm(), handleImport(), handleParsePreview(), lookUpExistingCodes(), BulkPasteFormProps, formatMissingTaxonomySummary() (+45 more)
 
 ### Community 22 - "compilerOptions"
 Cohesion: 0.11
@@ -324,43 +322,43 @@ Nodes (18): compilerOptions, allowJs, esModuleInterop, incremental, isolatedModu
 
 ### Community 23 - ".createDocumentHandler"
 Cohesion: 0.03
-Nodes (28): AbortException, AnnotationFactory, BasePdfManager, BasePDFStream, BasePDFStreamRangeReader, BasePDFStreamReader, BaseStream, LocalPdfManager (+20 more)
+Nodes (32): handleClear(), 835(), AbortException, AnnotationFactory, arrayBuffersToBytes(), BasePdfManager, BasePDFStream, clearGlobalCaches() (+24 more)
 
-### Community 24 - ".getTextContent"
-Cohesion: 0.08
-Nodes (22): BaseLocalCache, GlobalColorSpaceCache, Intersector, LocalGStateCache, LocalImageCache, LocalTilingPatternCache, addFakeSpaces(), appendEOL() (+14 more)
+### Community 24 - ".push"
+Cohesion: 0.05
+Nodes (37): 463(), 812(), 837(), 944(), adjustMapping(), Binder, createDataNode(), createText() (+29 more)
 
 ### Community 25 - "rect-sheet-persistence.ts"
-Cohesion: 0.08
-Nodes (52): createDrillSheet(), createRectSheet(), deleteDrillSheet(), updateDrillSheet(), updateRectSheet(), upgradeRectSheetFromPlaceholder(), upgradeRectSheetFromPlaceholderOrThrow(), BulkSheetRowInput (+44 more)
+Cohesion: 0.09
+Nodes (49): createDrillSheet(), createRectSheet(), updateDrillSheet(), updateRectSheet(), upgradeRectSheetFromPlaceholder(), upgradeRectSheetFromPlaceholderOrThrow(), BulkSheetRowInput, BulkSheetRowResult (+41 more)
 
-### Community 26 - "Jbig2Stream"
-Cohesion: 0.07
-Nodes (7): CCITTFaxStream, JBig2CCITTFaxImage, Jbig2Error, Jbig2Stream, JpxError, JpxImage, WasmImage
-
-### Community 27 - "OptionObject"
+### Community 26 - "OptionObject"
 Cohesion: 0.02
 Nodes (36): ADBE_JSConsole, ADBE_JSDebugger, AutoSave, config_Attributes, config_Type, config_Validate, Conformance, Destination (+28 more)
 
-### Community 28 - "delivery-tickets/pdf-actions.ts"
-Cohesion: 0.13
-Nodes (24): DeliveryTicketPreviewPage(), DeliveryTicketPreviewPageProps, PREVIEW_ORIGINS, DeliveryTicketPdfPreviewResult, generateDeliveryTicketPdf(), GenerateDeliveryTicketPdfResult, getDeliveryTicketPdfPreviewBase64(), loadTicketForPdf() (+16 more)
+### Community 27 - "FormatError"
+Cohesion: 0.04
+Nodes (32): addHex(), BinaryCMapReader, BinaryCMapStream, Cmd, createBuiltInCMap(), EvaluatorPreprocessor, expectInt(), expectString() (+24 more)
 
-### Community 29 - "galley-actions.ts"
-Cohesion: 0.14
-Nodes (25): injectGalleyFamilyOptions(), applyGalleyBreakdown(), ApplyGalleyBreakdownResult, BREAKDOWN_STATUSES, BreakdownDialog(), submit(), formatMixSummary(), GalleyBreakdownBanner() (+17 more)
+### Community 28 - "print-pdf-url.ts"
+Cohesion: 0.17
+Nodes (15): listPrintersForClient(), printServerPdfForClient(), ServerPrintResult, attachHiddenIframe(), cleanupAfterPrint(), pickPrinter(), printBlobAsPdfFrame(), printViaServerWithPicker() (+7 more)
+
+### Community 29 - "galley-service.ts"
+Cohesion: 0.15
+Nodes (22): injectGalleyFamilyOptions(), applyGalleyBreakdown(), BreakdownDialog(), submit(), formatMixSummary(), GalleyBreakdownBanner(), DbClient, findGalleyFamilyMember() (+14 more)
 
 ### Community 30 - "delivery-ticket-pdf-line-items.ts"
-Cohesion: 0.12
-Nodes (34): COL_DESC_WIDTH, COL_DESC_X, COL_ITEM_NUM_WIDTH, COL_ITEM_NUM_X, COL_QTY_WIDTH, COL_QTY_X, DEFAULT_TABLE_LAYOUT, DeliveryTicketTableLayout (+26 more)
+Cohesion: 0.06
+Nodes (52): COL_DESC_WIDTH, COL_DESC_X, COL_ITEM_NUM_WIDTH, COL_ITEM_NUM_X, COL_QTY_WIDTH, COL_QTY_X, DEFAULT_TABLE_LAYOUT, DeliveryTicketTableLayout (+44 more)
 
-### Community 31 - "print-pdf-url.ts"
-Cohesion: 0.13
-Nodes (18): listPrintersForClient(), printServerPdfForClient(), ServerPrintResult, attachHiddenIframe(), cleanupAfterPrint(), pickPrinter(), printBlobAsPdfFrame(), printViaServerWithPicker() (+10 more)
+### Community 31 - "drain-ring-matrix-utils.ts"
+Cohesion: 0.08
+Nodes (35): DrainRingMatrixRowsProps, DrainRingStyleTable(), DrainRingStyleTableProps, FEET_STAT_COLUMNS, ringStockClassName(), ringStockLabel(), allocateRingsForLoads(), allocateRingsToBins() (+27 more)
 
-### Community 32 - "users/actions.ts"
-Cohesion: 0.17
-Nodes (21): ProfilePage(), deleteQuote(), changeMyPassword(), createUser(), deactivateUser(), generateTempPassword(), parseDeniedPermissions(), parseGrantedPermissions() (+13 more)
+### Community 32 - "getStringOption"
+Cohesion: 0.05
+Nodes (14): Data, Fill, getFloat(), getInteger(), getKeyword(), getMeasurement(), getRatio(), getRelevant() (+6 more)
 
 ### Community 33 - "drill-sheet-preview.tsx"
 Cohesion: 0.11
@@ -370,97 +368,97 @@ Nodes (41): CalcRow(), DrillSheetPreview(), DrillSheetPreviewProps, feet(), Head
 Cohesion: 0.11
 Nodes (19): scripts, build, db:seed, db:sync-files, deploy:build, deploy:check, deploy:start, deploy:update (+11 more)
 
-### Community 35 - "template_Value"
-Cohesion: 0.10
-Nodes (6): Caption, Draw, Field, Image, _setValue(), template_Value
+### Community 35 - "addLocalDays"
+Cohesion: 0.18
+Nodes (20): DeliveryTicketsPage(), DeliveryTicketDetailView, ticketNumberLabel(), DriverSelect(), FleetAssignSelect(), handleChange(), TrailerSelect(), StatusSelect() (+12 more)
 
 ### Community 36 - "build"
 Cohesion: 0.11
 Nodes (18): build, appId, directories, extraResources, icon, nsis, productName, publish (+10 more)
 
-### Community 37 - "Job Structure Production Workflow"
-Cohesion: 0.33
-Nodes (5): Dates, Delivery eligibility, Job Structure Production Workflow, Quote → JobStructure linking, Server actions
+### Community 37 - "ref_fs"
+Cohesion: 0.07
+Nodes (45): RouteContext, GenerateDrillSheetPdfResult, GenerateJobDrillSheetsPdfResult, PrintInvoiceDirectResult, DrillSheetPreviewMeta, ComputedOpening, buildDrillSheetDetail(), buildDrillSheetFormValues() (+37 more)
 
-### Community 38 - "returnActionError"
-Cohesion: 0.06
-Nodes (59): GET(), RouteContext, allocateJobNumber(), createJob(), createJobFolder(), createJobFolderOrThrow(), createJobOrThrow(), createJobStructure() (+51 more)
+### Community 38 - "jobs/actions.ts"
+Cohesion: 0.09
+Nodes (36): allocateJobNumber(), createJob(), createJobOrThrow(), createJobStructure(), createJobStructureOrThrow(), formatJobNumber(), JOB_STATUSES, JobFormCustomerOption (+28 more)
 
-### Community 39 - "invoices/actions.ts"
-Cohesion: 0.08
-Nodes (38): computeInvoiceFinancials(), deleteDraftInvoice(), DraftInvoiceLineInput, EDITABLE_INVOICE_STATUSES, finalizeAllDraftInvoices(), finalizeInvoices(), InvoiceListRow, markInvoicePaid() (+30 more)
+### Community 39 - "formatUsd"
+Cohesion: 0.07
+Nodes (44): DeliveryTicketJobSearchOption, SaveDeliveryTicketInput, FormTypeahead(), closeDropdown(), handleContainerBlur(), handleKeyDown(), handleSelect(), FormTypeaheadProps (+36 more)
 
-### Community 40 - "delivery-ticket-pdf-pickup.ts"
-Cohesion: 0.15
-Nodes (16): FONT_SIZE, LINE_HEIGHT, ROW_PADDING, applyPickupTicketArtwork(), BAND_CAPTIONS, BAND_COLS, BLACK, centered() (+8 more)
+### Community 40 - "formatQuoteCurrency"
+Cohesion: 0.11
+Nodes (32): CustomStructureCostBreakdown(), addItem(), CustomStructureCostBreakdownProps, CustomStructureDetailBreakdown(), CustomStructurePricingFooter(), CustomStructurePricingFooterProps, AddCustomStructurePanel(), EditCustomStructureDialog() (+24 more)
 
-### Community 41 - "withDatabaseRetry"
+### Community 41 - "operations/actions.ts"
 Cohesion: 0.05
-Nodes (93): listStockProductsForTicket(), EDIT_ORIGINS, EditDeliveryTicketPage(), EditDeliveryTicketPageProps, NewDeliveryTicketPage(), NewDeliveryTicketPageProps, TICKET_ORIGINS, saveInventoryAdjustment() (+85 more)
+Nodes (65): deleteDrillSheet(), approveStructureForProduction(), BULK_STRUCTURE_STATUSES, bulkDeleteJobStructures(), bulkSetJobStructureStatuses(), cancelTicketFromReconcile(), collectDeliveredUninvoicedTicketIds(), confirmDeliveryDayReconciliation() (+57 more)
 
 ### Community 42 - "drill-sheet.ts"
 Cohesion: 0.07
 Nodes (38): annotateOpeningSections(), buildSolverHoles(), compareCost(), computeBaseTopToOpeningBottomInches(), computeDefaultSumpFeet(), computeDrillSheet(), ComputedSection, ComputedWeights (+30 more)
 
 ### Community 43 - ".success"
-Cohesion: 0.04
-Nodes (41): applyAssist(), ariaLabel(), Border, CheckButton, checkDimensions(), ChoiceList, computeBbox(), Corner (+33 more)
+Cohesion: 0.06
+Nodes (38): applyAssist(), ariaLabel(), Border, Caption, CheckButton, checkDimensions(), ChoiceList, computeBbox() (+30 more)
 
-### Community 44 - "prisma"
-Cohesion: 0.09
-Nodes (20): decimal(), DiameterConfigPayload, parseDiameterConfigPayload(), parsePrice(), saveStructureDiameterConfigs(), saveStructureDiameterConfigsOrThrow(), combinedMaterial(), decimal() (+12 more)
+### Community 44 - "quote-form-utils.ts"
+Cohesion: 0.08
+Nodes (28): CustomStructureImportDialog(), AddLineModalType, CustomStructureImportState, FlashMessage, ShippingStatus, QuoteLineItemsSection(), autoResizeTextarea(), CellKeyDownHandler (+20 more)
 
-### Community 45 - "ChunkedStreamManager"
-Cohesion: 0.21
-Nodes (3): arrayBuffersToBytes(), ChunkedStreamManager, ObjectLoader
+### Community 45 - "pipe-modal.tsx"
+Cohesion: 0.11
+Nodes (32): createDefaultQuoteRow(), createRowId(), PipeModal(), handleAddQuoteLines(), handleAddUnitPricesToDescription(), handleClose(), resetModal(), PipeModalMode (+24 more)
 
 ### Community 46 - "import/actions.ts"
-Cohesion: 0.10
+Cohesion: 0.11
 Nodes (39): buildCastingResolver(), CastingResolution, importPipeOpenings(), importPipeOpeningsOrThrow(), importRectOpenings(), importRectOpeningsOrThrow(), ImportRowInput, ImportRowMessage (+31 more)
 
-### Community 47 - "drill-sheet-form.tsx"
-Cohesion: 0.11
-Nodes (23): buildCommittedPreview(), CommittedOpeningNumbers, CommittedPreviewNumbers, connectionOptions, createOpening(), DiameterConfigOption, DrillSheetForm(), addOpening() (+15 more)
+### Community 47 - "quote-lines-table.tsx"
+Cohesion: 0.12
+Nodes (33): loadQuantityInputClass, quoteLineTableCellClassName, buildSplitDraft(), formatLineTypeLabel(), structurePieceLineKey(), AdsPipeRow(), AdsPipeRowProps, CastingAssemblyRow() (+25 more)
 
 ### Community 48 - "shipping/actions.ts"
 Cohesion: 0.12
 Nodes (29): lookupShippingRate(), lookupShippingRateAtPoint(), resolveShippingRateForPoint(), ShippingLookupResult, ShippingLookupSuccess, suggestShippingAddresses(), AddressAutocomplete(), closeDropdown() (+21 more)
 
 ### Community 50 - "XMLParserBase"
-Cohesion: 0.13
-Nodes (3): XFAParser, XMLParserBase, skipWs()
+Cohesion: 0.07
+Nodes (6): DatasetXMLParser, MetadataParser, SimpleDOMNode, SimpleXMLParser, XFAParser, XMLParserBase
 
-### Community 51 - "auth/constants.ts"
-Cohesion: 0.05
-Nodes (57): updateRolePermissionsFormAction(), RolesSettingsPage(), RolesSettingsPageProps, saveRolePermissions(), EditSettingsUserPage(), EditSettingsUserPageProps, NewSettingsUserPage(), Header() (+49 more)
+### Community 51 - "users/actions.ts"
+Cohesion: 0.03
+Nodes (103): SimilarCustomerMatch, DeliveryTicketPreviewPage(), DeliveryTicketPreviewPageProps, PREVIEW_ORIGINS, DeliveryTicketSubmittalPreviewPage(), DrillSheetPreviewPage(), getActiveLoginUsers(), getActiveUserForLogin() (+95 more)
 
 ### Community 52 - "dependencies"
 Cohesion: 0.11
 Nodes (19): dependencies, leaflet, next, nodemailer, pdf-lib, @pdf-lib/fontkit, pdf-to-printer, pdfjs-dist (+11 more)
 
 ### Community 53 - "customer-mapper.ts"
-Cohesion: 0.06
-Nodes (44): parseBulkContactPaste(), handleParsePreview(), parseBulkPaste(), ContactFormState, CustomerContactsPanelProps, emptyForm, roleChipClassNames, bulkContactColumnHeaders (+36 more)
+Cohesion: 0.07
+Nodes (40): mapBulkImportRow(), parseBulkPaste(), bulkContactColumnHeaders, bulkContactExample, BulkContactPasteRow, BulkCustomerPasteRow, bulkPasteColumnHeaders, bulkPasteExample (+32 more)
 
-### Community 54 - "structures/actions.ts"
-Cohesion: 0.14
-Nodes (26): assertDiametersHaveMolds(), createStructureTemplate(), createStructureTemplateOrThrow(), duplicateStructureTemplate(), handlePrismaError(), parseTemplatePayload(), resolvePriceListIdForTemplateSave(), saveRectPriceEntry() (+18 more)
+### Community 54 - "price-list-service.ts"
+Cohesion: 0.06
+Nodes (54): assertDiametersHaveMolds(), createStructureTemplate(), createStructureTemplateOrThrow(), duplicateStructureTemplate(), handlePrismaError(), loadCastingProductOptions(), parseTemplatePayload(), resolvePriceListIdForTemplateSave() (+46 more)
 
 ### Community 55 - "bulk-load-planner.tsx"
-Cohesion: 0.06
-Nodes (58): DeliveryTicketLineInput, discardSavedLoadPlan(), PlannedLoadInput, saveLoadPlanForLater(), SavePlannedLoadsInput, buildRows(), BulkLoadPlanner(), addLoad() (+50 more)
+Cohesion: 0.07
+Nodes (47): PlannedLoadInput, SavePlannedLoadsInput, buildRows(), BulkLoadPlanner(), addLoad(), autoRingCount(), buildLoadLines(), buildPayload() (+39 more)
 
 ### Community 57 - "customer-name-similarity.ts"
 Cohesion: 0.36
 Nodes (11): compactCustomerName(), compactSimilarity(), CustomerNameCandidate, getCustomerNameSimilarity(), jaccardSimilarity(), levenshteinDistance(), levenshteinRatio(), normalizeCustomerName() (+3 more)
 
-### Community 64 - "rect-sheet-detail-view.tsx"
-Cohesion: 0.09
-Nodes (34): aboveFloorText(), fmtElevation(), InfoRow(), placementText(), RectSheetDetailView(), RectSheetDetailViewProps, Stat(), wholeInches() (+26 more)
+### Community 64 - "job-structure-documents-service.ts"
+Cohesion: 0.16
+Nodes (19): openJobStructureDocumentOrThrow(), openJobStructureSubmittalsFolderOrThrow(), assertPathUnderJobFolder(), assertPathUnderRoot(), normalizePath(), pathsEqual(), pathStartsWith(), assertJobStructureWithFolder() (+11 more)
 
 ### Community 65 - "quote-mapper.ts"
-Cohesion: 0.05
-Nodes (60): importJobStructuresFromConfigsOrThrow(), mapStructure(), needsDrillSheetWhere, ProductionPage(), structureInclude, QUOTE_LIST_SELECT, statusWhereFor(), createDrillSheetsFromQuoteOrThrow() (+52 more)
+Cohesion: 0.07
+Nodes (40): QuotePreviewPage(), QuotePreviewPageProps, deriveOriginalQuoteNumber(), deriveSupersededBy(), formatLineNotes(), formatQuoteDate(), formatQuoteDateLong(), formatQuoteLineTypeLabel() (+32 more)
 
 ### Community 66 - "Handy Commands — Precast App"
 Cohesion: 0.15
@@ -471,12 +469,12 @@ Cohesion: 0.12
 Nodes (16): devDependencies, electron, electron-builder, eslint, eslint-config-next, tailwindcss, @tailwindcss/postcss, tsx (+8 more)
 
 ### Community 68 - "delivery-tickets/actions.ts"
-Cohesion: 0.07
-Nodes (36): assertQuoteLinkable(), buildLineCreates(), buildLinesPayload(), createDeliveryTicket(), DeliveryTicketActionResult, GenerateTicketSubmittalResult, parseDate(), resolveTicketCustomerId() (+28 more)
+Cohesion: 0.04
+Nodes (74): assertQuoteLinkable(), buildLineCreates(), buildLinesPayload(), createDeliveryTicket(), DeliveryTicketActionResult, discardSavedLoadPlan(), generateDeliveryTicketSubmittalPackage(), GenerateTicketSubmittalResult (+66 more)
 
 ### Community 69 - "delivery-ticket-utils.ts"
-Cohesion: 0.05
-Nodes (70): AllDeliveryTicketsPage(), VALID_DELIVERY_STATUSES, DeliveryTicketDetailPage(), DeliveryTicketDetailPageProps, DeliveryTicketsPage(), EDITABLE_STATUSES, EmptyState(), ScheduleLoadsPage() (+62 more)
+Cohesion: 0.08
+Nodes (26): deliveryDateFilterOptions, DeliveryFilterOptions, deliveryTicketCustomerOptions, DeliveryTicketDetailLineItem, deliveryTicketDriverOptions, DeliveryTicketFormLineItem, deliveryTicketInputClassName, deliveryTicketJobOptions (+18 more)
 
 ### Community 70 - "PsWasmCompiler"
 Cohesion: 0.05
@@ -484,103 +482,103 @@ Nodes (25): ast_Parser, buildPostScriptWasmFunction(), encodeASCIIString(), lexe
 
 ### Community 71 - "quote-pdf-line-items.ts"
 Cohesion: 0.08
-Nodes (44): COL_DESC_WIDTH, COL_DESC_X, COL_ITEM_NUM_WIDTH, COL_ITEM_NUM_X, COL_QTY_WIDTH, COL_QTY_X, COL_TOTAL_WIDTH, COL_TOTAL_X (+36 more)
+Nodes (44): toWinAnsiText(), COL_DESC_WIDTH, COL_DESC_X, COL_ITEM_NUM_WIDTH, COL_ITEM_NUM_X, COL_QTY_WIDTH, COL_QTY_X, COL_TOTAL_WIDTH (+36 more)
 
 ### Community 72 - "job-detail-mapper.ts"
-Cohesion: 0.03
-Nodes (122): searchContractorsForJob(), JobTabContent(), JobTabContentProps, JobDetailPage(), JobDetailPageProps, resolveTab(), VALID_TABS, convertTicketToInvoice() (+114 more)
+Cohesion: 0.04
+Nodes (90): JobTabContent(), JobTabContentProps, JobDetailPage(), JobDetailPageProps, resolveTab(), VALID_TABS, convertTicketToInvoice(), JobDrillSheetsPdfButtons() (+82 more)
 
 ### Community 73 - "delivery-ticket-detail-content.tsx"
-Cohesion: 0.09
-Nodes (30): generateDeliveryTicketSubmittalPackage(), updateDeliveryTicketStatus(), DeliveryTicketDetailContent(), DeliveryTicketDetailContentProps, formatLineType(), isBlank(), OptionalField(), paymentMethodLabel() (+22 more)
+Cohesion: 0.17
+Nodes (17): DeliveryTicketDetailContent(), DeliveryTicketDetailContentProps, formatLineType(), isBlank(), OptionalField(), paymentMethodLabel(), PickupInfo, RELATED_PLACEHOLDERS (+9 more)
 
-### Community 74 - "casting-utils.ts"
-Cohesion: 0.13
-Nodes (12): CastingAssemblyBomImportRow, castingAssemblyBomRoleOrder, castingAssemblyOptionalBomRoles, castingAssemblyRequiredBomRoles, CastingBomRowInput, CastingComponentLookup, CastingComponentOption, castingPieceRoleFormOptions (+4 more)
+### Community 74 - "date-only.ts"
+Cohesion: 0.18
+Nodes (15): DailyProductionPage(), DailyProductionPageProps, DailyProductionEntry(), DailyProductionEntryProps, TaxonomyCategory, DailyProductionDayEntry, DailyProductionStockProduct, DailyProductionStructureRow (+7 more)
 
 ### Community 75 - "delivery-ticket-pdf-fill.ts"
 Cohesion: 0.08
-Nodes (46): blankOr(), buildDeliveryTicketFormData(), computeTotalPieces(), DbCustomer, DbDeliveryTicketForPdf, DbJob, DELIVERY_TICKET_PDF_INCLUDE, DeliveryTicketContentPage (+38 more)
+Nodes (51): GET(), parseCopyParam(), blankOr(), buildDeliveryTicketFormData(), computeTotalPieces(), DbCustomer, DbDeliveryTicketForPdf, DbJob (+43 more)
 
-### Community 76 - "navigateAfterAction"
-Cohesion: 0.06
-Nodes (44): GlobalError(), isStaleDeploymentError(), NotFound(), cancelTicketFromReconcile(), ProductCatalogSettingsPage(), BulkPasteForm(), handleImport(), DeleteCustomerButton() (+36 more)
+### Community 76 - "jobs/[id]/edit/page.tsx"
+Cohesion: 0.08
+Nodes (31): GlobalError(), isStaleDeploymentError(), listJobsMissingFolders(), listRecentFiles(), FilesPage(), FilesPageProps, EditJobPage(), EditJobPageProps (+23 more)
 
 ### Community 77 - "SectionCard"
+Cohesion: 0.08
+Nodes (60): testJobsRootWriteAccessAction(), testStockSubmittalsRootWriteAccessAction(), BillingSettingsPage(), BillingSettingsPageProps, CastingSuppliersPage(), CompanySettingsPage(), DataResetSettingsPage(), StructureDiametersSettingsPage() (+52 more)
+
+### Community 78 - "unreachable"
 Cohesion: 0.05
-Nodes (71): ensureYearSequencesAction(), getDocumentNumberingPreview(), syncAllJobFilesFromSettingsAction(), testJobsRootWriteAccessAction(), testStockSubmittalsRootWriteAccessAction(), updatePriceListSettings(), BillingSettingsPage(), BillingSettingsPageProps (+63 more)
+Nodes (13): BasePDFStreamRangeReader, BasePDFStreamReader, BaseShading, BaseStream, buildMeshVertexData(), DummyShading, FunctionBasedShading, MeshShading (+5 more)
 
-### Community 78 - "BulkPasteForm"
-Cohesion: 0.17
-Nodes (13): findExistingProductCodesAction(), importProducts(), BulkPasteForm(), handleImport(), handleParsePreview(), lookUpExistingCodes(), formatMissingTaxonomySummary(), presetPreviewColumns() (+5 more)
-
-### Community 79 - "import-rect-sheet-pdfs.ts"
-Cohesion: 0.21
-Nodes (15): rectTemplateVariantKey(), BLACK, dumpVariant(), ELEVATION_WALLS_X, enrichVariant(), main(), markersForVariant(), Rect (+7 more)
+### Community 79 - "sheet-pdfs/actions.ts"
+Cohesion: 0.07
+Nodes (44): GET(), createSheetPdfSetAction(), deleteSheetPdfSetAction(), deleteSheetPdfSetFileAction(), deleteSheetPdfSetOrThrow(), parseBooleanField(), renameSheetPdfSetAction(), revalidate() (+36 more)
 
 ### Community 80 - "delivery-fulfillment.ts"
-Cohesion: 0.06
-Nodes (58): CandidateDraft, EmptyState(), mapDraftToCells(), PlanLoadsPage(), PlanLoadsPageProps, DraftLoadColumn, AdsPipeOption, allLineageIds() (+50 more)
+Cohesion: 0.08
+Nodes (48): CandidateDraft, EmptyState(), mapDraftToCells(), PlanLoadsPage(), PlanLoadsPageProps, DraftLoadColumn, AdsPipeJointType, adsPipeJointTypeFormOptions (+40 more)
 
-### Community 81 - "inventory/page.tsx"
-Cohesion: 0.03
-Nodes (112): AGGREGATE_SORT_COLUMNS, CONTACT_SORT_COLUMNS, ContactSortColumn, CUSTOMER_SORT_FIELDS, CustomerSortColumn, CustomersPage(), isAggregateSortColumn(), loadCustomerAggregates() (+104 more)
+### Community 81 - "quotes/page.tsx"
+Cohesion: 0.09
+Nodes (36): AGGREGATE_SORT_COLUMNS, CONTACT_SORT_COLUMNS, ContactSortColumn, CUSTOMER_SORT_FIELDS, CustomerSortColumn, CustomersPage(), isAggregateSortColumn(), loadCustomerAggregates() (+28 more)
 
-### Community 82 - "randomId"
-Cohesion: 0.06
-Nodes (60): InventoryProductSearchOption, resolveReceivingCategory(), savePurchaseReceipt(), searchInventoryProducts(), mapOpenPurchaseOrders(), ReceivePage(), ReceivePageProps, FormTypeahead() (+52 more)
+### Community 82 - "navigateAfterAction"
+Cohesion: 0.05
+Nodes (74): checkBulkCustomerDbDuplicates(), importCustomers(), InventoryReceiptsPage(), InventoryReceiptsPageProps, listOpenPurchaseOrdersForReceiving(), ReceivingPage(), mapOpenPurchaseOrders(), ReceivePage() (+66 more)
 
 ### Community 83 - "calibrate-rect-templates.ts"
-Cohesion: 0.09
-Nodes (25): Align, ALIGNMENTS, BLACK, calibrateVariant(), EXPLODED_SPECS, extractTextItems(), findItem(), HEADER_SPECS (+17 more)
+Cohesion: 0.06
+Nodes (48): BASE_SLAB_ONLY_FIELDS, RECT_ELEVATION_WALL_MARKER_FIELD, RECT_EXPLODED_CENTER_MARKER_FIELD, RECT_EXPLODED_MARKER_FIELD, RECT_OPENING_ROWS, RECT_TOP_SLAB_MARKER_FIELD, RECT_WEIGHT_PIECE_LINES, TOP_SLAB_ONLY_FIELDS (+40 more)
 
 ### Community 84 - "AGENTS.md"
 Cohesion: 0.38
 Nodes (4): Codebase exploration: use graphify first, Prisma / Database Rules, Project context, This is NOT the Next.js you know
 
-### Community 85 - "quote-utils.ts"
-Cohesion: 0.10
-Nodes (31): CustomStructureCostBreakdown(), addItem(), CustomStructureCostBreakdownProps, CustomStructureDetailBreakdown(), CustomStructurePricingFooter(), CustomStructurePricingFooterProps, buildCreateQuoteInput(), calculateQuoteTotals() (+23 more)
+### Community 85 - "use-quote-line-editing.ts"
+Cohesion: 0.21
+Nodes (20): mapFulfillmentToLine(), mergeFulfillmentIntoLine(), QuoteLineEditingOptions, useQuoteLineEditing(), applyAutoRingAssignment(), castingPiecesAreEvenSets(), getAdsPipeCount(), getAdsPipeQtyUsed() (+12 more)
 
-### Community 86 - "invoicing-service.ts"
-Cohesion: 0.13
-Nodes (20): removeAdsJointTypeSuffix(), removeTrailingRingHeightSuffix(), resolveLineDescription(), batchConvertDeliveredTicketsToInvoices(), BatchInvoiceConversionResult, CastingSetCharge, castingSetsStarted(), convertDeliveryTicketToInvoice() (+12 more)
+### Community 86 - "jobs/page.tsx"
+Cohesion: 0.16
+Nodes (15): buildJobOrderBy(), JOB_LIST_SELECT, JOB_SORT_FIELDS, JobSortColumn, JobsPage(), NULLABLE_JOB_SORT_FIELDS, CLOSED_JOB_STATUSES, JobRow (+7 more)
 
 ### Community 87 - "XhtmlObject"
-Cohesion: 0.12
-Nodes (6): li, ol, Sup, ul, xhtml_P, XhtmlObject
+Cohesion: 0.04
+Nodes (21): B, Body, Br, buildHuffmanTable(), hl, Html, $i, ii (+13 more)
 
-### Community 88 - "._bindElement"
-Cohesion: 0.07
-Nodes (13): Binder, createDataNode(), createText(), DataHandler, interpolate(), Items, makeMap(), parseExpression() (+5 more)
+### Community 88 - "template_Value"
+Cohesion: 0.11
+Nodes (5): Draw, Field, Image, _setValue(), template_Value
 
 ### Community 89 - "purchase-orders/actions.ts"
+Cohesion: 0.07
+Nodes (40): createPurchaseOrder(), listVendorsForPurchaseOrderForm(), parseDate(), parseLinesFromFormData(), parseSaveInput(), persistVendorQuote(), revalidatePurchaseOrderPaths(), updatePurchaseOrder() (+32 more)
+
+### Community 90 - "Stream"
+Cohesion: 0.03
+Nodes (27): Ascii85Stream, AsciiHexStream, BrotliStream, bytesToString(), CCITTFaxStream, CipherTransform, DecodeStream, DecryptStream (+19 more)
+
+### Community 91 - "withDatabaseRetry"
+Cohesion: 0.06
+Nodes (70): importCustomersOrThrow(), addCustomerContact(), BulkContactDbState, BulkContactImportRow, checkBulkContactDbState(), CONTACT_ROLES, CustomerContactInput, deleteCustomerContact() (+62 more)
+
+### Community 92 - "job-sheet-import-actions.ts"
 Cohesion: 0.10
-Nodes (31): createPurchaseOrder(), getPurchaseOrderForReceiving(), listOpenPurchaseOrdersForReceiving(), parseDate(), parseLinesFromFormData(), parseSaveInput(), revalidatePurchaseOrderPaths(), updatePurchaseOrder() (+23 more)
+Nodes (31): JobCustomStructureImportCandidate, JobSheetImportCandidates, loadJobSheetImportCandidates(), STATUS_LABELS, CircularImportDialog(), handlePasteParse(), CircularImportDialogProps, Cell (+23 more)
 
-### Community 90 - "FormatError"
-Cohesion: 0.02
-Nodes (57): addHex(), Ascii85Stream, AsciiHexStream, BinaryCMapReader, BinaryCMapStream, BrotliStream, bytesToString(), CMapFactory (+49 more)
-
-### Community 91 - "app_generated_prisma_client_prisma"
-Cohesion: 0.11
-Nodes (33): addCustomerContact(), BulkContactDbState, BulkContactImportRow, CONTACT_ROLES, CustomerContactInput, deleteCustomerContact(), importContacts(), importContactsOrThrow() (+25 more)
-
-### Community 92 - "circular-structure-import.ts"
-Cohesion: 0.20
-Nodes (17): CircularImportDialog(), handlePasteParse(), CircularImportDialogProps, Cell, cellText(), circularGridFromTsv(), CircularImportIssue, CircularImportResult (+9 more)
-
-### Community 93 - "settings/actions.ts"
-Cohesion: 0.08
-Nodes (50): checkJobsRootReadAccess(), clearAllCustomersFormAction(), clearAllCustomersOrThrow(), clearAllDeliveryTicketsFormAction(), clearAllDeliveryTicketsOrThrow(), clearAllJobsFormAction(), clearAllJobsOrThrow(), clearAllProductsFormAction() (+42 more)
+### Community 93 - "requirePermission"
+Cohesion: 0.06
+Nodes (76): syncAllFiles(), deleteJobStructureDocumentActionOrThrow(), revalidateJobStructurePaths(), searchCustomersForJobForm(), uploadJobStructureDocumentActionOrThrow(), deleteProductDocumentActionOrThrow(), revalidateProductPaths(), scanProductDocumentsActionOrThrow() (+68 more)
 
 ### Community 94 - "plan-sheet-actions.ts"
-Cohesion: 0.05
-Nodes (53): GET(), RouteContext, openJobStructureSubmittalsFolderOrThrow(), persistVendorQuote(), getPlanSheetForOpen(), mapPlanSheetRow(), pathExists(), savePlanSheetMarkup() (+45 more)
+Cohesion: 0.09
+Nodes (45): GET(), RouteContext, getPlanSheetForOpen(), getPlanSheetForQuote(), listJobConstructionPlanPdfs(), mapPlanSheetRow(), pathExists(), PlanSheetRecord (+37 more)
 
 ### Community 95 - "quotes/actions.ts"
 Cohesion: 0.05
-Nodes (71): assertGalleyFamiliesExist(), computeQuoteFinancials(), createQuote(), CreateQuoteInput, CreateQuoteLineItemInput, DeleteQuoteResult, isQuoteNumberConflict(), listPriceListsForForm() (+63 more)
+Nodes (79): assertGalleyFamiliesExist(), computeQuoteFinancials(), createQuote(), CreateQuoteInput, CreateQuoteLineItemInput, DeleteQuoteResult, getCustomerForQuoteForm(), isQuoteNumberConflict() (+71 more)
 
 ### Community 97 - "input.tsx"
 Cohesion: 0.40
@@ -590,69 +588,73 @@ Nodes (3): inputClassName, InputProps, textareaClassName
 Cohesion: 0.40
 Nodes (4): Precast Ops desktop updates, Publish a desktop update (from the dev PC), Verify (from any office PC), Which machine does what
 
-### Community 99 - "rect-sheet-detail.ts"
-Cohesion: 0.33
-Nodes (11): RectSectionField, buildRectSheetFormValues(), buildRectSheetFormValuesForIdentity(), buildRectSheetFormValuesFromQuoteConfig(), decimalToInput(), emptyOpeningField(), nextId(), num() (+3 more)
+### Community 99 - "MathClamp"
+Cohesion: 0.22
+Nodes (6): IndexedCS, interpolate(), MathClamp(), PDFFunction, setArity(), toNumberArray()
 
-### Community 100 - "bid-actions.ts"
-Cohesion: 0.19
-Nodes (18): addJobBidder(), awardJob(), generateQuotesFromMaster(), removeJobBidder(), buildContactMapForGenerate(), buildDefaultContactMap(), JobBiddingPanel(), handleAddBidder() (+10 more)
+### Community 100 - "inventory-service.ts"
+Cohesion: 0.17
+Nodes (14): calendarDateToLocalNoon(), applyInboundStockChanges(), applyStockChange(), applyStructureProductionLines(), DbClient, deductInventoryForDeliveredTicket(), InboundStockChange, ProductionLineInput (+6 more)
 
-### Community 102 - "quote-pdf-fill.ts"
+### Community 101 - "XmlObject"
+Cohesion: 0.04
+Nodes (9): Builder, Datasets, datasets_Data, DatasetsNamespace, Empty, Root, UnknownNamespace, XFAAttribute (+1 more)
+
+### Community 102 - "quote-pdf-data.ts"
+Cohesion: 0.10
+Nodes (33): CP1252_HIGH, fitPdfFieldFontSize(), isWinAnsi(), lastFontSize(), replaceLastFontSize(), setPdfFieldText(), WINANSI_REPLACEMENTS, QuoteLineItemRecord (+25 more)
+
+### Community 104 - "job-progress.ts"
 Cohesion: 0.18
-Nodes (14): DbQuoteForPdf, QuoteContentPage, ADDRESS_FIELD_NAMES, buildQuotePageBytes(), fillAcroFormFields(), fitProjectAddressFields(), getQuoteContinuationTemplatePath(), getQuoteTemplatePath() (+6 more)
-
-### Community 104 - "files/actions.ts"
-Cohesion: 0.16
-Nodes (28): ExplorerOpenResult, getJobFilesForBrowser(), openJobFile(), openJobFolderCategory(), revalidateFilesPaths(), syncAllFiles(), SyncAllFilesResult, syncJobFilesAction() (+20 more)
+Nodes (16): JobProgressLine, JobProgressSummary, JobProgressView, JobStructureProgressLine, buildSummary(), DbClient, EMPTY_PROGRESS, formatQty() (+8 more)
 
 ### Community 105 - "structure-workbook.tsx"
-Cohesion: 0.08
-Nodes (45): PlanSheetRecord, uploadPlanSheet(), DrillSheetTemplateOption, formatQuoteCurrency(), pipeSizesForMaterial(), StructureWorkbookDefaultsPanel(), StructureWorkbookDefaultsPanelProps, uniquePipeMaterials() (+37 more)
+Cohesion: 0.11
+Nodes (25): JobSheetImportCandidate, JobSheetImportDialog(), JobSheetImportDialogProps, pipeSizesForMaterial(), StructureWorkbookDefaultsPanel(), StructureWorkbookDefaultsPanelProps, uniquePipeMaterials(), createInitialWorkbookRows() (+17 more)
 
 ### Community 106 - "product-taxonomy.server.ts"
-Cohesion: 0.20
-Nodes (20): ensureTaxonomyForBulkImport(), fetchActiveProductTaxonomy(), resolveTaxonomiesByNamesForImport(), resolveTaxonomyByNamesForImport(), validateTaxonomySelection(), analyzeTaxonomyByNames(), buildCategoryFilterOptions(), buildSubcategoryFilterOptions() (+12 more)
+Cohesion: 0.19
+Nodes (19): ensureTaxonomyForBulkImport(), fetchActiveProductTaxonomy(), resolveTaxonomiesByNamesForImport(), resolveTaxonomyByNamesForImport(), validateTaxonomySelection(), analyzeTaxonomyByNames(), buildCategoryFilterOptions(), categoryNameMatches() (+11 more)
 
 ### Community 108 - "generate-invoice-templates.ts"
 Cohesion: 0.12
 Nodes (25): CONT_TABLE_BOTTOM_Y, MAIN_TABLE_BOTTOM_Y, addTextField(), BLACK, BOTTOM_BOX, buildTemplate(), Ctx, drawBox() (+17 more)
 
 ### Community 110 - "send-actions.ts"
-Cohesion: 0.06
-Nodes (63): findSupersededBy(), getSendQuoteDefaults(), getSendQuoteEmailConfigured(), OpenOutlookDraftResult, openQuoteInOutlook(), sendQuote(), SendQuoteDefaults, SendQuoteInput (+55 more)
+Cohesion: 0.05
+Nodes (61): findSupersededBy(), getSendQuoteDefaults(), getSendQuoteEmailConfigured(), OpenOutlookDraftResult, openQuoteInOutlook(), sendQuote(), SendQuoteDefaults, SendQuoteInput (+53 more)
 
-### Community 111 - "XhtmlNamespace"
+### Community 111 - "contentDisposition"
+Cohesion: 0.16
+Nodes (15): GET(), GET(), rectPreviewResponse(), GET(), parseDateParam(), GET(), GET(), GET() (+7 more)
+
+### Community 112 - "job-bidding-panel.tsx"
 Cohesion: 0.13
-Nodes (5): Body, hl, Span, Sub, XhtmlNamespace
+Nodes (26): searchContractorsForJob(), addJobBidder(), awardJob(), generateQuotesFromMaster(), removeJobBidder(), buildContactMapForGenerate(), buildDefaultContactMap(), JobBiddingPanel() (+18 more)
 
-### Community 112 - "requirePermission"
-Cohesion: 0.09
-Nodes (38): BulkImportRow, checkBulkCustomerDbDuplicates(), createCustomer(), CUSTOMER_STATUSES, CustomerRecordInput, deleteCustomer(), findSimilarCustomers(), importCustomers() (+30 more)
+### Community 114 - "returnActionError"
+Cohesion: 0.05
+Nodes (77): ExplorerOpenResult, getJobFilesForBrowser(), listJobFilesAction(), openJobFile(), openJobFolderCategory(), revalidateFilesPaths(), SyncAllFilesResult, syncJobFilesAction() (+69 more)
 
-### Community 114 - "react"
+### Community 115 - "rect-sheet-form.tsx"
 Cohesion: 0.04
-Nodes (85): listJobFilesAction(), uploadJobFileAction(), EditJobPage(), EditJobPageProps, deleteProductDocumentAction(), openProductDocument(), openProductSubmittalsFolder(), scanAllProductSubmittalsAction() (+77 more)
-
-### Community 115 - "structure-utils.ts"
-Cohesion: 0.06
-Nodes (42): JobStructureFormProps, CastingOption, createDiameter(), defaultFormValue, DiameterField, feetInchesHint(), moldOptionLabel(), RectPdfSetOption (+34 more)
+Nodes (78): buildCommittedPreview(), CommittedOpeningNumbers, CommittedPreviewNumbers, connectionOptions, createOpening(), DiameterConfigOption, DrillSheetForm(), addOpening() (+70 more)
 
 ### Community 117 - "quote-form-data.ts"
-Cohesion: 0.11
-Nodes (18): reloadQuoteFormPriceOptions(), collectRingOtherSubcategories(), formatJobAddress(), loadPipeProductsForQuoteForm(), loadQuoteFormPriceOptions(), mapPipeProductToQuoteOption(), mapServiceProductsToOptions(), QUOTE_PIPE_PRODUCT_SELECT (+10 more)
+Cohesion: 0.12
+Nodes (28): reloadQuoteFormPriceOptions(), EditQuotePage(), EditQuotePageProps, NewQuotePage(), NewQuotePageProps, collectRingOtherSubcategories(), formatJobAddress(), loadPipeProductsForQuoteForm() (+20 more)
 
 ### Community 118 - "windows-explorer.ts"
 Cohesion: 0.10
-Nodes (34): ClientPathMapping, getClientPathMappings(), stripTrailingSeparators(), toClientOpenPath(), translateToClientPath(), assertDirectoryExists(), assertFileExists(), assertPathAccessible() (+26 more)
+Nodes (40): generateDrillSheetPdf(), generateJobDrillSheetsPdf(), generateRectSheetPdf(), getJobsRoot(), ClientPathMapping, getClientPathMappings(), stripTrailingSeparators(), toClientOpenPath() (+32 more)
 
-### Community 119 - "TextMeasure"
-Cohesion: 0.26
-Nodes (3): B, layoutText(), TextMeasure
+### Community 119 - "delivery-ticket-preview-content.tsx"
+Cohesion: 0.25
+Nodes (12): printDeliveryTicketDirect(), printInvoiceDirect(), DeliveryTicketPdfCanvasPreview(), DeliveryTicketPdfCanvasPreviewProps, getDeliveryTicketPreviewPrintUrl(), DeliveryTicketPreviewContent(), handleGeneratePdf(), handlePrint() (+4 more)
 
-### Community 120 - "price-list-service.ts"
-Cohesion: 0.10
-Nodes (39): BulkProductsPage(), EditProductPage(), EditProductPageProps, DetailField(), ProductDetailPage(), ProductDetailPageProps, NewProductPage(), buildProductOrderBy() (+31 more)
+### Community 120 - "casting-service.ts"
+Cohesion: 0.18
+Nodes (19): buildableSetCount(), InventoryPage(), BulkProductsPage(), EditProductPage(), EditProductPageProps, NewProductPage(), DbClient, DerivedAssemblyValues (+11 more)
 
 ### Community 121 - "shipping-zones-manager.tsx"
 Cohesion: 0.15
@@ -666,53 +668,53 @@ Nodes (18): Architecture, End-to-end smoke test, Firewall, Important behavior, I
 Cohesion: 0.12
 Nodes (17): 1. Server URL for the desktop app, 2. First install on each staff PC, 3. Staff expectations, 4. Role walkthrough (recommended), 5. Backups, 6. Support contacts, 7. Post-rollout verification (first week), Database (nightly recommended) (+9 more)
 
-### Community 124 - "app_generated_prisma_client"
+### Community 124 - "invoices/actions.ts"
 Cohesion: 0.07
-Nodes (54): GET(), GET(), GET(), RouteContext, getDraftInvoiceEditorData(), EditDraftInvoicePage(), PageProps, InvoiceDetailPage() (+46 more)
+Nodes (46): computeInvoiceFinancials(), deleteDraftInvoice(), DraftInvoiceLineInput, EDITABLE_INVOICE_STATUSES, finalizeAllDraftInvoices(), finalizeInvoices(), getDraftInvoiceEditorData(), getInvoiceTabCounts() (+38 more)
 
 ### Community 125 - "reloadAfterAction"
-Cohesion: 0.04
-Nodes (76): uploadJobStructureDocumentAction(), bulkDeleteJobStructures(), setQuoteTaxExempt(), updateQuoteCustomerPo(), generateSubmittalPackage(), CollapsibleSectionCard(), CollapsibleSectionCardProps, DrillSheetPdfLink() (+68 more)
+Cohesion: 0.05
+Nodes (70): deleteJobStructureDocumentAction(), uploadJobStructureDocumentAction(), BulkStructureStatus, markStructureMade(), startStructureProduction(), setQuoteTaxExempt(), updateQuoteCustomerPo(), generateSubmittalPackage() (+62 more)
 
-### Community 126 - "drill-sheets/pdf-actions.ts"
-Cohesion: 0.12
-Nodes (28): saveDeliverySchedulePdf(), generateDrillSheetPdf(), GenerateDrillSheetPdfResult, generateJobDrillSheetsPdf(), GenerateJobDrillSheetsPdfResult, generateRectSheetPdf(), SchedulePrintActions(), handleSave() (+20 more)
+### Community 126 - "delivery-tickets/pdf-actions.ts"
+Cohesion: 0.11
+Nodes (31): DeliveryTicketPdfPreviewResult, generateDeliveryTicketPdf(), GenerateDeliveryTicketPdfResult, getDeliveryTicketPdfPreviewBase64(), loadTicketForPdf(), PrintDeliveryTicketDirectResult, saveDeliverySchedulePdf(), SaveDeliverySchedulePdfResult (+23 more)
 
-### Community 127 - "delivery-ticket-pdf-html.ts"
-Cohesion: 0.38
-Nodes (10): CompanyProfile, DeliveryTicketCopySettings, DeliveryTicketPdfView, addressBlockHtml(), buildDeliveryTicketPdfHtml(), escapeHtml(), optionalNote(), renderDeliveryTicketPage() (+2 more)
+### Community 127 - "job-structure-import-dialog.tsx"
+Cohesion: 0.18
+Nodes (14): importJobStructuresFromConfigs(), JobStructureImportEntry, JobStructureImportResult, buildPreview(), Cell, detectShape(), ImportOptions, JobStructureImportButton() (+6 more)
 
 ### Community 128 - ".get"
 Cohesion: 0.03
-Nodes (49): ButtonWidgetAnnotation, addPageDict(), appendIfJavaScriptDict(), parseNestedOrder(), parseOnOff(), parseOrder(), _collectAction(), collectActions() (+41 more)
+Nodes (42): ButtonWidgetAnnotation, addPageDict(), appendIfJavaScriptDict(), parseNestedOrder(), parseOnOff(), parseOrder(), ChoiceWidgetAnnotation, _collectAction() (+34 more)
 
-### Community 129 - "getStringOption"
-Cohesion: 0.06
-Nodes (10): ContentArea, getFloat(), getInteger(), getKeyword(), getMeasurement(), getRatio(), getRelevant(), getStringOption() (+2 more)
+### Community 129 - ".getUint16"
+Cohesion: 0.15
+Nodes (18): buildComponentData(), decodeScan(), decodeBlock(), decodeHuffman(), decodeMcu(), readBit(), receive(), receiveAndExtend() (+10 more)
 
 ### Community 130 - "delivery-schedule-pdf-html.ts"
-Cohesion: 0.17
-Nodes (20): formatWeight(), parseLoadSequence(), DeliveryScheduleTicket, JobDeliverySchedule, SCHEDULE_TICKET_SELECT, buildDeliverySchedulePdfHtml(), DeliveryScheduleVariant, escapeHtml() (+12 more)
+Cohesion: 0.11
+Nodes (28): EDITABLE_STATUSES, EmptyState(), ScheduleLoadsPage(), ScheduleLoadsPageProps, pickFields(), ScheduleLoadsEditor(), handleSave(), ScheduleTicketRow (+20 more)
 
-### Community 131 - "seed.ts"
-Cohesion: 0.17
-Nodes (16): DEFAULT_APP_SETTINGS_DATA, DEFAULT_SEED_LOGO_PDF_PATH, decodeApiKey(), PrismaDevPayload, resolveDatabaseUrl(), resolvePrismaDevPayload(), resolveShadowDatabaseUrl(), databaseUrl (+8 more)
+### Community 131 - "app_generated_prisma_client_prismaclient"
+Cohesion: 0.20
+Nodes (14): decodeApiKey(), PrismaDevPayload, resolveDatabaseUrl(), resolvePrismaDevPayload(), resolveShadowDatabaseUrl(), databaseUrl, shadowDatabaseUrl, main() (+6 more)
 
 ### Community 134 - "Deployment server info checklist"
 Cohesion: 0.22
 Nodes (9): Database, Deployment server info checklist, Electron client, File shares (UNC), Network, PDF generation, Post-deploy verification, Server (+1 more)
 
 ### Community 136 - "app-settings.ts"
-Cohesion: 0.07
-Nodes (38): AppSettingsView, DEFAULT_DELIVERY_TICKET_COPY1_TITLE, DEFAULT_DELIVERY_TICKET_COPY2_TITLE, DEFAULT_DELIVERY_TICKET_COPY3_TITLE, DEFAULT_DELIVERY_TICKET_FOOTER_TEXT, DEFAULT_DRIVERS, DEFAULT_ESTIMATORS, DEFAULT_PAYMENT_TERMS (+30 more)
+Cohesion: 0.06
+Nodes (42): createJobFolderOrThrow(), AppSettingsView, CompanyProfile, DEFAULT_APP_SETTINGS_DATA, DEFAULT_DELIVERY_TICKET_COPY1_TITLE, DEFAULT_DELIVERY_TICKET_COPY2_TITLE, DEFAULT_DELIVERY_TICKET_COPY3_TITLE, DEFAULT_DELIVERY_TICKET_FOOTER_TEXT (+34 more)
 
 ### Community 137 - "Troubleshooting"
 Cohesion: 0.33
 Nodes (6): `P1001` — Can't reach database server, Password authentication failed, Port 3000 already in use, Prisma Studio — "Could not load schema metadata", Quote PDF — "Could not find Chrome" / browser not found, Troubleshooting
 
 ### Community 138 - "invoice-pdf-fill.ts"
-Cohesion: 0.11
-Nodes (25): formatPostalAddressLines(), blankOr(), buildInvoiceFormData(), DbInvoiceForPdf, formatCustomerAddress(), formatDateForPdf(), formatMoneyForPdf(), formatPageNumber() (+17 more)
+Cohesion: 0.10
+Nodes (29): removeAdsJointTypeSuffix(), removeTrailingRingHeightSuffix(), resolveLineDescription(), blankOr(), buildInvoiceFormData(), DbInvoiceForPdf, formatCustomerAddress(), formatDateForPdf() (+21 more)
 
 ### Community 139 - "structure-workbook-plan-takeoff.tsx"
 Cohesion: 0.11
@@ -722,169 +724,185 @@ Nodes (27): pipeSizesForMaterial(), uniquePipeMaterials(), bearingFromDelta(), c
 Cohesion: 0.40
 Nodes (5): Desktop shell (optional), Local development, Office deployment, Precast Ops, Project docs
 
-### Community 142 - "bulk-attach-board.tsx"
+### Community 142 - "job-structure-detail-mapper.ts"
+Cohesion: 0.13
+Nodes (19): structureStatusOptions, mapStructure(), buildWorkflowSteps(), deriveNeedsDrillSheet(), formatDate(), formatFileSize(), formatQuantity(), JobStructureDetailView (+11 more)
+
+### Community 150 - "CipherTransformFactory"
 Cohesion: 0.18
-Nodes (19): approveStructureForProduction(), BulkAttachPage(), handleConfirm(), BulkAttachBoard(), getTile(), handleFiles(), renderTile(), selectMode() (+11 more)
+Nodes (5): ARCFourCipher, calculateMD5(), CipherTransformFactory, PasswordException, writeObject()
 
-### Community 150 - "stringToBytes"
-Cohesion: 0.12
-Nodes (8): ARCFourCipher, calculateMD5(), CipherTransform, CipherTransformFactory, PasswordException, stringToBytes(), utf8PasswordToBytes(), utf8StringToString()
+### Community 151 - "pdfjs-dist"
+Cohesion: 0.17
+Nodes (12): DraftBatchPreviewPage(), renderPage(), renderPage(), DraftBatchPreviewContent(), loadDocument(), renderPage(), renderPage(), loadPdf() (+4 more)
 
-### Community 151 - "printPdfUrl"
-Cohesion: 0.07
-Nodes (39): DeliveryTicketSubmittalPreviewPage(), DeliveryTicketSubmittalPreviewPageProps, printDeliveryTicketSubmittalsDirect(), DraftBatchPreviewPage(), generateQuotePdf(), GenerateQuotePdfResult, GenerateSubmittalPackageResult, renderPage() (+31 more)
-
-### Community 152 - ".find"
-Cohesion: 0.25
-Nodes (3): FontFinder, makeObj(), stripQuotes()
+### Community 152 - "FontFinder"
+Cohesion: 0.15
+Nodes (5): FontFinder, FontInfo, FontSelector, makeObj(), selectFont()
 
 ### Community 154 - "calculateSHA512"
-Cohesion: 0.07
-Nodes (24): AES128Cipher, AES256Cipher, AESBaseCipher, calculate_sha256_ch(), calculate_sha256_littleSigma(), calculate_sha256_littleSigmaPrime(), calculate_sha256_maj(), calculate_sha256_sigma() (+16 more)
+Cohesion: 0.09
+Nodes (16): AES128Cipher, AES256Cipher, AESBaseCipher, calculateSHA384(), calculateSHA512(), ch(), littleSigma(), littleSigmaPrime() (+8 more)
 
-### Community 155 - "receiving-utils.ts"
-Cohesion: 0.12
-Nodes (30): InventoryReceiptsPage(), InventoryReceiptsPageProps, ReceivingPage(), accentBorderStyles, CategoryCardProps, ReceivingCategoryCard(), formatCastingPieceRoleLabel(), formatCalendarDateShort() (+22 more)
+### Community 155 - "delivery-dispatch-utils.ts"
+Cohesion: 0.25
+Nodes (11): DeliveryTicketRow, DispatcherWeekCalendar, DispatcherWeekCalendarProps, getReferenceDateForWeekOffset(), DISPATCH_STATUSES, formatWeekRangeLabel(), getDispatchDays(), getTodaysScheduledLoads() (+3 more)
 
-### Community 156 - "Builder"
-Cohesion: 0.17
-Nodes (3): Builder, Empty, UnknownNamespace
+### Community 156 - "drill-sheet-preview-content.tsx"
+Cohesion: 0.22
+Nodes (12): DrillSheetPdfCanvasPreview(), loadPdf(), DrillSheetPdfCanvasPreviewProps, DrillSheetPdfPreviewInfo, getDrillSheetPreviewPrintUrl(), LoadedPdf, DrillSheetPreviewContent(), handleGeneratePdf() (+4 more)
 
-### Community 157 - "ref_fs"
-Cohesion: 0.07
-Nodes (20): dynamic, GET(), readBuildId(), CONTENT_TYPES, RouteContext, UPDATES_DIR, puppeteer, templatePath (+12 more)
+### Community 157 - "render-example-sheets.ts"
+Cohesion: 0.18
+Nodes (12): puppeteer, findBrowser(), HTML_PATH, main(), EXAMPLES, findBrowser(), HTML(), main() (+4 more)
 
 ### Community 158 - "ring-builder-modal.tsx"
+Cohesion: 0.07
+Nodes (54): createDefaultHeightPoolRow(), createRowId(), formatRingBuilderUnitPrice(), HeightPoolRow, initOtherInputs(), OtherProductInput, OtherSection(), RingBuilderModal() (+46 more)
+
+### Community 159 - "ColorSpace"
 Cohesion: 0.09
-Nodes (49): updateRingBuilderSettingsFormAction(), saveRingBuilderSettings(), createDefaultHeightPoolRow(), createRowId(), formatRingBuilderUnitPrice(), HeightPoolRow, initOtherInputs(), OtherProductInput (+41 more)
+Nodes (5): AlternateCS, ColorSpace, DeviceGrayCS, DeviceRgbaCS, PatternCS
 
-### Community 159 - "structure-template-pdf-service.ts"
-Cohesion: 0.40
-Nodes (8): assertPathUnderRoot(), deleteTemplatePdf(), getStructureTemplatePdfsRoot(), readTemplatePdfBytes(), StructureTemplatePdfRecord, TemplatePdfVariant, main(), uniqueSetName()
+### Community 160 - "printPdfUrl"
+Cohesion: 0.32
+Nodes (10): printDeliveryTicketSubmittalsDirect(), DeliveryTicketSubmittalPdfCanvasPreview(), DeliveryTicketSubmittalPdfCanvasPreviewProps, getDeliveryTicketSubmittalPreviewPrintUrl(), DeliveryTicketSubmittalPreviewContent(), handlePrint(), openPrintWindow(), DeliveryTicketSubmittalPreviewContentProps (+2 more)
 
-### Community 160 - "job-structure-import-dialog.tsx"
-Cohesion: 0.09
-Nodes (32): JobStructureImportEntry, JobStructureImportResult, loadJobStructureImportOptions(), buildPreview(), Cell, detectShape(), ImportOptions, JobStructureImportButton() (+24 more)
+### Community 161 - "Glyph"
+Cohesion: 0.12
+Nodes (4): CompositeGlyph, GlyfTable, Glyph, GlyphHeader
 
-### Community 161 - "SimpleDOMNode"
-Cohesion: 0.15
-Nodes (3): DatasetXMLParser, SimpleDOMNode, SimpleXMLParser
+### Community 162 - "product-groups/actions.ts"
+Cohesion: 0.21
+Nodes (13): addProductGroupMemberFormAction(), createProductGroupFormAction(), deleteProductGroupFormAction(), parseSortOrder(), removeProductGroupMemberFormAction(), reorderProductGroupMembers(), updateProductGroupFormAction(), GroupMemberReorderTable() (+5 more)
 
-### Community 162 - "product-groups/page.tsx"
-Cohesion: 0.14
-Nodes (21): addProductGroupMemberFormAction(), addProductGroupMembersFormAction(), createProductGroupFormAction(), deleteProductGroupFormAction(), parseSortOrder(), removeProductGroupMemberFormAction(), reorderProductGroupMembers(), updateProductGroupFormAction() (+13 more)
+### Community 163 - "casting-ticket-lines.ts"
+Cohesion: 0.23
+Nodes (8): CastingCollapseMeta, CastingCollapsibleLine, CastingExplodeComponent, CastingExplodedPiece, collapseCastingTicketLines(), perSetByProduct(), setWeightFor(), META
 
 ### Community 165 - "main.mjs"
 Cohesion: 0.06
 Nodes (43): __dirname, getUserConfigPath(), loadConfig(), readJsonFile(), validateServerUrl(), buildApplicationMenu(), checkForNewServerBuild(), clearWebCache() (+35 more)
 
-### Community 166 - "session-keep-alive.tsx"
-Cohesion: 0.60
-Nodes (5): keepSessionAlive(), recordPing(), SessionKeepAlive(), ping(), shouldPing()
+### Community 166 - "getCurrentUser"
+Cohesion: 0.10
+Nodes (31): GET(), GET(), GET(), DeliveryTicketDetailPage(), EditDraftInvoicePage(), PageProps, InvoiceDetailPage(), InvoiceDetailPageProps (+23 more)
 
-### Community 167 - "draft-invoice-cover-html.ts"
-Cohesion: 0.70
-Nodes (4): buildDraftInvoiceCoverHtml(), escapeHtml(), formatDate(), money()
+### Community 167 - "pdf-dedupe.ts"
+Cohesion: 0.23
+Nodes (6): dedupeSharedPdfObjects(), isSkipped(), rewriteRefs(), SKIP_TYPES, structuralKey(), TYPE_KEY
 
 ### Community 168 - "submittal-package.ts"
 Cohesion: 0.10
-Nodes (47): openProductDocumentOrThrow(), openProductSubmittalsFolderOrThrow(), getCompanyProfile(), getStockSubmittalsRoot(), getSubmittalsJobSubfolder(), assertPathUnderStockSubmittalsRoot(), assertProductExists(), buildSubmittalPackageBaseName() (+39 more)
+Nodes (44): openProductDocumentOrThrow(), getCompanyProfile(), getStockSubmittalsRoot(), getSubmittalsJobSubfolder(), assertPathUnderStockSubmittalsRoot(), assertProductExists(), buildSubmittalPackageBaseName(), collectSubmittalFilesForCode() (+36 more)
 
-### Community 169 - "job-sheet-import-actions.ts"
-Cohesion: 0.15
-Nodes (16): JobCustomStructureImportCandidate, JobSheetImportCandidate, JobSheetImportCandidates, loadJobSheetImportCandidates(), STATUS_LABELS, JobSheetImportDialog(), JobSheetImportDialogProps, DecimalLike (+8 more)
+### Community 169 - "layout.tsx"
+Cohesion: 0.27
+Nodes (8): geistMono, geistSans, RootLayout(), AppProviders(), FlashToast(), ConfirmDialogProvider(), takeFlashMessage(), sonner
 
-### Community 172 - ".push"
-Cohesion: 0.03
-Nodes (46): Annotation, CaretAnnotation, ChoiceWidgetAnnotation, CircleAnnotation, codePointIter(), core_utils_numberToString(), encodeToXmlString(), ErrorFont (+38 more)
+### Community 172 - "Dict"
+Cohesion: 0.05
+Nodes (29): computeIDs(), core_utils_numberToString(), createImage(), createImageDict(), createPNGLikeImage(), createRawImage(), DefaultAppearanceEvaluator, Dict (+21 more)
 
 ### Community 173 - "ExclGroup"
 Cohesion: 0.06
 Nodes (9): addHTML(), Area, createLine(), ExclGroup, flushHTML(), getAvailableSpace(), getContainedChildren(), Subform (+1 more)
+
+### Community 174 - "ChunkedStream"
+Cohesion: 0.10
+Nodes (4): ChunkedStream, ChunkedStreamManager, MissingDataException, ObjectLoader
 
 ### Community 175 - "StringObject"
 Cohesion: 0.02
 Nodes (43): Amd, AppearanceFilter, Base, Certificate, config_Picture, connection_set_Uri, ConnectionSet, ConnectionSetNamespace (+35 more)
 
 ### Community 176 - "walk-ins-board.tsx"
-Cohesion: 0.24
-Nodes (14): MarkPickedUpControl(), handleConfirm(), BadgeVariant, CalledInPickupCard(), CompletedPickupCard(), dateLine(), itemsPaymentLine(), jobNameLine() (+6 more)
+Cohesion: 0.21
+Nodes (15): MarkPickedUpControl(), handleConfirm(), MarkPickedUpControlProps, BadgeVariant, CalledInPickupCard(), CompletedPickupCard(), dateLine(), itemsPaymentLine() (+7 more)
+
+### Community 177 - "ref_crypto"
+Cohesion: 0.27
+Nodes (8): RFC-2047, base64Lines(), buildQuoteDraftEml(), encodeHeaderText(), QuoteDraftEmlInput, sanitizeFilename(), buildSample(), fakePdf
+
+### Community 178 - "quote-preview-content.tsx"
+Cohesion: 0.36
+Nodes (8): generateQuotePdf(), getQuotePreviewPrintUrl(), QuotePdfCanvasPreview(), QuotePdfCanvasPreviewProps, QuotePreviewContent(), handleGeneratePdf(), handlePrint(), QuotePreviewContentProps
 
 ### Community 182 - "zone-map.tsx"
 Cohesion: 0.28
 Nodes (8): ZoneMap, ClickCapture(), FlyToPin(), ZoneMap(), ZoneMapProps, ResolvableZone, leaflet, react-leaflet
 
+### Community 184 - "BulkContactPasteForm"
+Cohesion: 0.31
+Nodes (7): importContacts(), BulkContactPasteForm(), handleImport(), handleParsePreview(), parseBulkContactPaste(), bulkContactRowKey(), markBulkContactDuplicateRows()
+
 ### Community 186 - "package.json"
 Cohesion: 0.08
 Nodes (24): eslintConfig, main, name, postcss, overrides, @hono/node-server, next, private (+16 more)
 
-### Community 187 - "prisma.ts"
-Cohesion: 0.03
-Nodes (117): BulkCustomersPage(), BulkContactsPage(), EditCustomerPage(), EditCustomerPageProps, CustomerNotFound(), CustomerDetailPage(), CustomerDetailPageProps, NewCustomerPage() (+109 more)
-
-### Community 188 - ".add"
+### Community 187 - "DashboardShell"
 Cohesion: 0.04
-Nodes (24): CFFCompiler, CFFIndex, CFFOffsetTracker, Commands, compileCharString(), bezierCurveTo(), lineTo(), moveTo() (+16 more)
+Nodes (100): BulkCustomersPage(), BulkContactsPage(), EditCustomerPage(), EditCustomerPageProps, CustomerNotFound(), NewCustomerPage(), EditDrillSheetPage(), EditDrillSheetPageProps (+92 more)
 
 ### Community 189 - "product-export.ts"
-Cohesion: 0.11
-Nodes (24): AdsPipeJointType, adsPipeJointTypeFormOptions, adsPipeJointTypeLabels, formatAdsPipeJointTypeLabel(), normalizeAdsPipeJointType(), formatCastingRoleLabel(), buildCustomersExportBuffer(), customerExportHeaders (+16 more)
+Cohesion: 0.13
+Nodes (19): formatAdsPipeJointTypeLabel(), buildCustomersExportBuffer(), customerExportHeaders, customerStatusLabels, CustomerWithContacts, mapCustomerToExportRow(), roleContactName(), buildWorkbookBuffer() (+11 more)
 
-### Community 192 - "BulkContactPasteForm"
-Cohesion: 0.47
-Nodes (4): checkBulkContactDbState(), BulkContactPasteForm(), handleParsePreview(), bulkContactRowKey()
+### Community 190 - "test-db.ts"
+Cohesion: 0.46
+Nodes (4): globalSetup(), url, assertIsTestDatabaseUrl(), getTestDatabaseUrl()
 
-### Community 196 - "custom-structure-import.ts"
-Cohesion: 0.19
-Nodes (14): Cell, cellText(), ColumnMap, customGridFromTsv(), CustomImportEntry, CustomImportIssue, CustomImportResult, CustomImportRow (+6 more)
+### Community 192 - "[...file]/route.ts"
+Cohesion: 0.33
+Nodes (3): CONTENT_TYPES, RouteContext, UPDATES_DIR
 
-### Community 198 - "outlook-draft.ts"
-Cohesion: 0.31
-Nodes (8): RFC-2047, base64Lines(), buildQuoteDraftEml(), encodeHeaderText(), QuoteDraftEmlInput, sanitizeFilename(), buildSample(), fakePdf
+### Community 194 - "build-id/route.ts"
+Cohesion: 0.67
+Nodes (3): dynamic, GET(), readBuildId()
 
-### Community 202 - "Datasets"
-Cohesion: 0.20
-Nodes (3): Datasets, datasets_Data, DatasetsNamespace
+### Community 195 - "QuotePdfDragChip"
+Cohesion: 0.83
+Nodes (4): QuotePdfDragChip(), absoluteUrl(), handleDragStart(), handlePointerEnter()
 
-### Community 204 - "product-mapper.ts"
-Cohesion: 0.14
-Nodes (20): ProductRow, formatProductKindBadgeLabel(), categoryVariant(), documentTypeLabel(), formatDecimal(), formatDocumentDate(), formatFileSize(), formatYesNo() (+12 more)
+### Community 196 - "use-custom-structure-builder.ts"
+Cohesion: 0.08
+Nodes (43): importCustomJobStructures(), importCustomJobStructuresOrThrow(), loadJobCustomStructureImportCandidates(), toPlainNumberString(), JobCustomStructureImportButton(), handleFile(), handleImport(), parseGrid() (+35 more)
 
-### Community 208 - "contentDisposition"
-Cohesion: 0.11
-Nodes (31): GET(), parseCopyParam(), RouteContext, GET(), RouteContext, GET(), parseDateParam(), GET() (+23 more)
+### Community 204 - "app/products/page.tsx"
+Cohesion: 0.08
+Nodes (36): buildProductOrderBy(), PRODUCT_SORT_COLUMNS, ProductSortColumn, ProductsPage(), VALID_PRODUCT_STATUSES, VALID_PRODUCT_TYPES, searchProductsForQuoteForm(), CategoryChip (+28 more)
 
-### Community 209 - "generate-circular-import-template.mjs"
-Cohesion: 0.06
-Nodes (33): handleFile(), handleFile(), StructureWorkbookOptions, xlsx, colWidths, EXAMPLE_ROWS, exampleSheet, HEADERS (+25 more)
+### Community 208 - "next"
+Cohesion: 0.04
+Nodes (89): RouteContext, RouteContext, GET(), parseDateParam(), RouteContext, INLINE_CONTENT_TYPES, RouteContext, RouteContext (+81 more)
 
-### Community 210 - "pdf-text.ts"
-Cohesion: 0.38
-Nodes (6): CP1252_HIGH, fitPdfFieldFontSize(), isWinAnsi(), lastFontSize(), replaceLastFontSize(), WINANSI_REPLACEMENTS
+### Community 209 - "rect-structure-import.ts"
+Cohesion: 0.05
+Nodes (49): RectImportDialog(), handleFile(), handlePasteParse(), RectImportDialogProps, handleFile(), Cell, cellText(), findHeaderRow() (+41 more)
 
 ### Community 227 - "rect-bulk-grid.tsx"
-Cohesion: 0.07
-Nodes (52): RectOpeningField, RectSheetFormValues, circularPayloadFromValues(), rectPayloadFromValues(), focusGridCell(), formatBrickInches(), formatElevation(), formatFeet() (+44 more)
+Cohesion: 0.08
+Nodes (47): RectSheetFormValues, circularPayloadFromValues(), rectPayloadFromValues(), focusGridCell(), formatBrickInches(), formatElevation(), formatFeet(), formatWeightLb() (+39 more)
 
 ### Community 242 - ".checkAndRepair"
 Cohesion: 0.04
-Nodes (38): adjustMapping(), adjustWidths(), Ai, amendFallbackToUnicode(), CFFFont, CompositeGlyph, Contour, convertCidString() (+30 more)
+Nodes (41): adjustWidths(), Ai, amendFallbackToUnicode(), CFF, CFFCharset, CFFFont, CFFHeader, convertCidString() (+33 more)
 
 ### Community 243 - "ConfigNamespace"
 Cohesion: 0.01
-Nodes (61): Acrobat, Acrobat7, AddSilentPrint, AddViewerPreferences, Agent, Change, Common, Compress (+53 more)
+Nodes (63): Acrobat, Acrobat7, AddSilentPrint, AddViewerPreferences, Agent, BatchOutput, Cache, Change (+55 more)
 
-### Community 248 - "CalRGBCS"
-Cohesion: 0.11
-Nodes (4): CalGrayCS, CalRGBCS, DeviceCmykCS, LabCS
+### Community 248 - "LabCS"
+Cohesion: 0.14
+Nodes (3): CalGrayCS, DeviceCmykCS, LabCS
 
-### Community 260 - "next"
-Cohesion: 0.05
-Nodes (92): ProductInventoryPageProps, CompactTable(), Home(), CastingSuppliersPageProps, ProductCatalogSettingsPageProps, VendorsPageProps, StructuresPage(), CustomerDetailContentProps (+84 more)
+### Community 260 - "react"
+Cohesion: 0.04
+Nodes (132): CustomerDetailPage(), CustomerDetailPageProps, where, baseWhere, InventoryPageProps, lowStockWhere, outOfStockWhere, partsAssemblyWhere (+124 more)
 
-### Community 261 - "ColorSpace"
-Cohesion: 0.05
-Nodes (15): ColorSpace, ColorSpaceUtils, DefaultAppearanceEvaluator, DeviceGrayCS, DeviceRgbaCS, DeviceRgbCS, getB(), IccColorSpace (+7 more)
+### Community 261 - "Annotation"
+Cohesion: 0.04
+Nodes (30): Annotation, CaretAnnotation, CircleAnnotation, FileAttachmentAnnotation, getColorConversionBatchSize(), getPdfColorArray(), getQuadPoints(), getRgbColor() (+22 more)
 
 ### Community 311 - "Phase 6 — Electron client (staff PCs)"
 Cohesion: 0.25
@@ -892,7 +910,7 @@ Nodes (8): A. Server app updates (quotes, jobs, UI — most changes), B. Desktop
 
 ### Community 315 - "warn"
 Cohesion: 0.02
-Nodes (31): AppearanceStreamEvaluator, Catalog, addPageError(), clearGlobalCaches(), CmykICCBasedCS, createValidAbsoluteUrl(), DatasetReader, decodeString() (+23 more)
+Nodes (27): AppearanceStreamEvaluator, Catalog, addPageError(), CmykICCBasedCS, ColorSpaceUtils, createValidAbsoluteUrl(), DatasetReader, decodeString() (+19 more)
 
 ### Community 330 - "allowScripts"
 Cohesion: 0.25
@@ -902,29 +920,29 @@ Nodes (8): allowScripts, electron@35.7.5, esbuild@0.28.1, prisma@7.8.0, @prisma/
 Cohesion: 0.67
 Nodes (3): Authentication today, Authorization, Security posture: internal, trusted-network tool
 
-### Community 336 - "util_assert"
-Cohesion: 0.10
-Nodes (10): compileFontInfo(), writeBuffer(), convertBlackAndWhiteToRGBA(), convertToRGBA(), encodeStrings(), ImageResizer, PDFImage, toRomanNumerals() (+2 more)
+### Community 336 - "PDFImage"
+Cohesion: 0.12
+Nodes (4): convertBlackAndWhiteToRGBA(), convertToRGBA(), ImageResizer, PDFImage
 
 ## Knowledge Gaps
-- **1362 isolated node(s):** `dynamic`, `RouteContext`, `RouteContext`, `RouteContext`, `RouteContext` (+1357 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 2406 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **53 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **1380 isolated node(s):** `dynamic`, `RouteContext`, `RouteContext`, `RouteContext`, `RouteContext` (+1375 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 2430 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **46 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `util_shadow()` connect `warn` to `.get`, `pdf.worker.min.mjs`, `ColorSpace`, `.getOperatorList`, `.parse`, `stringToBytes`, `.createDocumentHandler`, `Jbig2Stream`, `.success`, `.push`, `XMLParserBase`, `.add`, `util_assert`, `randomId`, `._bindElement`, `FormatError`, `.checkAndRepair`, `ConfigNamespace`, `CalRGBCS`?**
-  _High betweenness centrality (0.049) - this node is a cross-community bridge._
-- **Why does `vitest` connect `prisma` to `rect-structure.ts`, `delivery-schedule-pdf-html.ts`, `app-settings.ts`, `invoice-pdf-fill.ts`, `delivery-ticket-editor.tsx`, `drill-sheet-template-pdf.ts`, `QuoteForm`, `printPdfUrl`, `receiving-utils.ts`, `galley-actions.ts`, `ring-builder-modal.tsx`, `users/actions.ts`, `job-structure-import-dialog.tsx`, `returnActionError`, `invoices/actions.ts`, `withDatabaseRetry`, `drill-sheet.ts`, `job-sheet-import-actions.ts`, `auth/constants.ts`, `customer-mapper.ts`, `structures/actions.ts`, `bulk-load-planner.tsx`, `package.json`, `prisma.ts`, `delivery-tickets/actions.ts`, `custom-structure-import.ts`, `delivery-ticket-utils.ts`, `outlook-draft.ts`, `job-detail-mapper.ts`, `quote-pdf-line-items.ts`, `delivery-ticket-pdf-fill.ts`, `delivery-fulfillment.ts`, `generate-circular-import-template.mjs`, `invoicing-service.ts`, `purchase-orders/actions.ts`, `plan-sheet-actions.ts`, `quotes/actions.ts`, `rect-bulk-grid.tsx`, `bid-actions.ts`, `send-actions.ts`, `requirePermission`, `react`, `windows-explorer.ts`, `price-list-service.ts`, `app_generated_prisma_client`?**
-  _High betweenness centrality (0.044) - this node is a cross-community bridge._
-- **Why does `react` connect `react` to `next`, `app-settings.ts`, `rect-structure-workbook.ts`, `structure-workbook-plan-takeoff.tsx`, `delivery-ticket-editor.tsx`, `bulk-attach-board.tsx`, `QuoteForm`, `quote-form.tsx`, `drill-sheets/[id]/page.tsx`, `product-form.tsx`, `printPdfUrl`, `delivery-tickets/pdf-actions.ts`, `galley-actions.ts`, `ring-builder-modal.tsx`, `job-structure-import-dialog.tsx`, `drill-sheet-preview.tsx`, `product-groups/page.tsx`, `session-keep-alive.tsx`, `invoices/actions.ts`, `returnActionError`, `withDatabaseRetry`, `job-sheet-import-actions.ts`, `drill-sheet-form.tsx`, `shipping/actions.ts`, `walk-ins-board.tsx`, `auth/constants.ts`, `customer-mapper.ts`, `zone-map.tsx`, `bulk-load-planner.tsx`, `package.json`, `prisma.ts`, `delivery-tickets/actions.ts`, `delivery-ticket-utils.ts`, `job-detail-mapper.ts`, `delivery-ticket-detail-content.tsx`, `navigateAfterAction`, `SectionCard`, `inventory/page.tsx`, `randomId`, `circular-structure-import.ts`, `settings/actions.ts`, `rect-bulk-grid.tsx`, `structure-workbook.tsx`, `product-taxonomy.server.ts`, `send-actions.ts`, `requirePermission`, `structure-utils.ts`, `shipping-zones-manager.tsx`, `app_generated_prisma_client`, `reloadAfterAction`, `drill-sheets/pdf-actions.ts`?**
-  _High betweenness centrality (0.044) - this node is a cross-community bridge._
+- **Why does `util_shadow()` connect `warn` to `.get`, `LabCS`, `pdf.worker.min.mjs`, `Annotation`, `.success`, `Dict`, `.add`, `unreachable`, `PDFImage`, `.checkAndRepair`, `navigateAfterAction`, `XMLParserBase`, `CipherTransformFactory`, `.createDocumentHandler`, `.push`, `Stream`, `FormatError`, `ColorSpace`?**
+  _High betweenness centrality (0.064) - this node is a cross-community bridge._
+- **Why does `next` connect `next` to `app/products/actions.ts`, `delivery-schedule-pdf-html.ts`, `react`, `rect-structure-workbook.ts`, `delivery-ticket-editor.tsx`, `quote-form.tsx`, `company-logo.ts`, `rect-sheet-detail.ts`, `product-form.tsx`, `product-kinds.ts`, `rect-sheet-persistence.ts`, `delivery-dispatch-utils.ts`, `print-pdf-url.ts`, `product-groups/actions.ts`, `addLocalDays`, `ref_fs`, `getCurrentUser`, `jobs/actions.ts`, `layout.tsx`, `operations/actions.ts`, `import/actions.ts`, `shipping/actions.ts`, `walk-ins-board.tsx`, `quote-preview-content.tsx`, `users/actions.ts`, `price-list-service.ts`, `bulk-load-planner.tsx`, `package.json`, `DashboardShell`, `[...file]/route.ts`, `quote-mapper.ts`, `build-id/route.ts`, `delivery-tickets/actions.ts`, `job-detail-mapper.ts`, `delivery-ticket-detail-content.tsx`, `date-only.ts`, `jobs/[id]/edit/page.tsx`, `SectionCard`, `sheet-pdfs/actions.ts`, `delivery-fulfillment.ts`, `quotes/page.tsx`, `navigateAfterAction`, `purchase-orders/actions.ts`, `withDatabaseRetry`, `requirePermission`, `plan-sheet-actions.ts`, `quotes/actions.ts`, `rect-bulk-grid.tsx`, `structure-workbook.tsx`, `send-actions.ts`, `job-bidding-panel.tsx`, `returnActionError`, `rect-sheet-form.tsx`, `quote-form-data.ts`, `windows-explorer.ts`, `delivery-ticket-preview-content.tsx`, `casting-service.ts`, `shipping-zones-manager.tsx`, `invoices/actions.ts`, `reloadAfterAction`, `delivery-tickets/pdf-actions.ts`?**
+  _High betweenness centrality (0.052) - this node is a cross-community bridge._
+- **Why does `vitest` connect `delivery-tickets/actions.ts` to `rect-structure.ts`, `delivery-schedule-pdf-html.ts`, `invoice-pdf-fill.ts`, `delivery-dispatch-utils.ts`, `galley-service.ts`, `delivery-ticket-pdf-line-items.ts`, `drain-ring-matrix-utils.ts`, `ring-builder-modal.tsx`, `casting-ticket-lines.ts`, `ref_fs`, `jobs/actions.ts`, `pdf-dedupe.ts`, `operations/actions.ts`, `drill-sheet.ts`, `quote-lines-table.tsx`, `ref_crypto`, `users/actions.ts`, `customer-mapper.ts`, `price-list-service.ts`, `package.json`, `quote-mapper.ts`, `use-custom-structure-builder.ts`, `quote-pdf-line-items.ts`, `job-detail-mapper.ts`, `date-only.ts`, `delivery-ticket-pdf-fill.ts`, `sheet-pdfs/actions.ts`, `next`, `delivery-fulfillment.ts`, `navigateAfterAction`, `rect-structure-import.ts`, `purchase-orders/actions.ts`, `job-sheet-import-actions.ts`, `requirePermission`, `quotes/actions.ts`, `rect-bulk-grid.tsx`, `send-actions.ts`, `job-bidding-panel.tsx`, `rect-sheet-form.tsx`, `windows-explorer.ts`, `invoices/actions.ts`, `delivery-tickets/pdf-actions.ts`?**
+  _High betweenness centrality (0.052) - this node is a cross-community bridge._
 - **What connects `dynamic`, `RouteContext`, `RouteContext` to the rest of the system?**
-  _1362 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1380 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `app/products/actions.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.07017543859649122 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06384180790960452 - nodes in this community are weakly interconnected._
 - **Should `rect-structure.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.0898989898989899 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.08695652173913043 - nodes in this community are weakly interconnected._
 - **Should `pdf.worker.min.mjs` be split into smaller, more focused modules?**
-  _Cohesion score 0.008955956324377377 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.00925301204819277 - nodes in this community are weakly interconnected._

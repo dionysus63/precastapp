@@ -173,6 +173,35 @@ async function validateLines(
     throw new Error("Add at least one delivery line.");
   }
 
+  if (input.ticketType === "WALK_IN") {
+    // Walk-ins have no job: a quote-line or job-structure link would ship
+    // (and bill) job material outside the quote's fulfillment tracking.
+    const linked = input.lines.find(
+      (line) =>
+        line.quoteLineItemId || line.jobStructureId || line.jobStructurePieceId,
+    );
+    if (linked) {
+      throw new Error(
+        `${linked.itemCode} belongs to a job quote — walk-in tickets can't carry quote or structure lines. Remove it or switch the ticket to Job.`,
+      );
+    }
+  }
+
+  // Quote-line price overrides are the pickup repricing: only a JOB ticket
+  // picked up at the yard may bill a quoted line at anything but the quote.
+  if (
+    !(input.ticketType === "JOB" && input.fulfillmentMethod === "PICKUP")
+  ) {
+    const overridden = input.lines.find(
+      (line) => line.quoteLineItemId && line.unitPrice != null,
+    );
+    if (overridden) {
+      throw new Error(
+        `${overridden.itemCode} has a price override — quoted lines can only be repriced on a job pickup ticket. Delivered lines bill the quote price.`,
+      );
+    }
+  }
+
   if (input.ticketType === "JOB" && input.quoteId) {
     // Remaining = quoted − delivered − scheduled-on-other-open-tickets, so two
     // open loads can't jointly commit more than the quote allows.
