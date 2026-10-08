@@ -453,12 +453,18 @@ cloud copies.
    ```powershell
    New-Item -ItemType Directory -Force C:\ProgramData\rclone | Out-Null
    & "C:\Program Files\rclone\rclone.exe" config create b2 b2 `
-       account <keyID> key <applicationKey> --config C:\ProgramData\rclone\rclone.conf
+       account "YOUR_KEY_ID" key "YOUR_APPLICATION_KEY" --config C:\ProgramData\rclone\rclone.conf
    # Only admins and SYSTEM can read the key file
    icacls C:\ProgramData\rclone /inheritance:r /grant:r "Administrators:(OI)(CI)F" "SYSTEM:(OI)(CI)F"
    ```
 
+   Replace the quoted values with your keyID and applicationKey, keeping the quotes.
    The task account must be able to read this file (it is if it's an administrator).
+   Check the key works (no output and no error means OK; the bucket is just empty):
+
+   ```powershell
+   & "C:\Program Files\rclone\rclone.exe" lsf b2:YOUR-BUCKET --config C:\ProgramData\rclone\rclone.conf
+   ```
 5. **Point the backup at it**: add `BACKUP_RCLONE_REMOTE=b2:<bucket>/precastapp` and
    `BACKUP_RCLONE_CONFIG=C:\ProgramData\rclone\rclone.conf` to `.env`.
 6. **Test**: `Start-ScheduledTask -TaskName "PrecastApp DB Backup"`, then
