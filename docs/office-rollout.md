@@ -85,20 +85,18 @@ Walk one person through each role before wide rollout:
 
 ## 5. Backups
 
-### Database (nightly recommended)
+### Database and uploaded sheet PDFs (nightly)
+
+Install the scheduled task once and confirm it works; full details in
+[DEPLOYMENT.md → Backups](DEPLOYMENT.md#backups):
 
 ```powershell
-# Run manually once to verify
-.\scripts\deploy\backup-database.ps1 -OutputDir "D:\Backups\precastapp"
+.\scripts\deploy\install-backup-task.ps1 -At "02:00"
+Start-ScheduledTask -TaskName "PrecastApp DB Backup"
+.\scripts\deploy\check-backup.ps1
 ```
 
-Register a **Windows Scheduled Task**:
-
-- **Trigger:** Daily, off-hours
-- **Action:** `powershell.exe -ExecutionPolicy Bypass -File C:\Apps\precastapp\scripts\deploy\backup-database.ps1 -OutputDir D:\Backups\precastapp`
-- **Run as:** account with read access to PostgreSQL (or use `.pgpass`)
-
-Retain backups per your policy (e.g. 30 daily, 12 monthly).
+Set up the Backblaze B2 upload (`BACKUP_RCLONE_REMOTE`) so each backup also leaves the server.
 
 ### Job files
 

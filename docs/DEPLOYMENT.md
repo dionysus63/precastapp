@@ -400,14 +400,128 @@ Summary:
 1. Stable server URL baked into the Electron installer (e.g. `http://precast-srv:3000`).
 2. Install **Precast Ops** desktop app on every staff PC — no browser bookmarks.
 3. Explain **Explorer opens on server** — use in-app Files or mapped UNC drives.
-4. Schedule DB backups:
+4. Schedule backups (see [Backups](#backups) below).
 
-```powershell
-# Example manual backup
-.\scripts\deploy\backup-database.ps1 -OutputDir "D:\Backups\precastapp"
+---
+
+## Backups
+
+`scripts\backup-database.ps1` backs up everything the app can't rebuild:
+
+- the database, as a `pg_dump` archive: `precastapp_<date>_<time>.dump`
+- `storage\` (uploaded sheet PDF sets, which are not in the database), as `precastapp-storage_<date>_<time>.zip`
+
+Both go to `C:\Backups\precastapp`, which is on the same disk as the database. For
+real protection send them off the server too: upload to Backblaze B2 (see
+[Off-site copy to Backblaze B2](#off-site-copy-to-backblaze-b2)), copy to a NAS or
+another PC's share, or both. Settings live in `.env` on the server:
+
+```env
+# BACKUP_DIR=C:\Backups\precastapp                     # default
+# BACKUP_RETENTION_DAYS=30                               # local and share copies
+BACKUP_RCLONE_REMOTE=b2:YOUR-BUCKET/precastapp           # cloud upload (optional, recommended)
+BACKUP_RCLONE_CONFIG=C:\ProgramData\rclone\rclone.conf
+# BACKUP_RCLONE_EXE=C:\Program Files\rclone\rclone.exe  # default
+# BACKUP_COPY_DIR=\\NAS\Backups\precastapp              # copy to a share (optional)
 ```
 
-Register a Windows Scheduled Task to run that script nightly.
+Each run appends an `OK`, `WARN` (local backup fine, share copy or cloud upload
+failed) or `FAIL` line to `C:\Backups\precastapp\backup.log`.
+
+### Off-site copy to Backblaze B2
+
+The backup script uploads each night's `.dump` and `.zip` with
+[rclone](https://rclone.org). Old files in the bucket are removed by the bucket's
+own lifecycle rule, and Object Lock keeps each upload undeletable for 30 days, so
+even someone (or ransomware) with full control of the server can't wipe the
+cloud copies.
+
+1. **Create the bucket** (Backblaze web console → B2 → Buckets → Create a Bucket):
+   - Name: anything unique, e.g. `liprecast-backups`; Files: **Private**
+   - **Object Lock: Enable** (only possible at creation). Then set its default
+     retention to **Governance, 30 days**.
+   - Lifecycle Settings → custom rule: file name prefix blank,
+     **days till hide 90**, **days till delete 1**. This keeps about 90 days of
+     backups; storage cost for a few GB is cents a month.
+2. **Create an application key** (B2 → Application Keys → Add a New Application Key):
+   access to **that bucket only**, type **Read and Write**. Copy the **keyID** and
+   **applicationKey**; the key is shown only once.
+3. **Install rclone on the server**: download the Windows 64-bit zip from
+   <https://rclone.org/downloads/> and put `rclone.exe` in `C:\Program Files\rclone\`.
+4. **Save the key** in an rclone config file (elevated PowerShell on the server):
+
+   ```powershell
+   New-Item -ItemType Directory -Force C:\ProgramData\rclone | Out-Null
+   & "C:\Program Files\rclone\rclone.exe" config create b2 b2 `
+       account "YOUR_KEY_ID" key "YOUR_APPLICATION_KEY" --config C:\ProgramData\rclone\rclone.conf
+   # Only admins and SYSTEM can read the key file
+   icacls C:\ProgramData\rclone /inheritance:r /grant:r "Administrators:(OI)(CI)F" "SYSTEM:(OI)(CI)F"
+   ```
+
+   Replace the quoted values with your keyID and applicationKey, keeping the quotes.
+   The task account must be able to read this file (it is if it's an administrator).
+   Check the key works (no output and no error means OK; the bucket is just empty):
+
+   ```powershell
+   & "C:\Program Files\rclone\rclone.exe" lsf b2:YOUR-BUCKET --config C:\ProgramData\rclone\rclone.conf
+   ```
+5. **Point the backup at it**: add `BACKUP_RCLONE_REMOTE=b2:<bucket>/precastapp` and
+   `BACKUP_RCLONE_CONFIG=C:\ProgramData\rclone\rclone.conf` to `.env`.
+6. **Test**: `Start-ScheduledTask -TaskName "PrecastApp DB Backup"`, then
+   `.\scripts\deploy\check-backup.ps1` should show `[OK]` lines for the cloud.
+
+To restore from the cloud, download the files from the Backblaze web console (or
+`rclone copy b2:<bucket>/precastapp/<file> C:\Backups\precastapp --config ...`) and
+follow [Restore](#restore).
+
+### Install the scheduled task (once, elevated PowerShell on the server)
+
+```powershell
+cd C:\Apps\precastapp
+.\scripts\deploy\install-backup-task.ps1 -At "02:00"
+```
+
+It asks for the password of the account it runs as (you, by default; pass
+`-User DOMAIN\name` for another), so the task runs **whether or not anyone is
+logged on**. Task Scheduler stores the password; re-run the script after that
+account's password changes. The account needs write access to `BACKUP_COPY_DIR` (if
+set) and read access to the rclone config file.
+`-User SYSTEM` needs no password but usually can't write to a network share.
+Re-running replaces the existing **PrecastApp DB Backup** task.
+
+Run it once right away to confirm:
+
+```powershell
+Start-ScheduledTask -TaskName "PrecastApp DB Backup"
+```
+
+### Check that backups are working
+
+```powershell
+cd C:\Apps\precastapp
+.\scripts\deploy\check-backup.ps1
+```
+
+It shows whether the task is installed and runs while logged off, the last run
+result, the newest `.dump` and storage `.zip` in each location and their age,
+whether tonight's files reached the cloud bucket, and the last log lines.
+Everything should read `[OK]`; it exits non-zero otherwise. Run it from an
+administrator PowerShell so it can read the rclone config.
+
+### Restore
+
+Stop the app first, then:
+
+```powershell
+& "C:\Program Files\PostgreSQL\18\bin\pg_restore.exe" -U postgres -h localhost `
+    -d precastapp --clean --if-exists "C:\Backups\precastapp\<file>.dump"
+Expand-Archive "C:\Backups\precastapp\precastapp-storage_<date>_<time>.zip" `
+    -DestinationPath C:\Apps\precastapp\storage -Force
+```
+
+Restore the `.dump` and `.zip` with the same timestamp so sheet PDF sets match the
+database rows that point to them. See [COMMANDS.md](../COMMANDS.md#database-backups)
+for restoring into a scratch database to inspect first.
 
 ---
 
@@ -420,8 +534,7 @@ Register a Windows Scheduled Task to run that script nightly.
 | Desktop shell updates | **Dev PC** → **Server** | Dev: bump `electron/package.json` version → `publish-electron-update.ps1 -CopyTo \\SERVER\...` → Staff restart when prompted |
 | Server URL change only | **Staff PCs** | Edit `%APPDATA%\Precast Ops\config.json` |
 | Schema changes | **Server** | `npx prisma migrate deploy` + `npx prisma generate` (via `deploy-app.ps1`) |
-| Database backup | **Server** | `backup-database.ps1` on a schedule |
-| Uploaded sheet PDF sets | **Server** | `C:\Apps\precastapp\storage\` (git-ignored, not in the DB backup) — include it in file backups |
+| Database + uploaded sheet PDF backup | **Server** | Nightly task from `install-backup-task.ps1`; check with `check-backup.ps1` ([Backups](#backups)) |
 | Job files | File share | Existing share backup policy |
 | Re-index files | **Server** | `npm run db:sync-files` after bulk moves |
 
