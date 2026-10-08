@@ -10,9 +10,9 @@ param(
     [string] $BackupDir,
     [string] $CopyDir,
     [int] $RetentionDays = 0,
-    [string] $RcloneRemote
+    [string] $B2Bucket
 )
 
 & (Join-Path $PSScriptRoot "..\backup-database.ps1") -BackupDir $BackupDir -CopyDir $CopyDir `
-    -RetentionDays $RetentionDays -RcloneRemote $RcloneRemote
+    -RetentionDays $RetentionDays -B2Bucket $B2Bucket
 exit $LASTEXITCODE
