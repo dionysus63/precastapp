@@ -238,7 +238,8 @@ Full setup: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#backups).
 
 - Backups: `C:\Backups\precastapp\precastapp_<date>_<time>.dump` (pg_dump custom format)
   and `precastapp-storage_<date>_<time>.zip` (the `storage/` folder of uploaded sheet PDFs)
-- Second copy: set `BACKUP_COPY_DIR` in `.env` (e.g. a UNC share on another machine)
+- Off-site: set `BACKUP_RCLONE_REMOTE` in `.env` to upload to Backblaze B2 via rclone,
+  and/or `BACKUP_COPY_DIR` to copy to a UNC share on another machine
 - Retention: 30 days (`BACKUP_RETENTION_DAYS`), pruned automatically; log at `C:\Backups\precastapp\backup.log`
 - Credentials come from `DATABASE_URL` in `.env` — no secrets in the script
 
@@ -263,7 +264,8 @@ Restore into a scratch database to inspect without touching live data:
 ```
 
 > The backup folder lives on the same disk as the database. Set
-> `BACKUP_COPY_DIR` so every backup is also copied to a second machine or NAS.
+> `BACKUP_RCLONE_REMOTE` (cloud) or `BACKUP_COPY_DIR` (share) so every backup also
+> leaves the server.
 
 ---
 

@@ -6,7 +6,10 @@
 # - Writes a compressed pg_dump custom-format archive (.dump) that pg_restore
 #   can restore selectively, and a zip of storage/ with the same timestamp.
 # - Optionally copies both files to a second location (e.g. a UNC share on
-#   another machine) so a dead disk does not take the backups with it.
+#   another machine) and/or uploads them off-site with rclone (e.g. a
+#   Backblaze B2 bucket), so a dead disk does not take the backups with it.
+#   Old files in the cloud are removed by the bucket's lifecycle rule, not by
+#   this script, so the upload key does not need delete rights.
 # - Keeps the most recent 30 days of backups in each location and prunes
 #   older ones.
 # - Appends one line per run (OK / WARN / FAIL) to backup.log in the backup
@@ -17,6 +20,12 @@
 #   -BackupDir       BACKUP_DIR             C:\Backups\precastapp
 #   -CopyDir         BACKUP_COPY_DIR        (none; e.g. \\NAS\Backups\precastapp)
 #   -RetentionDays   BACKUP_RETENTION_DAYS  30
+#   -RcloneRemote    BACKUP_RCLONE_REMOTE   (none; e.g. b2:precast-backups/precastapp)
+#   -RcloneExe       BACKUP_RCLONE_EXE      C:\Program Files\rclone\rclone.exe
+#   -RcloneConfig    BACKUP_RCLONE_CONFIG   (rclone's default for the task's account)
+#
+# Exit codes: 0 OK, 1 backup failed, 2 local backup OK but the second copy
+# or cloud upload failed.
 #
 # Restore (see COMMANDS.md):
 #   & "C:\Program Files\PostgreSQL\18\bin\pg_restore.exe" -U postgres -h localhost `
@@ -30,6 +39,9 @@ param(
     [string] $BackupDir,
     [string] $CopyDir,
     [int] $RetentionDays = 0,
+    [string] $RcloneRemote,
+    [string] $RcloneExe,
+    [string] $RcloneConfig,
     [string] $PgBin = "C:\Program Files\PostgreSQL\18\bin"
 )
 
@@ -78,6 +90,10 @@ try {
     if (-not $BackupDir) { $BackupDir = Get-EnvValue $envLines "BACKUP_DIR" }
     if (-not $BackupDir) { $BackupDir = $DefaultBackupDir }
     if (-not $CopyDir) { $CopyDir = Get-EnvValue $envLines "BACKUP_COPY_DIR" }
+    if (-not $RcloneRemote) { $RcloneRemote = Get-EnvValue $envLines "BACKUP_RCLONE_REMOTE" }
+    if (-not $RcloneExe) { $RcloneExe = Get-EnvValue $envLines "BACKUP_RCLONE_EXE" }
+    if (-not $RcloneExe) { $RcloneExe = "C:\Program Files\rclone\rclone.exe" }
+    if (-not $RcloneConfig) { $RcloneConfig = Get-EnvValue $envLines "BACKUP_RCLONE_CONFIG" }
     if ($RetentionDays -le 0) {
         $configured = Get-EnvValue $envLines "BACKUP_RETENTION_DAYS"
         $RetentionDays = if ($configured) { [int]$configured } else { 30 }
@@ -138,6 +154,8 @@ try {
     $dumpMb = [math]::Round($dumpSize / 1MB, 1)
     $summary = "$([System.IO.Path]::GetFileName($dumpFile)) ${dumpMb}MB, $storageNote (pruned $pruned)"
 
+    $offsiteErrors = @()
+
     # --- Second copy ---
     if ($CopyDir) {
         try {
@@ -154,10 +172,39 @@ try {
             $copyPruned = Remove-OldBackups $CopyDir $DbName
             $summary += "; copied to $CopyDir (pruned $copyPruned)"
         } catch {
-            Write-Log "WARN $summary; copy to $CopyDir failed: $($_.Exception.Message)"
-            Write-Error "Local backup OK but copy to $CopyDir failed: $($_.Exception.Message)" -ErrorAction Continue
-            exit 2
+            $offsiteErrors += "copy to $CopyDir failed: $($_.Exception.Message)"
         }
+    }
+
+    # --- Cloud upload (rclone verifies checksums on upload) ---
+    if ($RcloneRemote) {
+        try {
+            if (-not (Test-Path $RcloneExe)) {
+                throw "rclone not found at $RcloneExe"
+            }
+            $rcloneArgs = @()
+            if ($RcloneConfig) { $rcloneArgs += @("--config", $RcloneConfig) }
+            foreach ($file in $made) {
+                # rclone logs to stderr; under "Stop", Windows PowerShell would treat that as an error.
+                $ErrorActionPreference = "Continue"
+                $output = & $RcloneExe @rcloneArgs copy $file $RcloneRemote --retries 3 --low-level-retries 10 2>&1
+                $ErrorActionPreference = "Stop"
+                if ($LASTEXITCODE -ne 0) {
+                    $detail = ($output | Select-Object -Last 1)
+                    throw "rclone exited with code $LASTEXITCODE for $([System.IO.Path]::GetFileName($file)): $detail"
+                }
+            }
+            $summary += "; uploaded to $RcloneRemote"
+        } catch {
+            $offsiteErrors += "upload to $RcloneRemote failed: $($_.Exception.Message)"
+        }
+    }
+
+    if ($offsiteErrors.Count -gt 0) {
+        $problem = $offsiteErrors -join "; "
+        Write-Log "WARN $summary; $problem"
+        Write-Error "Local backup OK but $problem" -ErrorAction Continue
+        exit 2
     }
 
     Write-Log "OK $summary"

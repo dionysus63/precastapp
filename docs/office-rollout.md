@@ -96,7 +96,7 @@ Start-ScheduledTask -TaskName "PrecastApp DB Backup"
 .\scripts\deploy\check-backup.ps1
 ```
 
-Set `BACKUP_COPY_DIR` in `.env` so each backup is also copied off the server.
+Set up the Backblaze B2 upload (`BACKUP_RCLONE_REMOTE`) so each backup also leaves the server.
 
 ### Job files
 
