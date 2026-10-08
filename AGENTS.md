@@ -40,9 +40,10 @@ intended for public internet exposure.
 
 - **Two-step password sign-in** at `/login`: pick your account, then enter
   your password (`signInWithPassword` in `app/login/actions.ts`)
-- **First sign-in sets the password**: accounts without a `passwordHash`
-  create one at login (min 8 chars, scrypt-hashed — `lib/auth/password.ts`);
-  `mustChangePassword` forces a reset on next sign-in
+- **Admins issue temporary passwords**: accounts without a `passwordHash`
+  cannot sign in; an admin issues a temporary password from Settings → Users
+  (min 8 chars, scrypt-hashed — `lib/auth/password.ts`), and
+  `mustChangePassword` sends the user to `/profile` to choose their own
 - **Database-backed sessions** (8-hour sliding expiry, httpOnly cookie; set
   `SESSION_COOKIE_SECURE=true` when serving over HTTPS)
 - **Role-based permissions** with per-user grant/deny overrides

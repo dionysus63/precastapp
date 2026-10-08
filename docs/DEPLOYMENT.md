@@ -37,7 +37,7 @@ flowchart LR
 - **Job files** — stored on your UNC share; paths configured in Settings → Files & Folders.
 - **PDF generation** — headless Brave/Chrome on the **server** ([`lib/quote-pdf.ts`](../lib/quote-pdf.ts)).
 - **“Open in Explorer”** — opens a window on the **server**, not the user’s desk ([`lib/windows-explorer.ts`](../lib/windows-explorer.ts)). Staff should use the in-app Files browser or map the same UNC drive locally.
-- **Authentication** — username-only on LAN today; do not expose to the public internet without password login ([`AGENTS.md`](../AGENTS.md)).
+- **Authentication** — two-step sign-in at `/login`: pick your account, then enter your password. Passwords are scrypt-hashed ([`lib/auth/password.ts`](../lib/auth/password.ts), minimum 8 characters). Sessions are stored in the database (`Session` table) with an httpOnly cookie and an 8-hour sliding idle timeout ([`lib/auth/session.ts`](../lib/auth/session.ts)). See [Users and passwords](#users-and-passwords) below. The app is still built for a trusted LAN/VPN; do not expose it to the public internet ([`AGENTS.md`](../AGENTS.md)).
 - **Electron-only rollout** — distribute the desktop installer; do not give staff browser shortcuts. LAN firewall restricts who can reach port 3000.
 
 ---
@@ -70,6 +70,8 @@ Copy-Item .env.example .env
 ```
 
 Then complete **Phase 4** (app settings) in the desktop app and **Phase 7** (office rollout) below.
+
+`package.json` wraps the most common scripts: `npm run deploy:check` (prerequisites), `npm run deploy:build` (`deploy-app.ps1`), `npm run deploy:start` (`start-production.ps1`) and `npm run deploy:update` (`update-production.ps1`). `.\scripts\deploy\post-deploy-config.ps1` prints the Phase 4 checklist; add `-SyncJobFiles` to also run `npm run db:sync-files`.
 
 ---
 
@@ -178,7 +180,10 @@ Fresh office start:
 
 ```powershell
 npm run db:seed
+# or: .\scripts\deploy\deploy-app.ps1 -Seed
 ```
+
+> **Known gap:** the seed creates the admin account (`nick`) **without a password**, and the login screen refuses accounts with no password ("Ask an admin to issue a temporary password"). On a brand-new empty database there is no signed-in admin to do that, so nobody can sign in. Restoring a dump from an existing install (below) is not affected because password hashes come across with the data. Until a bootstrap step exists in the code, restore from a dump rather than seeding a fresh database.
 
 Copy from dev machine (on dev):
 
@@ -214,13 +219,21 @@ In the Precast Ops desktop app or a one-time browser session (admin user):
 
 2. **Settings → Company / System** — logo, tax rate, estimators, drivers, etc.
 
-3. **Settings → Users & Access** — add all staff with roles/permissions.
+3. **Settings → Users & Access** — add all staff with roles/permissions, then use **Reset password** on each new account to issue a temporary password (see below).
 
 4. Optional — sync existing job folders into the file index:
 
 ```powershell
 npm run db:sync-files
 ```
+
+### Users and passwords
+
+- New accounts have no password and cannot sign in until an admin with **Users & Access** (`USERS_MANAGE`) issues a **temporary password** from Settings → Users & Access ([`app/settings/users/actions.ts`](../app/settings/users/actions.ts)). Hand it to the person directly.
+- Signing in with a temporary password goes straight to **My Profile**, where the user must choose their own password (minimum 8 characters, entering the temporary one as the current password) before using the app.
+- A forgotten password is handled the same way: the admin clicks **Reset password**, which signs that user out everywhere and shows a new temporary password.
+- Sign-ins, sign-outs and password resets are written to the audit log. Deactivating a user ends their sessions on the next request.
+- Sessions expire after 8 hours without activity. Restarting the service does not sign anyone out, because sessions live in the database.
 
 ---
 
@@ -238,17 +251,19 @@ Uses [NSSM](https://nssm.cc/) to run `scripts/deploy/start-production.ps1` as a 
   -Port 3000
 ```
 
-3. Service name: `PrecastApp` — set to **Automatic** start.
+3. Service name: `PrecastApp`. The script sets it to **Automatic** start and writes logs to `C:\Apps\precastapp\logs\service-stdout.log` and `service-stderr.log`. Pass `-ServicePassword (Read-Host -AsSecureString)` with `-ServiceAccount` to set the logon password, otherwise set it in `services.msc`.
 
 ### Updates
 
-One command (stops the service, pulls, runs the full deploy build, restarts,
-health-checks, and restores the previous build if the new one fails):
+One command (stops the service, runs `git pull --ff-only`, runs `deploy-app.ps1`, restarts,
+and health-checks `http://localhost:3000/login` for up to 60 seconds):
 
 ```powershell
 cd C:\Apps\precastapp
 npm run deploy:update
 ```
+
+If the build fails, the script puts the previous `.next` build back and restarts the service. That rollback covers the build only: `node_modules` and any database migrations that already ran stay at the new version. **Take a database backup before any update that includes a migration.**
 
 Equivalent manual steps, if you ever need them individually:
 
@@ -266,9 +281,13 @@ Start-Service PrecastApp
 Or:
 
 ```powershell
-.\scripts\deploy\deploy-app.ps1 -SkipSeed
-Restart-Service PrecastApp
+Stop-Service PrecastApp
+git pull
+.\scripts\deploy\deploy-app.ps1
+Start-Service PrecastApp
 ```
+
+`deploy-app.ps1` never seeds unless you pass `-Seed`.
 
 ---
 
@@ -334,12 +353,11 @@ After the **first manual install** on each staff PC, desktop updates come from t
 **On the server only** — staff PCs need nothing:
 
 ```powershell
-Stop-Service PrecastApp
 cd C:\Apps\precastapp
-git pull
-.\scripts\deploy\deploy-app.ps1 -SkipInstall
-Start-Service PrecastApp
+npm run deploy:update
 ```
+
+See [Updates](#updates) above for what it does and its rollback limits. Avoid `-SkipInstall` when `package.json` or `package-lock.json` changed, since it skips `npm ci`.
 
 Code reaches the server via **GitHub/GitLab**: you `git push` from the dev PC, then `git pull` on the server.
 
@@ -369,7 +387,7 @@ Use the server hostname or `\\192.168.1.20\C$\Apps\precastapp\public\updates` if
 New-Item -ItemType Directory -Path C:\Apps\precastapp\public\updates -Force
 ```
 
-Also `git pull` on the server so `proxy.ts` allows `/updates` without login (if you haven’t already).
+`/updates` is served without sign-in ([`proxy.ts`](../proxy.ts)), so clients can fetch updates before anyone logs in.
 
 **Step 4 — Any PC:** verify the feed is live:
 
@@ -403,11 +421,13 @@ Summary:
 4. Schedule DB backups:
 
 ```powershell
-# Example manual backup
-.\scripts\deploy\backup-database.ps1 -OutputDir "D:\Backups\precastapp"
+# Example manual backup (defaults: D:\Backups\precastapp, 30-day retention)
+.\scripts\deploy\backup-database.ps1 -OutputDir "D:\Backups\precastapp" -RetentionDays 30
 ```
 
-Register a Windows Scheduled Task to run that script nightly.
+Register a Windows Scheduled Task to run that script nightly, set to run whether or not a user is logged on. Prefer a disk other than the one the database lives on, and copy dumps off the server too. The dump does **not** include `storage\` (uploaded sheet PDF sets) or job files on the UNC share, so back those up separately.
+
+There is a second, older copy at `scripts\backup-database.ps1` that defaults to `C:\Backups\precastapp` and mentions a task named "PrecastApp DB Backup". Check which one the server's scheduled task actually calls.
 
 ---
 
@@ -431,7 +451,8 @@ Register a Windows Scheduled Task to run that script nightly.
 
 - App **not** reachable from the public internet
 - Firewall limited to office subnet
-- Plan password login before broad VPN exposure
+- Password sign-in is on for every account; issue temporary passwords in person and make sure each user has replaced theirs
+- If you ever serve over HTTPS (for example for VPN access), set `SESSION_COOKIE_SECURE=true`; keep it `false` or unset on plain LAN HTTP
 - Strong `SETTINGS_RESET_PASSWORD` if data reset is enabled
 - App runs under least-privilege service account with share access only
 
@@ -446,6 +467,8 @@ Register a Windows Scheduled Task to run that script nightly.
 | Cannot write to jobs root | Fix UNC permissions for service account; test in Settings |
 | Port 3000 unreachable | Firewall rule; service running; `Get-Service PrecastApp` |
 | Electron — cannot connect | Server running; correct URL in installer or `%APPDATA%\Precast Ops\config.json`; on office LAN/VPN |
+| "This account has no password yet" | An admin issues a temporary password from Settings → Users & Access |
+| Signed in but sent to My Profile | Account has a temporary password; choose a new one first |
 | Session cookie issues over HTTP | Leave `SESSION_COOKIE_SECURE` unset or `false` for LAN HTTP; set `true` only behind HTTPS. Restart app after `.env` change. |
 
 ---
@@ -457,9 +480,15 @@ Use this checklist before wide office rollout:
 1. **Server** — `PrecastApp` service running; `http://SERVERNAME:3000/login` loads from a test PC (browser OK for this step only).
 2. **Build client** — `.\scripts\deploy\build-electron-client.ps1 -ServerUrl "http://SERVERNAME:3000"`.
 3. **Install on second PC** — run the NSIS installer from `dist/electron/`.
-4. **Login via Electron** — open Precast Ops → pick user → dashboard loads.
+4. **Login via Electron** — open Precast Ops → pick user → enter password → dashboard loads.
 5. **Settings** — Files & Folders → test write on jobs root and stock submittals.
 6. **PDF** — generate a quote PDF; confirm file on UNC share.
 7. **Reboot server** — confirm `PrecastApp` starts automatically; Electron still connects.
+
+---
+
+## Dev PC housekeeping
+
+There is a stray nested copy of the repo at `C:\Projects\precastapp\precastapp\` on the dev PC. It has its own `.git`, `.next` and a `.env` (which holds a database password). It is not the working copy and only adds confusion and an extra copy of credentials. After checking it has no uncommitted work you need (`git status` inside it), delete the whole folder.
 
 See also [COMMANDS.md](../COMMANDS.md).
