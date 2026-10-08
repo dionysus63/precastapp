@@ -242,13 +242,25 @@ Uses [NSSM](https://nssm.cc/) to run `scripts/deploy/start-production.ps1` as a 
 
 ### Updates
 
-One command (stops the service, pulls, runs the full deploy build, restarts,
-health-checks, and restores the previous build if the new one fails):
+One command (stops the service, backs up the database, pulls, runs the full
+deploy build, restarts, and health-checks):
 
 ```powershell
 cd C:\Apps\precastapp
 npm run deploy:update
 ```
+
+Before pulling, it writes a `pg_dump` backup to
+`C:\Backups\precastapp\pre-update\` (last 10 kept; change with `-BackupDir`
+and `-KeepBackups`, and `-PgBin` if PostgreSQL is not in
+`C:\Program Files\PostgreSQL\18\bin`). If the deploy build fails it rolls
+back fully: the checkout returns to the previous commit, the previous `.next`,
+`node_modules` and generated Prisma client are put back, and if any migration
+ran, the database is restored from that backup into a fresh database and
+swapped in by rename. The migrated database is kept as
+`precastapp_failed_<stamp>` so you can inspect it, then drop it. If any part
+of the rollback cannot finish, the service is left stopped and the script
+prints the manual steps.
 
 Equivalent manual steps, if you ever need them individually:
 
