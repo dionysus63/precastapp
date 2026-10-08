@@ -179,7 +179,7 @@ try {
     # --- Cloud upload (rclone verifies checksums on upload) ---
     if ($RcloneRemote) {
         try {
-            if (-not (Test-Path $RcloneExe)) {
+            if (-not (Test-Path $RcloneExe -PathType Leaf)) {
                 throw "rclone not found at $RcloneExe"
             }
             $rcloneArgs = @()

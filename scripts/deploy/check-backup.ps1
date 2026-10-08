@@ -35,7 +35,13 @@ if (-not $task) {
     $logon = $task.Principal.LogonType
     Report ($logon -ne "Interactive") "Task runs as $($task.Principal.UserId), logon type $logon (Interactive = only while logged on)"
     Report ($task.State -ne "Disabled") "Task state: $($task.State); next run $($info.NextRunTime)"
-    Report ($info.LastTaskResult -eq 0) "Last run $($info.LastRunTime), result $($info.LastTaskResult) (0 = success, 2 = second copy or cloud upload failed)"
+    if ($task.State -eq "Running" -or $info.LastTaskResult -eq 267009) {
+        Write-Host "[--]   A backup is running right now; run this check again when it finishes" -ForegroundColor Yellow
+    } elseif ($info.LastTaskResult -eq 267011) {
+        Write-Host "[--]   Task has not run yet (Start-ScheduledTask -TaskName '$TaskName' to test it)" -ForegroundColor Yellow
+    } else {
+        Report ($info.LastTaskResult -eq 0) "Last run $($info.LastRunTime), result $($info.LastTaskResult) (0 = success, 1 = backup failed, 2 = second copy or cloud upload failed; see backup.log)"
+    }
 }
 
 # --- Latest files ---
@@ -53,14 +59,22 @@ if ($copyDir) { Check-Folder $copyDir "Copy" }
 
 # --- Cloud (rclone) ---
 if ($rcloneRemote) {
-    if (-not (Test-Path $rcloneExe)) {
+    if (-not (Test-Path $rcloneExe -PathType Leaf)) {
         Report $false "rclone not found at $rcloneExe"
     } else {
         $rcloneArgs = @()
         if ($rcloneConfig) { $rcloneArgs += @("--config", $rcloneConfig) }
         # Run as the same account as the task, or rclone may not find its config.
-        $recent = @(& $rcloneExe @rcloneArgs lsf $rcloneRemote --files-only --max-age "${MaxAgeHours}h" 2>&1)
-        $code = $LASTEXITCODE
+        try {
+            $ErrorActionPreference = "Stop"   # so a failure to start rclone lands in catch
+            $recent = @(& $rcloneExe @rcloneArgs lsf $rcloneRemote --files-only --max-age "${MaxAgeHours}h" 2>&1)
+            $code = $LASTEXITCODE
+        } catch {
+            $recent = @("could not start rclone: $($_.Exception.Message)")
+            $code = -1
+        } finally {
+            $ErrorActionPreference = "Continue"
+        }
         if ($code -ne 0) {
             Report $false "Cannot list $rcloneRemote (rclone exit $code): $($recent | Select-Object -Last 1)"
         } else {
