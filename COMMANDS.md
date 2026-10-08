@@ -198,7 +198,7 @@ Full step-by-step guide: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**
 | `.\scripts\deploy\start-production.ps1`        | Run production server (loads `.env`)              |
 | `.\scripts\deploy\configure-firewall.ps1`      | LAN firewall rule for port 3000                   |
 | `.\scripts\deploy\install-windows-service.ps1` | NSSM Windows service                              |
-| `.\scripts\deploy\backup-database.ps1`         | `pg_dump` backup (schedule nightly)               |
+| `.\scripts\deploy\backup-database.ps1`         | DB + `storage/` backup (schedule nightly)         |
 | `.\scripts\deploy\post-deploy-config.ps1`      | Post-deploy checklist + optional file sync        |
 | `.\scripts\deploy\build-electron-client.ps1`   | Build Precast Ops desktop installer for staff PCs |
 | `.\scripts\deploy\publish-electron-update.ps1` | Build + publish desktop auto-update to server `public/updates/` |
@@ -232,10 +232,14 @@ Staff rollout: [docs/office-rollout.md](docs/office-rollout.md)
 ## Database backups
 
 Daily automated backup via Windows Task Scheduler (task: **"PrecastApp DB Backup"**,
-runs `scripts/backup-database.ps1` at 12:00 PM while logged on).
+runs `scripts/backup-database.ps1` whether or not anyone is logged on; install with
+`scripts\deploy\install-backup-task.ps1`, check with `scripts\deploy\check-backup.ps1`).
+Full setup: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#backups).
 
 - Backups: `C:\Backups\precastapp\precastapp_<date>_<time>.dump` (pg_dump custom format)
-- Retention: 30 days, pruned automatically; log at `C:\Backups\precastapp\backup.log`
+  and `precastapp-storage_<date>_<time>.zip` (the `storage/` folder of uploaded sheet PDFs)
+- Second copy: set `BACKUP_COPY_DIR` in `.env` (e.g. a UNC share on another machine)
+- Retention: 30 days (`BACKUP_RETENTION_DAYS`), pruned automatically; log at `C:\Backups\precastapp\backup.log`
 - Credentials come from `DATABASE_URL` in `.env` — no secrets in the script
 
 Run a backup manually:
@@ -258,9 +262,8 @@ Restore into a scratch database to inspect without touching live data:
 & "C:\Program Files\PostgreSQL\18\bin\pg_restore.exe" -U postgres -h localhost -d precastapp_restore_test --no-owner "C:\Backups\precastapp\<file>.dump"
 ```
 
-> The backup folder lives on the same disk as the database. Copy or sync
-> `C:\Backups\precastapp` to a second machine, NAS, or cloud drive for real
-> disaster protection.
+> The backup folder lives on the same disk as the database. Set
+> `BACKUP_COPY_DIR` so every backup is also copied to a second machine or NAS.
 
 ---
 

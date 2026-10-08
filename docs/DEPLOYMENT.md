@@ -400,14 +400,76 @@ Summary:
 1. Stable server URL baked into the Electron installer (e.g. `http://precast-srv:3000`).
 2. Install **Precast Ops** desktop app on every staff PC — no browser bookmarks.
 3. Explain **Explorer opens on server** — use in-app Files or mapped UNC drives.
-4. Schedule DB backups:
+4. Schedule backups (see [Backups](#backups) below).
 
-```powershell
-# Example manual backup
-.\scripts\deploy\backup-database.ps1 -OutputDir "D:\Backups\precastapp"
+---
+
+## Backups
+
+`scripts\backup-database.ps1` backs up everything the app can't rebuild:
+
+- the database, as a `pg_dump` archive: `precastapp_<date>_<time>.dump`
+- `storage\` (uploaded sheet PDF sets, which are not in the database), as `precastapp-storage_<date>_<time>.zip`
+
+Both go to `C:\Backups\precastapp` and, if `BACKUP_COPY_DIR` is set, are copied to a
+second location. That folder is on the same disk as the database, so set a copy
+location on another machine (NAS or another PC's share) for real protection.
+Settings live in `.env` on the server:
+
+```env
+# BACKUP_DIR=C:\Backups\precastapp           # default
+BACKUP_COPY_DIR=\\NAS\Backups\precastapp     # second copy (optional, recommended)
+# BACKUP_RETENTION_DAYS=30                     # default; applies to both locations
 ```
 
-Register a Windows Scheduled Task to run that script nightly.
+Each run appends an `OK`, `WARN` (local backup fine, copy failed) or `FAIL` line to
+`C:\Backups\precastapp\backup.log`.
+
+### Install the scheduled task (once, elevated PowerShell on the server)
+
+```powershell
+cd C:\Apps\precastapp
+.\scripts\deploy\install-backup-task.ps1 -At "02:00"
+```
+
+It asks for the password of the account it runs as (you, by default; pass
+`-User DOMAIN\name` for another), so the task runs **whether or not anyone is
+logged on**. Task Scheduler stores the password; re-run the script after that
+account's password changes. The account needs write access to `BACKUP_COPY_DIR`.
+`-User SYSTEM` needs no password but usually can't write to a network share.
+Re-running replaces the existing **PrecastApp DB Backup** task.
+
+Run it once right away to confirm:
+
+```powershell
+Start-ScheduledTask -TaskName "PrecastApp DB Backup"
+```
+
+### Check that backups are working
+
+```powershell
+cd C:\Apps\precastapp
+.\scripts\deploy\check-backup.ps1
+```
+
+It shows whether the task is installed and runs while logged off, the last run
+result, the newest `.dump` and storage `.zip` in each location and their age, and
+the last log lines. Everything should read `[OK]`; it exits non-zero otherwise.
+
+### Restore
+
+Stop the app first, then:
+
+```powershell
+& "C:\Program Files\PostgreSQL\18\bin\pg_restore.exe" -U postgres -h localhost `
+    -d precastapp --clean --if-exists "C:\Backups\precastapp\<file>.dump"
+Expand-Archive "C:\Backups\precastapp\precastapp-storage_<date>_<time>.zip" `
+    -DestinationPath C:\Apps\precastapp\storage -Force
+```
+
+Restore the `.dump` and `.zip` with the same timestamp so sheet PDF sets match the
+database rows that point to them. See [COMMANDS.md](../COMMANDS.md#database-backups)
+for restoring into a scratch database to inspect first.
 
 ---
 
@@ -420,8 +482,7 @@ Register a Windows Scheduled Task to run that script nightly.
 | Desktop shell updates | **Dev PC** → **Server** | Dev: bump `electron/package.json` version → `publish-electron-update.ps1 -CopyTo \\SERVER\...` → Staff restart when prompted |
 | Server URL change only | **Staff PCs** | Edit `%APPDATA%\Precast Ops\config.json` |
 | Schema changes | **Server** | `npx prisma migrate deploy` + `npx prisma generate` (via `deploy-app.ps1`) |
-| Database backup | **Server** | `backup-database.ps1` on a schedule |
-| Uploaded sheet PDF sets | **Server** | `C:\Apps\precastapp\storage\` (git-ignored, not in the DB backup) — include it in file backups |
+| Database + uploaded sheet PDF backup | **Server** | Nightly task from `install-backup-task.ps1`; check with `check-backup.ps1` ([Backups](#backups)) |
 | Job files | File share | Existing share backup policy |
 | Re-index files | **Server** | `npm run db:sync-files` after bulk moves |
 
