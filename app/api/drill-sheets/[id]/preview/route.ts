@@ -19,7 +19,10 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-async function rectPreviewResponse(id: string): Promise<NextResponse> {
+async function rectPreviewResponse(
+  id: string,
+  disposition: "inline" | "attachment",
+): Promise<NextResponse> {
   const sheet = await withDatabaseRetry((prisma) =>
     prisma.jobStructure.findUnique({
       where: { id },
@@ -40,7 +43,7 @@ async function rectPreviewResponse(id: string): Promise<NextResponse> {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": contentDisposition("inline", `drill-sheet-${label}.pdf`),
+      "Content-Disposition": contentDisposition(disposition, `drill-sheet-${label}.pdf`),
       "Cache-Control": "private, no-store",
       "X-Drill-Sheet-Pdf-Source": "rect-template",
       "X-Drill-Sheet-Template-Variant": headerSafe(built.variantKey),
@@ -49,10 +52,16 @@ async function rectPreviewResponse(id: string): Promise<NextResponse> {
   });
 }
 
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
   try {
     await requirePermission(AppPermission.STRUCTURES_VIEW);
     const { id } = await context.params;
+    // ?download=1 saves the sheet as a file (drag-out chips) instead of
+    // viewing it inline.
+    const disposition =
+      new URL(request.url).searchParams.get("download") === "1"
+        ? "attachment"
+        : "inline";
 
     // Rectangular sheets fill their own PDF-set variants; everything below
     // is the circular flow.
@@ -66,7 +75,7 @@ export async function GET(_request: Request, context: RouteContext) {
       return new NextResponse("Drill sheet not found.", { status: 404 });
     }
     if (shapeRow.structureTemplate?.shape === "RECTANGULAR") {
-      return await rectPreviewResponse(id);
+      return await rectPreviewResponse(id, disposition);
     }
 
     const sheet = await withDatabaseRetry((prisma) =>
@@ -97,7 +106,7 @@ export async function GET(_request: Request, context: RouteContext) {
     const label = detail.meta.manholeNumber || sheet.id;
     const headers: Record<string, string> = {
       "Content-Type": "application/pdf",
-      "Content-Disposition": contentDisposition("inline", `drill-sheet-${label}.pdf`),
+      "Content-Disposition": contentDisposition(disposition, `drill-sheet-${label}.pdf`),
       "Cache-Control": "private, no-store",
       "X-Drill-Sheet-Pdf-Source": built.source,
       "X-Drill-Sheet-Computed-Variant": built.computedVariant.key,
