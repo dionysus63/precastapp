@@ -63,6 +63,12 @@ type OneOffGridProps = {
   rectOptions: OneOffRectOptions;
   onRowsChange: (rows: OneOffRow[]) => void;
   onOpeningCountChange: (count: number) => void;
+  /**
+   * Editing saved sheets: rows can't be added, copied or removed, and
+   * `changedRowIds` marks the rows that will be saved.
+   */
+  editMode?: boolean;
+  changedRowIds?: Set<string>;
 };
 
 function setOpening(
@@ -91,6 +97,8 @@ export function OneOffGrid({
   rectOptions,
   onRowsChange,
   onOpeningCountChange,
+  editMode = false,
+  changedRowIds,
 }: OneOffGridProps) {
   const tableRef = useRef<HTMLTableElement>(null);
   const isCircular = shape === "CIRCULAR";
@@ -125,7 +133,19 @@ export function OneOffGrid({
         options: () => templateOptions,
         set: (row, value) => {
           if (!isCircular) {
-            return { ...row, templateId: value };
+            if (row.insideLengthFeet === undefined || value === row.templateId) {
+              return { ...row, templateId: value };
+            }
+            // A saved sheet moved to another template takes its size.
+            const preset = rectOptions.templates.find(
+              (entry) => entry.id === value,
+            )?.presetSizes[0];
+            return {
+              ...row,
+              templateId: value,
+              insideLengthFeet: preset ? String(preset.insideLengthFeet) : "",
+              insideWidthFeet: preset ? String(preset.insideWidthFeet) : "",
+            };
           }
           const template = circularOptions.templates.find(
             (entry) => entry.id === value,
@@ -348,6 +368,7 @@ export function OneOffGrid({
     const next = [...rows];
     const numbers = [...allNumbers];
     while (
+      !editMode &&
       next.length < rowIndex + block.length &&
       next.length < ONE_OFF_MAX_ROWS
     ) {
@@ -435,8 +456,10 @@ export function OneOffGrid({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[11px] text-slate-500">
           Type like a spreadsheet: Enter moves down, arrows move between cells,
-          and you can paste a block copied from Excel. Leave an invert blank
-          for no pipe in that opening.
+          and you can paste a block copied from Excel.{" "}
+          {editMode
+            ? "Clearing an invert removes that opening from the sheet."
+            : "Leave an invert blank for no pipe in that opening."}
         </p>
         <div className="flex items-center gap-1.5">
           <span className="text-[11px] font-medium text-slate-600">
@@ -481,7 +504,9 @@ export function OneOffGrid({
               ))}
               <th className={`${tableHeaderCellClassName} text-right`}>Wall Ht</th>
               <th className={`${tableHeaderCellClassName} min-w-[12rem]`}>Status</th>
-              <th className={`${tableHeaderCellClassName} w-16`} />
+              {editMode ? null : (
+                <th className={`${tableHeaderCellClassName} w-16`} />
+              )}
             </tr>
           </thead>
           <tbody className="bg-white">
@@ -501,8 +526,14 @@ export function OneOffGrid({
                     : "text-amber-700"
                   : "text-slate-500";
 
+              const changed = changedRowIds?.has(row.id) ?? false;
+
               return (
-                <tr key={row.id} className="hover:bg-sky-50/40">
+                <tr
+                  key={row.id}
+                  className={changed ? "bg-amber-50/60" : "hover:bg-sky-50/40"}
+                  title={changed ? "Changed: saved when you click Save" : undefined}
+                >
                   <td className={tableRowNumberCellClassName}>{rowIndex + 1}</td>
                   {columns.map((column, colIndex) => {
                     const value = column.get(row);
@@ -512,8 +543,23 @@ export function OneOffGrid({
                         : ""
                     }`;
                     if (column.kind === "select") {
-                      const options = column.options?.(row) ?? [];
+                      const listed = column.options?.(row) ?? [];
                       const missing = value === "";
+                      // A saved sheet can hold a value no longer offered.
+                      const options =
+                        missing || listed.some((option) => option.value === value)
+                          ? listed
+                          : [
+                              {
+                                value,
+                                label:
+                                  column.key === "template" ||
+                                  column.key === "casting"
+                                    ? "(no longer offered)"
+                                    : value,
+                              },
+                              ...listed,
+                            ];
                       return (
                         <td key={column.key} className={cellClass}>
                           <select
@@ -576,24 +622,26 @@ export function OneOffGrid({
                   >
                     {statusText || "—"}
                   </td>
-                  <td className="whitespace-nowrap border-b border-slate-300 px-2 py-1.5">
-                    <button
-                      type="button"
-                      onClick={() => duplicateRow(rowIndex)}
-                      title="Copy this row below"
-                      className="mr-2 text-[11px] font-semibold text-slate-500 hover:text-slate-900"
-                    >
-                      Copy
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeRow(rowIndex)}
-                      title="Remove this row"
-                      className="text-[11px] font-semibold text-red-600 hover:text-red-800"
-                    >
-                      ✕
-                    </button>
-                  </td>
+                  {editMode ? null : (
+                    <td className="whitespace-nowrap border-b border-slate-300 px-2 py-1.5">
+                      <button
+                        type="button"
+                        onClick={() => duplicateRow(rowIndex)}
+                        title="Copy this row below"
+                        className="mr-2 text-[11px] font-semibold text-slate-500 hover:text-slate-900"
+                      >
+                        Copy
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeRow(rowIndex)}
+                        title="Remove this row"
+                        className="text-[11px] font-semibold text-red-600 hover:text-red-800"
+                      >
+                        ✕
+                      </button>
+                    </td>
+                  )}
                 </tr>
               );
             })}
@@ -601,14 +649,16 @@ export function OneOffGrid({
         </table>
       </div>
 
-      <button
-        type="button"
-        onClick={addRow}
-        disabled={rows.length >= ONE_OFF_MAX_ROWS}
-        className="rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:border-slate-400 hover:bg-slate-50 disabled:opacity-40"
-      >
-        + Add row
-      </button>
+      {editMode ? null : (
+        <button
+          type="button"
+          onClick={addRow}
+          disabled={rows.length >= ONE_OFF_MAX_ROWS}
+          className="rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:border-slate-400 hover:bg-slate-50 disabled:opacity-40"
+        >
+          + Add row
+        </button>
+      )}
     </div>
   );
 }

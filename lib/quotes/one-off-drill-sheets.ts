@@ -1,5 +1,6 @@
-// One-Off drill sheets (Quotes → One-Off tab): a spreadsheet-style grid for
-// knocking out a few drill sheets without building a quote first.
+// One-Off drill sheets (Quotes → One-Off): a spreadsheet-style grid for
+// knocking out a few drill sheets without building a quote first, and for
+// editing them again later.
 //
 // Each grid row is one structure. Rows are converted to the same workbook
 // rows the quote's structure workbooks use, so wall heights, warnings and the
@@ -11,10 +12,12 @@ import type {
 } from "@/components/drill-sheets/drill-sheet-form";
 import type {
   RectSheetCastingOption,
+  RectSheetFormValues,
   RectSheetOpeningSizeOption,
   RectSheetTemplateOption,
 } from "@/components/drill-sheets/rect-sheet-form";
-import type { RectWall } from "@/lib/rect-structure";
+import type { DrillSheetFormValues } from "@/lib/drill-sheet-detail";
+import { RECT_WALLS, type RectWall } from "@/lib/rect-structure";
 import {
   computeWorkbookRowPrice,
   createRowId,
@@ -64,6 +67,12 @@ export type OneOffRow = {
   rimElevation: string;
   /** Always `openingCount` long so every row lines up with the grid columns. */
   openings: OneOffOpeningCell[];
+  /**
+   * Rect only: the sheet's own inside size when editing an existing sheet.
+   * Unset on new rows, which take the template's first preset size.
+   */
+  insideLengthFeet?: string;
+  insideWidthFeet?: string;
 };
 
 /** What the setup step asks for before any rows exist. */
@@ -405,8 +414,10 @@ export function computeRectOneOffRow(
     id: row.id,
     structureNumber: row.structureNumber,
     templateId: row.templateId,
-    insideLengthFeet: preset ? String(preset.insideLengthFeet) : "",
-    insideWidthFeet: preset ? String(preset.insideWidthFeet) : "",
+    insideLengthFeet:
+      row.insideLengthFeet ?? (preset ? String(preset.insideLengthFeet) : ""),
+    insideWidthFeet:
+      row.insideWidthFeet ?? (preset ? String(preset.insideWidthFeet) : ""),
     castingProductId: row.castingProductId,
     rimElevation: row.rimElevation,
     lowInvertElevation: "",
@@ -469,4 +480,243 @@ export function findDuplicateStructureNumbers(numbers: string[]): string[] {
     }
   }
   return duplicates;
+}
+
+// ---------------------------------------------------------------------------
+// Editing saved sheets
+// ---------------------------------------------------------------------------
+//
+// An existing sheet is loaded into a grid row (the row id is the structure
+// id), edited, then merged back over the sheet's saved form values. Anything
+// the grid doesn't show (inspection, steps, section splits, opening
+// placements, a different pipe per opening) is kept as it was.
+
+/** The row's single pipe pick: the first opening that names one. */
+function firstPipe(
+  openings: { pipeMaterial: string; pipeSizeInches: string }[],
+): { pipeType: string; pipeSize: string } {
+  const opening = openings.find((entry) => entry.pipeMaterial.trim() !== "");
+  return {
+    pipeType: opening?.pipeMaterial.trim() ?? "",
+    pipeSize: opening?.pipeSizeInches.trim() ?? "",
+  };
+}
+
+function isRectWall(value: string): value is RectWall {
+  return RECT_WALLS.includes(value as RectWall);
+}
+
+export function circularRowFromSheet(
+  structureId: string,
+  values: DrillSheetFormValues,
+  templates: OneOffCircularOptions["templates"],
+): OneOffRow {
+  const template = templates.find((entry) => entry.id === values.templateId);
+  const diameter = template?.diameters.find(
+    (entry) => entry.id === values.diameterId,
+  );
+  return {
+    id: structureId,
+    structureNumber: values.manholeNumber,
+    templateId: values.templateId,
+    diameterFeet: diameter
+      ? String(diameter.insideDiameterFeet)
+      : values.unmatchedDiameterFeet != null
+        ? String(values.unmatchedDiameterFeet)
+        : "",
+    castingProductId: values.castingProductId,
+    ...firstPipe(values.openings),
+    rimElevation: values.rimElevation,
+    openings: values.openings.map((opening, index) => ({
+      ...createOpeningCell(index),
+      invert: opening.invertElevation,
+      angle: opening.angle,
+    })),
+  };
+}
+
+export function rectRowFromSheet(
+  structureId: string,
+  values: RectSheetFormValues,
+): OneOffRow {
+  return {
+    id: structureId,
+    structureNumber: values.structureNumber,
+    templateId: values.templateId,
+    diameterFeet: "",
+    castingProductId: values.castingProductId,
+    ...firstPipe(values.openings),
+    rimElevation: values.rimElevation,
+    openings: values.openings.map((opening, index) => ({
+      ...createOpeningCell(index),
+      invert: opening.invertElevation,
+      wall: isRectWall(opening.wall) ? opening.wall : createOpeningCell(index).wall,
+    })),
+    insideLengthFeet: values.insideLengthFeet,
+    insideWidthFeet: values.insideWidthFeet,
+  };
+}
+
+/** Grid columns needed to show every row's openings. */
+export function openingCountForRows(rows: OneOffRow[]): number {
+  return Math.min(
+    ONE_OFF_MAX_OPENINGS,
+    Math.max(
+      ONE_OFF_DEFAULT_OPENING_COUNT,
+      ...rows.map((row) => row.openings.length),
+    ),
+  );
+}
+
+/** True when the grid row differs from the row as it was loaded. */
+export function isRowChanged(row: OneOffRow, loaded: OneOffRow): boolean {
+  return (
+    row.structureNumber.trim() !== loaded.structureNumber.trim() ||
+    row.templateId !== loaded.templateId ||
+    row.diameterFeet !== loaded.diameterFeet ||
+    row.castingProductId !== loaded.castingProductId ||
+    row.pipeType !== loaded.pipeType ||
+    row.pipeSize !== loaded.pipeSize ||
+    row.rimElevation.trim() !== loaded.rimElevation.trim() ||
+    row.openings.some((cell, index) => {
+      const before = loaded.openings[index];
+      return (
+        cell.invert.trim() !== (before?.invert.trim() ?? "") ||
+        (cell.invert.trim() !== "" &&
+          (cell.angle.trim() !== (before?.angle.trim() ?? "") ||
+            cell.wall !== before?.wall))
+      );
+    })
+  );
+}
+
+type MergeResult<T> = { values: T } | { error: string };
+
+/**
+ * Applies an edited grid row to a circular sheet's saved form values. Grid
+ * column N is the sheet's opening N; a blank invert drops that opening. While
+ * the row's pipe pick is unchanged, each opening keeps its own saved pipe.
+ */
+export function mergeCircularRow(
+  values: DrillSheetFormValues,
+  row: OneOffRow,
+  loaded: OneOffRow,
+  templates: OneOffCircularOptions["templates"],
+  today: string,
+): MergeResult<DrillSheetFormValues> {
+  const template = templates.find((entry) => entry.id === row.templateId);
+  if (!template) {
+    return { error: "Select a template" };
+  }
+  const diameter = template.diameters.find(
+    (entry) => String(entry.insideDiameterFeet) === row.diameterFeet,
+  );
+  if (!diameter) {
+    return { error: "Select a diameter" };
+  }
+  const pipeChanged =
+    row.pipeType !== loaded.pipeType || row.pipeSize !== loaded.pipeSize;
+
+  const openings = row.openings.flatMap((cell, index) => {
+    if (cell.invert.trim() === "") {
+      return [];
+    }
+    const saved = values.openings[index];
+    const keepPipe = saved != null && !pipeChanged && saved.pipeMaterial !== "";
+    return [
+      {
+        label: saved?.label || openingLetter(index),
+        pipeMaterial: keepPipe ? saved.pipeMaterial : row.pipeType,
+        pipeSizeInches: keepPipe ? saved.pipeSizeInches : row.pipeSize,
+        invertElevation: cell.invert.trim(),
+        angle: cell.angle.trim() || "0",
+        connectionType: saved?.connectionType || template.connectionType,
+      },
+    ];
+  });
+  if (openings.length === 0) {
+    return { error: "Enter at least one invert" };
+  }
+
+  return {
+    values: {
+      ...values,
+      templateId: template.id,
+      diameterId: diameter.id,
+      unmatchedDiameterFeet: null,
+      castingProductId: row.castingProductId,
+      manholeNumber: row.structureNumber.trim(),
+      date: values.date || today,
+      rimElevation: row.rimElevation.trim(),
+      openings,
+    },
+  };
+}
+
+/**
+ * Applies an edited grid row to a rect sheet's saved form values; same rules
+ * as mergeCircularRow. Changing the template resets the slabs and section
+ * splits to the new template's single-pour defaults.
+ */
+export function mergeRectRow(
+  values: RectSheetFormValues,
+  row: OneOffRow,
+  loaded: OneOffRow,
+  templates: OneOffRectOptions["templates"],
+  today: string,
+): MergeResult<RectSheetFormValues> {
+  const template = templates.find((entry) => entry.id === row.templateId);
+  if (!template) {
+    return { error: "Select a template" };
+  }
+  const pipeChanged =
+    row.pipeType !== loaded.pipeType || row.pipeSize !== loaded.pipeSize;
+  const templateChanged = row.templateId !== loaded.templateId;
+
+  const openings = row.openings.flatMap((cell, index) => {
+    if (cell.invert.trim() === "") {
+      return [];
+    }
+    const saved = values.openings[index];
+    const base = saved ?? createRectOpeningRow(openingLetter(index));
+    const keepPipe = saved != null && !pipeChanged && saved.pipeMaterial !== "";
+    return [
+      {
+        ...base,
+        wall: cell.wall,
+        pipeMaterial: keepPipe ? saved.pipeMaterial : row.pipeType,
+        pipeSizeInches: keepPipe ? saved.pipeSizeInches : row.pipeSize,
+        // A width override is the old pipe's catalog width.
+        widthOverrideInches: keepPipe ? saved.widthOverrideInches : "",
+        invertElevation: cell.invert.trim(),
+      },
+    ];
+  });
+  if (openings.length === 0) {
+    return { error: "Enter at least one invert" };
+  }
+
+  const slabs = templateChanged
+    ? {
+        hasTopSlab: template.topSlabThicknessInches > 0,
+        hasBaseSlab: template.baseSlabThicknessInches > 0,
+        baseAttached: template.baseSlabThicknessInches > 0,
+        sections: [],
+      }
+    : {};
+
+  return {
+    values: {
+      ...values,
+      ...slabs,
+      templateId: template.id,
+      castingProductId: row.castingProductId,
+      structureNumber: row.structureNumber.trim(),
+      date: values.date || today,
+      rimElevation: row.rimElevation.trim(),
+      insideLengthFeet: row.insideLengthFeet ?? values.insideLengthFeet,
+      insideWidthFeet: row.insideWidthFeet ?? values.insideWidthFeet,
+      openings,
+    },
+  };
 }

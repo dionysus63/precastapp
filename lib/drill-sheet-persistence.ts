@@ -1,5 +1,5 @@
 import { Prisma } from "@/app/generated/prisma/client";
-import { parseLocalDay } from "@/lib/date-only";
+import { localTodayInput, parseLocalDay } from "@/lib/date-only";
 import {
   computeDrillSheet,
   type DrillSheetInput,
@@ -548,7 +548,7 @@ export async function createJobStructureFromQuoteConfig(
     manholeNumber: options.structureNumber ?? "",
     contractor: options.contractorName ?? "",
     project: options.projectName ?? "",
-    date: "",
+    date: localTodayInput(),
     hasSteps: false,
     inspection: "",
     approvedBy: "",
