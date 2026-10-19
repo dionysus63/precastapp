@@ -106,7 +106,7 @@ export function Sidebar({
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${
+                      className={`flex items-center gap-2.5 rounded-lg py-2 pr-3 ${item.nested ? "pl-8 text-[12px]" : "pl-3 text-[13px]"} font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${
                         isActive
                           ? "bg-slate-900 text-white shadow-md shadow-slate-900/20"
                           : "text-slate-600 hover:bg-slate-200/60 hover:text-slate-900"
@@ -114,7 +114,7 @@ export function Sidebar({
                     >
                       <NavIcon
                         name={item.icon}
-                        className="h-4 w-4 shrink-0 opacity-75"
+                        className={`${item.nested ? "h-3.5 w-3.5" : "h-4 w-4"} shrink-0 opacity-75`}
                       />
                       {item.label}
                     </Link>

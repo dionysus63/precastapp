@@ -254,12 +254,6 @@ export function QuotesPageContent({
               </span>
             </button>
           ))}
-          <Link
-            href="/quotes/one-off"
-            className="border-b-2 border-transparent px-3 py-2 text-xs font-medium text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-800"
-          >
-            One-Off
-          </Link>
           {singleStatusLabel ? (
             <button
               type="button"
