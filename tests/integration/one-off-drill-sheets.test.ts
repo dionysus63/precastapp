@@ -18,6 +18,7 @@ vi.mock("@/lib/job-folders", () => ({
 }));
 
 import { createOneOffDrillSheets } from "@/app/quotes/one-off-actions";
+import { localTodayInput, toLocalDayInput } from "@/lib/date-only";
 import { prisma } from "@/lib/prisma";
 import {
   buildRowsFromSetup,
@@ -180,6 +181,9 @@ describe("createOneOffDrillSheets", () => {
     });
     expect(Number(job.jobStructures[0].quantity)).toBe(1);
     expect(job.jobStructures[0].calc?.contractorName).toBe("Walk-up Contractor");
+    expect(toLocalDayInput(job.jobStructures[0].calc!.sheetDate!)).toBe(
+      localTodayInput(),
+    );
     expect(job.jobStructures[1].openings).toHaveLength(1);
   });
 

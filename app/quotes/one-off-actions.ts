@@ -30,6 +30,8 @@ export type OneOffJobDetails = {
   contactEmail: string | null;
   /** Structure numbers already on the job, so new ones don't collide. */
   structureNumbers: string[];
+  /** Saved drill sheets on the job, which the One-Off page can edit. */
+  sheetCount: number;
 };
 
 export type OneOffNewJobInput = {
@@ -143,8 +145,7 @@ export async function getJobForOneOff(jobId: string) {
           contactPhone: true,
           contactEmail: true,
           jobStructures: {
-            where: { structureNumber: { not: null } },
-            select: { structureNumber: true },
+            select: { structureNumber: true, calc: { select: { id: true } } },
           },
         },
       }),
@@ -159,6 +160,8 @@ export async function getJobForOneOff(jobId: string) {
       structureNumbers: jobStructures
         .map((structure) => structure.structureNumber ?? "")
         .filter(Boolean),
+      sheetCount: jobStructures.filter((structure) => structure.calc != null)
+        .length,
     };
   });
 }

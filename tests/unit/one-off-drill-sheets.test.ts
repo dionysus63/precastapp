@@ -4,15 +4,22 @@ import {
   circularPipeTypeChoices,
   computeCircularOneOffRow,
   computeRectOneOffRow,
+  circularRowFromSheet,
   createEmptySetup,
   findDuplicateStructureNumbers,
+  isRowChanged,
+  mergeCircularRow,
+  mergeRectRow,
   missingSetupFields,
   nextFreeStructureNumber,
+  rectRowFromSheet,
   resizeRowOpenings,
   type OneOffCircularOptions,
   type OneOffRectOptions,
   type OneOffSetup,
 } from "@/lib/quotes/one-off-drill-sheets";
+import type { RectSheetFormValues } from "@/components/drill-sheets/rect-sheet-form";
+import type { DrillSheetFormValues } from "@/lib/drill-sheet-detail";
 import { parseStructureConfigJson } from "@/lib/quotes/structure-workbook";
 import { parseRectStructureConfigJson } from "@/lib/quotes/rect-structure-workbook";
 
@@ -249,6 +256,184 @@ describe("one-off row calculation", () => {
     expect(computeCircularOneOffRow(row, circularOptions)).toMatchObject({
       ready: false,
       status: "Select a pipe type and size",
+    });
+  });
+});
+
+const savedCircular: DrillSheetFormValues = {
+  templateId: "tpl-sewer",
+  diameterId: "d4",
+  unmatchedDiameterFeet: null,
+  castingProductId: "cast-frame",
+  jobId: "job-1",
+  manholeNumber: "MH-1",
+  contractor: "Acme",
+  project: "Main St",
+  date: "",
+  hasSteps: true,
+  inspection: "Town",
+  approvedBy: "",
+  useBase: "",
+  useRiser: "",
+  brickAdjustment: "",
+  rimElevation: "100",
+  openings: [
+    {
+      label: "A",
+      pipeMaterial: "PVC SDR35",
+      pipeSizeInches: "8",
+      invertElevation: "92",
+      angle: "0",
+      connectionType: "KOR_N_SEAL",
+    },
+    {
+      label: "B",
+      pipeMaterial: "PVC SDR35",
+      pipeSizeInches: "12",
+      invertElevation: "92.5",
+      angle: "180",
+      connectionType: "KOR_N_SEAL",
+    },
+  ],
+};
+
+describe("editing saved sheets", () => {
+  it("loads a circular sheet into a grid row", () => {
+    const row = circularRowFromSheet("js-1", savedCircular, circularOptions.templates);
+    expect(row).toMatchObject({
+      id: "js-1",
+      structureNumber: "MH-1",
+      diameterFeet: "4",
+      pipeType: "PVC SDR35",
+      pipeSize: "8",
+      rimElevation: "100",
+    });
+    expect(row.openings.map((cell) => [cell.invert, cell.angle])).toEqual([
+      ["92", "0"],
+      ["92.5", "180"],
+    ]);
+    expect(isRowChanged(row, row)).toBe(false);
+  });
+
+  it("keeps what the grid doesn't show and each opening's own pipe", () => {
+    const loaded = circularRowFromSheet("js-1", savedCircular, circularOptions.templates);
+    const edited = {
+      ...loaded,
+      rimElevation: "101",
+      openings: loaded.openings.map((cell, index) =>
+        index === 1 ? { ...cell, invert: "93" } : cell,
+      ),
+    };
+    expect(isRowChanged(edited, loaded)).toBe(true);
+
+    const merged = mergeCircularRow(
+      savedCircular,
+      edited,
+      loaded,
+      circularOptions.templates,
+      "2026-10-19",
+    );
+    if ("error" in merged) throw new Error(merged.error);
+    expect(merged.values).toMatchObject({
+      rimElevation: "101",
+      hasSteps: true,
+      inspection: "Town",
+      contractor: "Acme",
+      date: "2026-10-19",
+    });
+    // B keeps its 12" pipe because the row's pipe pick didn't change.
+    expect(merged.values.openings[1]).toMatchObject({
+      label: "B",
+      pipeSizeInches: "12",
+      invertElevation: "93",
+    });
+  });
+
+  it("applies a changed pipe pick to every opening and drops cleared ones", () => {
+    const loaded = circularRowFromSheet("js-1", savedCircular, circularOptions.templates);
+    const edited = {
+      ...loaded,
+      pipeSize: "12",
+      openings: loaded.openings.map((cell, index) =>
+        index === 0 ? { ...cell, invert: "" } : cell,
+      ),
+    };
+    const merged = mergeCircularRow(
+      { ...savedCircular, date: "2026-01-02" },
+      edited,
+      loaded,
+      circularOptions.templates,
+      "2026-10-19",
+    );
+    if ("error" in merged) throw new Error(merged.error);
+    expect(merged.values.date).toBe("2026-01-02");
+    expect(merged.values.openings).toHaveLength(1);
+    expect(merged.values.openings[0]).toMatchObject({
+      label: "B",
+      pipeSizeInches: "12",
+    });
+  });
+
+  it("keeps a rect sheet's own size, placements and splits", () => {
+    const saved: RectSheetFormValues = {
+      templateId: "tpl-cb",
+      castingProductId: "cast-grate",
+      jobId: "job-1",
+      structureNumber: "CB-1",
+      contractor: "Acme",
+      project: "Main St",
+      date: "2026-01-02",
+      inspection: "",
+      approvedBy: "",
+      rimElevation: "100",
+      brickTargetInches: "",
+      insideLengthFeet: "5",
+      insideWidthFeet: "4",
+      hasTopSlab: true,
+      hasBaseSlab: true,
+      baseAttached: true,
+      topSlabOpeningLengthInches: "",
+      topSlabOpeningWidthInches: "",
+      topSlabOpeningSide: "UP",
+      maxPickWeightLbs: "",
+      sections: [
+        { id: "s1", heightFeet: "2", topKey: true },
+        { id: "s2", heightFeet: "3", topKey: false },
+      ],
+      openings: [
+        {
+          id: "o1",
+          label: "A",
+          wall: "LEFT",
+          pipeMaterial: "RCP",
+          pipeSizeInches: "15",
+          invertElevation: "95",
+          angle: "",
+          placement: "OFFSET",
+          offsetInches: "6",
+          widthOverrideInches: "26",
+        },
+      ],
+    };
+    const loaded = rectRowFromSheet("js-2", saved);
+    expect(loaded).toMatchObject({ insideLengthFeet: "5", pipeType: "RCP" });
+    expect(loaded.openings[0].wall).toBe("LEFT");
+    expect(computeRectOneOffRow(loaded, rectOptions).ready).toBe(true);
+
+    const edited = {
+      ...loaded,
+      openings: [{ ...loaded.openings[0], invert: "95.25" }],
+    };
+    const merged = mergeRectRow(saved, edited, loaded, rectOptions.templates, "2026-10-19");
+    if ("error" in merged) throw new Error(merged.error);
+    expect(merged.values.insideLengthFeet).toBe("5");
+    expect(merged.values.sections).toHaveLength(2);
+    expect(merged.values.openings[0]).toMatchObject({
+      wall: "LEFT",
+      placement: "OFFSET",
+      offsetInches: "6",
+      widthOverrideInches: "26",
+      invertElevation: "95.25",
     });
   });
 });

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import {
   getJobForOneOff,
@@ -211,6 +212,17 @@ export function OneOffJobStep({
                   : "This job has no structures yet."}{" "}
                 To change these details, edit the job itself.
               </p>
+              {choice.job.sheetCount > 0 ? (
+                <p className="text-xs sm:col-span-3">
+                  <Link
+                    href={`/quotes/one-off?edit=${choice.job.id}`}
+                    className="font-semibold text-sky-700 hover:underline"
+                  >
+                    Edit this job&apos;s {choice.job.sheetCount} drill sheet
+                    {choice.job.sheetCount === 1 ? "" : "s"} instead →
+                  </Link>
+                </p>
+              ) : null}
             </div>
           ) : null}
         </div>
