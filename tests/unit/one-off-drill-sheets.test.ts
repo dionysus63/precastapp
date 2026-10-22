@@ -409,7 +409,7 @@ describe("editing saved sheets", () => {
           pipeSizeInches: "15",
           invertElevation: "95",
           angle: "",
-          placement: "OFFSET",
+          placement: "FROM_LEFT",
           offsetInches: "6",
           widthOverrideInches: "26",
         },
@@ -430,7 +430,7 @@ describe("editing saved sheets", () => {
     expect(merged.values.sections).toHaveLength(2);
     expect(merged.values.openings[0]).toMatchObject({
       wall: "LEFT",
-      placement: "OFFSET",
+      placement: "FROM_LEFT",
       offsetInches: "6",
       widthOverrideInches: "26",
       invertElevation: "95.25",
