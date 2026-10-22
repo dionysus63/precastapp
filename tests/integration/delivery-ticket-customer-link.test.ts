@@ -176,6 +176,46 @@ describe("delivery ticket customer linking", () => {
     expect(ticket.customerId).toBe(customerId);
   });
 
+  it("keeps fields the editor doesn't send when a ticket is edited", async () => {
+    const created = await createDeliveryTicket(ticketInput());
+    const ticketId = (created as { ticketId: string }).ticketId;
+    await prisma.deliveryTicket.update({
+      where: { id: ticketId },
+      data: {
+        deliveryTime: "07:00",
+        loadSequence: "2 of 3",
+        internalNotes: "Crane on site",
+        siteContactName: "Foreman",
+        craneRequired: true,
+        customLine: "2nd",
+      },
+    });
+
+    const updated = await updateDeliveryTicket(ticketId, ticketInput());
+    expect("success" in updated && updated.success).toBe(true);
+
+    const ticket = await prisma.deliveryTicket.findUniqueOrThrow({
+      where: { id: ticketId },
+    });
+    expect(ticket.deliveryTime).toBe("07:00");
+    expect(ticket.loadSequence).toBe("2 of 3");
+    expect(ticket.internalNotes).toBe("Crane on site");
+    expect(ticket.siteContactName).toBe("Foreman");
+    expect(ticket.craneRequired).toBe(true);
+    expect(ticket.customLine).toBe("2nd");
+
+    // An explicit value still saves, and an explicit blank clears.
+    await updateDeliveryTicket(
+      ticketId,
+      ticketInput({ customLine: "  Load 3  ", internalNotes: null }),
+    );
+    const edited = await prisma.deliveryTicket.findUniqueOrThrow({
+      where: { id: ticketId },
+    });
+    expect(edited.customLine).toBe("Load 3");
+    expect(edited.internalNotes).toBeNull();
+  });
+
   it("leaves customerId null when nothing matches", async () => {
     const result = await createDeliveryTicket(
       ticketInput({

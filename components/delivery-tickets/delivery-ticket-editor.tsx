@@ -775,7 +775,6 @@ export function DeliveryTicketEditor({
         : selectedJob?.projectName ?? defaultValues?.projectName ?? "",
       deliveryAddress: defaultValues?.deliveryAddress ?? null,
       deliveryDate: deliveryDate.trim() || null,
-      deliveryTime: null,
       driver: resolveFleetValue(driver, driverOther),
       trailer: resolveFleetValue(trailer, trailerOther),
       customLine: ticketType === "JOB" ? customLine.trim() || null : null,
