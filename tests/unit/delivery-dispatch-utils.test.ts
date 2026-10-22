@@ -16,6 +16,7 @@ function row(overrides: Partial<DeliveryTicketRow>): DeliveryTicketRow {
     deliveryTime: null,
     driver: "—",
     trailer: "—",
+    customLine: null,
     status: "SCHEDULED",
     statusVariant: "info",
     items: 1,

@@ -96,6 +96,8 @@ export type DbDeliveryTicketForPdf = {
   ticketNumber: string | null;
   /** "PICKUP" renders the pickup-ticket layout; anything else is delivery. */
   fulfillmentMethod?: string | null;
+  /** Free-text dispatch label ("1st", "12") drawn in the upper right. */
+  customLine?: string | null;
   customerName: string;
   projectName: string;
   deliveryAddress: string | null;

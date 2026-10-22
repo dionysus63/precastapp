@@ -303,6 +303,7 @@ export default async function EditDeliveryTicketPage({
             deliveryTime: ticket.deliveryTime,
             driver: ticket.driver,
             trailer: ticket.trailer,
+            customLine: ticket.customLine,
             lines: defaultLines,
           }}
         />

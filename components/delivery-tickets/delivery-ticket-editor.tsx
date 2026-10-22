@@ -214,6 +214,7 @@ export function DeliveryTicketEditor({
   const [trailer, setTrailer] = useState(initialTrailer.selected);
   const [driverOther, setDriverOther] = useState(initialDriver.other);
   const [trailerOther, setTrailerOther] = useState(initialTrailer.other);
+  const [customLine, setCustomLine] = useState(defaultValues?.customLine ?? "");
 
   // Server refreshes hand down new defaultValues (e.g. after a save); adopt
   // them during the render they change rather than one render later.
@@ -777,6 +778,7 @@ export function DeliveryTicketEditor({
       deliveryTime: null,
       driver: resolveFleetValue(driver, driverOther),
       trailer: resolveFleetValue(trailer, trailerOther),
+      customLine: ticketType === "JOB" ? customLine.trim() || null : null,
       // Only meaningful in edit mode; lets the server reject stale saves.
       expectedUpdatedAt,
       // Whole casting sets ship as one assembly line; partial-set leftovers
@@ -1020,6 +1022,8 @@ export function DeliveryTicketEditor({
           setTrailer={setTrailer}
           trailerOther={trailerOther}
           setTrailerOther={setTrailerOther}
+          customLine={customLine}
+          setCustomLine={setCustomLine}
           error={error}
           markDirty={markDirty}
         />

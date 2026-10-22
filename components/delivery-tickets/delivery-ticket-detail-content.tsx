@@ -269,6 +269,7 @@ export function DeliveryTicketDetailContent({
               <OptionalField label="Requested By" value={ticket.requestedBy} />
               <OptionalField label="Created By" value={ticket.createdBy} />
               <OptionalField label="Load Sequence" value={ticket.loadSequence} />
+              <OptionalField label="Custom Line" value={ticket.customLine} />
               <OptionalField
                 label="Special Equipment"
                 value={ticket.specialEquipmentNeeded}

@@ -3,6 +3,7 @@
 import type { Dispatch, ReactNode, Ref, SetStateAction } from "react";
 import { searchJobsForDeliveryTicket } from "@/app/delivery-tickets/actions";
 import { FormTypeahead } from "@/components/common/form-typeahead";
+import { CUSTOM_LINE_MAX_LENGTH } from "@/lib/delivery-ticket-custom-line";
 import { compactInputClass, compactLabelClass } from "./editor-styles";
 import { formatWeight } from "./editor-utils";
 import type { JobOption } from "./types";
@@ -34,12 +35,14 @@ type JobTicketHeaderProps = {
   setTrailer: Dispatch<SetStateAction<string>>;
   trailerOther: string;
   setTrailerOther: Dispatch<SetStateAction<string>>;
+  customLine: string;
+  setCustomLine: Dispatch<SetStateAction<string>>;
   error: string | null;
   markDirty: () => void;
 };
 
 /** Sticky JOB-ticket bar: line count / weight, actions, job + quote pickers,
- * fulfillment method, date, driver and trailer. */
+ * fulfillment method, date, driver, trailer and custom line. */
 export function JobTicketHeader({
   stickyRef,
   ticketTypeButtons,
@@ -67,6 +70,8 @@ export function JobTicketHeader({
   setTrailer,
   trailerOther,
   setTrailerOther,
+  customLine,
+  setCustomLine,
   error,
   markDirty,
 }: JobTicketHeaderProps) {
@@ -283,6 +288,24 @@ export function JobTicketHeader({
             </div>
           </div>
         ) : null}
+
+        <div className="w-28 max-w-full shrink-0">
+          <label htmlFor="deliveryCustomLine" className={compactLabelClass}>
+            Custom line
+          </label>
+          <input
+            id="deliveryCustomLine"
+            value={customLine}
+            maxLength={CUSTOM_LINE_MAX_LENGTH}
+            onChange={(event) => {
+              setCustomLine(event.target.value);
+              markDirty();
+            }}
+            placeholder="e.g. 1st"
+            title="Prints in the upper right of the ticket"
+            className={compactInputClass}
+          />
+        </div>
       </div>
 
       {error ? (

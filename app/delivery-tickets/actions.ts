@@ -39,6 +39,7 @@ import {
   loadDerivedAssemblyValues,
 } from "@/lib/casting-service";
 import { withDatabaseRetry } from "@/lib/prisma";
+import { normalizeCustomLine } from "@/lib/delivery-ticket-custom-line";
 
 export type TicketProductOption = {
   id: string;
@@ -106,6 +107,7 @@ export type SaveDeliveryTicketInput = {
   trailer?: string | null;
   driver?: string | null;
   loadSequence?: string | null;
+  customLine?: string | null;
   specialEquipmentNeeded?: string | null;
   craneRequired?: boolean;
   forkliftRequired?: boolean;
@@ -539,6 +541,7 @@ function ticketData(input: SaveDeliveryTicketInput) {
     trailer: input.trailer ?? null,
     driver: input.driver ?? null,
     loadSequence: input.loadSequence ?? null,
+    customLine: normalizeCustomLine(input.customLine),
     specialEquipmentNeeded: input.specialEquipmentNeeded ?? null,
     craneRequired: input.craneRequired ?? false,
     forkliftRequired: input.forkliftRequired ?? false,
@@ -1493,6 +1496,46 @@ export async function updateTicketTrailer(
     return {
       error:
         error instanceof Error ? error.message : "Could not update the trailer.",
+    };
+  }
+}
+
+/**
+ * Dispatch quick-edit: change only the free-text custom line printed in the
+ * ticket's upper right, e.g. from the Today's Loads panel before printing.
+ */
+export async function updateTicketCustomLine(
+  ticketId: string,
+  customLine: string | null,
+): Promise<UpdateTicketDriverResult> {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+  try {
+    const ticket = await withDatabaseRetry((client) =>
+      client.deliveryTicket.findUnique({
+        where: { id: ticketId },
+        select: { id: true },
+      }),
+    );
+    if (!ticket) {
+      return { error: "Ticket not found. Refresh the page." };
+    }
+
+    await withDatabaseRetry((client) =>
+      client.deliveryTicket.update({
+        where: { id: ticketId },
+        data: { customLine: normalizeCustomLine(customLine) },
+      }),
+    );
+
+    revalidatePath("/delivery-tickets");
+    revalidatePath(`/delivery-tickets/${ticketId}`);
+    return { success: true };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not update the custom line.",
     };
   }
 }
