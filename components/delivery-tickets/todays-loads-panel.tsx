@@ -62,10 +62,10 @@ export function TodaysLoadsPanel({
             <thead>
               <tr>
                 <th className={tableHeaderCellClassName}>Ticket</th>
-                <th className={tableHeaderCellClassName}>Custom Line</th>
                 <th className={tableHeaderCellClassName}>Job</th>
                 <th className={tableHeaderCellClassName}>Customer</th>
                 <th className={tableHeaderCellClassName}>Project</th>
+                <th className={tableHeaderCellClassName}>Custom Line</th>
                 <th className={tableHeaderCellClassName}>Driver</th>
                 <th className={tableHeaderCellClassName}>Trailer</th>
                 <th className={tableHeaderCellClassName}>Weight</th>
@@ -88,12 +88,6 @@ export function TodaysLoadsPanel({
                     >
                       {ticket.ticketNumber}
                     </Link>
-                  </td>
-                  <td className={tableCellClassName}>
-                    <CustomLineInput
-                      ticketId={ticket.id}
-                      customLine={ticket.customLine}
-                    />
                   </td>
                   <td className={`${tableCellClassName} font-mono text-[11px] text-slate-700`}>
                     {ticket.jobId ? (
@@ -130,6 +124,12 @@ export function TodaysLoadsPanel({
                     ) : (
                       ticket.projectName
                     )}
+                  </td>
+                  <td className={tableCellClassName}>
+                    <CustomLineInput
+                      ticketId={ticket.id}
+                      customLine={ticket.customLine}
+                    />
                   </td>
                   <td className={`${tableCellClassName}${delivered ? " text-slate-600" : ""}`}>
                     {delivered ? (
