@@ -419,9 +419,10 @@ another PC's share, or both. Settings live in `.env` on the server:
 ```env
 # BACKUP_DIR=C:\Backups\precastapp                     # default
 # BACKUP_RETENTION_DAYS=30                               # local and share copies
-BACKUP_RCLONE_REMOTE=b2:YOUR-BUCKET/precastapp           # cloud upload (optional, recommended)
-BACKUP_RCLONE_CONFIG=C:\ProgramData\rclone\rclone.conf
-# BACKUP_RCLONE_EXE=C:\Program Files\rclone\rclone.exe  # default
+BACKUP_B2_BUCKET=YOUR-BUCKET                             # cloud upload (optional, recommended)
+BACKUP_B2_KEY_ID="YOUR_KEY_ID"
+BACKUP_B2_KEY="YOUR_APPLICATION_KEY"
+# BACKUP_B2_PREFIX=precastapp/                           # default folder in the bucket
 # BACKUP_COPY_DIR=\\NAS\Backups\precastapp              # copy to a share (optional)
 ```
 
@@ -430,11 +431,12 @@ failed) or `FAIL` line to `C:\Backups\precastapp\backup.log`.
 
 ### Off-site copy to Backblaze B2
 
-The backup script uploads each night's `.dump` and `.zip` with
-[rclone](https://rclone.org). Old files in the bucket are removed by the bucket's
-own lifecycle rule, and Object Lock keeps each upload undeletable for 30 days, so
-even someone (or ransomware) with full control of the server can't wipe the
-cloud copies.
+The backup script uploads each night's `.dump` and `.zip` straight to Backblaze's
+API with plain PowerShell (`scripts\backup-b2.ps1`), so there is nothing to install
+and nothing for antivirus to block. Each upload is checked with a SHA-1 checksum.
+Old files in the bucket are removed by the bucket's own lifecycle rule, and Object
+Lock keeps each upload undeletable for 30 days, so even someone (or ransomware)
+with full control of the server can't wipe the cloud copies.
 
 1. **Create the bucket** (Backblaze web console → B2 → Buckets → Create a Bucket):
    - Name: anything unique, e.g. `liprecast-backups`; Files: **Private**
@@ -446,33 +448,21 @@ cloud copies.
 2. **Create an application key** (B2 → Application Keys → Add a New Application Key):
    access to **that bucket only**, type **Read and Write**. Copy the **keyID** and
    **applicationKey**; the key is shown only once.
-3. **Install rclone on the server**: download the Windows 64-bit zip from
-   <https://rclone.org/downloads/> and put `rclone.exe` in `C:\Program Files\rclone\`.
-4. **Save the key** in an rclone config file (elevated PowerShell on the server):
+3. **Add the bucket and key to `.env`** on the server, next to `DATABASE_URL` (which
+   is already a secret kept only in that file):
 
-   ```powershell
-   New-Item -ItemType Directory -Force C:\ProgramData\rclone | Out-Null
-   & "C:\Program Files\rclone\rclone.exe" config create b2 b2 `
-       account "YOUR_KEY_ID" key "YOUR_APPLICATION_KEY" --config C:\ProgramData\rclone\rclone.conf
-   # Only admins and SYSTEM can read the key file
-   icacls C:\ProgramData\rclone /inheritance:r /grant:r "Administrators:(OI)(CI)F" "SYSTEM:(OI)(CI)F"
+   ```env
+   BACKUP_B2_BUCKET=YOUR-BUCKET
+   BACKUP_B2_KEY_ID="YOUR_KEY_ID"
+   BACKUP_B2_KEY="YOUR_APPLICATION_KEY"
    ```
 
-   Replace the quoted values with your keyID and applicationKey, keeping the quotes.
-   The task account must be able to read this file (it is if it's an administrator).
-   Check the key works (no output and no error means OK; the bucket is just empty):
+4. **Test**: `Start-ScheduledTask -TaskName "PrecastApp DB Backup"`, wait for it to
+   finish, then `.\scripts\deploy\check-backup.ps1` should show `[OK]` lines for
+   the cloud.
 
-   ```powershell
-   & "C:\Program Files\rclone\rclone.exe" lsf b2:YOUR-BUCKET --config C:\ProgramData\rclone\rclone.conf
-   ```
-5. **Point the backup at it**: add `BACKUP_RCLONE_REMOTE=b2:<bucket>/precastapp` and
-   `BACKUP_RCLONE_CONFIG=C:\ProgramData\rclone\rclone.conf` to `.env`.
-6. **Test**: `Start-ScheduledTask -TaskName "PrecastApp DB Backup"`, then
-   `.\scripts\deploy\check-backup.ps1` should show `[OK]` lines for the cloud.
-
-To restore from the cloud, download the files from the Backblaze web console (or
-`rclone copy b2:<bucket>/precastapp/<file> C:\Backups\precastapp --config ...`) and
-follow [Restore](#restore).
+To restore from the cloud, download the files from the Backblaze web console
+(B2 → Browse Files → your bucket → `precastapp/`) and follow [Restore](#restore).
 
 ### Install the scheduled task (once, elevated PowerShell on the server)
 
@@ -485,7 +475,7 @@ It asks for the password of the account it runs as (you, by default; pass
 `-User DOMAIN\name` for another), so the task runs **whether or not anyone is
 logged on**. Task Scheduler stores the password; re-run the script after that
 account's password changes. The account needs write access to `BACKUP_COPY_DIR` (if
-set) and read access to the rclone config file.
+set).
 `-User SYSTEM` needs no password but usually can't write to a network share.
 Re-running replaces the existing **PrecastApp DB Backup** task.
 
@@ -505,8 +495,7 @@ cd C:\Apps\precastapp
 It shows whether the task is installed and runs while logged off, the last run
 result, the newest `.dump` and storage `.zip` in each location and their age,
 whether tonight's files reached the cloud bucket, and the last log lines.
-Everything should read `[OK]`; it exits non-zero otherwise. Run it from an
-administrator PowerShell so it can read the rclone config.
+Everything should read `[OK]`; it exits non-zero otherwise.
 
 ### Restore
 

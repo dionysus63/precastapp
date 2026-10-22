@@ -15,10 +15,9 @@ function Get-EnvValue([string] $name) {
 $backupDir = Get-EnvValue "BACKUP_DIR"
 if (-not $backupDir) { $backupDir = "C:\Backups\precastapp" }
 $copyDir = Get-EnvValue "BACKUP_COPY_DIR"
-$rcloneRemote = Get-EnvValue "BACKUP_RCLONE_REMOTE"
-$rcloneExe = Get-EnvValue "BACKUP_RCLONE_EXE"
-if (-not $rcloneExe) { $rcloneExe = "C:\Program Files\rclone\rclone.exe" }
-$rcloneConfig = Get-EnvValue "BACKUP_RCLONE_CONFIG"
+$b2Bucket = Get-EnvValue "BACKUP_B2_BUCKET"
+$b2Prefix = Get-EnvValue "BACKUP_B2_PREFIX"
+if (-not $b2Prefix) { $b2Prefix = "precastapp/" }
 $problems = 0
 
 function Report([bool] $ok, [string] $text) {
@@ -57,37 +56,24 @@ function Check-Folder([string] $dir, [string] $label) {
 Check-Folder $backupDir "Local"
 if ($copyDir) { Check-Folder $copyDir "Copy" }
 
-# --- Cloud (rclone) ---
-if ($rcloneRemote) {
-    if (-not (Test-Path $rcloneExe -PathType Leaf)) {
-        Report $false "rclone not found at $rcloneExe"
-    } else {
-        $rcloneArgs = @()
-        if ($rcloneConfig) { $rcloneArgs += @("--config", $rcloneConfig) }
-        # Run as the same account as the task, or rclone may not find its config.
-        try {
-            $ErrorActionPreference = "Stop"   # so a failure to start rclone lands in catch
-            $recent = @(& $rcloneExe @rcloneArgs lsf $rcloneRemote --files-only --max-age "${MaxAgeHours}h" 2>&1)
-            $code = $LASTEXITCODE
-        } catch {
-            $recent = @("could not start rclone: $($_.Exception.Message)")
-            $code = -1
-        } finally {
-            $ErrorActionPreference = "Continue"
-        }
-        if ($code -ne 0) {
-            Report $false "Cannot list $rcloneRemote (rclone exit $code): $($recent | Select-Object -Last 1)"
-        } else {
-            $dumps = @($recent | Where-Object { "$_" -like "*.dump" })
-            $zips = @($recent | Where-Object { "$_" -like "*-storage_*.zip" })
-            Report ($dumps.Count -gt 0) "Cloud $rcloneRemote has $($dumps.Count) .dump file(s) from the last $MaxAgeHours h"
-            Report ($zips.Count -gt 0) "Cloud $rcloneRemote has $($zips.Count) storage .zip file(s) from the last $MaxAgeHours h"
-        }
+# --- Cloud (Backblaze B2) ---
+if ($b2Bucket) {
+    try {
+        . (Join-Path $PSScriptRoot "..\backup-b2.ps1")
+        $b2 = Connect-B2 (Get-EnvValue "BACKUP_B2_KEY_ID") (Get-EnvValue "BACKUP_B2_KEY") $b2Bucket
+        $since = [DateTimeOffset]::UtcNow.AddHours(-$MaxAgeHours).ToUnixTimeMilliseconds()
+        $recent = @(Get-B2Files $b2 $b2Prefix | Where-Object { $_.uploadTimestamp -ge $since })
+        $dumps = @($recent | Where-Object { $_.fileName -like "*.dump" })
+        $zips = @($recent | Where-Object { $_.fileName -like "*-storage_*.zip" })
+        Report ($dumps.Count -gt 0) "Cloud b2://$b2Bucket/$b2Prefix has $($dumps.Count) .dump file(s) from the last $MaxAgeHours h"
+        Report ($zips.Count -gt 0) "Cloud b2://$b2Bucket/$b2Prefix has $($zips.Count) storage .zip file(s) from the last $MaxAgeHours h"
+    } catch {
+        Report $false "Cannot check Backblaze bucket ${b2Bucket}: $($_.Exception.Message)"
     }
 }
 
-if (-not $copyDir -and -not $rcloneRemote) {
-    Write-Host "[--]   No BACKUP_COPY_DIR or BACKUP_RCLONE_REMOTE set; backups exist only on this server" -ForegroundColor Yellow
+if (-not $copyDir -and -not $b2Bucket) {
+    Write-Host "[--]   No BACKUP_COPY_DIR or BACKUP_B2_BUCKET set; backups exist only on this server" -ForegroundColor Yellow
 }
 
 $log = Join-Path $backupDir "backup.log"

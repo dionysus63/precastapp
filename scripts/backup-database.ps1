@@ -6,8 +6,9 @@
 # - Writes a compressed pg_dump custom-format archive (.dump) that pg_restore
 #   can restore selectively, and a zip of storage/ with the same timestamp.
 # - Optionally copies both files to a second location (e.g. a UNC share on
-#   another machine) and/or uploads them off-site with rclone (e.g. a
-#   Backblaze B2 bucket), so a dead disk does not take the backups with it.
+#   another machine) and/or uploads them to a Backblaze B2 bucket (plain
+#   PowerShell, see backup-b2.ps1), so a dead disk does not take the backups
+#   with it.
 #   Old files in the cloud are removed by the bucket's lifecycle rule, not by
 #   this script, so the upload key does not need delete rights.
 # - Keeps the most recent 30 days of backups in each location and prunes
@@ -20,9 +21,10 @@
 #   -BackupDir       BACKUP_DIR             C:\Backups\precastapp
 #   -CopyDir         BACKUP_COPY_DIR        (none; e.g. \\NAS\Backups\precastapp)
 #   -RetentionDays   BACKUP_RETENTION_DAYS  30
-#   -RcloneRemote    BACKUP_RCLONE_REMOTE   (none; e.g. b2:precast-backups/precastapp)
-#   -RcloneExe       BACKUP_RCLONE_EXE      C:\Program Files\rclone\rclone.exe
-#   -RcloneConfig    BACKUP_RCLONE_CONFIG   (rclone's default for the task's account)
+#   -B2Bucket        BACKUP_B2_BUCKET       (none = no cloud upload)
+#                    BACKUP_B2_KEY_ID       application key ID
+#                    BACKUP_B2_KEY          application key
+#                    BACKUP_B2_PREFIX       precastapp/  (folder inside the bucket)
 #
 # Exit codes: 0 OK, 1 backup failed, 2 local backup OK but the second copy
 # or cloud upload failed.
@@ -39,9 +41,7 @@ param(
     [string] $BackupDir,
     [string] $CopyDir,
     [int] $RetentionDays = 0,
-    [string] $RcloneRemote,
-    [string] $RcloneExe,
-    [string] $RcloneConfig,
+    [string] $B2Bucket,
     [string] $PgBin = "C:\Program Files\PostgreSQL\18\bin"
 )
 
@@ -90,10 +90,11 @@ try {
     if (-not $BackupDir) { $BackupDir = Get-EnvValue $envLines "BACKUP_DIR" }
     if (-not $BackupDir) { $BackupDir = $DefaultBackupDir }
     if (-not $CopyDir) { $CopyDir = Get-EnvValue $envLines "BACKUP_COPY_DIR" }
-    if (-not $RcloneRemote) { $RcloneRemote = Get-EnvValue $envLines "BACKUP_RCLONE_REMOTE" }
-    if (-not $RcloneExe) { $RcloneExe = Get-EnvValue $envLines "BACKUP_RCLONE_EXE" }
-    if (-not $RcloneExe) { $RcloneExe = "C:\Program Files\rclone\rclone.exe" }
-    if (-not $RcloneConfig) { $RcloneConfig = Get-EnvValue $envLines "BACKUP_RCLONE_CONFIG" }
+    if (-not $B2Bucket) { $B2Bucket = Get-EnvValue $envLines "BACKUP_B2_BUCKET" }
+    $B2KeyId = Get-EnvValue $envLines "BACKUP_B2_KEY_ID"
+    $B2Key = Get-EnvValue $envLines "BACKUP_B2_KEY"
+    $B2Prefix = Get-EnvValue $envLines "BACKUP_B2_PREFIX"
+    if (-not $B2Prefix) { $B2Prefix = "precastapp/" }
     if ($RetentionDays -le 0) {
         $configured = Get-EnvValue $envLines "BACKUP_RETENTION_DAYS"
         $RetentionDays = if ($configured) { [int]$configured } else { 30 }
@@ -176,27 +177,20 @@ try {
         }
     }
 
-    # --- Cloud upload (rclone verifies checksums on upload) ---
-    if ($RcloneRemote) {
+    # --- Cloud upload (Backblaze B2) ---
+    if ($B2Bucket) {
         try {
-            if (-not (Test-Path $RcloneExe -PathType Leaf)) {
-                throw "rclone not found at $RcloneExe"
+            if (-not $B2KeyId -or -not $B2Key) {
+                throw "BACKUP_B2_KEY_ID and BACKUP_B2_KEY must be set in .env"
             }
-            $rcloneArgs = @()
-            if ($RcloneConfig) { $rcloneArgs += @("--config", $RcloneConfig) }
+            . (Join-Path $PSScriptRoot "backup-b2.ps1")
+            $b2 = Connect-B2 $B2KeyId $B2Key $B2Bucket
             foreach ($file in $made) {
-                # rclone logs to stderr; under "Stop", Windows PowerShell would treat that as an error.
-                $ErrorActionPreference = "Continue"
-                $output = & $RcloneExe @rcloneArgs copy $file $RcloneRemote --retries 3 --low-level-retries 10 2>&1
-                $ErrorActionPreference = "Stop"
-                if ($LASTEXITCODE -ne 0) {
-                    $detail = ($output | Select-Object -Last 1)
-                    throw "rclone exited with code $LASTEXITCODE for $([System.IO.Path]::GetFileName($file)): $detail"
-                }
+                Send-B2File $b2 $file ($B2Prefix + [System.IO.Path]::GetFileName($file)) | Out-Null
             }
-            $summary += "; uploaded to $RcloneRemote"
+            $summary += "; uploaded to b2://$B2Bucket/$B2Prefix"
         } catch {
-            $offsiteErrors += "upload to $RcloneRemote failed: $($_.Exception.Message)"
+            $offsiteErrors += "upload to Backblaze bucket $B2Bucket failed: $($_.Exception.Message)"
         }
     }
 
