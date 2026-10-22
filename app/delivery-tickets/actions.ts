@@ -39,6 +39,7 @@ import {
   loadDerivedAssemblyValues,
 } from "@/lib/casting-service";
 import { withDatabaseRetry } from "@/lib/prisma";
+import { normalizeCustomLine } from "@/lib/delivery-ticket-custom-line";
 
 export type TicketProductOption = {
   id: string;
@@ -106,6 +107,7 @@ export type SaveDeliveryTicketInput = {
   trailer?: string | null;
   driver?: string | null;
   loadSequence?: string | null;
+  customLine?: string | null;
   specialEquipmentNeeded?: string | null;
   craneRequired?: boolean;
   forkliftRequired?: boolean;
@@ -527,25 +529,33 @@ function ticketData(input: SaveDeliveryTicketInput) {
     quoteNumber: input.quoteNumber ?? null,
     customerName: input.customerName.trim(),
     projectName: input.projectName.trim(),
-    deliveryAddress: input.deliveryAddress ?? null,
-    siteContactName: input.siteContactName ?? null,
-    siteContactPhone: input.siteContactPhone ?? null,
-    siteContactEmail: input.siteContactEmail ?? null,
-    siteInstructions: input.siteInstructions ?? null,
+    // Header fields the editor doesn't show (site contact, delivery time,
+    // load sequence, notes...) arrive undefined on an edit. Undefined makes
+    // Prisma keep the saved value (column default on create); don't coerce
+    // these to null or every edit wipes them.
+    deliveryAddress: input.deliveryAddress,
+    siteContactName: input.siteContactName,
+    siteContactPhone: input.siteContactPhone,
+    siteContactEmail: input.siteContactEmail,
+    siteInstructions: input.siteInstructions,
     deliveryDate: parseDate(input.deliveryDate),
-    deliveryTime: input.deliveryTime ?? null,
-    requestedBy: input.requestedBy ?? null,
-    createdBy: input.createdBy ?? null,
+    deliveryTime: input.deliveryTime,
+    requestedBy: input.requestedBy,
+    createdBy: input.createdBy,
     trailer: input.trailer ?? null,
     driver: input.driver ?? null,
-    loadSequence: input.loadSequence ?? null,
-    specialEquipmentNeeded: input.specialEquipmentNeeded ?? null,
-    craneRequired: input.craneRequired ?? false,
-    forkliftRequired: input.forkliftRequired ?? false,
-    driverNotes: input.driverNotes ?? null,
-    internalNotes: input.internalNotes ?? null,
-    customerNotes: input.customerNotes ?? null,
-    loadingNotes: input.loadingNotes ?? null,
+    loadSequence: input.loadSequence,
+    customLine:
+      input.customLine === undefined
+        ? undefined
+        : normalizeCustomLine(input.customLine),
+    specialEquipmentNeeded: input.specialEquipmentNeeded,
+    craneRequired: input.craneRequired,
+    forkliftRequired: input.forkliftRequired,
+    driverNotes: input.driverNotes,
+    internalNotes: input.internalNotes,
+    customerNotes: input.customerNotes,
+    loadingNotes: input.loadingNotes,
     totalItems,
     totalWeight,
     lineItems: { create: lineCreates },
@@ -1493,6 +1503,46 @@ export async function updateTicketTrailer(
     return {
       error:
         error instanceof Error ? error.message : "Could not update the trailer.",
+    };
+  }
+}
+
+/**
+ * Dispatch quick-edit: change only the free-text custom line printed in the
+ * ticket's upper right, e.g. from the Today's Loads panel before printing.
+ */
+export async function updateTicketCustomLine(
+  ticketId: string,
+  customLine: string | null,
+): Promise<UpdateTicketDriverResult> {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+  try {
+    const ticket = await withDatabaseRetry((client) =>
+      client.deliveryTicket.findUnique({
+        where: { id: ticketId },
+        select: { id: true },
+      }),
+    );
+    if (!ticket) {
+      return { error: "Ticket not found. Refresh the page." };
+    }
+
+    await withDatabaseRetry((client) =>
+      client.deliveryTicket.update({
+        where: { id: ticketId },
+        data: { customLine: normalizeCustomLine(customLine) },
+      }),
+    );
+
+    revalidatePath("/delivery-tickets");
+    revalidatePath(`/delivery-tickets/${ticketId}`);
+    return { success: true };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not update the custom line.",
     };
   }
 }

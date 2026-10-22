@@ -22,6 +22,7 @@ export type DeliveryTicketRow = {
   deliveryTime: string | null;
   driver: string;
   trailer: string;
+  customLine: string | null;
   status: DeliveryTicketStatus;
   statusVariant: "success" | "info" | "warning" | "neutral" | "default" | "danger";
   items: number;
@@ -356,6 +357,7 @@ export type DeliveryTicketDetailView = {
   createdBy: string;
   trailer: string;
   loadSequence: string;
+  customLine: string;
   craneRequired: string;
   forkliftRequired: string;
   specialEquipmentNeeded: string;

@@ -1340,6 +1340,8 @@ model DeliveryTicket {
   trailer                String?
   driver                 String?
   loadSequence           String?
+  // Free-text dispatch label ("1st", "2nd", "12") printed top-right on the ticket.
+  customLine             String?
   specialEquipmentNeeded String?
   craneRequired          Boolean              @default(false)
   forkliftRequired       Boolean              @default(false)

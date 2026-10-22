@@ -26,6 +26,7 @@ export const deliveryTicketListSelect = {
   deliveryTime: true,
   driver: true,
   trailer: true,
+  customLine: true,
   status: true,
   totalItems: true,
   totalWeight: true,
@@ -53,6 +54,7 @@ type DbDeliveryTicket = {
   trailer: string | null;
   driver: string | null;
   loadSequence: string | null;
+  customLine: string | null;
   craneRequired: boolean;
   forkliftRequired: boolean;
   specialEquipmentNeeded: string | null;
@@ -118,6 +120,7 @@ export function mapDbDeliveryTicketToDetailView(
     requestedBy: ticket.requestedBy ?? "—",
     createdBy: ticket.createdBy ?? "—",
     loadSequence: ticket.loadSequence ?? "—",
+    customLine: ticket.customLine ?? "—",
     craneRequired: ticket.craneRequired ? "Yes" : "No",
     forkliftRequired: ticket.forkliftRequired ? "Yes" : "No",
     specialEquipmentNeeded: ticket.specialEquipmentNeeded ?? "—",
@@ -193,6 +196,7 @@ export function mapDbDeliveryTicketToListRow(ticket: {
   deliveryTime: string | null;
   driver: string | null;
   trailer?: string | null;
+  customLine?: string | null;
   status: string;
   totalItems: number | null;
   totalWeight: { toString(): string } | null;
@@ -216,6 +220,7 @@ export function mapDbDeliveryTicketToListRow(ticket: {
     deliveryTime: ticket.deliveryTime,
     driver: ticket.driver ?? "—",
     trailer: ticket.trailer ?? "—",
+    customLine: ticket.customLine ?? null,
     status: ticket.status as DeliveryTicketRow["status"],
     statusVariant: deliveryTicketStatusVariant(ticket.status),
     items: itemCount,

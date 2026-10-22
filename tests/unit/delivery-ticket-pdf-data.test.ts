@@ -103,6 +103,31 @@ describe("delivery ticket PDF form data", () => {
     }
   });
 
+  it("draws the custom line in the upper right of the ticket", async () => {
+    const pdfBytes = await generateDeliveryTicketCopyPdfBytes(
+      ticket({ customLine: "2nd" }),
+      1,
+      fillOptions,
+    );
+    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const loadingTask = pdfjs.getDocument({ data: pdfBytes });
+    const pdf = await loadingTask.promise;
+
+    try {
+      const page = await pdf.getPage(1);
+      const text = await page.getTextContent();
+      const item = text.items.find(
+        (entry) => "str" in entry && entry.str === "2nd",
+      );
+      expect(item).toBeDefined();
+      const [, , , , x, y] = (item as { transform: number[] }).transform;
+      expect(x).toBeGreaterThan(500);
+      expect(y).toBeGreaterThan(740);
+    } finally {
+      await loadingTask.destroy();
+    }
+  });
+
   it("falls back to the linked job address when the ticket address is blank", () => {
     const data = buildDeliveryTicketFormData(
       ticket({ deliveryAddress: "  \n " }),

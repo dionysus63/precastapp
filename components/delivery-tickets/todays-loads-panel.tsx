@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { DriverSelect, TrailerSelect } from "@/components/delivery-tickets/fleet-select";
+import { CustomLineInput } from "@/components/delivery-tickets/custom-line-input";
 import { StatusSelect } from "@/components/delivery-tickets/status-select";
 import { type DeliveryTicketRow } from "@/components/delivery-tickets/delivery-ticket-utils";
 import { getTodaysScheduledLoads } from "@/lib/delivery-dispatch-utils";
@@ -21,7 +22,8 @@ type TodaysLoadsPanelProps = {
   day?: "today" | "tomorrow";
 };
 
-// Server component shell; only the assignment dropdowns hydrate on the client.
+// Server component shell; only the assignment dropdowns and custom line
+// input hydrate on the client.
 export function TodaysLoadsPanel({
   tickets,
   drivers,
@@ -63,6 +65,7 @@ export function TodaysLoadsPanel({
                 <th className={tableHeaderCellClassName}>Job</th>
                 <th className={tableHeaderCellClassName}>Customer</th>
                 <th className={tableHeaderCellClassName}>Project</th>
+                <th className={tableHeaderCellClassName}>Custom Line</th>
                 <th className={tableHeaderCellClassName}>Driver</th>
                 <th className={tableHeaderCellClassName}>Trailer</th>
                 <th className={tableHeaderCellClassName}>Weight</th>
@@ -121,6 +124,12 @@ export function TodaysLoadsPanel({
                     ) : (
                       ticket.projectName
                     )}
+                  </td>
+                  <td className={tableCellClassName}>
+                    <CustomLineInput
+                      ticketId={ticket.id}
+                      customLine={ticket.customLine}
+                    />
                   </td>
                   <td className={`${tableCellClassName}${delivered ? " text-slate-600" : ""}`}>
                     {delivered ? (

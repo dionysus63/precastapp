@@ -10,7 +10,7 @@ import {
   type PDFPage,
 } from "pdf-lib";
 import { removeFlattenLeftovers } from "@/lib/pdf-flatten-cleanup";
-import { setPdfFieldText } from "@/lib/pdf-text";
+import { setPdfFieldText, toWinAnsiText } from "@/lib/pdf-text";
 import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import {
   buildDeliveryTicketFormData,
@@ -45,6 +45,13 @@ const DRIVER_LABEL_COVER_X = 153.5;
 const DRIVER_LABEL_COVER_Y = 559.75;
 const DRIVER_LABEL_COVER_WIDTH = 49;
 const DRIVER_LABEL_COVER_HEIGHT = 9.75;
+// Custom line: right-aligned above the "Delivery Ticket" title (title cap
+// height tops out near y=738), flush with the boxes' right border.
+const CUSTOM_LINE_RIGHT_X = 575.5;
+const CUSTOM_LINE_Y = 750;
+const CUSTOM_LINE_FONT_SIZE = 14;
+const CUSTOM_LINE_MIN_FONT_SIZE = 7;
+const CUSTOM_LINE_MAX_WIDTH = 220;
 // Header-band fill sampled from the template ("0.851 0.851 0.851 rg")
 const HEADER_BAND_GREY = rgb(0.851, 0.851, 0.851);
 
@@ -153,12 +160,33 @@ function redrawDriverLabel(page: PDFPage, boldFont: PDFFont): void {
   });
 }
 
+/** Dispatcher's free-text label ("1st", "2nd", "12") in the top-right corner. */
+function drawCustomLine(page: PDFPage, boldFont: PDFFont, customLine: string): void {
+  const text = toWinAnsiText(customLine).trim();
+  if (!text) return;
+  let size = CUSTOM_LINE_FONT_SIZE;
+  while (
+    size > CUSTOM_LINE_MIN_FONT_SIZE &&
+    boldFont.widthOfTextAtSize(text, size) > CUSTOM_LINE_MAX_WIDTH
+  ) {
+    size -= 0.5;
+  }
+  page.drawText(text, {
+    x: CUSTOM_LINE_RIGHT_X - boldFont.widthOfTextAtSize(text, size),
+    y: CUSTOM_LINE_Y,
+    size,
+    font: boldFont,
+    color: rgb(0, 0, 0),
+  });
+}
+
 async function buildContentPageBytes(
   templateBytes: Uint8Array,
   formData: Record<string, string>,
   slice: LineItemPageSlice,
   totalPieces: string,
   isPickup: boolean,
+  customLine: string | null,
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.load(templateBytes);
   const font = await doc.embedFont(StandardFonts.Helvetica);
@@ -172,12 +200,14 @@ async function buildContentPageBytes(
     applyPickupTicketArtwork(page, boldFont, font);
     fillAcroFormFields(doc, formData, font);
     drawLineItemsOnPage(page, font, slice, totalPieces, PICKUP_TABLE_LAYOUT);
+    if (customLine) drawCustomLine(page, boldFont, customLine);
     return doc.save(PDF_SAVE_OPTIONS);
   }
 
   fillAcroFormFields(doc, formData, font);
   redrawDriverLabel(page, boldFont);
   drawLineItemsOnPage(page, font, slice, totalPieces);
+  if (customLine) drawCustomLine(page, boldFont, customLine);
 
   return doc.save(PDF_SAVE_OPTIONS);
 }
@@ -225,6 +255,7 @@ async function buildCopyPdfBytes(
       slices[pageIndex]!,
       totalPieces,
       isPickup,
+      ticket.customLine?.trim() || null,
     );
     const pageDoc = await PDFDocument.load(pageBytes);
     const [copiedPage] = await merged.copyPages(pageDoc, [0]);
