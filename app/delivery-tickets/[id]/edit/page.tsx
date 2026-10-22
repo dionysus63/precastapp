@@ -9,6 +9,10 @@ import { withDatabaseRetry } from "@/lib/prisma";
 import { toLocalDayInput } from "@/lib/date-only";
 import { castingAssemblyEditorKey } from "@/lib/casting-utils";
 import { explodeAssemblyTicketLine } from "@/lib/casting-ticket-lines";
+import {
+  buildQuoteLineAliasMap,
+  getQuoteLineageQuoteIds,
+} from "@/lib/delivery-fulfillment";
 type EditDeliveryTicketPageProps = {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ from?: string }>;
@@ -30,7 +34,7 @@ export default async function EditDeliveryTicketPage({
   const { from } = await searchParams;
   const origin = from ? EDIT_ORIGINS[from] : undefined;
 
-  const [ticket, jobs, settings, priceListOptions, productGroups] =
+  const [ticket, recentJobs, settings, priceListOptions, productGroups] =
     await Promise.all([
     withDatabaseRetry((prisma) =>
       prisma.deliveryTicket.findUnique({
@@ -93,6 +97,61 @@ export default async function EditDeliveryTicketPage({
     redirect(`/delivery-tickets/${ticket.id}`);
   }
 
+  // The job list only holds the most recent jobs; a ticket on an older job
+  // still needs its own job (and won quotes) to show the quote's lines.
+  let jobs = recentJobs;
+  if (ticket.jobId && !jobs.some((job) => job.id === ticket.jobId)) {
+    const ticketJob = await withDatabaseRetry((prisma) =>
+      prisma.job.findUnique({
+        where: { id: ticket.jobId! },
+        select: {
+          id: true,
+          jobNumber: true,
+          projectName: true,
+          customerId: true,
+          customerName: true,
+          quotes: {
+            where: { status: "WON" },
+            orderBy: { revisionNumber: "desc" },
+            select: { id: true, quoteNumber: true },
+          },
+        },
+      }),
+    );
+    if (ticketJob) {
+      jobs = [ticketJob, ...jobs];
+    }
+  }
+
+  // A quote revised and re-won after this ticket was made leaves the ticket
+  // on the superseded revision (no longer WON, so not offered) with that
+  // revision's line ids. Open the editor on the live revision and key the
+  // ticket's lines to its line ids, or every quote row shows 0 on load.
+  let editorQuoteId = ticket.quoteId;
+  let aliasToCurrentLineId: Map<string, string> | null = null;
+  const ticketJobQuotes =
+    jobs.find((job) => job.id === ticket.jobId)?.quotes ?? [];
+  if (
+    ticket.quoteId &&
+    !ticketJobQuotes.some((entry) => entry.id === ticket.quoteId)
+  ) {
+    const supersededQuoteId = ticket.quoteId;
+    const familyIds = await withDatabaseRetry((prisma) =>
+      getQuoteLineageQuoteIds(prisma, supersededQuoteId),
+    );
+    const liveQuoteId = ticketJobQuotes.find((entry) =>
+      familyIds.includes(entry.id),
+    )?.id;
+    if (liveQuoteId) {
+      editorQuoteId = liveQuoteId;
+      aliasToCurrentLineId = await withDatabaseRetry((prisma) =>
+        buildQuoteLineAliasMap(prisma, liveQuoteId),
+      );
+    }
+  }
+  const resolveQuoteLineId = (id: string | null) =>
+    id ? (aliasToCurrentLineId?.get(id) ?? id) : id;
+
   // Catalog prices come from the ticket's own price list (default when none),
   // so reopening a ticket shows the same prices it was sold from.
   const products = await listStockProductsForTicket(ticket.priceListId);
@@ -101,7 +160,11 @@ export default async function EditDeliveryTicketPage({
   // its legacy piece lines keyed to successive roles.
   const usedCastingRoles = new Map<string, Set<string>>();
 
-  const defaultLines = ticket.lineItems.flatMap((line) => {
+  const defaultLines = ticket.lineItems.flatMap((savedLine) => {
+    const line = {
+      ...savedLine,
+      quoteLineItemId: resolveQuoteLineId(savedLine.quoteLineItemId),
+    };
     const assemblyProduct = line.quoteLineItem?.product;
     const castingBom =
       assemblyProduct?.castingRole === "ASSEMBLY" &&
@@ -229,7 +292,7 @@ export default async function EditDeliveryTicketPage({
             paymentReceived: ticket.paymentReceived,
             pickedUpBy: ticket.pickedUpBy,
             jobId: ticket.jobId ?? "",
-            quoteId: ticket.quoteId,
+            quoteId: editorQuoteId,
             customerId: ticket.customerId,
             customerName: ticket.customerName,
             projectName: ticket.projectName,
