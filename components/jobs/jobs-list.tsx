@@ -414,12 +414,20 @@ export function JobsList({
           </select>
         </div>
 
-        <Link
-          href="/jobs/new"
-          className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
-        >
-          New Job
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/jobs/import"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+          >
+            Import Existing Job
+          </Link>
+          <Link
+            href="/jobs/new"
+            className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
+          >
+            New Job
+          </Link>
+        </div>
       </div>
 
       <SectionCard
