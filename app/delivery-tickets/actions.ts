@@ -380,7 +380,10 @@ async function validateLines(
       if (
         (line.lineType === "CONFIGURABLE_STRUCTURE" ||
           line.lineType === "CUSTOM_STRUCTURE") &&
-        !PLANNABLE_STRUCTURE_STATUSES.includes(meta.jobStructureStatus ?? "")
+        !PLANNABLE_STRUCTURE_STATUSES.includes(meta.jobStructureStatus ?? "") &&
+        // A structure a partial delivery marked SHIPPED is made; its
+        // remaining units ship like a MADE structure's.
+        !(meta.jobStructureStatus === "SHIPPED" && meta.shippedQty > 0)
       ) {
         // Dispatch plans ahead of production, but never against structures
         // that aren't cleared for it yet.
