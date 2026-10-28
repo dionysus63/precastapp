@@ -7,6 +7,7 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import {
   CatalogFilterBar,
   CatalogMaterialCard,
+  CatalogRemoveSizeButton,
   CatalogSaveBar,
   catalogCellClassName,
   catalogCellInputClassName,
@@ -162,7 +163,6 @@ export function RectOpeningSizesForm({
               props: {
                 label: string;
                 placeholder: string;
-                widthClassName: string;
               },
             ) => (
               <input
@@ -175,7 +175,7 @@ export function RectOpeningSizesForm({
                 }
                 placeholder={props.placeholder}
                 aria-label={props.label}
-                className={`${catalogCellInputClassName} ${props.widthClassName}`}
+                className={catalogCellInputClassName}
               />
             );
 
@@ -261,7 +261,7 @@ export function RectOpeningSizesForm({
                                 ? "This size is listed twice"
                                 : undefined
                             }
-                            className={`${catalogCellInputClassName} w-[6ch] font-semibold ${
+                            className={`${catalogCellInputClassName} font-semibold ${
                               duplicates.has(line.key)
                                 ? "bg-rose-50 text-rose-700"
                                 : ""
@@ -272,34 +272,33 @@ export function RectOpeningSizesForm({
                           {input(line, "openingWidthInches", {
                             label: "Opening width (in)",
                             placeholder: "18",
-                            widthClassName: "w-[8ch]",
                           })}
                         </td>
                         <td className={cellClassName}>
                           {input(line, "openingHeightInches", {
                             label: "Opening height (in)",
                             placeholder: "16",
-                            widthClassName: "w-[8ch]",
                           })}
                         </td>
                         <td className={cellClassName}>
                           {input(line, "pipeWallThicknessInches", {
                             label: "Pipe wall (in)",
                             placeholder: "2.5",
-                            widthClassName: "w-[9ch]",
                           })}
                         </td>
                         <td className={cellClassName}>
                           {input(line, "pricePerOpening", {
                             label: `Price per opening (${priceListName})`,
                             placeholder: "50.00",
-                            widthClassName: "w-[10ch] text-right",
                           })}
                         </td>
-                        <td className={`${cellClassName} pl-3 pr-2 text-right`}>
-                          <button
-                            type="button"
-                            onClick={() =>
+                        <td className={`${cellClassName} px-2`}>
+                          <CatalogRemoveSizeButton
+                            label={
+                              `${line.pipeSizeInches ? `${line.pipeSizeInches}" ` : ""}${group.pipeMaterial.trim()}`.trim() ||
+                              "this size"
+                            }
+                            onRemove={() =>
                               updateGroup(group.key, (g) => ({
                                 ...g,
                                 sizes: g.sizes.filter(
@@ -307,10 +306,7 @@ export function RectOpeningSizesForm({
                                 ),
                               }))
                             }
-                            className="text-[11px] font-medium text-rose-600 hover:text-rose-800"
-                          >
-                            Remove
-                          </button>
+                          />
                         </td>
                       </tr>
                     ))}

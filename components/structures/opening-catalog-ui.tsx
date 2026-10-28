@@ -2,18 +2,19 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 /**
  * Shared pieces for the round and rect opening catalog pages: one card per
  * pipe material holding a compact table of its sizes.
  */
 
-/** Auto-width table: columns size to their content instead of the page. */
+/** Fills its material card; columns share the width and center their values. */
 export const catalogTableClassName =
-  "border-separate border-spacing-0 text-left text-xs";
+  "w-full border-separate border-spacing-0 text-center text-xs";
 
 const catalogHeaderCellBaseClassName =
-  "whitespace-nowrap border-r border-slate-300 px-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-slate-600 last:border-r-0";
+  "whitespace-nowrap border-r border-slate-300 px-1.5 text-center text-[10.5px] font-semibold uppercase tracking-wide text-slate-600 last:border-r-0";
 
 export const catalogHeaderCellClassName = `${catalogHeaderCellBaseClassName} border-b-2 border-b-slate-300 bg-slate-100 py-1.5`;
 
@@ -24,9 +25,9 @@ export const catalogGroupHeaderCellClassName = `${catalogHeaderCellBaseClassName
 export const catalogCellClassName =
   "border-b border-r border-slate-300 last:border-r-0";
 
-/** Fills its cell; give it a width class sized to the column's values. */
+/** Fills its cell, value centered. */
 export const catalogCellInputClassName =
-  "block rounded-sm border border-transparent bg-transparent px-1.5 py-1 text-xs tabular-nums text-slate-900 placeholder:text-slate-300 hover:border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-sky-500";
+  "block w-full rounded-sm border border-transparent bg-transparent px-1.5 py-1 text-center text-xs tabular-nums text-slate-900 placeholder:text-slate-300 hover:border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-sky-500";
 
 type CatalogFilterBarProps = {
   filter: string;
@@ -44,24 +45,22 @@ export function CatalogFilterBar({
   onAddMaterial,
 }: CatalogFilterBarProps) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          type="search"
-          value={filter}
-          onChange={(e) => onFilterChange(e.target.value)}
-          placeholder="Filter materials…"
-          aria-label="Filter materials"
-          className="w-56 max-w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
-        />
-        <button
-          type="button"
-          onClick={onToggleAll}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
-        >
-          {allCollapsed ? "Expand All" : "Collapse All"}
-        </button>
-      </div>
+    <div className="flex flex-wrap items-center gap-2">
+      <input
+        type="search"
+        value={filter}
+        onChange={(e) => onFilterChange(e.target.value)}
+        placeholder="Filter materials…"
+        aria-label="Filter materials"
+        className="w-56 max-w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
+      />
+      <button
+        type="button"
+        onClick={onToggleAll}
+        className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+      >
+        {allCollapsed ? "Expand All" : "Collapse All"}
+      </button>
       <button
         type="button"
         onClick={onAddMaterial}
@@ -102,8 +101,10 @@ export function CatalogMaterialCard({
   notice,
   children,
 }: CatalogMaterialCardProps) {
+  const confirm = useConfirm();
+  const name = material.trim() || "this material";
   return (
-    <section className="w-fit min-w-[min(620px,100%)] max-w-full overflow-hidden rounded-lg border border-slate-200 bg-white">
+    <section className="w-full max-w-4xl overflow-hidden rounded-lg border border-slate-200 bg-white">
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2">
         <button
           type="button"
@@ -130,7 +131,19 @@ export function CatalogMaterialCard({
         {toggles}
         <button
           type="button"
-          onClick={onRemove}
+          onClick={async () => {
+            const accepted = await confirm({
+              title: `Remove ${name}?`,
+              message:
+                sizeCount > 0
+                  ? `Removes ${name} and its ${sizeCount} ${sizeCount === 1 ? "size" : "sizes"} from the catalog when you save. Drill sheets already made keep their hole sizes.`
+                  : `Removes ${name} from the catalog when you save.`,
+              confirmLabel: "Remove",
+              cancelLabel: "Keep it",
+              variant: "danger",
+            });
+            if (accepted) onRemove();
+          }}
           className="px-1 text-[11px] font-medium text-rose-600 hover:text-rose-800"
         >
           Remove Material
@@ -159,6 +172,37 @@ export function CatalogMaterialCard({
         </>
       )}
     </section>
+  );
+}
+
+/** Remove button for one size line; asks before removing. */
+export function CatalogRemoveSizeButton({
+  label,
+  onRemove,
+}: {
+  /** What is being removed, e.g. `8" PVC SDR35`. */
+  label: string;
+  onRemove: () => void;
+}) {
+  const confirm = useConfirm();
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        const accepted = await confirm({
+          title: `Remove ${label}?`,
+          message:
+            "It is deleted from the catalog when you save. Drill sheets already made keep their hole sizes.",
+          confirmLabel: "Remove",
+          cancelLabel: "Keep it",
+          variant: "danger",
+        });
+        if (accepted) onRemove();
+      }}
+      className="px-1 text-[11px] font-medium text-rose-600 hover:text-rose-800"
+    >
+      Remove
+    </button>
   );
 }
 

@@ -7,6 +7,7 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import {
   CatalogFilterBar,
   CatalogMaterialCard,
+  CatalogRemoveSizeButton,
   CatalogSaveBar,
   catalogCellClassName,
   catalogCellInputClassName,
@@ -368,7 +369,7 @@ function PipeMaterialCard({
                         ? "This size is listed twice"
                         : undefined
                     }
-                    className={`${catalogCellInputClassName} w-[6ch] font-semibold ${
+                    className={`${catalogCellInputClassName} font-semibold ${
                       duplicates.has(line.key) ? "bg-rose-50 text-rose-700" : ""
                     }`}
                   />
@@ -388,7 +389,7 @@ function PipeMaterialCard({
                     }
                     placeholder="0.5"
                     aria-label="Pipe wall (in)"
-                    className={`${catalogCellInputClassName} w-[9ch]`}
+                    className={`${catalogCellInputClassName}`}
                   />
                 </td>
                 {group.boot ? (
@@ -408,7 +409,7 @@ function PipeMaterialCard({
                         }
                         placeholder="—"
                         aria-label="Boot hole (in)"
-                        className={`${catalogCellInputClassName} w-[7ch]`}
+                        className={`${catalogCellInputClassName}`}
                       />
                     </td>
                     <td className={catalogCellClassName}>
@@ -420,7 +421,7 @@ function PipeMaterialCard({
                         }
                         placeholder="106-008"
                         aria-label="Boot model"
-                        className={`${catalogCellInputClassName} w-[10ch]`}
+                        className={`${catalogCellInputClassName}`}
                       />
                     </td>
                     <td className={catalogCellClassName}>
@@ -434,7 +435,7 @@ function PipeMaterialCard({
                         }
                         placeholder="—"
                         aria-label={`Price per boot (${priceListName})`}
-                        className={`${catalogCellInputClassName} w-[9ch] text-right`}
+                        className={`${catalogCellInputClassName}`}
                       />
                     </td>
                   </>
@@ -455,18 +456,18 @@ function PipeMaterialCard({
                       }
                       placeholder="—"
                       aria-label="No-boot hole (in)"
-                      className={`${catalogCellInputClassName} w-[7ch]`}
+                      className={`${catalogCellInputClassName}`}
                     />
                   </td>
                 ) : null}
-                <td className={`${catalogCellClassName} pl-3 pr-2 text-right`}>
-                  <button
-                    type="button"
-                    onClick={() => onRemoveSize(line.key)}
-                    className="text-[11px] font-medium text-rose-600 hover:text-rose-800"
-                  >
-                    Remove
-                  </button>
+                <td className={`${catalogCellClassName} px-2`}>
+                  <CatalogRemoveSizeButton
+                    label={
+                      `${line.pipeSizeInches ? `${line.pipeSizeInches}" ` : ""}${group.pipeMaterial.trim()}`.trim() ||
+                      "this size"
+                    }
+                    onRemove={() => onRemoveSize(line.key)}
+                  />
                 </td>
               </tr>
             ))}
