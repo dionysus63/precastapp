@@ -1515,6 +1515,14 @@ async function buildFulfillmentFromContext(
         eligible = false;
         eligibilityReason = "No job structure linked";
       } else if (
+        line.jobStructure.status === "SHIPPED" &&
+        shippedQty > 0
+      ) {
+        // Marked SHIPPED by a partial delivery (an earlier rule shipped the
+        // whole structure on its first delivered ticket) while units remain:
+        // the structure is made, so the rest can still go out.
+        madeSoFarQty = quotedQty;
+      } else if (
         !PLANNABLE_STRUCTURE_STATUSES.includes(line.jobStructure.status)
       ) {
         // Not yet cleared for production — dispatch plans ahead freely once
@@ -1748,7 +1756,9 @@ export async function markDeliveryTicketDelivered(
       await promoteJobStatus(tx, ticket.jobId, "DELIVERY_DELIVERED");
     }
 
-    const wholeStructureIds = new Set<string>();
+    // Whole-structure lines, keyed by structure: the quote lines each one
+    // ships against (empty for an extra line added outside the quote).
+    const wholeStructureQuoteLines = new Map<string, Set<string>>();
     const pieceStructureIds = new Set<string>();
     for (const line of ticket.lineItems) {
       if (
@@ -1759,16 +1769,46 @@ export async function markDeliveryTicketDelivered(
         if (line.jobStructurePieceId) {
           pieceStructureIds.add(line.jobStructureId);
         } else {
-          wholeStructureIds.add(line.jobStructureId);
+          const quoteLines =
+            wholeStructureQuoteLines.get(line.jobStructureId) ?? new Set();
+          if (line.quoteLineItemId) {
+            quoteLines.add(line.quoteLineItemId);
+          }
+          wholeStructureQuoteLines.set(line.jobStructureId, quoteLines);
         }
       }
     }
 
-    for (const jobStructureId of wholeStructureIds) {
-      await tx.jobStructure.update({
-        where: { id: jobStructureId },
-        data: { status: "SHIPPED", shippedDate: deliveredAt },
-      });
+    // A structure quoted as a quantity (10 wall panels on one line) ships
+    // over several loads: it flips to SHIPPED only once the delivered total
+    // across tickets (this one included — its claim above is visible inside
+    // the transaction) covers the quoted quantity. Otherwise it stays as it
+    // was, so the remaining units can still be scheduled.
+    for (const [jobStructureId, quoteLineIds] of wholeStructureQuoteLines) {
+      let fullyDelivered = quoteLineIds.size === 0;
+      for (const quoteLineItemId of quoteLineIds) {
+        const quoteLine = await tx.quoteLineItem.findUnique({
+          where: { id: quoteLineItemId },
+          select: { quantity: true },
+        });
+        if (!quoteLine) {
+          fullyDelivered = true;
+          continue;
+        }
+        const shipped = await getShippedQuantityForQuoteLine(
+          tx,
+          quoteLineItemId,
+        );
+        if (shipped.gte(quoteLine.quantity)) {
+          fullyDelivered = true;
+        }
+      }
+      if (fullyDelivered) {
+        await tx.jobStructure.update({
+          where: { id: jobStructureId },
+          data: { status: "SHIPPED", shippedDate: deliveredAt },
+        });
+      }
     }
 
     // A split structure ships piecemeal: it flips to SHIPPED only when every
