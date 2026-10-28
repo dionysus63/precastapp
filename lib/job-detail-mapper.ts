@@ -315,6 +315,7 @@ function mapDelivery(ticket: JobDeliveryTicketWithLineItems): JobRelatedDelivery
   return {
     id: ticket.id,
     ticketNumber: ticket.ticketNumber ?? "Planned",
+    customLine: ticket.customLine,
     projectName: ticket.projectName,
     statusLabel: deliveryTicketStatusLabels[status] ?? ticket.status,
     statusVariant: deliveryStatusVariant(ticket.status),

@@ -161,6 +161,7 @@ export type JobDeliveryLineItem = {
 export type JobRelatedDelivery = {
   id: string;
   ticketNumber: string;
+  customLine: string | null;
   projectName: string;
   statusLabel: string;
   statusVariant: JobStatusVariant;

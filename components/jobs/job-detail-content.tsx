@@ -35,7 +35,9 @@ import {
   tableCellBordersClassName,
   tableCellClassName,
   tableClassName,
+  tableCompactClassName,
   tableFlushWrapperClassName,
+  tableHeaderCellClassName,
   tableHeaderCellWrapClassName,
   tableRowClassName,
 } from "@/lib/table-styles";
@@ -633,14 +635,15 @@ export function JobDeliveriesSection({
       noPadding
     >
       <div className={tableFlushWrapperClassName}>
-        <table className={tableClassName}>
+        <table className={tableCompactClassName}>
           <thead>
             <tr>
-              <th className={tableHeaderCellWrapClassName}>Ticket</th>
-              <th className={tableHeaderCellWrapClassName}>Project</th>
-              <th className={tableHeaderCellWrapClassName}>Delivery Date</th>
-              <th className={tableHeaderCellWrapClassName}>Status</th>
-              <th className={tableHeaderCellWrapClassName}>Last Updated</th>
+              <th className={tableHeaderCellClassName}>Ticket</th>
+              <th className={tableHeaderCellClassName}>Custom Line</th>
+              <th className={tableHeaderCellClassName}>Project</th>
+              <th className={tableHeaderCellClassName}>Delivery Date</th>
+              <th className={tableHeaderCellClassName}>Status</th>
+              <th className={tableHeaderCellClassName}>Last Updated</th>
             </tr>
           </thead>
           <tbody className={tableBodyClassName}>

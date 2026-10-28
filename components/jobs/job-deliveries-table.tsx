@@ -13,6 +13,10 @@ import {
   tableHeaderCellWrapClassName,
   tableRowClassName,
 } from "@/lib/table-styles";
+
+// Ticket, Custom Line, Project, Delivery Date, Status, Last Updated.
+const COLUMN_COUNT = 6;
+
 type JobDeliveriesTableProps = {
   deliveries: JobRelatedDelivery[];
 };
@@ -55,7 +59,7 @@ export function JobDeliveriesTable({ deliveries }: JobDeliveriesTableProps) {
   if (deliveries.length === 0) {
     return (
       <tr>
-        <td colSpan={5} className={`${tableCellBordersClassName} px-3 py-6 text-center text-slate-500`}>
+        <td colSpan={COLUMN_COUNT} className={`${tableCellBordersClassName} px-3 py-6 text-center text-slate-500`}>
           No delivery tickets for this job yet.
         </td>
       </tr>
@@ -71,7 +75,7 @@ export function JobDeliveriesTable({ deliveries }: JobDeliveriesTableProps) {
         return (
           <Fragment key={ticket.id}>
             <tr className={tableRowClassName}>
-              <td className={tableCellClassName}>
+              <td className={`${tableCellClassName} whitespace-nowrap`}>
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
@@ -99,21 +103,32 @@ export function JobDeliveriesTable({ deliveries }: JobDeliveriesTableProps) {
                   ) : null}
                 </div>
               </td>
-              <td className={`${tableCellClassName} text-slate-700`}>{ticket.projectName}</td>
-              <td className={`${tableCellClassName} text-slate-600`}>{ticket.deliveryDate}</td>
-              <td className={tableCellClassName}>
+              <td className={`${tableCellClassName} whitespace-nowrap font-semibold text-slate-900`}>
+                {ticket.customLine ?? ""}
+              </td>
+              <td className={`${tableCellClassName} max-w-[18rem] text-slate-700`}>
+                {ticket.projectName}
+              </td>
+              <td className={`${tableCellClassName} whitespace-nowrap text-slate-600`}>
+                {ticket.deliveryDate}
+              </td>
+              <td className={`${tableCellClassName} whitespace-nowrap`}>
                 <StatusBadge
                   label={ticket.statusLabel}
                   variant={ticket.statusVariant}
                 />
               </td>
-              <td className={`${tableCellClassName} text-slate-600`}>{ticket.lastUpdated}</td>
+              <td className={`${tableCellClassName} whitespace-nowrap text-slate-600`}>
+                {ticket.lastUpdated}
+              </td>
             </tr>
             {expanded ? (
               <tr className="bg-slate-50/40">
-                <td colSpan={5} className={tableCellClassName}>
+                <td colSpan={COLUMN_COUNT} className={tableCellClassName}>
                   {hasLineItems ? (
-                    <div className="ml-6 overflow-x-auto rounded-lg border border-slate-200/80 bg-white">
+                    // w-0 + min-w keeps the line items from widening the
+                    // compact ticket columns; the box scrolls instead.
+                    <div className="ml-6 w-0 min-w-[calc(100%-1.5rem)] overflow-x-auto rounded-lg border border-slate-200/80 bg-white">
                       <table className={tableClassName}>
                         <thead>
                           <tr>
