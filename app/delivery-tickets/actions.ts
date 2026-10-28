@@ -1547,6 +1547,65 @@ export async function updateTicketCustomLine(
   }
 }
 
+/**
+ * Dispatch quick-edit: move an open load to another day from the hub's
+ * schedule tiles. Only the date changes — time, driver and trailer stay as
+ * they are. A planned (DRAFT) load that receives a date becomes SCHEDULED
+ * and gets its ticket number, like scheduleJobLoads.
+ */
+export async function updateTicketDeliveryDate(
+  ticketId: string,
+  deliveryDate: string,
+): Promise<UpdateTicketDriverResult> {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+  const parsed = parseDate(deliveryDate);
+  if (!parsed) {
+    return { error: "Pick a delivery date." };
+  }
+  try {
+    const ticket = await withDatabaseRetry((client) =>
+      client.deliveryTicket.findUnique({
+        where: { id: ticketId },
+        select: { status: true, ticketNumber: true },
+      }),
+    );
+    if (!ticket) {
+      return { error: "Ticket not found. Refresh the page." };
+    }
+    if (ticket.status === "DELIVERED" || ticket.status === "CANCELLED") {
+      return {
+        error: `${ticket.ticketNumber} is ${ticket.status.toLowerCase()} and can't be rescheduled.`,
+      };
+    }
+
+    await withDatabaseRetry((client) =>
+      client.$transaction(async (tx) => {
+        await tx.deliveryTicket.update({
+          where: { id: ticketId },
+          data: {
+            deliveryDate: parsed,
+            ...(ticket.status === "DRAFT" ? { status: "SCHEDULED" } : {}),
+          },
+        });
+        if (ticket.status === "DRAFT") {
+          await ensureTicketNumberAssigned(tx, ticketId);
+        }
+      }),
+    );
+
+    revalidatePath("/delivery-tickets");
+    revalidatePath(`/delivery-tickets/${ticketId}`);
+    return { success: true };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not update the delivery date.",
+    };
+  }
+}
+
 export type SplitStructureResult = { success: true } | { error: string };
 
 /**

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { memo, useMemo, useState } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import type { DeliveryTicketRow } from "@/components/delivery-tickets/delivery-ticket-utils";
+import { DeliveryTileMenu } from "@/components/delivery-tickets/delivery-tile-menu";
 import { addLocalDays } from "@/lib/date-only";
 import {
   formatWeekRangeLabel,
@@ -103,9 +104,16 @@ export const DispatcherWeekCalendar = memo(function DispatcherWeekCalendar({
                       key={ticket.id}
                       className="rounded-md border border-white/80 bg-white px-2 py-1.5 shadow-sm"
                     >
-                      <p className="truncate text-xs font-semibold text-slate-900">
-                        {ticket.customer}
-                      </p>
+                      <div className="flex items-start justify-between gap-1">
+                        <p className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-900">
+                          {ticket.customer}
+                        </p>
+                        <DeliveryTileMenu
+                          ticketId={ticket.id}
+                          ticketNumber={ticket.ticketNumber}
+                          deliveryDateIso={ticket.deliveryDateIso}
+                        />
+                      </div>
                       {ticket.jobId ? (
                         <Link
                           href={`/jobs/${ticket.jobId}`}
@@ -118,12 +126,22 @@ export const DispatcherWeekCalendar = memo(function DispatcherWeekCalendar({
                           {ticket.projectName}
                         </p>
                       )}
-                      <Link
-                        href={`/delivery-tickets/${ticket.id}`}
-                        className="font-mono text-[10px] text-slate-500 hover:text-slate-900"
-                      >
-                        {ticket.ticketNumber}
-                      </Link>
+                      <div className="flex items-center gap-1.5">
+                        <Link
+                          href={`/delivery-tickets/${ticket.id}`}
+                          className="shrink-0 font-mono text-[10px] text-slate-500 hover:text-slate-900"
+                        >
+                          {ticket.ticketNumber}
+                        </Link>
+                        {ticket.customLine ? (
+                          <span
+                            className="truncate text-[10px] font-semibold text-slate-700"
+                            title={ticket.customLine}
+                          >
+                            {ticket.customLine}
+                          </span>
+                        ) : null}
+                      </div>
                     </li>
                   ))}
                 </ul>
