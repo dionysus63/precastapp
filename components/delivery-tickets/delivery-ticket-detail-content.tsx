@@ -2,7 +2,6 @@ import Link from "next/link";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { TicketOperationsPanel } from "@/components/delivery-tickets/ticket-operations-panel";
-import { TicketPdfButton } from "@/components/delivery-tickets/ticket-pdf-button";
 import { TicketStatusActions } from "@/components/delivery-tickets/ticket-status-actions";
 import { TicketSubmittalButton } from "@/components/delivery-tickets/ticket-submittal-button";
 import { RichTextContent } from "@/components/ui/rich-text-content";
@@ -177,7 +176,6 @@ export function DeliveryTicketDetailContent({
               >
                 Preview/Print
               </Link>
-              <TicketPdfButton ticketId={ticketId} />
               <TicketSubmittalButton ticketId={ticketId} />
             </>
           ) : (
