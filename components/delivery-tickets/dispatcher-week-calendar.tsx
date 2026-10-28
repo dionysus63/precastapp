@@ -134,12 +134,20 @@ export const DispatcherWeekCalendar = memo(function DispatcherWeekCalendar({
                           {ticket.ticketNumber}
                         </Link>
                         {ticket.customLine ? (
-                          <span
-                            className="truncate text-[10px] font-semibold text-slate-700"
-                            title={ticket.customLine}
-                          >
-                            {ticket.customLine}
-                          </span>
+                          <>
+                            <span
+                              className="shrink-0 text-[10px] text-slate-400"
+                              aria-hidden="true"
+                            >
+                              --
+                            </span>
+                            <span
+                              className="truncate text-[10px] font-semibold text-slate-700"
+                              title={ticket.customLine}
+                            >
+                              {ticket.customLine}
+                            </span>
+                          </>
                         ) : null}
                       </div>
                     </li>
