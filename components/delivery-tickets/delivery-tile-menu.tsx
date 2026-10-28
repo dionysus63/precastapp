@@ -16,6 +16,11 @@ type DeliveryTileMenuProps = {
   ticketNumber: string;
   /** Current delivery day as YYYY-MM-DD (the date input's value format). */
   deliveryDateIso: string | null;
+  /**
+   * "icon": bare 16px gear for the schedule tiles. "pill": bordered button
+   * sized like the Print/Submittals pills in the loads tables.
+   */
+  appearance?: "icon" | "pill";
 };
 
 const MENU_WIDTH = 224;
@@ -57,6 +62,7 @@ export function DeliveryTileMenu({
   ticketId,
   ticketNumber,
   deliveryDateIso,
+  appearance = "icon",
 }: DeliveryTileMenuProps) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<MenuPosition | null>(null);
@@ -156,9 +162,15 @@ export function DeliveryTileMenu({
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         title="Quick edit"
-        className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 ${
-          open ? "bg-slate-100 text-slate-700" : ""
-        }`}
+        className={
+          appearance === "pill"
+            ? `inline-flex items-center justify-center rounded-md border border-slate-200 px-2 py-1 text-slate-700 transition-colors hover:bg-slate-50 ${
+                open ? "bg-slate-50" : ""
+              }`
+            : `inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 ${
+                open ? "bg-slate-100 text-slate-700" : ""
+              }`
+        }
       >
         <GearIcon />
       </button>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { DriverSelect, TrailerSelect } from "@/components/delivery-tickets/fleet-select";
 import { CustomLineInput } from "@/components/delivery-tickets/custom-line-input";
+import { DeliveryTileMenu } from "@/components/delivery-tickets/delivery-tile-menu";
 import { StatusSelect } from "@/components/delivery-tickets/status-select";
 import { type DeliveryTicketRow } from "@/components/delivery-tickets/delivery-ticket-utils";
 import { getTodaysScheduledLoads } from "@/lib/delivery-dispatch-utils";
@@ -173,6 +174,14 @@ export function TodaysLoadsPanel({
                       >
                         Submittals
                       </Link>
+                      {delivered ? null : (
+                        <DeliveryTileMenu
+                          ticketId={ticket.id}
+                          ticketNumber={ticket.ticketNumber}
+                          deliveryDateIso={ticket.deliveryDateIso}
+                          appearance="pill"
+                        />
+                      )}
                     </div>
                   </td>
                 </tr>
