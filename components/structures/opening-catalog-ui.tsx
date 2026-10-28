@@ -13,12 +13,16 @@ export const catalogTableClassName =
   "border-separate border-spacing-0 text-left text-xs";
 
 const catalogHeaderCellBaseClassName =
-  "whitespace-nowrap px-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-slate-500";
+  "whitespace-nowrap border-r border-slate-300 px-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-slate-600 last:border-r-0";
 
-export const catalogHeaderCellClassName = `${catalogHeaderCellBaseClassName} bg-slate-50 border-b border-slate-200 py-1.5`;
+export const catalogHeaderCellClassName = `${catalogHeaderCellBaseClassName} border-b-2 border-b-slate-300 bg-slate-100 py-1.5`;
 
 /** Top header row naming the Boot / No Boot column groups; add a background. */
-export const catalogGroupHeaderCellClassName = `${catalogHeaderCellBaseClassName} border-b border-slate-100 py-1`;
+export const catalogGroupHeaderCellClassName = `${catalogHeaderCellBaseClassName} border-b border-b-slate-300 py-1`;
+
+/** Gridline borders for a size row's cells (same gridlines as the app's other tables). */
+export const catalogCellClassName =
+  "border-b border-r border-slate-300 last:border-r-0";
 
 /** Fills its cell; give it a width class sized to the column's values. */
 export const catalogCellInputClassName =

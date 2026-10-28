@@ -8,6 +8,7 @@ import {
   CatalogFilterBar,
   CatalogMaterialCard,
   CatalogSaveBar,
+  catalogCellClassName,
   catalogCellInputClassName,
   catalogGroupHeaderCellClassName,
   catalogHeaderCellClassName,
@@ -46,8 +47,6 @@ type PipeLineField = Exclude<
   keyof PipeOpeningSizeLine,
   "key" | "bootRowId" | "noBootRowId"
 >;
-
-const sepClassName = "border-l border-l-slate-300";
 
 export function PipeOpeningSizesForm({
   action,
@@ -299,25 +298,25 @@ function PipeMaterialCard({
             <tr>
               <th
                 colSpan={2}
-                className={`${catalogGroupHeaderCellClassName} bg-slate-50`}
+                className={`${catalogGroupHeaderCellClassName} bg-slate-100`}
               />
               {group.boot ? (
                 <th
                   colSpan={3}
-                  className={`${catalogGroupHeaderCellClassName} ${sepClassName} bg-teal-50 text-center text-teal-700`}
+                  className={`${catalogGroupHeaderCellClassName} bg-teal-50 text-center text-teal-700`}
                 >
                   Boot
                 </th>
               ) : null}
               {group.noBoot ? (
                 <th
-                  className={`${catalogGroupHeaderCellClassName} ${sepClassName} bg-amber-50 text-center text-amber-700`}
+                  className={`${catalogGroupHeaderCellClassName} bg-amber-50 text-center text-amber-700`}
                 >
                   No Boot
                 </th>
               ) : null}
               <th
-                className={`${catalogGroupHeaderCellClassName} bg-slate-50`}
+                className={`${catalogGroupHeaderCellClassName} bg-slate-100`}
               />
             </tr>
             <tr>
@@ -330,11 +329,7 @@ function PipeMaterialCard({
               </th>
               {group.boot ? (
                 <>
-                  <th
-                    className={`${catalogHeaderCellClassName} ${sepClassName}`}
-                  >
-                    Hole (in)
-                  </th>
+                  <th className={catalogHeaderCellClassName}>Hole (in)</th>
                   <th className={catalogHeaderCellClassName}>Boot Model</th>
                   <th
                     className={catalogHeaderCellClassName}
@@ -345,17 +340,15 @@ function PipeMaterialCard({
                 </>
               ) : null}
               {group.noBoot ? (
-                <th className={`${catalogHeaderCellClassName} ${sepClassName}`}>
-                  Hole (in)
-                </th>
+                <th className={catalogHeaderCellClassName}>Hole (in)</th>
               ) : null}
               <th className={catalogHeaderCellClassName} />
             </tr>
           </thead>
           <tbody>
             {group.sizes.map((line) => (
-              <tr key={line.key} className="border-b border-slate-100">
-                <td className="border-b border-slate-100">
+              <tr key={line.key}>
+                <td className={catalogCellClassName}>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -380,7 +373,7 @@ function PipeMaterialCard({
                     }`}
                   />
                 </td>
-                <td className="border-b border-slate-100">
+                <td className={catalogCellClassName}>
                   <input
                     type="number"
                     min="0"
@@ -400,7 +393,7 @@ function PipeMaterialCard({
                 </td>
                 {group.boot ? (
                   <>
-                    <td className={`border-b border-slate-100 ${sepClassName}`}>
+                    <td className={catalogCellClassName}>
                       <input
                         type="text"
                         inputMode="numeric"
@@ -418,7 +411,7 @@ function PipeMaterialCard({
                         className={`${catalogCellInputClassName} w-[7ch]`}
                       />
                     </td>
-                    <td className="border-b border-slate-100">
+                    <td className={catalogCellClassName}>
                       <input
                         type="text"
                         value={line.bootModel}
@@ -430,7 +423,7 @@ function PipeMaterialCard({
                         className={`${catalogCellInputClassName} w-[10ch]`}
                       />
                     </td>
-                    <td className="border-b border-slate-100">
+                    <td className={catalogCellClassName}>
                       <input
                         type="number"
                         min="0"
@@ -447,7 +440,7 @@ function PipeMaterialCard({
                   </>
                 ) : null}
                 {group.noBoot ? (
-                  <td className={`border-b border-slate-100 ${sepClassName}`}>
+                  <td className={catalogCellClassName}>
                     <input
                       type="text"
                       inputMode="numeric"
@@ -466,7 +459,7 @@ function PipeMaterialCard({
                     />
                   </td>
                 ) : null}
-                <td className="border-b border-slate-100 pl-3 pr-2 text-right">
+                <td className={`${catalogCellClassName} pl-3 pr-2 text-right`}>
                   <button
                     type="button"
                     onClick={() => onRemoveSize(line.key)}

@@ -8,6 +8,7 @@ import {
   CatalogFilterBar,
   CatalogMaterialCard,
   CatalogSaveBar,
+  catalogCellClassName,
   catalogCellInputClassName,
   catalogHeaderCellClassName,
   catalogTableClassName,
@@ -42,7 +43,7 @@ function uid() {
 type LineField = Exclude<keyof RectOpeningSizeLine, "key" | "id">;
 type NumberField = Exclude<LineField, "pipeSizeInches">;
 
-const cellClassName = "border-b border-slate-100";
+const cellClassName = catalogCellClassName;
 
 export function RectOpeningSizesForm({
   action,
