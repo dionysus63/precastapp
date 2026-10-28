@@ -65,7 +65,6 @@ export function CustomLineInput({
             setValue(saved);
           }
         }}
-        placeholder="e.g. 1st"
         aria-label="Custom line"
         title="Prints in the upper right of the ticket"
         className={`block w-24 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-900 shadow-sm ${
