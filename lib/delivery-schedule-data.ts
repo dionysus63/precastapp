@@ -34,6 +34,7 @@ export async function loadJobDeliverySchedule(jobId: string) {
           jobNumber: true,
           projectName: true,
           customerName: true,
+          deliveryAddress: true,
           projectAddress: true,
           city: true,
           state: true,

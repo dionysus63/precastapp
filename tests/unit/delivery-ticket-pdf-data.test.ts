@@ -37,10 +37,14 @@ function ticket(
     totalWeight: null,
     customer: null,
     job: {
+      deliveryAddress: null,
       projectAddress: "20 Job Road",
       city: "Job Town",
       state: "NY",
       zip: "11701",
+      siteContactName: null,
+      siteContactPhone: null,
+      siteContactEmail: null,
     },
     quoteNumber: "Q-26-001-R3",
     quote: {
@@ -144,10 +148,14 @@ describe("delivery ticket PDF form data", () => {
       ticket({
         deliveryAddress: null,
         job: {
+          deliveryAddress: null,
           projectAddress: null,
           city: null,
           state: null,
           zip: null,
+          siteContactName: null,
+          siteContactPhone: null,
+          siteContactEmail: null,
         },
       }),
       1,
@@ -156,6 +164,58 @@ describe("delivery ticket PDF form data", () => {
 
     expect(data["Delivery Address 1"]).toBe("30 Quote Street");
     expect(data["Delivery Address 2"]).toBe("Quote Town, NY 11702");
+  });
+
+  it("prefers the job's delivery address over its project address when the ticket is blank", () => {
+    const data = buildDeliveryTicketFormData(
+      ticket({
+        deliveryAddress: null,
+        job: {
+          deliveryAddress: "5 Site Entrance Rd\nGate B\nSite Town, NY 11703",
+          projectAddress: "20 Job Road",
+          city: "Job Town",
+          state: "NY",
+          zip: "11701",
+          siteContactName: null,
+          siteContactPhone: null,
+          siteContactEmail: null,
+        },
+      }),
+      1,
+      fillOptions,
+    );
+
+    expect(data["Delivery Address 1"]).toBe("5 Site Entrance Rd");
+    expect(data["Delivery Address 2"]).toBe("Gate B");
+  });
+
+  it("prints the job's site contact over the ticket's auto-filled one", () => {
+    const data = buildDeliveryTicketFormData(
+      ticket({
+        job: {
+          deliveryAddress: null,
+          projectAddress: null,
+          city: null,
+          state: null,
+          zip: null,
+          siteContactName: "Super Sam",
+          siteContactPhone: "631-555-0199",
+          siteContactEmail: null,
+        },
+      }),
+      1,
+      fillOptions,
+    );
+
+    expect(data["Site Contact"]).toBe("Super Sam");
+    expect(data["Site Contact Phone"]).toBe("631-555-0199");
+  });
+
+  it("keeps the ticket's site contact when the job has none", () => {
+    const data = buildDeliveryTicketFormData(ticket(), 1, fillOptions);
+
+    expect(data["Site Contact"]).toBe("Site Contact");
+    expect(data["Site Contact Phone"]).toBe("631-555-0100");
   });
 
   it("leaves terms blank when the ticket has no linked quote", () => {

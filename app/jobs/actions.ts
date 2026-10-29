@@ -237,6 +237,75 @@ async function updateJobCustomerOrThrow(
   revalidatePath(`/jobs/${jobId}`);
 }
 
+export type JobDeliverySiteInput = {
+  deliveryAddress: string;
+  siteContactName: string;
+  siteContactPhone: string;
+  siteContactEmail: string;
+};
+
+/** Inline delivery site (address + site contact) edit from the job page,
+ * available once the job is awarded. Errors come back as `{ error }`. */
+export async function updateJobDeliverySiteAction(
+  jobId: string,
+  input: JobDeliverySiteInput,
+) {
+  await requirePermission(AppPermission.JOBS_MANAGE);
+  return returnActionError(() => updateJobDeliverySiteOrThrow(jobId, input));
+}
+
+function optionalText(value: string, label: string, maxLength: number) {
+  const trimmed = value.trim();
+  if (trimmed.length > maxLength) {
+    throw new Error(`${label} must be ${maxLength} characters or fewer.`);
+  }
+  return trimmed || null;
+}
+
+async function updateJobDeliverySiteOrThrow(
+  jobId: string,
+  input: JobDeliverySiteInput,
+) {
+  const job = await prisma.job.findUnique({
+    where: { id: jobId },
+    select: { id: true },
+  });
+  if (!job) {
+    throw new Error("Job was not found.");
+  }
+
+  // Multi-line addresses print one line per row on the ticket; normalise
+  // line endings and drop blank lines so the PDF doesn't get an empty row.
+  const deliveryAddress = optionalText(
+    input.deliveryAddress
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join("\n"),
+    "Delivery address",
+    500,
+  );
+
+  await prisma.job
+    .update({
+      where: { id: jobId },
+      data: {
+        deliveryAddress,
+        siteContactName: optionalText(input.siteContactName, "Site contact", 120),
+        siteContactPhone: optionalText(input.siteContactPhone, "Site contact phone", 60),
+        siteContactEmail: optionalText(input.siteContactEmail, "Site contact email", 200),
+      },
+    })
+    .catch((error) => {
+      throw translatePrismaError(error);
+    });
+
+  revalidatePath("/jobs");
+  revalidatePath(`/jobs/${jobId}`);
+  // Tickets and their PDFs resolve the job's site on read.
+  revalidatePath("/delivery-tickets");
+}
+
 const STRUCTURE_TYPES = [
   "STOCK_PRODUCT",
   "CONFIGURABLE_PRODUCT",

@@ -17,6 +17,7 @@ import {
 import { JobDrillSheetsPdfButtons } from "@/components/drill-sheets/job-drill-sheets-pdf-buttons";
 import { MarkAllSubmittedButton } from "@/components/drill-sheets/mark-all-submitted-button";
 import { JobDeliveriesTable } from "@/components/jobs/job-deliveries-table";
+import { JobDeliverySiteEditor } from "@/components/jobs/job-delivery-site-editor";
 import {
   groupJobRelatedQuotes,
   type JobAttentionItem,
@@ -408,6 +409,14 @@ export function JobOverviewSection({
       </div>
 
       <div className="space-y-4">
+        {detail.deliverySite.visible ? (
+          <JobDeliverySiteEditor
+            jobId={detail.id}
+            jobNumber={detail.jobNumber}
+            site={detail.deliverySite}
+          />
+        ) : null}
+
         <SectionCard title="Job Information">
           <dl>
             <InfoRow label="Contact" value={detail.contactName} />

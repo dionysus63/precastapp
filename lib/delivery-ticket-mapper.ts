@@ -11,6 +11,11 @@ import {
 } from "@/lib/date-only";
 import { formatWeightLb } from "@/lib/format";
 import { deliveryTicketStatusVariant } from "@/lib/status-variants";
+import {
+  resolveTicketDeliveryAddressLines,
+  resolveTicketSiteContact,
+  type JobDeliverySiteFields,
+} from "@/lib/delivery-site";
 import type { Prisma } from "@/app/generated/prisma/client";
 
 /** Columns needed by mapDbDeliveryTicketToListRow — shared by ticket list pages. */
@@ -65,6 +70,9 @@ type DbDeliveryTicket = {
   customerNotes: string | null;
   loadingNotes: string | null;
   siteInstructions: string | null;
+  /** Job delivery site (address/contact set after award); see lib/delivery-site. */
+  job?: JobDeliverySiteFields | null;
+  quote?: { projectAddress: string | null } | null;
   lineItems: {
     id: string;
     lineNumber: number;
@@ -95,6 +103,10 @@ export function mapDbDeliveryTicketToDetailView(
 ): DeliveryTicketDetailView {
   const statusKey = ticket.status as keyof typeof deliveryTicketStatusLabels;
   const statusLabel = deliveryTicketStatusLabels[statusKey] ?? ticket.status;
+  // Same address/contact the printed ticket shows: ticket → job delivery
+  // site → job project address → quote.
+  const deliveryAddressLines = resolveTicketDeliveryAddressLines(ticket);
+  const siteContact = resolveTicketSiteContact(ticket);
 
   return {
     id: ticket.id,
@@ -114,9 +126,10 @@ export function mapDbDeliveryTicketToDetailView(
     jobNumber: ticket.jobNumber ?? "—",
     projectName: ticket.projectName,
     customer: ticket.customerName,
-    deliveryAddress: ticket.deliveryAddress ?? "—",
-    siteContactName: ticket.siteContactName ?? "—",
-    siteContactPhone: ticket.siteContactPhone ?? "—",
+    deliveryAddress:
+      deliveryAddressLines.length > 0 ? deliveryAddressLines.join(", ") : "—",
+    siteContactName: siteContact.name ?? "—",
+    siteContactPhone: siteContact.phone ?? "—",
     requestedBy: ticket.requestedBy ?? "—",
     createdBy: ticket.createdBy ?? "—",
     loadSequence: ticket.loadSequence ?? "—",

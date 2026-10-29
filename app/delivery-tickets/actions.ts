@@ -11,6 +11,7 @@ import type {
 } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { getDefaultContactForRole } from "@/lib/customer-contacts";
+import { hasSiteContact } from "@/lib/delivery-site";
 import { parseLocalDay } from "@/lib/date-only";
 import {
   allocateDeliveryTicketNumber,
@@ -597,11 +598,23 @@ export async function createDeliveryTicket(
 
         // New tickets with a known customer and no site contact default to
         // the customer's FIELD contact so the driver has someone to call.
+        // Skipped when the job carries its own site contact (set on the job
+        // page after award): that one resolves onto the ticket and its PDF
+        // dynamically (lib/delivery-site), so later edits reach every load.
+        const jobSiteContact = effectiveInput.jobId
+          ? await tx.job.findUnique({
+              where: { id: effectiveInput.jobId },
+              select: {
+                siteContactName: true,
+                siteContactPhone: true,
+                siteContactEmail: true,
+              },
+            })
+          : null;
         if (
           effectiveInput.customerId &&
-          !input.siteContactName?.trim() &&
-          !input.siteContactPhone?.trim() &&
-          !input.siteContactEmail?.trim()
+          !hasSiteContact(jobSiteContact) &&
+          !hasSiteContact(input)
         ) {
           const fieldContact = await getDefaultContactForRole(
             tx,
