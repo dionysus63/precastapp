@@ -23,6 +23,19 @@ export default async function DeliveryTicketDetailPage({
         include: {
           lineItems: { orderBy: { lineNumber: "asc" } },
           invoice: { select: { id: true, invoiceNumber: true } },
+          job: {
+            select: {
+              deliveryAddress: true,
+              projectAddress: true,
+              city: true,
+              state: true,
+              zip: true,
+              siteContactName: true,
+              siteContactPhone: true,
+              siteContactEmail: true,
+            },
+          },
+          quote: { select: { projectAddress: true } },
         },
       }),
     ),

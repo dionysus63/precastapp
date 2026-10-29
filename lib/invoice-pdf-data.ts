@@ -1,10 +1,9 @@
 import type { Prisma } from "@/app/generated/prisma/client";
 import {
-  formatPostalAddressLines,
   removeAdsJointTypeSuffix,
   removeTrailingRingHeightSuffix,
-  splitMultilineAddress,
 } from "@/lib/delivery-ticket-pdf-data";
+import { resolveTicketDeliveryAddressLines } from "@/lib/delivery-site";
 import { formatQuantity, formatUsd } from "@/lib/format";
 import type { InvoiceDrawLineItem } from "@/lib/invoice-pdf-line-items";
 
@@ -31,7 +30,13 @@ export const INVOICE_PDF_INCLUDE = {
       fulfillmentMethod: true,
       deliveryDate: true,
       job: {
-        select: { projectAddress: true, city: true, state: true, zip: true },
+        select: {
+          deliveryAddress: true,
+          projectAddress: true,
+          city: true,
+          state: true,
+          zip: true,
+        },
       },
       quote: { select: { projectAddress: true, customerPO: true } },
     },
@@ -144,28 +149,12 @@ export function mapInvoiceLineItemsForPdf(
 }
 
 /**
- * Full delivery address, mirroring the delivery ticket's resolution: the
- * ticket's own (possibly multi-line) address first, then the job's postal
- * address, then the quote's project address.
+ * Full delivery address, mirroring the delivery ticket's resolution (see
+ * lib/delivery-site): the ticket's own address, then the job's delivery
+ * address, then the job's postal address, then the quote's project address.
  */
 function resolveInvoiceDeliveryAddressLines(invoice: DbInvoiceForPdf): string[] {
-  const ticket = invoice.deliveryTicket;
-  const ticketAddress = splitMultilineAddress(ticket.deliveryAddress);
-  if (ticketAddress.length > 0) {
-    return ticketAddress;
-  }
-  if (ticket.job) {
-    const jobAddress = formatPostalAddressLines(
-      ticket.job.projectAddress,
-      ticket.job.city,
-      ticket.job.state,
-      ticket.job.zip,
-    );
-    if (jobAddress.length > 0) {
-      return jobAddress;
-    }
-  }
-  return splitMultilineAddress(ticket.quote?.projectAddress);
+  return resolveTicketDeliveryAddressLines(invoice.deliveryTicket);
 }
 
 export function buildInvoiceFormData(

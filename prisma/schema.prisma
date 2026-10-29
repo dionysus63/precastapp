@@ -435,6 +435,13 @@ model Job {
   contactName    String?
   contactEmail   String?
   contactPhone   String?
+  /// Delivery site, set once the job is ours (editable on the job page after
+  /// award). Blank address falls back to the project address on tickets and
+  /// PDFs; a job site contact overrides the per-ticket customer FIELD default.
+  deliveryAddress  String?
+  siteContactName  String?
+  siteContactPhone String?
+  siteContactEmail String?
   folderPath     String?
   notes          String?
   createdAt      DateTime   @default(now())

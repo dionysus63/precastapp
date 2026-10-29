@@ -23,6 +23,7 @@ function schedule(): JobDeliverySchedule {
       jobNumber: "26-001",
       projectName: "Sample Project",
       customerName: "Sample Customer",
+      deliveryAddress: null,
       projectAddress: "10 Main Street",
       city: "Brookhaven",
       state: "NY",
