@@ -8,6 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { returnActionError } from "@/lib/server/action-errors";
 
 type PipeOpeningPayload = {
+  /** Existing catalog row id, so a material rename keeps the row (and its prices). */
+  id: string | null;
   /** Combined material/type description, e.g. "PVC SDR35". */
   pipeMaterial: string;
   pipeSizeInches: number;
@@ -60,6 +62,7 @@ function parsePipeOpeningsPayload(formData: FormData): PipeOpeningPayload[] {
       Number.isFinite(wallRaw) && wallRaw > 0 ? wallRaw : 0;
 
     result.push({
+      id: String(row.id ?? "").trim() || null,
       pipeMaterial,
       pipeSizeInches,
       hasBoot: row.hasBoot !== false,
@@ -110,10 +113,12 @@ async function savePipeOpeningSizesOrThrow(formData: FormData) {
     throw new Error("Pick a price list before saving boot prices.");
   }
 
-  // Upsert by material/size/boot so catalog ids stay stable — price list
-  // entries reference rows by id and must survive a settings save.
+  // Upsert by id, then by material/size/boot, so catalog ids stay stable —
+  // price list entries reference rows by id and must survive a settings save
+  // (including a material rename).
   await prisma.$transaction(async (tx) => {
     const existing = await tx.pipeOpeningSize.findMany();
+    const existingById = new Map(existing.map((row) => [row.id, row]));
     const existingByKey = new Map(
       existing.map((row) => [
         `${combinedMaterial(row)}|${Number(row.pipeSizeInches)}|${row.hasBoot}`,
@@ -121,9 +126,25 @@ async function savePipeOpeningSizesOrThrow(formData: FormData) {
       ]),
     );
 
-    const keptIds = new Set<string>();
-    for (const [index, entry] of entries.entries()) {
+    const claimed = new Set<string>();
+    const matches = entries.map((entry) => {
       const key = `${entry.pipeMaterial.toLowerCase()}|${entry.pipeSizeInches}|${entry.hasBoot}`;
+      const byId = entry.id ? existingById.get(entry.id) : undefined;
+      const match =
+        byId && !claimed.has(byId.id) ? byId : existingByKey.get(key);
+      if (!match || claimed.has(match.id)) {
+        return null;
+      }
+      claimed.add(match.id);
+      return match;
+    });
+
+    // Remove dropped rows first so a renamed row can take over their key.
+    await tx.pipeOpeningSize.deleteMany({
+      where: { id: { notIn: [...claimed] } },
+    });
+
+    for (const [index, entry] of entries.entries()) {
       const data = {
         pipeMaterial: entry.pipeMaterial,
         // Material and type are captured as one combined string now.
@@ -132,18 +153,16 @@ async function savePipeOpeningSizesOrThrow(formData: FormData) {
         holeDiameterInches: decimal(entry.holeDiameterInches),
         pipeWallThicknessInches: decimal(entry.pipeWallThicknessInches),
         bootModel: entry.bootModel,
+        pipeSizeInches: decimal(entry.pipeSizeInches),
         sortOrder: index,
       };
-      const current = existingByKey.get(key);
+      const current = matches[index];
       const saved = current
         ? await tx.pipeOpeningSize.update({
             where: { id: current.id },
             data,
           })
-        : await tx.pipeOpeningSize.create({
-            data: { ...data, pipeSizeInches: decimal(entry.pipeSizeInches) },
-          });
-      keptIds.add(saved.id);
+        : await tx.pipeOpeningSize.create({ data });
 
       if (entry.pricePerBoot !== "") {
         const price = Number(entry.pricePerBoot);
@@ -172,10 +191,6 @@ async function savePipeOpeningSizesOrThrow(formData: FormData) {
         });
       }
     }
-
-    await tx.pipeOpeningSize.deleteMany({
-      where: { id: { notIn: [...keptIds] } },
-    });
   });
 
   revalidatePath("/structures");

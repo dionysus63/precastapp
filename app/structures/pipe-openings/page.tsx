@@ -63,7 +63,7 @@ export default async function PipeOpeningSizesPage({
   return (
     <DashboardShell
       title="Round Structure Openings"
-      subtitle="Global catalog for circular drill sheets: pipe material/type, size, and boot → hole diameter, pipe wall, boot model, and price."
+      subtitle="Global catalog for circular drill sheets, grouped by pipe material: each size → boot and no-boot hole diameter, pipe wall, boot model, and price."
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <BackButton href="/structures" label="Back to Structures" />

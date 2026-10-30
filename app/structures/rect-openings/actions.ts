@@ -8,6 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { returnActionError } from "@/lib/server/action-errors";
 
 type RectOpeningPayload = {
+  /** Existing catalog row id, so a material rename keeps the row (and its prices). */
+  id: string | null;
   /** Combined material/type description, e.g. "PVC SDR35". */
   pipeMaterial: string;
   pipeSizeInches: number;
@@ -62,6 +64,7 @@ function parseRectOpeningsPayload(formData: FormData): RectOpeningPayload[] {
       Number.isFinite(wallRaw) && wallRaw > 0 ? wallRaw : 0;
 
     result.push({
+      id: String(row.id ?? "").trim() || null,
       pipeMaterial,
       pipeSizeInches,
       openingWidthInches,
@@ -102,10 +105,12 @@ async function saveRectOpeningSizesOrThrow(formData: FormData) {
     throw new Error("Pick a price list before saving opening prices.");
   }
 
-  // Upsert by material/size so catalog ids stay stable — price list entries
-  // reference rows by id and must survive a settings save.
+  // Upsert by id, then by material/size, so catalog ids stay stable — price
+  // list entries reference rows by id and must survive a settings save
+  // (including a material rename).
   await prisma.$transaction(async (tx) => {
     const existing = await tx.rectOpeningSize.findMany();
+    const existingById = new Map(existing.map((row) => [row.id, row]));
     const existingByKey = new Map(
       existing.map((row) => [
         `${row.pipeMaterial.trim().toLowerCase()}|${Number(row.pipeSizeInches)}`,
@@ -113,23 +118,37 @@ async function saveRectOpeningSizesOrThrow(formData: FormData) {
       ]),
     );
 
-    const keptIds = new Set<string>();
-    for (const [index, entry] of entries.entries()) {
+    const claimed = new Set<string>();
+    const matches = entries.map((entry) => {
       const key = `${entry.pipeMaterial.toLowerCase()}|${entry.pipeSizeInches}`;
+      const byId = entry.id ? existingById.get(entry.id) : undefined;
+      const match =
+        byId && !claimed.has(byId.id) ? byId : existingByKey.get(key);
+      if (!match || claimed.has(match.id)) {
+        return null;
+      }
+      claimed.add(match.id);
+      return match;
+    });
+
+    // Remove dropped rows first so a renamed row can take over their key.
+    await tx.rectOpeningSize.deleteMany({
+      where: { id: { notIn: [...claimed] } },
+    });
+
+    for (const [index, entry] of entries.entries()) {
       const data = {
         pipeMaterial: entry.pipeMaterial,
+        pipeSizeInches: decimal(entry.pipeSizeInches),
         openingWidthInches: decimal(entry.openingWidthInches),
         openingHeightInches: decimal(entry.openingHeightInches),
         pipeWallThicknessInches: decimal(entry.pipeWallThicknessInches),
         sortOrder: index,
       };
-      const current = existingByKey.get(key);
+      const current = matches[index];
       const saved = current
         ? await tx.rectOpeningSize.update({ where: { id: current.id }, data })
-        : await tx.rectOpeningSize.create({
-            data: { ...data, pipeSizeInches: decimal(entry.pipeSizeInches) },
-          });
-      keptIds.add(saved.id);
+        : await tx.rectOpeningSize.create({ data });
 
       if (entry.pricePerOpening !== "") {
         const price = Number(entry.pricePerOpening);
@@ -158,10 +177,6 @@ async function saveRectOpeningSizesOrThrow(formData: FormData) {
         });
       }
     }
-
-    await tx.rectOpeningSize.deleteMany({
-      where: { id: { notIn: [...keptIds] } },
-    });
   });
 
   revalidatePath("/structures");
