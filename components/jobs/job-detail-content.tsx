@@ -17,6 +17,7 @@ import {
 import { JobDrillSheetsPdfButtons } from "@/components/drill-sheets/job-drill-sheets-pdf-buttons";
 import { MarkAllSubmittedButton } from "@/components/drill-sheets/mark-all-submitted-button";
 import { JobDeliveriesTable } from "@/components/jobs/job-deliveries-table";
+import { JobDeliverySiteEditor } from "@/components/jobs/job-delivery-site-editor";
 import {
   groupJobRelatedQuotes,
   type JobAttentionItem,
@@ -35,7 +36,9 @@ import {
   tableCellBordersClassName,
   tableCellClassName,
   tableClassName,
+  tableCompactClassName,
   tableFlushWrapperClassName,
+  tableHeaderCellClassName,
   tableHeaderCellWrapClassName,
   tableRowClassName,
 } from "@/lib/table-styles";
@@ -406,6 +409,14 @@ export function JobOverviewSection({
       </div>
 
       <div className="space-y-4">
+        {detail.deliverySite.visible ? (
+          <JobDeliverySiteEditor
+            jobId={detail.id}
+            jobNumber={detail.jobNumber}
+            site={detail.deliverySite}
+          />
+        ) : null}
+
         <SectionCard title="Job Information">
           <dl>
             <InfoRow label="Contact" value={detail.contactName} />
@@ -633,14 +644,15 @@ export function JobDeliveriesSection({
       noPadding
     >
       <div className={tableFlushWrapperClassName}>
-        <table className={tableClassName}>
+        <table className={tableCompactClassName}>
           <thead>
             <tr>
-              <th className={tableHeaderCellWrapClassName}>Ticket</th>
-              <th className={tableHeaderCellWrapClassName}>Project</th>
-              <th className={tableHeaderCellWrapClassName}>Delivery Date</th>
-              <th className={tableHeaderCellWrapClassName}>Status</th>
-              <th className={tableHeaderCellWrapClassName}>Last Updated</th>
+              <th className={tableHeaderCellClassName}>Ticket</th>
+              <th className={tableHeaderCellClassName}>Custom Line</th>
+              <th className={tableHeaderCellClassName}>Project</th>
+              <th className={tableHeaderCellClassName}>Delivery Date</th>
+              <th className={tableHeaderCellClassName}>Status</th>
+              <th className={tableHeaderCellClassName}>Last Updated</th>
             </tr>
           </thead>
           <tbody className={tableBodyClassName}>

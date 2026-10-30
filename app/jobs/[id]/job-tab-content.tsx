@@ -171,7 +171,11 @@ export async function JobTabContent({
     const tickets = await withDatabaseRetry((prisma) =>
       prisma.deliveryTicket.findMany({
         where: { jobId },
-        orderBy: { updatedAt: "desc" },
+        // Latest delivery first; planned tickets without a date sink to the bottom.
+        orderBy: [
+          { deliveryDate: { sort: "desc", nulls: "last" } },
+          { updatedAt: "desc" },
+        ],
         include: {
           lineItems: {
             orderBy: [{ sortOrder: "asc" }, { lineNumber: "asc" }],

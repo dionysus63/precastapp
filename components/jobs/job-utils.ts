@@ -161,6 +161,7 @@ export type JobDeliveryLineItem = {
 export type JobRelatedDelivery = {
   id: string;
   ticketNumber: string;
+  customLine: string | null;
   projectName: string;
   statusLabel: string;
   statusVariant: JobStatusVariant;
@@ -303,6 +304,24 @@ export type JobDetailView = {
   structureStatusBreakdown: { label: string; count: number }[];
   biddingSummary: JobBiddingSummary;
   counts: JobRelationCounts;
+  deliverySite: JobDeliverySiteView;
+};
+
+/**
+ * Where loads go and who to call on site, editable on the job page once the
+ * job is awarded. Raw values (empty string = unset) so the inline editor can
+ * prefill them; `projectAddressLines` / `jobContact` back its "use the
+ * project address / job contact" shortcuts.
+ */
+export type JobDeliverySiteView = {
+  /** Show the Delivery Site card: awarded, past award, or already filled in. */
+  visible: boolean;
+  deliveryAddress: string;
+  siteContactName: string;
+  siteContactPhone: string;
+  siteContactEmail: string;
+  projectAddressLines: string[];
+  jobContact: { name: string; phone: string; email: string };
 };
 
 export const jobStatusLabels: Record<string, string> = {

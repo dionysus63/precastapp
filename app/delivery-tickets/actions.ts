@@ -11,6 +11,7 @@ import type {
 } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { getDefaultContactForRole } from "@/lib/customer-contacts";
+import { hasSiteContact } from "@/lib/delivery-site";
 import { parseLocalDay } from "@/lib/date-only";
 import {
   allocateDeliveryTicketNumber,
@@ -380,7 +381,10 @@ async function validateLines(
       if (
         (line.lineType === "CONFIGURABLE_STRUCTURE" ||
           line.lineType === "CUSTOM_STRUCTURE") &&
-        !PLANNABLE_STRUCTURE_STATUSES.includes(meta.jobStructureStatus ?? "")
+        !PLANNABLE_STRUCTURE_STATUSES.includes(meta.jobStructureStatus ?? "") &&
+        // A structure a partial delivery marked SHIPPED is made; its
+        // remaining units ship like a MADE structure's.
+        !(meta.jobStructureStatus === "SHIPPED" && meta.shippedQty > 0)
       ) {
         // Dispatch plans ahead of production, but never against structures
         // that aren't cleared for it yet.
@@ -594,11 +598,23 @@ export async function createDeliveryTicket(
 
         // New tickets with a known customer and no site contact default to
         // the customer's FIELD contact so the driver has someone to call.
+        // Skipped when the job carries its own site contact (set on the job
+        // page after award): that one resolves onto the ticket and its PDF
+        // dynamically (lib/delivery-site), so later edits reach every load.
+        const jobSiteContact = effectiveInput.jobId
+          ? await tx.job.findUnique({
+              where: { id: effectiveInput.jobId },
+              select: {
+                siteContactName: true,
+                siteContactPhone: true,
+                siteContactEmail: true,
+              },
+            })
+          : null;
         if (
           effectiveInput.customerId &&
-          !input.siteContactName?.trim() &&
-          !input.siteContactPhone?.trim() &&
-          !input.siteContactEmail?.trim()
+          !hasSiteContact(jobSiteContact) &&
+          !hasSiteContact(input)
         ) {
           const fieldContact = await getDefaultContactForRole(
             tx,
@@ -1543,6 +1559,65 @@ export async function updateTicketCustomLine(
         error instanceof Error
           ? error.message
           : "Could not update the custom line.",
+    };
+  }
+}
+
+/**
+ * Dispatch quick-edit: move an open load to another day from the hub's
+ * schedule tiles. Only the date changes — time, driver and trailer stay as
+ * they are. A planned (DRAFT) load that receives a date becomes SCHEDULED
+ * and gets its ticket number, like scheduleJobLoads.
+ */
+export async function updateTicketDeliveryDate(
+  ticketId: string,
+  deliveryDate: string,
+): Promise<UpdateTicketDriverResult> {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+  const parsed = parseDate(deliveryDate);
+  if (!parsed) {
+    return { error: "Pick a delivery date." };
+  }
+  try {
+    const ticket = await withDatabaseRetry((client) =>
+      client.deliveryTicket.findUnique({
+        where: { id: ticketId },
+        select: { status: true, ticketNumber: true },
+      }),
+    );
+    if (!ticket) {
+      return { error: "Ticket not found. Refresh the page." };
+    }
+    if (ticket.status === "DELIVERED" || ticket.status === "CANCELLED") {
+      return {
+        error: `${ticket.ticketNumber} is ${ticket.status.toLowerCase()} and can't be rescheduled.`,
+      };
+    }
+
+    await withDatabaseRetry((client) =>
+      client.$transaction(async (tx) => {
+        await tx.deliveryTicket.update({
+          where: { id: ticketId },
+          data: {
+            deliveryDate: parsed,
+            ...(ticket.status === "DRAFT" ? { status: "SCHEDULED" } : {}),
+          },
+        });
+        if (ticket.status === "DRAFT") {
+          await ensureTicketNumberAssigned(tx, ticketId);
+        }
+      }),
+    );
+
+    revalidatePath("/delivery-tickets");
+    revalidatePath(`/delivery-tickets/${ticketId}`);
+    return { success: true };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not update the delivery date.",
     };
   }
 }

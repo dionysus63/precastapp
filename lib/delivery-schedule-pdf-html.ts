@@ -6,6 +6,7 @@ import type {
   DeliveryScheduleTicket,
   JobDeliverySchedule,
 } from "@/lib/delivery-schedule-data";
+import { resolveJobDeliveryAddressLines } from "@/lib/delivery-site";
 
 export type DeliveryScheduleVariant = "contractor" | "internal";
 
@@ -56,14 +57,10 @@ function ticketContentsHtml(ticket: DeliveryScheduleTicket): string {
 }
 
 function formatDeliveryAddress(job: JobDeliverySchedule["job"]): string | null {
-  const cityStateZip = [
-    job.city?.trim(),
-    [job.state?.trim(), job.zip?.trim()].filter(Boolean).join(" "),
-  ]
-    .filter(Boolean)
-    .join(", ");
-  const parts = [job.projectAddress?.trim(), cityStateZip].filter(Boolean);
-  return parts.length > 0 ? parts.join(", ") : null;
+  // Job-level delivery address (set after award) first, else the project
+  // address — the same order the ticket PDFs use.
+  const lines = resolveJobDeliveryAddressLines(job);
+  return lines.length > 0 ? lines.join(", ") : null;
 }
 
 function ticketWeight(ticket: DeliveryScheduleTicket): number | null {

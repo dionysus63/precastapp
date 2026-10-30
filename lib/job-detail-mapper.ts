@@ -17,6 +17,7 @@ import {
   type JobBidderRow,
   type JobBiddingSummary,
   type JobDeliveryLineItem,
+  type JobDeliverySiteView,
   type JobDetailView,
   type JobInvoiceableDelivery,
   type JobMasterQuoteOption,
@@ -31,6 +32,7 @@ import { quoteStatusLabels, type QuoteStatus } from "@/components/quotes/quote-u
 import { OPEN_STATUSES } from "@/lib/quotes/list-summary";
 import { formatDateShort, formatUsd, formatWeightLb } from "@/lib/format";
 import { addLocalDays } from "@/lib/date-only";
+import { formatPostalAddressLines } from "@/lib/delivery-site";
 import { jobStatusVariant, quoteStatusVariant } from "@/lib/status-variants";
 import {
   deliveryTicketStatusLabels,
@@ -129,6 +131,50 @@ function formatProjectAddress(job: Job): string {
   ].filter((part) => part && part.trim() !== "");
 
   return parts.join(", ") || "—";
+}
+
+const PRE_AWARD_STATUSES = new Set<string>(["QUOTING", "DETAILING"]);
+
+function buildDeliverySiteView(
+  job: Job & { _count: { deliveryTickets: number } },
+  isAwarded: boolean,
+): JobDeliverySiteView {
+  const deliveryAddress = job.deliveryAddress ?? "";
+  const siteContactName = job.siteContactName ?? "";
+  const siteContactPhone = job.siteContactPhone ?? "";
+  const siteContactEmail = job.siteContactEmail ?? "";
+  const hasValues = Boolean(
+    deliveryAddress.trim() ||
+      siteContactName.trim() ||
+      siteContactPhone.trim() ||
+      siteContactEmail.trim(),
+  );
+  // Quoting/detailing jobs keep their pre-award page; the card appears once
+  // the job is ours (award, a later status, or loads already planned).
+  const visible =
+    isAwarded ||
+    !PRE_AWARD_STATUSES.has(job.status) ||
+    job._count.deliveryTickets > 0 ||
+    hasValues;
+
+  return {
+    visible,
+    deliveryAddress,
+    siteContactName,
+    siteContactPhone,
+    siteContactEmail,
+    projectAddressLines: formatPostalAddressLines(
+      job.projectAddress,
+      job.city,
+      job.state,
+      job.zip,
+    ),
+    jobContact: {
+      name: job.contactName ?? "",
+      phone: job.contactPhone ?? "",
+      email: job.contactEmail ?? "",
+    },
+  };
 }
 
 function mapQuote(quote: Quote & { masterQuoteId?: string | null }): JobRelatedQuote {
@@ -315,6 +361,7 @@ function mapDelivery(ticket: JobDeliveryTicketWithLineItems): JobRelatedDelivery
   return {
     id: ticket.id,
     ticketNumber: ticket.ticketNumber ?? "Planned",
+    customLine: ticket.customLine,
     projectName: ticket.projectName,
     statusLabel: deliveryTicketStatusLabels[status] ?? ticket.status,
     statusVariant: deliveryStatusVariant(ticket.status),
@@ -492,6 +539,7 @@ export function mapJobToDetailView(job: JobWithSummaryRelations): JobDetailView 
     stats,
     structureStatusBreakdown,
     biddingSummary,
+    deliverySite: buildDeliverySiteView(job, biddingSummary.isAwarded),
     counts: {
       quotes: job._count.quotes,
       bidders: job._count.bidders,

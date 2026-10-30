@@ -18,6 +18,15 @@ export const tableFlushWrapperClassName = "max-h-[70vh] overflow-auto";
 export const tableClassName =
   "min-w-full border-separate border-spacing-0 text-left text-xs";
 
+/**
+ * Table sized to its content instead of stretching across the container, so
+ * short columns sit close together. Pair with nowrap cells. Its own right
+ * border closes off the grid, since cells drop theirs on the last column and
+ * the table ends short of the container's edge.
+ */
+export const tableCompactClassName =
+  "w-auto border-separate border-spacing-0 border-r border-slate-300 text-left text-xs";
+
 const tableHeaderCellBaseClassName =
   "sticky top-0 z-10 border-b-2 border-r border-b-slate-300 border-r-slate-300 bg-slate-100 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600 last:border-r-0";
 

@@ -1,5 +1,14 @@
 import { formatWeightLb } from "@/lib/format";
 import type { DeliveryTicketDrawLineItem } from "@/lib/delivery-ticket-pdf-line-items";
+import {
+  formatPostalAddressLines,
+  resolveTicketDeliveryAddressLines,
+  resolveTicketSiteContact,
+  splitMultilineAddress,
+} from "@/lib/delivery-site";
+
+// Re-exported for existing importers; the helpers moved to lib/delivery-site.
+export { formatPostalAddressLines, splitMultilineAddress };
 
 export const DELIVERY_TICKET_PDF_INCLUDE = {
   lineItems: {
@@ -32,10 +41,14 @@ export const DELIVERY_TICKET_PDF_INCLUDE = {
   },
   job: {
     select: {
+      deliveryAddress: true,
       projectAddress: true,
       city: true,
       state: true,
       zip: true,
+      siteContactName: true,
+      siteContactPhone: true,
+      siteContactEmail: true,
     },
   },
   quote: {
@@ -85,10 +98,15 @@ type DbCustomer = {
 } | null;
 
 type DbJob = {
+  /** Job-level delivery site (set after award); falls back to the postal address. */
+  deliveryAddress: string | null;
   projectAddress: string | null;
   city: string | null;
   state: string | null;
   zip: string | null;
+  siteContactName: string | null;
+  siteContactPhone: string | null;
+  siteContactEmail: string | null;
 } | null;
 
 export type DbDeliveryTicketForPdf = {
@@ -171,55 +189,6 @@ function formatWeightNumber(value: { toString(): string } | null): string {
     return "0";
   }
   return amount.toLocaleString("en-US", { maximumFractionDigits: 0 });
-}
-
-export function formatPostalAddressLines(
-  address: string | null | undefined,
-  town: string | null | undefined,
-  state: string | null | undefined,
-  zip: string | null | undefined,
-): string[] {
-  const lines: string[] = [];
-  if (address?.trim()) {
-    lines.push(address.trim());
-  }
-  const cityStateZip = [town?.trim(), state?.trim()].filter(Boolean).join(", ");
-  const cityLine = [cityStateZip, zip?.trim()].filter(Boolean).join(" ");
-  if (cityLine) {
-    lines.push(cityLine);
-  }
-  return lines;
-}
-
-export function splitMultilineAddress(value: string | null | undefined): string[] {
-  if (!value?.trim()) {
-    return [];
-  }
-  return value
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
-
-function resolveDeliveryAddressLines(ticket: DbDeliveryTicketForPdf): string[] {
-  const ticketAddress = splitMultilineAddress(ticket.deliveryAddress);
-  if (ticketAddress.length > 0) {
-    return ticketAddress;
-  }
-
-  if (ticket.job) {
-    const jobAddress = formatPostalAddressLines(
-      ticket.job.projectAddress,
-      ticket.job.city,
-      ticket.job.state,
-      ticket.job.zip,
-    );
-    if (jobAddress.length > 0) {
-      return jobAddress;
-    }
-  }
-
-  return splitMultilineAddress(ticket.quote?.projectAddress);
 }
 
 function resolveStructure(line: DbDeliveryTicketForPdf["lineItems"][number]): string {
@@ -408,7 +377,8 @@ export function buildDeliveryTicketFormData(
   options: DeliveryTicketPdfFillOptions,
   contentPage: DeliveryTicketContentPage = { number: 1, count: 1 },
 ): Record<string, string> {
-  const deliveryAddressLines = resolveDeliveryAddressLines(ticket);
+  const deliveryAddressLines = resolveTicketDeliveryAddressLines(ticket);
+  const siteContact = resolveTicketSiteContact(ticket);
   // Pickup tickets drop Site Contact/Phone from the info box, and their
   // Driver/Trailer band cells are intentionally blank.
   const isPickup = ticket.fulfillmentMethod === "PICKUP";
@@ -420,8 +390,8 @@ export function buildDeliveryTicketFormData(
     "Contractor Name": blankOr(ticket.customerName),
     "Job Name": blankOr(ticket.projectName),
     "Job Number": blankOr(ticket.jobNumber),
-    "Site Contact": isPickup ? "" : blankOr(ticket.siteContactName),
-    "Site Contact Phone": isPickup ? "" : blankOr(ticket.siteContactPhone),
+    "Site Contact": isPickup ? "" : blankOr(siteContact.name),
+    "Site Contact Phone": isPickup ? "" : blankOr(siteContact.phone),
     "Delivery Address 1": deliveryAddressLines[0] ?? "",
     "Delivery Address 2": deliveryAddressLines[1] ?? "",
     "Ship Date": formatDateForPdf(ticket.deliveryDate),
@@ -447,7 +417,8 @@ export function mapDbDeliveryTicketToPdfView(
       )
     : [];
 
-  const deliveryAddressLines = resolveDeliveryAddressLines(ticket);
+  const deliveryAddressLines = resolveTicketDeliveryAddressLines(ticket);
+  const siteContact = resolveTicketSiteContact(ticket);
   const totalPieces = computeTotalPieces(ticket) || "—";
 
   return {
@@ -456,9 +427,9 @@ export function mapDbDeliveryTicketToPdfView(
     customerAddressLines,
     projectName: ticket.projectName,
     deliveryAddressLines,
-    siteContactName: displayOrDash(ticket.siteContactName),
+    siteContactName: displayOrDash(siteContact.name),
     jobNumber: displayOrDash(ticket.jobNumber),
-    siteContactPhone: displayOrDash(ticket.siteContactPhone),
+    siteContactPhone: displayOrDash(siteContact.phone),
     deliveryDate: formatDate(ticket.deliveryDate),
     driver: displayOrDash(ticket.driver),
     trailer: displayOrDash(ticket.trailer),
