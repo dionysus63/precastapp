@@ -6,6 +6,12 @@ import {
   type OneOffCreateInput,
   type OneOffCreateResult,
 } from "@/app/quotes/one-off-actions";
+import { saveOneOffDraft, deleteOneOffDraft } from "@/app/quotes/one-off-draft-actions";
+import {
+  OneOffDraftBar,
+  type OneOffDraftRecord,
+} from "@/components/quotes/one-off/one-off-draft-bar";
+import { OneOffDraftsCard } from "@/components/quotes/one-off/one-off-drafts-card";
 import { OneOffGrid } from "@/components/quotes/one-off/one-off-grid";
 import {
   OneOffJobStep,
@@ -17,6 +23,16 @@ import { OneOffResults } from "@/components/quotes/one-off/one-off-results";
 import { OneOffSetupPanel } from "@/components/quotes/one-off/one-off-setup-panel";
 import { describeActionFailure, isActionError } from "@/lib/action-result";
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning";
+import { navigateAfterAction } from "@/lib/reload-after-action";
+import {
+  defaultDraftName,
+  describeDraftJob,
+  serializeOneOffDraftState,
+  type OneOffDraftJob,
+  type OneOffDraftState,
+  type OneOffDraftSummary,
+  type OneOffResumedDraft,
+} from "@/lib/quotes/one-off-draft";
 import {
   buildRowsFromSetup,
   circularPipeTypeChoices,
@@ -37,7 +53,34 @@ import {
 type OneOffDrillSheetsProps = {
   circularOptions: OneOffCircularOptions;
   rectOptions: OneOffRectOptions;
+  /** Grids saved to finish later, listed before a new One-Off starts. */
+  drafts: OneOffDraftSummary[];
+  /** A saved draft to pick up where it left off. */
+  resume: OneOffResumedDraft | null;
 };
+
+/** The job step as a draft stores it: an existing job by id only. */
+function toDraftJob(choice: OneOffJobChoice | null): OneOffDraftJob | null {
+  if (!choice) {
+    return null;
+  }
+  if (choice.mode === "existing") {
+    return choice.job ? { mode: "existing", jobId: choice.job.id } : null;
+  }
+  return { mode: "new", fields: choice.fields, customerLabel: choice.customerLabel };
+}
+
+/** The job step as the page shows it, with the resumed job reloaded. */
+function fromResumedJob(resume: OneOffResumedDraft): OneOffJobChoice | null {
+  const job = resume.state.job;
+  if (!job) {
+    return null;
+  }
+  if (job.mode === "existing") {
+    return { mode: "existing", job: resume.job };
+  }
+  return { mode: "new", fields: job.fields, customerLabel: job.customerLabel };
+}
 
 const SHAPE_CHOICES: { value: OneOffShapeChoice; title: string; description: string }[] = [
   { value: "CIRCULAR", title: "Circular", description: "Manholes and round structures" },
@@ -101,21 +144,66 @@ function StepCard({
 export function OneOffDrillSheets({
   circularOptions,
   rectOptions,
+  drafts,
+  resume,
 }: OneOffDrillSheetsProps) {
-  const [jobChoice, setJobChoice] = useState<OneOffJobChoice | null>(null);
-  const [jobConfirmed, setJobConfirmed] = useState(false);
-  const [shapeChoice, setShapeChoice] = useState<OneOffShapeChoice | null>(null);
-  const [circular, setCircular] = useState<OneOffSection>(() =>
-    createEmptySection("CIRCULAR"),
+  const [jobChoice, setJobChoice] = useState<OneOffJobChoice | null>(() =>
+    resume ? fromResumedJob(resume) : null,
   );
-  const [rect, setRect] = useState<OneOffSection>(() =>
-    createEmptySection("RECTANGULAR"),
+  const [jobConfirmed, setJobConfirmed] = useState(
+    () => resume != null && resume.state.jobConfirmed && !resume.jobMissing,
+  );
+  const [shapeChoice, setShapeChoice] = useState<OneOffShapeChoice | null>(
+    () => resume?.state.shapeChoice ?? null,
+  );
+  const [circular, setCircular] = useState<OneOffSection>(
+    () => resume?.state.circular ?? createEmptySection("CIRCULAR"),
+  );
+  const [rect, setRect] = useState<OneOffSection>(
+    () => resume?.state.rect ?? createEmptySection("RECTANGULAR"),
   );
   /** With "Both", the rectangular step opens once circular is done. */
-  const [rectUnlocked, setRectUnlocked] = useState(false);
+  const [rectUnlocked, setRectUnlocked] = useState(
+    () => resume?.state.rectUnlocked ?? false,
+  );
   const [result, setResult] = useState<OneOffCreateResult | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, startCreating] = useTransition();
+
+  // Saving for later: the draft this page works on, its name, and the
+  // snapshot last written so "Save Changes" knows when there is anything new.
+  const [draft, setDraft] = useState<OneOffDraftRecord | null>(() =>
+    resume
+      ? {
+          id: resume.id,
+          name: resume.name,
+          savedBy: resume.savedBy,
+          savedAt: resume.savedAt,
+        }
+      : null,
+  );
+  const [draftName, setDraftName] = useState(() => resume?.name ?? "");
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [savingDraft, startSavingDraft] = useTransition();
+  const draftState = useMemo<OneOffDraftState>(
+    () => ({
+      version: 1,
+      job: toDraftJob(jobChoice),
+      jobConfirmed,
+      shapeChoice,
+      rectUnlocked,
+      circular,
+      rect,
+    }),
+    [circular, jobChoice, jobConfirmed, rect, rectUnlocked, shapeChoice],
+  );
+  const draftSnapshot = useMemo(
+    () => serializeOneOffDraftState(draftState),
+    [draftState],
+  );
+  const [lastSavedSnapshot, setLastSavedSnapshot] = useState<string | null>(
+    () => (resume ? serializeOneOffDraftState(resume.state) : null),
+  );
 
   const circularPipeChoices = useMemo(
     () => circularPipeTypeChoices(circularOptions.pipeOpeningSizes),
@@ -177,10 +265,16 @@ export function OneOffDrillSheets({
     return keys;
   }, [circularRows, jobNumbers, rectRows]);
 
-  const isDirty =
-    result == null &&
-    (jobChoice != null || circular.rows != null || rect.rows != null);
-  useUnsavedChangesWarning(isDirty);
+  const started = jobChoice != null || circular.rows != null || rect.rows != null;
+  const draftDirty =
+    lastSavedSnapshot == null ? started : draftSnapshot !== lastSavedSnapshot;
+  const isDirty = result == null && draftDirty;
+  useUnsavedChangesWarning(
+    isDirty,
+    draft
+      ? "You have changes since this draft was last saved. Leave and discard them?"
+      : "This One-Off isn't saved. Leave without saving it for later?",
+  );
 
   function takenFor(shape: OneOffShape): string[] {
     const other = shape === "CIRCULAR" ? rect.rows : circular.rows;
@@ -250,11 +344,18 @@ export function OneOffDrillSheets({
     setCreateError(null);
     startCreating(async () => {
       try {
-        const response = await createOneOffDrillSheets({ job, sheets });
+        const response = await createOneOffDrillSheets({
+          job,
+          sheets,
+          draftId: draft?.id ?? null,
+        });
         if (isActionError(response)) {
           setCreateError(response.error);
           return;
         }
+        // The server removed the draft along with creating the sheets.
+        setDraft(null);
+        setLastSavedSnapshot(null);
         setResult(response);
         window.scrollTo({ top: 0, behavior: "smooth" });
       } catch (error) {
@@ -274,6 +375,86 @@ export function OneOffDrillSheets({
     setRectUnlocked(false);
     setResult(null);
     setCreateError(null);
+    setDraft(null);
+    setDraftName("");
+    setDraftError(null);
+    setLastSavedSnapshot(null);
+    if (resume) {
+      // Drop ?draft= so the page starts fresh instead of reopening the draft
+      // (a full navigation: the client router is unreliable on the LAN).
+      navigateAfterAction("/quotes/one-off");
+    }
+  }
+
+  function handleSaveDraft() {
+    if (!started) {
+      setDraftError("Pick a job or build a grid before saving.");
+      return;
+    }
+    const snapshot = draftSnapshot;
+    const name =
+      draftName.trim() ||
+      defaultDraftName(
+        describeDraftJob(
+          draftState.job,
+          jobChoice?.mode === "existing" ? jobChoice.job : null,
+        ),
+      );
+    setDraftError(null);
+    startSavingDraft(async () => {
+      try {
+        const response = await saveOneOffDraft({
+          id: draft?.id ?? null,
+          name,
+          state: draftState,
+        });
+        if (isActionError(response)) {
+          setDraftError(response.error);
+          return;
+        }
+        if (!draft) {
+          // First save: reopen the page on the draft's own URL so a reload
+          // (or the back button) lands on it. A full navigation, because the
+          // client router can't be trusted to sync the URL on the LAN.
+          navigateAfterAction(
+            `/quotes/one-off?draft=${encodeURIComponent(response.id)}`,
+            { type: "success", text: `Saved "${response.name}" to finish later.` },
+          );
+          return;
+        }
+        setDraft(response);
+        setDraftName(response.name);
+        setLastSavedSnapshot(snapshot);
+      } catch (error) {
+        setDraftError(describeActionFailure(error, "Could not save the draft."));
+      }
+    });
+  }
+
+  function handleDiscardDraft() {
+    if (!draft) {
+      return;
+    }
+    if (!window.confirm(`Delete the draft "${draft.name}" and clear this page?`)) {
+      return;
+    }
+    const draftId = draft.id;
+    setDraftError(null);
+    startSavingDraft(async () => {
+      try {
+        const response = await deleteOneOffDraft(draftId);
+        if (isActionError(response)) {
+          setDraftError(response.error);
+          return;
+        }
+        navigateAfterAction("/quotes/one-off", {
+          type: "info",
+          text: `Draft "${draft.name}" deleted.`,
+        });
+      } catch (error) {
+        setDraftError(describeActionFailure(error, "Could not delete the draft."));
+      }
+    });
   }
 
   if (result) {
@@ -351,6 +532,28 @@ export function OneOffDrillSheets({
 
   return (
     <div className="space-y-4">
+      {!resume && !started ? <OneOffDraftsCard drafts={drafts} /> : null}
+
+      {resume?.jobMissing ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+          The job this draft was for no longer exists. Pick another job (or a
+          new one) and your rows are kept.
+        </div>
+      ) : null}
+
+      {started || draft ? (
+        <OneOffDraftBar
+          draft={draft}
+          name={draftName}
+          onNameChange={setDraftName}
+          dirty={draftDirty}
+          saving={savingDraft}
+          error={draftError}
+          onSave={handleSaveDraft}
+          onDiscard={handleDiscardDraft}
+        />
+      ) : null}
+
       <StepCard
         number={1}
         title="Job"

@@ -9,14 +9,37 @@ import {
   loadRectSheetFormOptions,
 } from "@/lib/drill-sheet-options";
 import { withDatabaseRetry } from "@/lib/prisma";
+import type { OneOffDraftState } from "@/lib/quotes/one-off-draft";
+import {
+  loadOneOffDraftForResume,
+  loadOneOffDraftSummaries,
+} from "@/lib/quotes/one-off-draft-load";
 import { loadOneOffEditData } from "@/lib/quotes/one-off-edit";
 
 type OneOffPageProps = {
-  searchParams: Promise<{ edit?: string | string[]; sheets?: string | string[] }>;
+  searchParams: Promise<{
+    edit?: string | string[];
+    sheets?: string | string[];
+    draft?: string | string[];
+  }>;
 };
 
 function single(value: string | string[] | undefined): string {
   return (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
+}
+
+/** Circular template ids a draft's setup and rows refer to. */
+function draftTemplateIds(state: OneOffDraftState): string[] {
+  const ids = new Set<string>();
+  if (state.circular.setup.templateId) {
+    ids.add(state.circular.setup.templateId);
+  }
+  for (const row of state.circular.rows ?? []) {
+    if (row.templateId) {
+      ids.add(row.templateId);
+    }
+  }
+  return [...ids];
 }
 
 export default async function OneOffDrillSheetsPage({
@@ -25,8 +48,11 @@ export default async function OneOffDrillSheetsPage({
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
   const params = await searchParams;
   const editJobId = single(params.edit);
+  const draftId = editJobId ? "" : single(params.draft);
+  const resume = draftId ? await loadOneOffDraftForResume(draftId) : null;
 
-  // Sheets being edited on a since-retired template keep it available.
+  // Sheets being edited, or a draft's rows, on a since-retired template keep
+  // it available.
   const usedTemplateIds = editJobId
     ? (
         await withDatabaseRetry((client) =>
@@ -37,7 +63,9 @@ export default async function OneOffDrillSheetsPage({
           }),
         )
       ).map((structure) => structure.structureTemplateId ?? "")
-    : [];
+    : resume
+      ? draftTemplateIds(resume.state)
+      : [];
   const [circular, rect] = await Promise.all([
     loadDrillSheetFormOptions(null, { includeTemplateIds: usedTemplateIds }),
     loadRectSheetFormOptions(),
@@ -55,14 +83,32 @@ export default async function OneOffDrillSheetsPage({
   };
 
   if (!editJobId) {
+    const drafts = await loadOneOffDraftSummaries();
     return (
       <DashboardShell
-        title="One-Off Drill Sheets"
-        subtitle="Make a few drill sheets for a job without building a quote first."
+        title={resume ? `One-Off Drill Sheets — ${resume.name}` : "One-Off Drill Sheets"}
+        subtitle={
+          resume
+            ? "Picking up a saved One-Off. Save again any time, or create the sheets when every row is ready."
+            : "Make a few drill sheets for a job without building a quote first."
+        }
       >
+        {draftId && !resume ? (
+          <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+            That saved draft was not found. It may have been deleted, or its
+            sheets were already created.{" "}
+            <Link href="/quotes/one-off" className="font-semibold underline">
+              Start a new One-Off
+            </Link>
+          </div>
+        ) : null}
         <OneOffDrillSheets
+          // Remount when switching between drafts so the grids reload.
+          key={resume?.id ?? "new"}
           circularOptions={circularOptions}
           rectOptions={rectOptions}
+          drafts={drafts}
+          resume={resume}
         />
       </DashboardShell>
     );

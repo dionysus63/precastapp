@@ -456,6 +456,7 @@ model Job {
   invoices        Invoice[]
   favorites       JobFavorite[]
   planSheets      PlanSheet[]
+  oneOffDrafts    OneOffDraft[]
 
   @@unique([year, sequenceNumber])
   @@index([customerId])
@@ -1587,6 +1588,28 @@ model SavedLoadPlan {
   quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
   @@index([jobId])
+}
+
+/// A One-Off drill sheet grid saved to finish later (Quotes → One-Off):
+/// the job pick, shape choice and every typed row, before any sheet exists.
+/// Creating the sheets from it removes the draft.
+model OneOffDraft {
+  id        String   @id @default(cuid())
+  /// Short label shown in the saved-drafts list.
+  name      String
+  /// Set when the draft is for an existing job; null for a new-job draft or
+  /// once that job is deleted (the draft then asks for a job again).
+  jobId     String?
+  /// JSON: OneOffDraftState (lib/quotes/one-off-draft.ts).
+  draftJson String
+  savedBy   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  job Job? @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@index([jobId])
+  @@index([updatedAt])
 }
 
 /// Batch entry for purchased casting inventory received from a supplier.
