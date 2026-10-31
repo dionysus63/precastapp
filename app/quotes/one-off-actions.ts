@@ -8,7 +8,12 @@ import { createJobFolders, createJobRecord } from "@/lib/job-create";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
 import { parseRectStructureConfigJson } from "@/lib/quotes/rect-structure-workbook";
 import { parseStructureConfigJson } from "@/lib/quotes/structure-workbook";
+import type {
+  OneOffJobDetails as OneOffJobDetailsBase,
+  OneOffNewJobInput as OneOffNewJobInputBase,
+} from "@/lib/quotes/one-off-draft";
 import { findDuplicateStructureNumbers } from "@/lib/quotes/one-off-drill-sheets";
+import { loadOneOffJobDetails } from "@/lib/quotes/one-off-job";
 import { createRectJobStructureFromQuoteConfig } from "@/lib/rect-sheet-persistence";
 import { returnActionError } from "@/lib/server/action-errors";
 
@@ -16,36 +21,9 @@ export type OneOffJobOption = { id: string; label: string };
 
 export type OneOffCustomerOption = { id: string; name: string };
 
-export type OneOffJobDetails = {
-  id: string;
-  jobNumber: string;
-  customerName: string;
-  projectName: string;
-  projectAddress: string | null;
-  city: string | null;
-  state: string | null;
-  zip: string | null;
-  contactName: string | null;
-  contactPhone: string | null;
-  contactEmail: string | null;
-  /** Structure numbers already on the job, so new ones don't collide. */
-  structureNumbers: string[];
-  /** Saved drill sheets on the job, which the One-Off page can edit. */
-  sheetCount: number;
-};
+export type OneOffJobDetails = OneOffJobDetailsBase;
 
-export type OneOffNewJobInput = {
-  customerId: string | null;
-  customerName: string;
-  projectName: string;
-  projectAddress: string;
-  city: string;
-  state: string;
-  zip: string;
-  contactName: string;
-  contactPhone: string;
-  contactEmail: string;
-};
+export type OneOffNewJobInput = OneOffNewJobInputBase;
 
 export type OneOffCreateInput = {
   job: { mode: "existing"; jobId: string } | ({ mode: "new" } & OneOffNewJobInput);
@@ -54,6 +32,8 @@ export type OneOffCreateInput = {
     structureNumber: string;
     config: unknown;
   }[];
+  /** A saved draft these sheets come from; it is removed once they exist. */
+  draftId?: string | null;
 };
 
 export type OneOffCreatedSheet = {
@@ -129,40 +109,11 @@ export async function getJobForOneOff(jobId: string) {
   return returnActionError(async (): Promise<OneOffJobDetails> => {
     await requirePermission(AppPermission.STRUCTURES_MANAGE);
 
-    const job = await withDatabaseRetry((client) =>
-      client.job.findUnique({
-        where: { id: jobId },
-        select: {
-          id: true,
-          jobNumber: true,
-          customerName: true,
-          projectName: true,
-          projectAddress: true,
-          city: true,
-          state: true,
-          zip: true,
-          contactName: true,
-          contactPhone: true,
-          contactEmail: true,
-          jobStructures: {
-            select: { structureNumber: true, calc: { select: { id: true } } },
-          },
-        },
-      }),
-    );
+    const job = await loadOneOffJobDetails(jobId);
     if (!job) {
       throw new Error("That job was not found. It may have been deleted.");
     }
-
-    const { jobStructures, ...details } = job;
-    return {
-      ...details,
-      structureNumbers: jobStructures
-        .map((structure) => structure.structureNumber ?? "")
-        .filter(Boolean),
-      sheetCount: jobStructures.filter((structure) => structure.calc != null)
-        .length,
-    };
+    return job;
   });
 }
 
@@ -333,6 +284,18 @@ async function createOneOffDrillSheetsOrThrow(
         `${sheet.structureNumber}: ${error instanceof Error ? error.message : "could not create the drill sheet."}`,
       );
     }
+  }
+
+  // The draft's job is done once its sheets exist. Only clear it when every
+  // row made it, so a partly failed run can still be fixed from the draft.
+  const draftId = typeof input.draftId === "string" ? input.draftId.trim() : "";
+  if (draftId && errors.length === 0) {
+    try {
+      await prisma.oneOffDraft.deleteMany({ where: { id: draftId } });
+    } catch {
+      errors.push("The saved draft could not be removed; delete it from the One-Off page.");
+    }
+    revalidatePath("/quotes/one-off");
   }
 
   revalidatePath("/drill-sheets");
