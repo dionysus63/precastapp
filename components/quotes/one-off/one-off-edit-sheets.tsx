@@ -151,7 +151,6 @@ export function OneOffEditSheets({
       const merged = mergeCircularRow(
         loaded.values,
         row,
-        loaded.row,
         circularOptions.templates,
         today,
       );

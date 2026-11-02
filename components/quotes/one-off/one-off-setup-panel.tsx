@@ -152,7 +152,7 @@ export function OneOffSetupPanel({
             ))}
           </select>
         </Field>
-        <Field label="Pipe Type *">
+        <Field label="Pipe Type (every inlet) *">
           <select
             value={setup.pipeType}
             onChange={(event) => {
@@ -236,8 +236,8 @@ export function OneOffSetupPanel({
           </span>
         ) : !hasRows ? (
           <span className="text-[11px] text-slate-500">
-            Every inlet starts at this pipe size; change any inlet&apos;s size
-            in the grid.
+            Every inlet starts at this pipe; change any inlet&apos;s pipe in
+            the grid.
           </span>
         ) : (
           <span className="text-[11px] text-slate-500">

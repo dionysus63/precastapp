@@ -173,7 +173,8 @@ function parseRow(value: unknown, openingCount: number): OneOffRow | null {
       }
       return {
         invert: str(cell.invert),
-        // Drafts saved before inlets had their own size fall back to the row's.
+        // Drafts saved before inlets had their own pipe fall back to the row's.
+        pipeType: str(cell.pipeType),
         pipeSize: str(cell.pipeSize),
         angle: str(cell.angle),
         wall: parseWall(cell.wall, index),

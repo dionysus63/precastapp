@@ -8,9 +8,9 @@ import {
   createRowFromSetup,
   nextFreeStructureNumber,
   openingLetter,
-  openingPipeSize,
+  openingPipe,
   resizeRowOpenings,
-  setRowPipeType,
+  setOpeningPipeType,
   sizesForPipeType,
   type OneOffCircularOptions,
   type OneOffRectOptions,
@@ -199,15 +199,6 @@ export function OneOffGrid({
         set: (row, value) => ({ ...row, castingProductId: value }),
       },
       {
-        key: "pipeType",
-        header: "Pipe Type",
-        kind: "select",
-        className: "min-w-[8rem]",
-        get: (row) => row.pipeType,
-        options: () => pipeTypeOptions,
-        set: (row, value) => setRowPipeType(row, value, pipeChoices),
-      },
-      {
         key: "rim",
         header: "Rim",
         kind: "text",
@@ -219,12 +210,8 @@ export function OneOffGrid({
       },
     );
 
-    // Each inlet: invert, its own pipe size, then angle (circular) or wall.
-    const pipeSizeOptions = (row: OneOffRow) =>
-      sizesForPipeType(pipeChoices, row.pipeType).map((size) => ({
-        value: String(size),
-        label: `${size}"`,
-      }));
+    // Each inlet: invert, its own pipe (type and size), then angle (circular)
+    // or wall (rect). Structures often take more than one kind of pipe.
     for (let index = 0; index < openingCount; index += 1) {
       const letter = openingLetter(index);
       result.push(
@@ -239,18 +226,37 @@ export function OneOffGrid({
           get: (row) => row.openings[index]?.invert ?? "",
           set: (row, value) => setOpening(row, index, { invert: value }),
         },
+        // Both show the pipe the inlet will use, so a blank cell never
+        // hides a fallback to the row's default.
         {
-          key: `size-${index}`,
-          header: `Pipe ${letter}`,
+          key: `type-${index}`,
+          header: `Type ${letter}`,
           kind: "select",
-          className: "min-w-[4.5rem]",
-          // Shows the size the inlet will use, so a blank cell never hides
-          // a fallback to the row's default.
+          className: "min-w-[8rem]",
           get: (row) => {
             const cell = row.openings[index];
-            return cell ? openingPipeSize(row, cell) : "";
+            return cell ? openingPipe(row, cell).pipeType : "";
           },
-          options: pipeSizeOptions,
+          options: () => pipeTypeOptions,
+          set: (row, value) => setOpeningPipeType(row, index, value, pipeChoices),
+        },
+        {
+          key: `size-${index}`,
+          header: `Size ${letter}`,
+          kind: "select",
+          className: "min-w-[4.5rem]",
+          get: (row) => {
+            const cell = row.openings[index];
+            return cell ? openingPipe(row, cell).pipeSize : "";
+          },
+          options: (row) => {
+            const cell = row.openings[index];
+            const pipeType = cell ? openingPipe(row, cell).pipeType : "";
+            return sizesForPipeType(pipeChoices, pipeType).map((size) => ({
+              value: String(size),
+              label: `${size}"`,
+            }));
+          },
           set: (row, value) => setOpening(row, index, { pipeSize: value }),
         },
       );
@@ -464,7 +470,7 @@ export function OneOffGrid({
         <p className="text-[11px] text-slate-500">
           Type like a spreadsheet: Enter moves down, arrows move between cells,
           and you can paste a block copied from Excel.{" "}
-          Each inlet has its own pipe size next to its invert.{" "}
+          Each inlet has its own pipe (type and size) next to its invert.{" "}
           {editMode
             ? "Clearing an invert removes that opening from the sheet."
             : "Leave an invert blank for no pipe in that opening."}
