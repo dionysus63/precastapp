@@ -67,8 +67,6 @@ export type OneOffDraftState = {
   job: OneOffDraftJob | null;
   jobConfirmed: boolean;
   shapeChoice: OneOffShapeChoice | null;
-  /** With "Both", whether the rectangular step has been opened. */
-  rectUnlocked: boolean;
   circular: OneOffSection;
   rect: OneOffSection;
 };
@@ -175,6 +173,8 @@ function parseRow(value: unknown, openingCount: number): OneOffRow | null {
       }
       return {
         invert: str(cell.invert),
+        // Drafts saved before inlets had their own size fall back to the row's.
+        pipeSize: str(cell.pipeSize),
         angle: str(cell.angle),
         wall: parseWall(cell.wall, index),
       };
@@ -278,7 +278,6 @@ export function parseOneOffDraftState(value: unknown): OneOffDraftState | null {
     job,
     jobConfirmed: raw.jobConfirmed === true && job != null,
     shapeChoice: parseShapeChoice(raw.shapeChoice),
-    rectUnlocked: raw.rectUnlocked === true,
     circular: parseSection(raw.circular, "CIRCULAR"),
     rect: parseSection(raw.rect, "RECTANGULAR"),
   };

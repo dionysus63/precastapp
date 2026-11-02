@@ -174,7 +174,7 @@ export function OneOffSetupPanel({
             ))}
           </select>
         </Field>
-        <Field label="Pipe Size *">
+        <Field label="Pipe Size (every inlet) *">
           <select
             value={setup.pipeSize}
             onChange={(event) => patch({ pipeSize: event.target.value })}
@@ -234,11 +234,16 @@ export function OneOffSetupPanel({
           <span className="text-[11px] text-amber-700">
             Still needed: {missing.join(", ")}.
           </span>
-        ) : hasRows ? (
+        ) : !hasRows ? (
+          <span className="text-[11px] text-slate-500">
+            Every inlet starts at this pipe size; change any inlet&apos;s size
+            in the grid.
+          </span>
+        ) : (
           <span className="text-[11px] text-slate-500">
             Rebuilding replaces the rows below and anything typed in them.
           </span>
-        ) : null}
+        )}
       </div>
     </div>
   );

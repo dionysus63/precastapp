@@ -85,7 +85,7 @@ function fromResumedJob(resume: OneOffResumedDraft): OneOffJobChoice | null {
 const SHAPE_CHOICES: { value: OneOffShapeChoice; title: string; description: string }[] = [
   { value: "CIRCULAR", title: "Circular", description: "Manholes and round structures" },
   { value: "RECTANGULAR", title: "Rectangular", description: "Catch basins and boxes" },
-  { value: "BOTH", title: "Both", description: "Circular first, then rectangular" },
+  { value: "BOTH", title: "Both", description: "Both grids on this page" },
 ];
 
 function StepCard({
@@ -162,10 +162,6 @@ export function OneOffDrillSheets({
   const [rect, setRect] = useState<OneOffSection>(
     () => resume?.state.rect ?? createEmptySection("RECTANGULAR"),
   );
-  /** With "Both", the rectangular step opens once circular is done. */
-  const [rectUnlocked, setRectUnlocked] = useState(
-    () => resume?.state.rectUnlocked ?? false,
-  );
   const [result, setResult] = useState<OneOffCreateResult | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, startCreating] = useTransition();
@@ -191,11 +187,10 @@ export function OneOffDrillSheets({
       job: toDraftJob(jobChoice),
       jobConfirmed,
       shapeChoice,
-      rectUnlocked,
       circular,
       rect,
     }),
-    [circular, jobChoice, jobConfirmed, rect, rectUnlocked, shapeChoice],
+    [circular, jobChoice, jobConfirmed, rect, shapeChoice],
   );
   const draftSnapshot = useMemo(
     () => serializeOneOffDraftState(draftState),
@@ -214,10 +209,9 @@ export function OneOffDrillSheets({
     [rectOptions.openingSizes],
   );
 
+  // With "Both", the circular and rectangular grids sit on the page together.
   const usesCircular = shapeChoice === "CIRCULAR" || shapeChoice === "BOTH";
   const usesRect = shapeChoice === "RECTANGULAR" || shapeChoice === "BOTH";
-  const rectVisible =
-    usesRect && (shapeChoice === "RECTANGULAR" || rectUnlocked);
 
   const jobNumbers = useMemo(
     () =>
@@ -232,8 +226,8 @@ export function OneOffDrillSheets({
     [circular.rows, usesCircular],
   );
   const rectRows = useMemo(
-    () => (rectVisible ? (rect.rows ?? []) : []),
-    [rect.rows, rectVisible],
+    () => (usesRect ? (rect.rows ?? []) : []),
+    [rect.rows, usesRect],
   );
 
   const circularResults = useMemo(
@@ -303,16 +297,18 @@ export function OneOffDrillSheets({
 
   function chooseShape(choice: OneOffShapeChoice) {
     setShapeChoice(choice);
-    setRectUnlocked(choice === "RECTANGULAR");
   }
 
   const totalRows = circularRows.length + rectRows.length;
   const readyCount =
     circularResults.filter((entry) => entry.ready).length +
     rectResults.filter((entry) => entry.ready).length;
-  const allBuilt =
-    (!usesCircular || circular.rows != null) &&
-    (!usesRect || (rectVisible && rect.rows != null));
+  const circularBuilt = !usesCircular || circular.rows != null;
+  const rectBuilt = !usesRect || rect.rows != null;
+  const allBuilt = circularBuilt && rectBuilt;
+  /** Some grid exists, so the Create bar shows (and says what's still missing). */
+  const anyBuilt =
+    (usesCircular && circular.rows != null) || (usesRect && rect.rows != null);
   const canCreate =
     allBuilt &&
     totalRows > 0 &&
@@ -372,7 +368,6 @@ export function OneOffDrillSheets({
     setShapeChoice(null);
     setCircular(createEmptySection("CIRCULAR"));
     setRect(createEmptySection("RECTANGULAR"));
-    setRectUnlocked(false);
     setResult(null);
     setCreateError(null);
     setDraft(null);
@@ -618,22 +613,9 @@ export function OneOffDrillSheets({
 
       {jobConfirmed && usesCircular ? renderShapeSection("CIRCULAR") : null}
 
-      {jobConfirmed && shapeChoice === "BOTH" && !rectUnlocked ? (
-        <div>
-          <button
-            type="button"
-            disabled={circular.rows == null}
-            onClick={() => setRectUnlocked(true)}
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Next: Rectangular Drill Sheets
-          </button>
-        </div>
-      ) : null}
+      {jobConfirmed && usesRect ? renderShapeSection("RECTANGULAR") : null}
 
-      {jobConfirmed && rectVisible ? renderShapeSection("RECTANGULAR") : null}
-
-      {jobConfirmed && allBuilt ? (
+      {jobConfirmed && anyBuilt ? (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
           <button
             type="button"
@@ -646,7 +628,9 @@ export function OneOffDrillSheets({
               : `Create Drill Sheets${totalRows > 0 ? ` (${totalRows})` : ""}`}
           </button>
           <span className="text-xs text-slate-500">
-            {totalRows === 0
+            {!allBuilt
+              ? `Build the ${circularBuilt ? "rectangular" : "circular"} rows too, or pick just ${circularBuilt ? "Circular" : "Rectangular"} under Structure Type.`
+              : totalRows === 0
               ? "Add at least one row."
               : duplicateNumbers.size > 0
                 ? "Fix the structure numbers marked in red."

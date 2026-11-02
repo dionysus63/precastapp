@@ -48,9 +48,14 @@ export type OneOffRectOptions = {
   openingSizes: RectSheetOpeningSizeOption[];
 };
 
-/** One pipe opening's cells in a row: invert plus angle (circular) or wall (rect). */
+/**
+ * One pipe opening's cells in a row: invert, the inlet's own pipe size, plus
+ * angle (circular) or wall (rect). A blank pipe size means the row's default.
+ */
 export type OneOffOpeningCell = {
   invert: string;
+  /** Pipe diameter in inches for this inlet; blank falls back to the row's. */
+  pipeSize: string;
   angle: string;
   wall: RectWall;
 };
@@ -62,7 +67,9 @@ export type OneOffRow = {
   /** Circular only. */
   diameterFeet: string;
   castingProductId: string;
+  /** Pipe material/type shared by every inlet on the structure. */
   pipeType: string;
+  /** Default pipe size: what new inlets start at and blank inlet cells use. */
   pipeSize: string;
   rimElevation: string;
   /** Always `openingCount` long so every row lines up with the grid columns. */
@@ -112,12 +119,21 @@ export function openingLetter(index: number): string {
   return String.fromCharCode(65 + index);
 }
 
-export function createOpeningCell(index: number): OneOffOpeningCell {
+export function createOpeningCell(
+  index: number,
+  pipeSize = "",
+): OneOffOpeningCell {
   return {
     invert: "",
+    pipeSize,
     angle: "",
     wall: RECT_DEFAULT_WALLS[index % RECT_DEFAULT_WALLS.length],
   };
+}
+
+/** The pipe size an inlet uses: its own cell, else the row's default. */
+export function openingPipeSize(row: OneOffRow, cell: OneOffOpeningCell): string {
+  return cell.pipeSize.trim() || row.pipeSize.trim();
 }
 
 export function createEmptySetup(shape: OneOffShape): OneOffSetup {
@@ -202,6 +218,30 @@ export function sizesForPipeType(
   return choices.find((choice) => choice.label === pipeType)?.sizes ?? [];
 }
 
+/**
+ * Changes a row's pipe type. Sizes the new type doesn't come in are cleared,
+ * on the row default and on every inlet, so the status asks for a new pick.
+ */
+export function setRowPipeType(
+  row: OneOffRow,
+  pipeType: string,
+  choices: PipeTypeChoice[],
+): OneOffRow {
+  const sizes = new Set(
+    sizesForPipeType(choices, pipeType).map((size) => String(size)),
+  );
+  const keep = (size: string) => (sizes.has(size.trim()) ? size : "");
+  return {
+    ...row,
+    pipeType,
+    pipeSize: keep(row.pipeSize),
+    openings: row.openings.map((cell) => ({
+      ...cell,
+      pipeSize: keep(cell.pipeSize),
+    })),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Setup → rows
 // ---------------------------------------------------------------------------
@@ -274,7 +314,7 @@ export function createRowFromSetup(
     pipeSize: setup.pipeSize,
     rimElevation: "",
     openings: Array.from({ length: openingCount }, (_, index) =>
-      createOpeningCell(index),
+      createOpeningCell(index, setup.pipeSize),
     ),
   };
 }
@@ -302,7 +342,7 @@ export function resizeRowOpenings(
     ...row,
     openings: Array.from(
       { length: openingCount },
-      (_, index) => row.openings[index] ?? createOpeningCell(index),
+      (_, index) => row.openings[index] ?? createOpeningCell(index, row.pipeSize),
     ),
   }));
 }
@@ -311,23 +351,41 @@ export function resizeRowOpenings(
 // Row → calculated drill sheet
 // ---------------------------------------------------------------------------
 
+/** Inlets with an invert typed in, each with the pipe size it will use. */
+function filledOpenings(row: OneOffRow) {
+  return row.openings
+    .map((cell, index) => ({ cell, index, pipeSize: openingPipeSize(row, cell) }))
+    .filter(({ cell }) => cell.invert.trim() !== "");
+}
+
+/** "Select a pipe size for inlet B" (or "inlets A, C") when any is blank. */
+function missingPipeSizeStatus(
+  openings: { index: number; pipeSize: string }[],
+): string | null {
+  const letters = openings
+    .filter((entry) => entry.pipeSize === "")
+    .map((entry) => openingLetter(entry.index));
+  if (letters.length === 0) {
+    return null;
+  }
+  return `Select a pipe size for inlet${letters.length === 1 ? "" : "s"} ${letters.join(", ")}`;
+}
+
 export function computeCircularOneOffRow(
   row: OneOffRow,
   options: OneOffCircularOptions,
 ): OneOffRowResult {
-  const openings = row.openings
-    .map((cell, index) => ({ cell, index }))
-    .filter(({ cell }) => cell.invert.trim() !== "")
-    .map(({ cell, index }) => ({
-      id: `${row.id}-${index}`,
-      label: openingLetter(index),
-      pipeMaterial: row.pipeType,
-      pipeSizeInches: row.pipeSize,
-      pipeType: "",
-      invertElevation: cell.invert,
-      angleDegrees: cell.angle,
-      connectionType: "",
-    }));
+  const filled = filledOpenings(row);
+  const openings = filled.map(({ cell, index, pipeSize }) => ({
+    id: `${row.id}-${index}`,
+    label: openingLetter(index),
+    pipeMaterial: row.pipeType,
+    pipeSizeInches: pipeSize,
+    pipeType: "",
+    invertElevation: cell.invert,
+    angleDegrees: cell.angle,
+    connectionType: "",
+  }));
 
   const workbookRow: StructureWorkbookRow = {
     id: row.id,
@@ -338,7 +396,7 @@ export function computeCircularOneOffRow(
     rimElevation: row.rimElevation,
     lowInvertElevation: "",
     pipeMaterial: row.pipeType,
-    pipeSizeInches: row.pipeSize,
+    pipeSizeInches: openings[0]?.pipeSizeInches ?? row.pipeSize,
     pipeType: "",
     bootCount: String(openings.length),
     qty: "1",
@@ -353,13 +411,17 @@ export function computeCircularOneOffRow(
   if (!row.castingProductId) {
     return notReady("Select a casting");
   }
-  if (!row.pipeType || !row.pipeSize) {
-    return notReady("Select a pipe type and size");
+  if (!row.pipeType) {
+    return notReady("Select a pipe type");
   }
   if (openings.length === 0) {
     return notReady(
       row.rimElevation.trim() ? "Enter at least one invert" : "Enter rim and inverts",
     );
+  }
+  const missingSize = missingPipeSizeStatus(filled);
+  if (missingSize) {
+    return notReady(missingSize);
   }
 
   const computed = computeWorkbookRowPrice(workbookRow, options, "DRILL_SHEET");
@@ -389,24 +451,26 @@ export function computeRectOneOffRow(
   if (!row.castingProductId) {
     return notReady("Select a casting");
   }
-  if (!row.pipeType || !row.pipeSize) {
-    return notReady("Select a pipe type and size");
+  if (!row.pipeType) {
+    return notReady("Select a pipe type");
   }
 
-  const openings = row.openings
-    .map((cell, index) => ({ cell, index }))
-    .filter(({ cell }) => cell.invert.trim() !== "")
-    .map(({ cell, index }) => ({
-      ...createRectOpeningRow(openingLetter(index)),
-      wall: cell.wall,
-      pipeMaterial: row.pipeType,
-      pipeSizeInches: row.pipeSize,
-      invertElevation: cell.invert,
-    }));
+  const filled = filledOpenings(row);
+  const openings = filled.map(({ cell, index, pipeSize }) => ({
+    ...createRectOpeningRow(openingLetter(index)),
+    wall: cell.wall,
+    pipeMaterial: row.pipeType,
+    pipeSizeInches: pipeSize,
+    invertElevation: cell.invert,
+  }));
   if (openings.length === 0) {
     return notReady(
       row.rimElevation.trim() ? "Enter at least one invert" : "Enter rim and inverts",
     );
+  }
+  const missingSize = missingPipeSizeStatus(filled);
+  if (missingSize) {
+    return notReady(missingSize);
   }
 
   const preset = template.presetSizes[0];
@@ -489,9 +553,9 @@ export function findDuplicateStructureNumbers(numbers: string[]): string[] {
 // An existing sheet is loaded into a grid row (the row id is the structure
 // id), edited, then merged back over the sheet's saved form values. Anything
 // the grid doesn't show (inspection, steps, section splits, opening
-// placements, a different pipe per opening) is kept as it was.
+// placements, a different pipe material per opening) is kept as it was.
 
-/** The row's single pipe pick: the first opening that names one. */
+/** The row's pipe type and default size: the first opening that names one. */
 function firstPipe(
   openings: { pipeMaterial: string; pipeSizeInches: string }[],
 ): { pipeType: string; pipeSize: string } {
@@ -530,6 +594,7 @@ export function circularRowFromSheet(
     openings: values.openings.map((opening, index) => ({
       ...createOpeningCell(index),
       invert: opening.invertElevation,
+      pipeSize: opening.pipeSizeInches.trim(),
       angle: opening.angle,
     })),
   };
@@ -550,6 +615,7 @@ export function rectRowFromSheet(
     openings: values.openings.map((opening, index) => ({
       ...createOpeningCell(index),
       invert: opening.invertElevation,
+      pipeSize: opening.pipeSizeInches.trim(),
       wall: isRectWall(opening.wall) ? opening.wall : createOpeningCell(index).wall,
     })),
     insideLengthFeet: values.insideLengthFeet,
@@ -576,14 +642,15 @@ export function isRowChanged(row: OneOffRow, loaded: OneOffRow): boolean {
     row.diameterFeet !== loaded.diameterFeet ||
     row.castingProductId !== loaded.castingProductId ||
     row.pipeType !== loaded.pipeType ||
-    row.pipeSize !== loaded.pipeSize ||
     row.rimElevation.trim() !== loaded.rimElevation.trim() ||
     row.openings.some((cell, index) => {
       const before = loaded.openings[index];
       return (
         cell.invert.trim() !== (before?.invert.trim() ?? "") ||
         (cell.invert.trim() !== "" &&
-          (cell.angle.trim() !== (before?.angle.trim() ?? "") ||
+          (openingPipeSize(row, cell) !==
+            (before ? openingPipeSize(loaded, before) : "") ||
+            cell.angle.trim() !== (before?.angle.trim() ?? "") ||
             cell.wall !== before?.wall))
       );
     })
@@ -594,8 +661,9 @@ type MergeResult<T> = { values: T } | { error: string };
 
 /**
  * Applies an edited grid row to a circular sheet's saved form values. Grid
- * column N is the sheet's opening N; a blank invert drops that opening. While
- * the row's pipe pick is unchanged, each opening keeps its own saved pipe.
+ * column N is the sheet's opening N; a blank invert drops that opening. Each
+ * inlet takes the size in its own cell; while the row's pipe type is
+ * unchanged, an opening keeps its own saved material.
  */
 export function mergeCircularRow(
   values: DrillSheetFormValues,
@@ -614,20 +682,20 @@ export function mergeCircularRow(
   if (!diameter) {
     return { error: "Select a diameter" };
   }
-  const pipeChanged =
-    row.pipeType !== loaded.pipeType || row.pipeSize !== loaded.pipeSize;
+  const typeChanged = row.pipeType !== loaded.pipeType;
 
   const openings = row.openings.flatMap((cell, index) => {
     if (cell.invert.trim() === "") {
       return [];
     }
     const saved = values.openings[index];
-    const keepPipe = saved != null && !pipeChanged && saved.pipeMaterial !== "";
+    const keepMaterial =
+      saved != null && !typeChanged && saved.pipeMaterial !== "";
     return [
       {
         label: saved?.label || openingLetter(index),
-        pipeMaterial: keepPipe ? saved.pipeMaterial : row.pipeType,
-        pipeSizeInches: keepPipe ? saved.pipeSizeInches : row.pipeSize,
+        pipeMaterial: keepMaterial ? saved.pipeMaterial : row.pipeType,
+        pipeSizeInches: openingPipeSize(row, cell),
         invertElevation: cell.invert.trim(),
         angle: cell.angle.trim() || "0",
         connectionType: saved?.connectionType || template.connectionType,
@@ -669,8 +737,7 @@ export function mergeRectRow(
   if (!template) {
     return { error: "Select a template" };
   }
-  const pipeChanged =
-    row.pipeType !== loaded.pipeType || row.pipeSize !== loaded.pipeSize;
+  const typeChanged = row.pipeType !== loaded.pipeType;
   const templateChanged = row.templateId !== loaded.templateId;
 
   const openings = row.openings.flatMap((cell, index) => {
@@ -679,15 +746,19 @@ export function mergeRectRow(
     }
     const saved = values.openings[index];
     const base = saved ?? createRectOpeningRow(openingLetter(index));
-    const keepPipe = saved != null && !pipeChanged && saved.pipeMaterial !== "";
+    const keepMaterial =
+      saved != null && !typeChanged && saved.pipeMaterial !== "";
+    const pipeSize = openingPipeSize(row, cell);
+    // A width override belongs to the saved pipe; a new size loses it.
+    const samePipe =
+      keepMaterial && saved.pipeSizeInches.trim() === pipeSize;
     return [
       {
         ...base,
         wall: cell.wall,
-        pipeMaterial: keepPipe ? saved.pipeMaterial : row.pipeType,
-        pipeSizeInches: keepPipe ? saved.pipeSizeInches : row.pipeSize,
-        // A width override is the old pipe's catalog width.
-        widthOverrideInches: keepPipe ? saved.widthOverrideInches : "",
+        pipeMaterial: keepMaterial ? saved.pipeMaterial : row.pipeType,
+        pipeSizeInches: pipeSize,
+        widthOverrideInches: samePipe ? saved.widthOverrideInches : "",
         invertElevation: cell.invert.trim(),
       },
     ];
