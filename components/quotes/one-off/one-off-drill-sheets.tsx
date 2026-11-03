@@ -21,6 +21,7 @@ import {
 } from "@/components/quotes/one-off/one-off-job-step";
 import { OneOffResults } from "@/components/quotes/one-off/one-off-results";
 import { OneOffSetupPanel } from "@/components/quotes/one-off/one-off-setup-panel";
+import { OneOffSheetPreview } from "@/components/quotes/one-off/one-off-sheet-preview";
 import { describeActionFailure, isActionError } from "@/lib/action-result";
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning";
 import { navigateAfterAction } from "@/lib/reload-after-action";
@@ -162,6 +163,10 @@ export function OneOffDrillSheets({
   const [rect, setRect] = useState<OneOffSection>(
     () => resume?.state.rect ?? createEmptySection("RECTANGULAR"),
   );
+  /** Per grid, the row whose sheet the preview beside the setup shows. */
+  const [activeRowIds, setActiveRowIds] = useState<
+    Record<OneOffShape, string | null>
+  >({ CIRCULAR: null, RECTANGULAR: null });
   const [result, setResult] = useState<OneOffCreateResult | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, startCreating] = useTransition();
@@ -220,6 +225,19 @@ export function OneOffDrillSheets({
         : [],
     [jobChoice],
   );
+  /** Contractor and project as the sheet header will print them. */
+  const sheetHeader =
+    jobChoice?.mode === "existing"
+      ? {
+          contractor: jobChoice.job?.customerName ?? "",
+          project: jobChoice.job?.projectName ?? "",
+        }
+      : jobChoice?.mode === "new"
+        ? {
+            contractor: jobChoice.customerLabel || jobChoice.fields.customerName,
+            project: jobChoice.fields.projectName,
+          }
+        : { contractor: "", project: "" };
 
   const circularRows = useMemo(
     () => (usesCircular ? (circular.rows ?? []) : []),
@@ -469,6 +487,14 @@ export function OneOffDrillSheets({
     const number = stepNumber;
     stepNumber += 1;
 
+    // The preview follows the row last clicked, else the first row.
+    const rows = section.rows ?? [];
+    const activeIndex = Math.max(
+      0,
+      rows.findIndex((row) => row.id === activeRowIds[shape]),
+    );
+    const activeRow = rows[activeIndex] ?? null;
+
     return (
       <StepCard
         key={shape}
@@ -477,18 +503,31 @@ export function OneOffDrillSheets({
         open
       >
         <div className="space-y-5">
-          <OneOffSetupPanel
-            shape={shape}
-            setup={section.setup}
-            pipeChoices={pipeChoices}
-            circularOptions={circularOptions}
-            rectOptions={rectOptions}
-            suggestedStart={suggestedStart(section, shape)}
-            missing={missingSetupFields(shape, section.setup)}
-            hasRows={section.rows != null}
-            onChange={(setup) => setter({ ...section, setup })}
-            onBuild={() => buildSection(shape)}
-          />
+          <div className="grid gap-5 lg:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)]">
+            <OneOffSetupPanel
+              shape={shape}
+              setup={section.setup}
+              pipeChoices={pipeChoices}
+              circularOptions={circularOptions}
+              rectOptions={rectOptions}
+              suggestedStart={suggestedStart(section, shape)}
+              missing={missingSetupFields(shape, section.setup)}
+              hasRows={section.rows != null}
+              onChange={(setup) => setter({ ...section, setup })}
+              onBuild={() => buildSection(shape)}
+              layout="column"
+            />
+            <OneOffSheetPreview
+              shape={shape}
+              row={activeRow}
+              result={activeRow ? (results[activeIndex] ?? null) : null}
+              rowCount={rows.length}
+              contractor={sheetHeader.contractor}
+              project={sheetHeader.project}
+              circularOptions={circularOptions}
+              rectOptions={rectOptions}
+            />
+          </div>
 
           {section.rows != null ? (
             <>
@@ -511,6 +550,12 @@ export function OneOffDrillSheets({
                 duplicateNumbers={duplicateNumbers}
                 circularOptions={circularOptions}
                 rectOptions={rectOptions}
+                activeRowId={activeRow?.id ?? null}
+                onActiveRowChange={(rowId) =>
+                  setActiveRowIds((current) =>
+                    current[shape] === rowId ? current : { ...current, [shape]: rowId },
+                  )
+                }
                 onRowsChange={(rows) =>
                   setter((current) => ({ ...current, rows }))
                 }

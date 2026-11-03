@@ -6,6 +6,7 @@ import {
   lookupPipeOpeningSize,
   type DiameterConfig,
   type DrillSheetInput,
+  type DrillSheetResult,
   type PipeConnectionType,
   type PipeOpeningSizeEntry,
   type TemplateConfig,
@@ -816,6 +817,8 @@ export function computeWorkbookRowPrice(
   unitPrice: number | null;
   status: string;
   structureConfig: QuoteStructureConfig | null;
+  /** The full calculation behind the config, for live sheet previews. */
+  drillSheetResult?: DrillSheetResult;
 } {
   const template = options.templates.find((entry) => entry.id === row.templateId);
   const rim = parseNum(row.rimElevation);
@@ -997,6 +1000,7 @@ export function computeWorkbookRowPrice(
     unitPrice: result.errorMessage ? null : totalPrice,
     status,
     structureConfig,
+    drillSheetResult: result,
   };
 }
 

@@ -13,6 +13,7 @@ import {
 } from "@/components/jobs/bulk-edit/bulk-edit-payloads";
 import { OneOffGrid } from "@/components/quotes/one-off/one-off-grid";
 import { OneOffResults } from "@/components/quotes/one-off/one-off-results";
+import { OneOffSheetPreview } from "@/components/quotes/one-off/one-off-sheet-preview";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { describeActionFailure, isActionError } from "@/lib/action-result";
 import { localTodayInput } from "@/lib/date-only";
@@ -70,6 +71,10 @@ export function OneOffEditSheets({
   const [circular, setCircular] = useState(() => paddedRows(data.circular));
   const [rect, setRect] = useState(() => paddedRows(data.rect));
   const [rowErrors, setRowErrors] = useState<Map<string, string>>(new Map());
+  /** Per grid, the row whose sheet the preview shows. */
+  const [activeRowIds, setActiveRowIds] = useState<
+    Record<OneOffShape, string | null>
+  >({ CIRCULAR: null, RECTANGULAR: null });
   const [saveError, setSaveError] = useState<string | null>(null);
   const [result, setResult] = useState<OneOffCreateResult | null>(null);
   const [saving, startSaving] = useTransition();
@@ -330,11 +335,28 @@ export function OneOffEditSheets({
       const error = rowErrors.get(section.rows[index].id);
       return error ? { ...entry, ready: false, status: error } : entry;
     });
+    const activeIndex = Math.max(
+      0,
+      section.rows.findIndex((row) => row.id === activeRowIds[shape]),
+    );
+    const activeRow = section.rows[activeIndex] ?? null;
     return (
       <SectionCard
         title={isCircular ? "Circular Drill Sheets" : "Rectangular Drill Sheets"}
         description={`${section.rows.length} sheet${section.rows.length === 1 ? "" : "s"}. Changed rows are highlighted.`}
       >
+        <div className="mb-4">
+          <OneOffSheetPreview
+            shape={shape}
+            row={activeRow}
+            result={activeRow ? (withErrors[activeIndex] ?? null) : null}
+            rowCount={section.rows.length}
+            contractor={data.job.customerName}
+            project={data.job.projectName}
+            circularOptions={circularOptions}
+            rectOptions={rectOptions}
+          />
+        </div>
         <OneOffGrid
           shape={shape}
           rows={section.rows}
@@ -348,6 +370,12 @@ export function OneOffEditSheets({
           rectOptions={rectOptions}
           editMode
           changedRowIds={changedIds}
+          activeRowId={activeRow?.id ?? null}
+          onActiveRowChange={(rowId) =>
+            setActiveRowIds((current) =>
+              current[shape] === rowId ? current : { ...current, [shape]: rowId },
+            )
+          }
           onRowsChange={(rows: OneOffRow[]) =>
             setSection((current) => ({ ...current, rows }))
           }

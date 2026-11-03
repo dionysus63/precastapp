@@ -457,11 +457,26 @@ export function computeRectWorkbookRow(
   options: RectWorkbookOptions,
   mode: RectWorkbookMode = "FULL",
 ): RectWorkbookRow {
+  return computeRectWorkbookRowDetail(row, options, mode).row;
+}
+
+/**
+ * Same as computeRectWorkbookRow, also handing back the full calculation
+ * (null until the row can be calculated) for live sheet previews.
+ */
+export function computeRectWorkbookRowDetail(
+  row: RectWorkbookRow,
+  options: RectWorkbookOptions,
+  mode: RectWorkbookMode = "FULL",
+): { row: RectWorkbookRow; result: RectStructureResult | null } {
   const template = options.templates.find(
     (entry) => entry.id === row.templateId,
   );
   if (!template) {
-    return { ...row, unitPrice: null, status: "Select a template", config: null };
+    return {
+      row: { ...row, unitPrice: null, status: "Select a template", config: null },
+      result: null,
+    };
   }
 
   // The template's mold/form defines the footprint; only legacy templates
@@ -474,7 +489,10 @@ export function computeRectWorkbookRow(
     ? templateSize.insideWidthFeet
     : parseNum(row.insideWidthFeet);
   if (length == null || width == null) {
-    return { ...row, unitPrice: null, status: "Enter the inside size", config: null };
+    return {
+      row: { ...row, unitPrice: null, status: "Enter the inside size", config: null },
+      result: null,
+    };
   }
 
   const sizedRow = templateSize
@@ -495,13 +513,16 @@ export function computeRectWorkbookRow(
   );
   if (rim == null || openingsWithInverts.length === 0) {
     return {
-      ...workingRow,
-      unitPrice: null,
-      status:
-        mode === "FULL"
-          ? "Enter rim and at least one opening invert"
-          : "Enter rim and low invert",
-      config: null,
+      row: {
+        ...workingRow,
+        unitPrice: null,
+        status:
+          mode === "FULL"
+            ? "Enter rim and at least one opening invert"
+            : "Enter rim and low invert",
+        config: null,
+      },
+      result: null,
     };
   }
 
@@ -580,12 +601,15 @@ export function computeRectWorkbookRow(
         : "Quote only — cut sheet after award");
 
   return {
-    ...workingRow,
-    wallHeightFeet: result.wallHeightFeet,
-    heaviestPickLbs: result.weights.heaviestLbs,
-    unitPrice: result.errorMessage ? null : result.totalPrice,
-    status,
-    config,
+    row: {
+      ...workingRow,
+      wallHeightFeet: result.wallHeightFeet,
+      heaviestPickLbs: result.weights.heaviestLbs,
+      unitPrice: result.errorMessage ? null : result.totalPrice,
+      status,
+      config,
+    },
+    result,
   };
 }
 

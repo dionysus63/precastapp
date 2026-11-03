@@ -71,6 +71,9 @@ type OneOffGridProps = {
    */
   editMode?: boolean;
   changedRowIds?: Set<string>;
+  /** The row the sheet preview shows; clicking or typing in a row picks it. */
+  activeRowId?: string | null;
+  onActiveRowChange?: (rowId: string) => void;
 };
 
 function setOpening(
@@ -101,6 +104,8 @@ export function OneOffGrid({
   onOpeningCountChange,
   editMode = false,
   changedRowIds,
+  activeRowId = null,
+  onActiveRowChange,
 }: OneOffGridProps) {
   const tableRef = useRef<HTMLTableElement>(null);
   const isCircular = shape === "CIRCULAR";
@@ -541,12 +546,20 @@ export function OneOffGrid({
                   : "text-slate-500";
 
               const changed = changedRowIds?.has(row.id) ?? false;
+              const active = activeRowId === row.id;
+              const rowClass = active
+                ? "bg-sky-50 shadow-[inset_3px_0_0_0_#0369a1]"
+                : changed
+                  ? "bg-amber-50/60"
+                  : "hover:bg-sky-50/40";
 
               return (
                 <tr
                   key={row.id}
-                  className={changed ? "bg-amber-50/60" : "hover:bg-sky-50/40"}
+                  className={rowClass}
                   title={changed ? "Changed: saved when you click Save" : undefined}
+                  onFocusCapture={() => onActiveRowChange?.(row.id)}
+                  onClick={() => onActiveRowChange?.(row.id)}
                 >
                   <td className={tableRowNumberCellClassName}>{rowIndex + 1}</td>
                   {columns.map((column, colIndex) => {

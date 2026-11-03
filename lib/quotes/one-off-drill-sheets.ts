@@ -16,8 +16,13 @@ import type {
   RectSheetOpeningSizeOption,
   RectSheetTemplateOption,
 } from "@/components/drill-sheets/rect-sheet-form";
+import type { DrillSheetResult } from "@/lib/drill-sheet";
 import type { DrillSheetFormValues } from "@/lib/drill-sheet-detail";
-import { RECT_WALLS, type RectWall } from "@/lib/rect-structure";
+import {
+  RECT_WALLS,
+  type RectStructureResult,
+  type RectWall,
+} from "@/lib/rect-structure";
 import {
   computeWorkbookRowPrice,
   createRowId,
@@ -26,7 +31,7 @@ import {
   type StructureWorkbookRow,
 } from "@/lib/quotes/structure-workbook";
 import {
-  computeRectWorkbookRow,
+  computeRectWorkbookRowDetail,
   createRectOpeningRow,
   type RectQuoteStructureConfig,
   type RectWorkbookRow,
@@ -109,6 +114,10 @@ export type OneOffRowResult = {
   status: string;
   ready: boolean;
   config: QuoteStructureConfig | RectQuoteStructureConfig | null;
+  /** The full calculation behind a circular row, for the live preview. */
+  circularSheet?: DrillSheetResult | null;
+  /** The full calculation behind a rectangular row, for the live preview. */
+  rectSheet?: RectStructureResult | null;
 };
 
 export const ONE_OFF_DEFAULT_OPENING_COUNT = 2;
@@ -453,6 +462,7 @@ export function computeCircularOneOffRow(
     status: ready ? firstWarningOr(config, "Ready") : computed.status,
     ready,
     config,
+    circularSheet: computed.drillSheetResult ?? null,
   };
 }
 
@@ -516,7 +526,11 @@ export function computeRectOneOffRow(
     config: null,
   };
 
-  const computed = computeRectWorkbookRow(workbookRow, options, "FULL");
+  const { row: computed, result: rectSheet } = computeRectWorkbookRowDetail(
+    workbookRow,
+    options,
+    "FULL",
+  );
   const config = computed.config;
   const ready =
     config != null && config.detailLevel === "FULL" && !config.errorMessage;
@@ -525,6 +539,7 @@ export function computeRectOneOffRow(
     status: ready ? firstWarningOr(config, "Ready") : computed.status,
     ready,
     config,
+    rectSheet,
   };
 }
 

@@ -23,6 +23,8 @@ type OneOffSetupPanelProps = {
   hasRows: boolean;
   onChange: (setup: OneOffSetup) => void;
   onBuild: () => void;
+  /** "column" stacks the fields two across for a narrow pane. */
+  layout?: "wide" | "column";
 };
 
 function Field({
@@ -55,6 +57,7 @@ export function OneOffSetupPanel({
   hasRows,
   onChange,
   onBuild,
+  layout = "wide",
 }: OneOffSetupPanelProps) {
   const isCircular = shape === "CIRCULAR";
   const templates = isCircular ? circularOptions.templates : rectOptions.templates;
@@ -106,7 +109,13 @@ export function OneOffSetupPanel({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div
+        className={
+          layout === "column"
+            ? "grid gap-3 sm:grid-cols-2"
+            : "grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        }
+      >
         <Field label="Template *">
           <select
             value={setup.templateId}
