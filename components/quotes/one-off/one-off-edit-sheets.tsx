@@ -353,8 +353,7 @@ export function OneOffEditSheets({
             rowCount={section.rows.length}
             contractor={data.job.customerName}
             project={data.job.projectName}
-            circularOptions={circularOptions}
-            rectOptions={rectOptions}
+            openingCount={section.openingCount}
           />
         </div>
         <OneOffGrid

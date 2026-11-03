@@ -1,10 +1,11 @@
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { removeFlattenLeftovers } from "@/lib/pdf-flatten-cleanup";
 import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
-import type { DrillSheetWithDetail } from "@/lib/drill-sheet-detail";
-import {
-  buildDrillSheetDetail,
+import type {
+  DrillSheetDetail,
+  DrillSheetWithDetail,
 } from "@/lib/drill-sheet-detail";
+import { buildDrillSheetDetail } from "@/lib/drill-sheet-detail";
 import { buildDrillSheetPdfHtml } from "@/lib/drill-sheet-pdf-html";
 import { appendDrillSheetFillablePage } from "@/lib/drill-sheet-pdf-fillable";
 import {
@@ -63,6 +64,14 @@ export type DrillSheetPdfBuildResult = {
   } | null;
 };
 
+/** The uploaded set file fields the circular fill needs. */
+export type DrillSheetSetFile = {
+  setId: string;
+  hasTopSlab: boolean;
+  hasBaseSlab: boolean;
+  originalName: string;
+};
+
 export async function buildDrillSheetPdfBytes(
   sheet: DrillSheetWithDetail,
 ): Promise<DrillSheetPdfBuildResult | null> {
@@ -70,7 +79,22 @@ export async function buildDrillSheetPdfBytes(
   if (!detail) {
     return null;
   }
+  return buildDrillSheetPdfFromDetail(
+    detail,
+    sheet.structureTemplate?.rectPdfSet?.files ?? [],
+  );
+}
 
+/**
+ * Fills the drill sheet PDF from an already-computed sheet: the template's
+ * uploaded set file when it has one, else the generated HTML sheet plus the
+ * fillable form page. Shared by saved sheets and the One-Off live preview,
+ * which renders rows that don't exist yet.
+ */
+export async function buildDrillSheetPdfFromDetail(
+  detail: DrillSheetDetail,
+  setFiles: DrillSheetSetFile[],
+): Promise<DrillSheetPdfBuildResult> {
   const hasRiser = detail.result.sections.some(
     (section) => section.role === "RISER",
   );
@@ -83,7 +107,6 @@ export async function buildDrillSheetPdfBytes(
 
   // Circular sets hold one file stored under the {false,false} slot; the app
   // draws riser/key differences itself.
-  const setFiles = sheet.structureTemplate?.rectPdfSet?.files ?? [];
   const setFile =
     setFiles.find((file) => !file.hasTopSlab && !file.hasBaseSlab) ??
     setFiles[0] ??

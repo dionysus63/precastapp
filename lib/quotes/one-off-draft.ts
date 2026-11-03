@@ -148,7 +148,14 @@ function parseWall(value: unknown, index: number): RectWall {
     : createOpeningCell(index).wall;
 }
 
-function parseRow(value: unknown, openingCount: number): OneOffRow | null {
+/**
+ * Rebuilds one grid row from client or stored JSON, padding or trimming its
+ * openings to `openingCount`. Null when the value isn't a row at all.
+ */
+export function parseOneOffRow(
+  value: unknown,
+  openingCount: number,
+): OneOffRow | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -206,7 +213,7 @@ function parseSection(
   const rows = Array.isArray(value.rows)
     ? value.rows
         .slice(0, ONE_OFF_MAX_ROWS)
-        .map((row) => parseRow(row, openingCount))
+        .map((row) => parseOneOffRow(row, openingCount))
         .filter((row): row is OneOffRow => row != null)
     : null;
   return {

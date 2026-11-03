@@ -524,8 +524,7 @@ export function OneOffDrillSheets({
               rowCount={rows.length}
               contractor={sheetHeader.contractor}
               project={sheetHeader.project}
-              circularOptions={circularOptions}
-              rectOptions={rectOptions}
+              openingCount={section.openingCount}
             />
           </div>
 

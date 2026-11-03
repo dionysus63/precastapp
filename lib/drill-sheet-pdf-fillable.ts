@@ -69,7 +69,6 @@ function drawField(
   if (options.multiline) {
     field.enableMultiline();
   }
-  field.setFontSize(9);
   field.addToPage(ctx.page, {
     x,
     y: topY - 4 - height,
@@ -78,6 +77,9 @@ function drawField(
     borderWidth: 0.75,
     borderColor: BORDER,
   });
+  // Only after addToPage: pdf-lib writes the field's default appearance
+  // with its first widget, and setFontSize throws without one.
+  field.setFontSize(9);
 }
 
 /**
@@ -233,7 +235,6 @@ export async function appendDrillSheetFillablePage(
       if (value) {
         field.setText(toWinAnsiText(value));
       }
-      field.setFontSize(9);
       field.addToPage(page, {
         x,
         y: cellTop - rowHeight,
@@ -242,6 +243,7 @@ export async function appendDrillSheetFillablePage(
         borderWidth: 0.75,
         borderColor: BORDER,
       });
+      field.setFontSize(9);
     };
 
     const labelChar =
