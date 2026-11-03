@@ -164,6 +164,13 @@ export function OneOffDrillSheets({
     () => resume?.state.rect ?? createEmptySection("RECTANGULAR"),
   );
   /** Per grid, the row whose sheet the preview beside the setup shows. */
+  /** The build/rebuild panel is open until rows exist, then folds away. */
+  const [setupOpen, setSetupOpen] = useState<Record<OneOffShape, boolean>>(
+    () => ({
+      CIRCULAR: resume?.state.circular.rows == null,
+      RECTANGULAR: resume?.state.rect.rows == null,
+    }),
+  );
   const [activeRowIds, setActiveRowIds] = useState<
     Record<OneOffShape, string | null>
   >({ CIRCULAR: null, RECTANGULAR: null });
@@ -311,6 +318,25 @@ export function OneOffDrillSheets({
       setup,
       rows: buildRowsFromSetup(setup, section.openingCount),
     });
+    setSetupOpen((current) => ({ ...current, [shape]: false }));
+  }
+
+  /** One line of what the rows were built from, for the folded panel. */
+  function setupSummary(section: OneOffSection, shape: OneOffShape): string {
+    const { setup } = section;
+    const options = shape === "CIRCULAR" ? circularOptions : rectOptions;
+    const template = options.templates.find((entry) => entry.id === setup.templateId);
+    const casting = options.castings.find(
+      (entry) => entry.id === setup.castingProductId,
+    );
+    const parts = [
+      template?.name,
+      shape === "CIRCULAR" && setup.diameterFeet ? `${setup.diameterFeet}'` : null,
+      casting?.name,
+      setup.pipeType && setup.pipeSize ? `${setup.pipeType} ${setup.pipeSize}"` : null,
+      section.rows ? `${section.rows.length} structure${section.rows.length === 1 ? "" : "s"}` : null,
+    ].filter((part): part is string => Boolean(part));
+    return parts.join(" · ");
   }
 
   function chooseShape(choice: OneOffShapeChoice) {
@@ -502,67 +528,103 @@ export function OneOffDrillSheets({
         title={`${label} Drill Sheets`}
         open
       >
-        <div className="space-y-5">
-          <div className="grid gap-5 lg:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)]">
-            <OneOffSetupPanel
-              shape={shape}
-              setup={section.setup}
-              pipeChoices={pipeChoices}
-              circularOptions={circularOptions}
-              rectOptions={rectOptions}
-              suggestedStart={suggestedStart(section, shape)}
-              missing={missingSetupFields(shape, section.setup)}
-              hasRows={section.rows != null}
-              onChange={(setup) => setter({ ...section, setup })}
-              onBuild={() => buildSection(shape)}
-              layout="column"
-            />
-            <OneOffSheetPreview
-              shape={shape}
-              row={activeRow}
-              result={activeRow ? (results[activeIndex] ?? null) : null}
-              rowCount={rows.length}
-              contractor={sheetHeader.contractor}
-              project={sheetHeader.project}
-              openingCount={section.openingCount}
-            />
+        <div className="space-y-4">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70">
+            <button
+              type="button"
+              onClick={() =>
+                setSetupOpen((current) => ({ ...current, [shape]: !current[shape] }))
+              }
+              aria-expanded={setupOpen[shape]}
+              className="flex w-full items-center gap-3 px-4 py-2.5 text-left"
+            >
+              <span
+                aria-hidden="true"
+                className={`text-slate-500 transition-transform ${setupOpen[shape] ? "rotate-90" : ""}`}
+              >
+                ▸
+              </span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                Build / Rebuild Rows
+              </span>
+              {!setupOpen[shape] ? (
+                <span className="min-w-0 flex-1 truncate text-xs text-slate-500">
+                  {setupSummary(section, shape) || "Nothing picked yet"}
+                </span>
+              ) : (
+                <span className="min-w-0 flex-1 truncate text-[11px] text-slate-400">
+                  {section.rows != null
+                    ? "Folds away once the rows are built. Open it to rebuild."
+                    : "Pick what every structure starts from, then build the rows."}
+                </span>
+              )}
+            </button>
+            {setupOpen[shape] ? (
+              <div className="border-t border-slate-200 px-4 py-4">
+                <OneOffSetupPanel
+                  shape={shape}
+                  setup={section.setup}
+                  pipeChoices={pipeChoices}
+                  circularOptions={circularOptions}
+                  rectOptions={rectOptions}
+                  suggestedStart={suggestedStart(section, shape)}
+                  missing={missingSetupFields(shape, section.setup)}
+                  hasRows={section.rows != null}
+                  onChange={(setup) => setter({ ...section, setup })}
+                  onBuild={() => buildSection(shape)}
+                />
+              </div>
+            ) : null}
           </div>
 
           {section.rows != null ? (
-            <>
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  {label} grid
-                </h4>
-                <span className="text-[11px] text-slate-500">
-                  {sectionReady} of {section.rows.length} ready
-                </span>
+            <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,max-content)_minmax(20rem,1fr)]">
+              <div className="min-w-0 space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    {label} grid
+                  </h4>
+                  <span className="text-[11px] text-slate-500">
+                    {sectionReady} of {section.rows.length} ready
+                  </span>
+                </div>
+                <OneOffGrid
+                  shape={shape}
+                  rows={section.rows}
+                  results={results}
+                  openingCount={section.openingCount}
+                  setup={section.setup}
+                  pipeChoices={pipeChoices}
+                  takenNumbers={takenFor(shape)}
+                  duplicateNumbers={duplicateNumbers}
+                  circularOptions={circularOptions}
+                  rectOptions={rectOptions}
+                  activeRowId={activeRow?.id ?? null}
+                  onActiveRowChange={(rowId) =>
+                    setActiveRowIds((current) =>
+                      current[shape] === rowId ? current : { ...current, [shape]: rowId },
+                    )
+                  }
+                  onRowsChange={(rows) =>
+                    setter((current) => ({ ...current, rows }))
+                  }
+                  onOpeningCountChange={(openingCount) =>
+                    setter((current) => ({ ...current, openingCount }))
+                  }
+                />
               </div>
-              <OneOffGrid
-                shape={shape}
-                rows={section.rows}
-                results={results}
-                openingCount={section.openingCount}
-                setup={section.setup}
-                pipeChoices={pipeChoices}
-                takenNumbers={takenFor(shape)}
-                duplicateNumbers={duplicateNumbers}
-                circularOptions={circularOptions}
-                rectOptions={rectOptions}
-                activeRowId={activeRow?.id ?? null}
-                onActiveRowChange={(rowId) =>
-                  setActiveRowIds((current) =>
-                    current[shape] === rowId ? current : { ...current, [shape]: rowId },
-                  )
-                }
-                onRowsChange={(rows) =>
-                  setter((current) => ({ ...current, rows }))
-                }
-                onOpeningCountChange={(openingCount) =>
-                  setter((current) => ({ ...current, openingCount }))
-                }
-              />
-            </>
+              <div className="min-w-0 lg:sticky lg:top-4">
+                <OneOffSheetPreview
+                  shape={shape}
+                  row={activeRow}
+                  result={activeRow ? (results[activeIndex] ?? null) : null}
+                  rowCount={rows.length}
+                  contractor={sheetHeader.contractor}
+                  project={sheetHeader.project}
+                  openingCount={section.openingCount}
+                />
+              </div>
+            </div>
           ) : null}
         </div>
       </StepCard>

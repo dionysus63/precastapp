@@ -345,43 +345,47 @@ export function OneOffEditSheets({
         title={isCircular ? "Circular Drill Sheets" : "Rectangular Drill Sheets"}
         description={`${section.rows.length} sheet${section.rows.length === 1 ? "" : "s"}. Changed rows are highlighted.`}
       >
-        <div className="mb-4">
-          <OneOffSheetPreview
-            shape={shape}
-            row={activeRow}
-            result={activeRow ? (withErrors[activeIndex] ?? null) : null}
-            rowCount={section.rows.length}
-            contractor={data.job.customerName}
-            project={data.job.projectName}
-            openingCount={section.openingCount}
-          />
+        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,max-content)_minmax(20rem,1fr)]">
+          <div className="min-w-0">
+            <OneOffGrid
+              shape={shape}
+              rows={section.rows}
+              results={withErrors}
+              openingCount={section.openingCount}
+              setup={createEmptySetup(shape)}
+              pipeChoices={isCircular ? circularPipeChoices : rectPipeChoices}
+              takenNumbers={data.otherNumbers}
+              duplicateNumbers={duplicateNumbers}
+              circularOptions={circularOptions}
+              rectOptions={rectOptions}
+              editMode
+              changedRowIds={changedIds}
+              activeRowId={activeRow?.id ?? null}
+              onActiveRowChange={(rowId) =>
+                setActiveRowIds((current) =>
+                  current[shape] === rowId ? current : { ...current, [shape]: rowId },
+                )
+              }
+              onRowsChange={(rows: OneOffRow[]) =>
+                setSection((current) => ({ ...current, rows }))
+              }
+              onOpeningCountChange={(openingCount) =>
+                setSection((current) => ({ ...current, openingCount }))
+              }
+            />
+          </div>
+          <div className="min-w-0 lg:sticky lg:top-4">
+            <OneOffSheetPreview
+              shape={shape}
+              row={activeRow}
+              result={activeRow ? (withErrors[activeIndex] ?? null) : null}
+              rowCount={section.rows.length}
+              contractor={data.job.customerName}
+              project={data.job.projectName}
+              openingCount={section.openingCount}
+            />
+          </div>
         </div>
-        <OneOffGrid
-          shape={shape}
-          rows={section.rows}
-          results={withErrors}
-          openingCount={section.openingCount}
-          setup={createEmptySetup(shape)}
-          pipeChoices={isCircular ? circularPipeChoices : rectPipeChoices}
-          takenNumbers={data.otherNumbers}
-          duplicateNumbers={duplicateNumbers}
-          circularOptions={circularOptions}
-          rectOptions={rectOptions}
-          editMode
-          changedRowIds={changedIds}
-          activeRowId={activeRow?.id ?? null}
-          onActiveRowChange={(rowId) =>
-            setActiveRowIds((current) =>
-              current[shape] === rowId ? current : { ...current, [shape]: rowId },
-            )
-          }
-          onRowsChange={(rows: OneOffRow[]) =>
-            setSection((current) => ({ ...current, rows }))
-          }
-          onOpeningCountChange={(openingCount) =>
-            setSection((current) => ({ ...current, openingCount }))
-          }
-        />
       </SectionCard>
     );
   }
