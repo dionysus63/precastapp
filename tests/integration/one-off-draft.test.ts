@@ -157,7 +157,6 @@ function newJobDraft(projectName: string): OneOffDraftState {
     },
     jobConfirmed: true,
     shapeChoice: "CIRCULAR",
-    rectUnlocked: false,
     circular: circularSection(["MH-1", "MH-2"]),
     rect: createEmptySection("RECTANGULAR"),
   };

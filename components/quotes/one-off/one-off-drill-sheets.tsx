@@ -12,7 +12,7 @@ import {
   type OneOffDraftRecord,
 } from "@/components/quotes/one-off/one-off-draft-bar";
 import { OneOffDraftsCard } from "@/components/quotes/one-off/one-off-drafts-card";
-import { OneOffGrid } from "@/components/quotes/one-off/one-off-grid";
+import { OneOffGrid, OneOffGridHint } from "@/components/quotes/one-off/one-off-grid";
 import {
   OneOffJobStep,
   describeJobChoice,
@@ -21,6 +21,7 @@ import {
 } from "@/components/quotes/one-off/one-off-job-step";
 import { OneOffResults } from "@/components/quotes/one-off/one-off-results";
 import { OneOffSetupPanel } from "@/components/quotes/one-off/one-off-setup-panel";
+import { OneOffSheetPreview } from "@/components/quotes/one-off/one-off-sheet-preview";
 import { describeActionFailure, isActionError } from "@/lib/action-result";
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning";
 import { navigateAfterAction } from "@/lib/reload-after-action";
@@ -85,7 +86,7 @@ function fromResumedJob(resume: OneOffResumedDraft): OneOffJobChoice | null {
 const SHAPE_CHOICES: { value: OneOffShapeChoice; title: string; description: string }[] = [
   { value: "CIRCULAR", title: "Circular", description: "Manholes and round structures" },
   { value: "RECTANGULAR", title: "Rectangular", description: "Catch basins and boxes" },
-  { value: "BOTH", title: "Both", description: "Circular first, then rectangular" },
+  { value: "BOTH", title: "Both", description: "Both grids on this page" },
 ];
 
 function StepCard({
@@ -162,10 +163,17 @@ export function OneOffDrillSheets({
   const [rect, setRect] = useState<OneOffSection>(
     () => resume?.state.rect ?? createEmptySection("RECTANGULAR"),
   );
-  /** With "Both", the rectangular step opens once circular is done. */
-  const [rectUnlocked, setRectUnlocked] = useState(
-    () => resume?.state.rectUnlocked ?? false,
+  /** Per grid, the row whose sheet the preview beside the setup shows. */
+  /** The build/rebuild panel is open until rows exist, then folds away. */
+  const [setupOpen, setSetupOpen] = useState<Record<OneOffShape, boolean>>(
+    () => ({
+      CIRCULAR: resume?.state.circular.rows == null,
+      RECTANGULAR: resume?.state.rect.rows == null,
+    }),
   );
+  const [activeRowIds, setActiveRowIds] = useState<
+    Record<OneOffShape, string | null>
+  >({ CIRCULAR: null, RECTANGULAR: null });
   const [result, setResult] = useState<OneOffCreateResult | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, startCreating] = useTransition();
@@ -191,11 +199,10 @@ export function OneOffDrillSheets({
       job: toDraftJob(jobChoice),
       jobConfirmed,
       shapeChoice,
-      rectUnlocked,
       circular,
       rect,
     }),
-    [circular, jobChoice, jobConfirmed, rect, rectUnlocked, shapeChoice],
+    [circular, jobChoice, jobConfirmed, rect, shapeChoice],
   );
   const draftSnapshot = useMemo(
     () => serializeOneOffDraftState(draftState),
@@ -214,10 +221,9 @@ export function OneOffDrillSheets({
     [rectOptions.openingSizes],
   );
 
+  // With "Both", the circular and rectangular grids sit on the page together.
   const usesCircular = shapeChoice === "CIRCULAR" || shapeChoice === "BOTH";
   const usesRect = shapeChoice === "RECTANGULAR" || shapeChoice === "BOTH";
-  const rectVisible =
-    usesRect && (shapeChoice === "RECTANGULAR" || rectUnlocked);
 
   const jobNumbers = useMemo(
     () =>
@@ -226,14 +232,27 @@ export function OneOffDrillSheets({
         : [],
     [jobChoice],
   );
+  /** Contractor and project as the sheet header will print them. */
+  const sheetHeader =
+    jobChoice?.mode === "existing"
+      ? {
+          contractor: jobChoice.job?.customerName ?? "",
+          project: jobChoice.job?.projectName ?? "",
+        }
+      : jobChoice?.mode === "new"
+        ? {
+            contractor: jobChoice.customerLabel || jobChoice.fields.customerName,
+            project: jobChoice.fields.projectName,
+          }
+        : { contractor: "", project: "" };
 
   const circularRows = useMemo(
     () => (usesCircular ? (circular.rows ?? []) : []),
     [circular.rows, usesCircular],
   );
   const rectRows = useMemo(
-    () => (rectVisible ? (rect.rows ?? []) : []),
-    [rect.rows, rectVisible],
+    () => (usesRect ? (rect.rows ?? []) : []),
+    [rect.rows, usesRect],
   );
 
   const circularResults = useMemo(
@@ -299,20 +318,41 @@ export function OneOffDrillSheets({
       setup,
       rows: buildRowsFromSetup(setup, section.openingCount),
     });
+    setSetupOpen((current) => ({ ...current, [shape]: false }));
+  }
+
+  /** One line of what the rows were built from, for the folded panel. */
+  function setupSummary(section: OneOffSection, shape: OneOffShape): string {
+    const { setup } = section;
+    const options = shape === "CIRCULAR" ? circularOptions : rectOptions;
+    const template = options.templates.find((entry) => entry.id === setup.templateId);
+    const casting = options.castings.find(
+      (entry) => entry.id === setup.castingProductId,
+    );
+    const parts = [
+      template?.name,
+      shape === "CIRCULAR" && setup.diameterFeet ? `${setup.diameterFeet}'` : null,
+      casting?.name,
+      setup.pipeType && setup.pipeSize ? `${setup.pipeType} ${setup.pipeSize}"` : null,
+      section.rows ? `${section.rows.length} structure${section.rows.length === 1 ? "" : "s"}` : null,
+    ].filter((part): part is string => Boolean(part));
+    return parts.join(" · ");
   }
 
   function chooseShape(choice: OneOffShapeChoice) {
     setShapeChoice(choice);
-    setRectUnlocked(choice === "RECTANGULAR");
   }
 
   const totalRows = circularRows.length + rectRows.length;
   const readyCount =
     circularResults.filter((entry) => entry.ready).length +
     rectResults.filter((entry) => entry.ready).length;
-  const allBuilt =
-    (!usesCircular || circular.rows != null) &&
-    (!usesRect || (rectVisible && rect.rows != null));
+  const circularBuilt = !usesCircular || circular.rows != null;
+  const rectBuilt = !usesRect || rect.rows != null;
+  const allBuilt = circularBuilt && rectBuilt;
+  /** Some grid exists, so the Create bar shows (and says what's still missing). */
+  const anyBuilt =
+    (usesCircular && circular.rows != null) || (usesRect && rect.rows != null);
   const canCreate =
     allBuilt &&
     totalRows > 0 &&
@@ -372,7 +412,6 @@ export function OneOffDrillSheets({
     setShapeChoice(null);
     setCircular(createEmptySection("CIRCULAR"));
     setRect(createEmptySection("RECTANGULAR"));
-    setRectUnlocked(false);
     setResult(null);
     setCreateError(null);
     setDraft(null);
@@ -474,6 +513,14 @@ export function OneOffDrillSheets({
     const number = stepNumber;
     stepNumber += 1;
 
+    // The preview follows the row last clicked, else the first row.
+    const rows = section.rows ?? [];
+    const activeIndex = Math.max(
+      0,
+      rows.findIndex((row) => row.id === activeRowIds[shape]),
+    );
+    const activeRow = rows[activeIndex] ?? null;
+
     return (
       <StepCard
         key={shape}
@@ -481,22 +528,57 @@ export function OneOffDrillSheets({
         title={`${label} Drill Sheets`}
         open
       >
-        <div className="space-y-5">
-          <OneOffSetupPanel
-            shape={shape}
-            setup={section.setup}
-            pipeChoices={pipeChoices}
-            circularOptions={circularOptions}
-            rectOptions={rectOptions}
-            suggestedStart={suggestedStart(section, shape)}
-            missing={missingSetupFields(shape, section.setup)}
-            hasRows={section.rows != null}
-            onChange={(setup) => setter({ ...section, setup })}
-            onBuild={() => buildSection(shape)}
-          />
+        <div className="space-y-4">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70">
+            <button
+              type="button"
+              onClick={() =>
+                setSetupOpen((current) => ({ ...current, [shape]: !current[shape] }))
+              }
+              aria-expanded={setupOpen[shape]}
+              className="flex w-full items-center gap-3 px-4 py-2.5 text-left"
+            >
+              <span
+                aria-hidden="true"
+                className={`text-slate-500 transition-transform ${setupOpen[shape] ? "rotate-90" : ""}`}
+              >
+                ▸
+              </span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                Build / Rebuild Rows
+              </span>
+              {!setupOpen[shape] ? (
+                <span className="min-w-0 flex-1 truncate text-xs text-slate-500">
+                  {setupSummary(section, shape) || "Nothing picked yet"}
+                </span>
+              ) : (
+                <span className="min-w-0 flex-1 truncate text-[11px] text-slate-400">
+                  {section.rows != null
+                    ? "Folds away once the rows are built. Open it to rebuild."
+                    : "Pick what every structure starts from, then build the rows."}
+                </span>
+              )}
+            </button>
+            {setupOpen[shape] ? (
+              <div className="border-t border-slate-200 px-4 py-4">
+                <OneOffSetupPanel
+                  shape={shape}
+                  setup={section.setup}
+                  pipeChoices={pipeChoices}
+                  circularOptions={circularOptions}
+                  rectOptions={rectOptions}
+                  suggestedStart={suggestedStart(section, shape)}
+                  missing={missingSetupFields(shape, section.setup)}
+                  hasRows={section.rows != null}
+                  onChange={(setup) => setter({ ...section, setup })}
+                  onBuild={() => buildSection(shape)}
+                />
+              </div>
+            ) : null}
+          </div>
 
           {section.rows != null ? (
-            <>
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   {label} grid
@@ -505,25 +587,47 @@ export function OneOffDrillSheets({
                   {sectionReady} of {section.rows.length} ready
                 </span>
               </div>
-              <OneOffGrid
-                shape={shape}
-                rows={section.rows}
-                results={results}
-                openingCount={section.openingCount}
-                setup={section.setup}
-                pipeChoices={pipeChoices}
-                takenNumbers={takenFor(shape)}
-                duplicateNumbers={duplicateNumbers}
-                circularOptions={circularOptions}
-                rectOptions={rectOptions}
-                onRowsChange={(rows) =>
-                  setter((current) => ({ ...current, rows }))
-                }
-                onOpeningCountChange={(openingCount) =>
-                  setter((current) => ({ ...current, openingCount }))
-                }
-              />
-            </>
+              <OneOffGridHint />
+              <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,max-content)_minmax(20rem,1fr)]">
+                <div className="min-w-0">
+                  <OneOffGrid
+                    shape={shape}
+                    rows={section.rows}
+                    results={results}
+                    openingCount={section.openingCount}
+                    setup={section.setup}
+                    pipeChoices={pipeChoices}
+                    takenNumbers={takenFor(shape)}
+                    duplicateNumbers={duplicateNumbers}
+                    circularOptions={circularOptions}
+                    rectOptions={rectOptions}
+                    activeRowId={activeRow?.id ?? null}
+                    onActiveRowChange={(rowId) =>
+                      setActiveRowIds((current) =>
+                        current[shape] === rowId ? current : { ...current, [shape]: rowId },
+                      )
+                    }
+                    onRowsChange={(rows) =>
+                      setter((current) => ({ ...current, rows }))
+                    }
+                    onOpeningCountChange={(openingCount) =>
+                      setter((current) => ({ ...current, openingCount }))
+                    }
+                    />
+                </div>
+                <div className="min-w-0 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+                  <OneOffSheetPreview
+                    shape={shape}
+                    row={activeRow}
+                    result={activeRow ? (results[activeIndex] ?? null) : null}
+                    rowCount={rows.length}
+                    contractor={sheetHeader.contractor}
+                    project={sheetHeader.project}
+                    openingCount={section.openingCount}
+                  />
+                </div>
+              </div>
+            </div>
           ) : null}
         </div>
       </StepCard>
@@ -618,22 +722,9 @@ export function OneOffDrillSheets({
 
       {jobConfirmed && usesCircular ? renderShapeSection("CIRCULAR") : null}
 
-      {jobConfirmed && shapeChoice === "BOTH" && !rectUnlocked ? (
-        <div>
-          <button
-            type="button"
-            disabled={circular.rows == null}
-            onClick={() => setRectUnlocked(true)}
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Next: Rectangular Drill Sheets
-          </button>
-        </div>
-      ) : null}
+      {jobConfirmed && usesRect ? renderShapeSection("RECTANGULAR") : null}
 
-      {jobConfirmed && rectVisible ? renderShapeSection("RECTANGULAR") : null}
-
-      {jobConfirmed && allBuilt ? (
+      {jobConfirmed && anyBuilt ? (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
           <button
             type="button"
@@ -646,7 +737,9 @@ export function OneOffDrillSheets({
               : `Create Drill Sheets${totalRows > 0 ? ` (${totalRows})` : ""}`}
           </button>
           <span className="text-xs text-slate-500">
-            {totalRows === 0
+            {!allBuilt
+              ? `Build the ${circularBuilt ? "rectangular" : "circular"} rows too, or pick just ${circularBuilt ? "Circular" : "Rectangular"} under Structure Type.`
+              : totalRows === 0
               ? "Add at least one row."
               : duplicateNumbers.size > 0
                 ? "Fix the structure numbers marked in red."

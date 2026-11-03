@@ -32,13 +32,18 @@ function sampleState(): OneOffDraftState {
   rows[0].rimElevation = "100.5";
   rows[0].openings[0].invert = "95.25";
   rows[0].openings[0].angle = "90";
-  rows[1].openings[1] = { invert: "94", angle: "", wall: "LEFT" };
+  rows[1].openings[1] = {
+    invert: "94",
+    pipeType: "RCP",
+    pipeSize: "15",
+    angle: "",
+    wall: "LEFT",
+  };
   return {
     version: 1,
     job: { mode: "existing", jobId: "job-1" },
     jobConfirmed: true,
     shapeChoice: "BOTH",
-    rectUnlocked: true,
     circular: { setup, rows, openingCount: 2 },
     rect: createEmptySection("RECTANGULAR"),
   };
@@ -91,8 +96,41 @@ describe("one-off draft state", () => {
     expect(parsed!.circular.rows).toHaveLength(1);
     const row = parsed!.circular.rows![0];
     expect(row.openings).toHaveLength(ONE_OFF_MAX_OPENINGS);
-    expect(row.openings[0]).toEqual({ invert: "", angle: "", wall: "UP" });
+    expect(row.openings[0]).toEqual({
+      invert: "",
+      pipeType: "",
+      pipeSize: "",
+      angle: "",
+      wall: "UP",
+    });
     expect(parsed!.rect).toEqual(createEmptySection("RECTANGULAR"));
+  });
+
+  it("opens a draft saved before inlets had their own pipe", () => {
+    const state = sampleState();
+    const stored = JSON.parse(serializeOneOffDraftState(state)) as {
+      rectUnlocked?: boolean;
+      circular: {
+        rows: { openings: { pipeType?: string; pipeSize?: string }[] }[];
+      };
+    };
+    stored.rectUnlocked = true;
+    for (const row of stored.circular.rows) {
+      for (const cell of row.openings) {
+        delete cell.pipeType;
+        delete cell.pipeSize;
+      }
+    }
+    const parsed = parseOneOffDraftState(stored);
+    const row = parsed!.circular.rows![0];
+    // A blank inlet pipe means "use the row's default" when calculating.
+    expect(row.openings.map((cell) => [cell.pipeType, cell.pipeSize])).toEqual([
+      ["", ""],
+      ["", ""],
+    ]);
+    expect(row.pipeType).toBe("PVC SDR35");
+    expect(row.pipeSize).toBe("8");
+    expect(parsed).not.toHaveProperty("rectUnlocked");
   });
 
   it("keeps a new-job draft's typed fields and contractor label", () => {

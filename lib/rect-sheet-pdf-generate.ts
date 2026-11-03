@@ -12,6 +12,7 @@ import {
   fillRectSheetTemplatePdf,
   selectRectTemplateVariant,
 } from "@/lib/rect-template-pdf";
+import type { RectStructureResult } from "@/lib/rect-structure";
 import { rectTemplateVariantKey } from "@/lib/structure-template-pdf-service";
 import { getPriceListIdForStructure } from "@/lib/structure-pricing";
 
@@ -48,7 +49,35 @@ export async function buildRectSheetPdfBytes(
     castingName: casting?.name ?? null,
   };
 
-  const pdfSet = sheet.structureTemplate?.rectPdfSet ?? null;
+  return fillRectSheetPdf(meta, result, sheet.structureTemplate?.rectPdfSet ?? null, {
+    date: sheet.calc?.sheetDate
+      ? new Intl.DateTimeFormat("en-US").format(sheet.calc.sheetDate)
+      : "",
+  });
+}
+
+/** The PDF set fields the rect fill needs (a template's `rectPdfSet`). */
+export type RectSheetPdfSet = {
+  name: string;
+  files: {
+    setId: string;
+    hasTopSlab: boolean;
+    hasBaseSlab: boolean;
+    filePath: string;
+    originalName: string;
+  }[];
+};
+
+/**
+ * Fills the PDF-set variant matching an already-computed rect sheet. Shared
+ * by saved sheets and the One-Off live preview of rows not yet created.
+ */
+export async function fillRectSheetPdf(
+  meta: RectSheetPreviewMeta,
+  result: RectStructureResult,
+  pdfSet: RectSheetPdfSet | null,
+  extras: { date?: string } = {},
+): Promise<RectSheetPdfBuildResult> {
   if (!pdfSet) {
     return {
       ok: false,
@@ -66,11 +95,7 @@ export async function buildRectSheetPdfBytes(
   }
 
   const templateBytes = await readRectPdfSetFileBytes(variant);
-  const fieldMap = buildRectSheetFieldMap(meta, result, {
-    date: sheet.calc?.sheetDate
-      ? new Intl.DateTimeFormat("en-US").format(sheet.calc.sheetDate)
-      : "",
-  });
+  const fieldMap = buildRectSheetFieldMap(meta, result, extras);
   const filled = await fillRectSheetTemplatePdf(templateBytes, fieldMap, result);
   const bytes = await flattenPdfForms(filled);
 

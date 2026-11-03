@@ -14,6 +14,7 @@ import {
   nextFreeStructureNumber,
   rectRowFromSheet,
   resizeRowOpenings,
+  setOpeningPipeType,
   type OneOffCircularOptions,
   type OneOffRectOptions,
   type OneOffSetup,
@@ -65,6 +66,16 @@ const circularOptions: OneOffCircularOptions = {
       pipeWallThicknessInches: 0.4,
       bootModel: "B",
       pricePerBoot: 70,
+    },
+    {
+      pipeMaterial: "RCP",
+      pipeSizeInches: 15,
+      pipeType: "",
+      hasBoot: false,
+      holeDiameterInches: 24,
+      pipeWallThicknessInches: 2.25,
+      bootModel: null,
+      pricePerBoot: null,
     },
   ],
   diameterConfigs: [
@@ -158,6 +169,29 @@ describe("one-off setup", () => {
       pipeSize: "8",
     });
     expect(rows[0].openings).toHaveLength(2);
+    // Every inlet starts at the setup's pipe and can be changed alone.
+    expect(rows[0].openings.map((cell) => [cell.pipeType, cell.pipeSize])).toEqual([
+      ["PVC SDR35", "8"],
+      ["PVC SDR35", "8"],
+    ]);
+  });
+
+  it("changes one inlet's pipe type and clears a size it doesn't come in", () => {
+    const [row] = buildRowsFromSetup(filledSetup({ quantity: "1" }), 2);
+    const choices = circularPipeTypeChoices(circularOptions.pipeOpeningSizes);
+    const retyped = setOpeningPipeType(row, 1, "RCP", choices);
+    expect(retyped.openings[0]).toMatchObject({ pipeType: "PVC SDR35", pipeSize: "8" });
+    expect(retyped.openings[1]).toMatchObject({ pipeType: "RCP", pipeSize: "" });
+    expect(computeCircularOneOffRow(retyped, circularOptions).status).toBe(
+      "Enter rim and inverts",
+    );
+    // Back to a type that comes in 8": the size stays.
+    const sized = { ...retyped, openings: [retyped.openings[0], { ...retyped.openings[1], pipeSize: "15" }] };
+    expect(setOpeningPipeType(sized, 1, "PVC SDR35", choices).openings[1]).toMatchObject({
+      pipeType: "PVC SDR35",
+      pipeSize: "",
+    });
+    expect(setOpeningPipeType(row, 0, "PVC SDR35", choices).openings[0].pipeSize).toBe("8");
   });
 
   it("numbers after structures already taken with the same prefix", () => {
@@ -171,12 +205,15 @@ describe("one-off setup", () => {
     const wider = resizeRowOpenings(rows, 4);
     expect(wider[0].openings).toHaveLength(4);
     expect(wider[0].openings[0].invert).toBe("90");
+    // A new inlet column starts at the row's default pipe.
+    expect(wider[0].openings[3]).toMatchObject({ pipeType: "PVC SDR35", pipeSize: "8" });
     expect(resizeRowOpenings(wider, 1)[0].openings).toHaveLength(1);
   });
 
   it("labels circular pipe types as material plus type", () => {
     expect(circularPipeTypeChoices(circularOptions.pipeOpeningSizes)).toEqual([
       { label: "PVC SDR35", sizes: [8, 12] },
+      { label: "RCP", sizes: [15] },
     ]);
   });
 
@@ -210,6 +247,39 @@ describe("one-off row calculation", () => {
       pipeSizeInches: 8,
       angleDegrees: 180,
     });
+  });
+
+  it("gives each inlet its own pipe type and size on the saved sheet", () => {
+    const [row] = buildRowsFromSetup(filledSetup({ quantity: "1" }), 2);
+    row.rimElevation = "100";
+    row.openings[0].invert = "92";
+    row.openings[1] = {
+      ...row.openings[1],
+      invert: "92.5",
+      pipeType: "RCP",
+      pipeSize: "15",
+    };
+    const result = computeCircularOneOffRow(row, circularOptions);
+    expect(result.ready).toBe(true);
+    const parsed = parseStructureConfigJson(JSON.parse(JSON.stringify(result.config)));
+    expect(
+      parsed?.openings?.map((opening) => [opening.pipeMaterial, opening.pipeSizeInches]),
+    ).toEqual([
+      ["PVC SDR35", 8],
+      ["RCP", 15],
+    ]);
+
+    // A blank inlet pipe falls back to the row's default.
+    row.openings[1] = { ...row.openings[1], pipeType: "", pipeSize: "" };
+    const fallback = parseStructureConfigJson(
+      computeCircularOneOffRow(row, circularOptions).config,
+    );
+    expect(
+      fallback?.openings?.map((opening) => [opening.pipeMaterial, opening.pipeSizeInches]),
+    ).toEqual([
+      ["PVC SDR35", 8],
+      ["PVC SDR35", 8],
+    ]);
   });
 
   it("keeps the column letter when an earlier invert is blank", () => {
@@ -249,13 +319,24 @@ describe("one-off row calculation", () => {
   });
 
   it("asks for the missing pick instead of calculating", () => {
-    const [row] = buildRowsFromSetup(filledSetup({ quantity: "1" }), 1);
-    row.pipeSize = "";
+    const [row] = buildRowsFromSetup(filledSetup({ quantity: "1" }), 2);
     row.rimElevation = "100";
     row.openings[0].invert = "92";
+    row.openings[1].invert = "93";
+    row.openings[1].pipeSize = "";
+    // Inlet B still has the row default to fall back on.
+    expect(computeCircularOneOffRow(row, circularOptions).ready).toBe(true);
+
+    row.pipeSize = "";
     expect(computeCircularOneOffRow(row, circularOptions)).toMatchObject({
       ready: false,
-      status: "Select a pipe type and size",
+      status: "Pick a pipe for inlet B",
+    });
+    row.openings[0].pipeType = "";
+    row.pipeType = "";
+    expect(computeCircularOneOffRow(row, circularOptions)).toMatchObject({
+      ready: false,
+      status: "Pick a pipe for inlets A, B",
     });
   });
 });
@@ -308,9 +389,11 @@ describe("editing saved sheets", () => {
       pipeSize: "8",
       rimElevation: "100",
     });
-    expect(row.openings.map((cell) => [cell.invert, cell.angle])).toEqual([
-      ["92", "0"],
-      ["92.5", "180"],
+    expect(
+      row.openings.map((cell) => [cell.invert, cell.pipeType, cell.pipeSize, cell.angle]),
+    ).toEqual([
+      ["92", "PVC SDR35", "8", "0"],
+      ["92.5", "PVC SDR35", "12", "180"],
     ]);
     expect(isRowChanged(row, row)).toBe(false);
   });
@@ -329,7 +412,6 @@ describe("editing saved sheets", () => {
     const merged = mergeCircularRow(
       savedCircular,
       edited,
-      loaded,
       circularOptions.templates,
       "2026-10-19",
     );
@@ -349,19 +431,20 @@ describe("editing saved sheets", () => {
     });
   });
 
-  it("applies a changed pipe pick to every opening and drops cleared ones", () => {
+  it("saves an inlet's changed pipe and drops cleared inlets", () => {
     const loaded = circularRowFromSheet("js-1", savedCircular, circularOptions.templates);
     const edited = {
       ...loaded,
-      pipeSize: "12",
       openings: loaded.openings.map((cell, index) =>
-        index === 0 ? { ...cell, invert: "" } : cell,
+        index === 0
+          ? { ...cell, invert: "" }
+          : { ...cell, pipeType: "RCP", pipeSize: "15" },
       ),
     };
+    expect(isRowChanged(edited, loaded)).toBe(true);
     const merged = mergeCircularRow(
       { ...savedCircular, date: "2026-01-02" },
       edited,
-      loaded,
       circularOptions.templates,
       "2026-10-19",
     );
@@ -370,7 +453,9 @@ describe("editing saved sheets", () => {
     expect(merged.values.openings).toHaveLength(1);
     expect(merged.values.openings[0]).toMatchObject({
       label: "B",
-      pipeSizeInches: "12",
+      pipeMaterial: "RCP",
+      pipeSizeInches: "15",
+      connectionType: "KOR_N_SEAL",
     });
   });
 
@@ -434,6 +519,19 @@ describe("editing saved sheets", () => {
       offsetInches: "6",
       widthOverrideInches: "26",
       invertElevation: "95.25",
+    });
+
+    // A different pipe drops the old pipe's width override but keeps placement.
+    const resized = {
+      ...loaded,
+      openings: [{ ...loaded.openings[0], pipeSize: "18" }],
+    };
+    const remerged = mergeRectRow(saved, resized, loaded, rectOptions.templates, "2026-10-19");
+    if ("error" in remerged) throw new Error(remerged.error);
+    expect(remerged.values.openings[0]).toMatchObject({
+      pipeSizeInches: "18",
+      widthOverrideInches: "",
+      placement: "FROM_LEFT",
     });
   });
 });

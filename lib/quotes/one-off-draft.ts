@@ -67,8 +67,6 @@ export type OneOffDraftState = {
   job: OneOffDraftJob | null;
   jobConfirmed: boolean;
   shapeChoice: OneOffShapeChoice | null;
-  /** With "Both", whether the rectangular step has been opened. */
-  rectUnlocked: boolean;
   circular: OneOffSection;
   rect: OneOffSection;
 };
@@ -150,7 +148,14 @@ function parseWall(value: unknown, index: number): RectWall {
     : createOpeningCell(index).wall;
 }
 
-function parseRow(value: unknown, openingCount: number): OneOffRow | null {
+/**
+ * Rebuilds one grid row from client or stored JSON, padding or trimming its
+ * openings to `openingCount`. Null when the value isn't a row at all.
+ */
+export function parseOneOffRow(
+  value: unknown,
+  openingCount: number,
+): OneOffRow | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -175,6 +180,9 @@ function parseRow(value: unknown, openingCount: number): OneOffRow | null {
       }
       return {
         invert: str(cell.invert),
+        // Drafts saved before inlets had their own pipe fall back to the row's.
+        pipeType: str(cell.pipeType),
+        pipeSize: str(cell.pipeSize),
         angle: str(cell.angle),
         wall: parseWall(cell.wall, index),
       };
@@ -205,7 +213,7 @@ function parseSection(
   const rows = Array.isArray(value.rows)
     ? value.rows
         .slice(0, ONE_OFF_MAX_ROWS)
-        .map((row) => parseRow(row, openingCount))
+        .map((row) => parseOneOffRow(row, openingCount))
         .filter((row): row is OneOffRow => row != null)
     : null;
   return {
@@ -278,7 +286,6 @@ export function parseOneOffDraftState(value: unknown): OneOffDraftState | null {
     job,
     jobConfirmed: raw.jobConfirmed === true && job != null,
     shapeChoice: parseShapeChoice(raw.shapeChoice),
-    rectUnlocked: raw.rectUnlocked === true,
     circular: parseSection(raw.circular, "CIRCULAR"),
     rect: parseSection(raw.rect, "RECTANGULAR"),
   };
