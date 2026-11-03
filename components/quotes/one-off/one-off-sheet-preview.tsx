@@ -12,8 +12,8 @@ import type {
 
 /** Wait this long after the last keystroke before filling the PDF again. */
 const PREVIEW_DEBOUNCE_MS = 600;
-/** Tallest the page is drawn, so the grid below stays within reach. */
-const MAX_PAGE_HEIGHT_VH = 0.72;
+/** Tallest the page is drawn: the pane scrolls past this, so width usually rules. */
+const MAX_PAGE_HEIGHT_VH = 1.6;
 const MIN_PAGE_HEIGHT_PX = 320;
 
 type OneOffSheetPreviewProps = {

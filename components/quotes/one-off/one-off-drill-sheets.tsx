@@ -12,7 +12,7 @@ import {
   type OneOffDraftRecord,
 } from "@/components/quotes/one-off/one-off-draft-bar";
 import { OneOffDraftsCard } from "@/components/quotes/one-off/one-off-drafts-card";
-import { OneOffGrid } from "@/components/quotes/one-off/one-off-grid";
+import { OneOffGrid, OneOffGridHint } from "@/components/quotes/one-off/one-off-grid";
 import {
   OneOffJobStep,
   describeJobChoice,
@@ -578,51 +578,54 @@ export function OneOffDrillSheets({
           </div>
 
           {section.rows != null ? (
-            <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,max-content)_minmax(20rem,1fr)]">
-              <div className="min-w-0 space-y-2">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    {label} grid
-                  </h4>
-                  <span className="text-[11px] text-slate-500">
-                    {sectionReady} of {section.rows.length} ready
-                  </span>
-                </div>
-                <OneOffGrid
-                  shape={shape}
-                  rows={section.rows}
-                  results={results}
-                  openingCount={section.openingCount}
-                  setup={section.setup}
-                  pipeChoices={pipeChoices}
-                  takenNumbers={takenFor(shape)}
-                  duplicateNumbers={duplicateNumbers}
-                  circularOptions={circularOptions}
-                  rectOptions={rectOptions}
-                  activeRowId={activeRow?.id ?? null}
-                  onActiveRowChange={(rowId) =>
-                    setActiveRowIds((current) =>
-                      current[shape] === rowId ? current : { ...current, [shape]: rowId },
-                    )
-                  }
-                  onRowsChange={(rows) =>
-                    setter((current) => ({ ...current, rows }))
-                  }
-                  onOpeningCountChange={(openingCount) =>
-                    setter((current) => ({ ...current, openingCount }))
-                  }
-                />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  {label} grid
+                </h4>
+                <span className="text-[11px] text-slate-500">
+                  {sectionReady} of {section.rows.length} ready
+                </span>
               </div>
-              <div className="min-w-0 lg:sticky lg:top-4">
-                <OneOffSheetPreview
-                  shape={shape}
-                  row={activeRow}
-                  result={activeRow ? (results[activeIndex] ?? null) : null}
-                  rowCount={rows.length}
-                  contractor={sheetHeader.contractor}
-                  project={sheetHeader.project}
-                  openingCount={section.openingCount}
-                />
+              <OneOffGridHint />
+              <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,max-content)_minmax(20rem,1fr)]">
+                <div className="min-w-0">
+                  <OneOffGrid
+                    shape={shape}
+                    rows={section.rows}
+                    results={results}
+                    openingCount={section.openingCount}
+                    setup={section.setup}
+                    pipeChoices={pipeChoices}
+                    takenNumbers={takenFor(shape)}
+                    duplicateNumbers={duplicateNumbers}
+                    circularOptions={circularOptions}
+                    rectOptions={rectOptions}
+                    activeRowId={activeRow?.id ?? null}
+                    onActiveRowChange={(rowId) =>
+                      setActiveRowIds((current) =>
+                        current[shape] === rowId ? current : { ...current, [shape]: rowId },
+                      )
+                    }
+                    onRowsChange={(rows) =>
+                      setter((current) => ({ ...current, rows }))
+                    }
+                    onOpeningCountChange={(openingCount) =>
+                      setter((current) => ({ ...current, openingCount }))
+                    }
+                    />
+                </div>
+                <div className="min-w-0 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+                  <OneOffSheetPreview
+                    shape={shape}
+                    row={activeRow}
+                    result={activeRow ? (results[activeIndex] ?? null) : null}
+                    rowCount={rows.length}
+                    contractor={sheetHeader.contractor}
+                    project={sheetHeader.project}
+                    openingCount={section.openingCount}
+                  />
+                </div>
               </div>
             </div>
           ) : null}

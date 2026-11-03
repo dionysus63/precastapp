@@ -11,7 +11,7 @@ import {
   circularPayloadFromValues,
   rectPayloadFromValues,
 } from "@/components/jobs/bulk-edit/bulk-edit-payloads";
-import { OneOffGrid } from "@/components/quotes/one-off/one-off-grid";
+import { OneOffGrid, OneOffGridHint } from "@/components/quotes/one-off/one-off-grid";
 import { OneOffResults } from "@/components/quotes/one-off/one-off-results";
 import { OneOffSheetPreview } from "@/components/quotes/one-off/one-off-sheet-preview";
 import { SectionCard } from "@/components/dashboard/section-card";
@@ -345,6 +345,9 @@ export function OneOffEditSheets({
         title={isCircular ? "Circular Drill Sheets" : "Rectangular Drill Sheets"}
         description={`${section.rows.length} sheet${section.rows.length === 1 ? "" : "s"}. Changed rows are highlighted.`}
       >
+        <div className="mb-2">
+          <OneOffGridHint editMode />
+        </div>
         <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,max-content)_minmax(20rem,1fr)]">
           <div className="min-w-0">
             <OneOffGrid
@@ -374,7 +377,7 @@ export function OneOffEditSheets({
               }
             />
           </div>
-          <div className="min-w-0 lg:sticky lg:top-4">
+          <div className="min-w-0 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
             <OneOffSheetPreview
               shape={shape}
               row={activeRow}

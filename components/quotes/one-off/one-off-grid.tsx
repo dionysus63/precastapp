@@ -49,6 +49,8 @@ type GridColumn = {
   header: string;
   kind: "text" | "select";
   numeric?: boolean;
+  /** Numeric cells round to this many places when the cell is left. */
+  decimals?: number;
   get: (row: OneOffRow) => string;
   set: (row: OneOffRow, value: string) => OneOffRow;
   options?: (row: OneOffRow) => SelectOption[];
@@ -96,6 +98,21 @@ function setOpening(
       cellIndex === index ? { ...cell, ...patch } : cell,
     ),
   };
+}
+
+/** How the grid is typed in; rendered above the grid so it can span the page. */
+export function OneOffGridHint({ editMode = false }: { editMode?: boolean }) {
+  return (
+    <p className="text-[11px] text-slate-500">
+      One column per structure, fields down the side. Enter moves down, Tab
+      moves to the next structure, arrows move between cells, and a block
+      copied from Excel (laid out the same way) pastes in. Rim and inverts
+      round to two places and angles to whole degrees when you leave the cell.{" "}
+      {editMode
+        ? "Clearing an invert removes that opening from the sheet."
+        : "Leave an invert blank for no pipe in that opening."}
+    </p>
+  );
 }
 
 export function OneOffGrid({
@@ -215,6 +232,7 @@ export function OneOffGrid({
         header: "Rim",
         kind: "text",
         numeric: true,
+        decimals: 2,
         placeholder: "0.00",
         get: (row) => row.rimElevation,
         set: (row, value) => ({ ...row, rimElevation: value }),
@@ -231,6 +249,7 @@ export function OneOffGrid({
           header: `Inv ${letter}`,
           kind: "text",
           numeric: true,
+          decimals: 2,
           placeholder: "0.00",
           groupStart: true,
           groupLabel: `Inlet ${letter}`,
@@ -275,6 +294,7 @@ export function OneOffGrid({
           header: `Angle ${letter}`,
           kind: "text",
           numeric: true,
+          decimals: 0,
           placeholder: "0",
           get: (row) => row.openings[index]?.angle ?? "",
           set: (row, value) => setOpening(row, index, { angle: value }),
@@ -315,6 +335,32 @@ export function OneOffGrid({
   function newRow(existing: string[]): OneOffRow {
     const number = nextFreeStructureNumber(setup.prefix, existing);
     return createRowFromSetup(setup, `${setup.prefix}${number}`, openingCount);
+  }
+
+  /** "15.025" becomes "15.03" in a 2-place cell; non-numbers are left alone. */
+  function roundedValue(column: GridColumn, value: string): string {
+    if (column.decimals == null) {
+      return value;
+    }
+    const trimmed = value.trim();
+    const parsed = Number(trimmed);
+    if (trimmed === "" || !Number.isFinite(parsed)) {
+      return value;
+    }
+    const rounded = parsed.toFixed(column.decimals);
+    return rounded === trimmed ? value : rounded;
+  }
+
+  function roundCell(rowIndex: number, column: GridColumn) {
+    const row = rows[rowIndex];
+    if (!row) {
+      return;
+    }
+    const value = column.get(row);
+    const rounded = roundedValue(column, value);
+    if (rounded !== value) {
+      patchCell(rowIndex, column, rounded);
+    }
   }
 
   function patchCell(rowIndex: number, column: GridColumn, value: string) {
@@ -415,7 +461,7 @@ export function OneOffGrid({
         const value = raw.trim();
         const row = next[targetIndex];
         if (column.kind === "text") {
-          next[targetIndex] = column.set(row, value);
+          next[targetIndex] = column.set(row, roundedValue(column, value));
           return;
         }
         const wanted = value.toLowerCase().replace(/["']/g, "");
@@ -507,14 +553,6 @@ export function OneOffGrid({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-        <p className="max-w-xl text-[11px] text-slate-500">
-          One column per structure, fields down the side. Enter moves down, Tab
-          moves to the next structure, arrows move between cells, and a block
-          copied from Excel (laid out the same way) pastes in.{" "}
-          {editMode
-            ? "Clearing an invert removes that opening from the sheet."
-            : "Leave an invert blank for no pipe in that opening."}
-        </p>
         <div className="flex items-center gap-1.5">
           <span className="text-[11px] font-medium text-slate-600">
             Openings: {openingCount}
@@ -643,6 +681,7 @@ export function OneOffGrid({
                             data-grid-row={rowIndex}
                             data-grid-col={colIndex}
                             title={currentLabel || undefined}
+                            style={column.wrap ? { opacity: 0 } : undefined}
                             onChange={(event) =>
                               patchCell(rowIndex, column, event.target.value)
                             }
@@ -651,7 +690,7 @@ export function OneOffGrid({
                             }
                             className={
                               column.wrap
-                                ? "absolute inset-0 h-full w-full cursor-pointer opacity-0 focus:outline-none"
+                                ? "absolute inset-0 h-full w-full cursor-pointer focus:outline-none"
                                 : `${cellInputClassName} cursor-pointer pr-0 ${missing ? "bg-amber-50 text-amber-800" : ""}`
                             }
                           >
@@ -722,6 +761,7 @@ export function OneOffGrid({
                             onPaste={(event) =>
                               handlePaste(event, rowIndex, colIndex)
                             }
+                            onBlur={() => roundCell(rowIndex, column)}
                             className={`${cellInputClassName} ${column.numeric ? "tabular-nums" : ""}`}
                           />
                         </td>
