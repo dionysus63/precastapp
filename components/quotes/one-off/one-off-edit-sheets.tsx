@@ -348,7 +348,13 @@ export function OneOffEditSheets({
         <div className="mb-2">
           <OneOffGridHint editMode />
         </div>
-        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,max-content)_minmax(20rem,1fr)]">
+        <div
+          className={`grid items-start gap-5 ${
+            isCircular
+              ? "lg:grid-cols-[minmax(0,1fr)_50%]"
+              : "lg:grid-cols-[minmax(0,1fr)_60%]"
+          }`}
+        >
           <div className="min-w-0">
             <OneOffGrid
               shape={shape}
