@@ -56,8 +56,8 @@ export const navItems: NavItem[] = [
     requiredPermission: "QUOTES_VIEW",
   },
   {
-    label: "One-Off",
-    href: "/quotes/one-off",
+    label: "Quick Build",
+    href: "/quotes/quick-build",
     section: "sales",
     icon: "clipboard",
     requiredPermission: "STRUCTURES_MANAGE",

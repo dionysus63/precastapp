@@ -25,15 +25,18 @@ export function formatDraftSavedAt(iso: string): string {
 }
 
 /**
- * One-Off grids saved to finish later. Resume reopens one in the wizard;
+ * Quick Build grids saved to finish later. Resume reopens one in the wizard;
  * Delete throws it away (the sheets were never created, so nothing else
  * changes). The list is kept locally so a delete shows at once without a
  * router refresh, which is unreliable on the office LAN.
  */
 export function OneOffDraftsCard({
   drafts: initialDrafts,
+  resumeHref,
 }: {
   drafts: OneOffDraftSummary[];
+  /** Where Resume reopens a draft (the Quick Build page or a job tab). */
+  resumeHref: (draftId: string) => string;
 }) {
   const [drafts, setDrafts] = useState(initialDrafts);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
@@ -68,7 +71,7 @@ export function OneOffDraftsCard({
   return (
     <SectionCard
       title="Saved for Later"
-      description="One-Offs you started and saved. Resume one to keep going, or start a new one below."
+      description="Quick Builds you started and saved. Resume one to keep going, or start a new one below."
       noPadding
     >
       <ul className="divide-y divide-slate-100">
@@ -127,7 +130,7 @@ export function OneOffDraftsCard({
                 ) : (
                   <>
                     <Link
-                      href={`/quotes/one-off?draft=${encodeURIComponent(draft.id)}`}
+                      href={resumeHref(draft.id)}
                       className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
                     >
                       Resume

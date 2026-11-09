@@ -12,12 +12,15 @@ import {
   rectPayloadFromValues,
 } from "@/components/jobs/bulk-edit/bulk-edit-payloads";
 import { OneOffGrid, OneOffGridHint } from "@/components/quotes/one-off/one-off-grid";
+import { OneOffLeaveDialog } from "@/components/quotes/one-off/one-off-leave-dialog";
 import { OneOffResults } from "@/components/quotes/one-off/one-off-results";
 import { OneOffSheetPreview } from "@/components/quotes/one-off/one-off-sheet-preview";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { describeActionFailure, isActionError } from "@/lib/action-result";
 import { localTodayInput } from "@/lib/date-only";
+import { useLeaveGuard } from "@/lib/hooks/use-leave-guard";
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning";
+import { navigateAfterAction } from "@/lib/reload-after-action";
 import type { OneOffEditData, OneOffEditSheet } from "@/lib/quotes/one-off-edit";
 import {
   circularPipeTypeChoices,
@@ -51,7 +54,7 @@ function paddedRows(sheets: OneOffEditSheet<unknown>[]) {
 }
 
 /**
- * Quotes → One-Off, edit mode: a job's saved drill sheets in the same grids
+ * Quick Build, edit mode: a job's saved drill sheets in the same grids
  * used to create them. Only changed rows are saved; everything the grid
  * doesn't show stays as it was on each sheet.
  */
@@ -130,7 +133,11 @@ export function OneOffEditSheets({
     return keys;
   }, [circular.rows, data.otherNumbers, rect.rows]);
 
-  useUnsavedChangesWarning(result == null && changedIds.size > 0);
+  const isDirty = result == null && changedIds.size > 0;
+  useUnsavedChangesWarning(isDirty);
+  // In-app links skip beforeunload, so they open a dialog that can save first.
+  const [leaveHref, setLeaveHref] = useState<string | null>(null);
+  useLeaveGuard(isDirty && leaveHref == null, setLeaveHref);
 
   const changedNotReady = [
     ...circular.rows.filter(
@@ -143,7 +150,11 @@ export function OneOffEditSheets({
   const canSave =
     changedIds.size > 0 && changedNotReady === 0 && duplicateNumbers.size === 0;
 
-  function handleSave() {
+  /**
+   * Saves the changed rows. With `afterHref` (the leave dialog), a fully
+   * successful save then goes there instead of showing the results.
+   */
+  function handleSave(afterHref?: string) {
     if (!canSave) {
       return;
     }
@@ -184,6 +195,7 @@ export function OneOffEditSheets({
     if (errors.size > 0) {
       setRowErrors(errors);
       setSaveError("Some changed rows can't be saved yet (see below).");
+      setLeaveHref(null);
       return;
     }
 
@@ -204,6 +216,7 @@ export function OneOffEditSheets({
           );
           if (isActionError(response)) {
             setSaveError(response.error);
+            setLeaveHref(null);
             return;
           }
           circularSaved.push(...response);
@@ -219,6 +232,7 @@ export function OneOffEditSheets({
           );
           if (isActionError(response)) {
             setSaveError(response.error);
+            setLeaveHref(null);
             return;
           }
           rectSaved.push(...response);
@@ -263,6 +277,16 @@ export function OneOffEditSheets({
           setSaveError(
             `${failed.size} row${failed.size === 1 ? "" : "s"} could not be saved (see below). The others were saved.`,
           );
+          setLeaveHref(null);
+          return;
+        }
+
+        if (afterHref) {
+          const count = circularMerged.length + rectMerged.length;
+          navigateAfterAction(afterHref, {
+            type: "success",
+            text: `Saved ${count} drill sheet${count === 1 ? "" : "s"}.`,
+          });
           return;
         }
 
@@ -295,6 +319,7 @@ export function OneOffEditSheets({
         setSaveError(
           describeActionFailure(error, "Could not save the drill sheets."),
         );
+        setLeaveHref(null);
       }
     });
   }
@@ -431,7 +456,7 @@ export function OneOffEditSheets({
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
           <button
             type="button"
-            onClick={handleSave}
+            onClick={() => handleSave()}
             disabled={!canSave || saving}
             className="inline-flex items-center justify-center rounded-lg bg-sky-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -452,6 +477,25 @@ export function OneOffEditSheets({
             <p className="w-full text-xs text-red-600">{saveError}</p>
           ) : null}
         </div>
+      ) : null}
+
+      {leaveHref ? (
+        <OneOffLeaveDialog
+          title="Save your sheet changes before leaving?"
+          message={`${changedIds.size} drill sheet${changedIds.size === 1 ? " has" : "s have"} changes that aren't saved. Save them, or leave and lose them.`}
+          saveLabel="Save and Leave"
+          saveDisabledReason={
+            canSave
+              ? null
+              : duplicateNumbers.size > 0
+                ? "Fix the structure numbers marked in red before these can be saved."
+                : "Some changed rows still need attention (see Status) before they can be saved."
+          }
+          saving={saving}
+          onSave={() => handleSave(leaveHref)}
+          onDiscard={() => navigateAfterAction(leaveHref)}
+          onStay={() => setLeaveHref(null)}
+        />
       ) : null}
     </div>
   );

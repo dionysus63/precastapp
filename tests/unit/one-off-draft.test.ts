@@ -183,7 +183,7 @@ describe("describing a draft", () => {
     expect(defaultDraftName("J26-0412 — Main St (ACME)")).toBe(
       "J26-0412 — Main St (ACME)",
     );
-    expect(defaultDraftName("", new Date(2026, 9, 31))).toBe("One-Off Oct 31");
+    expect(defaultDraftName("", new Date(2026, 9, 31))).toBe("Quick Build Oct 31");
     expect(normalizeDraftName("  two   words \n")).toBe("two words");
     expect(normalizeDraftName("x".repeat(200))).toHaveLength(80);
   });

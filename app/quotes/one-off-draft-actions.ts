@@ -12,9 +12,8 @@ import {
   serializeOneOffDraftState,
   type OneOffDraftSaveResult,
 } from "@/lib/quotes/one-off-draft";
+import { QUICK_BUILD_PATH } from "@/lib/quotes/quick-build-links";
 import { returnActionError } from "@/lib/server/action-errors";
-
-const ONE_OFF_PATH = "/quotes/one-off";
 
 export type OneOffDraftSaveInput = {
   /** Null saves a new draft; an id updates that draft in place. */
@@ -25,7 +24,7 @@ export type OneOffDraftSaveInput = {
 };
 
 /**
- * Saves the One-Off page's in-progress grid to finish later. The state is
+ * Saves a Quick Build's in-progress grid to finish later. The state is
  * rebuilt from the client JSON so a malformed field can't poison the draft,
  * and an existing job is checked so the draft never points at nothing.
  */
@@ -90,7 +89,10 @@ export async function saveOneOffDraft(input: OneOffDraftSaveInput) {
       });
     });
 
-    revalidatePath(ONE_OFF_PATH);
+    revalidatePath(QUICK_BUILD_PATH);
+    if (jobId) {
+      revalidatePath(`/jobs/${jobId}`);
+    }
     return {
       id: saved.id,
       name: saved.name,
@@ -110,7 +112,7 @@ export async function deleteOneOffDraft(draftId: string) {
     const result = await withDatabaseRetry((client) =>
       client.oneOffDraft.deleteMany({ where: { id } }),
     );
-    revalidatePath(ONE_OFF_PATH);
+    revalidatePath(QUICK_BUILD_PATH);
     return { deleted: result.count > 0 };
   });
 }

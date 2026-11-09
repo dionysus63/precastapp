@@ -14,6 +14,7 @@ import type {
 } from "@/lib/quotes/one-off-draft";
 import { findDuplicateStructureNumbers } from "@/lib/quotes/one-off-drill-sheets";
 import { loadOneOffJobDetails } from "@/lib/quotes/one-off-job";
+import { QUICK_BUILD_PATH } from "@/lib/quotes/quick-build-links";
 import { createRectJobStructureFromQuoteConfig } from "@/lib/rect-sheet-persistence";
 import { returnActionError } from "@/lib/server/action-errors";
 
@@ -123,7 +124,7 @@ function optional(value: string): string | null {
 }
 
 /**
- * Creates the One-Off tab's drill sheets: picks or creates the job, then one
+ * Creates a Quick Build's drill sheets: picks or creates the job, then one
  * drill sheet (JobStructure, qty 1) per grid row. Every row is validated
  * before anything is written, so a bad row never leaves a half-made job.
  */
@@ -293,9 +294,9 @@ async function createOneOffDrillSheetsOrThrow(
     try {
       await prisma.oneOffDraft.deleteMany({ where: { id: draftId } });
     } catch {
-      errors.push("The saved draft could not be removed; delete it from the One-Off page.");
+      errors.push("The saved draft could not be removed; delete it from Quick Build.");
     }
-    revalidatePath("/quotes/one-off");
+    revalidatePath(QUICK_BUILD_PATH);
   }
 
   revalidatePath("/drill-sheets");
