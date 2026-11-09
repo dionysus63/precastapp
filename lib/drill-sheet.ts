@@ -243,11 +243,20 @@ export function computeWallHeightFeet(
   return { wallHeightFeet, brickFeet };
 }
 
-function resolveOpenings(
-  openings: DrillSheetOpeningInput[],
-  catalog: PipeOpeningSizeEntry[],
-  templateConnectionType: PipeConnectionType,
-): ComputedOpening[] {
+/**
+ * Picks the one opening that is the outlet (drawn as the template's up
+ * arrow, angle 0). It is the lowest invert; when several openings share the
+ * lowest elevation, the first of them with no angle or angle 0 wins, else the
+ * first in order. Exactly one index comes back (or -1 with no inverts), so
+ * two pipes at the same elevation never both collapse onto the outlet
+ * callout and lose their own arrow.
+ */
+export function findLowInvertOpeningIndex(
+  openings: ReadonlyArray<{
+    invertElevation: number | null;
+    angleDegrees?: number | null;
+  }>,
+): number {
   let lowInvert: number | null = null;
   for (const opening of openings) {
     if (
@@ -257,8 +266,31 @@ function resolveOpenings(
       lowInvert = opening.invertElevation;
     }
   }
+  if (lowInvert == null) {
+    return -1;
+  }
+  const tied = openings
+    .map((opening, index) => ({ opening, index }))
+    .filter(
+      ({ opening }) =>
+        opening.invertElevation != null &&
+        Math.abs(opening.invertElevation - lowInvert) < EPSILON,
+    );
+  const upward = tied.find(
+    ({ opening }) =>
+      opening.angleDegrees == null || Math.abs(opening.angleDegrees) < EPSILON,
+  );
+  return (upward ?? tied[0]).index;
+}
 
-  return openings.map((opening) => {
+function resolveOpenings(
+  openings: DrillSheetOpeningInput[],
+  catalog: PipeOpeningSizeEntry[],
+  templateConnectionType: PipeConnectionType,
+): ComputedOpening[] {
+  const lowInvertIndex = findLowInvertOpeningIndex(openings);
+
+  return openings.map((opening, index) => {
     const connectionType =
       opening.connectionType ?? templateConnectionType;
     const wantsBoot = connectionType === "KOR_N_SEAL";
@@ -276,10 +308,7 @@ function resolveOpenings(
       pricePerBoot: match?.pricePerBoot ?? null,
       hasBoot: match?.hasBoot ?? wantsBoot,
       pipeWallThicknessInches: match?.pipeWallThicknessInches ?? null,
-      isLowInvert:
-        opening.invertElevation != null &&
-        lowInvert != null &&
-        Math.abs(opening.invertElevation - lowInvert) < EPSILON,
+      isLowInvert: index === lowInvertIndex,
       topOfPipeFeet: null,
       bottomOfOpeningFeet: null,
       topOfOpeningFeet: null,
