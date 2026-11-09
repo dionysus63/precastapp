@@ -210,6 +210,23 @@ function createWindow() {
     }
   });
 
+  // A page with unsaved edits blocks its own unload (beforeunload). Chrome
+  // asks the user; Electron just cancels silently, so ask here instead.
+  mainWindow.webContents.on("will-prevent-unload", (event) => {
+    const choice = dialog.showMessageBoxSync(mainWindow, {
+      type: "question",
+      buttons: ["Leave Without Saving", "Stay"],
+      defaultId: 1,
+      cancelId: 1,
+      title: "Unsaved changes",
+      message: "This page has unsaved changes.",
+      detail: "Leave now and they are lost. Stay to save them first.",
+    });
+    if (choice === 0) {
+      event.preventDefault();
+    }
+  });
+
   mainWindow.webContents.on(
     "did-fail-load",
     (_event, errorCode, errorDescription, validatedURL) => {

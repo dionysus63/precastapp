@@ -668,21 +668,43 @@ export function openingCountForRows(rows: OneOffRow[]): number {
 }
 
 /** True when the grid row differs from the row as it was loaded. */
+/**
+ * Same number typed two ways ("100.5" loaded, "100.50" after the grid rounds
+ * it on blur) is not a change; anything that isn't a number compares as text.
+ */
+function sameNumberText(a: string, b: string): boolean {
+  const left = a.trim();
+  const right = b.trim();
+  if (left === right) {
+    return true;
+  }
+  if (left === "" || right === "") {
+    return false;
+  }
+  const leftNumber = Number(left);
+  const rightNumber = Number(right);
+  return (
+    Number.isFinite(leftNumber) &&
+    Number.isFinite(rightNumber) &&
+    leftNumber === rightNumber
+  );
+}
+
 export function isRowChanged(row: OneOffRow, loaded: OneOffRow): boolean {
   return (
     row.structureNumber.trim() !== loaded.structureNumber.trim() ||
     row.templateId !== loaded.templateId ||
     row.diameterFeet !== loaded.diameterFeet ||
     row.castingProductId !== loaded.castingProductId ||
-    row.rimElevation.trim() !== loaded.rimElevation.trim() ||
+    !sameNumberText(row.rimElevation, loaded.rimElevation) ||
     row.openings.some((cell, index) => {
       const before = loaded.openings[index];
       return (
-        cell.invert.trim() !== (before?.invert.trim() ?? "") ||
+        !sameNumberText(cell.invert, before?.invert ?? "") ||
         (cell.invert.trim() !== "" &&
           (pipeKey(openingPipe(row, cell)) !==
             (before ? pipeKey(openingPipe(loaded, before)) : "") ||
-            cell.angle.trim() !== (before?.angle.trim() ?? "") ||
+            !sameNumberText(cell.angle, before?.angle ?? "") ||
             cell.wall !== before?.wall))
       );
     })

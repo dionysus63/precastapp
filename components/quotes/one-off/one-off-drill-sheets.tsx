@@ -13,6 +13,7 @@ import {
 } from "@/components/quotes/one-off/one-off-draft-bar";
 import { OneOffDraftsCard } from "@/components/quotes/one-off/one-off-drafts-card";
 import { OneOffGrid, OneOffGridHint } from "@/components/quotes/one-off/one-off-grid";
+import { OneOffLeaveDialog } from "@/components/quotes/one-off/one-off-leave-dialog";
 import {
   OneOffJobStep,
   describeJobChoice,
@@ -23,6 +24,7 @@ import { OneOffResults } from "@/components/quotes/one-off/one-off-results";
 import { OneOffSetupPanel } from "@/components/quotes/one-off/one-off-setup-panel";
 import { OneOffSheetPreview } from "@/components/quotes/one-off/one-off-sheet-preview";
 import { describeActionFailure, isActionError } from "@/lib/action-result";
+import { useLeaveGuard } from "@/lib/hooks/use-leave-guard";
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning";
 import { navigateAfterAction } from "@/lib/reload-after-action";
 import {
@@ -322,6 +324,10 @@ export function OneOffDrillSheets({
       ? "You have changes since this draft was last saved. Leave and discard them?"
       : "This Quick Build isn't saved. Leave without saving it for later?",
   );
+  // In-app links (sidebar, job tabs, back pills) skip beforeunload, so they
+  // open a dialog that can save the draft first.
+  const [leaveHref, setLeaveHref] = useState<string | null>(null);
+  useLeaveGuard(isDirty && leaveHref == null, setLeaveHref);
 
   function takenFor(shape: OneOffShape): string[] {
     const other = shape === "CIRCULAR" ? rect.rows : circular.rows;
@@ -453,9 +459,14 @@ export function OneOffDrillSheets({
     }
   }
 
-  function handleSaveDraft() {
+  /**
+   * Saves the draft. With `afterHref` (the leave dialog), the page then goes
+   * there instead of staying.
+   */
+  function handleSaveDraft(afterHref?: string) {
     if (!started) {
       setDraftError("Pick a job or build a grid before saving.");
+      setLeaveHref(null);
       return;
     }
     const snapshot = draftSnapshot;
@@ -477,6 +488,14 @@ export function OneOffDrillSheets({
         });
         if (isActionError(response)) {
           setDraftError(response.error);
+          setLeaveHref(null);
+          return;
+        }
+        if (afterHref) {
+          navigateAfterAction(afterHref, {
+            type: "success",
+            text: `Saved "${response.name}" to finish later.`,
+          });
           return;
         }
         if (!draft) {
@@ -494,6 +513,7 @@ export function OneOffDrillSheets({
         setLastSavedSnapshot(snapshot);
       } catch (error) {
         setDraftError(describeActionFailure(error, "Could not save the draft."));
+        setLeaveHref(null);
       }
     });
   }
@@ -697,8 +717,24 @@ export function OneOffDrillSheets({
           dirty={draftDirty}
           saving={savingDraft}
           error={draftError}
-          onSave={handleSaveDraft}
+          onSave={() => handleSaveDraft()}
           onDiscard={handleDiscardDraft}
+        />
+      ) : null}
+
+      {leaveHref ? (
+        <OneOffLeaveDialog
+          title="Save this Quick Build before leaving?"
+          message={
+            draft
+              ? `"${draft.name}" has changes since it was last saved. Save them to finish later, or leave and lose them.`
+              : "These rows aren't saved yet. Save them for later, or leave and lose them."
+          }
+          saveLabel={draft ? "Save and Leave" : "Save for Later and Leave"}
+          saving={savingDraft}
+          onSave={() => handleSaveDraft(leaveHref)}
+          onDiscard={() => navigateAfterAction(leaveHref)}
+          onStay={() => setLeaveHref(null)}
         />
       ) : null}
 
