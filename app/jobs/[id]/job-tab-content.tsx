@@ -37,6 +37,7 @@ import { hasPermission, type AuthUser } from "@/lib/auth/permissions";
 import { AppPermission, type Prisma } from "@/app/generated/prisma/client";
 import { isDeliveryServiceLine } from "@/lib/quotes/money-rules";
 import { withDatabaseRetry } from "@/lib/prisma";
+import { JobQuickBuildTab, type JobQuickBuildParams } from "./job-quick-build-tab";
 
 const CONSTRUCTION_PLANS_CATEGORY = "01 Construction Plans";
 
@@ -44,6 +45,8 @@ type JobTabContentProps = {
   jobId: string;
   activeTab: JobDetailTab;
   category?: string;
+  /** Query the Quick Build tab reads (view, draft, sheets). */
+  quickBuild?: JobQuickBuildParams;
   detail: JobDetailView;
   user: AuthUser | null;
 };
@@ -52,6 +55,7 @@ export async function JobTabContent({
   jobId,
   activeTab,
   category,
+  quickBuild,
   detail,
   user,
 }: JobTabContentProps) {
@@ -165,6 +169,16 @@ export async function JobTabContent({
     );
 
     return <JobQuotesSection jobId={jobId} quotes={mapJobQuotes(quotes)} />;
+  }
+
+  if (activeTab === "quick-build") {
+    return (
+      <JobQuickBuildTab
+        jobId={jobId}
+        params={quickBuild ?? {}}
+        user={user}
+      />
+    );
   }
 
   if (activeTab === "deliveries") {

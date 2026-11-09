@@ -51,7 +51,7 @@ function paddedRows(sheets: OneOffEditSheet<unknown>[]) {
 }
 
 /**
- * Quotes → One-Off, edit mode: a job's saved drill sheets in the same grids
+ * Quick Build, edit mode: a job's saved drill sheets in the same grids
  * used to create them. Only changed rows are saved; everything the grid
  * doesn't show stays as it was on each sheet.
  */

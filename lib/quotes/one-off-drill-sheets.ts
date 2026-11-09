@@ -1,4 +1,5 @@
-// One-Off drill sheets (Quotes → One-Off): a spreadsheet-style grid for
+// Quick Build drill sheets (Quotes → Quick Build, and each job's Quick Build
+// tab; once called One-Off): a spreadsheet-style grid for
 // knocking out a few drill sheets without building a quote first, and for
 // editing them again later.
 //

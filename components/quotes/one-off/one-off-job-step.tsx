@@ -12,6 +12,7 @@ import {
 import { FormTypeahead } from "@/components/common/form-typeahead";
 import { jobInputClassName } from "@/components/jobs/job-utils";
 import { describeActionFailure, isActionError } from "@/lib/action-result";
+import { quickBuildPageLinks } from "@/lib/quotes/quick-build-links";
 
 export type OneOffJobChoice =
   | { mode: "existing"; job: OneOffJobDetails | null }
@@ -99,9 +100,12 @@ function ReadOnlyField({ label, value }: { label: string; value: string | null }
 export function OneOffJobStep({
   choice,
   onChange,
+  editHref = quickBuildPageLinks.edit,
 }: {
   choice: OneOffJobChoice | null;
   onChange: (choice: OneOffJobChoice) => void;
+  /** Where "edit this job's sheets instead" goes; the Quick Build page by default. */
+  editHref?: (jobId: string) => string;
 }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, startLoading] = useTransition();
@@ -215,7 +219,7 @@ export function OneOffJobStep({
               {choice.job.sheetCount > 0 ? (
                 <p className="text-xs sm:col-span-3">
                   <Link
-                    href={`/quotes/one-off?edit=${choice.job.id}`}
+                    href={editHref(choice.job.id)}
                     className="font-semibold text-sky-700 hover:underline"
                   >
                     Edit this job&apos;s {choice.job.sheetCount} drill sheet
@@ -259,7 +263,7 @@ export function OneOffJobStep({
               value={choice.fields.customerId ? choice.customerLabel : choice.fields.customerName}
               disabled={choice.fields.customerId != null}
               onChange={(event) => patchNew({ customerName: event.target.value })}
-              placeholder="One-off customer name"
+              placeholder="Customer name"
               className={jobInputClassName}
             />
           </label>

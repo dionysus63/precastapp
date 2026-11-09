@@ -1,4 +1,4 @@
-// One-Off drill sheets saved to finish later (Quotes → One-Off).
+// Quick Build drill sheets saved to finish later (Quotes → Quick Build).
 //
 // A draft is the page's working state — job pick, shape choice and both
 // grids — serialized as JSON into `OneOffDraft.draftJson`, modelled on the
@@ -34,7 +34,7 @@ export type OneOffJobDetails = {
   contactEmail: string | null;
   /** Structure numbers already on the job, so new ones don't collide. */
   structureNumbers: string[];
-  /** Saved drill sheets on the job, which the One-Off page can edit. */
+  /** Saved drill sheets on the job, which Quick Build can edit. */
   sheetCount: number;
 };
 
@@ -356,7 +356,7 @@ export function describeDraftJob(
 export function defaultDraftName(jobLabel: string, savedOn = new Date()): string {
   const base =
     jobLabel.trim() ||
-    `One-Off ${savedOn.toLocaleDateString("en-US", {
+    `Quick Build ${savedOn.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
     })}`;

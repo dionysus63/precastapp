@@ -11,7 +11,7 @@ export type OneOffDraftRecord = {
 };
 
 /**
- * "Save for later" strip above the One-Off wizard: name the draft, save it,
+ * "Save for later" strip above the Quick Build wizard: name the draft, save it,
  * and see when it was last saved. Shown once there is something to save.
  */
 export function OneOffDraftBar({
@@ -42,7 +42,7 @@ export function OneOffDraftBar({
       ? dirty
         ? "Changes since the last save."
         : `Saved ${formatDraftSavedAt(draft.savedAt)}${draft.savedBy ? ` by ${draft.savedBy}` : ""}.`
-      : "Not saved yet. Save to pick this up later from the One-Off page.";
+      : "Not saved yet. Save to pick this up later from Quick Build.";
 
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/70 px-4 py-2.5">

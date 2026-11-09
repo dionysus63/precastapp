@@ -16,10 +16,16 @@ const JOB_LABEL_SELECT = {
   customerName: true,
 } as const;
 
-/** Every saved draft, newest save first, for the One-Off page's list. */
-export async function loadOneOffDraftSummaries(): Promise<OneOffDraftSummary[]> {
+/**
+ * Saved drafts, newest save first, for the Quick Build page's list. A job's
+ * Quick Build tab passes its id to list only the drafts saved for that job.
+ */
+export async function loadOneOffDraftSummaries(
+  filter: { jobId?: string } = {},
+): Promise<OneOffDraftSummary[]> {
   const drafts = await withDatabaseRetry((client) =>
     client.oneOffDraft.findMany({
+      where: filter.jobId ? { jobId: filter.jobId } : undefined,
       orderBy: { updatedAt: "desc" },
       select: {
         id: true,

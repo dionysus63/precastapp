@@ -22,11 +22,14 @@ export function OneOffResults({
   result,
   onStartOver,
   mode = "created",
+  editHref,
 }: {
   result: OneOffCreateResult;
   onStartOver: () => void;
   /** "updated" after saving edits to sheets that already existed. */
   mode?: "created" | "updated";
+  /** Where "Edit These Sheets" goes after creating; omitted hides the link. */
+  editHref?: (jobId: string, sheetIds: string[]) => string;
 }) {
   const [viewingId, setViewingId] = useState<string | null>(
     result.sheets[0]?.id ?? null,
@@ -199,9 +202,12 @@ export function OneOffResults({
         >
           Go to Job
         </Link>
-        {mode === "created" && result.sheets.length > 0 ? (
+        {mode === "created" && editHref && result.sheets.length > 0 ? (
           <Link
-            href={`/quotes/one-off?edit=${result.jobId}&sheets=${allIds}`}
+            href={editHref(
+              result.jobId,
+              result.sheets.map((sheet) => sheet.id),
+            )}
             className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Edit These Sheets
@@ -212,7 +218,7 @@ export function OneOffResults({
           onClick={onStartOver}
           className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
         >
-          {mode === "created" ? "Start Another One-Off" : "Keep Editing"}
+          {mode === "created" ? "Start Another Quick Build" : "Keep Editing"}
         </button>
       </div>
     </div>

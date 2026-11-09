@@ -26,11 +26,16 @@ import { describeActionFailure, isActionError } from "@/lib/action-result";
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning";
 import { navigateAfterAction } from "@/lib/reload-after-action";
 import {
+  quickBuildLinksFor,
+  type QuickBuildMount,
+} from "@/lib/quotes/quick-build-links";
+import {
   defaultDraftName,
   describeDraftJob,
   serializeOneOffDraftState,
   type OneOffDraftJob,
   type OneOffDraftState,
+  type OneOffJobDetails,
   type OneOffDraftSummary,
   type OneOffResumedDraft,
 } from "@/lib/quotes/one-off-draft";
@@ -54,10 +59,17 @@ import {
 type OneOffDrillSheetsProps = {
   circularOptions: OneOffCircularOptions;
   rectOptions: OneOffRectOptions;
-  /** Grids saved to finish later, listed before a new One-Off starts. */
+  /** Grids saved to finish later, listed before a new Quick Build starts. */
   drafts: OneOffDraftSummary[];
   /** A saved draft to pick up where it left off. */
   resume: OneOffResumedDraft | null;
+  /** Where this screen is mounted, so its own links point back here. */
+  mount: QuickBuildMount;
+  /**
+   * On a job's Quick Build tab the job is already known: the job step is
+   * skipped and every sheet is created for this job.
+   */
+  fixedJob?: OneOffJobDetails | null;
 };
 
 /** The job step as a draft stores it: an existing job by id only. */
@@ -139,20 +151,31 @@ function StepCard({
 }
 
 /**
- * Quotes → One-Off: pick the job, pick circular/rectangular/both, fill the
- * spreadsheet-style grids, then create every drill sheet in one go.
+ * Quick Build (Quotes → Quick Build, or a job's Quick Build tab): pick the
+ * job, pick circular/rectangular/both, fill the spreadsheet-style grids,
+ * then create every drill sheet in one go.
  */
 export function OneOffDrillSheets({
   circularOptions,
   rectOptions,
   drafts,
   resume,
+  mount,
+  fixedJob = null,
 }: OneOffDrillSheetsProps) {
+  const links = useMemo(() => quickBuildLinksFor(mount), [mount]);
+  // With a fixed job (the job tab) the job step never shows and a resumed
+  // draft's job is ignored: whatever it said, the sheets go on this job.
+  const fixedChoice: OneOffJobChoice | null = fixedJob
+    ? { mode: "existing", job: fixedJob }
+    : null;
   const [jobChoice, setJobChoice] = useState<OneOffJobChoice | null>(() =>
-    resume ? fromResumedJob(resume) : null,
+    fixedChoice ?? (resume ? fromResumedJob(resume) : null),
   );
   const [jobConfirmed, setJobConfirmed] = useState(
-    () => resume != null && resume.state.jobConfirmed && !resume.jobMissing,
+    () =>
+      fixedJob != null ||
+      (resume != null && resume.state.jobConfirmed && !resume.jobMissing),
   );
   const [shapeChoice, setShapeChoice] = useState<OneOffShapeChoice | null>(
     () => resume?.state.shapeChoice ?? null,
@@ -284,7 +307,12 @@ export function OneOffDrillSheets({
     return keys;
   }, [circularRows, jobNumbers, rectRows]);
 
-  const started = jobChoice != null || circular.rows != null || rect.rows != null;
+  // On a job tab the job is given, so only a shape or rows count as a start.
+  const started =
+    (!fixedJob && jobChoice != null) ||
+    shapeChoice != null ||
+    circular.rows != null ||
+    rect.rows != null;
   const draftDirty =
     lastSavedSnapshot == null ? started : draftSnapshot !== lastSavedSnapshot;
   const isDirty = result == null && draftDirty;
@@ -292,7 +320,7 @@ export function OneOffDrillSheets({
     isDirty,
     draft
       ? "You have changes since this draft was last saved. Leave and discard them?"
-      : "This One-Off isn't saved. Leave without saving it for later?",
+      : "This Quick Build isn't saved. Leave without saving it for later?",
   );
 
   function takenFor(shape: OneOffShape): string[] {
@@ -407,8 +435,8 @@ export function OneOffDrillSheets({
   }
 
   function startOver() {
-    setJobChoice(null);
-    setJobConfirmed(false);
+    setJobChoice(fixedChoice);
+    setJobConfirmed(fixedChoice != null);
     setShapeChoice(null);
     setCircular(createEmptySection("CIRCULAR"));
     setRect(createEmptySection("RECTANGULAR"));
@@ -421,7 +449,7 @@ export function OneOffDrillSheets({
     if (resume) {
       // Drop ?draft= so the page starts fresh instead of reopening the draft
       // (a full navigation: the client router is unreliable on the LAN).
-      navigateAfterAction("/quotes/one-off");
+      navigateAfterAction(links.start);
     }
   }
 
@@ -455,10 +483,10 @@ export function OneOffDrillSheets({
           // First save: reopen the page on the draft's own URL so a reload
           // (or the back button) lands on it. A full navigation, because the
           // client router can't be trusted to sync the URL on the LAN.
-          navigateAfterAction(
-            `/quotes/one-off?draft=${encodeURIComponent(response.id)}`,
-            { type: "success", text: `Saved "${response.name}" to finish later.` },
-          );
+          navigateAfterAction(links.draft(response.id), {
+            type: "success",
+            text: `Saved "${response.name}" to finish later.`,
+          });
           return;
         }
         setDraft(response);
@@ -486,7 +514,7 @@ export function OneOffDrillSheets({
           setDraftError(response.error);
           return;
         }
-        navigateAfterAction("/quotes/one-off", {
+        navigateAfterAction(links.start, {
           type: "info",
           text: `Draft "${draft.name}" deleted.`,
         });
@@ -497,11 +525,19 @@ export function OneOffDrillSheets({
   }
 
   if (result) {
-    return <OneOffResults result={result} onStartOver={startOver} />;
+    return (
+      <OneOffResults
+        result={result}
+        onStartOver={startOver}
+        editHref={(jobId, sheetIds) => links.edit(jobId, sheetIds)}
+      />
+    );
   }
 
   const jobComplete = isJobChoiceComplete(jobChoice);
-  let stepNumber = 3;
+  // Steps are numbered from 1; the job step is left out on a job's tab.
+  const shapeStepNumber = fixedJob ? 1 : 2;
+  let stepNumber = shapeStepNumber + 1;
 
   function renderShapeSection(shape: OneOffShape) {
     const section = shape === "CIRCULAR" ? circular : rect;
@@ -642,7 +678,9 @@ export function OneOffDrillSheets({
 
   return (
     <div className="space-y-4">
-      {!resume && !started ? <OneOffDraftsCard drafts={drafts} /> : null}
+      {!resume && !started ? (
+        <OneOffDraftsCard drafts={drafts} resumeHref={links.draft} />
+      ) : null}
 
       {resume?.jobMissing ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
@@ -664,31 +702,37 @@ export function OneOffDrillSheets({
         />
       ) : null}
 
-      <StepCard
-        number={1}
-        title="Job"
-        open={!jobConfirmed}
-        summary={jobChoice && jobComplete ? describeJobChoice(jobChoice) : undefined}
-        onEdit={() => setJobConfirmed(false)}
-      >
-        <div className="space-y-4">
-          <OneOffJobStep choice={jobChoice} onChange={setJobChoice} />
-          {jobChoice ? (
-            <button
-              type="button"
-              disabled={!jobComplete}
-              onClick={() => setJobConfirmed(true)}
-              className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Continue
-            </button>
-          ) : null}
-        </div>
-      </StepCard>
+      {fixedJob ? null : (
+        <StepCard
+          number={1}
+          title="Job"
+          open={!jobConfirmed}
+          summary={jobChoice && jobComplete ? describeJobChoice(jobChoice) : undefined}
+          onEdit={() => setJobConfirmed(false)}
+        >
+          <div className="space-y-4">
+            <OneOffJobStep
+              choice={jobChoice}
+              onChange={setJobChoice}
+              editHref={(jobId) => links.edit(jobId)}
+            />
+            {jobChoice ? (
+              <button
+                type="button"
+                disabled={!jobComplete}
+                onClick={() => setJobConfirmed(true)}
+                className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Continue
+              </button>
+            ) : null}
+          </div>
+        </StepCard>
+      )}
 
       {jobConfirmed ? (
         <StepCard
-          number={2}
+          number={shapeStepNumber}
           title="Structure Type"
           open
         >

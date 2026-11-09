@@ -66,6 +66,7 @@ export type JobDetailTab =
   | "overview"
   | "bidding"
   | "quotes"
+  | "quick-build"
   | "deliveries"
   | "progress"
   | "production"

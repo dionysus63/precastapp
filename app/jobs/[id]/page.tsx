@@ -14,13 +14,24 @@ import { JobTabContent } from "./job-tab-content";
 
 type JobDetailPageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string; category?: string; folderError?: string }>;
+  searchParams: Promise<{
+    tab?: string;
+    category?: string;
+    folderError?: string;
+    /** Quick Build tab: "edit" shows the job's saved sheets. */
+    view?: string;
+    /** Quick Build tab: a saved draft to resume. */
+    draft?: string;
+    /** Quick Build tab, edit view: only these sheet ids. */
+    sheets?: string;
+  }>;
 };
 
 const VALID_TABS: JobDetailTab[] = [
   "overview",
   "bidding",
   "quotes",
+  "quick-build",
   "deliveries",
   "progress",
   "production",
@@ -42,7 +53,8 @@ export default async function JobDetailPage({
   searchParams,
 }: JobDetailPageProps) {
   const { id } = await params;
-  const { tab, category, folderError } = await searchParams;
+  const { tab, category, folderError, view, draft, sheets } =
+    await searchParams;
 
   const activeTab = resolveTab(tab);
   const user = await getCurrentUser();
@@ -116,13 +128,14 @@ export default async function JobDetailPage({
         isFavorited={favoriteJobIds.includes(id)}
       >
         <Suspense
-          key={`${activeTab}:${category ?? ""}`}
+          key={`${activeTab}:${category ?? ""}:${view ?? ""}:${draft ?? ""}:${sheets ?? ""}`}
           fallback={<JobDetailTabSkeleton />}
         >
           <JobTabContent
             jobId={id}
             activeTab={activeTab}
             category={category}
+            quickBuild={{ view, draft, sheets }}
             detail={detail}
             user={user}
           />
