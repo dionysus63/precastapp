@@ -926,10 +926,12 @@ function calloutLayout(entry: PlannedOpening, font: PDFFont): CalloutLayout {
 
 /**
  * The leader a callout at (blockCx, blockTopY) would draw to its opening.
- * A callout beside its knockout leaves from the block's near side at
- * mid-height. A callout above or below its knockout (the usual case for the
- * Left/Right walls, whose boxes sit in the side flaps' band) leaves from the
- * block's top or bottom edge instead: a leader through the middle of the
+ * Every leader aims at the CENTER of its knockout and stops at the box edge,
+ * so the arrowhead lands mid-edge rather than wherever the lane happens to
+ * line up. A callout beside its knockout leaves from the block's near side
+ * at mid-height. A callout above or below its knockout (the usual case for
+ * the Left/Right walls, whose boxes sit in the side flaps' band) leaves from
+ * the block's top or bottom edge instead: a leader through the middle of the
  * block ran straight through the size text and the circled letter.
  */
 function leaderSegmentFor(
@@ -942,47 +944,58 @@ function leaderSegmentFor(
   const badgeCy = blockTopY - layout.badgeDrop;
   const blockBottomY = badgeCy - BADGE_RADIUS_PT;
   const blockCyMid = (blockTopY + blockBottomY) / 2;
-  const targetX =
-    blockCx < rect.x
-      ? rect.x
-      : blockCx > rect.x + rect.width
-        ? rect.x + rect.width
-        : blockCx;
+  const centerX = rect.x + rect.width / 2;
+  const centerY = rect.y + rect.height / 2;
 
-  // The knockout overlaps the block's text column: a side exit would cross
+  // The knockout sits over the block's text column: a side exit would cross
   // the text, so leave vertically from whichever edge faces the knockout.
   const overlapsColumn =
-    Math.abs(targetX - blockCx) <= layout.blockHalfWidth + 3;
-  if (overlapsColumn && rect.y >= blockTopY) {
-    return {
-      x1: blockCx,
-      y1: blockTopY + LEADER_BLOCK_GAP_PT,
-      x2: targetX,
-      y2: rect.y,
-    };
-  }
-  if (overlapsColumn && rect.y + rect.height <= blockBottomY) {
-    return {
-      x1: blockCx,
-      y1: blockBottomY - LEADER_BLOCK_GAP_PT,
-      x2: targetX,
-      y2: rect.y + rect.height,
-    };
+    Math.abs(centerX - blockCx) <= layout.blockHalfWidth + 3;
+  let startX: number;
+  let startY: number;
+  if (overlapsColumn && centerY >= blockTopY) {
+    startX = blockCx;
+    startY = blockTopY + LEADER_BLOCK_GAP_PT;
+  } else if (overlapsColumn && centerY <= blockBottomY) {
+    startX = blockCx;
+    startY = blockBottomY - LEADER_BLOCK_GAP_PT;
+  } else {
+    startX =
+      centerX < blockCx
+        ? blockCx - layout.blockHalfWidth - LEADER_BLOCK_GAP_PT
+        : blockCx + layout.blockHalfWidth + LEADER_BLOCK_GAP_PT;
+    startY = blockCyMid;
   }
 
-  const targetY =
-    blockCyMid < rect.y
-      ? rect.y
-      : blockCyMid > rect.y + rect.height
-        ? rect.y + rect.height
-        : blockCyMid;
-  const startX =
-    targetX < blockCx
-      ? blockCx - layout.blockHalfWidth - 3
-      : targetX > blockCx
-        ? blockCx + layout.blockHalfWidth + 3
-        : blockCx;
-  return { x1: startX, y1: blockCyMid, x2: targetX, y2: targetY };
+  const tip = clipToRectEdge(startX, startY, centerX, centerY, rect);
+  return { x1: startX, y1: startY, x2: tip.x, y2: tip.y };
+}
+
+/**
+ * Point where the segment from (x1, y1) to the rect's interior point
+ * (x2, y2) first crosses the rect's edge. Falls back to the interior point
+ * when the start is already inside the rect.
+ */
+function clipToRectEdge(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  rect: PageRect,
+): { x: number; y: number } {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  let tEnter = 0;
+  if (Math.abs(dx) > EPSILON) {
+    const tx = ((dx > 0 ? rect.x : rect.x + rect.width) - x1) / dx;
+    tEnter = Math.max(tEnter, tx);
+  }
+  if (Math.abs(dy) > EPSILON) {
+    const ty = ((dy > 0 ? rect.y : rect.y + rect.height) - y1) / dy;
+    tEnter = Math.max(tEnter, ty);
+  }
+  tEnter = Math.min(tEnter, 1);
+  return { x: x1 + dx * tEnter, y: y1 + dy * tEnter };
 }
 
 /**
