@@ -24,6 +24,7 @@ import { toWinAnsiText } from "@/lib/pdf-text";
 import {
   type ComputedOpening,
   type DrillSheetResult,
+  formatBootCell,
   formatFeetInches,
   formatPipeDescription,
   getStructureElevations,
@@ -368,7 +369,7 @@ export function buildDrillSheetFieldMap(
       opening.pipeMaterial,
       opening.pipeType,
     );
-    map[`boot_${row}`] = opening.bootModel ?? "";
+    map[`boot_${row}`] = formatBootCell(opening);
     map[`material_${row}`] = opening.pipeMaterial ?? "";
     map[`hole_${row}`] =
       opening.holeDiameterInches != null
