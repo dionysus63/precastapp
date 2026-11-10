@@ -353,7 +353,8 @@ const LEADER_BLOCK_GAP_PT = 3;
  * the top of the wall band — a 24"x24" opening 20" up a 48" wall drew to
  * within a hair of the flap's outer edge — and left no room for the
  * leaders and dimensions around them. The bottom edge stays to scale so
- * fold dimensions remain honest, and touch-end openings keep touching.
+ * fold dimensions remain honest, and touch-end openings keep touching. An
+ * opening that spans the whole wall is not reduced, so it meets both ends.
  */
 const OPENING_DRAW_SCALE = 0.7;
 
@@ -390,11 +391,18 @@ function openingRectOnFlap(
   );
   // Reduced along-wall span: shrink about the opening's center, but an
   // opening placed against a wall end stays against it.
-  const spanLength = (span.endFraction - span.startFraction) * OPENING_DRAW_SCALE;
+  const touchesStart = span.startFraction <= EPSILON;
+  const touchesEnd = span.endFraction >= 1 - EPSILON;
+  // An opening as wide as the wall touches both ends, so it draws at its
+  // full span; shrinking it would pull it off one of them.
+  const spanLength =
+    touchesStart && touchesEnd
+      ? 1
+      : (span.endFraction - span.startFraction) * OPENING_DRAW_SCALE;
   let alongLo: number;
-  if (span.startFraction <= EPSILON) {
+  if (touchesStart) {
     alongLo = 0;
-  } else if (span.endFraction >= 1 - EPSILON) {
+  } else if (touchesEnd) {
     alongLo = 1 - spanLength;
   } else {
     alongLo = (span.startFraction + span.endFraction) / 2 - spanLength / 2;

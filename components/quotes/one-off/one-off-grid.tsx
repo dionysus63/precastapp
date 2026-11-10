@@ -2,6 +2,7 @@
 
 import {
   Fragment,
+  useEffect,
   useMemo,
   useRef,
   type ClipboardEvent,
@@ -11,13 +12,17 @@ import { RECT_WALL_LABELS, RECT_WALLS, type RectWall } from "@/lib/rect-structur
 import {
   ONE_OFF_MAX_OPENINGS,
   ONE_OFF_MAX_ROWS,
+  ONE_OFF_OPENING_SPECIALS,
   createRowFromSetup,
+  isOpeningSpecial,
   nextFreeStructureNumber,
   openingLetter,
   openingPipe,
   resizeRowOpenings,
   setOpeningPipeType,
+  setOpeningSpecial,
   sizesForPipeType,
+  standardRectOpeningWidth,
   type OneOffCircularOptions,
   type OneOffRectOptions,
   type OneOffRow,
@@ -55,6 +60,14 @@ type GridColumn = {
   set: (row: OneOffRow, value: string) => OneOffRow;
   options?: (row: OneOffRow) => SelectOption[];
   placeholder?: string;
+  /** A per-structure placeholder (e.g. the standard width for its pipe). */
+  placeholderFor?: (row: OneOffRow) => string;
+  /** Hover text for the cell. */
+  titleFor?: (row: OneOffRow) => string;
+  /** Dropdowns only: blank is a real choice, not a missing pick. */
+  allowBlank?: boolean;
+  /** Greyed out for structures the field doesn't apply to. */
+  disabled?: (row: OneOffRow) => boolean;
   /** Starts a new group (each opening's fields) with a heading row. */
   groupStart?: boolean;
   groupLabel?: string;
@@ -135,6 +148,12 @@ export function OneOffGrid({
 }: OneOffGridProps) {
   const tableRef = useRef<HTMLTableElement>(null);
   const isCircular = shape === "CIRCULAR";
+
+  // Which inlets have Widen picked on any structure ("010" = inlet B only):
+  // the Width row for an inlet is only there once it's needed.
+  const widenedInlets = Array.from({ length: openingCount }, (_, index) =>
+    rows.some((row) => row.openings[index]?.special === "WIDEN") ? "1" : "0",
+  ).join("");
 
   const columns = useMemo<GridColumn[]>(() => {
     const templateOptions: SelectOption[] = (
@@ -315,6 +334,58 @@ export function OneOffGrid({
               ? setOpening(row, index, { wall: value as RectWall })
               : row,
         });
+        // Special changes to this opening; each one brings its own inputs
+        // in the rows right below it.
+        result.push({
+          key: `special-${index}`,
+          header: `Special ${letter}`,
+          kind: "select",
+          allowBlank: true,
+          get: (row) => row.openings[index]?.special ?? "",
+          options: () => [
+            { value: "", label: "—" },
+            ...ONE_OFF_OPENING_SPECIALS.map((special) => ({
+              value: special.value,
+              label: special.label,
+            })),
+          ],
+          set: (row, value) =>
+            isOpeningSpecial(value) ? setOpeningSpecial(row, index, value) : row,
+        });
+        if (widenedInlets[index] === "1") {
+          const standardWidth = (row: OneOffRow) => {
+            const cell = row.openings[index];
+            return cell
+              ? standardRectOpeningWidth(
+                  rectOptions.openingSizes,
+                  openingPipe(row, cell),
+                )
+              : null;
+          };
+          result.push({
+            key: `widen-${index}`,
+            header: `Width ${letter}`,
+            kind: "text",
+            numeric: true,
+            decimals: 0,
+            get: (row) => row.openings[index]?.widenInches ?? "",
+            set: (row, value) =>
+              row.openings[index]?.special === "WIDEN"
+                ? setOpening(row, index, { widenInches: value })
+                : row,
+            disabled: (row) => row.openings[index]?.special !== "WIDEN",
+            placeholderFor: (row) => {
+              const standard = standardWidth(row);
+              return standard != null ? String(standard) : "";
+            },
+            titleFor: (row) => {
+              const standard = standardWidth(row);
+              return standard != null
+                ? `Opening width in whole inches. Standard for this pipe is ${standard}".`
+                : "Opening width in whole inches.";
+            },
+          });
+        }
       }
     }
 
@@ -325,7 +396,30 @@ export function OneOffGrid({
     openingCount,
     pipeChoices,
     rectOptions,
+    widenedInlets,
   ]);
+
+  // Picking a special that needs a number (Widen) drops the cursor into it
+  // once its row has been drawn.
+  const pendingFocus = useRef<{ rowIndex: number; key: string } | null>(null);
+  useEffect(() => {
+    const pending = pendingFocus.current;
+    if (!pending) {
+      return;
+    }
+    pendingFocus.current = null;
+    const colIndex = columns.findIndex((column) => column.key === pending.key);
+    if (colIndex < 0) {
+      return;
+    }
+    const el = tableRef.current?.querySelector<HTMLInputElement>(
+      `[data-grid-row="${pending.rowIndex}"][data-grid-col="${colIndex}"]`,
+    );
+    if (el && !el.disabled) {
+      el.focus();
+      el.select();
+    }
+  });
 
   const allNumbers = useMemo(
     () => [...takenNumbers, ...rows.map((row) => row.structureNumber)],
@@ -364,6 +458,12 @@ export function OneOffGrid({
   }
 
   function patchCell(rowIndex: number, column: GridColumn, value: string) {
+    if (column.key.startsWith("special-") && value === "WIDEN") {
+      pendingFocus.current = {
+        rowIndex,
+        key: column.key.replace("special-", "widen-"),
+      };
+    }
     onRowsChange(
       rows.map((row, index) =>
         index === rowIndex ? column.set(row, value) : row,
@@ -371,10 +471,29 @@ export function OneOffGrid({
     );
   }
 
-  function focusCell(rowIndex: number, colIndex: number) {
-    const el = tableRef.current?.querySelector<HTMLElement>(
-      `[data-grid-row="${rowIndex}"][data-grid-col="${colIndex}"]`,
-    );
+  /**
+   * Moves to the cell `step` away, passing over greyed-out cells (a Width
+   * cell on a structure that isn't widened) in the direction of travel.
+   */
+  function focusCell(
+    rowIndex: number,
+    colIndex: number,
+    step: { row: number; col: number },
+  ) {
+    let nextRow = rowIndex + step.row;
+    let nextCol = colIndex + step.col;
+    let el: HTMLInputElement | HTMLSelectElement | null = null;
+    for (;;) {
+      el =
+        tableRef.current?.querySelector<HTMLInputElement | HTMLSelectElement>(
+          `[data-grid-row="${nextRow}"][data-grid-col="${nextCol}"]`,
+        ) ?? null;
+      if (!el || !el.disabled) {
+        break;
+      }
+      nextRow += step.row;
+      nextCol += step.col;
+    }
     el?.focus();
     if (el instanceof HTMLInputElement) {
       el.select();
@@ -394,13 +513,16 @@ export function OneOffGrid({
     // neighbouring structure.
     if (event.key === "Enter") {
       event.preventDefault();
-      focusCell(rowIndex, event.shiftKey ? colIndex - 1 : colIndex + 1);
+      focusCell(rowIndex, colIndex, { row: 0, col: event.shiftKey ? -1 : 1 });
       return;
     }
     // Dropdowns keep their own up/down; text cells move like a spreadsheet.
     if (isInput && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
       event.preventDefault();
-      focusCell(rowIndex, event.key === "ArrowUp" ? colIndex - 1 : colIndex + 1);
+      focusCell(rowIndex, colIndex, {
+        row: 0,
+        col: event.key === "ArrowUp" ? -1 : 1,
+      });
       return;
     }
     if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
@@ -411,7 +533,10 @@ export function OneOffGrid({
           : target.selectionStart === target.value.length;
       if (atEdge) {
         event.preventDefault();
-        focusCell(event.key === "ArrowLeft" ? rowIndex - 1 : rowIndex + 1, colIndex);
+        focusCell(rowIndex, colIndex, {
+          row: event.key === "ArrowLeft" ? -1 : 1,
+          col: 0,
+        });
       }
     }
   }
@@ -656,10 +781,11 @@ export function OneOffGrid({
 
                       if (column.kind === "select") {
                         const listed = column.options?.(row) ?? [];
-                        const missing = value === "";
+                        const missing = value === "" && !column.allowBlank;
                         // A saved sheet can hold a value no longer offered.
                         const options =
-                          missing || listed.some((option) => option.value === value)
+                          value === "" ||
+                          listed.some((option) => option.value === value)
                             ? listed
                             : [
                                 {
@@ -738,18 +864,27 @@ export function OneOffGrid({
                           </td>
                         );
                       }
+                      const disabled = column.disabled?.(row) ?? false;
                       return (
                         <td
                           key={row.id}
                           className={cellClass}
+                          title={
+                            disabled ? undefined : column.titleFor?.(row) || undefined
+                          }
                           onFocusCapture={pick}
                           onClick={pick}
                         >
                           <input
                             type="text"
                             inputMode={column.numeric ? "decimal" : undefined}
-                            value={value}
-                            placeholder={column.placeholder}
+                            value={disabled ? "" : value}
+                            disabled={disabled}
+                            placeholder={
+                              disabled
+                                ? undefined
+                                : (column.placeholderFor?.(row) ?? column.placeholder)
+                            }
                             data-grid-row={rowIndex}
                             data-grid-col={colIndex}
                             onChange={(event) =>
@@ -762,7 +897,7 @@ export function OneOffGrid({
                               handlePaste(event, rowIndex, colIndex)
                             }
                             onBlur={() => roundCell(rowIndex, column)}
-                            className={`${cellInputClassName} ${column.numeric ? "tabular-nums" : ""}`}
+                            className={`${cellInputClassName} disabled:cursor-not-allowed disabled:bg-slate-100 ${column.numeric ? "tabular-nums" : ""}`}
                           />
                         </td>
                       );
@@ -772,6 +907,13 @@ export function OneOffGrid({
               );
             })}
 
+            {/* Sets the calculated rows apart from the last inlet's cells. */}
+            <tr aria-hidden="true">
+              <td
+                colSpan={rows.length + 1}
+                className="sticky left-0 h-6 border-b border-slate-300 bg-slate-200"
+              />
+            </tr>
             <tr>
               <th scope="row" className={`${labelCellClassName} h-8`}>
                 Wall Ht

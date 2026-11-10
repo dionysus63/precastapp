@@ -41,6 +41,7 @@ export async function loadOneOffEditData(
   structureIds: string[] | null,
   circularTemplates: OneOffCircularOptions["templates"],
   rectTemplates: OneOffRectOptions["templates"],
+  rectOpeningSizes: OneOffRectOptions["openingSizes"],
 ): Promise<OneOffEditData | null> {
   const job = await withDatabaseRetry((client) =>
     client.job.findUnique({
@@ -112,7 +113,7 @@ export async function loadOneOffEditData(
       structureId: sheet.structureId,
       updatedAt: sheet.updatedAt,
       values: sheet.values,
-      row: rectRowFromSheet(sheet.structureId, sheet.values),
+      row: rectRowFromSheet(sheet.structureId, sheet.values, rectOpeningSizes),
     }));
 
   if (!wanted) {

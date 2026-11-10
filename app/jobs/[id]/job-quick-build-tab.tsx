@@ -137,6 +137,7 @@ export async function JobQuickBuildTab({
       sheetIds,
       circularOptions.templates,
       rectOptions.templates,
+      rectOptions.openingSizes,
     );
     return (
       <div className="space-y-4">

@@ -15,6 +15,7 @@ import {
   rectRowFromSheet,
   resizeRowOpenings,
   setOpeningPipeType,
+  setOpeningSpecial,
   type OneOffCircularOptions,
   type OneOffRectOptions,
   type OneOffSetup,
@@ -500,9 +501,11 @@ describe("editing saved sheets", () => {
         },
       ],
     };
-    const loaded = rectRowFromSheet("js-2", saved);
+    const loaded = rectRowFromSheet("js-2", saved, rectOptions.openingSizes);
     expect(loaded).toMatchObject({ insideLengthFeet: "5", pipeType: "RCP" });
     expect(loaded.openings[0].wall).toBe("LEFT");
+    // 26" saved against a 24" standard opening shows up as Widen.
+    expect(loaded.openings[0]).toMatchObject({ special: "WIDEN", widenInches: "26" });
     expect(computeRectOneOffRow(loaded, rectOptions).ready).toBe(true);
 
     const edited = {
@@ -521,17 +524,156 @@ describe("editing saved sheets", () => {
       invertElevation: "95.25",
     });
 
-    // A different pipe drops the old pipe's width override but keeps placement.
-    const resized = {
-      ...loaded,
-      openings: [{ ...loaded.openings[0], pipeSize: "18" }],
-    };
-    const remerged = mergeRectRow(saved, resized, loaded, rectOptions.templates, "2026-10-19");
+    // Clearing Special puts the opening back to the catalog width; the
+    // placement stays.
+    const cleared = setOpeningSpecial(loaded, 0, "");
+    expect(cleared.openings[0]).toMatchObject({ special: "", widenInches: "" });
+    expect(isRowChanged(cleared, loaded)).toBe(true);
+    const remerged = mergeRectRow(saved, cleared, loaded, rectOptions.templates, "2026-10-19");
     if ("error" in remerged) throw new Error(remerged.error);
     expect(remerged.values.openings[0]).toMatchObject({
-      pipeSizeInches: "18",
       widthOverrideInches: "",
       placement: "FROM_LEFT",
     });
+
+    // A wider Widen is a change and is what gets saved.
+    const wider = {
+      ...loaded,
+      openings: [{ ...loaded.openings[0], widenInches: "30" }],
+    };
+    expect(isRowChanged(wider, loaded)).toBe(true);
+    const widened = mergeRectRow(saved, wider, loaded, rectOptions.templates, "2026-10-19");
+    if ("error" in widened) throw new Error(widened.error);
+    expect(widened.values.openings[0].widthOverrideInches).toBe("30");
+  });
+
+  it("loads a saved width at the catalog size as no special", () => {
+    const loaded = rectRowFromSheet(
+      "js-3",
+      {
+        ...rectSheetValues(),
+        openings: [{ ...rectSheetValues().openings[0], widthOverrideInches: "24" }],
+      },
+      rectOptions.openingSizes,
+    );
+    expect(loaded.openings[0]).toMatchObject({ special: "", widenInches: "" });
+  });
+});
+
+function rectSheetValues(): RectSheetFormValues {
+  return {
+    templateId: "tpl-cb",
+    castingProductId: "cast-grate",
+    jobId: "job-1",
+    structureNumber: "CB-3",
+    contractor: "Acme",
+    project: "Main St",
+    date: "2026-01-02",
+    inspection: "",
+    approvedBy: "",
+    rimElevation: "100",
+    brickTargetInches: "",
+    insideLengthFeet: "4",
+    insideWidthFeet: "3",
+    hasTopSlab: true,
+    hasBaseSlab: true,
+    baseAttached: true,
+    topSlabOpeningLengthInches: "",
+    topSlabOpeningWidthInches: "",
+    topSlabOpeningSide: "UP",
+    maxPickWeightLbs: "",
+    sections: [],
+    openings: [
+      {
+        id: "o1",
+        label: "A",
+        wall: "UP",
+        pipeMaterial: "RCP",
+        pipeSizeInches: "15",
+        invertElevation: "95",
+        angle: "",
+        placement: "CENTERED",
+        offsetInches: "",
+        widthOverrideInches: "",
+      },
+    ],
+  };
+}
+
+describe("Quick Build rect opening specials", () => {
+  function rectRow() {
+    const [row] = buildRowsFromSetup(
+      {
+        ...createEmptySetup("RECTANGULAR"),
+        templateId: "tpl-cb",
+        castingProductId: "cast-grate",
+        pipeType: "RCP",
+        pipeSize: "15",
+        quantity: "1",
+      },
+      2,
+    );
+    row.rimElevation = "100";
+    row.openings[0].invert = "95";
+    row.openings[1].invert = "95.5";
+    return row;
+  }
+
+  it("widens one opening and leaves the other at the catalog width", () => {
+    const row = {
+      ...setOpeningSpecial(rectRow(), 0, "WIDEN"),
+    };
+    row.openings[0].widenInches = "36";
+    const result = computeRectOneOffRow(row, rectOptions);
+    expect(result.ready).toBe(true);
+
+    const widths = result.rectSheet?.openings.map((opening) => [
+      opening.openingWidthInches,
+      opening.openingHeightInches,
+    ]);
+    expect(widths).toEqual([
+      [36, 24],
+      [24, 24],
+    ]);
+    const parsed = parseRectStructureConfigJson(
+      JSON.parse(JSON.stringify(result.config)),
+    );
+    expect(parsed?.openings.map((opening) => opening.widthOverrideInches ?? null)).toEqual([
+      36,
+      null,
+    ]);
+  });
+
+  it("asks for the width, a whole number, wider than standard", () => {
+    const row = setOpeningSpecial(rectRow(), 1, "WIDEN");
+    const status = (widenInches: string) =>
+      computeRectOneOffRow(
+        {
+          ...row,
+          openings: [row.openings[0], { ...row.openings[1], widenInches }],
+        },
+        rectOptions,
+      );
+
+    expect(status("")).toMatchObject({
+      ready: false,
+      status: "Enter the Widen width for inlet B",
+    });
+    expect(status("30.5")).toMatchObject({
+      ready: false,
+      status: "Widen B: width must be a whole number of inches",
+    });
+    expect(status("31").ready).toBe(true);
+    expect(status("24")).toMatchObject({
+      ready: false,
+      status: 'Widen B: enter more than the standard 24" width',
+    });
+    expect(status("30").ready).toBe(true);
+  });
+
+  it("ignores a special on an inlet with no invert", () => {
+    const row = setOpeningSpecial(rectRow(), 1, "WIDEN");
+    row.openings[1].invert = "";
+    expect(computeRectOneOffRow(row, rectOptions).ready).toBe(true);
   });
 });

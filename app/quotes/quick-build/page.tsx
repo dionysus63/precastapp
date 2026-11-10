@@ -89,6 +89,7 @@ export default async function QuickBuildPage({
     sheetIds,
     circularOptions.templates,
     rectOptions.templates,
+    rectOptions.openingSizes,
   );
 
   return (
