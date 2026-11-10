@@ -152,6 +152,19 @@ export function formatPipeDescription(
     .join(" ");
 }
 
+/**
+ * Text for the BOOT column of the pipe openings table. A hole with no boot
+ * prints "No" so the shop does not read a blank cell as a missing value;
+ * a booted hole prints its boot model (blank when the catalog has none).
+ */
+export function formatBootCell(opening: {
+  hasBoot: boolean;
+  bootModel?: string | null;
+}): string {
+  if (!opening.hasBoot) return "No";
+  return opening.bootModel?.trim() ?? "";
+}
+
 function round4(value: number): number {
   return Math.round((value + EPSILON) * 10000) / 10000;
 }

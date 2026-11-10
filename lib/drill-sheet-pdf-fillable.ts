@@ -8,7 +8,11 @@ import {
 import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import { toWinAnsiText } from "@/lib/pdf-text";
 import type { DrillSheetPreviewMeta } from "@/components/drill-sheets/drill-sheet-preview";
-import { type DrillSheetResult, formatPipeDescription } from "@/lib/drill-sheet";
+import {
+  type DrillSheetResult,
+  formatBootCell,
+  formatPipeDescription,
+} from "@/lib/drill-sheet";
 
 const PAGE_WIDTH = 612; // US Letter, points
 const PAGE_HEIGHT = 792;
@@ -271,7 +275,7 @@ export async function appendDrillSheetFillablePage(
     );
     placeCell(
       `ds_boot_${i}`,
-      opening?.bootModel ?? "",
+      opening ? formatBootCell(opening) : "",
       cols[4].x,
       cols[4].w,
     );

@@ -1,6 +1,7 @@
 import type { DrillSheetPreviewMeta } from "@/components/drill-sheets/drill-sheet-preview";
 import {
   type DrillSheetResult,
+  formatBootCell,
   formatCurrency,
   formatFeetInches,
   formatFeetInchesShort,
@@ -201,7 +202,7 @@ function buildOpeningsTable(result: DrillSheetResult) {
               <td ${tdStyle} style="font-variant-numeric:tabular-nums;">${feet(opening.topOfOpeningFeet)}</td>
               <td ${tdStyle} style="font-variant-numeric:tabular-nums;font-weight:700;">${opening.baseTopToOpeningBottomInches ?? "—"}</td>
               <td ${tdStyle}>${opening.holeDiameterInches ?? "—"}</td>
-              <td ${tdStyle}>${escapeHtml(opening.bootModel ?? "—")}</td>
+              <td ${tdStyle}>${escapeHtml(formatBootCell(opening) || "—")}</td>
               <td ${tdStyle} style="font-size:8px;">${escapeHtml(angleLabel)}</td>
             </tr>`;
           })
