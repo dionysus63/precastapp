@@ -913,6 +913,13 @@ export function OneOffGrid({
               );
             })}
 
+            {/* Sets the calculated rows apart from the last inlet's cells. */}
+            <tr aria-hidden="true">
+              <td
+                colSpan={rows.length + 1}
+                className="sticky left-0 h-6 border-b border-slate-300 bg-slate-200"
+              />
+            </tr>
             <tr>
               <th scope="row" className={`${labelCellClassName} h-8`}>
                 Wall Ht
