@@ -16,7 +16,6 @@ import {
   resizeRowOpenings,
   setOpeningPipeType,
   setOpeningSpecial,
-  snapToEvenInches,
   type OneOffCircularOptions,
   type OneOffRectOptions,
   type OneOffSetup,
@@ -645,7 +644,7 @@ describe("Quick Build rect opening specials", () => {
     ]);
   });
 
-  it("asks for the width, an even number, wider than standard", () => {
+  it("asks for the width, a whole number, wider than standard", () => {
     const row = setOpeningSpecial(rectRow(), 1, "WIDEN");
     const status = (widenInches: string) =>
       computeRectOneOffRow(
@@ -660,11 +659,11 @@ describe("Quick Build rect opening specials", () => {
       ready: false,
       status: "Enter the Widen width for inlet B",
     });
-    expect(status("31")).toMatchObject({
+    expect(status("30.5")).toMatchObject({
       ready: false,
-      status: "Widen B: width must be an even number of inches",
+      status: "Widen B: width must be a whole number of inches",
     });
-    expect(status("30.5").ready).toBe(false);
+    expect(status("31").ready).toBe(true);
     expect(status("24")).toMatchObject({
       ready: false,
       status: 'Widen B: enter more than the standard 24" width',
@@ -676,14 +675,5 @@ describe("Quick Build rect opening specials", () => {
     const row = setOpeningSpecial(rectRow(), 1, "WIDEN");
     row.openings[1].invert = "";
     expect(computeRectOneOffRow(row, rectOptions).ready).toBe(true);
-  });
-
-  it("rounds a typed width up to the next even inch", () => {
-    expect(snapToEvenInches("25")).toBe("26");
-    expect(snapToEvenInches("26")).toBe("26");
-    expect(snapToEvenInches("26.0")).toBe("26");
-    expect(snapToEvenInches("24.5")).toBe("26");
-    expect(snapToEvenInches("")).toBe("");
-    expect(snapToEvenInches("abc")).toBe("abc");
   });
 });

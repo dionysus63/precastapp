@@ -22,7 +22,6 @@ import {
   setOpeningPipeType,
   setOpeningSpecial,
   sizesForPipeType,
-  snapToEvenInches,
   standardRectOpeningWidth,
   type OneOffCircularOptions,
   type OneOffRectOptions,
@@ -57,8 +56,6 @@ type GridColumn = {
   numeric?: boolean;
   /** Numeric cells round to this many places when the cell is left. */
   decimals?: number;
-  /** Whole even inches only: rounds up to the next even number when left. */
-  even?: boolean;
   get: (row: OneOffRow) => string;
   set: (row: OneOffRow, value: string) => OneOffRow;
   options?: (row: OneOffRow) => SelectOption[];
@@ -370,7 +367,7 @@ export function OneOffGrid({
             header: `Width ${letter}`,
             kind: "text",
             numeric: true,
-            even: true,
+            decimals: 0,
             get: (row) => row.openings[index]?.widenInches ?? "",
             set: (row, value) =>
               row.openings[index]?.special === "WIDEN"
@@ -384,8 +381,8 @@ export function OneOffGrid({
             titleFor: (row) => {
               const standard = standardWidth(row);
               return standard != null
-                ? `Opening width in inches, even numbers only. Standard for this pipe is ${standard}".`
-                : "Opening width in inches, even numbers only.";
+                ? `Opening width in whole inches. Standard for this pipe is ${standard}".`
+                : "Opening width in whole inches.";
             },
           });
         }
@@ -436,9 +433,6 @@ export function OneOffGrid({
 
   /** "15.025" becomes "15.03" in a 2-place cell; non-numbers are left alone. */
   function roundedValue(column: GridColumn, value: string): string {
-    if (column.even) {
-      return snapToEvenInches(value);
-    }
     if (column.decimals == null) {
       return value;
     }

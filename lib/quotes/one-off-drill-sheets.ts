@@ -90,7 +90,7 @@ export type OneOffOpeningCell = {
   wall: RectWall;
   /** Rect only: the special change picked for this opening; blank = none. */
   special: OneOffOpeningSpecial;
-  /** Widen: the opening's full width in inches (even numbers only). */
+  /** Widen: the opening's full width in inches (whole numbers only). */
   widenInches: string;
 };
 
@@ -196,18 +196,6 @@ export function setOpeningSpecial(
   };
 }
 
-/** "25" becomes "26": widths are whole even inches, rounded up. */
-export function snapToEvenInches(value: string): string {
-  const trimmed = value.trim();
-  const parsed = Number(trimmed);
-  if (trimmed === "" || !Number.isFinite(parsed) || parsed <= 0) {
-    return value;
-  }
-  const whole = Math.ceil(parsed - 1e-9);
-  const even = String(whole % 2 === 0 ? whole : whole + 1);
-  return even === trimmed ? value : even;
-}
-
 /** The catalog ("standard") opening width for a rect inlet's pipe, if listed. */
 export function standardRectOpeningWidth(
   openingSizes: OneOffRectOptions["openingSizes"],
@@ -243,8 +231,8 @@ function rectOpeningSpecial(
     return { error: `Enter the Widen width for inlet ${letter}` };
   }
   const width = Number(typed);
-  if (!Number.isInteger(width) || width <= 0 || width % 2 !== 0) {
-    return { error: `Widen ${letter}: width must be an even number of inches` };
+  if (!Number.isInteger(width) || width <= 0) {
+    return { error: `Widen ${letter}: width must be a whole number of inches` };
   }
   if (standardWidthInches != null && width <= standardWidthInches) {
     return {
