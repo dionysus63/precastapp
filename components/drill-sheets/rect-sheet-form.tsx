@@ -47,6 +47,10 @@ export type RectSheetTemplateOption = {
   minPricingHeightFeet: number;
   topSlabPrice: number;
   baseSlabPrice: number;
+  /** Template default top-slab opening; structures inherit it when blank. */
+  topSlabOpeningLengthInches?: number | null;
+  topSlabOpeningWidthInches?: number | null;
+  topSlabOpeningSide?: RectWall | null;
   /** No price entry on any list — prices are 0 until settings are filled in. */
   priceMissing?: boolean;
   /** Prices came from the default list, not the requested one. */
@@ -310,6 +314,9 @@ export function RectSheetForm({
         minPricingHeightFeet: template.minPricingHeightFeet,
         topSlabPrice: template.topSlabPrice,
         baseSlabPrice: template.baseSlabPrice,
+        topSlabOpeningLengthInches: template.topSlabOpeningLengthInches,
+        topSlabOpeningWidthInches: template.topSlabOpeningWidthInches,
+        topSlabOpeningSide: template.topSlabOpeningSide,
       },
       openingSizes,
       openings: openings.map((opening) => ({
@@ -414,6 +421,16 @@ export function RectSheetForm({
       openings,
     ],
   );
+
+  const templateOpening =
+    template?.topSlabOpeningLengthInches != null &&
+    template?.topSlabOpeningWidthInches != null
+      ? template
+      : null;
+  const usesTemplateOpening =
+    templateOpening != null &&
+    topSlabOpeningLengthInches.trim() === "" &&
+    topSlabOpeningWidthInches.trim() === "";
 
   const previewMeta: RectSheetPreviewMeta = {
     structureNumber,
@@ -724,8 +741,20 @@ export function RectSheetForm({
                     onChange={(e) =>
                       setTopSlabOpeningLengthInches(e.target.value)
                     }
+                    placeholder={
+                      templateOpening
+                        ? String(templateOpening.topSlabOpeningLengthInches)
+                        : ""
+                    }
                     className={structureInputClassName}
                   />
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    {usesTemplateOpening
+                      ? "Using the template's opening. Enter a size to override."
+                      : templateOpening
+                        ? "Blank both to use the template's opening."
+                        : "This template has no default opening."}
+                  </p>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-700">
@@ -739,6 +768,11 @@ export function RectSheetForm({
                     onChange={(e) =>
                       setTopSlabOpeningWidthInches(e.target.value)
                     }
+                    placeholder={
+                      templateOpening
+                        ? String(templateOpening.topSlabOpeningWidthInches)
+                        : ""
+                    }
                     className={structureInputClassName}
                   />
                 </div>
@@ -747,7 +781,12 @@ export function RectSheetForm({
                     Opening Touches Wall
                   </label>
                   <select
-                    value={topSlabOpeningSide}
+                    value={
+                      usesTemplateOpening
+                        ? (templateOpening?.topSlabOpeningSide ?? "UP")
+                        : topSlabOpeningSide
+                    }
+                    disabled={usesTemplateOpening}
                     onChange={(e) =>
                       setTopSlabOpeningSide(e.target.value as RectWall)
                     }

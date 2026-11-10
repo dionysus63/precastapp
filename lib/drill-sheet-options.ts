@@ -229,6 +229,15 @@ export async function loadRectSheetFormOptions(
           template.rectMinPricingHeightFeet != null
             ? Number(template.rectMinPricingHeightFeet)
             : 0,
+        topSlabOpeningLengthInches:
+          template.rectTopSlabOpeningLengthInches != null
+            ? Number(template.rectTopSlabOpeningLengthInches)
+            : null,
+        topSlabOpeningWidthInches:
+          template.rectTopSlabOpeningWidthInches != null
+            ? Number(template.rectTopSlabOpeningWidthInches)
+            : null,
+        topSlabOpeningSide: template.rectTopSlabOpeningSide ?? null,
         topSlabPrice: price?.topSlabPrice ?? 0,
         baseSlabPrice: price?.baseSlabPrice ?? 0,
         priceMissing: !price,

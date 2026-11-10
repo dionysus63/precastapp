@@ -5,6 +5,8 @@ export type StructureShape = "CIRCULAR" | "RECTANGULAR";
 export type StructureTemplateStatus = "ACTIVE" | "INACTIVE";
 export type PipeConnectionType = "KOR_N_SEAL" | "CAST_IN" | "GROUTED" | "OTHER";
 export type SumpMode = "DEFAULT" | "FIXED";
+export type RectWall = "UP" | "RIGHT" | "DOWN" | "LEFT";
+const RECT_WALLS: readonly RectWall[] = ["UP", "RIGHT", "DOWN", "LEFT"];
 
 type DiameterPayload = {
   insideDiameterFeet: number;
@@ -33,6 +35,10 @@ export type TemplatePayload = {
   topSlabOpeningInches: number | null;
   rectWallPricePerFoot: number | null;
   rectMinPricingHeightFeet: number | null;
+  /** Rectangular only: default top-slab access opening, inherited by structures. */
+  rectTopSlabOpeningLengthInches: number | null;
+  rectTopSlabOpeningWidthInches: number | null;
+  rectTopSlabOpeningSide: RectWall | null;
   rectTopSlabPrice: number | null;
   rectBaseSlabPrice: number | null;
   rectPdfSetId: string | null;
@@ -256,6 +262,7 @@ export function parseTemplateData(data: Record<string, unknown>): TemplatePayloa
       shape === "RECTANGULAR"
         ? optionalNonNegativeNumber(data.rectMinPricingHeightFeet)
         : null,
+    ...parseRectTopSlabOpening(data, shape),
     rectTopSlabPrice:
       shape === "RECTANGULAR"
         ? optionalNonNegativeNumber(data.rectTopSlabPrice)
@@ -269,6 +276,50 @@ export function parseTemplateData(data: Record<string, unknown>): TemplatePayloa
     notes: String(data.notes ?? "").trim() || null,
     diameters,
     rectSizes,
+  };
+}
+
+/**
+ * Rect template top-slab opening: both sizes or neither. A zero clears the
+ * default; the side falls back to Up when only the sizes are given.
+ */
+function parseRectTopSlabOpening(
+  data: Record<string, unknown>,
+  shape: StructureShape,
+): Pick<
+  TemplatePayload,
+  | "rectTopSlabOpeningLengthInches"
+  | "rectTopSlabOpeningWidthInches"
+  | "rectTopSlabOpeningSide"
+> {
+  const empty = {
+    rectTopSlabOpeningLengthInches: null,
+    rectTopSlabOpeningWidthInches: null,
+    rectTopSlabOpeningSide: null,
+  };
+  if (shape !== "RECTANGULAR") {
+    return empty;
+  }
+  const length = optionalNonNegativeNumber(data.rectTopSlabOpeningLengthInches);
+  const width = optionalNonNegativeNumber(data.rectTopSlabOpeningWidthInches);
+  const hasLength = length != null && length > 0;
+  const hasWidth = width != null && width > 0;
+  if (!hasLength && !hasWidth) {
+    return empty;
+  }
+  if (!hasLength || !hasWidth) {
+    throw new Error(
+      "Top slab opening needs both a length and a width (or leave both blank).",
+    );
+  }
+  const rawSide = String(data.rectTopSlabOpeningSide ?? "").trim().toUpperCase();
+  const side = (RECT_WALLS as readonly string[]).includes(rawSide)
+    ? (rawSide as RectWall)
+    : "UP";
+  return {
+    rectTopSlabOpeningLengthInches: length,
+    rectTopSlabOpeningWidthInches: width,
+    rectTopSlabOpeningSide: side,
   };
 }
 
@@ -297,6 +348,15 @@ export function buildNestedCreate(payload: TemplatePayload) {
       payload.rectMinPricingHeightFeet === null
         ? null
         : decimal(payload.rectMinPricingHeightFeet),
+    rectTopSlabOpeningLengthInches:
+      payload.rectTopSlabOpeningLengthInches === null
+        ? null
+        : decimal(payload.rectTopSlabOpeningLengthInches),
+    rectTopSlabOpeningWidthInches:
+      payload.rectTopSlabOpeningWidthInches === null
+        ? null
+        : decimal(payload.rectTopSlabOpeningWidthInches),
+    rectTopSlabOpeningSide: payload.rectTopSlabOpeningSide,
     rectPdfSetId: payload.rectPdfSetId,
     status: payload.status,
     notes: payload.notes,

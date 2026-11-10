@@ -590,6 +590,12 @@ model StructureTemplate {
   /// Circular templates: top slab clear opening in whole inches, printed on
   /// the drill sheet's top_slab_opening_inches blank.
   topSlabOpeningInches        Int?
+  /// Rectangular templates: default top slab access opening (inches) and the
+  /// wall whose inside edge it touches. Structures inherit it unless they
+  /// enter their own size.
+  rectTopSlabOpeningLengthInches Decimal?             @db.Decimal(6, 2)
+  rectTopSlabOpeningWidthInches  Decimal?             @db.Decimal(6, 2)
+  rectTopSlabOpeningSide         RectWall?
   /// Rectangular templates: minimum billed height in feet (e.g. 4' minimum
   /// wall pricing even when the structure is only 2' tall). Wall/slab prices
   /// live in RectTemplatePriceListEntry, per price list.

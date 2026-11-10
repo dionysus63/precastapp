@@ -229,6 +229,15 @@ export async function loadAndComputeRectSheet(
           : 0,
       topSlabPrice: pricing.rectTemplates.get(template.id)?.topSlabPrice ?? 0,
       baseSlabPrice: pricing.rectTemplates.get(template.id)?.baseSlabPrice ?? 0,
+      topSlabOpeningLengthInches:
+        template.rectTopSlabOpeningLengthInches != null
+          ? Number(template.rectTopSlabOpeningLengthInches)
+          : null,
+      topSlabOpeningWidthInches:
+        template.rectTopSlabOpeningWidthInches != null
+          ? Number(template.rectTopSlabOpeningWidthInches)
+          : null,
+      topSlabOpeningSide: template.rectTopSlabOpeningSide ?? null,
     },
     openingSizes: openingSizes.map((entry) => ({
       pipeMaterial: entry.pipeMaterial,
@@ -373,9 +382,17 @@ export function buildRectDimensionData(result: RectStructureResult) {
     hasTopSlab: result.hasTopSlab,
     hasBaseSlab: result.hasBaseSlab,
     baseAttached: result.baseAttached,
-    topSlabOpeningLengthInches: decimal(result.topSlabOpening?.lengthInches),
-    topSlabOpeningWidthInches: decimal(result.topSlabOpening?.widthInches),
-    topSlabOpeningSide: result.topSlabOpening?.side ?? null,
+    // A template-inherited opening is not copied onto the structure, so a
+    // later template change still reaches this sheet.
+    topSlabOpeningLengthInches: result.topSlabOpeningFromTemplate
+      ? null
+      : decimal(result.topSlabOpening?.lengthInches),
+    topSlabOpeningWidthInches: result.topSlabOpeningFromTemplate
+      ? null
+      : decimal(result.topSlabOpening?.widthInches),
+    topSlabOpeningSide: result.topSlabOpeningFromTemplate
+      ? null
+      : (result.topSlabOpening?.side ?? null),
   };
 }
 

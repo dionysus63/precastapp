@@ -815,6 +815,18 @@ function RowOpeningsEditor({
     () => uniqueMaterials(options.openingSizes),
     [options.openingSizes],
   );
+  const rowTemplate = options.templates.find(
+    (entry) => entry.id === row.templateId,
+  );
+  const templateOpening =
+    rowTemplate?.topSlabOpeningLengthInches != null &&
+    rowTemplate?.topSlabOpeningWidthInches != null
+      ? rowTemplate
+      : null;
+  const usesTemplateOpening =
+    templateOpening != null &&
+    row.topSlabOpeningLengthInches.trim() === "" &&
+    row.topSlabOpeningWidthInches.trim() === "";
 
   const patchOpening = (
     openingId: string,
@@ -1052,7 +1064,12 @@ function RowOpeningsEditor({
               onChange={(event) =>
                 onRowPatch({ topSlabOpeningLengthInches: event.target.value })
               }
-              placeholder="casting"
+              placeholder={
+                templateOpening
+                  ? String(templateOpening.topSlabOpeningLengthInches)
+                  : "L"
+              }
+              title="Blank = use the template's opening"
               className={`${tableInlineInputClassName} w-16 border-slate-200 text-right`}
             />
             ×
@@ -1063,12 +1080,27 @@ function RowOpeningsEditor({
               onChange={(event) =>
                 onRowPatch({ topSlabOpeningWidthInches: event.target.value })
               }
-              placeholder="casting"
+              placeholder={
+                templateOpening
+                  ? String(templateOpening.topSlabOpeningWidthInches)
+                  : "W"
+              }
+              title="Blank = use the template's opening"
               className={`${tableInlineInputClassName} w-16 border-slate-200 text-right`}
             />
             in, touches
             <select
-              value={row.topSlabOpeningSide}
+              value={
+                usesTemplateOpening
+                  ? (templateOpening?.topSlabOpeningSide ?? "UP")
+                  : row.topSlabOpeningSide
+              }
+              disabled={usesTemplateOpening}
+              title={
+                usesTemplateOpening
+                  ? "From the template; enter a size to override"
+                  : undefined
+              }
               onChange={(event) =>
                 onRowPatch({
                   topSlabOpeningSide: event.target.value as RectWall,
@@ -1082,6 +1114,9 @@ function RowOpeningsEditor({
                 </option>
               ))}
             </select>
+            {usesTemplateOpening ? (
+              <span className="text-slate-400">(template)</span>
+            ) : null}
           </span>
         ) : null}
       </div>
