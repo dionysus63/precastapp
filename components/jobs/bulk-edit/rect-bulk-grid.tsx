@@ -105,6 +105,9 @@ export function computeRectPreview(
       minPricingHeightFeet: template.minPricingHeightFeet,
       topSlabPrice: template.topSlabPrice,
       baseSlabPrice: template.baseSlabPrice,
+      topSlabOpeningLengthInches: template.topSlabOpeningLengthInches,
+      topSlabOpeningWidthInches: template.topSlabOpeningWidthInches,
+      topSlabOpeningSide: template.topSlabOpeningSide,
     },
     openingSizes: options.openingSizes,
     openings: values.openings.map((opening) => ({
@@ -318,6 +321,18 @@ export function RectBulkGrid({
         <tbody className={tableBodyClassName}>
           {rows.map((row, rowIndex) => {
             const preview = computeRectPreview(row.values, options);
+            const rowTemplate = options.templates.find(
+              (entry) => entry.id === row.values.templateId,
+            );
+            const templateOpening =
+              rowTemplate?.topSlabOpeningLengthInches != null &&
+              rowTemplate?.topSlabOpeningWidthInches != null
+                ? rowTemplate
+                : null;
+            const usesTemplateOpening =
+              templateOpening != null &&
+              row.values.topSlabOpeningLengthInches.trim() === "" &&
+              row.values.topSlabOpeningWidthInches.trim() === "";
             const isDirty = dirtyIds.has(row.structureId);
             const error = rowErrors.get(row.structureId);
             const isExpanded = expandedIds.has(row.structureId);
@@ -551,6 +566,14 @@ export function RectBulkGrid({
                               <input
                                 type="text"
                                 value={row.values.topSlabOpeningLengthInches}
+                                placeholder={
+                                  templateOpening
+                                    ? String(
+                                        templateOpening.topSlabOpeningLengthInches,
+                                      )
+                                    : ""
+                                }
+                                title="Blank = use the template's opening"
                                 onChange={(event) =>
                                   patchValues(row, {
                                     topSlabOpeningLengthInches:
@@ -563,6 +586,14 @@ export function RectBulkGrid({
                               <input
                                 type="text"
                                 value={row.values.topSlabOpeningWidthInches}
+                                placeholder={
+                                  templateOpening
+                                    ? String(
+                                        templateOpening.topSlabOpeningWidthInches,
+                                      )
+                                    : ""
+                                }
+                                title="Blank = use the template's opening"
                                 onChange={(event) =>
                                   patchValues(row, {
                                     topSlabOpeningWidthInches:
@@ -573,7 +604,18 @@ export function RectBulkGrid({
                               />
                               &quot; toward
                               <select
-                                value={row.values.topSlabOpeningSide}
+                                value={
+                                  usesTemplateOpening
+                                    ? (templateOpening?.topSlabOpeningSide ??
+                                      "UP")
+                                    : row.values.topSlabOpeningSide
+                                }
+                                disabled={usesTemplateOpening}
+                                title={
+                                  usesTemplateOpening
+                                    ? "From the template; enter a size to override"
+                                    : undefined
+                                }
                                 onChange={(event) =>
                                   patchValues(row, {
                                     topSlabOpeningSide: event.target
@@ -591,6 +633,11 @@ export function RectBulkGrid({
                                   </option>
                                 ))}
                               </select>
+                              {usesTemplateOpening ? (
+                                <span className="text-slate-400">
+                                  (template)
+                                </span>
+                              ) : null}
                             </span>
                           ) : null}
                           <span className="text-slate-400">

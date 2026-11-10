@@ -108,6 +108,13 @@ export default async function EditStructureTemplatePage({
       ? String(rectPriceEntry.wallPricePerFoot)
       : "",
     rectMinPricingHeightFeet: decimalToString(template.rectMinPricingHeightFeet),
+    rectTopSlabOpeningLengthInches: decimalToString(
+      template.rectTopSlabOpeningLengthInches,
+    ),
+    rectTopSlabOpeningWidthInches: decimalToString(
+      template.rectTopSlabOpeningWidthInches,
+    ),
+    rectTopSlabOpeningSide: template.rectTopSlabOpeningSide ?? "UP",
     rectTopSlabPrice: rectPriceEntry ? String(rectPriceEntry.topSlabPrice) : "",
     rectBaseSlabPrice: rectPriceEntry
       ? String(rectPriceEntry.baseSlabPrice)

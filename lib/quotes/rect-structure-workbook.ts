@@ -550,6 +550,9 @@ export function computeRectWorkbookRowDetail(
       minPricingHeightFeet: template.minPricingHeightFeet,
       topSlabPrice: template.topSlabPrice,
       baseSlabPrice: template.baseSlabPrice,
+      topSlabOpeningLengthInches: template.topSlabOpeningLengthInches,
+      topSlabOpeningWidthInches: template.topSlabOpeningWidthInches,
+      topSlabOpeningSide: template.topSlabOpeningSide,
     },
     openingSizes: options.openingSizes,
     openings: calcOpenings.map((opening) => ({
@@ -686,9 +689,17 @@ function buildRectQuoteConfig(
     hasTopSlab: row.hasTopSlab,
     hasBaseSlab: row.hasBaseSlab,
     baseAttached: row.baseAttached,
-    topSlabOpeningLengthInches: result.topSlabOpening?.lengthInches ?? null,
-    topSlabOpeningWidthInches: result.topSlabOpening?.widthInches ?? null,
-    topSlabOpeningSide: result.topSlabOpening?.side ?? null,
+    // Only the row's own entry is stored; a template-inherited opening stays
+    // on the template so later template edits reach this structure.
+    topSlabOpeningLengthInches: result.topSlabOpeningFromTemplate
+      ? null
+      : (result.topSlabOpening?.lengthInches ?? null),
+    topSlabOpeningWidthInches: result.topSlabOpeningFromTemplate
+      ? null
+      : (result.topSlabOpening?.widthInches ?? null),
+    topSlabOpeningSide: result.topSlabOpeningFromTemplate
+      ? null
+      : (result.topSlabOpening?.side ?? null),
     detailLevel,
     openings,
     wallHeightFeet: result.wallHeightFeet,

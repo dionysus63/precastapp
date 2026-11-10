@@ -70,6 +70,13 @@ export type RectTemplateConfig = {
   topSlabPrice: number;
   /** Base slab price; charged only when the sheet has a base slab. */
   baseSlabPrice: number;
+  /**
+   * Template default for the top-slab access opening. A structure that
+   * leaves its own opening size blank inherits these.
+   */
+  topSlabOpeningLengthInches?: number | null;
+  topSlabOpeningWidthInches?: number | null;
+  topSlabOpeningSide?: RectWall | null;
 };
 
 export type RectOpeningInput = {
@@ -199,7 +206,10 @@ export type RectStructureResult = {
   totalHeightFeet: number | null;
   sections: ComputedRectSection[];
   openings: ComputedRectOpening[];
+  /** Effective access opening: the structure's own, else the template's. */
   topSlabOpening: RectTopSlabOpening | null;
+  /** True when `topSlabOpening` came from the template default. */
+  topSlabOpeningFromTemplate: boolean;
   weights: RectPickWeights;
   wallPrice: number;
   /** Top slab component price (0 when the sheet has no top slab). */
@@ -635,6 +645,39 @@ function computeRectPricing(
 }
 
 /**
+ * The structure's own opening wins when it has a length or width; otherwise
+ * the template default applies (when the template has one). A structure
+ * that enters only one of the two numbers is treated as its own partial
+ * entry, not mixed with the template.
+ */
+export function resolveTopSlabOpening(
+  own: RectTopSlabOpening | null,
+  template: Pick<
+    RectTemplateConfig,
+    | "topSlabOpeningLengthInches"
+    | "topSlabOpeningWidthInches"
+    | "topSlabOpeningSide"
+  >,
+): { opening: RectTopSlabOpening | null; fromTemplate: boolean } {
+  if (own != null && (own.lengthInches != null || own.widthInches != null)) {
+    return { opening: own, fromTemplate: false };
+  }
+  const length = template.topSlabOpeningLengthInches ?? null;
+  const width = template.topSlabOpeningWidthInches ?? null;
+  if (length != null && width != null) {
+    return {
+      opening: {
+        lengthInches: length,
+        widthInches: width,
+        side: template.topSlabOpeningSide ?? "UP",
+      },
+      fromTemplate: true,
+    };
+  }
+  return { opening: own, fromTemplate: false };
+}
+
+/**
  * Computes a full rectangular structure sheet from rim/invert inputs and
  * manual section splits.
  */
@@ -987,7 +1030,10 @@ export function computeRectStructure(
     return total;
   });
 
-  const topSlabOpening = hasTopSlab ? input.topSlabOpening : null;
+  const resolvedTopSlab = hasTopSlab
+    ? resolveTopSlabOpening(input.topSlabOpening, input.template)
+    : { opening: null, fromTemplate: false };
+  const topSlabOpening = resolvedTopSlab.opening;
 
   const sections: ComputedRectSection[] = rawHeights.map((height, index) => {
     const includesBaseSlab = index === 0 && baseAttached;
@@ -1112,6 +1158,7 @@ export function computeRectStructure(
     sections,
     openings,
     topSlabOpening,
+    topSlabOpeningFromTemplate: resolvedTopSlab.fromTemplate,
     weights: {
       sections: sections.map((section) => section.pickWeightLbs),
       baseSlabLbs,

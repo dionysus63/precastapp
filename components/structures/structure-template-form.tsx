@@ -9,6 +9,9 @@ import {
   structureInputClassName,
   structureTableInputClassName,
 } from "@/components/structures/structure-utils";
+import { RECT_WALL_LABELS, type RectWall } from "@/lib/rect-structure";
+
+const RECT_WALL_OPTIONS: RectWall[] = ["UP", "RIGHT", "DOWN", "LEFT"];
 
 import {
   tableBodyClassName,
@@ -65,6 +68,10 @@ export type StructureTemplateFormValue = {
   rectMinPricingHeightFeet: string;
   rectTopSlabPrice: string;
   rectBaseSlabPrice: string;
+  /** Rectangular only: default top-slab access opening structures inherit. */
+  rectTopSlabOpeningLengthInches: string;
+  rectTopSlabOpeningWidthInches: string;
+  rectTopSlabOpeningSide: RectWall;
   rectPdfSetId: string;
   status: "ACTIVE" | "INACTIVE";
   notes: string;
@@ -147,6 +154,9 @@ const defaultFormValue: StructureTemplateFormValue = {
   rectMinPricingHeightFeet: "",
   rectTopSlabPrice: "",
   rectBaseSlabPrice: "",
+  rectTopSlabOpeningLengthInches: "",
+  rectTopSlabOpeningWidthInches: "",
+  rectTopSlabOpeningSide: "UP",
   rectPdfSetId: "",
   status: "ACTIVE",
   notes: "",
@@ -211,6 +221,12 @@ export function StructureTemplateForm({
   const [rectBaseSlabPrice, setRectBaseSlabPrice] = useState(
     initial.rectBaseSlabPrice,
   );
+  const [rectTopSlabOpeningLengthInches, setRectTopSlabOpeningLengthInches] =
+    useState(initial.rectTopSlabOpeningLengthInches);
+  const [rectTopSlabOpeningWidthInches, setRectTopSlabOpeningWidthInches] =
+    useState(initial.rectTopSlabOpeningWidthInches);
+  const [rectTopSlabOpeningSide, setRectTopSlabOpeningSide] =
+    useState<RectWall>(initial.rectTopSlabOpeningSide);
   const [rectPdfSetId, setRectPdfSetId] = useState(initial.rectPdfSetId);
   const [status, setStatus] = useState(initial.status);
   const [notes, setNotes] = useState(initial.notes);
@@ -253,6 +269,9 @@ export function StructureTemplateForm({
       rectMinPricingHeightFeet: rectMinPricingHeightFeet || null,
       rectTopSlabPrice: rectTopSlabPrice || null,
       rectBaseSlabPrice: rectBaseSlabPrice || null,
+      rectTopSlabOpeningLengthInches: rectTopSlabOpeningLengthInches || null,
+      rectTopSlabOpeningWidthInches: rectTopSlabOpeningWidthInches || null,
+      rectTopSlabOpeningSide,
       rectPdfSetId: rectPdfSetId || null,
       status,
       notes,
@@ -285,6 +304,9 @@ export function StructureTemplateForm({
     rectMinPricingHeightFeet,
     rectTopSlabPrice,
     rectBaseSlabPrice,
+    rectTopSlabOpeningLengthInches,
+    rectTopSlabOpeningWidthInches,
+    rectTopSlabOpeningSide,
     rectPdfSetId,
     status,
     notes,
@@ -699,6 +721,66 @@ export function StructureTemplateForm({
                   placeholder="200.00"
                   className={structureInputClassName}
                 />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Top Slab Opening Length (in)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={rectTopSlabOpeningLengthInches}
+                  onChange={(e) =>
+                    setRectTopSlabOpeningLengthInches(e.target.value)
+                  }
+                  placeholder="30"
+                  className={structureInputClassName}
+                />
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Runs along the inside length. Structures on this template
+                  inherit the opening unless they enter their own.
+                </p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Top Slab Opening Width (in)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={rectTopSlabOpeningWidthInches}
+                  onChange={(e) =>
+                    setRectTopSlabOpeningWidthInches(e.target.value)
+                  }
+                  placeholder="30"
+                  className={structureInputClassName}
+                />
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Blank on both leaves the sheet&apos;s top slab box empty.
+                </p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700">
+                  Opening Touches Wall
+                </label>
+                <select
+                  value={rectTopSlabOpeningSide}
+                  onChange={(e) =>
+                    setRectTopSlabOpeningSide(e.target.value as RectWall)
+                  }
+                  className={structureInputClassName}
+                >
+                  {RECT_WALL_OPTIONS.map((wall) => (
+                    <option key={wall} value={wall}>
+                      {RECT_WALL_LABELS[wall]} wall
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Same orientation as the exploded view on the sheet.
+                </p>
               </div>
             </div>
           ) : null}
