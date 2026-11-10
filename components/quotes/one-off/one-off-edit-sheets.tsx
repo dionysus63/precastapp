@@ -417,6 +417,7 @@ export function OneOffEditSheets({
               contractor={data.job.customerName}
               project={data.job.projectName}
               openingCount={section.openingCount}
+              savedSheetId={activeRow?.id ?? null}
             />
           </div>
         </div>

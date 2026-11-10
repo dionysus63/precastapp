@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { OneOffAllSheetsButton } from "@/components/quotes/one-off/one-off-all-sheets-button";
 import { OneOffDrillSheets } from "@/components/quotes/one-off/one-off-drill-sheets";
 import { OneOffEditSheets } from "@/components/quotes/one-off/one-off-edit-sheets";
 import { requirePermission } from "@/lib/auth/session";
@@ -101,7 +102,7 @@ export default async function QuickBuildPage({
           : "Job not found"
       }
     >
-      <div className="mb-3 flex flex-wrap gap-4">
+      <div className="mb-3 flex flex-wrap items-center gap-4">
         <Link
           href={quickBuildPageLinks.start}
           className="text-xs font-medium text-sky-600 hover:underline"
@@ -115,6 +116,20 @@ export default async function QuickBuildPage({
           >
             Open on the job page →
           </Link>
+        ) : null}
+        {data ? (
+          <div className="ml-auto">
+            <OneOffAllSheetsButton
+              jobId={data.job.id}
+              jobNumber={data.job.jobNumber}
+              projectName={data.job.projectName}
+              sheetCount={
+                sheetIds.length > 0 ? sheetIds.length : data.job.sheetCount
+              }
+              structureIds={sheetIds}
+              unsavedNote
+            />
+          </div>
         ) : null}
       </div>
       {data ? (

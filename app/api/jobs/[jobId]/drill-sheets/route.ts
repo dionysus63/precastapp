@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import { drillSheetsPacketFileName } from "@/lib/drill-sheets-packet";
 import {
   contentDisposition,
   fileRouteErrorResponse,
@@ -34,7 +35,7 @@ export async function GET(request: Request, context: RouteContext) {
       "Content-Type": "application/pdf",
       "Content-Disposition": contentDisposition(
         asDownload ? "attachment" : "inline",
-        `drill-sheets-${built.jobNumber}.pdf`,
+        drillSheetsPacketFileName(built.jobNumber, built.projectName),
       ),
       "Cache-Control": "private, no-store",
       "X-Drill-Sheets-Included": String(built.included.length),

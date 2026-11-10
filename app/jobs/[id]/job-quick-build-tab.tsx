@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppPermission } from "@/app/generated/prisma/client";
+import { OneOffAllSheetsButton } from "@/components/quotes/one-off/one-off-all-sheets-button";
 import { OneOffDrillSheets } from "@/components/quotes/one-off/one-off-drill-sheets";
 import { OneOffEditSheets } from "@/components/quotes/one-off/one-off-edit-sheets";
 import { hasPermission, type AuthUser } from "@/lib/auth/permissions";
@@ -122,12 +123,24 @@ export async function JobQuickBuildTab({
           ? "Change cells on the saved drill sheets; only changed rows are saved."
           : `New drill sheets are created on ${job.jobNumber} without picking the job.`}
       </span>
-      <Link
-        href={editing ? quickBuildPageLinks.edit(jobId) : quickBuildPageLinks.start}
-        className="ml-auto text-xs font-medium text-sky-600 hover:underline"
-      >
-        Open full Quick Build page →
-      </Link>
+      <div className="ml-auto flex flex-wrap items-center gap-3">
+        {editing ? (
+          <OneOffAllSheetsButton
+            jobId={jobId}
+            jobNumber={job.jobNumber}
+            projectName={job.projectName}
+            sheetCount={sheetIds.length > 0 ? sheetIds.length : job.sheetCount}
+            structureIds={sheetIds}
+            unsavedNote
+          />
+        ) : null}
+        <Link
+          href={editing ? quickBuildPageLinks.edit(jobId) : quickBuildPageLinks.start}
+          className="text-xs font-medium text-sky-600 hover:underline"
+        >
+          Open full Quick Build page →
+        </Link>
+      </div>
     </div>
   );
 

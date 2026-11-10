@@ -22,7 +22,14 @@ export type OneOffEditSheet<Values> = {
 };
 
 export type OneOffEditData = {
-  job: { id: string; jobNumber: string; projectName: string; customerName: string };
+  job: {
+    id: string;
+    jobNumber: string;
+    projectName: string;
+    customerName: string;
+    /** Every drill sheet on the job, including ones the grids leave out. */
+    sheetCount: number;
+  };
   circular: OneOffEditSheet<DrillSheetFormValues>[];
   rect: OneOffEditSheet<RectSheetFormValues>[];
   /** Structure numbers on the job that aren't in the grids. */
@@ -51,7 +58,13 @@ export async function loadOneOffEditData(
         jobNumber: true,
         projectName: true,
         customerName: true,
-        jobStructures: { select: { id: true, structureNumber: true } },
+        jobStructures: {
+          select: {
+            id: true,
+            structureNumber: true,
+            calc: { select: { id: true } },
+          },
+        },
       },
     }),
   );
@@ -137,6 +150,8 @@ export async function loadOneOffEditData(
       jobNumber: job.jobNumber,
       projectName: job.projectName,
       customerName: job.customerName,
+      sheetCount: job.jobStructures.filter((structure) => structure.calc != null)
+        .length,
     },
     circular,
     rect,
