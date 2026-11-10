@@ -28,6 +28,7 @@ import { useLeaveGuard } from "@/lib/hooks/use-leave-guard";
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning";
 import { navigateAfterAction } from "@/lib/reload-after-action";
 import {
+  jobQuickBuildLinks,
   quickBuildLinksFor,
   type QuickBuildMount,
 } from "@/lib/quotes/quick-build-links";
@@ -202,6 +203,8 @@ export function OneOffDrillSheets({
   const [result, setResult] = useState<OneOffCreateResult | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, startCreating] = useTransition();
+  /** The sheets were created and the page is on its way to the job. */
+  const [leavingForJob, setLeavingForJob] = useState(false);
 
   // Saving for later: the draft this page works on, its name, and the
   // snapshot last written so "Save Changes" knows when there is anything new.
@@ -430,6 +433,28 @@ export function OneOffDrillSheets({
         // The server removed the draft along with creating the sheets.
         setDraft(null);
         setLastSavedSnapshot(null);
+        if (response.sheets.length > 0 && response.errors.length === 0) {
+          // Every sheet was made: go straight to the job's Quick Build tab,
+          // Saved Sheets view, where the PDFs can be dragged out (all in one
+          // file, or one sheet at a time) and the sheets edited.
+          const count = response.sheets.length;
+          const created = `Created ${count} drill sheet${count === 1 ? "" : "s"} on ${
+            response.jobCreated ? "new job " : "job "
+          }${response.jobNumber} — ${response.projectName}.`;
+          const folderMissing = response.jobCreated && !response.folderCreated;
+          setLeavingForJob(true);
+          navigateAfterAction(
+            jobQuickBuildLinks(response.jobId).edit(response.jobId),
+            folderMissing
+              ? {
+                  type: "warning",
+                  text: `${created} The job's folders couldn't be created on the file share. Use Create Folder on the job page to try again.`,
+                }
+              : { type: "success", text: created },
+          );
+          return;
+        }
+        // Some rows failed: stay here and show what was and wasn't made.
         setResult(response);
         window.scrollTo({ top: 0, behavior: "smooth" });
       } catch (error) {
@@ -815,7 +840,7 @@ export function OneOffDrillSheets({
           <button
             type="button"
             onClick={handleCreate}
-            disabled={!canCreate || creating}
+            disabled={!canCreate || creating || leavingForJob}
             className="inline-flex items-center justify-center rounded-lg bg-sky-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {creating

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { renderOneOffSheetPreview } from "@/app/quotes/one-off-preview-actions";
+import { PdfDragChip } from "@/components/common/pdf-drag-chip";
 import { isActionError } from "@/lib/action-result";
 import type {
   OneOffRow,
@@ -27,7 +28,16 @@ type OneOffSheetPreviewProps = {
   /** Printed in the sheet header. */
   contractor: string;
   project: string;
+  /**
+   * When the row is a drill sheet that is already saved, its id: the header
+   * then carries a chip that drags that saved sheet's PDF out.
+   */
+  savedSheetId?: string | null;
 };
+
+function safeFilePart(value: string): string {
+  return value.replace(/[\\/:*?"<>|]+/g, "-").trim() || "sheet";
+}
 
 type LoadedPreview = {
   rowId: string;
@@ -57,6 +67,7 @@ export function OneOffSheetPreview({
   rowCount,
   contractor,
   project,
+  savedSheetId = null,
 }: OneOffSheetPreviewProps) {
   const label = shape === "CIRCULAR" ? "Drill sheet" : "Rect sheet";
   const sheetComputed =
@@ -316,6 +327,14 @@ export function OneOffSheetPreview({
             >
               Open PDF
             </button>
+          ) : null}
+          {row && savedSheetId ? (
+            <PdfDragChip
+              href={`/api/drill-sheets/${savedSheetId}/preview?download=1`}
+              fileName={`drill-sheet-${safeFilePart(row.structureNumber)}.pdf`}
+              title="Drag onto an email, a folder, or your desktop to copy this saved drill sheet, or click to download it. Changes you haven't saved yet are not in the file."
+              className="rounded border border-slate-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            />
           ) : null}
           {row ? (
             <span className="text-[11px] text-slate-500">
