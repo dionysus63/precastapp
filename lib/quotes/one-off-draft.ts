@@ -13,6 +13,7 @@ import {
   createEmptySection,
   createEmptySetup,
   createOpeningCell,
+  isOpeningSpecial,
   type OneOffRow,
   type OneOffSection,
   type OneOffSetup,
@@ -185,6 +186,9 @@ export function parseOneOffRow(
         pipeSize: str(cell.pipeSize),
         angle: str(cell.angle),
         wall: parseWall(cell.wall, index),
+        // Drafts saved before specials existed have none.
+        special: isOpeningSpecial(cell.special) ? cell.special : "",
+        widenInches: isOpeningSpecial(cell.special) ? str(cell.widenInches) : "",
       };
     }),
   };

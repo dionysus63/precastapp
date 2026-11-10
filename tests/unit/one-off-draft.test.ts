@@ -38,6 +38,8 @@ function sampleState(): OneOffDraftState {
     pipeSize: "15",
     angle: "",
     wall: "LEFT",
+    special: "WIDEN",
+    widenInches: "36",
   };
   return {
     version: 1,
@@ -102,8 +104,33 @@ describe("one-off draft state", () => {
       pipeSize: "",
       angle: "",
       wall: "UP",
+      special: "",
+      widenInches: "",
     });
     expect(parsed!.rect).toEqual(createEmptySection("RECTANGULAR"));
+  });
+
+  it("keeps an inlet's Widen special and drops one it doesn't know", () => {
+    const state = sampleState();
+    const parsed = parseOneOffDraftState(serializeOneOffDraftState(state));
+    expect(parsed!.circular.rows![1].openings[1]).toMatchObject({
+      special: "WIDEN",
+      widenInches: "36",
+    });
+
+    const raw = JSON.parse(serializeOneOffDraftState(state));
+    raw.circular.rows[1].openings[1].special = "TELEPORT";
+    expect(parseOneOffDraftState(raw)!.circular.rows![1].openings[1]).toMatchObject({
+      special: "",
+      widenInches: "",
+    });
+    // Drafts saved before specials existed simply have none.
+    delete raw.circular.rows[1].openings[1].special;
+    delete raw.circular.rows[1].openings[1].widenInches;
+    expect(parseOneOffDraftState(raw)!.circular.rows![1].openings[1]).toMatchObject({
+      special: "",
+      widenInches: "",
+    });
   });
 
   it("opens a draft saved before inlets had their own pipe", () => {

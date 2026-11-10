@@ -21,6 +21,7 @@ import type { DrillSheetResult } from "@/lib/drill-sheet";
 import type { DrillSheetFormValues } from "@/lib/drill-sheet-detail";
 import {
   RECT_WALLS,
+  lookupRectOpeningSize,
   type RectStructureResult,
   type RectWall,
 } from "@/lib/rect-structure";
@@ -55,6 +56,26 @@ export type OneOffRectOptions = {
 };
 
 /**
+ * "Special" changes to one rectangular pipe opening, picked from a dropdown
+ * under the inlet's wall. To add one: list it here, give the cell whatever
+ * extra input it needs, and apply it in `rectOpeningSpecial`.
+ */
+export const ONE_OFF_OPENING_SPECIALS = [
+  { value: "WIDEN", label: "Widen" },
+] as const;
+
+export type OneOffOpeningSpecial =
+  | ""
+  | (typeof ONE_OFF_OPENING_SPECIALS)[number]["value"];
+
+export function isOpeningSpecial(value: unknown): value is OneOffOpeningSpecial {
+  return (
+    value === "" ||
+    ONE_OFF_OPENING_SPECIALS.some((special) => special.value === value)
+  );
+}
+
+/**
  * One pipe opening's cells in a row: invert, the inlet's own pipe (type and
  * size, since one structure can take different pipes), plus angle (circular)
  * or wall (rect). A blank pipe type or size means the row's default.
@@ -67,6 +88,10 @@ export type OneOffOpeningCell = {
   pipeSize: string;
   angle: string;
   wall: RectWall;
+  /** Rect only: the special change picked for this opening; blank = none. */
+  special: OneOffOpeningSpecial;
+  /** Widen: the opening's full width in inches (even numbers only). */
+  widenInches: string;
 };
 
 export type OneOffRow = {
@@ -143,7 +168,90 @@ export function createOpeningCell(
     pipeSize,
     angle: "",
     wall: RECT_DEFAULT_WALLS[index % RECT_DEFAULT_WALLS.length],
+    special: "",
+    widenInches: "",
   };
+}
+
+/**
+ * Picks an inlet's special. Inputs that belong to another special are
+ * cleared so a hidden value never rides along.
+ */
+export function setOpeningSpecial(
+  row: OneOffRow,
+  index: number,
+  special: OneOffOpeningSpecial,
+): OneOffRow {
+  return {
+    ...row,
+    openings: row.openings.map((cell, cellIndex) =>
+      cellIndex === index
+        ? {
+            ...cell,
+            special,
+            widenInches: special === "WIDEN" ? cell.widenInches : "",
+          }
+        : cell,
+    ),
+  };
+}
+
+/** "25" becomes "26": widths are whole even inches, rounded up. */
+export function snapToEvenInches(value: string): string {
+  const trimmed = value.trim();
+  const parsed = Number(trimmed);
+  if (trimmed === "" || !Number.isFinite(parsed) || parsed <= 0) {
+    return value;
+  }
+  const whole = Math.ceil(parsed - 1e-9);
+  const even = String(whole % 2 === 0 ? whole : whole + 1);
+  return even === trimmed ? value : even;
+}
+
+/** The catalog ("standard") opening width for a rect inlet's pipe, if listed. */
+export function standardRectOpeningWidth(
+  openingSizes: OneOffRectOptions["openingSizes"],
+  pipe: OneOffPipe,
+): number | null {
+  return (
+    lookupRectOpeningSize(
+      openingSizes,
+      pipe.pipeType,
+      pipe.pipeSize.trim() === "" ? null : Number(pipe.pipeSize),
+    )?.openingWidthInches ?? null
+  );
+}
+
+type RectOpeningSpecialResult =
+  | { widthOverrideInches: string }
+  | { error: string };
+
+/**
+ * What an inlet's special does to its rect opening, or why it can't be used
+ * yet. Widen sets the opening's full width; the height stays the catalog's.
+ */
+function rectOpeningSpecial(
+  cell: OneOffOpeningCell,
+  letter: string,
+  standardWidthInches: number | null,
+): RectOpeningSpecialResult {
+  if (cell.special !== "WIDEN") {
+    return { widthOverrideInches: "" };
+  }
+  const typed = cell.widenInches.trim();
+  if (typed === "") {
+    return { error: `Enter the Widen width for inlet ${letter}` };
+  }
+  const width = Number(typed);
+  if (!Number.isInteger(width) || width <= 0 || width % 2 !== 0) {
+    return { error: `Widen ${letter}: width must be an even number of inches` };
+  }
+  if (standardWidthInches != null && width <= standardWidthInches) {
+    return {
+      error: `Widen ${letter}: enter more than the standard ${standardWidthInches}" width`,
+    };
+  }
+  return { widthOverrideInches: String(width) };
 }
 
 export type OneOffPipe = { pipeType: string; pipeSize: string };
@@ -482,14 +590,7 @@ export function computeRectOneOffRow(
   }
 
   const filled = filledOpenings(row);
-  const openings = filled.map(({ cell, index, pipe }) => ({
-    ...createRectOpeningRow(openingLetter(index)),
-    wall: cell.wall,
-    pipeMaterial: pipe.pipeType,
-    pipeSizeInches: pipe.pipeSize,
-    invertElevation: cell.invert,
-  }));
-  if (openings.length === 0) {
+  if (filled.length === 0) {
     return notReady(
       row.rimElevation.trim() ? "Enter at least one invert" : "Enter rim and inverts",
     );
@@ -497,6 +598,26 @@ export function computeRectOneOffRow(
   const missingPipe = missingPipeStatus(filled);
   if (missingPipe) {
     return notReady(missingPipe);
+  }
+  const openings = [];
+  for (const { cell, index, pipe } of filled) {
+    const letter = openingLetter(index);
+    const special = rectOpeningSpecial(
+      cell,
+      letter,
+      standardRectOpeningWidth(options.openingSizes, pipe),
+    );
+    if ("error" in special) {
+      return notReady(special.error);
+    }
+    openings.push({
+      ...createRectOpeningRow(letter),
+      wall: cell.wall,
+      pipeMaterial: pipe.pipeType,
+      pipeSizeInches: pipe.pipeSize,
+      invertElevation: cell.invert,
+      widthOverrideInches: special.widthOverrideInches,
+    });
   }
 
   const preset = template.presetSizes[0];
@@ -632,9 +753,33 @@ export function circularRowFromSheet(
   };
 }
 
+/**
+ * A saved rect opening always carries its width. It only counts as widened
+ * when that width is more than the catalog's for its pipe (or the pipe is no
+ * longer in the catalog, so the saved width is all there is to go on).
+ */
+function widenFromSavedWidth(
+  opening: RectSheetFormValues["openings"][number],
+  openingSizes: OneOffRectOptions["openingSizes"],
+): Pick<OneOffOpeningCell, "special" | "widenInches"> {
+  const saved = parseNum(opening.widthOverrideInches);
+  if (saved == null || saved <= 0) {
+    return { special: "", widenInches: "" };
+  }
+  const standard = standardRectOpeningWidth(openingSizes, {
+    pipeType: opening.pipeMaterial.trim(),
+    pipeSize: opening.pipeSizeInches.trim(),
+  });
+  if (standard != null && saved <= standard) {
+    return { special: "", widenInches: "" };
+  }
+  return { special: "WIDEN", widenInches: String(saved) };
+}
+
 export function rectRowFromSheet(
   structureId: string,
   values: RectSheetFormValues,
+  openingSizes: OneOffRectOptions["openingSizes"],
 ): OneOffRow {
   return {
     id: structureId,
@@ -650,6 +795,7 @@ export function rectRowFromSheet(
       pipeType: opening.pipeMaterial.trim(),
       pipeSize: opening.pipeSizeInches.trim(),
       wall: isRectWall(opening.wall) ? opening.wall : createOpeningCell(index).wall,
+      ...widenFromSavedWidth(opening, openingSizes),
     })),
     insideLengthFeet: values.insideLengthFeet,
     insideWidthFeet: values.insideWidthFeet,
@@ -705,7 +851,9 @@ export function isRowChanged(row: OneOffRow, loaded: OneOffRow): boolean {
           (pipeKey(openingPipe(row, cell)) !==
             (before ? pipeKey(openingPipe(loaded, before)) : "") ||
             !sameNumberText(cell.angle, before?.angle ?? "") ||
-            cell.wall !== before?.wall))
+            cell.wall !== before?.wall ||
+            cell.special !== (before?.special ?? "") ||
+            !sameNumberText(cell.widenInches, before?.widenInches ?? "")))
       );
     })
   );
@@ -795,18 +943,16 @@ export function mergeRectRow(
     const saved = values.openings[index];
     const base = saved ?? createRectOpeningRow(openingLetter(index));
     const pipe = openingPipe(row, cell);
-    // A width override belongs to the saved pipe; a different pipe loses it.
-    const samePipe =
-      saved != null &&
-      saved.pipeMaterial.trim() === pipe.pipeType &&
-      saved.pipeSizeInches.trim() === pipe.pipeSize;
     return [
       {
         ...base,
         wall: cell.wall,
         pipeMaterial: pipe.pipeType,
         pipeSizeInches: pipe.pipeSize,
-        widthOverrideInches: samePipe ? saved.widthOverrideInches : "",
+        // The grid's Special cell is the opening's width: Widen sets it,
+        // anything else leaves the catalog width for the pipe.
+        widthOverrideInches:
+          cell.special === "WIDEN" ? cell.widenInches.trim() : "",
         invertElevation: cell.invert.trim(),
       },
     ];
