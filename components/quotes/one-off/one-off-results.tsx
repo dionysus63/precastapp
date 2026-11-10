@@ -6,6 +6,8 @@ import type { OneOffCreateResult } from "@/app/quotes/one-off-actions";
 import { PdfDragChip } from "@/components/common/pdf-drag-chip";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { DrillSheetPdfCanvasPreview } from "@/components/drill-sheets/drill-sheet-pdf-canvas-preview";
+import { OneOffAllSheetsButton } from "@/components/quotes/one-off/one-off-all-sheets-button";
+import { drillSheetsPacketHref } from "@/lib/drill-sheets-packet";
 
 const chipClassName =
   "rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50";
@@ -45,21 +47,30 @@ export function OneOffResults({
     setViewingId(sheetId);
     setActivePage(1);
   }
-  const allIds = result.sheets.map((sheet) => sheet.id).join(",");
-  const packetHref = `/api/jobs/${result.jobId}/drill-sheets?structureIds=${allIds}`;
+  const allIds = result.sheets.map((sheet) => sheet.id);
 
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-        <p className="font-semibold">
-          {result.sheets.length} drill sheet{result.sheets.length === 1 ? "" : "s"}{" "}
-          {mode} on{" "}
-          {result.jobCreated ? "new job " : "job "}
-          <Link href={`/jobs/${result.jobId}`} className="underline">
-            {result.jobNumber} — {result.projectName}
-          </Link>
-          .
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <p className="font-semibold">
+            {result.sheets.length} drill sheet{result.sheets.length === 1 ? "" : "s"}{" "}
+            {mode} on{" "}
+            {result.jobCreated ? "new job " : "job "}
+            <Link href={`/jobs/${result.jobId}`} className="underline">
+              {result.jobNumber} — {result.projectName}
+            </Link>
+            .
+          </p>
+          <OneOffAllSheetsButton
+            jobId={result.jobId}
+            jobNumber={result.jobNumber}
+            projectName={result.projectName}
+            sheetCount={result.sheets.length}
+            structureIds={allIds}
+            scope="these"
+          />
+        </div>
         {result.jobCreated && !result.folderCreated ? (
           <p className="mt-1 text-xs text-amber-800">
             The job&apos;s folders couldn&apos;t be created on the file share.
@@ -79,25 +90,16 @@ export function OneOffResults({
         <div className="grid gap-4 xl:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
           <SectionCard
             title="Drill Sheets"
-            description="Drag a PDF chip onto an email or folder. Click a card to view it."
+            description="Drag a PDF chip onto an email or folder, or the blue button above for every sheet in one file. Click a card to view it."
             action={
-              <div className="flex items-center gap-1.5">
-                <PdfDragChip
-                  href={`${packetHref}&download=1`}
-                  fileName={`drill-sheets-${safeFilePart(result.jobNumber)}.pdf`}
-                  title="Drag all of these sheets as one PDF — or click to download."
-                  label="All"
-                  className={chipClassName}
-                />
-                <a
-                  href={packetHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={chipClassName}
-                >
-                  Open All
-                </a>
-              </div>
+              <a
+                href={drillSheetsPacketHref(result.jobId, { structureIds: allIds })}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${chipClassName} shrink-0 whitespace-nowrap`}
+              >
+                Open All
+              </a>
             }
           >
             <ul className="space-y-2">

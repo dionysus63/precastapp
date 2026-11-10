@@ -20,6 +20,7 @@ export type JobDrillSheetsPdfResult =
       ok: true;
       bytes: Uint8Array;
       jobNumber: string;
+      projectName: string;
       jobFolderPath: string | null;
       included: string[];
       skipped: { structureNumber: string; reason: string }[];
@@ -36,7 +37,7 @@ export async function buildJobDrillSheetsPdfBytes(
   const job = await withDatabaseRetry((prisma) =>
     prisma.job.findUnique({
       where: { id: jobId },
-      select: { jobNumber: true, folderPath: true },
+      select: { jobNumber: true, projectName: true, folderPath: true },
     }),
   );
   if (!job) {
@@ -151,6 +152,7 @@ export async function buildJobDrillSheetsPdfBytes(
     ok: true,
     bytes: await merged.save(PDF_SAVE_OPTIONS),
     jobNumber: job.jobNumber,
+    projectName: job.projectName,
     jobFolderPath: job.folderPath ?? null,
     included,
     skipped,
