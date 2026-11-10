@@ -7,6 +7,7 @@ import {
   type ComputedSection,
   computeBaseTopToOpeningBottomInches,
   type DrillSheetResult,
+  findLowInvertOpeningIndex,
   formatPipeDescription,
   getTopOfBottomSlabElevation,
   type PipeConnectionType,
@@ -149,7 +150,16 @@ export function buildDrillSheetDetail(
   const sumpFeet = num(calc.sumpFeet) ?? 0;
   const topOfBottomSlabFeet = getTopOfBottomSlabElevation(lowInvert, sumpFeet);
 
-  let openings: ComputedOpening[] = sheet.openings.map((opening) => {
+  // Saved rows carry no outlet flag, so re-pick it the way the calculator
+  // does: one opening only, even when two inverts tie at the lowest.
+  const lowInvertIndex = findLowInvertOpeningIndex(
+    sheet.openings.map((opening) => ({
+      invertElevation: num(opening.invertElevation),
+      angleDegrees: num(opening.angle),
+    })),
+  );
+
+  let openings: ComputedOpening[] = sheet.openings.map((opening, index) => {
     const invert = num(opening.invertElevation);
     const bottomOfOpeningFeet = num(opening.bottomOfOpeningFeet);
     return {
@@ -165,10 +175,7 @@ export function buildDrillSheetDetail(
       pricePerBoot: num(opening.pricePerBoot),
       hasBoot: opening.connectionType === "KOR_N_SEAL",
       pipeWallThicknessInches: null,
-      isLowInvert:
-        invert != null &&
-        lowInvert != null &&
-        Math.abs(invert - lowInvert) < 1e-6,
+      isLowInvert: index === lowInvertIndex,
       topOfPipeFeet: num(opening.topOfPipeFeet),
       bottomOfOpeningFeet,
       topOfOpeningFeet: num(opening.topOfOpeningFeet),
