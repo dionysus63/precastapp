@@ -1,42 +1,53 @@
 import { describe, expect, it } from "vitest";
 import {
+  JOBS_DEFAULT_TAB_VALUES,
   isJobsDefaultTab,
-  jobsOpenTabParam,
-  resolveJobsOpenTab,
+  jobsLandingTabParam,
+  resolveJobsLandingTab,
 } from "@/lib/jobs-default-tab";
 
-describe("resolveJobsOpenTab", () => {
+describe("resolveJobsLandingTab", () => {
   it("opens the user's default tab on a bare /jobs", () => {
-    expect(resolveJobsOpenTab("", "OPEN")).toBe("open");
-    expect(resolveJobsOpenTab("", "MY_OPEN")).toBe("mine");
+    expect(resolveJobsLandingTab("", "OPEN")).toBe("open");
+    expect(resolveJobsLandingTab("", "MY_OPEN")).toBe("mine");
+    expect(resolveJobsLandingTab("", "FAVORITES")).toBe("favorites");
   });
 
   it("honors an explicit tab whatever the default is", () => {
-    expect(resolveJobsOpenTab("OPEN", "MY_OPEN")).toBe("open");
-    expect(resolveJobsOpenTab("MINE", "OPEN")).toBe("mine");
+    expect(resolveJobsLandingTab("OPEN", "MY_OPEN")).toBe("open");
+    expect(resolveJobsLandingTab("MINE", "OPEN")).toBe("mine");
+    expect(resolveJobsLandingTab("FAVORITES", "OPEN")).toBe("favorites");
+    expect(resolveJobsLandingTab("OPEN", "FAVORITES")).toBe("open");
   });
 
-  it("is neither open tab for other tabs and single statuses", () => {
+  it("is no landing tab for other tabs and single statuses", () => {
     for (const status of ["COMPLETE", "CLOSED", "ALL", "ACTIVE"]) {
-      expect(resolveJobsOpenTab(status, "OPEN")).toBeNull();
-      expect(resolveJobsOpenTab(status, "MY_OPEN")).toBeNull();
+      for (const defaultTab of JOBS_DEFAULT_TAB_VALUES) {
+        expect(resolveJobsLandingTab(status, defaultTab)).toBeNull();
+      }
     }
   });
 });
 
-describe("jobsOpenTabParam", () => {
-  it("keeps the default tab on the bare URL and spells out the other", () => {
-    expect(jobsOpenTabParam("open", "OPEN")).toBe("");
-    expect(jobsOpenTabParam("mine", "OPEN")).toBe("MINE");
-    expect(jobsOpenTabParam("open", "MY_OPEN")).toBe("OPEN");
-    expect(jobsOpenTabParam("mine", "MY_OPEN")).toBe("");
+describe("jobsLandingTabParam", () => {
+  it("keeps the default tab on the bare URL and spells out the others", () => {
+    expect(jobsLandingTabParam("open", "OPEN")).toBe("");
+    expect(jobsLandingTabParam("mine", "OPEN")).toBe("MINE");
+    expect(jobsLandingTabParam("favorites", "OPEN")).toBe("FAVORITES");
+    expect(jobsLandingTabParam("open", "MY_OPEN")).toBe("OPEN");
+    expect(jobsLandingTabParam("mine", "MY_OPEN")).toBe("");
+    expect(jobsLandingTabParam("open", "FAVORITES")).toBe("OPEN");
+    expect(jobsLandingTabParam("favorites", "FAVORITES")).toBe("");
   });
 
-  it("round-trips through resolveJobsOpenTab", () => {
-    for (const defaultTab of ["OPEN", "MY_OPEN"] as const) {
-      for (const tab of ["open", "mine"] as const) {
+  it("round-trips through resolveJobsLandingTab", () => {
+    for (const defaultTab of JOBS_DEFAULT_TAB_VALUES) {
+      for (const tab of ["open", "mine", "favorites"] as const) {
         expect(
-          resolveJobsOpenTab(jobsOpenTabParam(tab, defaultTab), defaultTab),
+          resolveJobsLandingTab(
+            jobsLandingTabParam(tab, defaultTab),
+            defaultTab,
+          ),
         ).toBe(tab);
       }
     }
@@ -44,9 +55,10 @@ describe("jobsOpenTabParam", () => {
 });
 
 describe("isJobsDefaultTab", () => {
-  it("accepts only the two stored values", () => {
+  it("accepts only the stored values", () => {
     expect(isJobsDefaultTab("OPEN")).toBe(true);
     expect(isJobsDefaultTab("MY_OPEN")).toBe(true);
+    expect(isJobsDefaultTab("FAVORITES")).toBe(true);
     expect(isJobsDefaultTab("MINE")).toBe(false);
     expect(isJobsDefaultTab("")).toBe(false);
     expect(isJobsDefaultTab(null)).toBe(false);

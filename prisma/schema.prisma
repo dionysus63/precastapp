@@ -2019,10 +2019,12 @@ enum UserRole {
   READ_ONLY
 }
 
-/// Jobs list tab a user lands on: every open job, or only the ones they created.
+/// Jobs list tab a user lands on: every open job, only the ones they created,
+/// or the jobs they starred.
 enum JobsDefaultTab {
   OPEN
   MY_OPEN
+  FAVORITES
 }
 
 enum AppPermission {

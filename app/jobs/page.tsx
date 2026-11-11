@@ -14,7 +14,7 @@ import {
   CLOSED_JOB_STATUSES,
   OPEN_JOB_STATUSES,
 } from "@/components/jobs/job-utils";
-import { resolveJobsOpenTab } from "@/lib/jobs-default-tab";
+import { resolveJobsLandingTab } from "@/lib/jobs-default-tab";
 import { JobStatus, type Prisma } from "@/app/generated/prisma/client";
 
 const JOB_LIST_SELECT = {
@@ -96,25 +96,32 @@ export default async function JobsPage({
         ? "desc"
         : "asc";
 
-  // The status param accepts pseudo-values for the pipeline tabs (OPEN, MINE,
-  // CLOSED, ALL) alongside single statuses (e.g. the dashboard's
+  // The status param accepts pseudo-values for the tabs (OPEN, MINE,
+  // FAVORITES, CLOSED, ALL) alongside single statuses (e.g. the dashboard's
   // ?status=ACTIVE link). Bare /jobs opens the user's default tab: every open
-  // job, or only the open jobs they created (Settings → My Preferences).
-  const openTab = resolveJobsOpenTab(statusParam, user.defaultJobsTab);
+  // job, only the open jobs they created, or the jobs they starred
+  // (Settings → My Preferences).
+  const landingTab = resolveJobsLandingTab(statusParam, user.defaultJobsTab);
   const myOpenWhere: Prisma.JobWhereInput = {
     status: { in: [...OPEN_JOB_STATUSES] },
     createdById: user.id,
   };
+  // Favorites are the user's starred jobs whatever their status.
+  const favoritesWhere: Prisma.JobWhereInput = {
+    favorites: { some: { userId: user.id } },
+  };
   const statusWhere: Prisma.JobWhereInput | null =
     statusParam === "ALL" || statusParam === "All"
       ? null
-      : openTab === "mine"
+      : landingTab === "mine"
         ? myOpenWhere
-        : statusParam === "CLOSED"
-          ? { status: { in: [...CLOSED_JOB_STATUSES] } }
-          : statusParam && statusParam in JobStatus
-            ? { status: statusParam as JobStatus }
-            : { status: { in: [...OPEN_JOB_STATUSES] } };
+        : landingTab === "favorites"
+          ? favoritesWhere
+          : statusParam === "CLOSED"
+            ? { status: { in: [...CLOSED_JOB_STATUSES] } }
+            : statusParam && statusParam in JobStatus
+              ? { status: statusParam as JobStatus }
+              : { status: { in: [...OPEN_JOB_STATUSES] } };
   const year = /^\d{4}$/.test(yearParam) ? Number(yearParam) : undefined;
 
   // Every filter except status — the tab counts are computed over this base
@@ -149,11 +156,11 @@ export default async function JobsPage({
 
   const [
     jobRecords,
-    favoriteRecords,
     yearRows,
     customerRows,
     statusGroups,
     myOpenCount,
+    favoritesCount,
   ] = await withDatabaseRetry((prisma) =>
       Promise.all([
         prisma.job.findMany({
@@ -163,12 +170,6 @@ export default async function JobsPage({
           skip: pageInfo.skip,
           take: pageInfo.take,
         }),
-        favoriteJobIds.length
-          ? prisma.job.findMany({
-              where: { id: { in: favoriteJobIds } },
-              select: JOB_LIST_SELECT,
-            })
-          : Promise.resolve([]),
         prisma.job.findMany({
           distinct: ["year"],
           select: { year: true },
@@ -185,16 +186,11 @@ export default async function JobsPage({
           where: baseWhere,
         }),
         prisma.job.count({ where: { AND: [baseWhere, myOpenWhere] } }),
+        prisma.job.count({ where: { AND: [baseWhere, favoritesWhere] } }),
       ]),
     );
 
   const rows = jobRecords.map(mapJobToRow);
-
-  const favoriteById = new Map(favoriteRecords.map((job) => [job.id, job]));
-  const favoriteJobs = favoriteJobIds
-    .map((id) => favoriteById.get(id))
-    .filter((job): job is (typeof favoriteRecords)[number] => job != null)
-    .map(mapJobToRow);
 
   const countByStatus = new Map(
     statusGroups.map((group) => [group.status, group._count._all]),
@@ -204,6 +200,7 @@ export default async function JobsPage({
   const tabCounts = {
     open: sumStatuses([...OPEN_JOB_STATUSES]),
     mine: myOpenCount,
+    favorites: favoritesCount,
     complete: countByStatus.get("COMPLETE") ?? 0,
     closed: sumStatuses([...CLOSED_JOB_STATUSES]),
     all: statusGroups.reduce((acc, group) => acc + group._count._all, 0),
@@ -222,7 +219,6 @@ export default async function JobsPage({
     >
       <JobsList
         jobs={rows}
-        favoriteJobs={favoriteJobs}
         favoriteJobIds={favoriteJobIds}
         pageInfo={pageInfo}
         tabCounts={tabCounts}

@@ -8,6 +8,7 @@ import {
 const OPTION_HINTS: Record<JobsDefaultTabValue, string> = {
   OPEN: "The Open tab: every open job, whoever created it.",
   MY_OPEN: "The My Open tab: only open jobs you created.",
+  FAVORITES: "The Favorites tab: the jobs you starred, open or not.",
 };
 
 /**

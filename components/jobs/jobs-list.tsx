@@ -15,8 +15,8 @@ import {
 } from "@/components/jobs/job-utils";
 import { JobFavoriteStar } from "@/components/jobs/job-favorite-star";
 import {
-  jobsOpenTabParam,
-  resolveJobsOpenTab,
+  jobsLandingTabParam,
+  resolveJobsLandingTab,
   type JobsDefaultTabValue,
 } from "@/lib/jobs-default-tab";
 import type { PageInfo } from "@/lib/list-params";
@@ -97,6 +97,8 @@ type JobTabCounts = {
   open: number;
   /** Open jobs the signed-in user created. */
   mine: number;
+  /** Jobs the signed-in user starred, whatever their status. */
+  favorites: number;
   complete: number;
   closed: number;
   all: number;
@@ -104,69 +106,16 @@ type JobTabCounts = {
 
 type JobsListProps = {
   jobs: JobRow[];
-  favoriteJobs: JobRow[];
   favoriteJobIds: string[];
   pageInfo: PageInfo;
   filters: JobsListFilters;
   tabCounts: JobTabCounts;
-  /** The user's own default tab: decides which open tab bare /jobs shows. */
+  /** The user's own default tab: decides which tab bare /jobs shows. */
   defaultTab: JobsDefaultTabValue;
   yearOptions: string[];
   customerOptions: string[];
   sort: { column: SortColumn; direction: SortDirection };
 };
-
-// Memoized so per-keystroke search-input state updates in JobsList don't
-// re-render every favorite chip; props only change on navigation.
-// Renders nothing until the user pins a job (via the star in the table).
-const JobsFavorites = memo(function JobsFavorites({
-  favoriteJobs,
-  favoriteIdSet,
-}: {
-  favoriteJobs: JobRow[];
-  favoriteIdSet: Set<string>;
-}) {
-  if (favoriteJobs.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
-        Pinned
-      </span>
-      {favoriteJobs.map((job) => (
-        <div
-          key={job.id}
-          className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs"
-        >
-          <JobFavoriteStar
-            jobId={job.id}
-            initialFavorited={favoriteIdSet.has(job.id)}
-          />
-          <Link
-            href={`/jobs/${job.id}`}
-            className="shrink-0 font-mono text-[11px] font-semibold text-slate-900 hover:text-slate-700"
-          >
-            {job.jobNumber}
-          </Link>
-          <span className="text-slate-300">·</span>
-          <Link
-            href={`/jobs/${job.id}`}
-            className="max-w-[140px] truncate font-medium text-slate-800 hover:text-slate-600 sm:max-w-[200px]"
-          >
-            {job.projectName}
-          </Link>
-          <span className="hidden text-slate-400 sm:inline">·</span>
-          <span className="hidden max-w-[120px] truncate text-slate-500 sm:inline">
-            {job.customer}
-          </span>
-          <StatusBadge label={job.status} variant={job.statusVariant} />
-        </div>
-      ))}
-    </div>
-  );
-});
 
 // Memoized so typing in the search box doesn't re-render the full row set;
 // rows only change when the server sends a new page.
@@ -282,7 +231,6 @@ const JobsTable = memo(function JobsTable({
 
 export function JobsList({
   jobs,
-  favoriteJobs,
   favoriteJobIds,
   pageInfo,
   filters,
@@ -317,21 +265,27 @@ export function JobsList({
     [favoriteJobIds],
   );
 
-  // Bare /jobs is whichever open tab the user picked as their default, so
-  // the other one carries an explicit status param.
-  const openTab = resolveJobsOpenTab(filters.status, defaultTab);
+  // Bare /jobs is whichever of these tabs the user picked as their default,
+  // so the others carry an explicit status param.
+  const landingTab = resolveJobsLandingTab(filters.status, defaultTab);
   const statusTabs = [
     {
       label: "Open",
-      param: jobsOpenTabParam("open", defaultTab),
+      param: jobsLandingTabParam("open", defaultTab),
       count: tabCounts.open,
-      isActive: openTab === "open",
+      isActive: landingTab === "open",
     },
     {
       label: "My Open",
-      param: jobsOpenTabParam("mine", defaultTab),
+      param: jobsLandingTabParam("mine", defaultTab),
       count: tabCounts.mine,
-      isActive: openTab === "mine",
+      isActive: landingTab === "mine",
+    },
+    {
+      label: "Favorites",
+      param: jobsLandingTabParam("favorites", defaultTab),
+      count: tabCounts.favorites,
+      isActive: landingTab === "favorites",
     },
     {
       label: "Complete",
@@ -361,11 +315,6 @@ export function JobsList({
 
   return (
     <div className="space-y-4">
-      <JobsFavorites
-        favoriteJobs={favoriteJobs}
-        favoriteIdSet={favoriteIdSet}
-      />
-
       <div className="border-b border-slate-200">
         <div className="-mb-px flex flex-wrap items-center gap-1">
           {statusTabs.map((tab) => (
@@ -460,12 +409,13 @@ export function JobsList({
           favoriteIdSet={favoriteIdSet}
           total={pageInfo.total}
           emptyMessage={
-            openTab === "mine" &&
-            !filters.search &&
-            !filters.year &&
-            !filters.customer
-              ? "You have no open jobs that you created."
-              : "No jobs match your search or filters."
+            filters.search || filters.year || filters.customer
+              ? "No jobs match your search or filters."
+              : landingTab === "mine"
+                ? "You have no open jobs that you created."
+                : landingTab === "favorites"
+                  ? "No favorite jobs yet. Click the star next to a job to add it here."
+                  : "No jobs match your search or filters."
           }
           sortColumn={sort.column}
           sortDirection={sort.direction}
