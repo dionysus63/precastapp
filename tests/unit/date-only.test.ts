@@ -4,6 +4,8 @@ import {
   calendarDateFromLocalDay,
   calendarDateToLocalNoon,
   formatCalendarDateShort,
+  formatSheetDate,
+  formatSheetDateInput,
   parseCalendarDate,
   parseLocalDay,
   startOfLocalDay,
@@ -40,6 +42,23 @@ describe("day values (timestamp columns, local midnight)", () => {
     const next = addLocalDays(new Date(2026, 9, 31), 2);
     expect(toLocalDayInput(next)).toBe("2026-11-02");
     expect(next.getHours()).toBe(0);
+  });
+});
+
+describe("drill sheet date (mm-dd-yyyy)", () => {
+  it("prints month-day-year with dashes and leading zeros", () => {
+    expect(formatSheetDate(new Date(2026, 10, 11))).toBe("11-11-2026");
+    expect(formatSheetDate(new Date(2026, 0, 2))).toBe("01-02-2026");
+  });
+
+  it("uses the local day of a late-evening instant", () => {
+    expect(formatSheetDate(new Date(2026, 9, 4, 21, 30))).toBe("10-04-2026");
+  });
+
+  it("converts a date field value, and blanks anything that is not a date", () => {
+    expect(formatSheetDateInput("2026-01-02")).toBe("01-02-2026");
+    expect(formatSheetDateInput("")).toBe("");
+    expect(formatSheetDateInput("2026-02-31")).toBe("");
   });
 });
 

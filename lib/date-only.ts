@@ -68,6 +68,23 @@ export function startOfLocalDay(date: Date = new Date()): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
+/**
+ * "11-04-2026" (mm-dd-yyyy) for a day value: the date printed on drill
+ * sheets, circular and rectangular, in the PDF and on screen.
+ */
+export function formatSheetDate(date: Date): string {
+  return `${pad(date.getMonth() + 1)}-${pad(date.getDate())}-${date.getFullYear()}`;
+}
+
+/**
+ * A date field's "yyyy-mm-dd" value as the drill sheet prints it
+ * ("mm-dd-yyyy"). Empty or not a real date -> "".
+ */
+export function formatSheetDateInput(value: string): string {
+  const day = parseLocalDay(value);
+  return day ? formatSheetDate(day) : "";
+}
+
 /** Today as "yyyy-mm-dd" in the office's local time zone. */
 export function localTodayInput(): string {
   return toLocalDayInput(new Date());

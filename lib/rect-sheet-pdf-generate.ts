@@ -1,4 +1,5 @@
 import type { RectSheetPreviewMeta } from "@/components/drill-sheets/rect-sheet-preview";
+import { formatSheetDate } from "@/lib/date-only";
 import { flattenPdfForms } from "@/lib/drill-sheet-pdf-generate";
 import {
   buildRectSheetFormValues,
@@ -50,9 +51,7 @@ export async function buildRectSheetPdfBytes(
   };
 
   return fillRectSheetPdf(meta, result, sheet.structureTemplate?.rectPdfSet ?? null, {
-    date: sheet.calc?.sheetDate
-      ? new Intl.DateTimeFormat("en-US").format(sheet.calc.sheetDate)
-      : "",
+    date: sheet.calc?.sheetDate ? formatSheetDate(sheet.calc.sheetDate) : "",
   });
 }
 
