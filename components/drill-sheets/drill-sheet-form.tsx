@@ -19,6 +19,10 @@ import {
   type PipeConnectionType,
 } from "@/lib/drill-sheet";
 import type { DrillSheetFormValues } from "@/lib/drill-sheet-detail";
+import {
+  type MoldDiameterBasis,
+  resolveSheetDiameter,
+} from "@/lib/mold-sheet-settings";
 
 import {
   tableBodyClassName,
@@ -76,6 +80,8 @@ type DiameterConfigOption = {
   maxBaseHeightFeet: number;
   maxRiserHeightFeet: number;
   keyHeightFeet: number;
+  hasKey?: boolean;
+  sheetDiameterBasis?: MoldDiameterBasis;
   wallPricePerFoot: number;
   basePrice: number;
 };
@@ -279,6 +285,10 @@ export function DrillSheetForm({
       Math.abs(config.insideDiameterFeet - selectedDiameter.insideDiameterFeet) <
         1e-6,
   );
+  const moldSheetDiameter = resolveSheetDiameter(
+    selectedDiameter?.insideDiameterFeet ?? null,
+    diameterConfig,
+  );
 
   const selectedCasting = castings.find((c) => c.id === castingId);
   const castingHeightFeet =
@@ -417,6 +427,7 @@ export function DrillSheetForm({
     date,
     castingName: selectedCasting?.name ?? "",
     insideDiameterFeet: selectedDiameter?.insideDiameterFeet ?? null,
+    sheetDiameter: moldSheetDiameter,
     hasSteps,
     inspection,
     approvedBy,
@@ -602,6 +613,11 @@ export function DrillSheetForm({
                   : ""}
                 max base {diameterConfig.maxBaseHeightFeet}&apos; · max riser{" "}
                 {diameterConfig.maxRiserHeightFeet}&apos;
+                {diameterConfig.hasKey === false ? " · no key" : ""}
+                {moldSheetDiameter.basis === "OUTSIDE" &&
+                moldSheetDiameter.feet != null
+                  ? ` · sheet shows ${moldSheetDiameter.feet}' OD`
+                  : ""}
               </p>
             )}
           </div>

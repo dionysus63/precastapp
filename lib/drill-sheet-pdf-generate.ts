@@ -6,6 +6,8 @@ import type {
   DrillSheetWithDetail,
 } from "@/lib/drill-sheet-detail";
 import { buildDrillSheetDetail } from "@/lib/drill-sheet-detail";
+import type { MoldSheetSettings } from "@/lib/mold-sheet-settings";
+import { loadMoldSheetSettings } from "@/lib/mold-sheet-settings-load";
 import { buildDrillSheetPdfHtml } from "@/lib/drill-sheet-pdf-html";
 import { appendDrillSheetFillablePage } from "@/lib/drill-sheet-pdf-fillable";
 import {
@@ -74,8 +76,13 @@ export type DrillSheetSetFile = {
 
 export async function buildDrillSheetPdfBytes(
   sheet: DrillSheetWithDetail,
+  /** Mold registry settings; loaded here when the caller has none handy. */
+  molds?: readonly MoldSheetSettings[],
 ): Promise<DrillSheetPdfBuildResult | null> {
-  const detail = buildDrillSheetDetail(sheet);
+  const detail = buildDrillSheetDetail(
+    sheet,
+    molds ?? (await loadMoldSheetSettings()),
+  );
   if (!detail) {
     return null;
   }

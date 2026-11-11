@@ -771,11 +771,22 @@ model StructureDiameterConfig {
   maxBaseHeightFeet  Decimal  @db.Decimal(6, 2)
   maxRiserHeightFeet Decimal  @db.Decimal(6, 2)
   keyHeightFeet      Decimal  @db.Decimal(6, 4)
+  /// False for molds whose wall is too thin to key (e.g. 4" grease traps):
+  /// every joint and the top slab are plain, and keyHeightFeet is ignored.
+  hasKey             Boolean  @default(true)
+  /// Which diameter drill sheets print for this mold. Manholes are called by
+  /// their inside diameter, grease traps by their outside diameter.
+  sheetDiameterBasis MoldDiameterBasis @default(INSIDE)
   sortOrder          Int      @default(0)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   priceEntries DiameterPriceListEntry[]
+}
+
+enum MoldDiameterBasis {
+  INSIDE
+  OUTSIDE
 }
 
 /// Per-price-list pricing for a circular mold. Geometry stays on the config;

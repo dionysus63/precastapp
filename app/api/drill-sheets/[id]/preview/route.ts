@@ -6,6 +6,7 @@ import {
   drillSheetDetailInclude,
 } from "@/lib/drill-sheet-detail";
 import { buildDrillSheetPdfBytes } from "@/lib/drill-sheet-pdf-generate";
+import { loadMoldSheetSettings } from "@/lib/mold-sheet-settings-load";
 import { rectSheetDetailInclude } from "@/lib/rect-sheet-detail";
 import { buildRectSheetPdfBytes } from "@/lib/rect-sheet-pdf-generate";
 import {
@@ -89,14 +90,15 @@ export async function GET(request: Request, context: RouteContext) {
       return new NextResponse("Drill sheet not found.", { status: 404 });
     }
 
-    const detail = buildDrillSheetDetail(sheet);
+    const molds = await loadMoldSheetSettings();
+    const detail = buildDrillSheetDetail(sheet, molds);
     if (!detail) {
       return new NextResponse("This structure is not a circular drill sheet.", {
         status: 404,
       });
     }
 
-    const built = await buildDrillSheetPdfBytes(sheet);
+    const built = await buildDrillSheetPdfBytes(sheet, molds);
     if (!built) {
       return new NextResponse("Could not build drill sheet PDF.", {
         status: 500,

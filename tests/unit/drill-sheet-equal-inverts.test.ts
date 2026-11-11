@@ -218,7 +218,7 @@ describe("drill sheet with two pipes at the same elevation", () => {
       },
     } as unknown as DrillSheetWithDetail;
 
-    const detail = buildDrillSheetDetail(sheet);
+    const detail = buildDrillSheetDetail(sheet, []);
     expect(detail).not.toBeNull();
     expect(detail?.result.openings.map((opening) => opening.isLowInvert)).toEqual([
       true,

@@ -12,6 +12,11 @@ import {
   getTopOfBottomSlabElevation,
   type PipeConnectionType,
 } from "@/lib/drill-sheet";
+import {
+  findMoldSheetSettings,
+  type MoldSheetSettings,
+  resolveSheetDiameter,
+} from "@/lib/mold-sheet-settings";
 
 export const drillSheetDetailInclude = {
   structureTemplate: {
@@ -138,13 +143,23 @@ export function buildDrillSheetFormValues(
   };
 }
 
+/**
+ * `molds` is the live mold registry (loadMoldSheetSettings). A saved sheet
+ * follows its mold's drill sheet settings as they are now: a mold switched to
+ * "no key" or to printing its outside diameter updates the sheets already
+ * made on it, without re-saving each one.
+ */
 export function buildDrillSheetDetail(
   sheet: DrillSheetWithDetail,
+  molds: readonly MoldSheetSettings[],
 ): DrillSheetDetail | null {
   const calc = sheet.calc;
   if (!calc) {
     return null;
   }
+  const insideDiameterFeet = num(calc.insideDiameterFeet);
+  const mold = findMoldSheetSettings(molds, insideDiameterFeet);
+  const keylessMold = mold != null && !mold.hasKey;
 
   const lowInvert = num(calc.lowestInvertFeet);
   const sumpFeet = num(calc.sumpFeet) ?? 0;
@@ -192,8 +207,8 @@ export function buildDrillSheetDetail(
     role: section.role as "BASE" | "RISER",
     heightFeet: Number(section.heightFeet),
     label: section.label,
-    hasBottomKey: section.hasBottomKey,
-    hasTopKey: section.hasTopKey,
+    hasBottomKey: keylessMold ? false : section.hasBottomKey,
+    hasTopKey: keylessMold ? false : section.hasTopKey,
   }));
 
   openings = annotateOpeningSections(openings, sections, topOfBottomSlabFeet);
@@ -213,8 +228,9 @@ export function buildDrillSheetDetail(
     rawAvailableFeet: null,
     wallHeightFeet: num(calc.wallHeightFeet) ?? 0,
     brickFeet: num(calc.brickFeet) ?? 0,
-    hasKey: calc.hasKey,
-    keyHeightFeet: 4 / 12,
+    hasKey: keylessMold ? false : calc.hasKey,
+    keyHeightFeet: keylessMold ? 0 : 4 / 12,
+    moldHasKey: !keylessMold,
     totalHeightFeet: num(calc.totalHeightFeet),
     baseSlabThicknessFeet: num(calc.baseSlabThicknessFeet),
     sections,
@@ -240,7 +256,8 @@ export function buildDrillSheetDetail(
       ? new Intl.DateTimeFormat("en-US").format(calc.sheetDate)
       : "",
     castingName: sheet.castings[0]?.castingDescription ?? "",
-    insideDiameterFeet: num(calc.insideDiameterFeet),
+    insideDiameterFeet,
+    sheetDiameter: resolveSheetDiameter(insideDiameterFeet, mold),
     hasSteps: calc.hasSteps,
     inspection: calc.inspection ?? "",
     approvedBy: calc.approvedBy ?? "",
