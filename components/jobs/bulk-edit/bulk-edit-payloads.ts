@@ -26,6 +26,7 @@ export function circularPayloadFromValues(
     useRiser: values.useRiser,
     brickAdjustment: values.brickAdjustment,
     rimElevation: values.rimElevation,
+    wallHeightAdjustInches: values.wallHeightAdjustInches ?? 0,
     openings: values.openings.map((opening) => ({
       label: opening.label,
       pipeMaterial: opening.pipeMaterial,
@@ -50,6 +51,7 @@ export function rectPayloadFromValues(values: RectSheetFormValues): unknown {
     approvedBy: values.approvedBy,
     rimElevation: values.rimElevation,
     brickTargetInches: values.brickTargetInches,
+    wallHeightAdjustInches: values.wallHeightAdjustInches ?? 0,
     insideLengthFeet: values.insideLengthFeet,
     insideWidthFeet: values.insideWidthFeet,
     hasTopSlab: values.hasTopSlab,

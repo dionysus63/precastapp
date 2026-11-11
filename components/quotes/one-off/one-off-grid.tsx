@@ -8,6 +8,7 @@ import {
   type ClipboardEvent,
   type KeyboardEvent,
 } from "react";
+import { formatWallHeightAdjust } from "@/lib/drill-sheet";
 import { RECT_WALL_LABELS, RECT_WALLS, type RectWall } from "@/lib/rect-structure";
 import {
   ONE_OFF_MAX_OPENINGS,
@@ -23,6 +24,8 @@ import {
   setOpeningSpecial,
   sizesForPipeType,
   standardRectOpeningWidth,
+  stepRowWallHeight,
+  wallHeightArrowState,
   type OneOffCircularOptions,
   type OneOffRectOptions,
   type OneOffRow,
@@ -467,6 +470,16 @@ export function OneOffGrid({
     onRowsChange(
       rows.map((row, index) =>
         index === rowIndex ? column.set(row, value) : row,
+      ),
+    );
+  }
+
+  /** One click of a wall height arrow: 6" up or down for that structure. */
+  function stepWallHeight(rowIndex: number, direction: 1 | -1) {
+    onActiveRowChange?.(rows[rowIndex].id);
+    onRowsChange(
+      rows.map((row, index) =>
+        index === rowIndex ? stepRowWallHeight(row, direction) : row,
       ),
     );
   }
@@ -918,17 +931,112 @@ export function OneOffGrid({
               <th scope="row" className={`${labelCellClassName} h-8`}>
                 Wall Ht
               </th>
-              {rows.map((row, rowIndex) => (
-                <td
-                  key={row.id}
-                  onClick={() => onActiveRowChange?.(row.id)}
-                  className={`${structureCellClass(rowIndex)} h-8 whitespace-nowrap px-1 text-[13px] font-medium tabular-nums text-slate-900`}
-                >
-                  {summaries[rowIndex].result?.wallHeightFeet != null
-                    ? `${summaries[rowIndex].result?.wallHeightFeet?.toFixed(2)}'`
-                    : "—"}
-                </td>
-              ))}
+              {rows.map((row, rowIndex) => {
+                // A wall moved by hand stands out from a calculated one.
+                const adjust = row.wallHeightAdjustInches ?? 0;
+                return (
+                  <td
+                    key={row.id}
+                    onClick={() => onActiveRowChange?.(row.id)}
+                    title={
+                      adjust !== 0
+                        ? `Moved ${formatWallHeightAdjust(adjust)} by hand`
+                        : undefined
+                    }
+                    className={`${structureCellClass(rowIndex)} h-8 whitespace-nowrap px-1 text-[13px] tabular-nums ${
+                      adjust !== 0
+                        ? "font-bold text-sky-700"
+                        : "font-medium text-slate-900"
+                    }`}
+                  >
+                    {summaries[rowIndex].result?.wallHeightFeet != null
+                      ? `${summaries[rowIndex].result?.wallHeightFeet?.toFixed(2)}'`
+                      : "—"}
+                  </td>
+                );
+              })}
+            </tr>
+            <tr>
+              <th scope="row" className={`${labelCellClassName} h-8`}>
+                Wall ± 6&quot;
+              </th>
+              {rows.map((row, rowIndex) => {
+                const adjust = row.wallHeightAdjustInches ?? 0;
+                const { result } = summaries[rowIndex];
+                const { canRaise, canLower } = wallHeightArrowState(row, result);
+                const calculated = result?.wallHeightFeet != null;
+                const arrowClassName =
+                  "flex w-[21px] shrink-0 items-center justify-center bg-slate-100 text-slate-700 hover:bg-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-500 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-slate-100";
+                return (
+                  <td
+                    key={row.id}
+                    onClick={() => onActiveRowChange?.(row.id)}
+                    className={`${structureCellClass(rowIndex)} h-8`}
+                  >
+                    <div className="flex h-8 items-stretch">
+                      <button
+                        type="button"
+                        onClick={() => stepWallHeight(rowIndex, -1)}
+                        disabled={!canLower}
+                        aria-label={`Lower the wall 6 inches on structure ${rowIndex + 1}`}
+                        title={
+                          canLower
+                            ? 'Lower the wall 6"'
+                            : calculated
+                              ? "The wall cannot go any lower"
+                              : "Enter the rim and inverts first"
+                        }
+                        className={`${arrowClassName} border-r border-slate-200`}
+                      >
+                        <svg
+                          aria-hidden="true"
+                          width="11"
+                          height="11"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M2 4 L6 8.5 L10 4" />
+                        </svg>
+                      </button>
+                      <span className="flex min-w-0 flex-1 items-center justify-center text-[10px] font-bold tabular-nums text-sky-700">
+                        {formatWallHeightAdjust(adjust)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => stepWallHeight(rowIndex, 1)}
+                        disabled={!canRaise}
+                        aria-label={`Raise the wall 6 inches on structure ${rowIndex + 1}`}
+                        title={
+                          canRaise
+                            ? 'Raise the wall 6"'
+                            : calculated
+                              ? "No brick left to raise the wall into"
+                              : "Enter the rim and inverts first"
+                        }
+                        className={`${arrowClassName} border-l border-slate-200`}
+                      >
+                        <svg
+                          aria-hidden="true"
+                          width="11"
+                          height="11"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M2 8 L6 3.5 L10 8" />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                );
+              })}
             </tr>
             <tr>
               <th scope="row" className={`${labelCellClassName} h-8`}>

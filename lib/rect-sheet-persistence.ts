@@ -7,6 +7,7 @@ import {
   type RectWall,
 } from "@/lib/rect-structure";
 import type { RectQuoteStructureConfig } from "@/lib/quotes/rect-structure-workbook";
+import { normalizeWallHeightAdjustInches } from "@/lib/drill-sheet";
 import { decimal, parseNum } from "@/lib/drill-sheet-persistence";
 import { localTodayInput, parseLocalDay } from "@/lib/date-only";
 import { prisma } from "@/lib/prisma";
@@ -40,6 +41,8 @@ export type RectSheetPayload = {
   rimElevation: string;
   /** Manual brick target in inches; "" = template minimum drives brick. */
   brickTargetInches: string;
+  /** Manual wall height change in inches (6" steps); missing = none. */
+  wallHeightAdjustInches?: number;
   insideLengthFeet: string;
   insideWidthFeet: string;
   hasTopSlab: boolean;
@@ -143,6 +146,9 @@ export function parseRectSheetPayloadData(parsed: unknown): RectSheetPayload {
     approvedBy: String(data.approvedBy ?? "").trim(),
     rimElevation: String(data.rimElevation ?? "").trim(),
     brickTargetInches: String(data.brickTargetInches ?? "").trim(),
+    wallHeightAdjustInches: normalizeWallHeightAdjustInches(
+      data.wallHeightAdjustInches,
+    ),
     insideLengthFeet: String(data.insideLengthFeet ?? "").trim(),
     insideWidthFeet: String(data.insideWidthFeet ?? "").trim(),
     hasTopSlab: data.hasTopSlab === true,
@@ -206,6 +212,7 @@ export async function loadAndComputeRectSheet(
     rimElevation: parseNum(payload.rimElevation),
     castingHeightFeet: casting?.heightFeet ?? 0,
     brickTargetInches: parseNum(payload.brickTargetInches),
+    wallHeightAdjustInches: payload.wallHeightAdjustInches ?? 0,
     insideLengthFeet: parseNum(payload.insideLengthFeet),
     insideWidthFeet: parseNum(payload.insideWidthFeet),
     hasTopSlab: payload.hasTopSlab,
@@ -321,6 +328,7 @@ export function buildRectCalcData(
     topSlabThicknessFeet: decimal(result.topSlabThicknessFeet),
     wallHeightFeet: decimal(result.wallHeightFeet),
     brickFeet: decimal(result.brickFeet),
+    wallHeightAdjustInches: result.wallHeightAdjustInches ?? 0,
     hasKey: result.sections.some((section) => section.hasBottomKey),
     totalHeightFeet: decimal(result.totalHeightFeet),
     insideLengthFeet: decimal(result.insideLengthFeet),
@@ -480,6 +488,7 @@ export async function createRectJobStructureFromQuoteConfig(
     approvedBy: "",
     rimElevation: String(config.rimElevation),
     brickTargetInches: "",
+    wallHeightAdjustInches: config.wallHeightAdjustInches ?? 0,
     insideLengthFeet: String(config.insideLengthFeet),
     insideWidthFeet: String(config.insideWidthFeet),
     hasTopSlab: config.hasTopSlab,

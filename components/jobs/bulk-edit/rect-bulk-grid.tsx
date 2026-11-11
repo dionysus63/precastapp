@@ -89,6 +89,7 @@ export function computeRectPreview(
     rimElevation: parseNum(values.rimElevation),
     castingHeightFeet: castingHeightFeet ?? 0,
     brickTargetInches: parseNum(values.brickTargetInches),
+    wallHeightAdjustInches: values.wallHeightAdjustInches ?? 0,
     insideLengthFeet: parseNum(values.insideLengthFeet),
     insideWidthFeet: parseNum(values.insideWidthFeet),
     hasTopSlab: values.hasTopSlab,

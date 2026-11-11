@@ -99,6 +99,7 @@ export function computeCircularPreview(
   const input: DrillSheetInput = {
     rimElevation: parseNum(values.rimElevation),
     castingHeightFeet: castingHeightFeet ?? 0,
+    wallHeightAdjustInches: values.wallHeightAdjustInches ?? 0,
     diameter: diameterConfig,
     template: {
       wallThicknessInches: template.wallThicknessInches,

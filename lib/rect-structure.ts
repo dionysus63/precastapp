@@ -17,7 +17,13 @@
 //   - Pricing is per vertical foot of wall from the template, with a minimum
 //     billed height.
 
-import { computeWallHeightFeet, type SumpMode } from "@/lib/drill-sheet";
+import {
+  applyWallHeightAdjust,
+  computeWallHeightFeet,
+  normalizeWallHeightAdjustInches,
+  wallHeightAdjustError,
+  type SumpMode,
+} from "@/lib/drill-sheet";
 import { RECT_OPENING_ROWS } from "@/lib/rect-template-pdf-fields";
 
 /** Rows in the printed sheet's INVERT/DIA/TYPE openings table (A-E). */
@@ -125,6 +131,12 @@ export type RectStructureInput = {
    * leaving at least this much brick. Null = template minimum drives it.
    */
   brickTargetInches?: number | null;
+  /**
+   * Manual wall height change in inches, in 6" steps (Quick Build's up/down
+   * arrows), on top of whatever the brick rules above settle on. It comes
+   * out of the brick or goes back into it. Blank or 0 = no change.
+   */
+  wallHeightAdjustInches?: number | null;
   /** Manual section heights, bottom-to-top. Empty = single pour. */
   sectionHeightsFeet: number[];
   /** Key toggle for the joint above section i (length = sections - 1). */
@@ -201,6 +213,8 @@ export type RectStructureResult = {
   rawAvailableFeet: number | null;
   wallHeightFeet: number;
   brickFeet: number;
+  /** The manual wall height change that is part of wallHeightFeet (0 = none). */
+  wallHeightAdjustInches?: number;
   /** Floor elevation: top of base slab, or bottom of walls when no base. */
   floorElevation: number | null;
   totalHeightFeet: number | null;
@@ -733,6 +747,10 @@ export function computeRectStructure(
     ? round4(inchesToFeet(template.baseSlabThicknessInches))
     : 0;
 
+  const wallHeightAdjustInches = normalizeWallHeightAdjustInches(
+    input.wallHeightAdjustInches,
+  );
+  let wallAdjustError: string | null = null;
   let rawAvailableFeet: number | null = null;
   let wallHeightFeet = 0;
   let brickFeet = 0;
@@ -766,6 +784,21 @@ export function computeRectStructure(
       );
       wallHeightFeet = rounded.wallHeightFeet;
       brickFeet = rounded.brickFeet;
+    }
+    if (wallHeightAdjustInches !== 0) {
+      const adjusted = applyWallHeightAdjust(
+        { wallHeightFeet, brickFeet },
+        rawAvailableFeet,
+        wallHeightAdjustInches,
+      );
+      wallHeightFeet = adjusted.wallHeightFeet;
+      brickFeet = adjusted.brickFeet;
+      if (adjusted.shortByFeet > 0) {
+        wallAdjustError = wallHeightAdjustError(
+          wallHeightAdjustInches,
+          adjusted.shortByFeet,
+        );
+      }
     }
   }
 
@@ -984,7 +1017,7 @@ export function computeRectStructure(
   const sectionsSum = round4(
     rawHeights.reduce((sum, height) => sum + height, 0),
   );
-  let errorMessage: string | null = null;
+  let errorMessage: string | null = wallAdjustError;
   if (
     rawHeights.length > 0 &&
     wallHeightFeet > EPSILON &&
@@ -1153,6 +1186,7 @@ export function computeRectStructure(
     rawAvailableFeet,
     wallHeightFeet: round4(wallHeightFeet),
     brickFeet: round4(brickFeet),
+    wallHeightAdjustInches,
     floorElevation,
     totalHeightFeet,
     sections,

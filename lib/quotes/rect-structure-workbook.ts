@@ -22,7 +22,10 @@ import {
   type RectStructureResult,
   type RectWall,
 } from "@/lib/rect-structure";
-import { formatFeetInchesShort } from "@/lib/drill-sheet";
+import {
+  formatFeetInchesShort,
+  normalizeWallHeightAdjustInches,
+} from "@/lib/drill-sheet";
 
 export type RectQuoteDetailLevel = "QUOTE" | "FULL";
 
@@ -77,6 +80,8 @@ export type RectQuoteStructureConfig = {
     qty: number;
   }[];
   wallHeightFeet?: number;
+  /** Manual wall height change in inches (Quick Build arrows); unset = none. */
+  wallHeightAdjustInches?: number;
   heaviestPickLbs?: number | null;
   wallPrice?: number;
   topSlabPrice?: number;
@@ -121,6 +126,8 @@ export type RectWorkbookRow = {
   penetrations: RectWorkbookPenetration[];
   openings: RectWorkbookOpeningRow[];
   qty: string;
+  /** Manual wall height change in inches (Quick Build arrows); unset = none. */
+  wallHeightAdjustInches?: number;
   wallHeightFeet: number | null;
   heaviestPickLbs: number | null;
   unitPrice: number | null;
@@ -566,6 +573,7 @@ export function computeRectWorkbookRowDetail(
       offsetInches: parseNum(opening.offsetInches),
       widthOverrideInches: parseNum(opening.widthOverrideInches),
     })),
+    wallHeightAdjustInches: workingRow.wallHeightAdjustInches ?? 0,
     // Splits are decided at drill-sheet time; quote pricing is split-neutral.
     sectionHeightsFeet: [],
     jointKeys: [],
@@ -703,6 +711,9 @@ function buildRectQuoteConfig(
     detailLevel,
     openings,
     wallHeightFeet: result.wallHeightFeet,
+    ...(result.wallHeightAdjustInches
+      ? { wallHeightAdjustInches: result.wallHeightAdjustInches }
+      : {}),
     heaviestPickLbs: result.weights.heaviestLbs,
     wallPrice: result.wallPrice,
     topSlabPrice: result.topSlabPrice,
@@ -1043,6 +1054,13 @@ export function parseRectStructureConfigJson(
     openings,
     wallHeightFeet:
       typeof data.wallHeightFeet === "number" ? data.wallHeightFeet : undefined,
+    ...(normalizeWallHeightAdjustInches(data.wallHeightAdjustInches)
+      ? {
+          wallHeightAdjustInches: normalizeWallHeightAdjustInches(
+            data.wallHeightAdjustInches,
+          ),
+        }
+      : {}),
     heaviestPickLbs:
       typeof data.heaviestPickLbs === "number" ? data.heaviestPickLbs : null,
     wallPrice: typeof data.wallPrice === "number" ? data.wallPrice : undefined,

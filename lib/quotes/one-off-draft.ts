@@ -19,6 +19,7 @@ import {
   type OneOffSetup,
   type OneOffShapeChoice,
 } from "@/lib/quotes/one-off-drill-sheets";
+import { normalizeWallHeightAdjustInches } from "@/lib/drill-sheet";
 import { RECT_WALLS, type RectWall } from "@/lib/rect-structure";
 
 export type OneOffJobDetails = {
@@ -192,6 +193,13 @@ export function parseOneOffRow(
       };
     }),
   };
+  // Drafts saved before the wall arrows existed have no adjustment.
+  const wallHeightAdjustInches = normalizeWallHeightAdjustInches(
+    value.wallHeightAdjustInches,
+  );
+  if (wallHeightAdjustInches !== 0) {
+    row.wallHeightAdjustInches = wallHeightAdjustInches;
+  }
   if (typeof value.insideLengthFeet === "string") {
     row.insideLengthFeet = value.insideLengthFeet;
   }
