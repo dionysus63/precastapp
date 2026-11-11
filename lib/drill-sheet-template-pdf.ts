@@ -20,6 +20,7 @@ import {
 import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import type { DrillSheetPreviewMeta } from "@/components/drill-sheets/drill-sheet-preview";
 import { angleToClockPosition } from "@/lib/drill-sheet-diagram";
+import { printedSheetDiameter } from "@/lib/mold-sheet-settings";
 import { toWinAnsiText } from "@/lib/pdf-text";
 import {
   type ComputedOpening,
@@ -293,6 +294,8 @@ export function buildDrillSheetFieldMap(
   result: DrillSheetResult,
 ): Record<string, string> {
   const hasRiser = result.sections.some((section) => section.role === "RISER");
+  // Inside Ø, or outside Ø for molds called by their OD (grease traps).
+  const sheetDiameterFeet = printedSheetDiameter(meta).feet;
   const map: Record<string, string> = {
     contractor: meta.contractor,
     project: meta.project,
@@ -303,9 +306,7 @@ export function buildDrillSheetFieldMap(
     approved_by: meta.approvedBy,
     template_name: meta.templateName,
     diameter:
-      meta.insideDiameterFeet != null
-        ? formatFeetInches(meta.insideDiameterFeet)
-        : "",
+      sheetDiameterFeet != null ? formatFeetInches(sheetDiameterFeet) : "",
     rim_elevation: decimalFeet(result.rimElevation),
     rim_elevation_calcs: decimalFeet(result.rimElevation),
     low_invert: decimalFeet(result.lowInvertElevation),
@@ -336,7 +337,7 @@ export function buildDrillSheetFieldMap(
         : "",
     // Alias for the "Use: __'Ø" blank on templates that kept the old name.
     "Manhole Diameter":
-      meta.insideDiameterFeet != null ? String(meta.insideDiameterFeet) : "",
+      sheetDiameterFeet != null ? String(sheetDiameterFeet) : "",
     top_slab_thickness_inches: inchesFromFeet(result.topSlabThicknessFeet),
     base_height_inches: inchesFromFeet(baseSectionHeightFeet(result)),
     // Feet-and-inches variants for templates whose blanks print e.g. 4'-0".
@@ -347,7 +348,7 @@ export function buildDrillSheetFieldMap(
     ),
     // Bare feet number for the "Use: __'Ø" blank (template prints the 'Ø).
     diameter_feet_only:
-      meta.insideDiameterFeet != null ? String(meta.insideDiameterFeet) : "",
+      sheetDiameterFeet != null ? String(sheetDiameterFeet) : "",
     base_slab_thickness_inches: inchesFromFeet(result.baseSlabThicknessFeet),
     bottom_casting_elevation: decimalFeet(elevationFeet(result, "casting")),
     top_of_top_slab_elevation: decimalFeet(elevationFeet(result, "top-slab-top")),
@@ -977,6 +978,10 @@ function drawNoKeyNote(
 ): void {
   const layout = riserCircle ?? planCircle;
   if (!layout) {
+    return;
+  }
+  // A keyless mold never has a key, so its absence isn't worth a red flag.
+  if (result.moldHasKey === false) {
     return;
   }
   const missingSlabKey = !result.hasKey;

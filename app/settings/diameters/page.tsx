@@ -57,6 +57,8 @@ export default async function StructureDiametersSettingsPage({
       maxBaseHeightFeet: String(config.maxBaseHeightFeet),
       maxRiserHeightFeet: String(config.maxRiserHeightFeet),
       keyHeightFeet: String(config.keyHeightFeet),
+      hasKey: config.hasKey,
+      sheetDiameterBasis: config.sheetDiameterBasis,
       wallPricePerFoot: entry ? String(entry.wallPricePerFoot) : "",
       basePrice: entry ? String(entry.basePrice) : "",
     };
@@ -65,7 +67,7 @@ export default async function StructureDiametersSettingsPage({
   return (
     <SettingsShell
       title="Structure Molds"
-      subtitle="One row per circular mold: wall thickness, max pour heights, and key height are shared; wall/base prices belong to the selected price list."
+      subtitle="One row per circular mold: wall thickness, max pour heights, key, and the diameter shown on drill sheets are shared; wall/base prices belong to the selected price list."
     >
       <SettingsFeedback
         error={params.error ? decodeURIComponent(params.error) : null}

@@ -8,6 +8,7 @@ import type {
   RectSheetTemplateOption,
   RectSheetOpeningSizeOption,
 } from "@/components/drill-sheets/rect-sheet-form";
+import type { MoldDiameterBasis } from "@/lib/mold-sheet-settings";
 import { prisma } from "@/lib/prisma";
 import { loadStructurePricing } from "@/lib/structure-pricing";
 
@@ -34,6 +35,10 @@ export type DrillSheetFormOptions = {
     maxBaseHeightFeet: number;
     maxRiserHeightFeet: number;
     keyHeightFeet: number;
+    /** False = keyless mold (no key on the top slab or any joint). */
+    hasKey: boolean;
+    /** Which diameter the mold's drill sheets print. */
+    sheetDiameterBasis: MoldDiameterBasis;
     wallPricePerFoot: number;
     basePrice: number;
     /** No price entry on any list — priced at 0 until settings are filled in. */
@@ -160,6 +165,8 @@ export async function loadDrillSheetFormOptions(
         maxBaseHeightFeet: Number(config.maxBaseHeightFeet),
         maxRiserHeightFeet: Number(config.maxRiserHeightFeet),
         keyHeightFeet: Number(config.keyHeightFeet),
+        hasKey: config.hasKey,
+        sheetDiameterBasis: config.sheetDiameterBasis,
         wallPricePerFoot: price?.wallPricePerFoot ?? 0,
         basePrice: price?.basePrice ?? 0,
         priceMissing: !price,

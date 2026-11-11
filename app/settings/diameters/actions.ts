@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { Prisma, AppPermission } from "@/app/generated/prisma/client";
+import {
+  Prisma,
+  AppPermission,
+  MoldDiameterBasis,
+} from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { returnActionError } from "@/lib/server/action-errors";
@@ -14,6 +18,9 @@ type DiameterConfigPayload = {
   maxBaseHeightFeet: number;
   maxRiserHeightFeet: number;
   keyHeightFeet: number;
+  /** False = keyless mold; keyHeightFeet is kept but ignored by the calc. */
+  hasKey: boolean;
+  sheetDiameterBasis: MoldDiameterBasis;
   /** "" = no price entry on the selected list (falls back to the default list). */
   wallPricePerFoot: string;
   basePrice: string;
@@ -47,7 +54,19 @@ function parseDiameterConfigPayload(formData: FormData): DiameterConfigPayload[]
     const wallThicknessInches = wallRaw === "" ? null : Number(wallRaw);
     const maxBaseHeightFeet = Number(row.maxBaseHeightFeet);
     const maxRiserHeightFeet = Number(row.maxRiserHeightFeet);
-    const keyHeightFeet = Number(row.keyHeightFeet);
+    // A keyless mold's key height is hidden in the grid and ignored by the
+    // calc; whatever was there is kept so switching the key back on restores
+    // it, and a blank or bad value can't drop the row.
+    const hasKey = row.hasKey !== false;
+    const rawKeyHeight = Number(row.keyHeightFeet);
+    const keyHeightFeet =
+      hasKey || (Number.isFinite(rawKeyHeight) && rawKeyHeight >= 0)
+        ? rawKeyHeight
+        : 0;
+    const sheetDiameterBasis =
+      row.sheetDiameterBasis === MoldDiameterBasis.OUTSIDE
+        ? MoldDiameterBasis.OUTSIDE
+        : MoldDiameterBasis.INSIDE;
 
     if (
       !Number.isFinite(insideDiameterFeet) ||
@@ -71,6 +90,15 @@ function parseDiameterConfigPayload(formData: FormData): DiameterConfigPayload[]
       );
     }
 
+    if (
+      sheetDiameterBasis === MoldDiameterBasis.OUTSIDE &&
+      wallThicknessInches == null
+    ) {
+      throw new Error(
+        `Enter a wall thickness for ${label ?? `${insideDiameterFeet}'`} — drill sheets can't show its outside diameter without one.`,
+      );
+    }
+
     result.push({
       label,
       insideDiameterFeet,
@@ -78,6 +106,8 @@ function parseDiameterConfigPayload(formData: FormData): DiameterConfigPayload[]
       maxBaseHeightFeet,
       maxRiserHeightFeet,
       keyHeightFeet,
+      hasKey,
+      sheetDiameterBasis,
       wallPricePerFoot: String(row.wallPricePerFoot ?? "").trim(),
       basePrice: String(row.basePrice ?? "").trim(),
     });
@@ -138,6 +168,8 @@ async function saveStructureDiameterConfigsOrThrow(formData: FormData) {
         maxBaseHeightFeet: decimal(entry.maxBaseHeightFeet),
         maxRiserHeightFeet: decimal(entry.maxRiserHeightFeet),
         keyHeightFeet: decimal(entry.keyHeightFeet),
+        hasKey: entry.hasKey,
+        sheetDiameterBasis: entry.sheetDiameterBasis,
         sortOrder: index,
       };
       const current = existingByDiameter.get(entry.insideDiameterFeet);

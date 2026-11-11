@@ -28,6 +28,8 @@ export default async function NewStructureTemplatePage() {
         : null,
     maxBaseHeightFeet: Number(mold.maxBaseHeightFeet),
     maxRiserHeightFeet: Number(mold.maxRiserHeightFeet),
+    hasKey: mold.hasKey,
+    sheetDiameterBasis: mold.sheetDiameterBasis,
   }));
 
   return (

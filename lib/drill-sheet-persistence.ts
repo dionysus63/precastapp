@@ -205,6 +205,8 @@ export async function loadAndComputeDrillSheet(
       maxBaseHeightFeet: Number(diameterConfig.maxBaseHeightFeet),
       maxRiserHeightFeet: Number(diameterConfig.maxRiserHeightFeet),
       keyHeightFeet: Number(diameterConfig.keyHeightFeet),
+      hasKey: diameterConfig.hasKey,
+      sheetDiameterBasis: diameterConfig.sheetDiameterBasis,
       wallPricePerFoot,
       basePrice,
       wallThicknessInches:

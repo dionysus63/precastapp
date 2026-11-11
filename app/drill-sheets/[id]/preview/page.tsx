@@ -1,3 +1,4 @@
+import { loadMoldSheetSettings } from "@/lib/mold-sheet-settings-load";
 import { notFound } from "next/navigation";
 import { requireAuthForPath } from "@/lib/auth/session";
 import { DrillSheetPreviewContent } from "@/components/drill-sheets/drill-sheet-preview-content";
@@ -27,7 +28,7 @@ export default async function DrillSheetPreviewPage({
     notFound();
   }
 
-  const detail = buildDrillSheetDetail(sheet);
+  const detail = buildDrillSheetDetail(sheet, await loadMoldSheetSettings());
   if (!detail) {
     notFound();
   }

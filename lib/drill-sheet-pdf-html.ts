@@ -10,6 +10,7 @@ import {
   getStructureElevations,
 } from "@/lib/drill-sheet";
 import { angleToClockPosition } from "@/lib/drill-sheet-diagram";
+import { printedSheetDiameter } from "@/lib/mold-sheet-settings";
 import { getAppSettings } from "@/lib/app-settings";
 import { getCompanyLogoDataUri } from "@/lib/company-logo";
 
@@ -62,6 +63,7 @@ function buildHeaderHtml(
 }
 
 function buildMetaPanel(meta: DrillSheetPreviewMeta) {
+  const sheetDiameter = printedSheetDiameter(meta);
   const rows = [
     ["Structure #", meta.manholeNumber || "—"],
     ["Template", meta.templateName || "—"],
@@ -70,10 +72,8 @@ function buildMetaPanel(meta: DrillSheetPreviewMeta) {
     ["Date", meta.date || "—"],
     ["Casting", meta.castingName || "—"],
     [
-      "Inside Diameter",
-      meta.insideDiameterFeet != null
-        ? formatFeetInches(meta.insideDiameterFeet)
-        : "—",
+      sheetDiameter.basis === "OUTSIDE" ? "Outside Diameter" : "Inside Diameter",
+      sheetDiameter.feet != null ? formatFeetInches(sheetDiameter.feet) : "—",
     ],
     ["Steps", meta.hasSteps ? "Yes" : "No"],
     ["Inspection", meta.inspection || "—"],

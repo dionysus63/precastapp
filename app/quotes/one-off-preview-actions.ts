@@ -10,6 +10,10 @@ import {
   loadRectSheetFormOptions,
 } from "@/lib/drill-sheet-options";
 import { buildDrillSheetPdfFromDetail } from "@/lib/drill-sheet-pdf-generate";
+import {
+  findMoldSheetSettings,
+  resolveSheetDiameter,
+} from "@/lib/mold-sheet-settings";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { parseOneOffRow } from "@/lib/quotes/one-off-draft";
 import {
@@ -97,6 +101,9 @@ export async function renderOneOffSheetPreview(input: OneOffSheetPreviewInput) {
       const casting = loaded.castingOptions.find(
         (entry) => entry.id === row.castingProductId,
       );
+      const insideDiameterFeet = row.diameterFeet
+        ? Number(row.diameterFeet)
+        : null;
       const meta: DrillSheetPreviewMeta = {
         templateName: template.name,
         manholeNumber: row.structureNumber,
@@ -104,7 +111,11 @@ export async function renderOneOffSheetPreview(input: OneOffSheetPreviewInput) {
         project,
         date: today,
         castingName: casting?.name ?? "",
-        insideDiameterFeet: row.diameterFeet ? Number(row.diameterFeet) : null,
+        insideDiameterFeet,
+        sheetDiameter: resolveSheetDiameter(
+          insideDiameterFeet,
+          findMoldSheetSettings(loaded.diameterConfigs, insideDiameterFeet),
+        ),
         hasSteps: false,
         inspection: "",
         approvedBy: "",

@@ -3,6 +3,8 @@
 // All elevations and heights are expressed in DECIMAL FEET unless a name ends in
 // `Inches`. Framework-agnostic (no Prisma / React imports).
 
+import type { MoldDiameterBasis } from "@/lib/mold-sheet-settings";
+
 export type SectionRole = "BASE" | "RISER";
 
 export type PipeConnectionType =
@@ -33,6 +35,14 @@ export type DiameterConfig = {
   maxBaseHeightFeet: number;
   maxRiserHeightFeet: number;
   keyHeightFeet: number;
+  /**
+   * False for a keyless mold (wall too thin to key, e.g. 4" grease traps):
+   * the top slab and every joint are plain and keyHeightFeet is ignored.
+   * Undefined = keyed, as every mold was before the option existed.
+   */
+  hasKey?: boolean;
+  /** Which diameter drill sheets print for this mold (default inside). */
+  sheetDiameterBasis?: MoldDiameterBasis;
   wallPricePerFoot: number;
   basePrice: number;
   /** Mold registry extras (display/enforcement; the calc doesn't use them). */
@@ -116,6 +126,11 @@ export type DrillSheetResult = {
   hasKey: boolean;
   /** Key height for this diameter (drawing detail; 4" when unknown). */
   keyHeightFeet: number;
+  /**
+   * False when the mold forms no key at all — "no key" is then the normal
+   * state, not an exception worth flagging on the sheet. Undefined = keyed.
+   */
+  moldHasKey?: boolean;
   totalHeightFeet: number | null;
   baseSlabThicknessFeet: number | null;
   sections: ComputedSection[];
@@ -539,6 +554,16 @@ function computeOpeningGeometry(
   };
 }
 
+/** Whether the mold forms a key at all (keyless molds: grease traps). */
+export function moldHasKey(diameter: Pick<DiameterConfig, "hasKey">): boolean {
+  return diameter.hasKey !== false;
+}
+
+/** Key height the calc uses: zero on a keyless mold, whatever is stored. */
+function effectiveKeyHeightFeet(diameter: DiameterConfig): number {
+  return moldHasKey(diameter) ? diameter.keyHeightFeet : 0;
+}
+
 function getTopSlabThicknessFeet(
   template: TemplateConfig,
   diameter: DiameterConfig,
@@ -548,7 +573,9 @@ function getTopSlabThicknessFeet(
   if (hasKey) {
     return round4(full);
   }
-  return round4(Math.max(full - diameter.keyHeightFeet, 0));
+  // A keyed mold's slab loses its key; a keyless mold's slab was always
+  // flat, so the template thickness stands as entered.
+  return round4(Math.max(full - effectiveKeyHeightFeet(diameter), 0));
 }
 
 function highestOpeningTop(openings: ComputedOpening[]): number | null {
@@ -888,6 +915,44 @@ export function selectSections(
   floorElevation: number | null,
   openings: ComputedOpening[],
 ): SelectSectionsResult {
+  if (moldHasKey(diameter)) {
+    return solveSections(
+      wallHeightFeet,
+      diameter,
+      template,
+      floorElevation,
+      openings,
+    );
+  }
+  // Keyless mold: solve with zero-height key zones (so no joint ever needs
+  // its key "removed"), then mark every joint plain.
+  const solved = solveSections(
+    wallHeightFeet,
+    { ...diameter, keyHeightFeet: 0 },
+    template,
+    floorElevation,
+    openings,
+  );
+  return {
+    ...solved,
+    sections: solved.sections.map((section) => ({
+      ...section,
+      hasBottomKey: false,
+      hasTopKey: false,
+    })),
+    errorMessage: solved.errorMessage
+      ? "No base/riser combination clears every pipe opening. Check opening inverts, hole sizes, and mold heights."
+      : null,
+  };
+}
+
+function solveSections(
+  wallHeightFeet: number,
+  diameter: DiameterConfig,
+  template: TemplateConfig,
+  floorElevation: number | null,
+  openings: ComputedOpening[],
+): SelectSectionsResult {
   const warnings: string[] = [];
   if (wallHeightFeet <= EPSILON) {
     return { sections: [], warnings, errorMessage: null };
@@ -1150,8 +1215,10 @@ export function computeDrillSheet(input: DrillSheetInput): DrillSheetResult {
     };
   };
 
-  let hasKey = true;
-  let heights = computeHeights(true);
+  // A keyless mold starts (and stays) without a top-slab key.
+  const keyedMold = moldHasKey(diameter);
+  let hasKey = keyedMold;
+  let heights = computeHeights(hasKey);
   let errorMessage: string | null = null;
 
   const floorElevation =
@@ -1175,6 +1242,7 @@ export function computeDrillSheet(input: DrillSheetInput): DrillSheetResult {
   ) {
     const wallTop = wallTopElevation(floorElevation, heights.wallHeightFeet);
     if (wallTop - highestOpening < minTopFt - EPSILON) {
+      // Remedy: drop the top-slab key (no-op on a keyless mold).
       hasKey = false;
       heights = computeHeights(false);
       const wallTopNoKey = wallTopElevation(
@@ -1269,7 +1337,8 @@ export function computeDrillSheet(input: DrillSheetInput): DrillSheetResult {
     wallHeightFeet: round4(heights.wallHeightFeet),
     brickFeet: round4(heights.brickFeet),
     hasKey,
-    keyHeightFeet: diameter.keyHeightFeet,
+    keyHeightFeet: effectiveKeyHeightFeet(diameter),
+    moldHasKey: keyedMold,
     totalHeightFeet,
     baseSlabThicknessFeet,
     sections,

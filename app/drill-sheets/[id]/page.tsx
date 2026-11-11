@@ -1,3 +1,4 @@
+import { loadMoldSheetSettings } from "@/lib/mold-sheet-settings-load";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
@@ -81,7 +82,7 @@ export default async function DrillSheetDetailPage({
     notFound();
   }
 
-  const detail = buildDrillSheetDetail(sheet);
+  const detail = buildDrillSheetDetail(sheet, await loadMoldSheetSettings());
   if (!detail) {
     notFound();
   }

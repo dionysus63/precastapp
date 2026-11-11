@@ -12,6 +12,10 @@ import {
   getOpeningPlacements,
   angleToClockPosition,
 } from "@/lib/drill-sheet-diagram";
+import {
+  printedSheetDiameter,
+  type SheetDiameter,
+} from "@/lib/mold-sheet-settings";
 
 export type DrillSheetPreviewMeta = {
   templateName: string;
@@ -21,6 +25,11 @@ export type DrillSheetPreviewMeta = {
   date: string;
   castingName: string;
   insideDiameterFeet: number | null;
+  /**
+   * The diameter the sheet prints when the mold is called by its outside
+   * diameter (Settings → Structure Molds). Unset = print the inside diameter.
+   */
+  sheetDiameter?: SheetDiameter | null;
   hasSteps: boolean;
   inspection: string;
   approvedBy: string;
@@ -30,6 +39,16 @@ export type DrillSheetPreviewMeta = {
   /** Template's top slab clear opening (whole inches) — printed on the sheet. */
   topSlabOpeningInches: number | null;
 };
+
+/** e.g. 4'-0", or 8'-0" OD when the mold is called by its outside diameter. */
+function previewDiameterText(meta: DrillSheetPreviewMeta): string {
+  const diameter = printedSheetDiameter(meta);
+  if (diameter.feet == null) {
+    return "—";
+  }
+  const text = formatFeetInches(diameter.feet);
+  return diameter.basis === "OUTSIDE" ? `${text} OD` : text;
+}
 
 type DrillSheetPreviewProps = {
   meta: DrillSheetPreviewMeta;
@@ -202,11 +221,7 @@ export function DrillSheetPreview({ meta, result }: DrillSheetPreviewProps) {
             <HeaderRow label="Approved By" value={meta.approvedBy || "—"} />
             <HeaderRow
               label="Diameter"
-              value={
-                meta.insideDiameterFeet != null
-                  ? formatFeetInches(meta.insideDiameterFeet)
-                  : "—"
-              }
+              value={previewDiameterText(meta)}
             />
             <HeaderRow label="Steps" value={meta.hasSteps ? "Yes" : "No"} />
             <HeaderRow label="Key" value={result.hasKey ? "Yes" : "No"} />
@@ -321,7 +336,9 @@ export function DrillSheetPreview({ meta, result }: DrillSheetPreviewProps) {
                     <span>
                       {section.role === "BASE" ? "Base" : "Riser"}
                       {section.label ? ` — ${section.label}` : ""}
-                      {!section.hasTopKey || (section.role === "RISER" && !section.hasBottomKey) ? (
+                      {result.moldHasKey !== false &&
+                      (!section.hasTopKey ||
+                        (section.role === "RISER" && !section.hasBottomKey)) ? (
                         <span className="ml-1 font-medium text-amber-700">
                           {[
                             section.role === "RISER" && !section.hasBottomKey

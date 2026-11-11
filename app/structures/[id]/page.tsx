@@ -80,6 +80,8 @@ export default async function EditStructureTemplatePage({
         : null,
     maxBaseHeightFeet: Number(mold.maxBaseHeightFeet),
     maxRiserHeightFeet: Number(mold.maxRiserHeightFeet),
+    hasKey: mold.hasKey,
+    sheetDiameterBasis: mold.sheetDiameterBasis,
   }));
 
   const defaultValue: StructureTemplateFormValue = {

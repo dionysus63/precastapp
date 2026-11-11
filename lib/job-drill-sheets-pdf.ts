@@ -11,6 +11,7 @@ import {
 } from "@/lib/drill-sheet-detail";
 import { dedupeSharedPdfObjects } from "@/lib/pdf-dedupe";
 import { buildDrillSheetPdfBytes } from "@/lib/drill-sheet-pdf-generate";
+import { loadMoldSheetSettings } from "@/lib/mold-sheet-settings-load";
 import { rectSheetDetailInclude } from "@/lib/rect-sheet-detail";
 import { buildRectSheetPdfBytes } from "@/lib/rect-sheet-pdf-generate";
 import { withDatabaseRetry } from "@/lib/prisma";
@@ -77,6 +78,7 @@ export async function buildJobDrillSheetsPdfBytes(
   }
 
   const merged = await PDFDocument.create();
+  const molds = await loadMoldSheetSettings();
   const included: string[] = [];
   const skipped: { structureNumber: string; reason: string }[] = [];
 
@@ -107,8 +109,8 @@ export async function buildJobDrillSheetsPdfBytes(
             include: drillSheetDetailInclude,
           }),
         );
-        if (sheet && buildDrillSheetDetail(sheet)) {
-          const built = await buildDrillSheetPdfBytes(sheet);
+        if (sheet && buildDrillSheetDetail(sheet, molds)) {
+          const built = await buildDrillSheetPdfBytes(sheet, molds);
           if (built) {
             bytes = built.bytes;
           }

@@ -7,6 +7,7 @@ import {
   drillSheetDetailInclude,
 } from "@/lib/drill-sheet-detail";
 import { buildDrillSheetPdfBytes } from "@/lib/drill-sheet-pdf-generate";
+import { loadMoldSheetSettings } from "@/lib/mold-sheet-settings-load";
 import { rectSheetDetailInclude } from "@/lib/rect-sheet-detail";
 import { buildRectSheetPdfBytes } from "@/lib/rect-sheet-pdf-generate";
 import { writeFile, mkdir } from "fs/promises";
@@ -143,7 +144,8 @@ export async function generateDrillSheetPdf(
       return { success: false, error: "Drill sheet not found." };
     }
 
-    const detail = buildDrillSheetDetail(sheet);
+    const molds = await loadMoldSheetSettings();
+    const detail = buildDrillSheetDetail(sheet, molds);
     if (!detail) {
       return {
         success: false,
@@ -162,7 +164,7 @@ export async function generateDrillSheetPdf(
       jobFolderPath = job?.folderPath ?? null;
     }
 
-    const built = await buildDrillSheetPdfBytes(sheet);
+    const built = await buildDrillSheetPdfBytes(sheet, molds);
     if (!built) {
       return {
         success: false,

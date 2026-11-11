@@ -9,6 +9,10 @@ import {
   structureInputClassName,
   structureTableInputClassName,
 } from "@/components/structures/structure-utils";
+import {
+  type MoldDiameterBasis,
+  resolveSheetDiameter,
+} from "@/lib/mold-sheet-settings";
 import { RECT_WALL_LABELS, type RectWall } from "@/lib/rect-structure";
 
 const RECT_WALL_OPTIONS: RectWall[] = ["UP", "RIGHT", "DOWN", "LEFT"];
@@ -92,6 +96,10 @@ export type TemplateMoldOption = {
   wallThicknessInches: number | null;
   maxBaseHeightFeet: number;
   maxRiserHeightFeet: number;
+  /** False = keyless mold. */
+  hasKey?: boolean;
+  /** Which diameter the mold's drill sheets print. */
+  sheetDiameterBasis?: MoldDiameterBasis;
 };
 
 type StructureTemplateFormProps = {
@@ -123,13 +131,18 @@ function createDiameter(): DiameterField {
 }
 
 function moldOptionLabel(mold: TemplateMoldOption): string {
+  const sheetDiameter = resolveSheetDiameter(mold.insideDiameterFeet, mold);
   const parts = [
     `${mold.insideDiameterFeet}' ID`,
+    sheetDiameter.basis === "OUTSIDE" && sheetDiameter.feet != null
+      ? `${sheetDiameter.feet}' OD on sheets`
+      : null,
     mold.wallThicknessInches != null
       ? `${mold.wallThicknessInches}" wall`
       : null,
     `base ≤ ${mold.maxBaseHeightFeet}'`,
     `riser ≤ ${mold.maxRiserHeightFeet}'`,
+    mold.hasKey === false ? "no key" : null,
   ].filter(Boolean);
   return `${mold.label ? `${mold.label} — ` : ""}${parts.join(" · ")}`;
 }
