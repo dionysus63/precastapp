@@ -1,6 +1,7 @@
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { ActionForm } from "@/components/ui/action-form";
 import { SectionCard } from "@/components/dashboard/section-card";
+import { JobsDefaultTabForm } from "@/components/settings/jobs-default-tab-form";
 import { customerInputClassName } from "@/components/customers/customer-form";
 import {
   changeMyPassword,
@@ -95,6 +96,13 @@ export default async function ProfilePage() {
             </button>
           </div>
         </ActionForm>
+      </SectionCard>
+
+      <SectionCard
+        title="Jobs List"
+        description="Which tab opens when you click Jobs. This is your own setting."
+      >
+        <JobsDefaultTabForm current={user.defaultJobsTab} />
       </SectionCard>
 
       <SectionCard title="Change Password">

@@ -190,6 +190,8 @@ describe("importExistingJob", () => {
     const job = await prisma.job.findUniqueOrThrow({ where: { id: result.jobId } });
     expect(job.status).toBe("ACTIVE");
     expect(job.awardedDate).not.toBeNull();
+    // An imported job belongs to whoever imported it ("My Open" tab).
+    expect(job.createdById).toBe(actor.id);
 
     const quote = await prisma.quote.findUniqueOrThrow({
       where: { id: result.quoteId },

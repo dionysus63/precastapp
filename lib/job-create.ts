@@ -20,6 +20,8 @@ export type NewJobRecordInput = {
   contactEmail: string | null;
   contactPhone: string | null;
   notes: string | null;
+  /** The signed-in user creating the job; shown under their "My Open" tab. */
+  createdById: string | null;
 };
 
 export async function resolveCustomerName(
@@ -125,6 +127,7 @@ export async function createJobRecord(data: NewJobRecordInput) {
           contactEmail: data.contactEmail,
           contactPhone: data.contactPhone,
           notes: data.notes,
+          createdById: data.createdById,
         },
       });
 

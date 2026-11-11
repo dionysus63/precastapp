@@ -3,11 +3,11 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 // Server-action plumbing that has no meaning outside a request (see
 // job-po-numbering.test.ts). Job numbering, the drill-sheet calculator and
 // the saved structures run real.
+// A new job records its creator, so the signed-in user must be a real user
+// row: filled in beforeAll.
+const actor = vi.hoisted(() => ({ id: "", displayName: "Test User" }));
 vi.mock("@/lib/auth/session", () => ({
-  requirePermission: vi.fn().mockResolvedValue({
-    id: "test-user",
-    displayName: "Test User",
-  }),
+  requirePermission: vi.fn(async () => actor),
 }));
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
@@ -46,6 +46,15 @@ let diameterConfigId: string;
 let options: OneOffCircularOptions;
 
 beforeAll(async () => {
+  const user = await prisma.user.create({
+    data: {
+      username: `${tag}-user`.toLowerCase(),
+      displayName: `${tag} User`,
+      initials: "TU",
+      role: "MANAGER",
+    },
+  });
+  actor.id = user.id;
   const template = await prisma.structureTemplate.create({
     data: {
       name: `${tag} MH`,
@@ -107,6 +116,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await prisma.jobStructure.deleteMany({ where: { structureTemplateId: templateId } });
   await prisma.job.deleteMany({ where: { projectName: { startsWith: tag } } });
+  await prisma.user.deleteMany({ where: { id: actor.id } });
   await prisma.structureTemplate.deleteMany({ where: { id: templateId } });
   await prisma.structureDiameterConfig.deleteMany({ where: { id: diameterConfigId } });
   await prisma.$disconnect();
@@ -167,6 +177,11 @@ describe("createOneOffDrillSheets", () => {
       "MH-1",
       "MH-2",
     ]);
+    // A job made from Quick Build belongs to whoever made it ("My Open" tab).
+    expect(
+      (await prisma.job.findUniqueOrThrow({ where: { id: result.jobId } }))
+        .createdById,
+    ).toBe(actor.id);
 
     const job = await prisma.job.findUniqueOrThrow({
       where: { id: result.jobId },

@@ -432,6 +432,7 @@ export function JobOverviewSection({
               value={detail.biddingSummary.summaryText}
             />
             <InfoRow label="Created" value={detail.createdAt} />
+            <InfoRow label="Created By" value={detail.createdByName} />
             <InfoRow label="Last Updated" value={detail.updatedAt} />
             <InfoRow
               label="Folder"

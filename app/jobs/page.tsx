@@ -14,6 +14,7 @@ import {
   CLOSED_JOB_STATUSES,
   OPEN_JOB_STATUSES,
 } from "@/components/jobs/job-utils";
+import { resolveJobsOpenTab } from "@/lib/jobs-default-tab";
 import { JobStatus, type Prisma } from "@/app/generated/prisma/client";
 
 const JOB_LIST_SELECT = {
@@ -95,17 +96,25 @@ export default async function JobsPage({
         ? "desc"
         : "asc";
 
-  // The status param accepts pseudo-values for the pipeline tabs (OPEN,
+  // The status param accepts pseudo-values for the pipeline tabs (OPEN, MINE,
   // CLOSED, ALL) alongside single statuses (e.g. the dashboard's
-  // ?status=ACTIVE link). Bare /jobs defaults to the open pipeline.
+  // ?status=ACTIVE link). Bare /jobs opens the user's default tab: every open
+  // job, or only the open jobs they created (Settings → My Preferences).
+  const openTab = resolveJobsOpenTab(statusParam, user.defaultJobsTab);
+  const myOpenWhere: Prisma.JobWhereInput = {
+    status: { in: [...OPEN_JOB_STATUSES] },
+    createdById: user.id,
+  };
   const statusWhere: Prisma.JobWhereInput | null =
     statusParam === "ALL" || statusParam === "All"
       ? null
-      : statusParam === "CLOSED"
-        ? { status: { in: [...CLOSED_JOB_STATUSES] } }
-        : statusParam && statusParam in JobStatus
-          ? { status: statusParam as JobStatus }
-          : { status: { in: [...OPEN_JOB_STATUSES] } };
+      : openTab === "mine"
+        ? myOpenWhere
+        : statusParam === "CLOSED"
+          ? { status: { in: [...CLOSED_JOB_STATUSES] } }
+          : statusParam && statusParam in JobStatus
+            ? { status: statusParam as JobStatus }
+            : { status: { in: [...OPEN_JOB_STATUSES] } };
   const year = /^\d{4}$/.test(yearParam) ? Number(yearParam) : undefined;
 
   // Every filter except status — the tab counts are computed over this base
@@ -138,8 +147,14 @@ export default async function JobsPage({
   ]);
   const pageInfo = buildPageInfo(total, requestedPage);
 
-  const [jobRecords, favoriteRecords, yearRows, customerRows, statusGroups] =
-    await withDatabaseRetry((prisma) =>
+  const [
+    jobRecords,
+    favoriteRecords,
+    yearRows,
+    customerRows,
+    statusGroups,
+    myOpenCount,
+  ] = await withDatabaseRetry((prisma) =>
       Promise.all([
         prisma.job.findMany({
           where,
@@ -169,6 +184,7 @@ export default async function JobsPage({
           _count: { _all: true },
           where: baseWhere,
         }),
+        prisma.job.count({ where: { AND: [baseWhere, myOpenWhere] } }),
       ]),
     );
 
@@ -187,6 +203,7 @@ export default async function JobsPage({
     statuses.reduce((acc, status) => acc + (countByStatus.get(status) ?? 0), 0);
   const tabCounts = {
     open: sumStatuses([...OPEN_JOB_STATUSES]),
+    mine: myOpenCount,
     complete: countByStatus.get("COMPLETE") ?? 0,
     closed: sumStatuses([...CLOSED_JOB_STATUSES]),
     all: statusGroups.reduce((acc, group) => acc + group._count._all, 0),
@@ -209,6 +226,7 @@ export default async function JobsPage({
         favoriteJobIds={favoriteJobIds}
         pageInfo={pageInfo}
         tabCounts={tabCounts}
+        defaultTab={user.defaultJobsTab}
         filters={{
           search,
           status: statusParam,

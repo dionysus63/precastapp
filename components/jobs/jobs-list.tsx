@@ -14,6 +14,11 @@ import {
   jobStatusLabels,
 } from "@/components/jobs/job-utils";
 import { JobFavoriteStar } from "@/components/jobs/job-favorite-star";
+import {
+  jobsOpenTabParam,
+  resolveJobsOpenTab,
+  type JobsDefaultTabValue,
+} from "@/lib/jobs-default-tab";
 import type { PageInfo } from "@/lib/list-params";
 
 import {
@@ -90,6 +95,8 @@ function SortableHeader({
 
 type JobTabCounts = {
   open: number;
+  /** Open jobs the signed-in user created. */
+  mine: number;
   complete: number;
   closed: number;
   all: number;
@@ -102,6 +109,8 @@ type JobsListProps = {
   pageInfo: PageInfo;
   filters: JobsListFilters;
   tabCounts: JobTabCounts;
+  /** The user's own default tab: decides which open tab bare /jobs shows. */
+  defaultTab: JobsDefaultTabValue;
   yearOptions: string[];
   customerOptions: string[];
   sort: { column: SortColumn; direction: SortDirection };
@@ -165,6 +174,7 @@ const JobsTable = memo(function JobsTable({
   jobs,
   favoriteIdSet,
   total,
+  emptyMessage,
   sortColumn,
   sortDirection,
   onSort,
@@ -172,6 +182,8 @@ const JobsTable = memo(function JobsTable({
   jobs: JobRow[];
   favoriteIdSet: Set<string>;
   total: number;
+  /** Shown when the whole list (not just this page) is empty. */
+  emptyMessage: string;
   sortColumn: SortColumn;
   sortDirection: SortDirection;
   onSort: (column: SortColumn) => void;
@@ -214,9 +226,7 @@ const JobsTable = memo(function JobsTable({
                 colSpan={9}
                 className={`${tableCellBordersClassName} px-4 py-8 text-center text-sm text-slate-500`}
               >
-                {total === 0
-                  ? "No jobs match your search or filters."
-                  : "No jobs on this page."}
+                {total === 0 ? emptyMessage : "No jobs on this page."}
               </td>
             </tr>
           ) : (
@@ -277,6 +287,7 @@ export function JobsList({
   pageInfo,
   filters,
   tabCounts,
+  defaultTab,
   yearOptions,
   customerOptions,
   sort,
@@ -306,12 +317,21 @@ export function JobsList({
     [favoriteJobIds],
   );
 
+  // Bare /jobs is whichever open tab the user picked as their default, so
+  // the other one carries an explicit status param.
+  const openTab = resolveJobsOpenTab(filters.status, defaultTab);
   const statusTabs = [
     {
       label: "Open",
-      param: "",
+      param: jobsOpenTabParam("open", defaultTab),
       count: tabCounts.open,
-      isActive: filters.status === "" || filters.status === "OPEN",
+      isActive: openTab === "open",
+    },
+    {
+      label: "My Open",
+      param: jobsOpenTabParam("mine", defaultTab),
+      count: tabCounts.mine,
+      isActive: openTab === "mine",
     },
     {
       label: "Complete",
@@ -439,6 +459,14 @@ export function JobsList({
           jobs={jobs}
           favoriteIdSet={favoriteIdSet}
           total={pageInfo.total}
+          emptyMessage={
+            openTab === "mine" &&
+            !filters.search &&
+            !filters.year &&
+            !filters.customer
+              ? "You have no open jobs that you created."
+              : "No jobs match your search or filters."
+          }
           sortColumn={sort.column}
           sortDirection={sort.direction}
           onSort={handleSort}

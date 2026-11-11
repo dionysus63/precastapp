@@ -460,6 +460,7 @@ async function importExistingJobOrThrow(formData: FormData): Promise<ImportJobRe
       contactEmail: optional(payload.job.contactEmail),
       contactPhone: optional(payload.job.contactPhone),
       notes: null,
+      createdById: actor.id,
     });
     jobCreated = true;
     if (!(await createJobFolders(created))) {

@@ -135,7 +135,7 @@ export async function createOneOffDrillSheets(input: OneOffCreateInput) {
 async function createOneOffDrillSheetsOrThrow(
   input: OneOffCreateInput,
 ): Promise<OneOffCreateResult> {
-  await requirePermission(AppPermission.STRUCTURES_MANAGE);
+  const actor = await requirePermission(AppPermission.STRUCTURES_MANAGE);
   if (input.job.mode === "new") {
     await requirePermission(AppPermission.JOBS_MANAGE);
   }
@@ -242,6 +242,7 @@ async function createOneOffDrillSheetsOrThrow(
       contactEmail: optional(input.job.contactEmail),
       contactPhone: optional(input.job.contactPhone),
       notes: null,
+      createdById: actor.id,
     });
     folderCreated = await createJobFolders(created);
     job = created;

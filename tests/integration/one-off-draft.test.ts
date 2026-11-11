@@ -3,11 +3,11 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 // Server-action plumbing that has no meaning outside a request (see
 // one-off-drill-sheets.test.ts). Job numbering and the saved structures run
 // real.
+// A new job records its creator, so the signed-in user must be a real user
+// row: filled in beforeAll.
+const actor = vi.hoisted(() => ({ id: "", displayName: "Draft Tester" }));
 vi.mock("@/lib/auth/session", () => ({
-  requirePermission: vi.fn().mockResolvedValue({
-    id: "test-user",
-    displayName: "Draft Tester",
-  }),
+  requirePermission: vi.fn(async () => actor),
 }));
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
@@ -49,6 +49,15 @@ let diameterConfigId: string;
 let options: OneOffCircularOptions;
 
 beforeAll(async () => {
+  const user = await prisma.user.create({
+    data: {
+      username: `${tag}-user`.toLowerCase(),
+      displayName: `${tag} User`,
+      initials: "TU",
+      role: "MANAGER",
+    },
+  });
+  actor.id = user.id;
   const template = await prisma.structureTemplate.create({
     data: {
       name: `${tag} MH`,
@@ -111,6 +120,7 @@ afterAll(async () => {
   await prisma.oneOffDraft.deleteMany({ where: { name: { startsWith: tag } } });
   await prisma.jobStructure.deleteMany({ where: { structureTemplateId: templateId } });
   await prisma.job.deleteMany({ where: { projectName: { startsWith: tag } } });
+  await prisma.user.deleteMany({ where: { id: actor.id } });
   await prisma.structureTemplate.deleteMany({ where: { id: templateId } });
   await prisma.structureDiameterConfig.deleteMany({ where: { id: diameterConfigId } });
   await prisma.$disconnect();
@@ -257,6 +267,7 @@ describe("saving a One-Off for later", () => {
       contactEmail: null,
       contactPhone: null,
       notes: null,
+      createdById: null,
     });
     const state: OneOffDraftState = {
       ...newJobDraft(`${tag} Existing`),
