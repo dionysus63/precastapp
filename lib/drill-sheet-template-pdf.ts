@@ -81,9 +81,10 @@ const BADGE_FONT_SIZE_PT = 15;
 // the wall band — horizontal from the outer face ~45% across, a diagonal
 // rising ~10 pt, then horizontal to the inner face ("bottom piece sticks up
 // on the inside") — plus a line across the cavity at the top of the key. An
-// UNKEYED joint is a flat butt seam through the wall bands only. The bottom
-// of the top slab is drawn the same way (flat full-width line when there is
-// no top-slab key). Lengths scale with the marker width.
+// UNKEYED joint is one flat line across the whole structure, outer face to
+// outer face, so the split reads the same as a keyed one. The bottom of the
+// top slab is drawn the same way (flat full-width line when there is no
+// top-slab key). Lengths scale with the marker width.
 const STACK_REF_CAVITY_WIDTH_PT = 105.8;
 const STACK_WALL_BAND_PT = 11;
 const STACK_SEAM_RISE_PT = 10;
@@ -789,7 +790,8 @@ async function drawPenetrationArrows(
  * Draws the section joints inside the cross-section wall cavity. The marker
  * rect maps the cavity: bottom = floor, top = bottom of top slab, sides on
  * the inner wall faces. Keyed joints get the stepped seam plus the
- * top-of-key line across the cavity; unkeyed joints are flat. Also draws
+ * top-of-key line across the cavity; unkeyed joints are one flat line
+ * across the walls and the cavity. Also draws
  * the bottom-of-top-slab line (left off the template artwork), the left
  * dimension rail with slash ticks and section-height labels, and the right
  * elevation rail connecting the static top/bottom elevation ticks.
@@ -856,7 +858,9 @@ function drawSectionStack(
 
   /**
    * One joint at its outside plane: keyed = stepped seams rising from the
-   * plane + top-of-key line across the cavity; unkeyed = flat butt seam.
+   * plane + top-of-key line across the cavity; unkeyed = flat butt seam
+   * carried across the cavity too, so the split shows across the whole
+   * structure either way.
    */
   const drawJoint = (jointY: number, keyed: boolean) => {
     if (keyed) {
@@ -864,8 +868,7 @@ function drawSectionStack(
       drawKeySeam(jointY, true);
       line(innerLeft, jointY + rise, innerRight, jointY + rise);
     } else {
-      line(outerLeft, jointY, innerLeft, jointY);
-      line(innerRight, jointY, outerRight, jointY);
+      line(outerLeft, jointY, outerRight, jointY);
     }
   };
 
