@@ -74,6 +74,8 @@ export type DrillSheetFormValues = {
   useRiser: string;
   brickAdjustment: string;
   rimElevation: string;
+  /** Manual wall height change in inches (6" steps); missing = none. */
+  wallHeightAdjustInches?: number;
   openings: DrillSheetFormOpening[];
 };
 
@@ -128,6 +130,7 @@ export function buildDrillSheetFormValues(
     useRiser: calc?.useRiser ?? "",
     brickAdjustment: calc?.brickAdjustment ?? "",
     rimElevation: decimalToInput(calc?.rimElevation ?? null),
+    wallHeightAdjustInches: calc?.wallHeightAdjustInches ?? 0,
     openings: sheet.openings.map((opening) => ({
       label: opening.label ?? "",
       // Legacy rows split material/type; show them combined.
@@ -228,6 +231,7 @@ export function buildDrillSheetDetail(
     rawAvailableFeet: null,
     wallHeightFeet: num(calc.wallHeightFeet) ?? 0,
     brickFeet: num(calc.brickFeet) ?? 0,
+    wallHeightAdjustInches: calc.wallHeightAdjustInches,
     hasKey: keylessMold ? false : calc.hasKey,
     keyHeightFeet: keylessMold ? 0 : 4 / 12,
     moldHasKey: !keylessMold,

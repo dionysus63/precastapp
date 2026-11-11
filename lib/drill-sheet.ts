@@ -83,6 +83,12 @@ export type DrillSheetInput = {
   template: TemplateConfig;
   pipeOpeningSizes: PipeOpeningSizeEntry[];
   openings: DrillSheetOpeningInput[];
+  /**
+   * Manual wall height change in inches, in 6" steps (Quick Build's up/down
+   * arrows). Added to the calculated wall and taken out of the brick, or
+   * given back to it. Blank or 0 = the calculated wall stands.
+   */
+  wallHeightAdjustInches?: number | null;
 };
 
 export type ComputedSection = {
@@ -123,6 +129,8 @@ export type DrillSheetResult = {
   rawAvailableFeet: number | null;
   wallHeightFeet: number;
   brickFeet: number;
+  /** The manual wall height change that is part of wallHeightFeet (0 = none). */
+  wallHeightAdjustInches?: number;
   hasKey: boolean;
   /** Key height for this diameter (drawing detail; 4" when unknown). */
   keyHeightFeet: number;
@@ -269,6 +277,75 @@ export function computeWallHeightFeet(
   wallHeightFeet = round4(Math.max(wallHeightFeet, 0));
   brickFeet = round4(Math.max(brickFeet, 0));
   return { wallHeightFeet, brickFeet };
+}
+
+/** Walls pour in 6" steps, so a manual change moves a whole step at a time. */
+export const WALL_HEIGHT_ADJUST_STEP_INCHES = 6;
+
+/**
+ * A stored or typed manual wall height change as whole 6" steps (0 when
+ * blank or not a number), so a stray value can never put a wall off the
+ * 6" increments.
+ */
+export function normalizeWallHeightAdjustInches(value: unknown): number {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim() !== ""
+        ? Number(value)
+        : Number.NaN;
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+  const steps = Math.round(parsed / WALL_HEIGHT_ADJUST_STEP_INCHES);
+  // `|| 0` turns -0 into 0.
+  return steps * WALL_HEIGHT_ADJUST_STEP_INCHES || 0;
+}
+
+/** "+6"" / "−12"" for a manual wall height change; "" when there is none. */
+export function formatWallHeightAdjust(adjustInches: number): string {
+  if (!adjustInches) {
+    return "";
+  }
+  return `${adjustInches > 0 ? "+" : "\u2212"}${Math.abs(adjustInches)}"`;
+}
+
+/**
+ * Applies a manual wall height change to the calculated wall. The change
+ * comes out of the brick (raising) or goes back into it (lowering).
+ * `shortByFeet` is how far a raised wall overshoots the space under the
+ * casting; the brick is then 0 and the caller reports the error.
+ */
+export function applyWallHeightAdjust(
+  heights: { wallHeightFeet: number; brickFeet: number },
+  rawAvailableFeet: number,
+  adjustInches: number,
+): { wallHeightFeet: number; brickFeet: number; shortByFeet: number } {
+  if (!adjustInches) {
+    return { ...heights, shortByFeet: 0 };
+  }
+  const wallHeightFeet = round4(
+    Math.max(heights.wallHeightFeet + inchesToFeet(adjustInches), 0),
+  );
+  const leftoverFeet = round4(rawAvailableFeet - wallHeightFeet);
+  return {
+    wallHeightFeet,
+    brickFeet: Math.max(leftoverFeet, 0),
+    shortByFeet: leftoverFeet < -EPSILON ? -leftoverFeet : 0,
+  };
+}
+
+/** Error text for a wall raised by hand past the space under the casting. */
+export function wallHeightAdjustError(
+  adjustInches: number,
+  shortByFeet: number,
+): string {
+  return `Wall raised ${adjustInches}" by hand is ${formatInchesShort(shortByFeet)} too tall for this rim. Lower the wall or raise the rim.`;
+}
+
+function formatInchesShort(feet: number): string {
+  const inches = Math.round(feet * 12 * 100) / 100;
+  return `${inches}"`;
 }
 
 /**
@@ -1180,6 +1257,9 @@ export function computeDrillSheet(input: DrillSheetInput): DrillSheetResult {
   );
 
   const minBrickFeet = inchesToFeet(template.minimumBrickInches);
+  const wallHeightAdjustInches = normalizeWallHeightAdjustInches(
+    input.wallHeightAdjustInches,
+  );
 
   const computeHeights = (hasKey: boolean) => {
     const topSlabThicknessFeet = getTopSlabThicknessFeet(
@@ -1194,6 +1274,7 @@ export function computeDrillSheet(input: DrillSheetInput): DrillSheetResult {
         rawAvailableFeet: null as number | null,
         wallHeightFeet: 0,
         brickFeet: 0,
+        shortByFeet: 0,
       };
     }
     const rawAvailableFeet = round4(
@@ -1202,9 +1283,10 @@ export function computeDrillSheet(input: DrillSheetInput): DrillSheetResult {
         topSlabThicknessFeet +
         sumpFeet,
     );
-    const { wallHeightFeet, brickFeet } = computeWallHeightFeet(
+    const { wallHeightFeet, brickFeet, shortByFeet } = applyWallHeightAdjust(
+      computeWallHeightFeet(rawAvailableFeet, template.minimumBrickInches),
       rawAvailableFeet,
-      template.minimumBrickInches,
+      wallHeightAdjustInches,
     );
     return {
       hasKey,
@@ -1212,6 +1294,7 @@ export function computeDrillSheet(input: DrillSheetInput): DrillSheetResult {
       rawAvailableFeet,
       wallHeightFeet,
       brickFeet,
+      shortByFeet,
     };
   };
 
@@ -1255,7 +1338,18 @@ export function computeDrillSheet(input: DrillSheetInput): DrillSheetResult {
     }
   }
 
-  if (heights.brickFeet < minBrickFeet - EPSILON) {
+  if (heights.shortByFeet > 0) {
+    errorMessage = wallHeightAdjustError(
+      wallHeightAdjustInches,
+      heights.shortByFeet,
+    );
+  }
+
+  // A wall raised by hand is short on brick on purpose; say nothing then.
+  if (
+    heights.brickFeet < minBrickFeet - EPSILON &&
+    wallHeightAdjustInches <= 0
+  ) {
     warnings.push(
       `Brick (${heights.brickFeet.toFixed(2)}') is below the ${minBrickFeet.toFixed(2)}' minimum.`,
     );
@@ -1336,6 +1430,7 @@ export function computeDrillSheet(input: DrillSheetInput): DrillSheetResult {
     rawAvailableFeet: heights.rawAvailableFeet,
     wallHeightFeet: round4(heights.wallHeightFeet),
     brickFeet: round4(heights.brickFeet),
+    wallHeightAdjustInches,
     hasKey,
     keyHeightFeet: effectiveKeyHeightFeet(diameter),
     moldHasKey: keyedMold,

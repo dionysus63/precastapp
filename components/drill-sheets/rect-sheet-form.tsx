@@ -4,7 +4,10 @@ import Link from "next/link";
 import { isActionError, type ActionError } from "@/lib/action-result";
 import { randomId } from "@/lib/random-id";
 import { localTodayInput } from "@/lib/date-only";
-import { formatFeetInchesShort } from "@/lib/drill-sheet";
+import {
+  formatFeetInchesShort,
+  formatWallHeightAdjust,
+} from "@/lib/drill-sheet";
 import { useMemo, useState } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import {
@@ -114,6 +117,8 @@ export type RectSheetFormValues = {
   rimElevation: string;
   /** Manual brick target in inches; "" = template minimum drives brick. */
   brickTargetInches: string;
+  /** Manual wall height change in inches (6" steps); missing = none. */
+  wallHeightAdjustInches?: number;
   insideLengthFeet: string;
   insideWidthFeet: string;
   hasTopSlab: boolean;
@@ -215,6 +220,8 @@ export function RectSheetForm({
   const [brickTargetInches, setBrickTargetInches] = useState(
     defaultValues?.brickTargetInches ?? "",
   );
+  // Set with the up/down arrows in Quick Build; this form carries it along.
+  const wallHeightAdjustInches = defaultValues?.wallHeightAdjustInches ?? 0;
   const [insideLengthFeet, setInsideLengthFeet] = useState(
     defaultValues?.insideLengthFeet ?? "",
   );
@@ -298,6 +305,7 @@ export function RectSheetForm({
       rimElevation: parseNum(rimElevation),
       castingHeightFeet: casting?.heightFeet ?? 0,
       brickTargetInches: parseNum(brickTargetInches),
+      wallHeightAdjustInches,
       insideLengthFeet: parseNum(effectiveLengthFeet),
       insideWidthFeet: parseNum(effectiveWidthFeet),
       hasTopSlab,
@@ -348,6 +356,7 @@ export function RectSheetForm({
     casting,
     rimElevation,
     brickTargetInches,
+    wallHeightAdjustInches,
     effectiveLengthFeet,
     effectiveWidthFeet,
     hasTopSlab,
@@ -375,6 +384,7 @@ export function RectSheetForm({
         approvedBy,
         rimElevation,
         brickTargetInches,
+        wallHeightAdjustInches,
         insideLengthFeet: effectiveLengthFeet,
         insideWidthFeet: effectiveWidthFeet,
         hasTopSlab,
@@ -409,6 +419,7 @@ export function RectSheetForm({
       approvedBy,
       rimElevation,
       brickTargetInches,
+      wallHeightAdjustInches,
       effectiveLengthFeet,
       effectiveWidthFeet,
       hasTopSlab,
@@ -654,6 +665,12 @@ export function RectSheetForm({
                   Walls drop to the 6&quot; pour leaving at least this much
                   brick. Blank = template minimum.
                 </p>
+                {wallHeightAdjustInches !== 0 ? (
+                  <p className="mt-1 text-[11px] font-medium text-sky-700">
+                    Wall moved {formatWallHeightAdjust(wallHeightAdjustInches)}{" "}
+                    by hand in Quick Build. Change it there with the arrows.
+                  </p>
+                ) : null}
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-700">

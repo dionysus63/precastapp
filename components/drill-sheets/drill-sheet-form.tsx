@@ -16,6 +16,7 @@ import {
 } from "@/components/drill-sheets/drill-sheet-preview";
 import {
   computeDrillSheet,
+  formatWallHeightAdjust,
   type DrillSheetInput,
   type PipeConnectionType,
 } from "@/lib/drill-sheet";
@@ -271,6 +272,8 @@ export function DrillSheetForm({
   const [rimElevation, setRimElevation] = useState(
     initialValues?.rimElevation ?? "",
   );
+  // Set with the up/down arrows in Quick Build; this form carries it along.
+  const wallHeightAdjustInches = initialValues?.wallHeightAdjustInches ?? 0;
   const [openings, setOpenings] = useState<OpeningField[]>(initialForm.openings);
   const [committedPreview, setCommittedPreview] =
     useState<CommittedPreviewNumbers>(initialForm.committedPreview);
@@ -324,6 +327,7 @@ export function DrillSheetForm({
         useRiser,
         brickAdjustment,
         rimElevation,
+        wallHeightAdjustInches,
         openings: openings.map((o) => ({
           label: o.label,
           pipeMaterial: o.pipeMaterial,
@@ -334,6 +338,7 @@ export function DrillSheetForm({
         })),
       }),
     [
+      wallHeightAdjustInches,
       templateId,
       diameterId,
       castingId,
@@ -365,6 +370,7 @@ export function DrillSheetForm({
         focusedNumericField,
       ),
       castingHeightFeet,
+      wallHeightAdjustInches,
       diameter: diameterConfig,
       template: {
         wallThicknessInches: selectedTemplate.wallThicknessInches,
@@ -414,6 +420,7 @@ export function DrillSheetForm({
     diameterConfig,
     rimElevation,
     castingHeightFeet,
+    wallHeightAdjustInches,
     pipeOpeningSizes,
     openings,
     committedPreview,
@@ -683,6 +690,12 @@ export function DrillSheetForm({
               onKeyDown={handleNumericKeyDown}
               className={structureInputClassName}
             />
+            {wallHeightAdjustInches !== 0 ? (
+              <p className="mt-1 text-[11px] font-medium text-sky-700">
+                Wall moved {formatWallHeightAdjust(wallHeightAdjustInches)} by
+                hand in Quick Build. Change it there with the arrows.
+              </p>
+            ) : null}
           </div>
         </div>
       </SectionCard>

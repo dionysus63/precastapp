@@ -1093,6 +1093,9 @@ model JobStructureCalc {
   topSlabThicknessFeet  Decimal?  @db.Decimal(12, 4)
   wallHeightFeet        Decimal?  @db.Decimal(12, 4)
   brickFeet               Decimal?  @db.Decimal(12, 4)
+  /// Manual wall height change in inches, in 6" steps (Quick Build's up/down
+  /// arrows); already part of wallHeightFeet and brickFeet. 0 = calculated.
+  wallHeightAdjustInches  Int       @default(0)
   hasKey                  Boolean   @default(true)
   totalHeightFeet         Decimal?  @db.Decimal(12, 4)
   insideDiameterFeet      Decimal?  @db.Decimal(12, 4)

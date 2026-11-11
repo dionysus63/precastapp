@@ -4,6 +4,7 @@ import { quoteLineItemTypeLabels } from "@/lib/quotes/constants";
 import {
   computeDrillSheet,
   lookupPipeOpeningSize,
+  normalizeWallHeightAdjustInches,
   type DiameterConfig,
   type DrillSheetInput,
   type DrillSheetResult,
@@ -65,6 +66,8 @@ export type QuoteStructureConfig = {
   penetrations?: QuoteStructurePenetration[];
   openings?: QuoteStructureOpening[];
   wallHeightFeet?: number;
+  /** Manual wall height change in inches (Quick Build arrows); unset = none. */
+  wallHeightAdjustInches?: number;
   /** Computed structure weight (lb) from the mold geometry, when available. */
   totalWeightLb?: number | null;
   wallPrice?: number;
@@ -92,6 +95,8 @@ export type StructureWorkbookRow = {
   qty: string;
   penetrations: StructureWorkbookPenetration[];
   openings: StructureWorkbookOpeningRow[];
+  /** Manual wall height change in inches (Quick Build arrows); unset = none. */
+  wallHeightAdjustInches?: number;
   wallHeightFeet: number | null;
   unitPrice: number | null;
   status: string;
@@ -904,6 +909,7 @@ export function computeWorkbookRowPrice(
     template: templateToConfig(template),
     pipeOpeningSizes: options.pipeOpeningSizes,
     openings: drillOpenings,
+    wallHeightAdjustInches: row.wallHeightAdjustInches ?? 0,
   };
 
   const result = computeDrillSheet(input);
@@ -975,6 +981,9 @@ export function computeWorkbookRowPrice(
       quotePenetrations.length > 0 ? quotePenetrations : undefined,
     openings: quoteOpenings,
     wallHeightFeet: result.wallHeightFeet,
+    ...(result.wallHeightAdjustInches
+      ? { wallHeightAdjustInches: result.wallHeightAdjustInches }
+      : {}),
     totalWeightLb: result.totalWeightLb,
     wallPrice: result.wallPrice,
     bootsPrice,
@@ -1343,6 +1352,13 @@ export function parseStructureConfigJson(
     openings: parseOpeningsFromJson(data.openings),
     wallHeightFeet:
       typeof data.wallHeightFeet === "number" ? data.wallHeightFeet : undefined,
+    ...(normalizeWallHeightAdjustInches(data.wallHeightAdjustInches)
+      ? {
+          wallHeightAdjustInches: normalizeWallHeightAdjustInches(
+            data.wallHeightAdjustInches,
+          ),
+        }
+      : {}),
     wallPrice: typeof data.wallPrice === "number" ? data.wallPrice : undefined,
     bootsPrice:
       typeof data.bootsPrice === "number" ? data.bootsPrice : undefined,

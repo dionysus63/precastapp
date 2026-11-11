@@ -17,7 +17,10 @@ import type {
   RectSheetOpeningSizeOption,
   RectSheetTemplateOption,
 } from "@/components/drill-sheets/rect-sheet-form";
-import type { DrillSheetResult } from "@/lib/drill-sheet";
+import {
+  WALL_HEIGHT_ADJUST_STEP_INCHES,
+  type DrillSheetResult,
+} from "@/lib/drill-sheet";
 import type { DrillSheetFormValues } from "@/lib/drill-sheet-detail";
 import {
   RECT_WALLS,
@@ -109,6 +112,11 @@ export type OneOffRow = {
   /** Always `openingCount` long so every row lines up with the grid columns. */
   openings: OneOffOpeningCell[];
   /**
+   * Wall height moved by hand with the grid's up/down arrows, in inches
+   * (6" a click). Unset or 0 = the calculated wall height.
+   */
+  wallHeightAdjustInches?: number;
+  /**
    * Rect only: the sheet's own inside size when editing an existing sheet.
    * Unset on new rows, which take the template's first preset size.
    */
@@ -137,6 +145,8 @@ export type OneOffSection = {
 
 export type OneOffRowResult = {
   wallHeightFeet: number | null;
+  /** Brick left under the casting; null until the row calculates. */
+  brickFeet?: number | null;
   status: string;
   ready: boolean;
   config: QuoteStructureConfig | RectQuoteStructureConfig | null;
@@ -529,6 +539,7 @@ export function computeCircularOneOffRow(
     qty: "1",
     penetrations: [],
     openings,
+    wallHeightAdjustInches: row.wallHeightAdjustInches ?? 0,
     wallHeightFeet: null,
     unitPrice: null,
     status: "",
@@ -556,6 +567,7 @@ export function computeCircularOneOffRow(
     !config.errorMessage;
   return {
     wallHeightFeet: computed.wallHeightFeet,
+    brickFeet: computed.drillSheetResult?.brickFeet ?? null,
     status: ready ? firstWarningOr(config, "Ready") : computed.status,
     ready,
     config,
@@ -629,6 +641,7 @@ export function computeRectOneOffRow(
     penetrations: [],
     openings,
     qty: "1",
+    wallHeightAdjustInches: row.wallHeightAdjustInches ?? 0,
     wallHeightFeet: null,
     heaviestPickLbs: null,
     unitPrice: null,
@@ -646,10 +659,45 @@ export function computeRectOneOffRow(
     config != null && config.detailLevel === "FULL" && !config.errorMessage;
   return {
     wallHeightFeet: computed.wallHeightFeet,
+    brickFeet: rectSheet?.brickFeet ?? null,
     status: ready ? firstWarningOr(config, "Ready") : computed.status,
     ready,
     config,
     rectSheet,
+  };
+}
+
+/**
+ * One click of a wall height arrow: 6" up (+1) or down (-1) from where the
+ * row's wall stands now.
+ */
+export function stepRowWallHeight(row: OneOffRow, direction: 1 | -1): OneOffRow {
+  const next =
+    (row.wallHeightAdjustInches ?? 0) +
+    direction * WALL_HEIGHT_ADJUST_STEP_INCHES;
+  return { ...row, wallHeightAdjustInches: next };
+}
+
+/**
+ * Which wall height arrows a row can still use. Raising takes 6" out of the
+ * brick, so it stops when less than that is left; lowering stops at a 6"
+ * wall. A row that has not calculated yet can only undo a change already
+ * made (so a change that broke the row can always be backed out).
+ */
+export function wallHeightArrowState(
+  row: OneOffRow,
+  result: OneOffRowResult | undefined,
+): { canRaise: boolean; canLower: boolean } {
+  const adjust = row.wallHeightAdjustInches ?? 0;
+  const stepFeet = WALL_HEIGHT_ADJUST_STEP_INCHES / 12;
+  const wall = result?.wallHeightFeet ?? null;
+  const brick = result?.brickFeet ?? null;
+  if (wall == null || brick == null) {
+    return { canRaise: adjust < 0, canLower: adjust > 0 };
+  }
+  return {
+    canRaise: adjust < 0 || brick >= stepFeet - 1e-6,
+    canLower: adjust > 0 || wall >= 2 * stepFeet - 1e-6,
   };
 }
 
@@ -738,6 +786,7 @@ export function circularRowFromSheet(
       pipeSize: opening.pipeSizeInches.trim(),
       angle: opening.angle,
     })),
+    wallHeightAdjustInches: values.wallHeightAdjustInches ?? 0,
   };
 }
 
@@ -785,6 +834,7 @@ export function rectRowFromSheet(
       wall: isRectWall(opening.wall) ? opening.wall : createOpeningCell(index).wall,
       ...widenFromSavedWidth(opening, openingSizes),
     })),
+    wallHeightAdjustInches: values.wallHeightAdjustInches ?? 0,
     insideLengthFeet: values.insideLengthFeet,
     insideWidthFeet: values.insideWidthFeet,
   };
@@ -830,6 +880,7 @@ export function isRowChanged(row: OneOffRow, loaded: OneOffRow): boolean {
     row.templateId !== loaded.templateId ||
     row.diameterFeet !== loaded.diameterFeet ||
     row.castingProductId !== loaded.castingProductId ||
+    (row.wallHeightAdjustInches ?? 0) !== (loaded.wallHeightAdjustInches ?? 0) ||
     !sameNumberText(row.rimElevation, loaded.rimElevation) ||
     row.openings.some((cell, index) => {
       const before = loaded.openings[index];
@@ -901,6 +952,7 @@ export function mergeCircularRow(
       manholeNumber: row.structureNumber.trim(),
       date: values.date || today,
       rimElevation: row.rimElevation.trim(),
+      wallHeightAdjustInches: row.wallHeightAdjustInches ?? 0,
       openings,
     },
   };
@@ -967,6 +1019,7 @@ export function mergeRectRow(
       structureNumber: row.structureNumber.trim(),
       date: values.date || today,
       rimElevation: row.rimElevation.trim(),
+      wallHeightAdjustInches: row.wallHeightAdjustInches ?? 0,
       insideLengthFeet: row.insideLengthFeet ?? values.insideLengthFeet,
       insideWidthFeet: row.insideWidthFeet ?? values.insideWidthFeet,
       openings,

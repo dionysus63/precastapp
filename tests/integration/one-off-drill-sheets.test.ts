@@ -24,8 +24,18 @@ import {
   buildRowsFromSetup,
   computeCircularOneOffRow,
   createEmptySetup,
+  stepRowWallHeight,
   type OneOffCircularOptions,
 } from "@/lib/quotes/one-off-drill-sheets";
+import { circularPayloadFromValues } from "@/components/jobs/bulk-edit/bulk-edit-payloads";
+import {
+  buildDrillSheetFormValues,
+  drillSheetDetailInclude,
+} from "@/lib/drill-sheet-detail";
+import {
+  parseDrillSheetPayloadData,
+  updateJobStructureFromPayload,
+} from "@/lib/drill-sheet-persistence";
 
 const tag = `ONEOFF-${Date.now()}`;
 // An odd mold size no real catalog uses, so the scratch row can't collide.
@@ -220,6 +230,98 @@ describe("createOneOffDrillSheets", () => {
     expect(
       await prisma.jobStructure.count({ where: { jobId: job.id } }),
     ).toBe(3);
+  });
+
+  it("saves a wall moved by hand with the grid arrows and keeps it on later saves", async () => {
+    const job = await prisma.job.findFirstOrThrow({
+      where: { projectName: `${tag} New` },
+    });
+    const [row] = buildRowsFromSetup(
+      {
+        ...createEmptySetup("CIRCULAR"),
+        templateId,
+        diameterFeet: String(DIAMETER),
+        castingProductId: "cast",
+        pipeType: "PVC",
+        pipeSize: "8",
+        quantity: "1",
+      },
+      1,
+    );
+    row.rimElevation = "100";
+    row.openings[0].invert = "92";
+    const calculated = computeCircularOneOffRow(row, options);
+    const lowered = computeCircularOneOffRow(stepRowWallHeight(row, -1), options);
+    expect(lowered.ready).toBe(true);
+    expect(lowered.wallHeightFeet).toBe(calculated.wallHeightFeet! - 0.5);
+
+    const result = await createOneOffDrillSheets({
+      job: { mode: "existing", jobId: job.id },
+      sheets: [
+        {
+          shape: "CIRCULAR",
+          structureNumber: "MH-9",
+          // Crosses to the server as JSON, like the real call.
+          config: JSON.parse(
+            JSON.stringify({ ...lowered.config, castingProductId: null }),
+          ),
+        },
+      ],
+    });
+    if ("error" in result) {
+      throw new Error(result.error);
+    }
+    expect(result.errors).toEqual([]);
+
+    const saved = await prisma.jobStructure.findUniqueOrThrow({
+      where: { id: result.sheets[0].id },
+      include: drillSheetDetailInclude,
+    });
+    // The server prices with no casting, so compare against its own numbers:
+    // the stored wall is 6" under what it would calculate, the brick 6" over.
+    expect(saved.calc?.wallHeightAdjustInches).toBe(-6);
+    const storedWall = Number(saved.calc?.wallHeightFeet);
+    const storedBrick = Number(saved.calc?.brickFeet);
+
+    // Re-saving the sheet from its own form values (what the sheet form, the
+    // bulk edit and Quick Build's edit view all do) keeps the change.
+    const template = await prisma.structureTemplate.findUniqueOrThrow({
+      where: { id: templateId },
+      include: { diameters: true },
+    });
+    const values = buildDrillSheetFormValues(
+      saved,
+      template.diameters.map((entry) => ({
+        id: entry.id,
+        insideDiameterFeet: Number(entry.insideDiameterFeet),
+      })),
+    );
+    expect(values.wallHeightAdjustInches).toBe(-6);
+    await updateJobStructureFromPayload(
+      saved.id,
+      parseDrillSheetPayloadData(circularPayloadFromValues(values)),
+      "",
+    );
+    const resaved = await prisma.jobStructureCalc.findUniqueOrThrow({
+      where: { jobStructureId: saved.id },
+    });
+    expect(resaved.wallHeightAdjustInches).toBe(-6);
+    expect(Number(resaved.wallHeightFeet)).toBe(storedWall);
+    expect(Number(resaved.brickFeet)).toBe(storedBrick);
+
+    // Taking the change back out puts the calculated wall back.
+    await updateJobStructureFromPayload(
+      saved.id,
+      parseDrillSheetPayloadData(
+        circularPayloadFromValues({ ...values, wallHeightAdjustInches: 0 }),
+      ),
+      "",
+    );
+    const cleared = await prisma.jobStructureCalc.findUniqueOrThrow({
+      where: { jobStructureId: saved.id },
+    });
+    expect(cleared.wallHeightAdjustInches).toBe(0);
+    expect(Number(cleared.wallHeightFeet)).toBe(storedWall + 0.5);
   });
 
   it("rejects an incomplete row before creating the job", async () => {

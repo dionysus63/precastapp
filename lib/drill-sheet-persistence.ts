@@ -2,6 +2,7 @@ import { Prisma } from "@/app/generated/prisma/client";
 import { localTodayInput, parseLocalDay } from "@/lib/date-only";
 import {
   computeDrillSheet,
+  normalizeWallHeightAdjustInches,
   type DrillSheetInput,
   type DrillSheetResult,
   type PipeConnectionType,
@@ -38,6 +39,8 @@ export type DrillSheetPayload = {
   useRiser: string;
   brickAdjustment: string;
   rimElevation: string;
+  /** Manual wall height change in inches (6" steps); missing = none. */
+  wallHeightAdjustInches?: number;
   openings: OpeningPayload[];
 };
 
@@ -132,6 +135,9 @@ export function parseDrillSheetPayloadData(parsed: unknown): DrillSheetPayload {
     useRiser: String(data.useRiser ?? "").trim(),
     brickAdjustment: String(data.brickAdjustment ?? "").trim(),
     rimElevation: String(data.rimElevation ?? "").trim(),
+    wallHeightAdjustInches: normalizeWallHeightAdjustInches(
+      data.wallHeightAdjustInches,
+    ),
     openings,
   };
 }
@@ -200,6 +206,7 @@ export async function loadAndComputeDrillSheet(
   const input: DrillSheetInput = {
     rimElevation: parseNum(payload.rimElevation),
     castingHeightFeet: casting?.heightFeet ?? 0,
+    wallHeightAdjustInches: payload.wallHeightAdjustInches ?? 0,
     diameter: {
       insideDiameterFeet,
       maxBaseHeightFeet: Number(diameterConfig.maxBaseHeightFeet),
@@ -311,6 +318,7 @@ export function buildCalcData(
     topSlabThicknessFeet: decimal(result.topSlabThicknessFeet),
     wallHeightFeet: decimal(result.wallHeightFeet),
     brickFeet: decimal(result.brickFeet),
+    wallHeightAdjustInches: result.wallHeightAdjustInches ?? 0,
     hasKey: result.hasKey,
     totalHeightFeet: decimal(result.totalHeightFeet),
     insideDiameterFeet: decimal(insideDiameterFeet),
@@ -558,6 +566,7 @@ export async function createJobStructureFromQuoteConfig(
     useRiser: "",
     brickAdjustment: "",
     rimElevation: String(config.rimElevation),
+    wallHeightAdjustInches: config.wallHeightAdjustInches ?? 0,
     openings: config.openings.map((opening) => ({
       label: opening.label,
       pipeMaterial: opening.pipeMaterial ?? "",
