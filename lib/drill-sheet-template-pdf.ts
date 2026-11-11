@@ -20,6 +20,28 @@ import {
 import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import type { DrillSheetPreviewMeta } from "@/components/drill-sheets/drill-sheet-preview";
 import { angleToClockPosition } from "@/lib/drill-sheet-diagram";
+import {
+  ARROW_OVERSHOOT_PT,
+  BADGE_RADIAL_OUTSIDE_PT,
+  BADGE_RADIUS_PT,
+  BADGE_TANGENT_OFFSET_PT,
+  CALLOUT_ABOVE_TIP_GAP_PT,
+  CALLOUT_FONT_SIZE_PT,
+  CALLOUT_MASK_PADDING_PT,
+  CALLOUT_RADIAL_OUTSIDE_PT,
+  GLYPH_HALF_WIDTH_PT,
+  GLYPH_INNER_OFFSET_PT,
+  GLYPH_OUTER_OFFSET_PT,
+  HALF_CAP_HEIGHT_RATIO,
+  REFERENCE_RADIUS_PT,
+  WALL_BAND_PT,
+  type LabelSide,
+  type PenetrationLabelPlacement,
+  badgeSideTangentUnit,
+  calloutLineHeight,
+  layoutPenetrationLabels,
+  outwardRadialUnit,
+} from "@/lib/drill-sheet-label-layout";
 import { printedSheetDiameter } from "@/lib/mold-sheet-settings";
 import { toWinAnsiText } from "@/lib/pdf-text";
 import {
@@ -42,37 +64,15 @@ export const RISER_CIRCLE_MARKER_FIELD = "riser_circle";
  */
 export const SECTION_STACK_MARKER_FIELD = "section_stack";
 
-// Penetration-arrow geometry (PDF points), measured from the outlet arrow's
-// vector line work in the AutoCAD template (drawn on a circle of radius
-// 87 pt with a 13.5 pt wall band) so generated arrows are indistinguishable
-// from it. The template outlet arrow points outward (up): a 0.3 pt shaft
-// running from 27.9 pt past the inner circle to 27.9 pt past the outer
-// circle, a solid triangular head 7.6 pt long by 10.6 pt wide with 0.3 pt
-// stroked edges at the tip, and the opening letter (~15 pt) inside a
-// stroked 8 pt-radius circle centered 13.5 pt outside the wall and 17.8 pt
-// to the right of the shaft. Where the shaft crosses the wall, an X glyph
-// spans the band: two lines parallel to the shaft offset +/-13.9 pt with
-// diagonals joining opposite corners. Penetration arrows are that arrow
-// rotated to point inward: tail 27.9 pt outside the outer circle, tip
-// 27.9 pt inside the inner circle pointing at the center, letter badge
-// outside beside the shaft. All lengths scale with the plan_circle marker
-// radius.
-const REFERENCE_RADIUS_PT = 87;
-const WALL_BAND_PT = 13.5;
-const ARROW_OVERSHOOT_PT = 27.9;
+// Penetration-arrow line work, measured from the outlet arrow in the AutoCAD
+// template. The shared geometry (circle radius, overshoot, glyph, badge and
+// callout positions) lives in lib/drill-sheet-label-layout.ts, which also
+// decides where each arrow's labels go.
 const ARROW_SHAFT_WIDTH_PT = 0.8;
 const ARROW_HEAD_LENGTH_PT = 7.6;
 const ARROW_HEAD_HALF_WIDTH_PT = 5.3;
 const ARROW_HEAD_EDGE_WIDTH_PT = 0.3;
-// X boot glyph, measured: side lines at +/-13.9 pt from the shaft, spanning
-// radius offsets -15.2 to -1.1 from the outer circle, ~0.5 pt strokes.
-const GLYPH_HALF_WIDTH_PT = 13.9;
-const GLYPH_INNER_OFFSET_PT = 15.2;
-const GLYPH_OUTER_OFFSET_PT = 1.1;
 const GLYPH_STROKE_WIDTH_PT = 0.8;
-const BADGE_RADIUS_PT = 8;
-const BADGE_RADIAL_OUTSIDE_PT = 13.5;
-const BADGE_TANGENT_OFFSET_PT = 17.8;
 const BADGE_BORDER_WIDTH_PT = 0.3;
 const BADGE_FONT_SIZE_PT = 15;
 
@@ -119,21 +119,6 @@ const ELEV_FONT_SIZE_PT = DIAGRAM_TEXT_FONT_SIZE_PT;
 const NO_KEY_NOTE_FONT_SIZE_PT = 14;
 /** Note sits high above the riser circle, level with the header block. */
 const NO_KEY_NOTE_ABOVE_CIRCLE_PT = 130;
-/** Half of Helvetica's cap height, used to vertically center badge letters. */
-const HALF_CAP_HEIGHT_RATIO = 0.36;
-// Hole-size callout next to each arrow: `12"Ø` over `@+5"`, center-aligned,
-// placed on the opposite tangent side of the shaft from the letter badge so
-// it never collides with it. The low-invert (outlet) callout is a single
-// line centered above the template's up arrow instead.
-const CALLOUT_FONT_SIZE_PT = 11;
-const CALLOUT_LINE_GAP_PT = 3;
-const CALLOUT_RADIAL_OUTSIDE_PT = 20;
-const CALLOUT_TANGENT_OFFSET_PT = 27;
-const CALLOUT_ABOVE_TIP_GAP_PT = 4;
-// White background mask behind callout text (AutoCAD-style text mask) so the
-// template's knockout spokes visually break behind the text.
-const CALLOUT_MASK_PADDING_PT = 2;
-
 /** AcroForm field names expected in uploaded drill sheet PDF templates. */
 export const DRILL_SHEET_TEMPLATE_FIELD_NAMES = [
   "contractor",
@@ -397,11 +382,6 @@ type PlanCircleLayout = {
 };
 
 /** Outward radial unit vector for a clockwise-from-up angle in PDF coordinates. */
-function outwardRadialUnit(angleDeg: number): { x: number; y: number } {
-  const radians = (angleDeg * Math.PI) / 180;
-  return { x: Math.sin(radians), y: Math.cos(radians) };
-}
-
 function getWidgetPage(
   doc: PDFDocument,
   widget: { P: () => unknown },
@@ -485,6 +465,7 @@ function drawInwardPenetrationArrow(
   angleDeg: number,
   label: string,
   font: PDFFont,
+  badgeSide: LabelSide,
 ): void {
   const radial = outwardRadialUnit(angleDeg);
   const { center, radius } = layout;
@@ -497,7 +478,7 @@ function drawInwardPenetrationArrow(
   });
   // Tangent pointing to the same side of the shaft as the template badge
   // (to the right of the arrow when it points up).
-  const tangent = { x: radial.y, y: -radial.x };
+  const tangent = badgeSideTangentUnit(angleDeg);
 
   // Tail overshoots the outer circle; tip overshoots the inner circle by
   // the same amount (mirror of the template's outward-pointing outlet).
@@ -568,11 +549,13 @@ function drawInwardPenetrationArrow(
   );
 
   // Lettered circle badge beside the shaft, outside the wall — same layout
-  // as the template's outlet "A" badge.
+  // as the template's outlet "A" badge, on whichever side of the shaft the
+  // label layout found clear.
   const badgeAnchor = at(radius + BADGE_RADIAL_OUTSIDE_PT * scale);
+  const badgeOffset = BADGE_TANGENT_OFFSET_PT * scale * badgeSide;
   const badge = {
-    x: badgeAnchor.x + tangent.x * BADGE_TANGENT_OFFSET_PT * scale,
-    y: badgeAnchor.y + tangent.y * BADGE_TANGENT_OFFSET_PT * scale,
+    x: badgeAnchor.x + tangent.x * badgeOffset,
+    y: badgeAnchor.y + tangent.y * badgeOffset,
   };
 
   page.drawCircle({
@@ -621,7 +604,8 @@ function getCalloutLines(opening: ComputedOpening): string[] {
 
 /**
  * Hole-size callout beside a penetration arrow: two lines centered on each
- * other, on the opposite tangent side of the shaft from the letter badge.
+ * other. Normally on the opposite tangent side of the shaft from the letter
+ * badge; the label layout moves it when a neighboring pipe is in the way.
  */
 function drawPenetrationCallout(
   page: PDFPage,
@@ -629,27 +613,24 @@ function drawPenetrationCallout(
   angleDeg: number,
   lines: string[],
   font: PDFFont,
+  placement: PenetrationLabelPlacement,
 ): void {
   if (lines.length === 0) {
     return;
   }
   const radial = outwardRadialUnit(angleDeg);
-  const tangent = { x: radial.y, y: -radial.x };
+  const tangent = badgeSideTangentUnit(angleDeg);
   const { center, radius } = layout;
   const scale = radius / REFERENCE_RADIUS_PT;
   const fontSize = CALLOUT_FONT_SIZE_PT * scale;
-  const lineHeight = fontSize * (2 * HALF_CAP_HEIGHT_RATIO) + CALLOUT_LINE_GAP_PT * scale;
+  const lineHeight = calloutLineHeight(fontSize, scale);
 
   const anchorRadial = radius + CALLOUT_RADIAL_OUTSIDE_PT * scale;
+  const tangentOffset =
+    placement.calloutTangentOffsetPt * scale * placement.calloutSide;
   const blockCenter = {
-    x:
-      center.x +
-      radial.x * anchorRadial -
-      tangent.x * CALLOUT_TANGENT_OFFSET_PT * scale,
-    y:
-      center.y +
-      radial.y * anchorRadial -
-      tangent.y * CALLOUT_TANGENT_OFFSET_PT * scale,
+    x: center.x + radial.x * anchorRadial + tangent.x * tangentOffset,
+    y: center.y + radial.y * anchorRadial + tangent.y * tangentOffset,
   };
 
   const blockHeight = lineHeight * (lines.length - 1);
@@ -747,6 +728,29 @@ async function drawPenetrationArrows(
   openings: ComputedOpening[],
 ): Promise<void> {
   const font = await doc.embedFont(StandardFonts.Helvetica);
+  const calloutWidth = (text: string) =>
+    font.widthOfTextAtSize(text, CALLOUT_FONT_SIZE_PT);
+
+  type Inlet = {
+    angleDegrees: number;
+    label: string;
+    lines: string[];
+  };
+  type CircleGroup = {
+    layout: PlanCircleLayout;
+    inlets: Inlet[];
+    /** Width of the outlet callout printed above this circle's up arrow. */
+    outletCalloutWidthPt: number | null;
+  };
+  const groups: CircleGroup[] = [];
+  const groupFor = (layout: PlanCircleLayout) => {
+    let group = groups.find((entry) => entry.layout === layout);
+    if (!group) {
+      group = { layout, inlets: [], outletCalloutWidthPt: null };
+      groups.push(group);
+    }
+    return group;
+  };
 
   for (const [index, opening] of openings.entries()) {
     // Each opening is drawn on the circle of the section its hole
@@ -762,27 +766,59 @@ async function drawPenetrationArrows(
 
     if (opening.isLowInvert) {
       drawOutletCallout(layout.page, layout, lines, font);
+      if (lines.length > 0) {
+        groupFor(layout).outletCalloutWidthPt = calloutWidth(lines.join(" "));
+      }
       continue;
     }
     if (opening.angleDegrees == null) {
       continue;
     }
 
-    const label = opening.label?.trim() || String.fromCharCode(65 + index);
-    drawInwardPenetrationArrow(
-      layout.page,
-      layout,
-      opening.angleDegrees,
-      label,
-      font,
-    );
-    drawPenetrationCallout(
-      layout.page,
-      layout,
-      opening.angleDegrees,
+    groupFor(layout).inlets.push({
+      angleDegrees: opening.angleDegrees,
+      label: opening.label?.trim() || String.fromCharCode(65 + index),
       lines,
-      font,
-    );
+    });
+  }
+
+  for (const group of groups) {
+    // Only the base circle carries the template's outlet arrow and "A"
+    // badge; labels on it must also stay clear of that artwork.
+    const hasOutletArtwork = group.layout === planCircle;
+    const placements = layoutPenetrationLabels({
+      inlets: group.inlets.map((inlet) => ({
+        angleDegrees: inlet.angleDegrees,
+        calloutLineWidthsPt: inlet.lines.map(calloutWidth),
+      })),
+      outlet:
+        hasOutletArtwork || group.outletCalloutWidthPt != null
+          ? { calloutWidthPt: group.outletCalloutWidthPt }
+          : undefined,
+    });
+
+    // All arrows first, then the callouts, so a callout's white mask never
+    // erases part of a neighboring arrow drawn after it.
+    group.inlets.forEach((inlet, index) => {
+      drawInwardPenetrationArrow(
+        group.layout.page,
+        group.layout,
+        inlet.angleDegrees,
+        inlet.label,
+        font,
+        placements[index]!.badgeSide,
+      );
+    });
+    group.inlets.forEach((inlet, index) => {
+      drawPenetrationCallout(
+        group.layout.page,
+        group.layout,
+        inlet.angleDegrees,
+        inlet.lines,
+        font,
+        placements[index]!,
+      );
+    });
   }
 }
 
