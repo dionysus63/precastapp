@@ -139,7 +139,7 @@ export function CustomerDetailContent({ customer }: CustomerDetailContentProps) 
           <StatTile
             label="Open Jobs"
             value={String(customer.stats.openJobs)}
-            href={`/jobs?q=${search}`}
+            href={`/jobs?status=OPEN&q=${search}`}
           />
           <StatTile
             label="Open Quotes"
@@ -154,7 +154,7 @@ export function CustomerDetailContent({ customer }: CustomerDetailContentProps) 
           <StatTile
             label="Last Activity"
             value={customer.updatedAt}
-            href={`/jobs?q=${search}`}
+            href={`/jobs?status=OPEN&q=${search}`}
           />
         </div>
       </section>

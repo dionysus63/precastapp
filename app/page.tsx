@@ -125,7 +125,9 @@ export default async function Home() {
       label: "Active Jobs",
       value: String(activeJobsCount),
       detail: `${productionQueueCount} structure${productionQueueCount === 1 ? "" : "s"} in production queue`,
-      href: "/jobs",
+      // Explicit so the count's link shows every open job even when the
+      // user's default Jobs tab is "My Open".
+      href: "/jobs?status=OPEN",
     },
     {
       label: "Pending Invoices",
@@ -244,7 +246,7 @@ export default async function Home() {
             description="Jobs currently moving through production"
             action={
               <Link
-                href="/jobs"
+                href="/jobs?status=OPEN"
                 className="text-xs font-medium text-slate-600 hover:text-slate-900"
               >
                 View all

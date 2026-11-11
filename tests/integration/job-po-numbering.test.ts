@@ -4,11 +4,11 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 // checks come from the session cookie, revalidatePath/redirect need a request
 // store, and createJob would otherwise make real job folders on disk.
 // Numbering, transactions and the sequence tables run real.
+// A new job records its creator, so the signed-in user must be a real user
+// row: filled in beforeAll.
+const actor = vi.hoisted(() => ({ id: "", displayName: "Test User" }));
 vi.mock("@/lib/auth/session", () => ({
-  requirePermission: vi.fn().mockResolvedValue({
-    id: "test-user",
-    displayName: "Test User",
-  }),
+  requirePermission: vi.fn(async () => actor),
 }));
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
@@ -40,6 +40,15 @@ function expectConsecutive(numbers: number[]) {
 }
 
 beforeAll(async () => {
+  const user = await prisma.user.create({
+    data: {
+      username: `${tag}-user`.toLowerCase(),
+      displayName: `${tag} User`,
+      initials: "TU",
+      role: "MANAGER",
+    },
+  });
+  actor.id = user.id;
   const vendor = await prisma.vendor.create({
     data: { name: `${tag} Vendor` },
   });
@@ -55,6 +64,7 @@ afterAll(async () => {
   await prisma.job.deleteMany({
     where: { projectName: { startsWith: tag } },
   });
+  await prisma.user.deleteMany({ where: { id: actor.id } });
   await prisma.$disconnect();
 });
 
@@ -87,6 +97,8 @@ describe("job number allocation", () => {
       `${yy}-${String(first.sequenceNumber + 1).padStart(3, "0")}`,
     );
     expect(first.folderPath).toBe("C:\\test-job-folders\\job");
+    // The signed-in user is recorded as the creator ("My Open" tab).
+    expect(first.createdById).toBe(actor.id);
   });
 
   it("never hands out the same number to concurrent creates", async () => {

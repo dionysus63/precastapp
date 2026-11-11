@@ -17,6 +17,7 @@ import {
 import { writeAuditLog } from "@/lib/auth/audit";
 import { hashPassword, validatePasswordStrength, verifyPassword } from "@/lib/auth/password";
 import { requireAuth, requirePermission } from "@/lib/auth/session";
+import { isJobsDefaultTab } from "@/lib/jobs-default-tab";
 import { prisma } from "@/lib/prisma";
 import {
   returnActionError,
@@ -304,6 +305,34 @@ export async function updateMyProfile(formData: FormData): Promise<ActionFormRes
 
     revalidatePath("/profile");
     return { success: "Profile saved." };
+  } catch (error) {
+    return { error: translatePrismaError(error).message };
+  }
+}
+
+/**
+ * A user's own choice of which Jobs list tab opens when they click Jobs.
+ * Personal, so it only needs a signed-in user (no Settings permission).
+ */
+export async function updateMyJobsDefaultTab(
+  formData: FormData,
+): Promise<ActionFormResult> {
+  const user = await requireAuth();
+  try {
+    const defaultJobsTab = String(formData.get("defaultJobsTab") ?? "");
+    if (!isJobsDefaultTab(defaultJobsTab)) {
+      throw new Error("Pick which Jobs tab should open by default.");
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { defaultJobsTab },
+    });
+
+    revalidatePath("/jobs");
+    revalidatePath("/profile");
+    revalidatePath("/settings/preferences");
+    return { success: "Default Jobs tab saved." };
   } catch (error) {
     return { error: translatePrismaError(error).message };
   }

@@ -99,6 +99,7 @@ export default async function JobDetailPage({
           deliveryTickets: { select: { status: true } },
           jobStructures: { select: { status: true } },
           invoices: { select: { total: true } },
+          createdBy: { select: { displayName: true } },
         },
       }),
     ),

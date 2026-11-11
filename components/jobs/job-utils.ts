@@ -300,6 +300,8 @@ export type JobDetailView = {
   customerPO: string;
   notes: string;
   createdAt: string;
+  /** Display name of the user who created the job, or an em dash. */
+  createdByName: string;
   updatedAt: string;
   stats: JobSummaryStat[];
   structureStatusBreakdown: { label: string; count: number }[];

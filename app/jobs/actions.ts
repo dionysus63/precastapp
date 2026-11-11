@@ -86,15 +86,19 @@ function parseJobUpdateFormData(formData: FormData) {
 
 /** Errors come back as `{ error }` (see returnActionError); success redirects. */
 export async function createJob(formData: FormData) {
-  await requirePermission(AppPermission.JOBS_MANAGE);
-  return returnActionError(() => createJobOrThrow(formData));
+  const actor = await requirePermission(AppPermission.JOBS_MANAGE);
+  return returnActionError(() => createJobOrThrow(formData, actor.id));
 }
 
-async function createJobOrThrow(formData: FormData): Promise<void> {
+async function createJobOrThrow(
+  formData: FormData,
+  createdById: string,
+): Promise<void> {
   const data = parseJobFormData(formData);
   const job = await createJobRecord({
     ...data,
     customerName: data.manualCustomerName,
+    createdById,
   });
 
   if (!(await createJobFolders(job))) {

@@ -7,6 +7,11 @@ import { getCurrentUser, getUserPermissions } from "@/lib/auth/session";
 
 const settingSections = [
   {
+    href: "/settings/preferences",
+    title: "My Preferences",
+    description: "Your own defaults, like which Jobs tab opens first.",
+  },
+  {
     href: "/settings/company",
     title: "Company & Branding",
     description: "Letterhead, contact info, app title, and quote PDF footer.",

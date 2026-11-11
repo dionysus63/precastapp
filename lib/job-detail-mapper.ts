@@ -73,6 +73,8 @@ export type JobWithSummaryRelations = Job & {
   deliveryTickets: Pick<DeliveryTicket, "status">[];
   jobStructures: Pick<JobStructure, "status">[];
   invoices: Pick<Invoice, "total">[];
+  /** The user who created the job; absent on jobs with no recorded creator. */
+  createdBy?: { displayName: string } | null;
 };
 
 export type JobBidderWithRelations = JobBidder & {
@@ -535,6 +537,7 @@ export function mapJobToDetailView(job: JobWithSummaryRelations): JobDetailView 
     customerPO: poQuote?.customerPO ?? "",
     notes: job.notes ?? "—",
     createdAt: formatDate(job.createdAt),
+    createdByName: job.createdBy?.displayName ?? "—",
     updatedAt: formatDate(job.updatedAt),
     stats,
     structureStatusBreakdown,
