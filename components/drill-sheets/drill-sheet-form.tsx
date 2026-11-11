@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { isActionError, type ActionError } from "@/lib/action-result";
+import { formatSheetDateInput } from "@/lib/date-only";
 import { randomId } from "@/lib/random-id";
 import { useMemo, useState } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
@@ -424,7 +425,8 @@ export function DrillSheetForm({
     manholeNumber,
     contractor,
     project,
-    date,
+    // The field holds yyyy-mm-dd; the sheet prints mm-dd-yyyy.
+    date: formatSheetDateInput(date),
     castingName: selectedCasting?.name ?? "",
     insideDiameterFeet: selectedDiameter?.insideDiameterFeet ?? null,
     sheetDiameter: moldSheetDiameter,

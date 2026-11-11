@@ -1,5 +1,5 @@
 import { Prisma } from "@/app/generated/prisma/client";
-import { toLocalDayInput } from "@/lib/date-only";
+import { formatSheetDate, toLocalDayInput } from "@/lib/date-only";
 import type { DrillSheetPreviewMeta } from "@/components/drill-sheets/drill-sheet-preview";
 import {
   annotateOpeningSections,
@@ -252,9 +252,7 @@ export function buildDrillSheetDetail(
     manholeNumber: sheet.structureNumber ?? "",
     contractor: calc.contractorName ?? "",
     project: calc.projectName ?? "",
-    date: calc.sheetDate
-      ? new Intl.DateTimeFormat("en-US").format(calc.sheetDate)
-      : "",
+    date: calc.sheetDate ? formatSheetDate(calc.sheetDate) : "",
     castingName: sheet.castings[0]?.castingDescription ?? "",
     insideDiameterFeet,
     sheetDiameter: resolveSheetDiameter(insideDiameterFeet, mold),

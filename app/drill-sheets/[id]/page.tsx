@@ -21,6 +21,7 @@ import {
 } from "@/lib/rect-sheet-detail";
 import { loadAndComputeRectSheet } from "@/lib/rect-sheet-persistence";
 import { getPriceListIdForStructure } from "@/lib/structure-pricing";
+import { formatSheetDate } from "@/lib/date-only";
 import { prisma } from "@/lib/prisma";
 
 import { BackButton } from "@/components/dashboard/back-button";
@@ -205,9 +206,7 @@ async function RectSheetDetail({ id }: { id: string }) {
           }}
           agencyStandard={sheet.structureTemplate?.agencyStandard ?? null}
           dateText={
-            sheet.calc?.sheetDate
-              ? new Intl.DateTimeFormat("en-US").format(sheet.calc.sheetDate)
-              : ""
+            sheet.calc?.sheetDate ? formatSheetDate(sheet.calc.sheetDate) : ""
           }
         />
       </div>

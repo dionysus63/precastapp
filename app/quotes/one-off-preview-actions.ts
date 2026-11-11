@@ -4,7 +4,7 @@ import { AppPermission } from "@/app/generated/prisma/client";
 import type { DrillSheetPreviewMeta } from "@/components/drill-sheets/drill-sheet-preview";
 import type { RectSheetPreviewMeta } from "@/components/drill-sheets/rect-sheet-preview";
 import { requirePermission } from "@/lib/auth/session";
-import { localTodayInput } from "@/lib/date-only";
+import { formatSheetDate } from "@/lib/date-only";
 import {
   loadDrillSheetFormOptions,
   loadRectSheetFormOptions,
@@ -67,7 +67,8 @@ export async function renderOneOffSheetPreview(input: OneOffSheetPreviewInput) {
     }
     const contractor = String(input.contractor ?? "");
     const project = String(input.project ?? "");
-    const today = localTodayInput();
+    // Same format the saved sheet prints (mm-dd-yyyy).
+    const today = formatSheetDate(new Date());
 
     const template = await withDatabaseRetry((client) =>
       client.structureTemplate.findUnique({
@@ -157,8 +158,7 @@ export async function renderOneOffSheetPreview(input: OneOffSheetPreviewInput) {
       meta,
       computed.rectSheet,
       template.rectPdfSet ?? null,
-      // Same format the saved sheet prints (m/d/yyyy).
-      { date: new Intl.DateTimeFormat("en-US").format(new Date()) },
+      { date: today },
     );
     if (!built.ok) {
       throw new Error(built.error);
