@@ -4,12 +4,17 @@ import { useEffect, useState, useTransition } from "react";
 import { unwrapAction } from "@/lib/action-result";
 import { reloadAfterAction } from "@/lib/reload-after-action";
 import {
+  sheetPdfSetFileDownloadHref,
+  sheetPdfSetFileDownloadName,
+} from "@/lib/sheet-pdf-set-download";
+import {
   createSheetPdfSetAction,
   deleteSheetPdfSetAction,
   deleteSheetPdfSetFileAction,
   renameSheetPdfSetAction,
   uploadSheetPdfSetFileAction,
 } from "@/app/structures/sheet-pdfs/actions";
+import { PdfDragChip } from "@/components/common/pdf-drag-chip";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { structureInputClassName } from "@/components/structures/structure-utils";
 
@@ -23,6 +28,8 @@ export type SheetPdfSetSlotView = {
     id: string;
     originalName: string;
     uploadedAt: string;
+    /** Changes on every upload; keeps a replaced PDF from being served stale. */
+    version: number;
   } | null;
 };
 
@@ -346,19 +353,35 @@ function SheetPdfSetCard({
                 )}
               </div>
               {slot.file ? (
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={() =>
-                    run(
-                      () => deleteSheetPdfSetFileAction(slot.file!.id),
-                      "PDF deleted.",
-                    )
-                  }
-                  className="rounded-md border border-red-200 px-2 py-0.5 text-[11px] font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
-                >
-                  Delete
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Keyed by upload time so a replaced PDF drops the copy
+                      the desktop shell warmed for the old one. */}
+                  <PdfDragChip
+                    key={`${slot.file.id}-${slot.file.version}`}
+                    href={`${sheetPdfSetFileDownloadHref(slot.file.id)}?v=${slot.file.version}`}
+                    fileName={sheetPdfSetFileDownloadName(
+                      set.name,
+                      set.shape,
+                      slot,
+                    )}
+                    title="Save this blank sheet PDF to your PC: drag it onto a folder or the desktop, or click to download. Edit it, then bring it back with Replace."
+                    label="Save PDF"
+                    className="rounded-md border border-sky-300 bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-900 hover:border-sky-400 hover:bg-sky-100"
+                  />
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() =>
+                      run(
+                        () => deleteSheetPdfSetFileAction(slot.file!.id),
+                        "PDF deleted.",
+                      )
+                    }
+                    className="rounded-md border border-red-200 px-2 py-0.5 text-[11px] font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    Delete
+                  </button>
+                </div>
               ) : null}
             </div>
 

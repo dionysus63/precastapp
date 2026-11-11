@@ -55,6 +55,7 @@ export default async function SheetPdfSetsPage() {
           id: file.id,
           originalName: file.originalName,
           uploadedAt: new Intl.DateTimeFormat("en-US").format(file.uploadedAt),
+          version: file.updatedAt.getTime(),
         },
       };
     });
