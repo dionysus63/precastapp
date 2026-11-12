@@ -76,7 +76,7 @@ export default async function NewDeliveryTicketPage({
   const origin = TICKET_ORIGINS[originKey];
 
   return (
-    <DashboardShell title={heading} subtitle={subtitle}>
+    <DashboardShell title={heading} subtitle={subtitle} width="full">
       <div>
         <DeliveryTicketEditor
           backHref={origin.href}
