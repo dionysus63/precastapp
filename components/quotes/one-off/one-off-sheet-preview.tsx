@@ -18,7 +18,8 @@ const MAX_PAGE_HEIGHT_VH = 1.6;
 const MIN_PAGE_HEIGHT_PX = 320;
 
 /**
- * Grid columns for "entry grid | sheet preview".
+ * Grid columns for "sheet preview | entry grid". The preview sits on the
+ * left so the inputs start right next to it however few structures there are.
  *
  * Rectangular sheets are landscape: the preview takes 60% of the width.
  * Circular sheets are portrait: the preview takes half the width, but on a
@@ -31,17 +32,18 @@ const MIN_PAGE_HEIGHT_PX = 320;
  */
 const SPLIT_CLASS_NAME: Record<OneOffShape, string> = {
   CIRCULAR:
-    "lg:grid-cols-[minmax(0,1fr)_min(50%,max(40rem,calc((100vh_-_12rem)_*_0.773_+_1.625rem)))]",
-  RECTANGULAR: "lg:grid-cols-[minmax(0,1fr)_60%]",
+    "lg:grid-cols-[min(50%,max(40rem,calc((100vh_-_12rem)_*_0.773_+_1.625rem)))_minmax(0,1fr)]",
+  RECTANGULAR: "lg:grid-cols-[60%_minmax(0,1fr)]",
 };
 
 /**
  * The preview column: follows the page while the grid scrolls, parked just
  * below the sticky app header (about 4.75rem tall) instead of sliding under
- * it.
+ * it. It comes after the grid in the markup (so a narrow window stacks the
+ * grid first) and `order-first` moves it to the left column on wide ones.
  */
 export const oneOffPreviewPaneClassName =
-  "min-w-0 lg:sticky lg:top-[5.25rem] lg:max-h-[calc(100vh-6.25rem)] lg:overflow-y-auto";
+  "min-w-0 lg:order-first lg:sticky lg:top-[5.25rem] lg:max-h-[calc(100vh-6.25rem)] lg:overflow-y-auto";
 
 export function oneOffSplitClassName(shape: OneOffShape): string {
   return `grid items-start gap-5 ${SPLIT_CLASS_NAME[shape]}`;
