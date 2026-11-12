@@ -22,7 +22,11 @@ import {
 } from "@/components/quotes/one-off/one-off-job-step";
 import { OneOffResults } from "@/components/quotes/one-off/one-off-results";
 import { OneOffSetupPanel } from "@/components/quotes/one-off/one-off-setup-panel";
-import { OneOffSheetPreview } from "@/components/quotes/one-off/one-off-sheet-preview";
+import {
+  OneOffSheetPreview,
+  oneOffPreviewPaneClassName,
+  oneOffSplitClassName,
+} from "@/components/quotes/one-off/one-off-sheet-preview";
 import { describeActionFailure, isActionError } from "@/lib/action-result";
 import { useLeaveGuard } from "@/lib/hooks/use-leave-guard";
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning";
@@ -680,13 +684,7 @@ export function OneOffDrillSheets({
                 </span>
               </div>
               <OneOffGridHint />
-              <div
-                className={`grid items-start gap-5 ${
-                  shape === "CIRCULAR"
-                    ? "lg:grid-cols-[minmax(0,1fr)_50%]"
-                    : "lg:grid-cols-[minmax(0,1fr)_60%]"
-                }`}
-              >
+              <div className={oneOffSplitClassName(shape)}>
                 <div className="min-w-0">
                   <OneOffGrid
                     shape={shape}
@@ -713,7 +711,7 @@ export function OneOffDrillSheets({
                     }
                     />
                 </div>
-                <div className="min-w-0 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+                <div className={oneOffPreviewPaneClassName}>
                   <OneOffSheetPreview
                     shape={shape}
                     row={activeRow}

@@ -13,6 +13,7 @@ import {
   getAccessibleHome,
 } from "@/lib/auth/permissions";
 import { SessionKeepAlive } from "./session-keep-alive";
+import { pageWidthClassName, type PageWidth } from "@/lib/page-width";
 import type { PermissionKey, UserRoleKey } from "@/lib/auth/constants";
 import {
   getCurrentUser,
@@ -24,6 +25,8 @@ type DashboardShellProps = {
   subtitle?: string;
   appTitle?: string;
   appSubtitle?: string;
+  /** How wide the page content may grow (see lib/page-width.ts). */
+  width?: PageWidth;
   children: React.ReactNode;
 };
 
@@ -32,6 +35,7 @@ export async function DashboardShell({
   subtitle,
   appTitle,
   appSubtitle,
+  width = "standard",
   children,
 }: DashboardShellProps) {
   const user = await getCurrentUser();
@@ -86,7 +90,9 @@ export async function DashboardShell({
           permissions={permissions}
         />
         <main className="flex-1 px-5 py-5">
-          <div className="mx-auto max-w-7xl">{children}</div>
+          <div data-page-width={width} className={pageWidthClassName(width)}>
+            {children}
+          </div>
         </main>
       </div>
     </div>

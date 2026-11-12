@@ -52,6 +52,7 @@ export default async function QuickBuildPage({
     const drafts = await loadOneOffDraftSummaries();
     return (
       <DashboardShell
+        width="full"
         title={resume ? `Quick Build — ${resume.name}` : "Quick Build"}
         subtitle={
           resume
@@ -95,6 +96,7 @@ export default async function QuickBuildPage({
 
   return (
     <DashboardShell
+      width="full"
       title="Quick Build — Edit Sheets"
       subtitle={
         data

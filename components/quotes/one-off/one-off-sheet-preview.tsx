@@ -17,6 +17,36 @@ const PREVIEW_DEBOUNCE_MS = 600;
 const MAX_PAGE_HEIGHT_VH = 1.6;
 const MIN_PAGE_HEIGHT_PX = 320;
 
+/**
+ * Grid columns for "entry grid | sheet preview".
+ *
+ * Rectangular sheets are landscape: the preview takes 60% of the width.
+ * Circular sheets are portrait: the preview takes half the width, but on a
+ * wide (full-width) window it stops growing once the whole letter page fits
+ * on screen, so the sheet never needs scrolling and the grid gets the rest.
+ * 8.5 / 11 = 0.773; 12rem is everything above and below the drawn page (the
+ * app header the pane sticks under, the pane's own header and padding) and
+ * 1.625rem the pane's side padding. The 40rem floor keeps the size the
+ * preview always had on a 1280px-wide page.
+ */
+const SPLIT_CLASS_NAME: Record<OneOffShape, string> = {
+  CIRCULAR:
+    "lg:grid-cols-[minmax(0,1fr)_min(50%,max(40rem,calc((100vh_-_12rem)_*_0.773_+_1.625rem)))]",
+  RECTANGULAR: "lg:grid-cols-[minmax(0,1fr)_60%]",
+};
+
+/**
+ * The preview column: follows the page while the grid scrolls, parked just
+ * below the sticky app header (about 4.75rem tall) instead of sliding under
+ * it.
+ */
+export const oneOffPreviewPaneClassName =
+  "min-w-0 lg:sticky lg:top-[5.25rem] lg:max-h-[calc(100vh-6.25rem)] lg:overflow-y-auto";
+
+export function oneOffSplitClassName(shape: OneOffShape): string {
+  return `grid items-start gap-5 ${SPLIT_CLASS_NAME[shape]}`;
+}
+
 type OneOffSheetPreviewProps = {
   shape: OneOffShape;
   /** The row being previewed (the one last clicked in the grid), if any. */

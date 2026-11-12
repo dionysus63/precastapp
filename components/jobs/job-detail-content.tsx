@@ -43,6 +43,7 @@ import {
   tableRowClassName,
 } from "@/lib/table-styles";
 import { BackButton } from "@/components/dashboard/back-button";
+import { standardPageWidthClassName } from "@/lib/page-width";
 type JobDetailContentProps = {
   detail: JobDetailView;
   activeTab: JobDetailTab;
@@ -179,9 +180,12 @@ export function JobDetailContent({
     detail.projectAddress !== "—" ? detail.projectAddress : null,
   ].filter(Boolean);
 
+  // The job header and tab bar keep the standard page width even when a tab
+  // (Quick Build) uses the whole window, so the tabs don't jump sideways when
+  // switching between them.
   return (
     <div className="space-y-4">
-      <section className="rounded-xl border border-slate-200/80 bg-white shadow-sm">
+      <section className={`${standardPageWidthClassName} rounded-xl border border-slate-200/80 bg-white shadow-sm`}>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 py-2.5">
           <BackButton href="/jobs" label="Back to Jobs" />
 
@@ -291,7 +295,7 @@ export function JobDetailContent({
         </div>
       </section>
 
-      <div className="border-b border-slate-200">
+      <div className={`${standardPageWidthClassName} border-b border-slate-200`}>
         <div className="-mb-px flex flex-wrap items-center gap-1">
           {TAB_ORDER.map((tab) => (
             <TabLink
