@@ -325,7 +325,7 @@ export function ScheduleLoadsEditor({
                   <td className={`${tableCellClassName} whitespace-nowrap text-slate-600`}>
                     {row.loadSequence ?? "—"}
                   </td>
-                  <td className={`${tableCellClassName} whitespace-nowrap font-mono text-[11px] font-medium`}>
+                  <td className={`${tableCellClassName} whitespace-nowrap font-mono text-2xs font-medium`}>
                     <Link
                       href={`/delivery-tickets/${row.id}`}
                       className="text-slate-900 hover:text-sky-700"

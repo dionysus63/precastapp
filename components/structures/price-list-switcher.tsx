@@ -19,14 +19,14 @@ export function PriceListSwitcher({
   }
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <span className="text-[11px] font-medium text-slate-500">
+      <span className="text-2xs font-medium text-slate-500">
         Price list:
       </span>
       {priceLists.map((list) => (
         <Link
           key={list.id}
           href={`${basePath}?priceList=${list.id}`}
-          className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold ${
+          className={`rounded-lg px-2.5 py-1 text-2xs font-semibold ${
             list.id === selectedId
               ? "bg-slate-900 text-white"
               : "border border-slate-200 text-slate-600 hover:bg-slate-50"

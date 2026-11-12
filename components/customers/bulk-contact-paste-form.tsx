@@ -189,10 +189,10 @@ export function BulkContactPasteForm() {
             <p className="text-xs font-medium text-slate-700">
               Expected column order
             </p>
-            <p className="mt-1 text-[11px] text-slate-500">
+            <p className="mt-1 text-2xs text-slate-500">
               {bulkContactColumnHeaders.join(" → ")}
             </p>
-            <p className="mt-1 text-[11px] text-slate-500">
+            <p className="mt-1 text-2xs text-slate-500">
               Roles accepts comma-separated values: Estimating, Billing, Field
               (est / bill / ap / site work too). The first contact imported for
               a role becomes the customer&apos;s default for it.
@@ -212,7 +212,7 @@ export function BulkContactPasteForm() {
               value={pasteText}
               onChange={(event) => setPasteText(event.target.value)}
               placeholder={bulkContactExample.trimEnd()}
-              className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-[11px] text-slate-900 shadow-sm placeholder:text-slate-400"
+              className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-2xs text-slate-900 shadow-sm placeholder:text-slate-400"
             />
           </div>
 

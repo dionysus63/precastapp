@@ -17,7 +17,7 @@ import {
 function DetailField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+      <dt className="text-2xs font-medium uppercase tracking-wide text-slate-500">
         {label}
       </dt>
       <dd className="mt-1 text-sm text-slate-900">{value}</dd>
@@ -74,7 +74,7 @@ export function InvoiceDetailContent({
         {ticketId ? (
           <Link
             href={`/delivery-tickets/${ticketId}`}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             View Ticket
           </Link>
@@ -99,7 +99,7 @@ export function InvoiceDetailContent({
             <dl className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               <DetailField label="Invoice Number" value={invoice.invoiceNumber} />
               <div>
-                <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                <dt className="text-2xs font-medium uppercase tracking-wide text-slate-500">
                   Status
                 </dt>
                 <dd className="mt-1">

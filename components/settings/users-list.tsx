@@ -53,7 +53,7 @@ export function UsersList({ users }: UsersListProps) {
             <tr key={user.id}>
               <td className={tableCellClassName}>
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold text-slate-700">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-2xs font-semibold text-slate-700">
                     {user.initials}
                   </div>
                   <div>
@@ -72,7 +72,7 @@ export function UsersList({ users }: UsersListProps) {
               </td>
               <td className={tableCellClassName}>
                 <span
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                  className={`rounded-full px-2.5 py-1 text-2xs font-semibold ${
                     user.isActive
                       ? "bg-emerald-50 text-emerald-700"
                       : "bg-slate-100 text-slate-600"

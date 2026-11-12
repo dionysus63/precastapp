@@ -282,7 +282,7 @@ export function JobStructuresBulkEditClient({
         </div>
         <div className="flex items-center gap-3">
           {message ? (
-            <p className="text-[11px] text-slate-600">{message}</p>
+            <p className="text-2xs text-slate-600">{message}</p>
           ) : null}
           <button
             type="button"
@@ -299,7 +299,7 @@ export function JobStructuresBulkEditClient({
         </div>
       </div>
 
-      <p className="text-[11px] text-slate-500">
+      <p className="text-2xs text-slate-500">
         Enter moves down a column, Ctrl+D fills a cell from the row above, and
         gray columns recompute as you type. Rows turn blue until saved.
       </p>
@@ -333,7 +333,7 @@ export function JobStructuresBulkEditClient({
       )}
 
       {data.skipped.length > 0 ? (
-        <p className="text-[11px] text-slate-500">
+        <p className="text-2xs text-slate-500">
           Not editable here (no completed sheet):{" "}
           {data.skipped.map((entry, index) => (
             <span key={entry.structureId}>

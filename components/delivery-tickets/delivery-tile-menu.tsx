@@ -196,7 +196,7 @@ export function DeliveryTileMenu({
             }
           }}
         >
-          <p className="mb-2 font-mono text-[10px] font-semibold text-slate-500">
+          <p className="mb-2 font-mono text-3xs font-semibold text-slate-500">
             {ticketNumber}
           </p>
 
@@ -215,7 +215,7 @@ export function DeliveryTileMenu({
                 type="button"
                 onClick={saveDate}
                 disabled={!dateChanged || pending}
-                className="shrink-0 rounded-md bg-slate-900 px-2 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                className="shrink-0 rounded-md bg-slate-900 px-2 py-1 text-2xs font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {pending ? "Saving…" : "Move"}
               </button>
@@ -223,7 +223,7 @@ export function DeliveryTileMenu({
           </MenuField>
 
           {error ? (
-            <p className="mt-2 text-[10px] text-red-600">{error}</p>
+            <p className="mt-2 text-3xs text-red-600">{error}</p>
           ) : null}
         </div>
       ) : null}
@@ -245,7 +245,7 @@ function MenuField({
     <div>
       <label
         htmlFor={htmlFor}
-        className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500"
+        className="mb-1 block text-3xs font-semibold uppercase tracking-wide text-slate-500"
       >
         {label}
       </label>

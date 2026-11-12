@@ -197,7 +197,7 @@ export function QuoteDeliveryPricingPanel({
           Delivery Pricing
         </p>
         {shippingHint ? (
-          <p className="text-[11px] font-medium text-slate-600">
+          <p className="text-2xs font-medium text-slate-600">
             <span
               className="mr-1 inline-block h-2 w-2 rounded-full align-middle"
               style={{ backgroundColor: shippingHint.color }}
@@ -208,7 +208,7 @@ export function QuoteDeliveryPricingPanel({
               : ""}
           </p>
         ) : (
-          <p className="text-[11px] text-slate-400">
+          <p className="text-2xs text-slate-400">
             No zone matched — enter a project address in Quote
             Details or price manually
           </p>
@@ -218,7 +218,7 @@ export function QuoteDeliveryPricingPanel({
         <div>
           <label
             htmlFor="deliveryLoads"
-            className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+            className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
           >
             Loads
           </label>
@@ -238,7 +238,7 @@ export function QuoteDeliveryPricingPanel({
             }
             className={quoteCompactInputClassName}
           />
-          <p className="mt-0.5 text-[10px] text-slate-400">
+          <p className="mt-0.5 text-3xs text-slate-400">
             {deliveryLoadsInput.trim()
               ? autoDeliveryLoads !== null
                 ? `auto would be ${autoDeliveryLoads}`
@@ -249,7 +249,7 @@ export function QuoteDeliveryPricingPanel({
         <div>
           <label
             htmlFor="maxLoadLbs"
-            className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+            className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
           >
             Max Weight / Load (lb)
           </label>
@@ -266,7 +266,7 @@ export function QuoteDeliveryPricingPanel({
         <div>
           <label
             htmlFor="pricePerLoad"
-            className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+            className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
           >
             Price / Load ($)
           </label>
@@ -283,7 +283,7 @@ export function QuoteDeliveryPricingPanel({
           />
         </div>
         <div>
-          <p className="block text-[10px] font-medium uppercase tracking-wide text-slate-500">
+          <p className="block text-3xs font-medium uppercase tracking-wide text-slate-500">
             Delivery Total
           </p>
           <p className="mt-1 text-sm font-semibold text-slate-900">
@@ -295,7 +295,7 @@ export function QuoteDeliveryPricingPanel({
             type="button"
             onClick={onApplyDeliveryLine}
             disabled={deliveryTotal === null}
-            className="mt-1 rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-40"
+            className="mt-1 rounded-lg bg-slate-900 px-2.5 py-1 text-2xs font-semibold text-white hover:bg-slate-800 disabled:opacity-40"
           >
             {hasDeliveryLine
               ? "Update delivery line"

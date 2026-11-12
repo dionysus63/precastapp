@@ -32,7 +32,7 @@ export function CategoryChipBar({
   const totalCount = categories.reduce((sum, chip) => sum + chip.count, 0);
 
   function categoryChipClass(active: boolean) {
-    return `rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+    return `rounded-full border px-2.5 py-1 text-2xs font-medium ${
       active
         ? "border-slate-900 bg-slate-900 text-white"
         : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
@@ -40,7 +40,7 @@ export function CategoryChipBar({
   }
 
   function subcategoryChipClass(active: boolean) {
-    return `rounded-md border px-2 py-0.5 text-[11px] font-medium ${
+    return `rounded-md border px-2 py-0.5 text-2xs font-medium ${
       active
         ? "border-slate-300 bg-slate-100 text-slate-900"
         : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
@@ -85,7 +85,7 @@ export function CategoryChipBar({
       </div>
       {selectedCategoryId && subcategories.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1.5 pl-1">
-          <span className="text-[11px] text-slate-400">Subcategory:</span>
+          <span className="text-2xs text-slate-400">Subcategory:</span>
           <button
             type="button"
             onClick={() => setParams({ subcategory: null })}

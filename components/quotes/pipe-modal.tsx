@@ -286,7 +286,7 @@ export function PipeModal({
                 <p className="text-xs font-semibold text-slate-900">
                   Add pipe to the quote
                 </p>
-                <p className="mt-1 text-[11px] text-slate-600">
+                <p className="mt-1 text-2xs text-slate-600">
                   Enter footage by diameter. Footage rounds up to full{" "}
                   {pipeType === "ADS_PIPE" ? "20'" : "8'"} sections and quotes
                   at $/LF.
@@ -300,7 +300,7 @@ export function PipeModal({
                 <p className="text-xs font-semibold text-slate-900">
                   Add unit prices to description
                 </p>
-                <p className="mt-1 text-[11px] text-slate-600">
+                <p className="mt-1 text-2xs text-slate-600">
                   Adds a Pipe Unit Prices block to the last line of the quote
                   without billing those diameters.
                 </p>
@@ -338,7 +338,7 @@ export function PipeModal({
                       createDefaultQuoteRow(productsForType),
                     ])
                   }
-                  className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                  className="rounded-lg border border-slate-200 px-2 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
                 >
                   Add row
                 </button>
@@ -419,7 +419,7 @@ export function PipeModal({
                           <td className={`${tableCellClassName} text-slate-600`}>
                             {product ? formatQuoteCurrency(product.unitPrice) : "—"}
                             {lineTotal != null ? (
-                              <span className="block text-[11px] text-slate-500">
+                              <span className="block text-2xs text-slate-500">
                                 Line {formatQuoteCurrency(lineTotal)}
                               </span>
                             ) : null}
@@ -435,7 +435,7 @@ export function PipeModal({
                                 )
                               }
                               disabled={quoteRows.length <= 1}
-                              className="rounded border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              className="rounded border border-slate-200 px-2 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               Remove
                             </button>
@@ -498,7 +498,7 @@ export function PipeModal({
                           <span className="block text-xs font-medium text-slate-900">
                             {formatPipeQuoteLabel(product)}
                           </span>
-                          <span className="block text-[11px] text-slate-500">
+                          <span className="block text-2xs text-slate-500">
                             {product.code} ·{" "}
                             {formatQuoteCurrency(product.unitPrice)}/LF
                           </span>

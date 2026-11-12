@@ -381,7 +381,7 @@ export function SheetPdfManager({
           ))}
         </div>
         {shownFields ? (
-          <pre className="max-h-48 overflow-auto rounded bg-slate-50 p-2 text-[11px] text-slate-600">
+          <pre className="max-h-48 overflow-auto rounded bg-slate-50 p-2 text-2xs text-slate-600">
             {expectedFieldNames[shownFields].join("\n")}
           </pre>
         ) : null}
@@ -444,7 +444,7 @@ function SheetPdfRow({
           className={`${tableInlineInputClassName} w-64 !text-sm font-semibold`}
         />
         <p
-          className="px-1.5 text-[11px] text-slate-500"
+          className="px-1.5 text-2xs text-slate-500"
           title="The file's name when it was uploaded"
         >
           {sheetPdf.originalName} · {sheetPdf.uploadedAt}

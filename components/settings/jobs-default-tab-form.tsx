@@ -43,7 +43,7 @@ export function JobsDefaultTabForm({
               <span className="block text-xs font-semibold text-slate-900">
                 {option.label}
               </span>
-              <span className="block text-[11px] text-slate-500">
+              <span className="block text-2xs text-slate-500">
                 {OPTION_HINTS[option.value]}
               </span>
             </span>

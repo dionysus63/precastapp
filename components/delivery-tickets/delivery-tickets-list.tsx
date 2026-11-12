@@ -81,7 +81,7 @@ const TicketsTable = memo(function TicketsTable({
                 <td className={tableCellClassName}>
                   <Link
                     href={`/delivery-tickets/${ticket.id}`}
-                    className="font-mono text-[11px] font-semibold text-slate-900 hover:text-sky-700 hover:underline"
+                    className="font-mono text-2xs font-semibold text-slate-900 hover:text-sky-700 hover:underline"
                   >
                     {ticket.ticketNumber}
                   </Link>
@@ -100,7 +100,7 @@ const TicketsTable = memo(function TicketsTable({
                   ) : (
                     <span className="text-slate-700">{ticket.projectName}</span>
                   )}
-                  <span className="block font-mono text-[10px] text-slate-400">
+                  <span className="block font-mono text-3xs text-slate-400">
                     {ticket.jobNumber}
                   </span>
                 </td>
@@ -121,7 +121,7 @@ const TicketsTable = memo(function TicketsTable({
                 <td className={tableCellClassName}>
                   <Link
                     href={`/delivery-tickets/${ticket.id}/preview`}
-                    className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+                    className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-700 hover:bg-slate-50"
                   >
                     Print
                   </Link>

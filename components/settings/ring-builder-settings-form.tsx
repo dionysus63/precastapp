@@ -104,13 +104,13 @@ function SubcategoryPicker({
 
   return (
     <div className="space-y-2">
-      <p className="text-[11px] font-medium text-slate-700">{label}</p>
+      <p className="text-2xs font-medium text-slate-700">{label}</p>
       {options.length > 0 ? (
         <div className="max-h-28 space-y-1 overflow-y-auto rounded border border-slate-200 bg-white p-2">
           {options.map((option) => (
             <label
               key={option}
-              className="flex items-center gap-2 text-[11px] text-slate-700"
+              className="flex items-center gap-2 text-2xs text-slate-700"
             >
               <input
                 type="checkbox"
@@ -123,7 +123,7 @@ function SubcategoryPicker({
           ))}
         </div>
       ) : (
-        <p className="text-[11px] text-slate-500">
+        <p className="text-2xs text-slate-500">
           No catalog subcategories yet. Add custom values below.
         </p>
       )}
@@ -331,7 +331,7 @@ export function RingBuilderSettingsForm({
                         }
                       />
                     ) : (
-                      <p className="text-[11px] text-slate-500">
+                      <p className="text-2xs text-slate-500">
                         Solid rings use the default price only.
                       </p>
                     )}

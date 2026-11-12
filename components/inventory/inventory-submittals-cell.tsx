@@ -48,14 +48,14 @@ export function InventorySubmittalsCell({
             type="button"
             disabled={pending}
             onClick={handleOpen}
-            className="rounded-md border border-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-md border border-slate-200 px-2 py-0.5 text-3xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
           >
             {pending ? "Opening…" : "Open"}
           </button>
         ) : null}
       </div>
       {message ? (
-        <p className="max-w-xs truncate text-[10px] text-slate-500" title={message}>
+        <p className="max-w-xs truncate text-3xs text-slate-500" title={message}>
           {message}
         </p>
       ) : null}

@@ -36,7 +36,7 @@ import {
 } from "@/lib/table-styles";
 
 const iconButtonClassName =
-  "inline-flex h-6 w-6 items-center justify-center rounded text-[13px] text-slate-500 hover:bg-slate-200/70 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-30";
+  "inline-flex h-6 w-6 items-center justify-center rounded text-xsm text-slate-500 hover:bg-slate-200/70 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-30";
 
 // Keyboard-navigable columns, in Tab/Enter order.
 // Description=0, Qty=1, Unit=2, Unit Price=3, Weight=4, Tax=5.
@@ -199,7 +199,7 @@ function DragHandleCell({
         onDragEnd={dragHandlers.onHandleDragEnd}
         title="Drag to reorder"
         aria-label={`Drag line ${line.lineNumber} to reorder`}
-        className="inline-flex h-6 w-4 cursor-grab select-none items-center justify-center rounded text-[13px] leading-none text-slate-300 hover:bg-slate-200/70 hover:text-slate-600 active:cursor-grabbing"
+        className="inline-flex h-6 w-4 cursor-grab select-none items-center justify-center rounded text-xsm leading-none text-slate-300 hover:bg-slate-200/70 hover:text-slate-600 active:cursor-grabbing"
       >
         ⋮⋮
       </span>
@@ -335,7 +335,7 @@ function MoveRemoveButtons({
       <button
         type="button"
         onClick={() => onRemoveLine(line.id)}
-        className="inline-flex h-6 w-6 items-center justify-center rounded text-[13px] text-red-500 hover:bg-red-50 hover:text-red-700"
+        className="inline-flex h-6 w-6 items-center justify-center rounded text-xsm text-red-500 hover:bg-red-50 hover:text-red-700"
         aria-label={`Remove line ${line.lineNumber}`}
       >
         ✕
@@ -385,7 +385,7 @@ const QuoteLineItemRow = memo(function QuoteLineItemRow({
           <StatusBadge label={line.typeLabel} variant="neutral" />
         </td>
         <td className={`${tableCellBordersClassName} px-2`} colSpan={8}>
-          <div className="flex items-center gap-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+          <div className="flex items-center gap-2 py-1.5 text-2xs font-medium uppercase tracking-wide text-slate-400">
             <span className="h-0 flex-1 border-t-2 border-dashed border-slate-300" />
             Everything below starts on a new page
             <span className="h-0 flex-1 border-t-2 border-dashed border-slate-300" />
@@ -512,7 +512,7 @@ const QuoteLineItemRow = memo(function QuoteLineItemRow({
           <p className="tabular-nums text-slate-900">
             {formatUnitPriceDisplay(line.unitPrice)}
           </p>
-          <p className="text-[10px] text-slate-500">
+          <p className="text-3xs text-slate-500">
             {line.costBreakdown!.length} cost line
             {line.costBreakdown!.length === 1 ? "" : "s"} · edit to change
           </p>

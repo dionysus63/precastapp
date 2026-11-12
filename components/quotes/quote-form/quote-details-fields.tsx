@@ -56,12 +56,12 @@ export function QuoteMetaFields({
 }) {
   return (
     <div>
-      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+      <p className="mb-2 text-3xs font-semibold uppercase tracking-wide text-slate-400">
         Quote
       </p>
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <label className="block text-[10px] font-medium uppercase tracking-wide text-slate-500">
+          <label className="block text-3xs font-medium uppercase tracking-wide text-slate-500">
             Quote Number
           </label>
           <input
@@ -71,7 +71,7 @@ export function QuoteMetaFields({
           />
         </div>
         <div>
-          <label className="block text-[10px] font-medium uppercase tracking-wide text-slate-500">
+          <label className="block text-3xs font-medium uppercase tracking-wide text-slate-500">
             Revision
           </label>
           <input
@@ -83,7 +83,7 @@ export function QuoteMetaFields({
         <div>
           <label
             htmlFor="status"
-            className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+            className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
           >
             Quote Status
           </label>
@@ -108,7 +108,7 @@ export function QuoteMetaFields({
         <div>
           <label
             htmlFor="quoteType"
-            className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+            className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
           >
             Quote Type
           </label>
@@ -131,7 +131,7 @@ export function QuoteMetaFields({
         <div>
           <label
             htmlFor="estimator"
-            className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+            className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
           >
             Estimator
           </label>
@@ -152,7 +152,7 @@ export function QuoteMetaFields({
         <div>
           <label
             htmlFor="bidDueDate"
-            className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+            className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
           >
             Bid Due Date
           </label>
@@ -168,7 +168,7 @@ export function QuoteMetaFields({
         <div>
           <label
             htmlFor="quoteDate"
-            className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+            className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
           >
             Quote Date
           </label>
@@ -184,7 +184,7 @@ export function QuoteMetaFields({
         <div>
           <label
             htmlFor="expirationDate"
-            className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+            className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
           >
             Expiration Date
           </label>
@@ -273,7 +273,7 @@ export function QuoteJobContactFields({
 }) {
   return (
     <div className="border-t border-slate-100 pt-3">
-      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+      <p className="mb-2 text-3xs font-semibold uppercase tracking-wide text-slate-400">
         Job &amp; Contact
       </p>
       <div className="space-y-2">
@@ -282,13 +282,13 @@ export function QuoteJobContactFields({
             <div className="mb-0.5 flex items-center justify-between gap-2">
               <label
                 htmlFor="job"
-                className="text-[10px] font-medium uppercase tracking-wide text-slate-500"
+                className="text-3xs font-medium uppercase tracking-wide text-slate-500"
               >
                 Job
               </label>
               <Link
                 href="/jobs/new"
-                className="text-[10px] font-semibold text-slate-600 hover:text-slate-900 hover:underline"
+                className="text-3xs font-semibold text-slate-600 hover:text-slate-900 hover:underline"
               >
                 Create New Job
               </Link>
@@ -317,7 +317,7 @@ export function QuoteJobContactFields({
           <div>
             <label
               htmlFor="projectAddress"
-              className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+              className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
             >
               Project Address
             </label>
@@ -332,7 +332,7 @@ export function QuoteJobContactFields({
               inputClassName={quoteCompactInputClassName}
             />
             {shippingStatus !== "idle" ? (
-              <p className="mt-1 text-[11px]">
+              <p className="mt-1 text-2xs">
                 {shippingStatus === "loading" ? (
                   <span className="text-slate-400">
                     Checking shipping zone…
@@ -369,7 +369,7 @@ export function QuoteJobContactFields({
         <div>
           <label
             htmlFor="quoteContactPicker"
-            className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+            className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
           >
             Contact
           </label>
@@ -400,7 +400,7 @@ export function QuoteJobContactFields({
           <div>
             <label
               htmlFor="contactName"
-              className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+              className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
             >
               Contact Name
             </label>
@@ -420,7 +420,7 @@ export function QuoteJobContactFields({
           <div>
             <label
               htmlFor="contactEmail"
-              className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+              className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
             >
               Contact Email
             </label>
@@ -443,7 +443,7 @@ export function QuoteJobContactFields({
           <div>
             <label
               htmlFor="contactPhone"
-              className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+              className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
             >
               Contact Phone
             </label>
@@ -466,7 +466,7 @@ export function QuoteJobContactFields({
           <div>
             <label
               htmlFor="contactTitle"
-              className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+              className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
             >
               Contact Role
             </label>
@@ -513,14 +513,14 @@ export function QuotePricingFields({
 }) {
   return (
     <div className="border-t border-slate-100 pt-3">
-      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+      <p className="mb-2 text-3xs font-semibold uppercase tracking-wide text-slate-400">
         Pricing
       </p>
       <div className="grid gap-2 sm:grid-cols-3">
         <div>
           <label
             htmlFor="priceList"
-            className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+            className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
           >
             Price List
           </label>
@@ -543,7 +543,7 @@ export function QuotePricingFields({
         <div>
           <label
             htmlFor="taxRate"
-            className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+            className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
           >
             Tax Rate
           </label>
@@ -559,7 +559,7 @@ export function QuotePricingFields({
         <div>
           <label
             htmlFor="customerPo"
-            className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+            className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
           >
             Customer PO
           </label>

@@ -6,9 +6,9 @@ export type JobSheetNavEntry = {
 };
 
 const buttonClassName =
-  "rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50";
+  "rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50";
 const disabledClassName =
-  "rounded-lg border border-slate-100 px-3 py-1.5 text-[11px] font-semibold text-slate-300";
+  "rounded-lg border border-slate-100 px-3 py-1.5 text-2xs font-semibold text-slate-300";
 
 /**
  * Previous/next links between a job's drill sheets, ordered by structure
@@ -41,7 +41,7 @@ export function DrillSheetJobNav({
       ) : (
         <span className={disabledClassName}>←</span>
       )}
-      <span className="px-0.5 text-[11px] tabular-nums text-slate-400">
+      <span className="px-0.5 text-2xs tabular-nums text-slate-400">
         {index + 1} / {entries.length}
       </span>
       {next ? (

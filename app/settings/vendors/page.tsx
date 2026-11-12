@@ -99,7 +99,7 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
                         >
                           <input type="hidden" name="id" value={vendor.id} />
                           <div>
-                            <label className="text-[11px] font-medium text-slate-600">
+                            <label className="text-2xs font-medium text-slate-600">
                               Name
                             </label>
                             <input
@@ -110,7 +110,7 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
                             />
                           </div>
                           <div>
-                            <label className="text-[11px] font-medium text-slate-600">
+                            <label className="text-2xs font-medium text-slate-600">
                               Default category
                             </label>
                             <select
@@ -130,7 +130,7 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
                           </div>
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <label className="text-[11px] font-medium text-slate-600">
+                              <label className="text-2xs font-medium text-slate-600">
                                 Status
                               </label>
                               <select
@@ -143,7 +143,7 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
                               </select>
                             </div>
                             <div>
-                              <label className="text-[11px] font-medium text-slate-600">
+                              <label className="text-2xs font-medium text-slate-600">
                                 Sort
                               </label>
                               <input
@@ -155,7 +155,7 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
                             </div>
                           </div>
                           <div>
-                            <label className="text-[11px] font-medium text-slate-600">
+                            <label className="text-2xs font-medium text-slate-600">
                               Notes
                             </label>
                             <textarea

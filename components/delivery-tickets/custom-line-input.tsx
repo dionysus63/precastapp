@@ -72,7 +72,7 @@ export function CustomLineInput({
         }`}
       />
       {error ? (
-        <p className="mt-1 max-w-[12rem] text-[10px] text-red-600">{error}</p>
+        <p className="mt-1 max-w-[12rem] text-3xs text-red-600">{error}</p>
       ) : null}
     </div>
   );

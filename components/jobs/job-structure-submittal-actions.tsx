@@ -73,12 +73,12 @@ export function JobStructureSubmittalActions({
               type="file"
               required
               disabled={pending}
-              className="max-w-[140px] text-[10px] text-slate-600 file:mr-1 file:rounded file:border-0 file:bg-slate-100 file:px-2 file:py-1 file:text-[10px] file:font-medium disabled:opacity-50"
+              className="max-w-[140px] text-3xs text-slate-600 file:mr-1 file:rounded file:border-0 file:bg-slate-100 file:px-2 file:py-1 file:text-3xs file:font-medium disabled:opacity-50"
             />
             <button
               type="submit"
               disabled={pending}
-              className="rounded border border-slate-200 px-2 py-1 text-[10px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="rounded border border-slate-200 px-2 py-1 text-3xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
             >
               {pending ? "…" : "Upload"}
             </button>
@@ -90,14 +90,14 @@ export function JobStructureSubmittalActions({
         {needsSubmittalUpload ? (
           <Link
             href={detailHref}
-            className="text-[11px] font-medium text-slate-700 hover:underline"
+            className="text-2xs font-medium text-slate-700 hover:underline"
           >
             Add submittal
           </Link>
         ) : null}
         <Link
           href={detailHref}
-          className="text-[11px] font-medium text-slate-900 hover:underline"
+          className="text-2xs font-medium text-slate-900 hover:underline"
         >
           Manage
         </Link>
@@ -105,7 +105,7 @@ export function JobStructureSubmittalActions({
 
       {message ? (
         <span
-          className={`text-[10px] ${
+          className={`text-3xs ${
             message === "Uploaded." ? "text-green-700" : "text-red-600"
           }`}
         >

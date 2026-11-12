@@ -202,7 +202,7 @@ export function StockProductPicker({
                         aria-pressed={isStaged}
                       >
                         <div className="flex items-baseline justify-between gap-3">
-                          <span className="font-mono text-[11px] font-semibold text-slate-900">
+                          <span className="font-mono text-2xs font-semibold text-slate-900">
                             {product.code}
                           </span>
                           <span className="whitespace-nowrap text-xs font-semibold text-slate-900">
@@ -212,12 +212,12 @@ export function StockProductPicker({
                         <p className="mt-0.5 text-xs leading-snug text-slate-600">
                           {product.description}
                           {product.galleyFamilyCode ? (
-                            <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 ring-1 ring-inset ring-amber-200">
+                            <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-3xs font-medium text-amber-800 ring-1 ring-inset ring-amber-200">
                               Split on award
                             </span>
                           ) : null}
                           {product.castingOrigin ? (
-                            <span className="ml-1.5 rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 ring-1 ring-inset ring-zinc-200">
+                            <span className="ml-1.5 rounded-full bg-zinc-100 px-1.5 py-0.5 text-3xs font-medium text-zinc-600 ring-1 ring-inset ring-zinc-200">
                               {formatCastingSupplierOriginLabel(
                                 product.castingOrigin,
                               )}
@@ -267,7 +267,7 @@ export function StockProductPicker({
           )}
         </div>
         {categoryId && hasLoaded && products.length >= 150 ? (
-          <p className="text-[11px] text-slate-500">
+          <p className="text-2xs text-slate-500">
             Showing the first 150 — use the search box to narrow further.
           </p>
         ) : null}
@@ -279,7 +279,7 @@ export function StockProductPicker({
             {stagedItems.map(({ product, qty }) => (
               <span
                 key={product.id}
-                className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] text-sky-800"
+                className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-2xs text-sky-800"
               >
                 {qty}× {product.code}
                 <button
@@ -295,7 +295,7 @@ export function StockProductPicker({
             <button
               type="button"
               onClick={() => setStaged(new Map())}
-              className="text-[11px] font-medium text-slate-400 underline hover:text-slate-600"
+              className="text-2xs font-medium text-slate-400 underline hover:text-slate-600"
             >
               Clear all
             </button>

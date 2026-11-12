@@ -65,7 +65,7 @@ function FolderActionRow({
           type="button"
           disabled={pending}
           onClick={onOpenFolder}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
         >
           Open folder in Explorer
         </button>
@@ -73,7 +73,7 @@ function FolderActionRow({
           type="button"
           disabled={pending}
           onClick={onRefresh}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
         >
           {pending ? "Refreshing…" : "Refresh file list"}
         </button>
@@ -263,7 +263,7 @@ export function JobFilesBrowser({
               </p>
               <p className="text-xs text-slate-600">{customerName}</p>
               <p
-                className="mt-2 truncate font-mono text-[11px] text-slate-500"
+                className="mt-2 truncate font-mono text-2xs text-slate-500"
                 title={folderPath}
               >
                 {folderPath}
@@ -275,7 +275,7 @@ export function JobFilesBrowser({
                 type="button"
                 disabled={pending}
                 onClick={handleRefresh}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
               >
                 {pending ? "Refreshing…" : "Refresh file list"}
               </button>
@@ -330,11 +330,11 @@ export function JobFilesBrowser({
               Open folder in Explorer
             </button>
             {openError ? (
-              <p className="mt-1 text-[10px] text-red-600">{openError}</p>
+              <p className="mt-1 text-3xs text-red-600">{openError}</p>
             ) : null}
             {openSuccess ? (
               <p
-                className="mt-1 truncate text-[10px] text-green-700"
+                className="mt-1 truncate text-3xs text-green-700"
                 title={openSuccess}
               >
                 {openSuccess}
@@ -471,7 +471,7 @@ function CategoryTab({
   return (
     <Link
       href={href}
-      className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-medium ${
+      className={`rounded-lg border px-2.5 py-1.5 text-2xs font-medium ${
         active
           ? "border-slate-900 bg-slate-900 text-white"
           : "border-slate-200 text-slate-700 hover:bg-slate-50"

@@ -159,7 +159,7 @@ export function PdfPageThumbnails({
               }}
               onDragEnd={() => setSelected([])}
               title="Click to select, drag onto a structure, double-click to view"
-              className={`flex cursor-grab flex-col gap-1 rounded-md p-1 text-left text-[11px] transition ${
+              className={`flex cursor-grab flex-col gap-1 rounded-md p-1 text-left text-2xs transition ${
                 isSelected
                   ? "bg-sky-100 ring-2 ring-sky-500"
                   : "hover:bg-slate-100"

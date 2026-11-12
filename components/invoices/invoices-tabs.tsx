@@ -112,7 +112,7 @@ function InvoiceBadges({ row }: { row: InvoiceListRow }) {
       {badges.map((badge) => (
         <span
           key={badge}
-          className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-800"
+          className="rounded bg-amber-50 px-1.5 py-0.5 text-3xs text-amber-800"
         >
           {badge}
         </span>
@@ -502,7 +502,7 @@ function DraftReviewTab({
                         >
                           {row.invoiceNumber}
                         </Link>
-                        <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-800">
+                        <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-3xs text-emerald-800">
                           Already paid
                         </span>
                       </td>

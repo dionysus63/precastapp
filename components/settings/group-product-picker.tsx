@@ -62,7 +62,7 @@ export function GroupProductPicker({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <label
           htmlFor={`group-search-${groupId}`}
-          className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500"
+          className="block text-3xs font-semibold uppercase tracking-wide text-slate-500"
         >
           Click products to select, then add
         </label>
@@ -129,11 +129,11 @@ export function GroupProductPicker({
                     <span className="ml-1.5">{product.name}</span>
                   </span>
                   {isMember ? (
-                    <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                    <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-3xs font-semibold text-slate-500">
                       In group
                     </span>
                   ) : isSelected ? (
-                    <span className="shrink-0 rounded-full bg-emerald-200 px-2 py-0.5 text-[10px] font-semibold text-emerald-900">
+                    <span className="shrink-0 rounded-full bg-emerald-200 px-2 py-0.5 text-3xs font-semibold text-emerald-900">
                       Selected
                     </span>
                   ) : null}

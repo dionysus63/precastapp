@@ -283,7 +283,7 @@ export function BulkAttachBoard({
         </p>
         {target.description ? (
           <p
-            className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-slate-500"
+            className="mt-0.5 line-clamp-2 text-2xs leading-snug text-slate-500"
             title={target.description}
           >
             {target.description}
@@ -291,22 +291,22 @@ export function BulkAttachBoard({
         ) : null}
 
         {tile.status === "busy" ? (
-          <p className="mt-1.5 text-[11px] font-medium text-sky-700">
+          <p className="mt-1.5 text-2xs font-medium text-sky-700">
             {tile.message}
           </p>
         ) : tile.status === "error" ? (
-          <p className="mt-1.5 text-[11px] font-medium text-red-700">
+          <p className="mt-1.5 text-2xs font-medium text-red-700">
             {tile.message}
           </p>
         ) : tile.status === "done" || tile.uploaded.length > 0 ? (
           <div className="mt-1.5 space-y-0.5">
-            <p className="text-[11px] font-semibold text-emerald-700">
+            <p className="text-2xs font-semibold text-emerald-700">
               ✓ {tile.message ?? `Uploaded ${tile.uploaded.length} file${tile.uploaded.length === 1 ? "" : "s"}`}
             </p>
             {tile.uploaded.slice(-2).map((name) => (
               <p
                 key={name}
-                className="max-w-[14rem] truncate text-[10px] text-emerald-700/80"
+                className="max-w-[14rem] truncate text-3xs text-emerald-700/80"
                 title={name}
               >
                 {name}
@@ -314,7 +314,7 @@ export function BulkAttachBoard({
             ))}
           </div>
         ) : (
-          <p className="mt-1.5 text-[11px] text-slate-400">
+          <p className="mt-1.5 text-2xs text-slate-400">
             {mode === "approvals"
               ? "Drop signed approval"
               : target.submittalCount > 0
@@ -423,7 +423,7 @@ export function BulkAttachBoard({
               </Link>
               <span className="text-xs text-slate-500">{group.customerName}</span>
               {!group.hasFolder ? (
-                <span className="text-[11px] font-medium text-amber-600">
+                <span className="text-2xs font-medium text-amber-600">
                   No job folder yet — create it from the job page before
                   uploading.
                 </span>

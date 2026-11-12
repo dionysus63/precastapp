@@ -52,7 +52,7 @@ export function GenerateSubmittalPackageButton({
       </button>
 
       {result?.type === "success" ? (
-        <div className="space-y-1 text-[11px] text-green-700">
+        <div className="space-y-1 text-2xs text-green-700">
           <p>Package saved: {result.filePath}</p>
           {result.missing.length > 0 ? (
             <p className="text-amber-700">
@@ -67,7 +67,7 @@ export function GenerateSubmittalPackageButton({
         </div>
       ) : null}
       {result?.type === "error" ? (
-        <p className="text-[11px] text-red-600">{result.message}</p>
+        <p className="text-2xs text-red-600">{result.message}</p>
       ) : null}
     </div>
   );

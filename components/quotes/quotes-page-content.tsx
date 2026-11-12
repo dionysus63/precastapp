@@ -112,7 +112,7 @@ const QuotesTable = memo(function QuotesTable({
           ) : (
             quotes.map((quote) => (
               <tr key={quote.id} className={tableRowClassName}>
-                <td className={`${tableCellClassName} whitespace-nowrap font-mono text-[11px] font-medium`}>
+                <td className={`${tableCellClassName} whitespace-nowrap font-mono text-2xs font-medium`}>
                   <Link
                     href={`/quotes/${quote.id}`}
                     className="text-slate-900 hover:underline"
@@ -125,7 +125,7 @@ const QuotesTable = memo(function QuotesTable({
                     </span>
                   ) : null}
                 </td>
-                <td className={`${tableCellClassName} font-mono text-[11px]`}>
+                <td className={`${tableCellClassName} font-mono text-2xs`}>
                   {quote.jobId && quote.jobNumber !== "—" ? (
                     <Link
                       href={`/jobs/${quote.jobId}?tab=quotes`}
@@ -140,7 +140,7 @@ const QuotesTable = memo(function QuotesTable({
                 <td className={`${tableCellClassName} font-medium text-slate-900`}>
                   <div>{quote.projectName}</div>
                   {quote.scopeLabel ? (
-                    <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                    <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-3xs font-medium text-slate-600">
                       {quote.scopeLabel}
                     </span>
                   ) : null}
@@ -259,7 +259,7 @@ export function QuotesPageContent({
               type="button"
               onClick={() => setParams({ status: "" })}
               title="Clear status filter"
-              className="mb-1 ml-2 inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
+              className="mb-1 ml-2 inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-2xs font-medium text-slate-700 hover:bg-slate-100"
             >
               Status: {singleStatusLabel}
               <span aria-hidden="true">×</span>

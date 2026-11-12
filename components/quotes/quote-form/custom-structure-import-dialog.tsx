@@ -91,7 +91,7 @@ export function CustomStructureImportDialog({
                     <span className="min-w-0 flex-1 truncate text-slate-500">
                       {candidate.description || "—"}
                     </span>
-                    <span className="shrink-0 text-[11px] text-slate-400">
+                    <span className="shrink-0 text-2xs text-slate-400">
                       {alreadyUsed ? "already on quote" : candidate.statusLabel}
                     </span>
                   </label>
@@ -104,7 +104,7 @@ export function CustomStructureImportDialog({
           <button
             type="button"
             onClick={() => setCustomImport(null)}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Cancel
           </button>
@@ -112,7 +112,7 @@ export function CustomStructureImportDialog({
             type="button"
             disabled={customImport.loading || customImport.candidates.length === 0}
             onClick={onImport}
-            className="rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+            className="rounded-lg bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
           >
             Add to editor
           </button>

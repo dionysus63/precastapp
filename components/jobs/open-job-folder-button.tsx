@@ -43,19 +43,19 @@ export function OpenJobFolderButton({
         type="button"
         onClick={handleClick}
         disabled={pending}
-        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
       >
         {pending ? "Opening..." : "Open Folder"}
       </button>
       <p
-        className="truncate font-mono text-[10px] text-slate-500"
+        className="truncate font-mono text-3xs text-slate-500"
         title={folderPath}
       >
         {folderPath}
       </p>
-      {error ? <p className="text-[10px] text-red-600">{error}</p> : null}
+      {error ? <p className="text-3xs text-red-600">{error}</p> : null}
       {success ? (
-        <p className="truncate text-[10px] text-green-700" title={success}>
+        <p className="truncate text-3xs text-green-700" title={success}>
           {success}
         </p>
       ) : null}

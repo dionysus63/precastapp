@@ -97,7 +97,7 @@ export function AdjustForm({ products, defaultProductId }: AdjustFormProps) {
             placeholder="Use negative to deduct"
             className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
           />
-          <p className="mt-1 text-[11px] text-slate-500">
+          <p className="mt-1 text-2xs text-slate-500">
             Positive adds stock; negative removes stock.
           </p>
         </div>

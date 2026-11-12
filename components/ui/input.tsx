@@ -21,7 +21,7 @@ export function Input({ label, hint, id, className = "", ...props }: InputProps)
         {...props}
       />
       {hint ? (
-        <span className="mt-1 block text-[11px] text-slate-500">{hint}</span>
+        <span className="mt-1 block text-2xs text-slate-500">{hint}</span>
       ) : null}
     </label>
   );

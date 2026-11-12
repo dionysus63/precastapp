@@ -94,7 +94,7 @@ export function PriceListSettingsForm({ priceList }: PriceListSettingsFormProps)
           placeholder="Factory"
           className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
         />
-        <p className="mt-1 text-[11px] text-slate-500">
+        <p className="mt-1 text-2xs text-slate-500">
           New quotes on this list start with this F.O.B. (blank = Factory).
           Editable per quote.
         </p>
@@ -109,12 +109,12 @@ export function PriceListSettingsForm({ priceList }: PriceListSettingsFormProps)
         Default price list
       </label>
       {priceList.isDefault ? (
-        <p className="text-[11px] text-slate-500">
+        <p className="text-2xs text-slate-500">
           This is the current default. Make another list the default to
           replace it.
         </p>
       ) : (
-        <p className="text-[11px] text-slate-500">
+        <p className="text-2xs text-slate-500">
           A list must price every active product before it can become the
           default.
         </p>

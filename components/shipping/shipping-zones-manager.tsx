@@ -61,7 +61,7 @@ const DEFAULT_CENTER: [number, number] = [40.78, -72.915];
 
 const inputClass =
   "mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm";
-const labelClass = "text-[11px] font-medium text-slate-600";
+const labelClass = "text-2xs font-medium text-slate-600";
 const buttonClass =
   "rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50";
 const secondaryButtonClass =

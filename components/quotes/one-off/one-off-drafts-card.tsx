@@ -100,7 +100,7 @@ export function OneOffDraftsCard({
                   {describeDraftShape(draft.shapeChoice)}
                   {draft.shapeChoice ? ` · ${rows}` : ""}
                 </p>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-2xs text-slate-400">
                   Saved{" "}
                   <span suppressHydrationWarning>{formatDraftSavedAt(draft.savedAt)}</span>
                   {draft.savedBy ? ` by ${draft.savedBy}` : ""}

@@ -248,7 +248,7 @@ export function StructureWorkbookDefaultsPanel({
           type="button"
           onClick={onApplyToSelected}
           disabled={selectedCount === 0}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
         >
           Apply defaults to selected rows ({selectedCount})
         </button>

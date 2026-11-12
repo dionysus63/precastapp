@@ -127,10 +127,10 @@ export function StatusSelect({ ticketId, status }: StatusSelectProps) {
         ))}
       </select>
       {error ? (
-        <p className="mt-1 max-w-[12rem] text-[10px] text-red-600">{error}</p>
+        <p className="mt-1 max-w-[12rem] text-3xs text-red-600">{error}</p>
       ) : null}
       {warning ? (
-        <p className="mt-1 max-w-[12rem] text-[10px] text-amber-700">{warning}</p>
+        <p className="mt-1 max-w-[12rem] text-3xs text-amber-700">{warning}</p>
       ) : null}
     </div>
   );

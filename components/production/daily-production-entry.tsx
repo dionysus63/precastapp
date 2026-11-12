@@ -216,14 +216,14 @@ export function DailyProductionEntry({
           onClick={() =>
             changeDate(toLocalDayInput(addLocalDays(new Date(), -1)))
           }
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
         >
           Yesterday
         </button>
         <button
           type="button"
           onClick={() => changeDate(localTodayInput())}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
         >
           Today
         </button>
@@ -272,7 +272,7 @@ export function DailyProductionEntry({
                       >
                         <span
                           aria-hidden="true"
-                          className={`text-[10px] text-slate-400 transition-transform ${
+                          className={`text-3xs text-slate-400 transition-transform ${
                             open ? "rotate-90" : ""
                           }`}
                         >
@@ -282,11 +282,11 @@ export function DailyProductionEntry({
                           {group.label}
                         </span>
                         {pendingCount > 0 ? (
-                          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
+                          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-3xs font-semibold text-sky-700">
                             {pendingCount} on this entry
                           </span>
                         ) : null}
-                        <span className="text-[11px] text-slate-500">
+                        <span className="text-2xs text-slate-500">
                           {group.rows.length} structure
                           {group.rows.length === 1 ? "" : "s"}
                         </span>
@@ -303,21 +303,21 @@ export function DailyProductionEntry({
                                   {row.structureNumber}
                                 </div>
                                 {row.description ? (
-                                  <div className="truncate text-[11px] text-slate-500">
+                                  <div className="truncate text-2xs text-slate-500">
                                     {row.description}
                                   </div>
                                 ) : null}
                               </div>
                               {row.pieces.length > 0 ? (
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <span className="text-[11px] text-slate-500">
+                                  <span className="text-2xs text-slate-500">
                                     {row.pieces.filter((piece) => piece.made).length}{" "}
                                     / {row.pieces.length} pcs
                                   </span>
                                   {row.pieces.map((piece) => (
                                     <label
                                       key={piece.id}
-                                      className={`inline-flex items-center gap-1 text-[11px] ${
+                                      className={`inline-flex items-center gap-1 text-2xs ${
                                         piece.made
                                           ? "text-slate-400"
                                           : "text-slate-700"
@@ -344,7 +344,7 @@ export function DailyProductionEntry({
                                 </div>
                               ) : (
                                 <div className="flex items-center gap-2">
-                                  <span className="text-[11px] text-slate-500">
+                                  <span className="text-2xs text-slate-500">
                                     {row.madeSoFar} / {row.quantity ?? "—"}
                                     {row.unit && row.unit !== "EA"
                                       ? ` ${row.unit}`
@@ -394,7 +394,7 @@ export function DailyProductionEntry({
                     );
                     setSubcategoryId(null);
                   }}
-                  className={`rounded-full px-3 py-1 text-[11px] font-medium ${
+                  className={`rounded-full px-3 py-1 text-2xs font-medium ${
                     categoryId === category.id
                       ? "bg-slate-900 text-white"
                       : "border border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -409,7 +409,7 @@ export function DailyProductionEntry({
                 <button
                   type="button"
                   onClick={() => setSubcategoryId(null)}
-                  className={`rounded-full px-3 py-1 text-[11px] font-medium ${
+                  className={`rounded-full px-3 py-1 text-2xs font-medium ${
                     subcategoryId === null
                       ? "bg-slate-700 text-white"
                       : "border border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -422,7 +422,7 @@ export function DailyProductionEntry({
                     key={subcategory.id}
                     type="button"
                     onClick={() => setSubcategoryId(subcategory.id)}
-                    className={`rounded-full px-3 py-1 text-[11px] font-medium ${
+                    className={`rounded-full px-3 py-1 text-2xs font-medium ${
                       subcategoryId === subcategory.id
                         ? "bg-slate-700 text-white"
                         : "border border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -487,7 +487,7 @@ export function DailyProductionEntry({
               </p>
             )}
             {pendingStockLines.length > 0 ? (
-              <p className="mt-3 text-[11px] text-slate-500">
+              <p className="mt-3 text-2xs text-slate-500">
                 On this entry:{" "}
                 {pendingStockLines
                   .map((line) => `${line.product.productCode} ×${line.qty}`)
@@ -543,11 +543,11 @@ export function DailyProductionEntry({
                       · {entry.createdAtLabel}
                     </span>
                   </div>
-                  <div className="text-[11px] text-slate-600">
+                  <div className="text-2xs text-slate-600">
                     {entry.lines.join(" · ")}
                   </div>
                   {entry.notes ? (
-                    <div className="text-[11px] italic text-slate-400">
+                    <div className="text-2xs italic text-slate-400">
                       {entry.notes}
                     </div>
                   ) : null}

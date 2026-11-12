@@ -189,7 +189,7 @@ function DrainRingStyleTable({
                       setMode((current) => (current === "pool" ? "auto" : "pool"));
                       setAutoError(null);
                     }}
-                    className="shrink-0 rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-slate-600 hover:bg-slate-50"
+                    className="shrink-0 rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-3xs font-semibold normal-case tracking-normal text-slate-600 hover:bg-slate-50"
                   >
                     {mode === "pool" ? "Auto-assign" : "Assign by pool"}
                   </button>
@@ -197,13 +197,13 @@ function DrainRingStyleTable({
               </th>
               <th
                 scope="col"
-                className="border-b-2 border-r border-slate-300 bg-slate-100 px-1 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-600"
+                className="border-b-2 border-r border-slate-300 bg-slate-100 px-1 py-1.5 text-center text-3xs font-semibold uppercase tracking-wide text-slate-600"
               >
                 Feet left
               </th>
               <th
                 scope="col"
-                className="border-b-2 border-r border-slate-300 bg-slate-100 px-1 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-600"
+                className="border-b-2 border-r border-slate-300 bg-slate-100 px-1 py-1.5 text-center text-3xs font-semibold uppercase tracking-wide text-slate-600"
               >
                 Feet on load
               </th>
@@ -217,7 +217,7 @@ function DrainRingStyleTable({
                     {matrixOption.option.heightFeet}&apos; ring
                   </span>
                   <span
-                    className={`block text-[10px] font-medium ${ringStockClassName(
+                    className={`block text-3xs font-medium ${ringStockClassName(
                       matrixOption,
                     )}`}
                   >
@@ -229,7 +229,7 @@ function DrainRingStyleTable({
                 <th
                   key={label}
                   scope="col"
-                  className="border-b-2 border-r border-slate-300 bg-slate-100 px-1 py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-600 last:border-r-0"
+                  className="border-b-2 border-r border-slate-300 bg-slate-100 px-1 py-1.5 text-center text-3xs font-semibold uppercase tracking-wide text-slate-600 last:border-r-0"
                 >
                   {label}
                 </th>
@@ -246,16 +246,16 @@ function DrainRingStyleTable({
                   <span className="text-xs font-semibold text-slate-900">
                     All pools
                   </span>
-                  <span className="block text-[10px] text-slate-500">
+                  <span className="block text-3xs text-slate-500">
                     Rings are split across pool groups automatically
                   </span>
                   {autoError ? (
-                    <span className="mt-1 block text-[10px] font-medium text-red-700">
+                    <span className="mt-1 block text-3xs font-medium text-red-700">
                       {autoError}
                     </span>
                   ) : null}
                   {autoWarning ? (
-                    <span className="mt-1 block text-[10px] font-medium text-amber-700">
+                    <span className="mt-1 block text-3xs font-medium text-amber-700">
                       {autoWarning}
                     </span>
                   ) : null}
@@ -374,22 +374,22 @@ function DrainRingStyleTable({
                         </span>
                       ) : null}
                       {completed ? (
-                        <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-600">
+                        <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-4xs font-semibold uppercase tracking-wide text-slate-600">
                           Shipped complete
                         </span>
                       ) : overLimit ? (
-                        <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-red-700">
+                        <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-4xs font-semibold uppercase tracking-wide text-red-700">
                           Over remaining
                         </span>
                       ) : fullyScheduled ? (
                         <span
-                          className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-600"
+                          className="rounded-full bg-slate-200 px-1.5 py-0.5 text-4xs font-semibold uppercase tracking-wide text-slate-600"
                           title="Every remaining foot is already on another open load"
                         >
                           Fully scheduled
                         </span>
                       ) : completesOnLoad ? (
-                        <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-700">
+                        <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-4xs font-semibold uppercase tracking-wide text-emerald-700">
                           Completes on this load
                         </span>
                       ) : null}
@@ -397,7 +397,7 @@ function DrainRingStyleTable({
                     {!completed &&
                     !row.line.eligible &&
                     row.line.eligibilityReason ? (
-                      <div className="mt-1 text-[10px] font-medium text-amber-700">
+                      <div className="mt-1 text-3xs font-medium text-amber-700">
                         {row.line.eligibilityReason}
                       </div>
                     ) : null}
@@ -415,7 +415,7 @@ function DrainRingStyleTable({
                       {feetLeft} LF
                     </span>
                     {overLimit ? (
-                      <span className="block text-[10px] font-medium text-red-700">
+                      <span className="block text-3xs font-medium text-red-700">
                         Over by {row.overByFeet} LF
                       </span>
                     ) : null}

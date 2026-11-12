@@ -2061,6 +2061,12 @@ enum JobsDefaultTab {
   FAVORITES
 }
 
+enum TextSize {
+  NORMAL
+  LARGE
+  EXTRA_LARGE
+}
+
 enum AppPermission {
   CUSTOMERS_VIEW
   CUSTOMERS_MANAGE
@@ -2102,6 +2108,9 @@ model User {
   /// Which Jobs list tab opens when this user clicks Jobs (their own choice,
   /// set under Settings → My Preferences or My Profile).
   defaultJobsTab     JobsDefaultTab  @default(OPEN)
+  /// How big this user's screen text is (their own choice, set under
+  /// Settings → My Preferences or My Profile). Printed PDFs don't change.
+  textSize           TextSize        @default(NORMAL)
   lastLoginAt        DateTime?
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt

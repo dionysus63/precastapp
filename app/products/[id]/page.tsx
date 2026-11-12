@@ -32,7 +32,7 @@ function DetailField({
 }) {
   return (
     <div>
-      <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+      <dt className="text-2xs font-medium uppercase tracking-wide text-slate-500">
         {label}
       </dt>
       <dd className="mt-1 text-sm text-slate-900">{value}</dd>

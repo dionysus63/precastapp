@@ -97,7 +97,7 @@ export function JobDeliveriesTable({ deliveries }: JobDeliveriesTableProps) {
                     {ticket.ticketNumber}
                   </Link>
                   {hasLineItems ? (
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-3xs text-slate-400">
                       ({ticket.lineItems.length})
                     </span>
                   ) : null}
@@ -182,7 +182,7 @@ export function JobDeliveriesTable({ deliveries }: JobDeliveriesTableProps) {
                       </table>
                     </div>
                   ) : (
-                    <p className="ml-6 text-[11px] text-slate-500">
+                    <p className="ml-6 text-2xs text-slate-500">
                       No line items on this ticket.
                     </p>
                   )}

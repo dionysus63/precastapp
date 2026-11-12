@@ -131,7 +131,7 @@ export default async function PriceListsPage() {
                   </option>
                 ))}
               </select>
-              <p className="mt-1 text-[11px] text-slate-500">
+              <p className="mt-1 text-2xs text-slate-500">
                 Copy an existing list when issuing a new price list, then adjust
                 individual prices.
               </p>
@@ -154,7 +154,7 @@ export default async function PriceListsPage() {
               <input type="checkbox" name="isDefault" />
               Set as default
             </label>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-2xs text-slate-500">
               A list must include every active product before it can be set as
               default.
             </p>

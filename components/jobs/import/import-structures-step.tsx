@@ -199,14 +199,14 @@ function DocCell({
       ) : docRef && refFile ? (
         <span
           title={refFile.name}
-          className="inline-flex h-7 max-w-[10rem] items-center truncate rounded-md border border-red-200 bg-red-50 px-2 text-[11px] font-semibold text-red-900"
+          className="inline-flex h-7 max-w-[10rem] items-center truncate rounded-md border border-red-200 bg-red-50 px-2 text-2xs font-semibold text-red-900"
         >
           {docRef.pages
             ? `p${formatPageList(docRef.pages)} · ${refFile.name}`
             : refFile.name}
         </span>
       ) : (
-        <span className="inline-flex h-7 items-center rounded-md border border-dashed border-slate-300 px-2 text-[11px] text-slate-500">
+        <span className="inline-flex h-7 items-center rounded-md border border-dashed border-slate-300 px-2 text-2xs text-slate-500">
           Drop PDF
         </span>
       )}
@@ -468,7 +468,7 @@ export function ImportStructuresStep({
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-xs">
               <thead>
-                <tr className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                <tr className="bg-slate-50 text-left text-3xs font-bold uppercase tracking-wide text-slate-500">
                   {makesStructures ? (
                     <th className="w-8 px-2 py-2">
                       <input
@@ -561,7 +561,7 @@ export function ImportStructuresStep({
                             })
                           }
                           aria-label="Status"
-                          className={`h-7 rounded-full border-0 px-2 text-[11px] font-semibold ${STATUS_STYLES[row.status]}`}
+                          className={`h-7 rounded-full border-0 px-2 text-2xs font-semibold ${STATUS_STYLES[row.status]}`}
                         >
                           {IMPORT_STRUCTURE_STATUSES.map((status) => (
                             <option key={status.value} value={status.value}>
@@ -620,7 +620,7 @@ export function ImportStructuresStep({
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-xs">
                 <thead>
-                  <tr className="bg-slate-50 text-left text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                  <tr className="bg-slate-50 text-left text-3xs font-bold uppercase tracking-wide text-slate-500">
                     <th className="px-2 py-2">Product</th>
                     <th className="px-2 py-2">Description</th>
                     <th className="w-16 px-2 py-2">Qty</th>
@@ -746,13 +746,13 @@ export function ImportStructuresStep({
               <div key={file.key} className="space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                    <p className="text-3xs font-bold uppercase tracking-wide text-slate-500">
                       {kindLabel} pages
                     </p>
                     <p className="truncate text-xs font-semibold text-slate-900" title={file.name}>
                       {file.name}
                     </p>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-2xs text-slate-500">
                       {owners.size} of {file.pageCount ?? "?"} pages matched. Click
                       or Shift-click pages, then drag onto a row.
                     </p>
@@ -761,7 +761,7 @@ export function ImportStructuresStep({
                     type="button"
                     onClick={() => matchPagesInOrder(file)}
                     disabled={structureRows.length === 0 || !file.pageCount}
-                    className="flex-none rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    className="flex-none rounded-lg border border-slate-300 bg-white px-2 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                   >
                     Match in order
                   </button>
@@ -772,10 +772,10 @@ export function ImportStructuresStep({
           })}
           {looseFiles.length > 0 ? (
             <div className="space-y-2">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+              <p className="text-3xs font-bold uppercase tracking-wide text-slate-500">
                 Not matched to a structure
               </p>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-2xs text-slate-500">
                 Drag each onto its row. Anything left here is still saved in the
                 job folder.
               </p>
@@ -787,7 +787,7 @@ export function ImportStructuresStep({
                     const dragged: DraggedPages = { fileKey: file.key, pages: [] };
                     event.dataTransfer.setData(IMPORT_PAGES_MIME, JSON.stringify(dragged));
                   }}
-                  className="cursor-grab truncate rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-[11px] font-semibold text-red-900"
+                  className="cursor-grab truncate rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-2xs font-semibold text-red-900"
                   title={file.name}
                 >
                   {file.name}

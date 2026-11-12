@@ -113,7 +113,7 @@ function StatusChip({
 }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+      <p className="text-2xs font-medium uppercase tracking-wide text-slate-500">
         {label}
       </p>
       <p
@@ -121,7 +121,7 @@ function StatusChip({
       >
         {ok ? "OK" : "Check"}
       </p>
-      <p className="text-[11px] text-slate-500">{detail}</p>
+      <p className="text-2xs text-slate-500">{detail}</p>
     </div>
   );
 }

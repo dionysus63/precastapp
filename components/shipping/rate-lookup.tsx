@@ -106,7 +106,7 @@ export function RateLookup({ zones, yard }: RateLookupProps) {
         {result ? (
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:col-span-3">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+              <p className="text-2xs font-medium uppercase tracking-wide text-slate-500">
                 Matched address
               </p>
               <p className="mt-0.5 text-sm text-slate-800">
@@ -114,7 +114,7 @@ export function RateLookup({ zones, yard }: RateLookupProps) {
               </p>
             </div>
             <div className="rounded-xl border border-slate-200 p-4">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+              <p className="text-2xs font-medium uppercase tracking-wide text-slate-500">
                 Zone
               </p>
               {result.zone ? (
@@ -132,7 +132,7 @@ export function RateLookup({ zones, yard }: RateLookupProps) {
               )}
             </div>
             <div className="rounded-xl border border-slate-200 p-4">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+              <p className="text-2xs font-medium uppercase tracking-wide text-slate-500">
                 Rate per load
               </p>
               <p className="mt-0.5 text-lg font-semibold text-slate-900">
@@ -145,7 +145,7 @@ export function RateLookup({ zones, yard }: RateLookupProps) {
               </p>
             </div>
             <div className="rounded-xl border border-slate-200 p-4">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+              <p className="text-2xs font-medium uppercase tracking-wide text-slate-500">
                 Distance from yard
               </p>
               <p className="mt-0.5 text-lg font-semibold text-slate-900">

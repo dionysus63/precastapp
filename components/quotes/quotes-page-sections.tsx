@@ -21,7 +21,7 @@ export function QuotesSummarySection({ tiles }: { tiles: QuoteStatTile[] }) {
             className="min-w-[150px] flex-1 px-4 py-2 transition-colors hover:bg-slate-50"
           >
             <p
-              className={`text-[10px] font-medium uppercase tracking-wide ${tileToneClassName[tile.tone]}`}
+              className={`text-3xs font-medium uppercase tracking-wide ${tileToneClassName[tile.tone]}`}
             >
               {tile.label}
             </p>

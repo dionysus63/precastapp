@@ -55,7 +55,7 @@ async function loadJobSheetNav(
 }
 
 const headerButtonClassName =
-  "rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50";
+  "rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50";
 
 export default async function DrillSheetDetailPage({
   params,

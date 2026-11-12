@@ -35,11 +35,11 @@ export function CreateJobFolderButton({ jobId }: CreateJobFolderButtonProps) {
         type="button"
         onClick={handleClick}
         disabled={pending}
-        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
       >
         {pending ? "Creating..." : "Create Folder"}
       </button>
-      {error ? <p className="text-[10px] text-red-600">{error}</p> : null}
+      {error ? <p className="text-3xs text-red-600">{error}</p> : null}
     </div>
   );
 }

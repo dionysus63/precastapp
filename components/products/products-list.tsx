@@ -181,7 +181,7 @@ const ProductsTable = memo(function ProductsTable({
             products.map((product) => (
               <tr key={product.id} className={tableRowClassName}>
                 <td
-                  className={`${tableCellClassName} font-mono text-[11px] font-medium text-slate-900`}
+                  className={`${tableCellClassName} font-mono text-2xs font-medium text-slate-900`}
                 >
                   {product.productCode}
                 </td>
@@ -250,7 +250,7 @@ const ProductsTable = memo(function ProductsTable({
                 <td className={tableCellClassName}>
                   <Link
                     href={`/products/${product.id}`}
-                    className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                    className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50"
                   >
                     View
                   </Link>

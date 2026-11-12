@@ -322,7 +322,7 @@ export function JobTicketHeader({
           <h3 className="text-sm font-semibold text-slate-900">
             Quote lines for this load
           </h3>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-2xs text-slate-500">
             Enter a load quantity to select an item. All quote lines stay visible as
             you scroll the page.
           </p>

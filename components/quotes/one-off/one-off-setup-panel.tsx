@@ -242,16 +242,16 @@ export function OneOffSetupPanel({
           {hasRows ? "Rebuild Rows" : "Build Rows"}
         </button>
         {missing.length > 0 ? (
-          <span className="text-[11px] text-amber-700">
+          <span className="text-2xs text-amber-700">
             Still needed: {missing.join(", ")}.
           </span>
         ) : !hasRows ? (
-          <span className="text-[11px] text-slate-500">
+          <span className="text-2xs text-slate-500">
             Every inlet starts at this pipe; change any inlet&apos;s pipe in
             the grid.
           </span>
         ) : (
-          <span className="text-[11px] text-slate-500">
+          <span className="text-2xs text-slate-500">
             Rebuilding replaces the rows below and anything typed in them.
           </span>
         )}

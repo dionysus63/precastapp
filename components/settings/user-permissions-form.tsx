@@ -152,7 +152,7 @@ export function UserPermissionsForm({
               placeholder="jane.doe"
               className={customerInputClassName}
             />
-            <p className="mt-1 text-[11px] text-slate-500">
+            <p className="mt-1 text-2xs text-slate-500">
               Lowercase letters, numbers, dots, dashes, and underscores only.
             </p>
           </div>
@@ -329,7 +329,7 @@ export function UserPermissionsForm({
           {effectivePermissions.map((permission) => (
             <span
               key={permission}
-              className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-700"
+              className="rounded-full bg-slate-100 px-2.5 py-1 text-2xs font-medium text-slate-700"
             >
               {formatPermissionLabel(permission)}
             </span>

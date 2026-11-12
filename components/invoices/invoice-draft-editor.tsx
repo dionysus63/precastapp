@@ -371,14 +371,14 @@ export function InvoiceDraftEditor({
           <button
             type="button"
             onClick={() => addLine("MISC")}
-            className="rounded border border-slate-200 px-2 py-1 text-[11px] hover:bg-slate-50"
+            className="rounded border border-slate-200 px-2 py-1 text-2xs hover:bg-slate-50"
           >
             Add misc line
           </button>
           <button
             type="button"
             onClick={() => addLine("SERVICE")}
-            className="rounded border border-slate-200 px-2 py-1 text-[11px] hover:bg-slate-50"
+            className="rounded border border-slate-200 px-2 py-1 text-2xs hover:bg-slate-50"
           >
             Add delivery / service
           </button>

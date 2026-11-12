@@ -110,7 +110,7 @@ export function WalkInTicketHeader({
                 setWalkInCustomerId(null);
                 setWalkInCustomer("");
               }}
-              className="text-[10px] font-medium text-slate-400 underline-offset-2 hover:text-slate-900 hover:underline"
+              className="text-3xs font-medium text-slate-400 underline-offset-2 hover:text-slate-900 hover:underline"
             >
               {walkInOneOff ? "search customers" : "cash sale"}
             </button>
@@ -228,7 +228,7 @@ export function WalkInTicketHeader({
                   ))}
                 </select>
               </div>
-              <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+              <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-3xs font-semibold text-emerald-800">
                 {priceListLoading ? "Loading…" : "Pickup prices"}
               </span>
             </div>

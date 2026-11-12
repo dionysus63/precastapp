@@ -191,7 +191,7 @@ export function BulkPasteForm() {
             <p className="text-xs font-medium text-slate-700">
               Expected column order
             </p>
-            <p className="mt-1 text-[11px] text-slate-500">
+            <p className="mt-1 text-2xs text-slate-500">
               {bulkPasteColumnHeaders.join(" → ")}
             </p>
           </div>
@@ -209,7 +209,7 @@ export function BulkPasteForm() {
               onChange={(event) => setPasteText(event.target.value)}
               rows={10}
               placeholder="Paste copied Excel rows here..."
-              className={`${customerInputClassName} font-mono text-[11px]`}
+              className={`${customerInputClassName} font-mono text-2xs`}
             />
           </div>
 

@@ -292,7 +292,7 @@ export function LivePdfPreview({
                   key={index}
                   type="button"
                   onClick={() => setActivePage(index + 1)}
-                  className={`rounded border px-2 py-0.5 text-[11px] font-semibold ${
+                  className={`rounded border px-2 py-0.5 text-2xs font-semibold ${
                     shownPage === index + 1
                       ? "border-slate-800 bg-slate-900 text-white"
                       : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
@@ -307,14 +307,14 @@ export function LivePdfPreview({
             <button
               type="button"
               onClick={openPdf}
-              className="rounded border border-slate-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded border border-slate-300 bg-white px-2 py-0.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
             >
               Open PDF
             </button>
           ) : null}
           {actions}
           {requestKey != null ? (
-            <span className="text-[11px] text-slate-500">
+            <span className="text-2xs text-slate-500">
               {pending ? "Updating…" : "Updates as you type."}
             </span>
           ) : null}

@@ -187,7 +187,7 @@ export function StructureDiameterConfigForm({
         <button
           type="button"
           onClick={() => setRows((current) => [...current, createRow()])}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
         >
           Add Diameter
         </button>
@@ -395,7 +395,7 @@ export function StructureDiameterConfigForm({
                           current.filter((r) => r.id !== row.id),
                         )
                       }
-                      className="text-[11px] font-medium text-rose-600 hover:text-rose-800"
+                      className="text-2xs font-medium text-rose-600 hover:text-rose-800"
                     >
                       Remove
                     </button>
@@ -408,7 +408,7 @@ export function StructureDiameterConfigForm({
       </div>
 
       {/* w-0 + min-w-full: wraps to the table's width without widening it. */}
-      <div className="w-0 min-w-full space-y-2 text-[11px] text-slate-500">
+      <div className="w-0 min-w-full space-y-2 text-2xs text-slate-500">
         <p>
           Wall thickness belongs to the mold — templates and drill sheets pick
           it up per diameter. ASTM C478 minimum wall is inside Ø ÷ 12 (4&apos;

@@ -462,7 +462,7 @@ export function StructureTemplateForm({
               <option value="RECTANGULAR">Rectangular</option>
             </select>
             {sheetsLocked ? (
-              <p className="mt-1 text-[11px] text-slate-500">
+              <p className="mt-1 text-2xs text-slate-500">
                 Locked: {lockedByText}. Duplicate it to make a different shape.
               </p>
             ) : null}
@@ -507,7 +507,7 @@ export function StructureTemplateForm({
                 className={slabInputClassName}
               />
               {feetInchesHint(rectLengthInches) ? (
-                <p className="mt-1 text-[11px] text-slate-400">
+                <p className="mt-1 text-2xs text-slate-400">
                   {feetInchesHint(rectLengthInches)}
                 </p>
               ) : null}
@@ -528,7 +528,7 @@ export function StructureTemplateForm({
                 className={slabInputClassName}
               />
               {feetInchesHint(rectWidthInches) ? (
-                <p className="mt-1 text-[11px] text-slate-400">
+                <p className="mt-1 text-2xs text-slate-400">
                   {feetInchesHint(rectWidthInches)}
                 </p>
               ) : null}
@@ -548,7 +548,7 @@ export function StructureTemplateForm({
             </div>
           </div>
           {rectSizeLocked ? (
-            <p className="mt-2 text-[11px] text-slate-500">
+            <p className="mt-2 text-2xs text-slate-500">
               The inside size is locked: {lockedByText}. Duplicate it to make
               another size.
             </p>
@@ -591,24 +591,24 @@ export function StructureTemplateForm({
                 ) : null}
               </select>
               {moldOptions.length === 0 ? (
-                <p className="mt-1 text-[11px] text-amber-700">
+                <p className="mt-1 text-2xs text-amber-700">
                   No molds configured yet. Add them in Settings → Structure
                   Molds first.
                 </p>
               ) : null}
               {moldDiameterFeet !== "" && !selectedMold ? (
-                <p className="mt-1 text-[11px] text-amber-700">
+                <p className="mt-1 text-2xs text-amber-700">
                   No mold registered for {moldDiameterFeet}&apos;. Add it in
                   Settings → Structure Molds or pick another mold.
                 </p>
               ) : null}
               {moldLocked ? (
-                <p className="mt-1 text-[11px] text-slate-500">
+                <p className="mt-1 text-2xs text-slate-500">
                   Locked: {lockedByText}. Duplicate it to use another mold.
                 </p>
               ) : null}
               {extraDiameterCount > 0 ? (
-                <p className="mt-1 text-[11px] text-amber-700">
+                <p className="mt-1 text-2xs text-amber-700">
                   This template used to offer {extraDiameterCount + 1}{" "}
                   diameters. Saving keeps only the mold picked here.
                 </p>
@@ -621,7 +621,7 @@ export function StructureTemplateForm({
                     key={fact.label}
                     className="border-b border-slate-200 bg-slate-50 px-3 py-2 last:border-b-0 sm:border-r lg:border-b-0 lg:last:border-r-0"
                   >
-                    <dt className="text-[11px] text-slate-500">{fact.label}</dt>
+                    <dt className="text-2xs text-slate-500">{fact.label}</dt>
                     <dd className="text-sm font-semibold text-slate-900">
                       {fact.value}
                     </dd>
@@ -629,7 +629,7 @@ export function StructureTemplateForm({
                 ))}
               </dl>
             ) : null}
-            <p className="text-[11px] text-slate-500">
+            <p className="text-2xs text-slate-500">
               These values come from the mold (Settings → Structure Molds) and
               are read-only here. For another size, duplicate the template and
               pick a different mold.
@@ -837,7 +837,7 @@ export function StructureTemplateForm({
           </div>
 
           {isRect ? (
-            <p className="text-[11px] text-slate-500">
+            <p className="text-2xs text-slate-500">
               {sheetsLocked
                 ? `Slabs are locked: ${lockedByText}. Duplicate it to add or remove a slab.`
                 : "To sell the same box with different slabs, duplicate the template and change the checkboxes on the copy."}{" "}
@@ -846,7 +846,7 @@ export function StructureTemplateForm({
               slab box empty.
             </p>
           ) : (
-            <p className="text-[11px] text-slate-500">
+            <p className="text-2xs text-slate-500">
               The top slab opening is whole inches and prints on the drill
               sheet. Blank leaves the sheet&apos;s opening box empty.
             </p>

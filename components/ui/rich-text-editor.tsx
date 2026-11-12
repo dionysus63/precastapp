@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { sanitizeRichText } from "@/lib/rich-text";
 
 const toolbarButtonClassName =
-  "rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1";
+  "rounded border border-slate-200 bg-white px-2 py-0.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1";
 
 type RichTextEditorProps = {
   value: string;

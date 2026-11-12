@@ -330,7 +330,7 @@ export function ProductionBoard({
               type="button"
               disabled={pending}
               onClick={() => runAction(() => startStructureProduction(item.id))}
-              className="rounded border border-slate-200 px-2 py-1 text-[11px] hover:bg-slate-50 disabled:opacity-50"
+              className="rounded border border-slate-200 px-2 py-1 text-2xs hover:bg-slate-50 disabled:opacity-50"
             >
               Start
             </button>
@@ -340,7 +340,7 @@ export function ProductionBoard({
         return (
           <>
             {drillSheet}
-            <label className="flex items-center gap-1 text-[11px]">
+            <label className="flex items-center gap-1 text-2xs">
               <input
                 type="checkbox"
                 disabled={pending}
@@ -357,7 +357,7 @@ export function ProductionBoard({
             {item.jobId ? (
               <Link
                 href={`/jobs/${item.jobId}?tab=deliveries`}
-                className="rounded border border-slate-200 px-2 py-1 text-[11px] hover:bg-slate-50"
+                className="rounded border border-slate-200 px-2 py-1 text-2xs hover:bg-slate-50"
               >
                 Deliveries
               </Link>
@@ -369,7 +369,7 @@ export function ProductionBoard({
         return item.jobId ? (
           <Link
             href={`/jobs/${item.jobId}/structures/${item.id}#submittals`}
-            className="rounded border border-slate-200 px-2 py-1 text-[11px] font-medium hover:bg-slate-50"
+            className="rounded border border-slate-200 px-2 py-1 text-2xs font-medium hover:bg-slate-50"
           >
             Add submittal
           </Link>
@@ -381,14 +381,14 @@ export function ProductionBoard({
           <>
             <Link
               href={item.createDrillSheetHref}
-              className="rounded border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-100"
+              className="rounded border border-sky-200 bg-sky-50 px-2 py-1 text-2xs font-medium text-sky-700 hover:bg-sky-100"
             >
               Create drill sheet
             </Link>
             {item.completeWorkbookHref ? (
               <Link
                 href={item.completeWorkbookHref}
-                className="rounded border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                className="rounded border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50"
               >
                 Complete all in workbook
               </Link>
@@ -397,7 +397,7 @@ export function ProductionBoard({
         ) : item.jobId ? (
           <Link
             href={`/jobs/${item.jobId}/structures/${item.id}`}
-            className="rounded border border-slate-200 px-2 py-1 text-[11px] hover:bg-slate-50"
+            className="rounded border border-slate-200 px-2 py-1 text-2xs hover:bg-slate-50"
           >
             Open structure
           </Link>
@@ -411,7 +411,7 @@ export function ProductionBoard({
             {!item.noSubmittalRequired && item.jobId ? (
               <Link
                 href={`/jobs/${item.jobId}/structures/${item.id}#submittals`}
-                className="rounded border border-slate-200 px-2 py-1 text-[11px] hover:bg-slate-50"
+                className="rounded border border-slate-200 px-2 py-1 text-2xs hover:bg-slate-50"
               >
                 View
               </Link>
@@ -427,7 +427,7 @@ export function ProductionBoard({
                   needsSubmittal: item.needsSubmittal,
                 });
               }}
-              className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium hover:bg-slate-50"
+              className="rounded border border-slate-200 bg-white px-2 py-1 text-2xs font-medium hover:bg-slate-50"
             >
               Approve for production
             </button>
@@ -523,7 +523,7 @@ export function ProductionBoard({
                       className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                     >
                       <span
-                        className={`text-[10px] transition-transform ${isOpen ? "rotate-90" : ""}`}
+                        className={`text-3xs transition-transform ${isOpen ? "rotate-90" : ""}`}
                       >
                         ▶
                       </span>
@@ -541,14 +541,14 @@ export function ProductionBoard({
                       </span>
                     )}
                     {group.customerName ? (
-                      <span className="truncate text-[11px] text-slate-500">
+                      <span className="truncate text-2xs text-slate-500">
                         {group.customerName}
                       </span>
                     ) : null}
                     <button
                       type="button"
                       onClick={() => toggleGroup(group.key)}
-                      className="ml-auto shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] text-slate-600 hover:bg-slate-100"
+                      className="ml-auto shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-2xs text-slate-600 hover:bg-slate-100"
                     >
                       {group.items.length} structure
                       {group.items.length === 1 ? "" : "s"}

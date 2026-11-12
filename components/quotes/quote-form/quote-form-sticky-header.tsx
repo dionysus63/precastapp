@@ -62,7 +62,7 @@ export function QuoteFormStickyHeader({
         <div>
           <label
             htmlFor="sticky-customer"
-            className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+            className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
           >
             Customer
           </label>
@@ -94,7 +94,7 @@ export function QuoteFormStickyHeader({
         <div>
           <label
             htmlFor="sticky-projectName"
-            className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+            className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
           >
             Project Name
           </label>
@@ -111,7 +111,7 @@ export function QuoteFormStickyHeader({
         <div>
           <label
             htmlFor="sticky-scopeLabel"
-            className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+            className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
           >
             Scope / Area
           </label>
@@ -128,7 +128,7 @@ export function QuoteFormStickyHeader({
         <div>
           <label
             htmlFor="sticky-jobNumber"
-            className="block text-[10px] font-medium uppercase tracking-wide text-slate-500"
+            className="block text-3xs font-medium uppercase tracking-wide text-slate-500"
           >
             Job Number
           </label>
@@ -182,7 +182,7 @@ export function QuoteFormStickyHeader({
             type="button"
             onClick={() => onSaveDraft()}
             disabled={isPending}
-            className="rounded-md bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md bg-slate-900 px-2.5 py-1 text-2xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isPending
               ? "Saving..."
@@ -194,7 +194,7 @@ export function QuoteFormStickyHeader({
             type="button"
             onClick={onSaveAndPreview}
             disabled={isPending}
-            className="rounded-md border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md border border-slate-200 px-2.5 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isPending ? "Saving..." : "Preview PDF"}
           </button>
@@ -203,13 +203,13 @@ export function QuoteFormStickyHeader({
             disabled={isPending}
             onClick={() => onSaveDraft("send")}
             title="Save the quote, then open the send dialog"
-            className="rounded-md border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md border border-slate-200 px-2.5 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isPending ? "Saving..." : "Send Quote"}
           </button>
           <Link
             href={isEditing ? `/quotes/${quoteId}` : "/quotes"}
-            className="rounded-md border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-md border border-slate-200 px-2.5 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Cancel
           </Link>

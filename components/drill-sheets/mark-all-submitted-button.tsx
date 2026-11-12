@@ -56,7 +56,7 @@ export function MarkAllSubmittedButton({
             });
           }}
           onBlur={() => setArmed(false)}
-          className={`inline-flex items-center justify-center rounded-lg border px-3 py-1.5 text-[11px] font-semibold disabled:opacity-50 ${
+          className={`inline-flex items-center justify-center rounded-lg border px-3 py-1.5 text-2xs font-semibold disabled:opacity-50 ${
             armed
               ? "border-emerald-300 bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
               : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
@@ -70,7 +70,7 @@ export function MarkAllSubmittedButton({
         </button>
       ) : null}
       {message ? (
-        <p className="max-w-sm text-right text-[10px] text-slate-500">
+        <p className="max-w-sm text-right text-3xs text-slate-500">
           {message}
         </p>
       ) : null}

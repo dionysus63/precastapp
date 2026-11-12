@@ -51,7 +51,7 @@ export const DispatcherWeekCalendar = memo(function DispatcherWeekCalendar({
             <button
               type="button"
               onClick={() => setWeekOffset(0)}
-              className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-2xs font-medium text-slate-700 hover:bg-slate-50"
             >
               Today
             </button>
@@ -59,7 +59,7 @@ export const DispatcherWeekCalendar = memo(function DispatcherWeekCalendar({
           <button
             type="button"
             onClick={() => setWeekOffset((offset) => offset - 1)}
-            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-2xs font-medium text-slate-700 hover:bg-slate-50"
             aria-label="Previous week"
           >
             ←
@@ -67,7 +67,7 @@ export const DispatcherWeekCalendar = memo(function DispatcherWeekCalendar({
           <button
             type="button"
             onClick={() => setWeekOffset((offset) => offset + 1)}
-            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-2xs font-medium text-slate-700 hover:bg-slate-50"
             aria-label="Next week"
           >
             →
@@ -88,11 +88,11 @@ export const DispatcherWeekCalendar = memo(function DispatcherWeekCalendar({
               }`}
             >
               <div className="mb-3 border-b border-slate-100 pb-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                <p className="text-2xs font-semibold uppercase tracking-wide text-slate-500">
                   {day.label}
                 </p>
                 {day.isToday ? (
-                  <p className="text-[10px] font-medium text-sky-700">Today</p>
+                  <p className="text-3xs font-medium text-sky-700">Today</p>
                 ) : null}
               </div>
               {dayTickets.length === 0 ? (
@@ -117,32 +117,32 @@ export const DispatcherWeekCalendar = memo(function DispatcherWeekCalendar({
                       {ticket.jobId ? (
                         <Link
                           href={`/jobs/${ticket.jobId}`}
-                          className="block truncate text-[11px] font-medium text-sky-700 hover:underline"
+                          className="block truncate text-2xs font-medium text-sky-700 hover:underline"
                         >
                           {ticket.projectName}
                         </Link>
                       ) : (
-                        <p className="truncate text-[11px] text-slate-600">
+                        <p className="truncate text-2xs text-slate-600">
                           {ticket.projectName}
                         </p>
                       )}
                       <div className="flex items-center gap-1.5">
                         <Link
                           href={`/delivery-tickets/${ticket.id}`}
-                          className="shrink-0 font-mono text-[10px] text-slate-500 hover:text-slate-900"
+                          className="shrink-0 font-mono text-3xs text-slate-500 hover:text-slate-900"
                         >
                           {ticket.ticketNumber}
                         </Link>
                         {ticket.customLine ? (
                           <>
                             <span
-                              className="shrink-0 text-[10px] text-slate-400"
+                              className="shrink-0 text-3xs text-slate-400"
                               aria-hidden="true"
                             >
                               --
                             </span>
                             <span
-                              className="truncate text-[10px] font-semibold text-slate-700"
+                              className="truncate text-3xs font-semibold text-slate-700"
                               title={ticket.customLine}
                             >
                               {ticket.customLine}

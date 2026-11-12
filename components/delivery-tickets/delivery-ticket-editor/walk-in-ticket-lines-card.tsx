@@ -58,7 +58,7 @@ export function WalkInTicketLinesCard({
             <button
               type="button"
               onClick={onToggleLineWeights}
-              className="shrink-0 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+              className="shrink-0 rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50"
             >
               {showLineWeights
                 ? "Hide individual weights"
@@ -134,7 +134,7 @@ export function WalkInTicketLinesCard({
                   </div>
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
                     <span className="flex items-center gap-1">
-                      <span className="mr-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                      <span className="mr-0.5 text-3xs font-semibold uppercase tracking-wide text-slate-400">
                         Qty
                       </span>
                       <button
@@ -184,7 +184,7 @@ export function WalkInTicketLinesCard({
                       </button>
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                      <span className="text-3xs font-semibold uppercase tracking-wide text-slate-400">
                         Each
                       </span>
                       <span>$</span>
@@ -217,7 +217,7 @@ export function WalkInTicketLinesCard({
                         }`}
                       />
                       {isCustomPrice ? (
-                        <span className="rounded bg-amber-100 px-1 py-0.5 text-[10px] font-semibold text-amber-800">
+                        <span className="rounded bg-amber-100 px-1 py-0.5 text-3xs font-semibold text-amber-800">
                           custom
                         </span>
                       ) : null}
@@ -229,7 +229,7 @@ export function WalkInTicketLinesCard({
                     </span>
                   </div>
                   {showLineWeights ? (
-                    <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
+                    <div className="mt-1 flex items-center gap-1.5 text-2xs text-slate-500">
                       <span>Weight each</span>
                       <input
                         aria-label={`${line.itemCode} weight each`}
@@ -277,14 +277,14 @@ export function WalkInTicketLinesCard({
               </div>
             </div>
             {walkInMissingPriceCount > 0 ? (
-              <p className="text-[11px] text-amber-700">
+              <p className="text-2xs text-amber-700">
                 {walkInMissingPriceCount} line
                 {walkInMissingPriceCount === 1 ? "" : "s"} missing a price —
                 they won&apos;t count toward the subtotal.
               </p>
             ) : null}
             {totalWeight > 0 ? (
-              <div className="flex items-baseline justify-end gap-2 text-[11px] text-slate-500">
+              <div className="flex items-baseline justify-end gap-2 text-2xs text-slate-500">
                 <span>Total weight</span>
                 <span className="w-24 text-right">
                   {formatWeight(totalWeight)}

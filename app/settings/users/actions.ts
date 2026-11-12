@@ -18,6 +18,7 @@ import { writeAuditLog } from "@/lib/auth/audit";
 import { hashPassword, validatePasswordStrength, verifyPassword } from "@/lib/auth/password";
 import { requireAuth, requirePermission } from "@/lib/auth/session";
 import { isJobsDefaultTab } from "@/lib/jobs-default-tab";
+import { isTextSize } from "@/lib/text-size";
 import { prisma } from "@/lib/prisma";
 import {
   returnActionError,
@@ -333,6 +334,33 @@ export async function updateMyJobsDefaultTab(
     revalidatePath("/profile");
     revalidatePath("/settings/preferences");
     return { success: "Default Jobs tab saved." };
+  } catch (error) {
+    return { error: translatePrismaError(error).message };
+  }
+}
+
+/**
+ * A user's own choice of how big the app's screen text is. Personal, so it
+ * only needs a signed-in user (no Settings permission). The root layout
+ * reads it, so the whole layout is revalidated.
+ */
+export async function updateMyTextSize(
+  formData: FormData,
+): Promise<ActionFormResult> {
+  const user = await requireAuth();
+  try {
+    const textSize = String(formData.get("textSize") ?? "");
+    if (!isTextSize(textSize)) {
+      throw new Error("Pick a text size.");
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { textSize },
+    });
+
+    revalidatePath("/", "layout");
+    return { success: "Text size saved." };
   } catch (error) {
     return { error: translatePrismaError(error).message };
   }

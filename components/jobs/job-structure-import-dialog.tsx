@@ -263,7 +263,7 @@ export function JobStructureImportButton({ jobId }: { jobId: string }) {
       <button
         type="button"
         onClick={() => void openDialog()}
-        className="inline-flex items-center justify-center rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-700 hover:bg-sky-100"
+        className="inline-flex items-center justify-center rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-2xs font-semibold text-sky-700 hover:bg-sky-100"
       >
         Import Drill Sheet
       </button>
@@ -308,7 +308,7 @@ export function JobStructureImportButton({ jobId }: { jobId: string }) {
             <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
               <div className="flex flex-wrap items-center gap-2">
                 <label
-                  className={`cursor-pointer rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 ${
+                  className={`cursor-pointer rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 ${
                     options ? "" : "pointer-events-none opacity-50"
                   }`}
                 >
@@ -324,19 +324,19 @@ export function JobStructureImportButton({ jobId }: { jobId: string }) {
                   />
                 </label>
                 {sourceName ? (
-                  <span className="text-[11px] text-slate-500">
+                  <span className="text-2xs text-slate-500">
                     {sourceName}
                     {preview
                       ? ` — ${preview.shape === "CIRCULAR" ? "circular" : "rectangular"}`
                       : ""}
                   </span>
                 ) : !options ? (
-                  <span className="text-[11px] text-slate-400">Loading…</span>
+                  <span className="text-2xs text-slate-400">Loading…</span>
                 ) : null}
               </div>
 
               <details className="rounded-lg border border-slate-200 px-3 py-2">
-                <summary className="cursor-pointer text-[11px] font-medium text-slate-600">
+                <summary className="cursor-pointer text-2xs font-medium text-slate-600">
                   …or paste cells from Excel
                 </summary>
                 <textarea
@@ -344,7 +344,7 @@ export function JobStructureImportButton({ jobId }: { jobId: string }) {
                   value={pasteText}
                   onChange={(event) => setPasteText(event.target.value)}
                   placeholder="Copy the header row plus your structure rows in Excel and paste here."
-                  className="mt-2 block w-full rounded-lg border border-slate-200 px-2 py-1.5 font-mono text-[11px] text-slate-900"
+                  className="mt-2 block w-full rounded-lg border border-slate-200 px-2 py-1.5 font-mono text-2xs text-slate-900"
                 />
                 <button
                   type="button"
@@ -352,7 +352,7 @@ export function JobStructureImportButton({ jobId }: { jobId: string }) {
                   onClick={() =>
                     parseGrid(circularGridFromTsv(pasteText), "pasted cells")
                   }
-                  className="mt-2 rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  className="mt-2 rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                 >
                   Preview pasted rows
                 </button>
@@ -364,11 +364,11 @@ export function JobStructureImportButton({ jobId }: { jobId: string }) {
 
               {preview && preview.parseErrors.length > 0 ? (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2">
-                  <p className="text-[11px] font-semibold text-red-700">
+                  <p className="text-2xs font-semibold text-red-700">
                     {preview.parseErrors.length} row
                     {preview.parseErrors.length === 1 ? "" : "s"} skipped:
                   </p>
-                  <ul className="mt-1 list-disc pl-4 text-[11px] text-red-700">
+                  <ul className="mt-1 list-disc pl-4 text-2xs text-red-700">
                     {preview.parseErrors.map((error) => (
                       <li key={`${error.rowNumber}-${error.message}`}>
                         Row {error.rowNumber}
@@ -383,9 +383,9 @@ export function JobStructureImportButton({ jobId }: { jobId: string }) {
               ) : null}
 
               {preview && preview.structures.length > 0 ? (
-                <table className="min-w-full text-left text-[11px]">
+                <table className="min-w-full text-left text-2xs">
                   <thead>
-                    <tr className="border-b border-slate-200 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                    <tr className="border-b border-slate-200 text-3xs font-semibold uppercase tracking-wide text-slate-500">
                       <th className="py-1 pr-3">Structure</th>
                       <th className="py-1 pr-3">Template</th>
                       <th className="py-1 pr-3">Pipes</th>
@@ -430,7 +430,7 @@ export function JobStructureImportButton({ jobId }: { jobId: string }) {
 
               {result ? (
                 <div
-                  className={`rounded-lg border px-3 py-2 text-[11px] ${
+                  className={`rounded-lg border px-3 py-2 text-2xs ${
                     result.errors.length > 0
                       ? "border-amber-200 bg-amber-50 text-amber-800"
                       : "border-emerald-200 bg-emerald-50 text-emerald-800"

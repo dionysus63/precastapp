@@ -10,7 +10,7 @@ import { OneOffAllSheetsButton } from "@/components/quotes/one-off/one-off-all-s
 import { drillSheetsPacketHref } from "@/lib/drill-sheets-packet";
 
 const chipClassName =
-  "rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50";
+  "rounded-md border border-slate-200 bg-white px-2 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50";
 
 function safeFilePart(value: string): string {
   return value.replace(/[\\/:*?"<>|]+/g, "-").trim() || "sheet";
@@ -127,7 +127,7 @@ export function OneOffResults({
                         <p className="text-sm font-semibold text-slate-900">
                           {sheet.structureNumber}
                         </p>
-                        <p className="truncate text-[11px] text-slate-500">
+                        <p className="truncate text-2xs text-slate-500">
                           {sheet.shape === "CIRCULAR" ? "Circular" : "Rectangular"} ·{" "}
                           {sheet.templateName}
                           {sheet.wallHeightFeet != null

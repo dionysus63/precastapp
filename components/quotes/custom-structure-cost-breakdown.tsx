@@ -48,21 +48,21 @@ export function CustomStructureCostBreakdown({
       <div className="flex items-center justify-between gap-2">
         <div>
           <h4 className="text-xs font-semibold text-slate-900">Cost Breakdown</h4>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-2xs text-slate-500">
             Internal only — not shown on customer PDF.
           </p>
         </div>
         <button
           type="button"
           onClick={addItem}
-          className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+          className="rounded-lg border border-slate-200 px-2.5 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
         >
           Add cost line
         </button>
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/60 px-3 py-4 text-center text-[11px] text-slate-500">
+        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/60 px-3 py-4 text-center text-2xs text-slate-500">
           No cost lines yet — add concrete, hatches, castings, etc. to build up
           the price.
         </div>
@@ -70,7 +70,7 @@ export function CustomStructureCostBreakdown({
         <div className="overflow-x-auto rounded-lg border border-slate-100">
           <table className="min-w-full text-left text-xs">
             <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/80 text-[11px] uppercase tracking-wide text-slate-500">
+              <tr className="border-b border-slate-100 bg-slate-50/80 text-2xs uppercase tracking-wide text-slate-500">
                 <th className="min-w-[10rem] px-3 py-2 font-semibold">Item</th>
                 <th className="w-20 px-3 py-2 font-semibold">Qty</th>
                 <th className="w-28 px-3 py-2 font-semibold">Unit Cost</th>
@@ -120,7 +120,7 @@ export function CustomStructureCostBreakdown({
                     <button
                       type="button"
                       onClick={() => removeItem(item.id)}
-                      className="text-[11px] font-medium text-red-600 hover:text-red-800"
+                      className="text-2xs font-medium text-red-600 hover:text-red-800"
                     >
                       Remove
                     </button>
@@ -132,7 +132,7 @@ export function CustomStructureCostBreakdown({
               <tr className="border-t border-slate-200 bg-slate-50/60">
                 <td
                   colSpan={3}
-                  className="px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-500"
+                  className="px-3 py-2 text-right text-2xs font-semibold uppercase tracking-wide text-slate-500"
                 >
                   Breakdown total
                 </td>
@@ -172,7 +172,7 @@ export function CustomStructurePricingFooter({
     <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
       <div className="grid gap-3 sm:grid-cols-3">
         <div>
-          <label className="block text-[11px] font-medium text-slate-700">
+          <label className="block text-2xs font-medium text-slate-700">
             Unit Price
           </label>
           {breakdownActive ? (
@@ -180,7 +180,7 @@ export function CustomStructurePricingFooter({
               <p className="text-sm font-semibold text-slate-900">
                 {formatQuoteCurrency(resolvedUnitPrice)}
               </p>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-2xs text-slate-500">
                 Calculated from breakdown
               </p>
             </div>
@@ -195,13 +195,13 @@ export function CustomStructurePricingFooter({
           )}
         </div>
         <div>
-          <label className="block text-[11px] font-medium text-slate-700">
+          <label className="block text-2xs font-medium text-slate-700">
             Quantity
           </label>
           <p className="mt-1 text-sm font-medium text-slate-900">{qty || "1"}</p>
         </div>
         <div>
-          <label className="block text-[11px] font-medium text-slate-700">
+          <label className="block text-2xs font-medium text-slate-700">
             Line Total
           </label>
           <p className="mt-1 text-sm font-semibold text-slate-900">
@@ -224,14 +224,14 @@ export function CustomStructureDetailBreakdown({
 
   return (
     <details className="mt-2 rounded-lg border border-amber-200 bg-amber-50/40">
-      <summary className="cursor-pointer px-3 py-2 text-[11px] font-semibold text-amber-900">
+      <summary className="cursor-pointer px-3 py-2 text-2xs font-semibold text-amber-900">
         Internal cost breakdown ({items.length} line
         {items.length === 1 ? "" : "s"}) — not shown to customer
       </summary>
       <div className="border-t border-amber-200 px-3 py-2">
-        <table className="min-w-full text-left text-[11px]">
+        <table className="min-w-full text-left text-2xs">
           <thead>
-            <tr className="text-[10px] uppercase tracking-wide text-amber-800/80">
+            <tr className="text-3xs uppercase tracking-wide text-amber-800/80">
               <th className="pb-1 font-semibold">Item</th>
               <th className="pb-1 font-semibold">Qty</th>
               <th className="pb-1 font-semibold">Unit Cost</th>
@@ -256,7 +256,7 @@ export function CustomStructureDetailBreakdown({
             <tr>
               <td
                 colSpan={3}
-                className="pt-2 text-right text-[10px] font-semibold uppercase tracking-wide text-amber-800/80"
+                className="pt-2 text-right text-3xs font-semibold uppercase tracking-wide text-amber-800/80"
               >
                 Total
               </td>

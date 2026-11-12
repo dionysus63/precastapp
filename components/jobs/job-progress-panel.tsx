@@ -46,7 +46,7 @@ export function JobProgressPanel({ jobId, progress }: JobProgressPanelProps) {
             structureLines.length === 1 ? "" : "s"
           } · no won quote — tracking production directly`}
           action={
-            <p className="text-right text-[11px] text-slate-600">
+            <p className="text-right text-2xs text-slate-600">
               <span className="font-semibold text-slate-900">{madeCount}</span>{" "}
               of{" "}
               <span className="font-semibold text-slate-900">
@@ -122,7 +122,7 @@ export function JobProgressPanel({ jobId, progress }: JobProgressPanelProps) {
         }
         action={
           quoteNumber ? (
-            <p className="text-right text-[11px] text-slate-600">
+            <p className="text-right text-2xs text-slate-600">
               Quote{" "}
               {quoteId ? (
                 <Link
@@ -198,7 +198,7 @@ export function JobProgressPanel({ jobId, progress }: JobProgressPanelProps) {
                       </span>
                       {line.description !== "—" &&
                       line.description !== line.displayName ? (
-                        <span className="mt-0.5 block text-[11px] text-slate-500">
+                        <span className="mt-0.5 block text-2xs text-slate-500">
                           {line.description}
                         </span>
                       ) : null}
@@ -224,7 +224,7 @@ export function JobProgressPanel({ jobId, progress }: JobProgressPanelProps) {
                             variant={line.submittalStatusVariant}
                           />
                           {line.submittalDocCount > 0 ? (
-                            <span className="text-[10px] text-slate-400">
+                            <span className="text-3xs text-slate-400">
                               {line.submittalDocCount} doc
                               {line.submittalDocCount === 1 ? "" : "s"}
                             </span>
@@ -244,7 +244,7 @@ export function JobProgressPanel({ jobId, progress }: JobProgressPanelProps) {
                           {line.createDrillSheetHref ? (
                             <Link
                               href={line.createDrillSheetHref}
-                              className="text-[11px] font-medium text-sky-700 underline decoration-dotted underline-offset-2 hover:text-sky-900"
+                              className="text-2xs font-medium text-sky-700 underline decoration-dotted underline-offset-2 hover:text-sky-900"
                             >
                               Create drill sheet
                             </Link>

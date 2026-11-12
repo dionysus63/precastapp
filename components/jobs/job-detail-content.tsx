@@ -94,7 +94,7 @@ function NewRecordLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800"
+      className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white transition-colors hover:bg-slate-800"
     >
       {label}
     </Link>
@@ -192,21 +192,21 @@ export function JobDetailContent({
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href={`/jobs/${detail.id}/edit`}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
             >
               Edit Job
             </Link>
             {detail.customerId ? (
               <Link
                 href={`/customers/${detail.customerId}`}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
               >
                 View Customer
               </Link>
             ) : null}
             <Link
               href={`/quotes/new?jobId=${detail.id}`}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
             >
               New Quote
             </Link>
@@ -264,7 +264,7 @@ export function JobDetailContent({
               const statTab = STAT_TABS[stat.label];
               const body = (
                 <>
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                  <p className="text-3xs font-medium uppercase tracking-wide text-slate-500">
                     {stat.label}
                   </p>
                   <p className="text-base font-semibold text-slate-900">
@@ -368,7 +368,7 @@ export function JobOverviewSection({
                     />
                     {item.label}
                   </span>
-                  <span className="whitespace-nowrap text-[11px] text-slate-400">
+                  <span className="whitespace-nowrap text-2xs text-slate-400">
                     {TAB_LABELS[item.tab]} →
                   </span>
                 </Link>
@@ -395,7 +395,7 @@ export function JobOverviewSection({
                     </span>
                     <Link
                       href={item.href}
-                      className="font-mono text-[11px] font-medium text-slate-900 hover:underline"
+                      className="font-mono text-2xs font-medium text-slate-900 hover:underline"
                     >
                       {item.recordNumber}
                     </Link>
@@ -404,7 +404,7 @@ export function JobOverviewSection({
                       variant={item.statusVariant}
                     />
                   </div>
-                  <span className="whitespace-nowrap text-[11px] text-slate-500">
+                  <span className="whitespace-nowrap text-2xs text-slate-500">
                     {item.updated}
                   </span>
                 </div>
@@ -444,7 +444,7 @@ export function JobOverviewSection({
             />
           </dl>
           <div className="mt-3 border-t border-slate-100 pt-3">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            <p className="text-2xs font-medium uppercase tracking-wide text-slate-500">
               Notes
             </p>
             <p className="mt-1 whitespace-pre-wrap text-xs text-slate-700">
@@ -461,7 +461,7 @@ export function JobOverviewSection({
                 style={{ width: `${shippedPercent}%` }}
               />
             </div>
-            <p className="mt-2 text-[11px] text-slate-500">
+            <p className="mt-2 text-2xs text-slate-500">
               {overview.structuresShipped} of {overview.structuresTotal}{" "}
               structure{overview.structuresTotal === 1 ? "" : "s"} shipped
             </p>
@@ -469,10 +469,10 @@ export function JobOverviewSection({
               {detail.structureStatusBreakdown.map((entry) => (
                 <span
                   key={entry.label}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-700"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-2xs font-medium text-slate-700"
                 >
                   {entry.label}
-                  <span className="rounded-full bg-white px-1.5 text-[10px] font-semibold text-slate-600">
+                  <span className="rounded-full bg-white px-1.5 text-3xs font-semibold text-slate-600">
                     {entry.count}
                   </span>
                 </span>
@@ -513,7 +513,7 @@ export function JobQuotesSection({
             <div key={group.groupKey}>
               <div className="flex flex-wrap items-center gap-2 px-4 py-2.5">
                 {group.scopeLabel ? (
-                  <span className="inline-flex rounded-full bg-sky-100 px-2.5 py-0.5 text-[11px] font-semibold text-sky-900">
+                  <span className="inline-flex rounded-full bg-sky-100 px-2.5 py-0.5 text-2xs font-semibold text-sky-900">
                     {group.scopeLabel}
                   </span>
                 ) : null}
@@ -521,7 +521,7 @@ export function JobQuotesSection({
                   {group.masterQuoteNumber}
                 </span>
                 {group.quoteCount > 1 ? (
-                  <span className="text-[11px] text-slate-500">
+                  <span className="text-2xs text-slate-500">
                     {group.quoteCount} customer
                     {group.quoteCount === 1 ? "" : "s"}
                   </span>
@@ -555,7 +555,7 @@ export function JobQuotesSection({
                             {quote.quoteNumber}
                           </Link>
                           {quote.isMaster && group.quoteCount > 1 ? (
-                            <span className="ml-2 text-[10px] font-medium uppercase text-slate-400">
+                            <span className="ml-2 text-3xs font-medium uppercase text-slate-400">
                               Master
                             </span>
                           ) : null}
@@ -605,18 +605,18 @@ export function JobDeliveriesSection({
         <div className="flex flex-wrap items-center gap-2">
           <Link
             href={`/delivery-tickets/plan?jobId=${jobId}`}
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
           >
             Plan Loads
           </Link>
           <Link
             href={`/delivery-tickets/schedule?jobId=${jobId}`}
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
           >
             Schedule Loads
           </Link>
           <details className="relative">
-            <summary className="flex cursor-pointer list-none items-center gap-1 rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-800 [&::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center gap-1 rounded-lg bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white hover:bg-slate-800 [&::-webkit-details-marker]:hidden">
               New Ticket
               <svg
                 viewBox="0 0 16 16"
@@ -634,13 +634,13 @@ export function JobDeliveriesSection({
             <div className="absolute right-0 z-20 mt-1 flex w-44 flex-col gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
               <Link
                 href={`/delivery-tickets/new?jobId=${jobId}`}
-                className="rounded-lg px-3 py-1.5 text-left text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-lg px-3 py-1.5 text-left text-2xs font-semibold text-slate-700 hover:bg-slate-50"
               >
                 Delivery Ticket
               </Link>
               <Link
                 href={`/delivery-tickets/new?jobId=${jobId}&fulfillment=pickup`}
-                className="rounded-lg px-3 py-1.5 text-left text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-lg px-3 py-1.5 text-left text-2xs font-semibold text-slate-700 hover:bg-slate-50"
               >
                 Pickup Ticket
               </Link>
@@ -708,21 +708,21 @@ export function JobProductionSection({
           {completeDrillSheetsHref ? (
             <Link
               href={completeDrillSheetsHref}
-              className="inline-flex items-center justify-center rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-700 hover:bg-sky-100"
+              className="inline-flex items-center justify-center rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-2xs font-semibold text-sky-700 hover:bg-sky-100"
             >
               Complete Drill Sheets
             </Link>
           ) : null}
           <Link
             href="/production"
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Production queue
           </Link>
           {structures.some((structure) => structure.drillSheetId) ? (
             <Link
               href={`/jobs/${jobId}/structures/bulk-edit`}
-              className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
             >
               Bulk Edit
             </Link>
@@ -730,13 +730,13 @@ export function JobProductionSection({
           <JobStructureImportButton jobId={jobId} />
           <Link
             href={`/drill-sheets/new?jobId=${jobId}`}
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Circular Drill Sheet
           </Link>
           <Link
             href={`/drill-sheets/rect/new?jobId=${jobId}`}
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             New Rectangular Drill Sheet
           </Link>
@@ -809,7 +809,7 @@ export function JobInvoicesSection({
         >
           <div className="flex flex-wrap gap-x-8 gap-y-2 text-xs">
             <div>
-              <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+              <div className="text-2xs font-medium uppercase tracking-wide text-slate-500">
                 Quoted
               </div>
               <div className="mt-0.5 font-semibold text-slate-900">
@@ -818,7 +818,7 @@ export function JobInvoicesSection({
               </div>
             </div>
             <div>
-              <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+              <div className="text-2xs font-medium uppercase tracking-wide text-slate-500">
                 Invoiced
               </div>
               <div className="mt-0.5 font-semibold text-slate-900">
@@ -828,7 +828,7 @@ export function JobInvoicesSection({
             </div>
             {deliveryCharges.pickupTicketCount > 0 ? (
               <div>
-                <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                <div className="text-2xs font-medium uppercase tracking-wide text-slate-500">
                   Customer pickups
                 </div>
                 <div className="mt-0.5 font-semibold text-slate-900">
@@ -839,7 +839,7 @@ export function JobInvoicesSection({
             ) : null}
             {deliveryRemaining > 0.004 ? (
               <div>
-                <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                <div className="text-2xs font-medium uppercase tracking-wide text-slate-500">
                   Not yet invoiced
                 </div>
                 <div className="mt-0.5 font-semibold text-amber-700">
