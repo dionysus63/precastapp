@@ -7,8 +7,6 @@ export type NavItem = {
   section: NavSectionId;
   icon: NavIconId;
   requiredPermission?: PermissionKey;
-  /** Shown indented under the entry above it (a sub-page of that module). */
-  nested?: boolean;
 };
 
 export type NavSectionId =
@@ -48,20 +46,15 @@ export const navItems: NavItem[] = [
     icon: "briefcase",
     requiredPermission: "JOBS_VIEW",
   },
-  {
-    label: "Quotes",
-    href: "/quotes",
-    section: "sales",
-    icon: "file-text",
-    requiredPermission: "QUOTES_VIEW",
-  },
+  // Quotes has no sidebar entry: quotes are worked from each job's Quotes
+  // tab, and the all-quotes list (/quotes) is reached from the Dashboard's
+  // Open Quotes tile.
   {
     label: "Quick Build",
     href: "/quotes/quick-build",
     section: "sales",
     icon: "clipboard",
     requiredPermission: "STRUCTURES_MANAGE",
-    nested: true,
   },
   // Shipping Rates is hidden until the zone-rate workflow goes live
   // (~2027); the /shipping page itself stays reachable by URL.
