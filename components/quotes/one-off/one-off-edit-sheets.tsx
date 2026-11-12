@@ -14,7 +14,11 @@ import {
 import { OneOffGrid, OneOffGridHint } from "@/components/quotes/one-off/one-off-grid";
 import { OneOffLeaveDialog } from "@/components/quotes/one-off/one-off-leave-dialog";
 import { OneOffResults } from "@/components/quotes/one-off/one-off-results";
-import { OneOffSheetPreview } from "@/components/quotes/one-off/one-off-sheet-preview";
+import {
+  OneOffSheetPreview,
+  oneOffPreviewPaneClassName,
+  oneOffSplitClassName,
+} from "@/components/quotes/one-off/one-off-sheet-preview";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { describeActionFailure, isActionError } from "@/lib/action-result";
 import { localTodayInput } from "@/lib/date-only";
@@ -373,13 +377,7 @@ export function OneOffEditSheets({
         <div className="mb-2">
           <OneOffGridHint editMode />
         </div>
-        <div
-          className={`grid items-start gap-5 ${
-            isCircular
-              ? "lg:grid-cols-[minmax(0,1fr)_50%]"
-              : "lg:grid-cols-[minmax(0,1fr)_60%]"
-          }`}
-        >
+        <div className={oneOffSplitClassName(shape)}>
           <div className="min-w-0">
             <OneOffGrid
               shape={shape}
@@ -408,7 +406,7 @@ export function OneOffEditSheets({
               }
             />
           </div>
-          <div className="min-w-0 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+          <div className={oneOffPreviewPaneClassName}>
             <OneOffSheetPreview
               shape={shape}
               row={activeRow}

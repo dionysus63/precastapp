@@ -114,6 +114,9 @@ export default async function JobDetailPage({
 
   return (
     <DashboardShell
+      // Quick Build puts a live sheet preview beside its grid, so that tab
+      // uses the whole window like the standalone Quick Build page.
+      width={activeTab === "quick-build" ? "full" : "standard"}
       title={`${detail.jobNumber} — ${detail.projectName}`}
       subtitle="Everything you need to know about this job."
     >
