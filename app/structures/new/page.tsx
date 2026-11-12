@@ -8,11 +8,17 @@ import { prisma } from "@/lib/prisma";
 
 import { BackButton } from "@/components/dashboard/back-button";
 export default async function NewStructureTemplatePage() {
-  const [castingOptions, rectPdfSets, molds] = await Promise.all([
+  const [castingOptions, sheetPdfs, molds] = await Promise.all([
     loadCastingProductOptions(),
-    prisma.rectSheetPdfSet.findMany({
+    prisma.sheetPdf.findMany({
       orderBy: { name: "asc" },
-      select: { id: true, name: true, shape: true },
+      select: {
+        id: true,
+        name: true,
+        shape: true,
+        hasTopSlab: true,
+        hasBaseSlab: true,
+      },
     }),
     prisma.structureDiameterConfig.findMany({
       orderBy: { sortOrder: "asc" },
@@ -45,7 +51,7 @@ export default async function NewStructureTemplatePage() {
           cancelHref="/structures"
           submitLabel="Create Template"
           castingOptions={castingOptions}
-          rectPdfSetOptions={rectPdfSets}
+          sheetPdfOptions={sheetPdfs}
           moldOptions={moldOptions}
         />
       </div>

@@ -48,7 +48,7 @@ async function rectPreviewResponse(
       "Cache-Control": "private, no-store",
       "X-Drill-Sheet-Pdf-Source": "rect-template",
       "X-Drill-Sheet-Template-Variant": headerSafe(built.variantKey),
-      "X-Drill-Sheet-Template-Name": headerSafe(built.originalName),
+      "X-Drill-Sheet-Template-Name": headerSafe(built.sheetPdfName),
     },
   });
 }
@@ -114,13 +114,8 @@ export async function GET(request: Request, context: RouteContext) {
       "X-Drill-Sheet-Computed-Variant": built.computedVariant.key,
     };
 
-    if (built.templateVariant) {
-      headers["X-Drill-Sheet-Template-Variant"] = headerSafe(
-        built.templateVariant.key,
-      );
-      headers["X-Drill-Sheet-Template-Name"] = headerSafe(
-        built.templateVariant.originalName,
-      );
+    if (built.sheetPdfName) {
+      headers["X-Drill-Sheet-Template-Name"] = headerSafe(built.sheetPdfName);
     }
 
     return new NextResponse(Buffer.from(built.bytes), {

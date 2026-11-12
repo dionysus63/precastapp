@@ -146,7 +146,7 @@ describe("drill sheet with two pipes at the same elevation", () => {
         agencyStandard: null,
         shape: "CIRCULAR",
         topSlabOpeningInches: null,
-        rectPdfSet: null,
+        sheetPdf: null,
       },
       castings: [],
       sections: [

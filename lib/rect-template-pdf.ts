@@ -54,27 +54,6 @@ const SMALL_FONT_SIZE_PT = 6.5;
 const BLACK = rgb(0, 0, 0);
 const EPSILON = 1e-6;
 
-type RectTemplatePdfRow = {
-  hasTopSlab: boolean;
-  hasBaseSlab: boolean;
-  filePath: string;
-  originalName: string;
-};
-
-/** Picks the uploaded PDF variant matching the sheet's slab configuration. */
-export function selectRectTemplateVariant<T extends RectTemplatePdfRow>(
-  templatePdfs: T[],
-  result: RectStructureResult,
-): T | null {
-  return (
-    templatePdfs.find(
-      (row) =>
-        row.hasTopSlab === result.hasTopSlab &&
-        row.hasBaseSlab === result.hasBaseSlab,
-    ) ?? null
-  );
-}
-
 function feet2(value: number | null | undefined): string {
   return value == null || Number.isNaN(value) ? "" : value.toFixed(2);
 }

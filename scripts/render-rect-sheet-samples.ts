@@ -169,10 +169,10 @@ async function main() {
   await mkdir(outDir, { recursive: true });
 
   const template = await prisma.structureTemplate.findFirst({
-    where: { shape: "RECTANGULAR", rectPdfSetId: { not: null } },
+    where: { shape: "RECTANGULAR", sheetPdfId: { not: null } },
   });
   if (!template) {
-    throw new Error("No rectangular template with a PDF set assigned.");
+    throw new Error("No rectangular template with a Sheet PDF picked.");
   }
 
   for (const sample of SAMPLES) {

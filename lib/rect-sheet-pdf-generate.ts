@@ -7,12 +7,12 @@ import {
   type RectSheetWithDetail,
 } from "@/lib/rect-sheet-detail";
 import { loadAndComputeRectSheet } from "@/lib/rect-sheet-persistence";
-import { readRectPdfSetFileBytes } from "@/lib/rect-pdf-set-service";
 import {
   buildRectSheetFieldMap,
   fillRectSheetTemplatePdf,
-  selectRectTemplateVariant,
 } from "@/lib/rect-template-pdf";
+import { sheetPdfSlabLabel } from "@/lib/sheet-pdf";
+import { readSheetPdfBytes } from "@/lib/sheet-pdf-service";
 import type { RectStructureResult } from "@/lib/rect-structure";
 import { rectTemplateVariantKey } from "@/lib/structure-template-pdf-service";
 import { getPriceListIdForStructure } from "@/lib/structure-pricing";
@@ -23,14 +23,15 @@ export type RectSheetPdfBuildResult =
       bytes: Uint8Array;
       meta: RectSheetPreviewMeta;
       variantKey: string;
-      originalName: string;
+      /** The Sheet PDF the sheet was filled on. */
+      sheetPdfName: string;
     }
   | { ok: false; error: string };
 
 /**
- * Recomputes the sheet from its stored inputs and fills the PDF-set variant
- * matching its slab configuration. Rect sheets have no generated-HTML
- * fallback: the template needs a PDF set with the matching variant uploaded.
+ * Recomputes the sheet from its stored inputs and fills its template's Sheet
+ * PDF. Rect sheets have no generated-HTML fallback: the template needs a
+ * Sheet PDF picked.
  */
 export async function buildRectSheetPdfBytes(
   sheet: RectSheetWithDetail,
@@ -50,50 +51,60 @@ export async function buildRectSheetPdfBytes(
     castingName: casting?.name ?? null,
   };
 
-  return fillRectSheetPdf(meta, result, sheet.structureTemplate?.rectPdfSet ?? null, {
+  return fillRectSheetPdf(meta, result, sheet.structureTemplate?.sheetPdf ?? null, {
     date: sheet.calc?.sheetDate ? formatSheetDate(sheet.calc.sheetDate) : "",
   });
 }
 
-/** The PDF set fields the rect fill needs (a template's `rectPdfSet`). */
-export type RectSheetPdfSet = {
+/** The Sheet PDF fields the rect fill needs (a template's `sheetPdf`). */
+export type RectSheetPdf = {
   name: string;
-  files: {
-    setId: string;
-    hasTopSlab: boolean;
-    hasBaseSlab: boolean;
-    filePath: string;
-    originalName: string;
-  }[];
+  hasTopSlab: boolean;
+  hasBaseSlab: boolean;
+  filePath: string;
 };
 
 /**
- * Fills the PDF-set variant matching an already-computed rect sheet. Shared
- * by saved sheets and the One-Off live preview of rows not yet created.
+ * Fills the template's Sheet PDF from an already-computed rect sheet. Shared
+ * by saved sheets and the Quick Build live preview of rows not yet created.
  */
 export async function fillRectSheetPdf(
   meta: RectSheetPreviewMeta,
   result: RectStructureResult,
-  pdfSet: RectSheetPdfSet | null,
+  sheetPdf: RectSheetPdf | null,
   extras: { date?: string } = {},
 ): Promise<RectSheetPdfBuildResult> {
-  if (!pdfSet) {
+  if (!sheetPdf) {
     return {
       ok: false,
       error:
-        "This template has no sheet PDF set assigned. Pick one on the structure template (Structures → template → Sheet PDF Set).",
+        "This template has no Sheet PDF picked. Pick one on the structure template (Structures → template → Sheet PDF).",
     };
   }
-  const variant = selectRectTemplateVariant(pdfSet.files, result);
-  if (!variant) {
-    const wanted = rectTemplateVariantKey(result.hasTopSlab, result.hasBaseSlab);
+  // The template editor only offers sheets drawn for the template's slabs,
+  // so this guards rows saved some other way.
+  if (
+    sheetPdf.hasTopSlab !== result.hasTopSlab ||
+    sheetPdf.hasBaseSlab !== result.hasBaseSlab
+  ) {
     return {
       ok: false,
-      error: `The "${pdfSet.name}" PDF set has no ${wanted} variant. Upload it in Structures → Sheet PDF Sets.`,
+      error: `The Sheet PDF "${sheetPdf.name}" is drawn for ${sheetPdfSlabLabel(sheetPdf.hasTopSlab, sheetPdf.hasBaseSlab)}, but this structure has ${sheetPdfSlabLabel(result.hasTopSlab, result.hasBaseSlab)}. Pick a matching one on the structure template (Structures → template → Sheet PDF).`,
     };
   }
 
-  const templateBytes = await readRectPdfSetFileBytes(variant);
+  let templateBytes: Uint8Array;
+  try {
+    templateBytes = await readSheetPdfBytes(sheetPdf);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
+      return {
+        ok: false,
+        error: `The file for the Sheet PDF "${sheetPdf.name}" is missing from the server. Upload it again with Replace in Structures → Sheet PDFs.`,
+      };
+    }
+    throw error;
+  }
   const fieldMap = buildRectSheetFieldMap(meta, result, extras);
   const filled = await fillRectSheetTemplatePdf(templateBytes, fieldMap, result);
   const bytes = await flattenPdfForms(filled);
@@ -102,7 +113,7 @@ export async function fillRectSheetPdf(
     ok: true,
     bytes,
     meta,
-    variantKey: rectTemplateVariantKey(variant.hasTopSlab, variant.hasBaseSlab),
-    originalName: variant.originalName,
+    variantKey: rectTemplateVariantKey(sheetPdf.hasTopSlab, sheetPdf.hasBaseSlab),
+    sheetPdfName: sheetPdf.name,
   };
 }

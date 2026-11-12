@@ -25,7 +25,7 @@ export const drillSheetDetailInclude = {
       agencyStandard: true,
       shape: true,
       topSlabOpeningInches: true,
-      rectPdfSet: { include: { files: true } },
+      sheetPdf: true,
     },
   },
   calc: true,

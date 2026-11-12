@@ -78,7 +78,7 @@ export async function renderOneOffSheetPreview(input: OneOffSheetPreviewInput) {
           name: true,
           shape: true,
           topSlabOpeningInches: true,
-          rectPdfSet: { include: { files: true } },
+          sheetPdf: true,
         },
       }),
     );
@@ -127,7 +127,7 @@ export async function renderOneOffSheetPreview(input: OneOffSheetPreviewInput) {
       };
       const built = await buildDrillSheetPdfFromDetail(
         { meta, result: computed.circularSheet },
-        template.rectPdfSet?.files ?? [],
+        template.sheetPdf ?? null,
       );
       return {
         pdfBase64: Buffer.from(built.bytes).toString("base64"),
@@ -157,7 +157,7 @@ export async function renderOneOffSheetPreview(input: OneOffSheetPreviewInput) {
     const built = await fillRectSheetPdf(
       meta,
       computed.rectSheet,
-      template.rectPdfSet ?? null,
+      template.sheetPdf ?? null,
       { date: today },
     );
     if (!built.ok) {

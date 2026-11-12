@@ -16,7 +16,9 @@ import {
   assertSizeAndSlabsUnchangedForSheets,
   buildNestedCreate,
   parseTemplateData,
+  templateSheetPdfKind,
 } from "@/lib/structure-template-payload";
+import { sheetPdfFitsTemplate } from "@/lib/sheet-pdf";
 
 export type ImportRowMessage = { line: number; message: string };
 
@@ -149,7 +151,14 @@ async function importTemplates(
         select: {
           id: true,
           shape: true,
-          rectPdfSetId: true,
+          sheetPdf: {
+            select: {
+              id: true,
+              shape: true,
+              hasTopSlab: true,
+              hasBaseSlab: true,
+            },
+          },
           topSlabThicknessInches: true,
           baseSlabThicknessInches: true,
           diameters: { select: { insideDiameterFeet: true } },
@@ -184,8 +193,17 @@ async function importTemplates(
             where: { id: existing.id },
             data: {
               ...nested,
-              // Import columns never carry a set — keep the assigned one.
-              rectPdfSetId: existing.rectPdfSetId,
+              // Import columns never carry a Sheet PDF: keep the assigned
+              // one, unless the imported slabs no longer match what it is
+              // drawn for.
+              sheetPdfId:
+                existing.sheetPdf &&
+                sheetPdfFitsTemplate(
+                  existing.sheetPdf,
+                  templateSheetPdfKind(payload),
+                )
+                  ? existing.sheetPdf.id
+                  : null,
             },
           });
         });

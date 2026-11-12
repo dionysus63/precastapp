@@ -8,7 +8,7 @@
 // scripts/calibrate-rect-templates.ts flow for the field-less AutoCAD master.
 //
 // The enriched masters written to the out dir are the files to revise from:
-// edit them (fields ride along) and re-upload on Structures → Rect PDF Sets.
+// edit them (fields ride along) and re-upload on Structures → Sheet PDFs.
 // If a future revision is rebuilt from raw artwork, re-run this script.
 //
 // Run:  npx tsx --env-file=.env scripts/import-rect-sheet-pdfs.ts [sourceDir] [outDir]
@@ -16,10 +16,12 @@
 //                             rects (coordinate anchors) and exit
 //   --debug                   also write <key>.debug.pdf with stroked
 //                             marker/weights rects for eyeball calibration
-//   --upload-set <name-or-id> create/find a RectSheetPdfSet and upload the
-//                             four enriched variants into it
+//   --upload-set <name>       add the four enriched variants as Sheet PDFs
+//                             named "<name> - <slabs>" (replacing the files
+//                             of ones already carrying those names)
 //   --assign-all              with --upload-set: point every RECTANGULAR
-//                             structure template at the uploaded set
+//                             structure template at the uploaded Sheet PDF
+//                             drawn for its slabs
 
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
@@ -254,7 +256,7 @@ async function main() {
   const uploadIdx = process.argv.indexOf("--upload-set");
   const uploadSet = uploadIdx >= 0 ? process.argv[uploadIdx + 1] : null;
   if (assignAll && !uploadSet) {
-    throw new Error("--assign-all requires --upload-set <name-or-id>.");
+    throw new Error("--assign-all requires --upload-set <name>.");
   }
 
   await mkdir(outDir, { recursive: true });
@@ -309,31 +311,57 @@ async function main() {
 
   if (uploadSet) {
     const { prisma } = await import("@/lib/prisma");
-    const { saveRectPdfSetFile } = await import("@/lib/rect-pdf-set-service");
-    const set =
-      (await prisma.rectSheetPdfSet.findFirst({
-        where: { OR: [{ id: uploadSet }, { name: uploadSet }] },
-      })) ??
-      (await prisma.rectSheetPdfSet.create({ data: { name: uploadSet } }));
+    const { saveSheetPdfByName } = await import("@/lib/sheet-pdf-service");
+    const { rectSheetPdfSlotName } = await import("@/lib/sheet-pdf");
+    const saved = [];
     for (const { variant, key, bytes } of outputs) {
-      await saveRectPdfSetFile(
+      const sheetPdf = await saveSheetPdfByName(
         prisma,
-        set.id,
-        { hasTopSlab: variant.hasTopSlab, hasBaseSlab: variant.hasBaseSlab },
+        {
+          name: rectSheetPdfSlotName(
+            uploadSet,
+            variant.hasTopSlab,
+            variant.hasBaseSlab,
+          ),
+          shape: "RECTANGULAR",
+          hasTopSlab: variant.hasTopSlab,
+          hasBaseSlab: variant.hasBaseSlab,
+        },
         new File([Buffer.from(bytes)], `${key}.pdf`, {
           type: "application/pdf",
         }),
       );
-      console.log(`uploaded ${key} to PDF set "${set.name}"`);
+      saved.push(sheetPdf);
+      console.log(`uploaded ${key} as Sheet PDF "${sheetPdf.name}"`);
     }
 
     if (assignAll) {
-      const updated = await prisma.structureTemplate.updateMany({
+      // Each template takes the sheet drawn for its own slabs.
+      const templates = await prisma.structureTemplate.findMany({
         where: { shape: "RECTANGULAR" },
-        data: { rectPdfSetId: set.id },
+        select: {
+          id: true,
+          topSlabThicknessInches: true,
+          baseSlabThicknessInches: true,
+        },
       });
+      let assigned = 0;
+      for (const template of templates) {
+        const match = saved.find(
+          (sheetPdf) =>
+            sheetPdf.hasTopSlab === Number(template.topSlabThicknessInches) > 0 &&
+            sheetPdf.hasBaseSlab === Number(template.baseSlabThicknessInches) > 0,
+        );
+        if (match) {
+          await prisma.structureTemplate.update({
+            where: { id: template.id },
+            data: { sheetPdfId: match.id },
+          });
+          assigned += 1;
+        }
+      }
       console.log(
-        `assigned PDF set "${set.name}" to ${updated.count} rectangular template(s)`,
+        `assigned the uploaded Sheet PDFs to ${assigned} rectangular template(s)`,
       );
     }
   }
