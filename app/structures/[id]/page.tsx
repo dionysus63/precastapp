@@ -35,7 +35,7 @@ export default async function EditStructureTemplatePage({
   const { id } = await params;
   const { priceList } = await searchParams;
 
-  const [template, castingOptions, pdfSets, molds, priceLists] = await Promise.all([
+  const [template, castingOptions, sheetPdfs, molds, priceLists] = await Promise.all([
     prisma.structureTemplate.findUnique({
       where: { id },
       include: {
@@ -45,9 +45,15 @@ export default async function EditStructureTemplatePage({
       },
     }),
     loadCastingProductOptions(),
-    prisma.rectSheetPdfSet.findMany({
+    prisma.sheetPdf.findMany({
       orderBy: { name: "asc" },
-      select: { id: true, name: true, shape: true },
+      select: {
+        id: true,
+        name: true,
+        shape: true,
+        hasTopSlab: true,
+        hasBaseSlab: true,
+      },
     }),
     prisma.structureDiameterConfig.findMany({
       orderBy: { sortOrder: "asc" },
@@ -121,7 +127,7 @@ export default async function EditStructureTemplatePage({
     rectBaseSlabPrice: rectPriceEntry
       ? String(rectPriceEntry.baseSlabPrice)
       : "",
-    rectPdfSetId: template.rectPdfSetId ?? "",
+    sheetPdfId: template.sheetPdfId ?? "",
     status: template.status as "ACTIVE" | "INACTIVE",
     notes: template.notes ?? "",
     diameters: template.diameters.map((diameter) => ({
@@ -174,7 +180,7 @@ export default async function EditStructureTemplatePage({
           defaultValue={defaultValue}
           expectedUpdatedAt={template.updatedAt.toISOString()}
           castingOptions={castingOptions}
-          rectPdfSetOptions={pdfSets}
+          sheetPdfOptions={sheetPdfs}
           moldOptions={moldOptions}
           priceListId={selectedPriceList?.id ?? null}
           priceListName={selectedPriceList?.name ?? null}
@@ -183,16 +189,16 @@ export default async function EditStructureTemplatePage({
       </div>
 
       <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-600">
-        Drill sheet PDFs come from the shared sheet PDF set selected above
+        Drill sheets print on the Sheet PDF picked above
         {template.shape === "RECTANGULAR"
-          ? " (four slab variants per set)"
-          : " (one file per set; circular sheets without a set fall back to the generated layout)"}
-        . Manage sets in{" "}
+          ? ""
+          : " (a round template without one falls back to the generated layout)"}
+        . Add, replace and save the blank drawings in{" "}
         <Link
           href="/structures/sheet-pdfs"
           className="font-semibold text-slate-800 underline"
         >
-          Sheet PDF Sets
+          Sheet PDFs
         </Link>
         .
       </div>

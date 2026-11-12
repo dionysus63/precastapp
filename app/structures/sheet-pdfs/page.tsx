@@ -1,83 +1,53 @@
+import { BackButton } from "@/components/dashboard/back-button";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import {
-  SheetPdfSetManager,
-  type SheetPdfSetSlotView,
-  type SheetPdfSetView,
-} from "@/components/structures/sheet-pdf-set-manager";
+  SheetPdfManager,
+  type SheetPdfView,
+} from "@/components/structures/sheet-pdf-manager";
 import { DRILL_SHEET_TEMPLATE_FIELD_NAMES } from "@/lib/drill-sheet-template-pdf";
 import { RECT_SHEET_TEMPLATE_FIELD_NAMES } from "@/lib/rect-template-pdf-fields";
 import { prisma } from "@/lib/prisma";
 
-import { BackButton } from "@/components/dashboard/back-button";
-const RECT_SLOT_DEFINITIONS = [
-  { hasTopSlab: true, hasBaseSlab: true, label: "Top Slab + Base Slab" },
-  { hasTopSlab: true, hasBaseSlab: false, label: "Top Slab, No Base (Open Bottom)" },
-  { hasTopSlab: false, hasBaseSlab: true, label: "No Top Slab + Base Slab" },
-  { hasTopSlab: false, hasBaseSlab: false, label: "No Top Slab, No Base (Open Bottom)" },
-];
-
-// Circular sets hold one sheet: the app draws riser/key differences itself.
-const CIRCULAR_SLOT_DEFINITIONS = [
-  { hasTopSlab: false, hasBaseSlab: false, label: "Sheet PDF (all riser/key combos)" },
-];
-
-export default async function SheetPdfSetsPage() {
-  const sets = await prisma.rectSheetPdfSet.findMany({
-    orderBy: { name: "asc" },
+export default async function SheetPdfsPage() {
+  const sheetPdfs = await prisma.sheetPdf.findMany({
+    // Round first, then rectangular with the fullest slab combination first.
+    orderBy: [
+      { shape: "asc" },
+      { hasTopSlab: "desc" },
+      { hasBaseSlab: "desc" },
+      { name: "asc" },
+    ],
     include: {
-      files: true,
       templates: { select: { name: true }, orderBy: { name: "asc" } },
     },
   });
 
-  // Field coverage is NOT computed here: parsing the PDFs inside a server
+  // The field check is NOT computed here: parsing the PDFs inside a server
   // component render is pathologically slow in dev (~3.5s per file vs ~50ms
-  // in a route handler), so the manager fetches each slot's coverage from
-  // /api/rect-pdf-set-files/[id]/coverage after the page paints.
-  const views: SheetPdfSetView[] = sets.map((set) => {
-    // Tolerate a dev server still holding the pre-migration Prisma client.
-    const shape = set.shape ?? "RECTANGULAR";
-    const slotDefinitions =
-      shape === "CIRCULAR" ? CIRCULAR_SLOT_DEFINITIONS : RECT_SLOT_DEFINITIONS;
-    const slots: SheetPdfSetSlotView[] = slotDefinitions.map((slot) => {
-      const file =
-        set.files.find(
-          (row) =>
-            row.hasTopSlab === slot.hasTopSlab &&
-            row.hasBaseSlab === slot.hasBaseSlab,
-        ) ?? null;
-      if (!file) {
-        return { ...slot, file: null };
-      }
-      return {
-        ...slot,
-        file: {
-          id: file.id,
-          originalName: file.originalName,
-          uploadedAt: new Intl.DateTimeFormat("en-US").format(file.uploadedAt),
-          version: file.updatedAt.getTime(),
-        },
-      };
-    });
-    return {
-      id: set.id,
-      name: set.name,
-      shape,
-      usedByTemplates: set.templates.map((template) => template.name),
-      slots,
-    };
-  });
+  // in a route handler), so each row fetches its own from
+  // /api/sheet-pdfs/[id]/coverage after the page paints.
+  const views: SheetPdfView[] = sheetPdfs.map((sheetPdf) => ({
+    id: sheetPdf.id,
+    name: sheetPdf.name,
+    shape: sheetPdf.shape === "CIRCULAR" ? "CIRCULAR" : "RECTANGULAR",
+    hasTopSlab: sheetPdf.hasTopSlab,
+    hasBaseSlab: sheetPdf.hasBaseSlab,
+    originalName: sheetPdf.originalName,
+    uploadedAt: new Intl.DateTimeFormat("en-US").format(sheetPdf.uploadedAt),
+    version: sheetPdf.updatedAt.getTime(),
+    usedByTemplates: sheetPdf.templates.map((template) => template.name),
+  }));
 
   return (
     <DashboardShell
-      title="Sheet PDF Sets"
-      subtitle="Fillable drill-sheet PDFs shared across structure templates — circular sets hold one sheet, rectangular sets hold the four slab variants."
+      title="Sheet PDFs"
+      subtitle="One row is one blank fillable drawing. A template picks the one that matches its shape and slabs."
     >
       <BackButton href="/structures" label="Back to Structures" />
 
       <div className="mt-4">
-        <SheetPdfSetManager
-          sets={views}
+        <SheetPdfManager
+          sheetPdfs={views}
           expectedFieldNames={{
             CIRCULAR: [...DRILL_SHEET_TEMPLATE_FIELD_NAMES],
             RECTANGULAR: [...RECT_SHEET_TEMPLATE_FIELD_NAMES],

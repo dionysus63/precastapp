@@ -10,7 +10,7 @@ import {
   translatePrismaError,
 } from "@/lib/server/action-errors";
 import {
-  assertPdfSetMatchesShape,
+  assertSheetPdfFitsTemplate,
   assertSizeAndSlabsUnchangedForSheets,
   buildNestedCreate,
   parseTemplateData,
@@ -122,7 +122,7 @@ export async function createStructureTemplate(formData: FormData) {
 
 async function createStructureTemplateOrThrow(formData: FormData) {
   const payload = parseTemplatePayload(formData);
-  await assertPdfSetMatchesShape(payload);
+  await assertSheetPdfFitsTemplate(payload);
   await assertDiametersHaveMolds(payload);
   const priceListId = await resolvePriceListIdForTemplateSave(formData);
 
@@ -157,7 +157,7 @@ async function updateStructureTemplateOrThrow(
   formData: FormData,
 ) {
   const payload = parseTemplatePayload(formData);
-  await assertPdfSetMatchesShape(payload);
+  await assertSheetPdfFitsTemplate(payload);
   await assertDiametersHaveMolds(payload);
   const priceListId = await resolvePriceListIdForTemplateSave(formData);
   const expectedUpdatedAtRaw = String(
@@ -242,7 +242,7 @@ async function updateStructureTemplateOrThrow(
           rectTopSlabOpeningLengthInches: nested.rectTopSlabOpeningLengthInches,
           rectTopSlabOpeningWidthInches: nested.rectTopSlabOpeningWidthInches,
           rectTopSlabOpeningSide: nested.rectTopSlabOpeningSide,
-          rectPdfSetId: nested.rectPdfSetId,
+          sheetPdfId: nested.sheetPdfId,
           status: nested.status,
           notes: nested.notes,
           diameters: nested.diameters,
@@ -262,9 +262,9 @@ async function updateStructureTemplateOrThrow(
 
 /**
  * Deep-copy a template under a unique "(Copy)" name: scalars, offered
- * diameters / rect footprint, and per-price-list rect prices. The shared
- * Sheet PDF Set and casting product carry over by reference; legacy
- * per-template PDF uploads (dormant) are not copied.
+ * diameters / rect footprint, and per-price-list rect prices. The Sheet PDF
+ * and casting product carry over by reference; legacy per-template PDF
+ * uploads (dormant) are not copied.
  */
 export async function duplicateStructureTemplate(templateId: string) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
@@ -316,7 +316,7 @@ export async function duplicateStructureTemplate(templateId: string) {
           rectTopSlabOpeningLengthInches: source.rectTopSlabOpeningLengthInches,
           rectTopSlabOpeningWidthInches: source.rectTopSlabOpeningWidthInches,
           rectTopSlabOpeningSide: source.rectTopSlabOpeningSide,
-          rectPdfSetId: source.rectPdfSetId,
+          sheetPdfId: source.sheetPdfId,
           status: source.status,
           notes: source.notes,
           diameters: {

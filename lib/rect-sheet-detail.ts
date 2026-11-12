@@ -16,7 +16,7 @@ export const rectSheetDetailInclude = {
       name: true,
       agencyStandard: true,
       shape: true,
-      rectPdfSet: { include: { files: true } },
+      sheetPdf: true,
     },
   },
   calc: true,

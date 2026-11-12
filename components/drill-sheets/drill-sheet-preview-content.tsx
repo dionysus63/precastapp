@@ -95,29 +95,18 @@ export function DrillSheetPreviewContent({
           <div className="mx-auto max-w-[8.5in] border-t border-neutral-100 bg-neutral-50 px-4 py-2 text-xs text-neutral-700">
             {previewInfo.source === "template" ? (
               <p>
-                Using template PDF{" "}
+                Using Sheet PDF{" "}
                 <span className="font-medium">
                   {previewInfo.templateName ?? "uploaded form"}
-                </span>
-                {previewInfo.templateVariant &&
-                previewInfo.templateVariant !== previewInfo.computedVariant ? (
-                  <>
-                    {" "}
-                    (slot: {formatVariantLabel(previewInfo.templateVariant)}; sheet
-                    computed as {formatVariantLabel(previewInfo.computedVariant)})
-                  </>
-                ) : (
-                  <> ({formatVariantLabel(previewInfo.computedVariant)})</>
-                )}
+                </span>{" "}
+                ({formatVariantLabel(previewInfo.computedVariant)})
               </p>
             ) : (
               <p>
-                No matching template PDF for{" "}
-                <span className="font-medium">
-                  {formatVariantLabel(previewInfo.computedVariant)}
-                </span>
-                . Showing generated layout instead — upload a PDF to that slot on
-                the structure template.
+                This sheet&apos;s structure template has no Sheet PDF picked, so
+                the generated layout is shown (
+                {formatVariantLabel(previewInfo.computedVariant)}). Pick one on
+                the structure template to print on your own drawing.
               </p>
             )}
           </div>

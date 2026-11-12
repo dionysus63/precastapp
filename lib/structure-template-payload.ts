@@ -1,5 +1,10 @@
 import { Prisma } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import {
+  sheetPdfFitsTemplate,
+  sheetPdfKindLabel,
+  type SheetPdfKind,
+} from "@/lib/sheet-pdf";
 
 export type StructureShape = "CIRCULAR" | "RECTANGULAR";
 export type StructureTemplateStatus = "ACTIVE" | "INACTIVE";
@@ -41,7 +46,8 @@ export type TemplatePayload = {
   rectTopSlabOpeningSide: RectWall | null;
   rectTopSlabPrice: number | null;
   rectBaseSlabPrice: number | null;
-  rectPdfSetId: string | null;
+  /** The Sheet PDF the template's drill sheets print on. */
+  sheetPdfId: string | null;
   status: StructureTemplateStatus;
   notes: string | null;
   diameters: DiameterPayload[];
@@ -257,7 +263,7 @@ export function parseTemplateData(data: Record<string, unknown>): TemplatePayloa
       shape === "RECTANGULAR"
         ? optionalNonNegativeNumber(data.rectBaseSlabPrice)
         : null,
-    rectPdfSetId: data.rectPdfSetId ? String(data.rectPdfSetId) : null,
+    sheetPdfId: data.sheetPdfId ? String(data.sheetPdfId) : null,
     status,
     notes: String(data.notes ?? "").trim() || null,
     diameters,
@@ -439,7 +445,7 @@ export function buildNestedCreate(payload: TemplatePayload) {
         ? null
         : decimal(payload.rectTopSlabOpeningWidthInches),
     rectTopSlabOpeningSide: payload.rectTopSlabOpeningSide,
-    rectPdfSetId: payload.rectPdfSetId,
+    sheetPdfId: payload.sheetPdfId,
     status: payload.status,
     notes: payload.notes,
     diameters: {
@@ -484,23 +490,42 @@ export function rectPriceEntryFromPayload(payload: TemplatePayload): {
   };
 }
 
-/** A template may only use a Sheet PDF Set of its own shape. */
-export async function assertPdfSetMatchesShape(
+/** The template's shape and slabs, as a Sheet PDF has to match them. */
+export function templateSheetPdfKind(template: {
+  shape: StructureShape;
+  topSlabThicknessInches: unknown;
+  baseSlabThicknessInches: unknown;
+}): SheetPdfKind {
+  return {
+    shape: template.shape === "CIRCULAR" ? "CIRCULAR" : "RECTANGULAR",
+    hasTopSlab: templateHasSlab(template.topSlabThicknessInches),
+    hasBaseSlab: templateHasSlab(template.baseSlabThicknessInches),
+  };
+}
+
+/**
+ * A template may only print on a Sheet PDF of its own shape and, for a
+ * rectangular template, drawn for its slabs.
+ */
+export async function assertSheetPdfFitsTemplate(
   payload: TemplatePayload,
 ): Promise<void> {
-  if (!payload.rectPdfSetId) {
+  if (!payload.sheetPdfId) {
     return;
   }
-  const set = await prisma.rectSheetPdfSet.findUnique({
-    where: { id: payload.rectPdfSetId },
-    select: { shape: true, name: true },
+  const sheetPdf = await prisma.sheetPdf.findUnique({
+    where: { id: payload.sheetPdfId },
+    select: { name: true, shape: true, hasTopSlab: true, hasBaseSlab: true },
   });
-  if (!set) {
-    throw new Error("The selected Sheet PDF Set no longer exists.");
-  }
-  if (set.shape !== payload.shape) {
+  if (!sheetPdf) {
     throw new Error(
-      `"${set.name}" is a ${set.shape === "CIRCULAR" ? "circular" : "rectangular"} sheet PDF set and cannot be used on a ${payload.shape === "CIRCULAR" ? "circular" : "rectangular"} template.`,
+      "The selected Sheet PDF no longer exists. Pick another one.",
+    );
+  }
+  const templateKind = templateSheetPdfKind(payload);
+  if (!sheetPdfFitsTemplate(sheetPdf, templateKind)) {
+    throw new Error(
+      `The Sheet PDF "${sheetPdf.name}" is ${sheetPdfKindLabel(sheetPdf)}, but this template is ${sheetPdfKindLabel(templateKind)}. Pick a Sheet PDF that matches.`,
     );
   }
 }

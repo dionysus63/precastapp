@@ -5,12 +5,21 @@ import { isActionError, type ActionError } from "@/lib/action-result";
 import { randomId } from "@/lib/random-id";
 import { useMemo, useState } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
+import {
+  sheetPdfCoverageSummary,
+  useSheetPdfCoverage,
+} from "@/components/structures/sheet-pdf-manager";
 import { structureInputClassName } from "@/components/structures/structure-utils";
 import {
   type MoldDiameterBasis,
   resolveSheetDiameter,
 } from "@/lib/mold-sheet-settings";
 import { RECT_WALL_LABELS, type RectWall } from "@/lib/rect-structure";
+import {
+  sheetPdfFitsTemplate,
+  sheetPdfSlabLabel,
+  type SheetPdfKind,
+} from "@/lib/sheet-pdf";
 
 const RECT_WALL_OPTIONS: RectWall[] = ["UP", "RIGHT", "DOWN", "LEFT"];
 
@@ -66,17 +75,17 @@ export type StructureTemplateFormValue = {
   rectTopSlabOpeningLengthInches: string;
   rectTopSlabOpeningWidthInches: string;
   rectTopSlabOpeningSide: RectWall;
-  rectPdfSetId: string;
+  sheetPdfId: string;
   status: "ACTIVE" | "INACTIVE";
   notes: string;
   diameters: DiameterField[];
   rectSizes: RectSizeField[];
 };
 
-export type RectPdfSetOption = {
+/** A Sheet PDF the template could print on (Structures → Sheet PDFs). */
+export type SheetPdfOption = SheetPdfKind & {
   id: string;
   name: string;
-  shape: "CIRCULAR" | "RECTANGULAR";
 };
 
 /** A registered circular mold (Settings → Structure Molds). */
@@ -102,7 +111,7 @@ type StructureTemplateFormProps = {
    * stale saves (optimistic concurrency). */
   expectedUpdatedAt?: string;
   castingOptions: CastingOption[];
-  rectPdfSetOptions?: RectPdfSetOption[];
+  sheetPdfOptions?: SheetPdfOption[];
   /** Circular templates can only offer diameters with a registered mold. */
   moldOptions?: TemplateMoldOption[];
   /** Rect wall/slab prices read and write this price list's entry. */
@@ -185,7 +194,7 @@ const defaultFormValue: StructureTemplateFormValue = {
   rectTopSlabOpeningLengthInches: "",
   rectTopSlabOpeningWidthInches: "",
   rectTopSlabOpeningSide: "UP",
-  rectPdfSetId: "",
+  sheetPdfId: "",
   status: "ACTIVE",
   notes: "",
   diameters: [createDiameter()],
@@ -199,7 +208,7 @@ export function StructureTemplateForm({
   defaultValue,
   expectedUpdatedAt,
   castingOptions,
-  rectPdfSetOptions = [],
+  sheetPdfOptions = [],
   moldOptions = [],
   priceListId = null,
   priceListName = null,
@@ -255,7 +264,7 @@ export function StructureTemplateForm({
     useState(initial.rectTopSlabOpeningWidthInches);
   const [rectTopSlabOpeningSide, setRectTopSlabOpeningSide] =
     useState<RectWall>(initial.rectTopSlabOpeningSide);
-  const [rectPdfSetId, setRectPdfSetId] = useState(initial.rectPdfSetId);
+  const [sheetPdfId, setSheetPdfId] = useState(initial.sheetPdfId);
   const [status, setStatus] = useState(initial.status);
   const [notes, setNotes] = useState(initial.notes);
   // A round template is cast in exactly one mold; the mold is its diameter.
@@ -295,10 +304,30 @@ export function StructureTemplateForm({
   const moldLocked = sheetsLocked && initial.diameters.length === 1;
   const rectSizeLocked = sheetsLocked && initial.rectSizes.length > 0;
   const lockedByText = `${sheetCount} drill sheet${sheetCount === 1 ? " uses" : "s use"} this template`;
-  // Sets are shape-specific: only offer the matching ones.
-  const shapePdfSetOptions = rectPdfSetOptions.filter(
-    (option) => option.shape === shape,
+  // A Sheet PDF is drawn for one shape and, when rectangular, one slab
+  // combination: only the ones that fit this template are offered. A pick
+  // that stops fitting (the shape or a slab changed) is simply not sent, and
+  // comes back if the change is undone.
+  const sheetPdfKind: SheetPdfKind = {
+    shape,
+    hasTopSlab: topSlabOn,
+    hasBaseSlab: baseSlabOn,
+  };
+  const fittingSheetPdfs = sheetPdfOptions.filter((option) =>
+    sheetPdfFitsTemplate(option, sheetPdfKind),
   );
+  const selectedSheetPdfId = fittingSheetPdfs.some(
+    (option) => option.id === sheetPdfId,
+  )
+    ? sheetPdfId
+    : "";
+  const unfitSheetPdf = selectedSheetPdfId
+    ? null
+    : (sheetPdfOptions.find((option) => option.id === sheetPdfId) ?? null);
+  const sheetPdfCoverage = useSheetPdfCoverage(selectedSheetPdfId || null);
+  const sheetPdfKindText = isRect
+    ? `rectangular Sheet PDFs drawn for ${sheetPdfSlabLabel(topSlabOn, baseSlabOn)}`
+    : "round Sheet PDFs";
 
   const payloadJson = useMemo(() => {
     return JSON.stringify({
@@ -325,7 +354,7 @@ export function StructureTemplateForm({
       rectTopSlabOpeningLengthInches: rectTopSlabOpeningLengthInches || null,
       rectTopSlabOpeningWidthInches: rectTopSlabOpeningWidthInches || null,
       rectTopSlabOpeningSide,
-      rectPdfSetId: rectPdfSetId || null,
+      sheetPdfId: selectedSheetPdfId || null,
       status,
       notes,
       diameters:
@@ -361,7 +390,7 @@ export function StructureTemplateForm({
     rectTopSlabOpeningLengthInches,
     rectTopSlabOpeningWidthInches,
     rectTopSlabOpeningSide,
-    rectPdfSetId,
+    selectedSheetPdfId,
     status,
     notes,
     moldDiameterFeet,
@@ -425,16 +454,6 @@ export function StructureTemplateForm({
               onChange={(e) => {
                 const nextShape = e.target.value as "CIRCULAR" | "RECTANGULAR";
                 setShape(nextShape);
-                // The selected set belongs to the previous shape.
-                if (
-                  rectPdfSetId &&
-                  !rectPdfSetOptions.some(
-                    (option) =>
-                      option.id === rectPdfSetId && option.shape === nextShape,
-                  )
-                ) {
-                  setRectPdfSetId("");
-                }
               }}
               disabled={sheetsLocked}
               className={structureInputClassName}
@@ -836,33 +855,104 @@ export function StructureTemplateForm({
       </SectionCard>
 
       <SectionCard
-        title="Sheet PDF Set"
-        description="The blank fillable drawing these drill sheets print on."
+        title="Sheet PDF"
+        description={`The blank fillable drawing these drill sheets print on. Only ${sheetPdfKindText} are listed.`}
       >
-        <div className="max-w-md">
-          <label
-            htmlFor="template-sheet-pdf-set"
-            className="block text-xs font-medium text-slate-700"
+        <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+          <div className="min-w-[260px] flex-1 sm:max-w-md">
+            <label
+              htmlFor="template-sheet-pdf"
+              className="block text-xs font-medium text-slate-700"
+            >
+              Sheet PDF
+            </label>
+            <select
+              id="template-sheet-pdf"
+              value={selectedSheetPdfId}
+              onChange={(e) => setSheetPdfId(e.target.value)}
+              className={structureInputClassName}
+            >
+              <option value="">— None —</option>
+              {fittingSheetPdfs.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {sheetPdfCoverage ? (
+            <p className="pb-2 text-xs font-semibold" aria-live="polite">
+              {sheetPdfCoverage.status === "loading" ? (
+                <span className="font-normal text-slate-400">
+                  Checking fields…
+                </span>
+              ) : sheetPdfCoverage.status === "error" ? (
+                <span className="text-rose-700">
+                  Field check: {sheetPdfCoverage.message}
+                </span>
+              ) : sheetPdfCoverageSummary(sheetPdfCoverage).ok ? (
+                <span className="text-green-700">
+                  Field check: all fields matched
+                </span>
+              ) : (
+                <span
+                  className="text-amber-700"
+                  title={`Missing: ${sheetPdfCoverage.missing.join(", ")}`}
+                >
+                  Field check:{" "}
+                  {sheetPdfCoverageSummary(sheetPdfCoverage).text.toLowerCase()}
+                </span>
+              )}
+            </p>
+          ) : null}
+          {/* A new tab, so edits made on this form are not lost. */}
+          <Link
+            href="/structures/sheet-pdfs"
+            target="_blank"
+            className="pb-2 text-xs font-semibold text-sky-800 underline hover:text-sky-950"
           >
-            Sheet PDF Set
-          </label>
-          <select
-            id="template-sheet-pdf-set"
-            value={rectPdfSetId}
-            onChange={(e) => setRectPdfSetId(e.target.value)}
-            className={structureInputClassName}
-          >
-            <option value="">— None —</option>
-            {shapePdfSetOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.name}
-              </option>
-            ))}
-          </select>
-          <p className="mt-1 text-[11px] text-slate-400">
-            Manage sets under Structures → Sheet PDF Sets.
-          </p>
+            Manage Sheet PDFs
+          </Link>
         </div>
+        {unfitSheetPdf ? (
+          <p className="mt-2 text-xs text-slate-600">
+            &ldquo;{unfitSheetPdf.name}&rdquo; is not drawn for this
+            template&apos;s {isRect ? "slabs" : "shape"}, so it is no longer
+            picked.
+          </p>
+        ) : null}
+        {fittingSheetPdfs.length === 0 ? (
+          <p
+            role="status"
+            className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+          >
+            There are no {sheetPdfKindText} yet. Add one under{" "}
+            <Link
+              href="/structures/sheet-pdfs"
+              target="_blank"
+              className="font-semibold underline"
+            >
+              Sheet PDFs
+            </Link>
+            , then pick it here.{" "}
+            {isRect
+              ? "Until then this template's drill sheets cannot print."
+              : "Until then this template's drill sheets print on the generated layout."}
+          </p>
+        ) : !selectedSheetPdfId ? (
+          <p
+            role="status"
+            className={
+              isRect
+                ? "mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+                : "mt-2 text-xs text-slate-500"
+            }
+          >
+            {isRect
+              ? "No Sheet PDF is picked. This template's drill sheets cannot print until one is."
+              : "No Sheet PDF is picked: this template's drill sheets print on the generated layout."}
+          </p>
+        ) : null}
       </SectionCard>
 
       <SectionCard title={isRect ? "Pricing and Other Settings" : "Other Settings"}>

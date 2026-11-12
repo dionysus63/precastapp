@@ -518,22 +518,26 @@ async function main() {
 
   if (uploadSet) {
     const { prisma } = await import("@/lib/prisma");
-    const { saveRectPdfSetFile } = await import("@/lib/rect-pdf-set-service");
-    const set =
-      (await prisma.rectSheetPdfSet.findFirst({
-        where: { OR: [{ id: uploadSet }, { name: uploadSet }] },
-      })) ??
-      (await prisma.rectSheetPdfSet.create({ data: { name: uploadSet } }));
+    const { saveSheetPdfByName } = await import("@/lib/sheet-pdf-service");
+    const { rectSheetPdfSlotName } = await import("@/lib/sheet-pdf");
     for (const { variant, bytes } of outputs) {
-      await saveRectPdfSetFile(
+      const sheetPdf = await saveSheetPdfByName(
         prisma,
-        set.id,
-        { hasTopSlab: variant.hasTopSlab, hasBaseSlab: variant.hasBaseSlab },
+        {
+          name: rectSheetPdfSlotName(
+            uploadSet,
+            variant.hasTopSlab,
+            variant.hasBaseSlab,
+          ),
+          shape: "RECTANGULAR",
+          hasTopSlab: variant.hasTopSlab,
+          hasBaseSlab: variant.hasBaseSlab,
+        },
         new File([Buffer.from(bytes)], `${variant.key}.pdf`, {
           type: "application/pdf",
         }),
       );
-      console.log(`uploaded ${variant.key} to PDF set "${set.name}"`);
+      console.log(`uploaded ${variant.key} as Sheet PDF "${sheetPdf.name}"`);
     }
   }
 }

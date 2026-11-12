@@ -15,8 +15,7 @@ import {
   fillDrillSheetTemplatePdf,
   templateVariantKey,
 } from "@/lib/drill-sheet-template-pdf";
-import { readRectPdfSetFileBytes } from "@/lib/rect-pdf-set-service";
-import { rectTemplateVariantKey } from "@/lib/structure-template-pdf-service";
+import { readSheetPdfBytes } from "@/lib/sheet-pdf-service";
 import { renderPdfBytesFromHtml } from "@/lib/quote-pdf";
 
 /**
@@ -60,18 +59,14 @@ export type DrillSheetPdfBuildResult = {
   bytes: Uint8Array;
   source: DrillSheetPdfSource;
   computedVariant: { hasRiser: boolean; hasKey: boolean; key: string };
-  templateVariant: {
-    key: string;
-    originalName: string;
-  } | null;
+  /** The Sheet PDF the sheet was filled on; null for the generated layout. */
+  sheetPdfName: string | null;
 };
 
-/** The uploaded set file fields the circular fill needs. */
-export type DrillSheetSetFile = {
-  setId: string;
-  hasTopSlab: boolean;
-  hasBaseSlab: boolean;
-  originalName: string;
+/** The Sheet PDF fields the circular fill needs (a template's `sheetPdf`). */
+export type DrillSheetPdfFile = {
+  name: string;
+  filePath: string;
 };
 
 export async function buildDrillSheetPdfBytes(
@@ -88,19 +83,19 @@ export async function buildDrillSheetPdfBytes(
   }
   return buildDrillSheetPdfFromDetail(
     detail,
-    sheet.structureTemplate?.rectPdfSet?.files ?? [],
+    sheet.structureTemplate?.sheetPdf ?? null,
   );
 }
 
 /**
  * Fills the drill sheet PDF from an already-computed sheet: the template's
- * uploaded set file when it has one, else the generated HTML sheet plus the
- * fillable form page. Shared by saved sheets and the One-Off live preview,
- * which renders rows that don't exist yet.
+ * Sheet PDF when it has one, else the generated HTML sheet plus the fillable
+ * form page. Shared by saved sheets and the Quick Build live preview, which
+ * renders rows that don't exist yet.
  */
 export async function buildDrillSheetPdfFromDetail(
   detail: DrillSheetDetail,
-  setFiles: DrillSheetSetFile[],
+  sheetPdf: DrillSheetPdfFile | null,
 ): Promise<DrillSheetPdfBuildResult> {
   const hasRiser = detail.result.sections.some(
     (section) => section.role === "RISER",
@@ -112,15 +107,20 @@ export async function buildDrillSheetPdfFromDetail(
     key: templateVariantKey(hasRiser, hasKey),
   };
 
-  // Circular sets hold one file stored under the {false,false} slot; the app
-  // draws riser/key differences itself.
-  const setFile =
-    setFiles.find((file) => !file.hasTopSlab && !file.hasBaseSlab) ??
-    setFiles[0] ??
-    null;
-
-  if (setFile) {
-    const templateBytes = await readRectPdfSetFileBytes(setFile);
+  // One round Sheet PDF covers every riser/key combination: the app draws
+  // those differences itself.
+  if (sheetPdf) {
+    let templateBytes: Uint8Array;
+    try {
+      templateBytes = await readSheetPdfBytes(sheetPdf);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
+        throw new Error(
+          `The file for the Sheet PDF "${sheetPdf.name}" is missing from the server. Upload it again with Replace in Structures → Sheet PDFs.`,
+        );
+      }
+      throw error;
+    }
     const fieldMap = buildDrillSheetFieldMap(detail.meta, detail.result);
     const filled = await fillDrillSheetTemplatePdf(
       templateBytes,
@@ -134,10 +134,7 @@ export async function buildDrillSheetPdfFromDetail(
       bytes,
       source: "template",
       computedVariant,
-      templateVariant: {
-        key: rectTemplateVariantKey(setFile.hasTopSlab, setFile.hasBaseSlab),
-        originalName: setFile.originalName,
-      },
+      sheetPdfName: sheetPdf.name,
     };
   }
 
@@ -154,6 +151,6 @@ export async function buildDrillSheetPdfFromDetail(
     bytes,
     source: "generated",
     computedVariant,
-    templateVariant: null,
+    sheetPdfName: null,
   };
 }

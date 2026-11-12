@@ -605,8 +605,12 @@ model StructureTemplate {
   /// wall pricing even when the structure is only 2' tall). Wall/slab prices
   /// live in RectTemplatePriceListEntry, per price list.
   rectMinPricingHeightFeet    Decimal?                @db.Decimal(6, 2)
-  /// Shared sheet-PDF set used by this rectangular template.
+  /// Legacy: the Sheet PDF Set this template used before Sheet PDFs. Not read
+  /// or written any more; kept so a rolled-back deploy still finds its sets.
   rectPdfSetId                String?
+  /// The blank fillable drawing ("Sheet PDF") this template's sheets print on.
+  /// It matches the template's shape and, for rectangular, its slabs.
+  sheetPdfId                  String?
   status                      StructureTemplateStatus @default(ACTIVE)
   notes                       String?
   createdAt                   DateTime                @default(now())
@@ -614,6 +618,7 @@ model StructureTemplate {
 
   castingProduct Product? @relation("TemplateCasting", fields: [castingProductId], references: [id], onDelete: SetNull)
   rectPdfSet     RectSheetPdfSet? @relation(fields: [rectPdfSetId], references: [id], onDelete: SetNull)
+  sheetPdf       SheetPdf? @relation(fields: [sheetPdfId], references: [id], onDelete: SetNull)
   diameters      StructureTemplateDiameter[]
   rectSizes      StructureTemplateRectSize[]
   templatePdfs   StructureTemplatePdf[]
@@ -624,8 +629,35 @@ model StructureTemplate {
   @@index([status])
   @@index([castingProductId])
   @@index([rectPdfSetId])
+  @@index([sheetPdfId])
 }
 
+/// One blank fillable drill sheet drawing, picked by structure templates of
+/// its shape. A rectangular Sheet PDF is drawn for one slab combination
+/// (hasTopSlab x hasBaseSlab); a round one covers every riser/key combination
+/// and keeps both flags false.
+model SheetPdf {
+  id           String         @id @default(cuid())
+  name         String         @unique
+  shape        StructureShape
+  hasTopSlab   Boolean        @default(false)
+  hasBaseSlab  Boolean        @default(false)
+  /// Relative to storage/rect-pdf-sets. New uploads are "<id>.pdf"; rows
+  /// converted from a Sheet PDF Set keep "<setId>/<variant>.pdf".
+  filePath     String
+  originalName String
+  fileSize     Int?
+  uploadedAt   DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  templates StructureTemplate[]
+
+  @@index([shape])
+}
+
+/// LEGACY, replaced by SheetPdf (2026-11-12). The app no longer reads or
+/// writes sets; the tables stay so a rolled-back deploy keeps working, and can
+/// be dropped in a later cleanup.
 /// Named "Sheet PDF Set" shareable across structure templates of its shape.
 /// Rectangular sets hold the four slab-variant PDFs; circular sets hold a
 /// single PDF (one sheet covers every riser/key combination) stored with
@@ -645,6 +677,8 @@ model RectSheetPdfSet {
   @@index([shape])
 }
 
+/// LEGACY (see RectSheetPdfSet). Each row was copied to a SheetPdf with the
+/// same id and filePath.
 /// One slab-variant PDF inside a set (top slab x base slab matrix).
 model RectSheetPdfSetFile {
   id           String   @id @default(cuid())

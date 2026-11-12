@@ -3,9 +3,8 @@ import path from "path";
 import type { PrismaClient } from "@/app/generated/prisma/client";
 
 /**
- * Legacy per-template PDF variant flags. Both shapes now share Sheet PDF Sets
- * (lib/rect-pdf-set-service.ts); the StructureTemplatePdf rows are dormant and
- * only read/deleted by scripts/convert-circular-template-pdfs-to-sets.ts.
+ * Legacy per-template PDF variant flags. Templates now pick a Sheet PDF
+ * (lib/sheet-pdf-service.ts); the StructureTemplatePdf rows are dormant.
  */
 export type TemplatePdfVariant = {
   hasRiser: boolean;

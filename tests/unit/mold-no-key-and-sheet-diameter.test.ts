@@ -209,7 +209,7 @@ describe("saved sheets follow the mold registry as it is now", () => {
       agencyStandard: null,
       shape: "CIRCULAR",
       topSlabOpeningInches: null,
-      rectPdfSet: null,
+      sheetPdf: null,
     },
     castings: [],
     openings: [],
