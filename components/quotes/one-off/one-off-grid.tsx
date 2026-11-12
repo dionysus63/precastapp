@@ -34,7 +34,11 @@ import {
   type OneOffShape,
   type PipeTypeChoice,
 } from "@/lib/quotes/one-off-drill-sheets";
-import { parseTsvPaste, createRowId } from "@/lib/quotes/structure-workbook";
+import {
+  parseTsvPaste,
+  createRowId,
+  templateDiameterFeet,
+} from "@/lib/quotes/structure-workbook";
 
 /** Width of each structure column, fixed so the grid stays compact. */
 const STRUCTURE_COLUMN_PX = 64;
@@ -236,6 +240,16 @@ export function OneOffGrid({
             label: `${entry.insideDiameterFeet}'`,
           })),
         set: (row, value) => ({ ...row, diameterFeet: value }),
+        // The template's mold sets the diameter; the cell only opens up when
+        // a saved sheet's size no longer matches its template.
+        disabled: (row) => {
+          const locked = templateDiameterFeet(
+            circularOptions.templates.find(
+              (entry) => entry.id === row.templateId,
+            ),
+          );
+          return locked != null && String(locked) === row.diameterFeet;
+        },
       });
     }
 
@@ -814,12 +828,18 @@ export function OneOffGrid({
                         const currentLabel =
                           options.find((option) => option.value === value)?.label ??
                           "";
+                        const selectDisabled = column.disabled?.(row) ?? false;
                         const select = (
                           <select
                             value={value}
+                            disabled={selectDisabled}
                             data-grid-row={rowIndex}
                             data-grid-col={colIndex}
-                            title={currentLabel || undefined}
+                            title={
+                              selectDisabled
+                                ? "Set by the template"
+                                : currentLabel || undefined
+                            }
                             style={column.wrap ? { opacity: 0 } : undefined}
                             onChange={(event) =>
                               patchCell(rowIndex, column, event.target.value)
@@ -830,7 +850,7 @@ export function OneOffGrid({
                             className={
                               column.wrap
                                 ? "absolute inset-0 h-full w-full cursor-pointer focus:outline-none"
-                                : `${cellInputClassName} cursor-pointer pr-0 ${missing ? "bg-amber-50 text-amber-800" : ""}`
+                                : `${cellInputClassName} cursor-pointer pr-0 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-600 disabled:opacity-100 ${missing ? "bg-amber-50 text-amber-800" : ""}`
                             }
                           >
                             {missing ? <option value="">— pick —</option> : null}

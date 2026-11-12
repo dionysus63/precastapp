@@ -11,6 +11,7 @@ import type { RectBulkEditRow } from "@/lib/job-structures-bulk-edit";
 import { randomId } from "@/lib/random-id";
 import {
   computeRectStructure,
+  rectTemplateSlabs,
   type RectOpeningPlacement,
   type RectStructureInput,
   type RectStructureResult,
@@ -85,15 +86,20 @@ export function computeRectPreview(
     casting?.heightFeet ??
     (values.castingProductId ? 0 : (template.defaultCastingHeightFeet ?? 0));
 
+  // The template owns the size and the slabs; the row's own values only
+  // matter for a legacy template saved without a size.
+  const templateSize = template.presetSizes[0] ?? null;
+  const templateSlabs = rectTemplateSlabs(template);
+
   const input: RectStructureInput = {
     rimElevation: parseNum(values.rimElevation),
     castingHeightFeet: castingHeightFeet ?? 0,
     brickTargetInches: parseNum(values.brickTargetInches),
     wallHeightAdjustInches: values.wallHeightAdjustInches ?? 0,
-    insideLengthFeet: parseNum(values.insideLengthFeet),
-    insideWidthFeet: parseNum(values.insideWidthFeet),
-    hasTopSlab: values.hasTopSlab,
-    hasBaseSlab: values.hasBaseSlab,
+    insideLengthFeet:
+      templateSize?.insideLengthFeet ?? parseNum(values.insideLengthFeet),
+    insideWidthFeet:
+      templateSize?.insideWidthFeet ?? parseNum(values.insideWidthFeet),
     baseAttached: values.baseAttached,
     template: {
       wallThicknessInches: template.wallThicknessInches,
@@ -126,7 +132,7 @@ export function computeRectPreview(
       .map((section) => parseNum(section.heightFeet))
       .filter((value): value is number => value != null && value > 0),
     jointKeys: values.sections.slice(0, -1).map((section) => section.topKey),
-    topSlabOpening: values.hasTopSlab
+    topSlabOpening: templateSlabs.hasTopSlab
       ? {
           lengthInches: parseNum(values.topSlabOpeningLengthInches),
           widthInches: parseNum(values.topSlabOpeningWidthInches),
@@ -233,12 +239,16 @@ export function RectBulkGrid({
     >,
     widthClass: string,
     numeric = false,
+    /** Set when the template dictates this cell: shown greyed, not editable. */
+    lockedValue: string | null = null,
   ) => (
     <input
       type="text"
       data-r={rowIndex}
       data-c={col}
-      value={row.values[field]}
+      value={lockedValue ?? row.values[field]}
+      disabled={lockedValue != null}
+      title={lockedValue != null ? "Set by the template" : undefined}
       onChange={(event) => patchValues(row, { [field]: event.target.value })}
       onKeyDown={(event) => {
         if (isFillDownKey(event)) {
@@ -254,7 +264,7 @@ export function RectBulkGrid({
           event.preventDefault();
         }
       }}
-      className={`${tableInlineInputClassName} ${widthClass} ${numeric ? "text-right tabular-nums" : ""}`}
+      className={`${tableInlineInputClassName} ${widthClass} ${numeric ? "text-right tabular-nums" : ""} ${lockedValue != null ? "cursor-not-allowed text-slate-500" : ""}`}
     />
   );
 
@@ -325,6 +335,10 @@ export function RectBulkGrid({
             const rowTemplate = options.templates.find(
               (entry) => entry.id === row.values.templateId,
             );
+            const rowSize = rowTemplate?.presetSizes[0] ?? null;
+            const rowSlabs = rowTemplate
+              ? rectTemplateSlabs(rowTemplate)
+              : { hasTopSlab: true, hasBaseSlab: true };
             const templateOpening =
               rowTemplate?.topSlabOpeningLengthInches != null &&
               rowTemplate?.topSlabOpeningWidthInches != null
@@ -355,9 +369,24 @@ export function RectBulkGrid({
                       data-r={rowIndex}
                       data-c={1}
                       value={row.values.templateId}
-                      onChange={(event) =>
-                        patchValues(row, { templateId: event.target.value })
-                      }
+                      onChange={(event) => {
+                        const nextSize = options.templates.find(
+                          (entry) => entry.id === event.target.value,
+                        )?.presetSizes[0];
+                        patchValues(row, {
+                          templateId: event.target.value,
+                          ...(nextSize
+                            ? {
+                                insideLengthFeet: String(
+                                  nextSize.insideLengthFeet,
+                                ),
+                                insideWidthFeet: String(
+                                  nextSize.insideWidthFeet,
+                                ),
+                              }
+                            : {}),
+                        });
+                      }}
                       onKeyDown={(event) => {
                         if (handleGridNavKey(event, tableRef)) {
                           event.preventDefault();
@@ -380,6 +409,7 @@ export function RectBulkGrid({
                       "insideLengthFeet",
                       "w-14",
                       true,
+                      rowSize ? String(rowSize.insideLengthFeet) : null,
                     )}
                   </td>
                   <td className={tableGridCellClassName}>
@@ -390,6 +420,7 @@ export function RectBulkGrid({
                       "insideWidthFeet",
                       "w-14",
                       true,
+                      rowSize ? String(rowSize.insideWidthFeet) : null,
                     )}
                   </td>
                   <td className={tableGridCellClassName}>
@@ -437,15 +468,10 @@ export function RectBulkGrid({
                       type="checkbox"
                       data-r={rowIndex}
                       data-c={7}
-                      checked={row.values.hasTopSlab}
-                      onChange={(event) =>
-                        patchValues(row, { hasTopSlab: event.target.checked })
-                      }
-                      onKeyDown={(event) => {
-                        if (handleGridNavKey(event, tableRef)) {
-                          event.preventDefault();
-                        }
-                      }}
+                      checked={rowSlabs.hasTopSlab}
+                      disabled
+                      readOnly
+                      title="Set by the template"
                     />
                   </td>
                   <td
@@ -455,15 +481,10 @@ export function RectBulkGrid({
                       type="checkbox"
                       data-r={rowIndex}
                       data-c={8}
-                      checked={row.values.hasBaseSlab}
-                      onChange={(event) =>
-                        patchValues(row, { hasBaseSlab: event.target.checked })
-                      }
-                      onKeyDown={(event) => {
-                        if (handleGridNavKey(event, tableRef)) {
-                          event.preventDefault();
-                        }
-                      }}
+                      checked={rowSlabs.hasBaseSlab}
+                      disabled
+                      readOnly
+                      title="Set by the template"
                     />
                   </td>
                   <td className={tableGridCellClassName}>
@@ -561,7 +582,7 @@ export function RectBulkGrid({
                             />
                             Base attached to bottom pour
                           </label>
-                          {row.values.hasTopSlab ? (
+                          {rowSlabs.hasTopSlab ? (
                             <span className="flex items-center gap-1.5">
                               Top slab opening
                               <input

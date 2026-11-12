@@ -17,7 +17,7 @@ import type {
 import { SectionCard } from "@/components/dashboard/section-card";
 import { structureInputClassName } from "@/components/structures/structure-utils";
 import { formatQuoteCurrency } from "@/components/quotes/quote-utils";
-import { formatPounds, RECT_OPENING_TABLE_ROWS, RECT_WALL_LABELS, type RectOpeningPlacement, type RectWall } from "@/lib/rect-structure";
+import { formatPounds, RECT_OPENING_TABLE_ROWS, RECT_WALL_LABELS, rectTemplateSlabs, type RectOpeningPlacement, type RectWall } from "@/lib/rect-structure";
 import {
   parseTsvPaste,
   readWorkbookSession,
@@ -76,17 +76,21 @@ const SLAB_CHOICES: {
   { value: "N", label: "Open top + bottom", hasTopSlab: false, hasBaseSlab: false, baseAttached: false },
 ];
 
-function slabValueForRow(row: {
-  hasTopSlab: boolean;
-  hasBaseSlab: boolean;
-  baseAttached: boolean;
-}): string {
+/**
+ * The template decides which slabs a structure has; the row only chooses
+ * whether the base is poured with the bottom wall or separately.
+ */
+function slabValueForRow(
+  row: { hasTopSlab: boolean; hasBaseSlab: boolean; baseAttached: boolean },
+  template: RectSheetTemplateOption | undefined,
+): string {
+  const slabs = template ? rectTemplateSlabs(template) : row;
   return (
     SLAB_CHOICES.find(
       (choice) =>
-        choice.hasTopSlab === row.hasTopSlab &&
-        choice.hasBaseSlab === row.hasBaseSlab &&
-        (!row.hasBaseSlab || choice.baseAttached === row.baseAttached),
+        choice.hasTopSlab === slabs.hasTopSlab &&
+        choice.hasBaseSlab === slabs.hasBaseSlab &&
+        (!slabs.hasBaseSlab || choice.baseAttached === row.baseAttached),
     )?.value ?? "TB_A"
   );
 }
@@ -101,41 +105,33 @@ function slabPatchForValue(value: string) {
   };
 }
 
-/**
- * Slab choices the template supports (0 thickness = no such slab), always
- * keeping the currently selected value so the select stays controlled.
- */
-function slabChoicesForTemplate(
-  template: RectSheetTemplateOption | undefined,
-  currentValue: string,
-) {
+/** Slab choices that match the template's slabs (all of them without one). */
+function slabChoicesForTemplate(template: RectSheetTemplateOption | undefined) {
+  if (!template) {
+    return SLAB_CHOICES;
+  }
+  const slabs = rectTemplateSlabs(template);
   return SLAB_CHOICES.filter(
     (choice) =>
-      choice.value === currentValue ||
-      ((!choice.hasTopSlab ||
-        !template ||
-        template.topSlabThicknessInches > 0) &&
-        (!choice.hasBaseSlab ||
-          !template ||
-          template.baseSlabThicknessInches > 0)),
+      choice.hasTopSlab === slabs.hasTopSlab &&
+      choice.hasBaseSlab === slabs.hasBaseSlab,
   );
 }
 
-/** Force-off slab flags a template cannot have (used on template change). */
-function slabPatchForTemplate(template: RectSheetTemplateOption | undefined) {
-  const patch: {
-    hasTopSlab?: boolean;
-    hasBaseSlab?: boolean;
-    baseAttached?: boolean;
-  } = {};
-  if (template && template.topSlabThicknessInches <= 0) {
-    patch.hasTopSlab = false;
+/** Slab flags a row takes from its template (used on template change). */
+function slabPatchForTemplate(
+  template: RectSheetTemplateOption | undefined,
+  row: { baseAttached: boolean },
+) {
+  if (!template) {
+    return {};
   }
-  if (template && template.baseSlabThicknessInches <= 0) {
-    patch.hasBaseSlab = false;
-    patch.baseAttached = false;
-  }
-  return patch;
+  const slabs = rectTemplateSlabs(template);
+  return {
+    hasTopSlab: slabs.hasTopSlab,
+    hasBaseSlab: slabs.hasBaseSlab,
+    baseAttached: slabs.hasBaseSlab && row.baseAttached,
+  };
 }
 
 function uniqueMaterials(
@@ -694,7 +690,7 @@ function RectDefaultsPanel({
               const nextSize = next?.presetSizes[0];
               onChange({
                 templateId: e.target.value,
-                ...slabPatchForTemplate(next),
+                ...slabPatchForTemplate(next, defaults),
                 ...(nextSize
                   ? {
                       insideLengthFeet: String(nextSize.insideLengthFeet),
@@ -770,17 +766,17 @@ function RectDefaultsPanel({
             Slabs
           </label>
           <select
-            value={slabValueForRow(defaults)}
+            value={slabValueForRow(defaults, template)}
             onChange={(e) => onChange(slabPatchForValue(e.target.value))}
+            disabled={slabChoicesForTemplate(template).length < 2}
+            title="The template decides the slabs"
             className={structureInputClassName}
           >
-            {slabChoicesForTemplate(template, slabValueForRow(defaults)).map(
-              (choice) => (
-                <option key={choice.value} value={choice.value}>
-                  {choice.label}
-                </option>
-              ),
-            )}
+            {slabChoicesForTemplate(template).map((choice) => (
+              <option key={choice.value} value={choice.value}>
+                {choice.label}
+              </option>
+            ))}
           </select>
         </div>
         <div>
@@ -1054,7 +1050,7 @@ function RowOpeningsEditor({
         >
           + Opening
         </button>
-        {row.hasTopSlab ? (
+        {(rowTemplate ? rectTemplateSlabs(rowTemplate).hasTopSlab : row.hasTopSlab) ? (
           <span className="flex items-center gap-1.5 text-[10px] font-medium text-slate-500">
             TOP SLAB OPENING
             <input
@@ -1363,9 +1359,10 @@ export function RectWorkbookGrid({
               : "";
             const computedCell = `${tableCellBordersClassName} whitespace-nowrap px-2 py-1.5 text-right text-[11px] tabular-nums`;
             // Footprint comes from the row's template when it defines one.
-            const rowTemplateSize =
-              options.templates.find((entry) => entry.id === row.templateId)
-                ?.presetSizes[0] ?? null;
+            const rowTemplate = options.templates.find(
+              (entry) => entry.id === row.templateId,
+            );
+            const rowTemplateSize = rowTemplate?.presetSizes[0] ?? null;
 
             return (
               <Fragment key={row.id}>
@@ -1417,7 +1414,7 @@ export function RectWorkbookGrid({
                           castingProductId:
                             nextTemplate?.defaultCastingProductId ??
                             row.castingProductId,
-                          ...slabPatchForTemplate(nextTemplate),
+                          ...slabPatchForTemplate(nextTemplate, row),
                           ...(nextSize
                             ? {
                                 insideLengthFeet: String(
@@ -1572,7 +1569,9 @@ export function RectWorkbookGrid({
                   )}
                   <td className={tableGridCellClassName}>
                     <select
-                      value={slabValueForRow(row)}
+                      value={slabValueForRow(row, rowTemplate)}
+                      disabled={slabChoicesForTemplate(rowTemplate).length < 2}
+                      title="The template decides the slabs"
                       data-wb-row={rowIndex}
                       data-wb-col={columnIndexes.slabs}
                       onChange={(event) =>
@@ -1586,12 +1585,7 @@ export function RectWorkbookGrid({
                       }
                       className={tableCellInputClassName}
                     >
-                      {slabChoicesForTemplate(
-                        options.templates.find(
-                          (entry) => entry.id === row.templateId,
-                        ),
-                        slabValueForRow(row),
-                      ).map((choice) => (
+                      {slabChoicesForTemplate(rowTemplate).map((choice) => (
                         <option key={choice.value} value={choice.value}>
                           {choice.label}
                         </option>

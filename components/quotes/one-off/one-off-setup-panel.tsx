@@ -130,7 +130,9 @@ export function OneOffSetupPanel({
             ))}
           </select>
         </Field>
-        {isCircular ? (
+        {/* The template's mold sets the diameter; only a legacy template
+            that still lists several needs a pick. */}
+        {isCircular && diameters.length > 1 ? (
           <Field label="Diameter *">
             <select
               value={setup.diameterFeet}

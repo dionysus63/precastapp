@@ -86,8 +86,6 @@ function input(overrides: Partial<RectStructureInput> = {}): RectStructureInput 
     castingHeightFeet: 0.5,
     insideLengthFeet: 4,
     insideWidthFeet: 4,
-    hasTopSlab: true,
-    hasBaseSlab: true,
     baseAttached: true,
     template: template(),
     openingSizes: catalog,
@@ -167,7 +165,13 @@ function input(overrides: Partial<RectStructureInput> = {}): RectStructureInput 
 {
   console.log("T5: open bottom, casting on walls");
   const r = computeRectStructure(
-    input({ hasTopSlab: false, hasBaseSlab: false, topSlabOpening: null }),
+    input({
+      template: template({
+        topSlabThicknessInches: 0,
+        baseSlabThicknessInches: 0,
+      }),
+      topSlabOpening: null,
+    }),
   );
   expect(approx(r.topSlabThicknessFeet, 0), "no top slab thickness");
   expect(approx(r.baseSlabThicknessFeet, 0), "no base slab thickness");
@@ -298,7 +302,13 @@ function input(overrides: Partial<RectStructureInput> = {}): RectStructureInput 
   expect(approx(r.totalPrice, 950), "total = wall + slabs + openings");
 
   const openBottom = computeRectStructure(
-    input({ hasTopSlab: false, hasBaseSlab: false, topSlabOpening: null }),
+    input({
+      template: template({
+        topSlabThicknessInches: 0,
+        baseSlabThicknessInches: 0,
+      }),
+      topSlabOpening: null,
+    }),
   );
   expect(
     approx(openBottom.topSlabPrice, 0) && approx(openBottom.baseSlabPrice, 0),

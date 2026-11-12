@@ -31,8 +31,6 @@ function input(overrides: Partial<RectStructureInput> = {}): RectStructureInput 
     castingHeightFeet: 0.42,
     insideLengthFeet: 6,
     insideWidthFeet: 4,
-    hasTopSlab: true,
-    hasBaseSlab: true,
     baseAttached: true,
     template: TEMPLATE,
     openingSizes: [],
@@ -103,8 +101,10 @@ describe("top slab opening inherited from the template", () => {
     );
   });
 
-  it("drops the opening entirely when the structure has no top slab", () => {
-    const result = computeRectStructure(input({ hasTopSlab: false }));
+  it("drops the opening entirely when the template has no top slab", () => {
+    const result = computeRectStructure(
+      input({ template: { ...TEMPLATE, topSlabThicknessInches: 0 } }),
+    );
     expect(result.topSlabOpening).toBeNull();
     expect(result.topSlabOpeningFromTemplate).toBe(false);
   });

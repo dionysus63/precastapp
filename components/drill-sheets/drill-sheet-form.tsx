@@ -585,8 +585,15 @@ export function DrillSheetForm({
             <select
               required
               value={diameterId}
+              // The template's mold sets the diameter; the pick only opens up
+              // when a saved sheet no longer matches its template.
+              disabled={
+                selectedTemplate?.diameters.length === 1 &&
+                selectedTemplate.diameters[0].id === diameterId
+              }
+              title="Set by the template's mold"
               onChange={(e) => setDiameterId(e.target.value)}
-              className={structureInputClassName}
+              className={`${structureInputClassName} disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-600`}
             >
               {diameterId === "" ? (
                 <option value="" disabled>
@@ -604,8 +611,8 @@ export function DrillSheetForm({
             templateId === initialValues.templateId ? (
               <p className="mt-1 text-[11px] text-amber-700">
                 This sheet was built at {initialValues.unmatchedDiameterFeet}&apos;
-                ID, which this template no longer offers. Pick the diameter to
-                recompute it with.
+                ID, but its template is now a different size. Pick the
+                diameter to recompute it with.
               </p>
             ) : null}
             {!diameterConfig ? (

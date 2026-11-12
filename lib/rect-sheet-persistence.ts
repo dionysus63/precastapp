@@ -1,6 +1,7 @@
 import { Prisma } from "@/app/generated/prisma/client";
 import {
   computeRectStructure,
+  rectTemplateSlabs,
   type RectOpeningPlacement,
   type RectStructureInput,
   type RectStructureResult,
@@ -43,8 +44,10 @@ export type RectSheetPayload = {
   brickTargetInches: string;
   /** Manual wall height change in inches (6" steps); missing = none. */
   wallHeightAdjustInches?: number;
+  /** Used only by older templates that have no size of their own. */
   insideLengthFeet: string;
   insideWidthFeet: string;
+  /** Not consulted: the template decides the slabs (rectTemplateSlabs). */
   hasTopSlab: boolean;
   hasBaseSlab: boolean;
   baseAttached: boolean;
@@ -167,6 +170,11 @@ export function parseRectSheetPayloadData(parsed: unknown): RectSheetPayload {
   };
 }
 
+/** Whole inches to feet at the 4 decimals JobStructureCalc stores. */
+function inchesToSheetFeet(inches: number): number {
+  return Math.round((inches / 12) * 10000) / 10000;
+}
+
 /** Builds the pure-calc input from a payload plus DB template/catalog rows. */
 export async function loadAndComputeRectSheet(
   payload: RectSheetPayload,
@@ -178,6 +186,7 @@ export async function loadAndComputeRectSheet(
   const [template, openingSizes, pricing] = await Promise.all([
     prisma.structureTemplate.findUnique({
       where: { id: payload.templateId },
+      include: { rectSizes: { orderBy: { sortOrder: "asc" }, take: 1 } },
     }),
     prisma.rectOpeningSize.findMany({ orderBy: { sortOrder: "asc" } }),
     loadStructurePricing(options.priceListId ?? null),
@@ -208,15 +217,25 @@ export async function loadAndComputeRectSheet(
     }
   }
 
+  // The template decides the footprint and the slabs. Only an older
+  // template saved without a size falls back to the sheet's own entry.
+  const templateSize = template.rectSizes[0] ?? null;
+  const templateSlabs = rectTemplateSlabs({
+    topSlabThicknessInches: Number(template.topSlabThicknessInches),
+    baseSlabThicknessInches: Number(template.baseSlabThicknessInches),
+  });
+
   const input: RectStructureInput = {
     rimElevation: parseNum(payload.rimElevation),
     castingHeightFeet: casting?.heightFeet ?? 0,
     brickTargetInches: parseNum(payload.brickTargetInches),
     wallHeightAdjustInches: payload.wallHeightAdjustInches ?? 0,
-    insideLengthFeet: parseNum(payload.insideLengthFeet),
-    insideWidthFeet: parseNum(payload.insideWidthFeet),
-    hasTopSlab: payload.hasTopSlab,
-    hasBaseSlab: payload.hasBaseSlab,
+    insideLengthFeet: templateSize
+      ? inchesToSheetFeet(templateSize.insideLengthInches)
+      : parseNum(payload.insideLengthFeet),
+    insideWidthFeet: templateSize
+      ? inchesToSheetFeet(templateSize.insideWidthInches)
+      : parseNum(payload.insideWidthFeet),
     baseAttached: payload.baseAttached,
     template: {
       wallThicknessInches: Number(template.wallThicknessInches),
@@ -272,7 +291,8 @@ export async function loadAndComputeRectSheet(
       .map((value) => parseNum(value))
       .filter((value): value is number => value != null && value > 0),
     jointKeys: payload.jointKeys,
-    topSlabOpening: payload.hasTopSlab
+    // The template decides the slabs; the payload's own flags are ignored.
+    topSlabOpening: templateSlabs.hasTopSlab
       ? {
           lengthInches: parseNum(payload.topSlabOpeningLengthInches),
           widthInches: parseNum(payload.topSlabOpeningWidthInches),

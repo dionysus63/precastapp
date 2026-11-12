@@ -50,6 +50,7 @@ import {
   createEmptySection,
   findDuplicateStructureNumbers,
   missingSetupFields,
+  withTemplateDiameter,
   nextFreeStructureNumber,
   rectPipeTypeChoices,
   type OneOffCircularOptions,
@@ -345,7 +346,9 @@ export function OneOffDrillSheets({
     const section = shape === "CIRCULAR" ? circular : rect;
     const setter = shape === "CIRCULAR" ? setCircular : setRect;
     const setup = {
-      ...section.setup,
+      ...(shape === "CIRCULAR"
+        ? withTemplateDiameter(section.setup, circularOptions.templates)
+        : section.setup),
       startNumber:
         section.setup.startNumber.trim() ||
         String(suggestedStart(section, shape)),
@@ -649,7 +652,15 @@ export function OneOffDrillSheets({
                   circularOptions={circularOptions}
                   rectOptions={rectOptions}
                   suggestedStart={suggestedStart(section, shape)}
-                  missing={missingSetupFields(shape, section.setup)}
+                  missing={missingSetupFields(
+                    shape,
+                    shape === "CIRCULAR"
+                      ? withTemplateDiameter(
+                          section.setup,
+                          circularOptions.templates,
+                        )
+                      : section.setup,
+                  )}
                   hasRows={section.rows != null}
                   onChange={(setup) => setter({ ...section, setup })}
                   onBuild={() => buildSection(shape)}

@@ -85,6 +85,22 @@ export type RectTemplateConfig = {
   topSlabOpeningSide?: RectWall | null;
 };
 
+/**
+ * The template decides whether a rectangular structure has a top slab and a
+ * base slab: a thickness of 0 means the template has no such slab (open top /
+ * open bottom). A structure cannot switch one on or off; the same box with a
+ * different slab arrangement is its own template.
+ */
+export function rectTemplateSlabs(template: {
+  topSlabThicknessInches: number;
+  baseSlabThicknessInches: number;
+}): { hasTopSlab: boolean; hasBaseSlab: boolean } {
+  return {
+    hasTopSlab: template.topSlabThicknessInches > 0,
+    hasBaseSlab: template.baseSlabThicknessInches > 0,
+  };
+}
+
 export type RectOpeningInput = {
   label?: string | null;
   wall: RectWall | null;
@@ -119,10 +135,9 @@ export type RectStructureInput = {
   castingHeightFeet: number | null;
   insideLengthFeet: number | null;
   insideWidthFeet: number | null;
-  hasTopSlab: boolean;
-  hasBaseSlab: boolean;
   /** Base slab cast monolithically with the bottom wall section. */
   baseAttached: boolean;
+  /** Decides the slabs too: see rectTemplateSlabs. */
   template: RectTemplateConfig;
   openingSizes: RectOpeningSizeEntry[];
   openings: RectOpeningInput[];
@@ -702,8 +717,7 @@ export function computeRectStructure(
   const template = input.template;
   const castingHeightFeet = input.castingHeightFeet ?? 0;
   const wallThicknessFeet = round4(inchesToFeet(template.wallThicknessInches));
-  const hasTopSlab = input.hasTopSlab;
-  const hasBaseSlab = input.hasBaseSlab;
+  const { hasTopSlab, hasBaseSlab } = rectTemplateSlabs(template);
   const baseAttached = hasBaseSlab && input.baseAttached;
 
   let openings = resolveOpenings(input.openings, input.openingSizes);

@@ -151,17 +151,17 @@ export const STRUCTURE_IMPORT_TYPES: StructureImportTypeDefinition[] = [
     type: "circular-templates",
     label: "Circular Templates",
     description:
-      "Existing templates are matched by name and updated in place (diameters replaced; the assigned sheet PDF set is kept).",
+      "Existing templates are matched by name and updated in place (the assigned sheet PDF set is kept). One diameter per template: the mold it is cast in.",
     columns: [
       ...TEMPLATE_SHARED_COLUMNS,
-      "Diameters (ft, comma-separated)",
+      "Diameter (ft)",
       "Casting (product code or name)",
       "Status",
       "Notes",
     ],
     example: [
-      "SC Storm\tSuffolk County\t5\t8\t8\t2\tKor-N-Seal\tDefault\t\t6\t6\t4, 5, 6\tC-1P\tActive\t",
-      "NYSDOT MH\tNYSDOT\t6\t8\t8\t0\tCast In\tFixed\t24\t6\t6\t4, 5\t\tActive\tState work only",
+      "SC Storm 4'\tSuffolk County\t5\t8\t8\t2\tKor-N-Seal\tDefault\t\t6\t6\t4\tC-1P\tActive\t",
+      "NYSDOT MH 5'\tNYSDOT\t6\t8\t8\t0\tCast In\tFixed\t24\t6\t6\t5\t\tActive\tState work only",
     ].join("\n"),
   },
   {
@@ -293,11 +293,13 @@ function validateTemplateRow(
     const diametersCell = cells[11] ?? "";
     const diameters = parseDiametersCell(diametersCell);
     if (diameters === null) {
-      issues.push(`Diameters "${diametersCell}" must be numbers like "4, 5, 6".`);
+      issues.push(`Diameter "${diametersCell}" must be a number like "4".`);
     } else if (diameters.length === 0) {
-      issues.push("At least one diameter is required.");
-    } else if (new Set(diameters).size !== diameters.length) {
-      issues.push("Duplicate diameters in row.");
+      issues.push("A diameter is required.");
+    } else if (diameters.length > 1) {
+      issues.push(
+        "A round template has one diameter (one mold). Use a separate row, with its own name, for each size.",
+      );
     }
     if (parseStatusCell(cells[13] ?? "") === null) {
       issues.push(`Unknown status "${cells[13]}". Use Active or Inactive.`);
