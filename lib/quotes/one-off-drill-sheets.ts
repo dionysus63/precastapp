@@ -31,6 +31,7 @@ import {
 import {
   computeWorkbookRowPrice,
   createRowId,
+  templateDiameterFeet,
   type QuoteStructureConfig,
   type StructureWorkbookOptions,
   type StructureWorkbookRow,
@@ -387,6 +388,23 @@ function parseNum(value: string): number | null {
   }
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
+}
+
+/**
+ * A round template is cast in one mold, so its single diameter is the
+ * setup's diameter: nothing to pick, and a setup saved before the template
+ * changed follows it. Legacy templates listing several keep the user's pick.
+ */
+export function withTemplateDiameter(
+  setup: OneOffSetup,
+  templates: OneOffCircularOptions["templates"],
+): OneOffSetup {
+  const locked = templateDiameterFeet(
+    templates.find((entry) => entry.id === setup.templateId),
+  );
+  return locked == null || setup.diameterFeet === String(locked)
+    ? setup
+    : { ...setup, diameterFeet: String(locked) };
 }
 
 /** Labels of the setup fields still missing; empty when rows can be built. */
@@ -915,9 +933,14 @@ export function mergeCircularRow(
   if (!template) {
     return { error: "Select a template" };
   }
-  const diameter = template.diameters.find(
-    (entry) => String(entry.insideDiameterFeet) === row.diameterFeet,
-  );
+  // The template's mold sets the diameter. A row that names another size (a
+  // saved sheet whose template has since changed) is never silently resized.
+  const diameter =
+    row.diameterFeet.trim() === "" && template.diameters.length === 1
+      ? template.diameters[0]
+      : template.diameters.find(
+          (entry) => String(entry.insideDiameterFeet) === row.diameterFeet,
+        );
   if (!diameter) {
     return { error: "Select a diameter" };
   }

@@ -9,6 +9,7 @@ import {
   ensureRowOpenings,
   nextOpeningLabel,
   syncRowFromOpenings,
+  templateDiameterFeet,
   type StructureWorkbookDefaults,
   type StructureWorkbookOpeningRow,
   type StructureWorkbookOptions,
@@ -1108,6 +1109,7 @@ function StructurePopup({
     (template) => template.id === row.templateId,
   );
   const diameters = selectedTemplate?.diameters ?? [];
+  const lockedDiameter = templateDiameterFeet(selectedTemplate);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
@@ -1151,7 +1153,17 @@ function StructurePopup({
           <label className="grid gap-1 text-xs">
             Diameter (ft)
             <select
-              value={row.diameterFeet}
+              value={
+                lockedDiameter != null
+                  ? String(lockedDiameter)
+                  : row.diameterFeet
+              }
+              disabled={lockedDiameter != null}
+              title={
+                lockedDiameter != null
+                  ? "Set by the template's mold"
+                  : undefined
+              }
               onChange={(event) =>
                 onChange({ diameterFeet: event.target.value })
               }

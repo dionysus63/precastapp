@@ -521,6 +521,19 @@ export function nextStructureNumber(
   return Math.max(max + 1, defaults.startNumber);
 }
 
+/**
+ * The diameter a round template dictates: a template is cast in one mold, so
+ * its single diameter is the structure's diameter. Null only for a legacy
+ * template that still lists several (or none); then the row's own entry counts.
+ */
+export function templateDiameterFeet(
+  template: { diameters: { insideDiameterFeet: number }[] } | null | undefined,
+): number | null {
+  return template && template.diameters.length === 1
+    ? template.diameters[0].insideDiameterFeet
+    : null;
+}
+
 export function createDefaultWorkbookDefaults(
   templates: DrillSheetTemplateOption[],
 ): StructureWorkbookDefaults {
@@ -581,8 +594,12 @@ export function commitWorkbookRowPrice(
   workbookMode: WorkbookMode = "QUOTE",
 ): StructureWorkbookRow {
   const computed = computeWorkbookRowPrice(row, options, workbookMode);
+  const lockedDiameter = templateDiameterFeet(
+    options.templates.find((entry) => entry.id === row.templateId),
+  );
   return {
     ...row,
+    ...(lockedDiameter != null ? { diameterFeet: String(lockedDiameter) } : {}),
     wallHeightFeet: computed.wallHeightFeet,
     unitPrice: computed.unitPrice,
     status: computed.status,
@@ -827,7 +844,10 @@ export function computeWorkbookRowPrice(
 } {
   const template = options.templates.find((entry) => entry.id === row.templateId);
   const rim = parseNum(row.rimElevation);
-  const diameterFeet = parseNum(row.diameterFeet);
+  // The template's mold decides the diameter; the row's own entry only
+  // counts for a legacy template without exactly one.
+  const diameterFeet =
+    templateDiameterFeet(template) ?? parseNum(row.diameterFeet);
 
   const workingRow =
     workbookMode === "DRILL_SHEET"

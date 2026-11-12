@@ -35,7 +35,7 @@ export default async function NewStructureTemplatePage() {
   return (
     <DashboardShell
       title="New Structure Template"
-      subtitle="Define thicknesses, casting, connection type, and offered diameters."
+      subtitle="Define the size, slabs, casting and other settings."
     >
       <BackButton href="/structures" label="Back to Structures" />
 

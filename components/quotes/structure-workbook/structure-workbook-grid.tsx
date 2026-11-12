@@ -26,6 +26,7 @@ import {
   parseTsvPaste,
   syncRowFromOpenings,
   syncRowFromPenetrations,
+  templateDiameterFeet,
   type StructureWorkbookDefaults,
   type StructureWorkbookOpeningRow,
   type StructureWorkbookOptions,
@@ -553,6 +554,7 @@ export function StructureWorkbookGrid({
               (entry) => entry.id === row.templateId,
             );
             const diameters = template?.diameters ?? [];
+            const lockedDiameter = templateDiameterFeet(template);
             const selected = selectedRowIds.has(row.id);
             const tone = groupToneClasses(rowIndex, selected);
 
@@ -604,7 +606,17 @@ export function StructureWorkbookGrid({
                   </td>
                   <td className="px-2 py-1">
                     <select
-                      value={row.diameterFeet}
+                      value={
+                        lockedDiameter != null
+                          ? String(lockedDiameter)
+                          : row.diameterFeet
+                      }
+                      disabled={lockedDiameter != null}
+                      title={
+                        lockedDiameter != null
+                          ? "Set by the template's mold"
+                          : undefined
+                      }
                       data-wb-row={rowIndex}
                       data-wb-col={2}
                       onChange={(event) =>

@@ -362,6 +362,13 @@ export function CircularBulkGrid({
                       data-r={rowIndex}
                       data-c={2}
                       value={row.values.diameterId}
+                      // The template's mold sets the diameter; the cell only
+                      // opens up when a saved sheet no longer matches it.
+                      disabled={
+                        template?.diameters.length === 1 &&
+                        template.diameters[0].id === row.values.diameterId
+                      }
+                      title="Set by the template's mold"
                       onChange={(event) =>
                         patchValues(row, { diameterId: event.target.value })
                       }
@@ -370,8 +377,11 @@ export function CircularBulkGrid({
                           event.preventDefault();
                         }
                       }}
-                      className={`${tableInlineInputClassName} w-16`}
+                      className={`${tableInlineInputClassName} w-16 disabled:cursor-not-allowed disabled:text-slate-500`}
                     >
+                      {row.values.diameterId === "" ? (
+                        <option value="">—</option>
+                      ) : null}
                       {(template?.diameters ?? []).map((diameter) => (
                         <option key={diameter.id} value={diameter.id}>
                           {diameter.insideDiameterFeet}&apos;

@@ -3,7 +3,11 @@
 import { useMemo } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { structureInputClassName } from "@/components/structures/structure-utils";
-import type { StructureWorkbookDefaults, StructureWorkbookOptions } from "@/lib/quotes/structure-workbook";
+import {
+  templateDiameterFeet,
+  type StructureWorkbookDefaults,
+  type StructureWorkbookOptions,
+} from "@/lib/quotes/structure-workbook";
 
 type StructureWorkbookDefaultsPanelProps = {
   defaults: StructureWorkbookDefaults;
@@ -43,6 +47,7 @@ export function StructureWorkbookDefaultsPanel({
     (entry) => entry.id === defaults.templateId,
   );
   const diameters = template?.diameters ?? [];
+  const lockedDiameter = templateDiameterFeet(template);
 
   const pipeMaterials = useMemo(
     () => uniquePipeMaterials(options.pipeOpeningSizes),
@@ -129,7 +134,15 @@ export function StructureWorkbookDefaultsPanel({
             Default diameter (ft)
           </label>
           <select
-            value={defaults.diameterFeet}
+            value={
+              lockedDiameter != null
+                ? String(lockedDiameter)
+                : defaults.diameterFeet
+            }
+            disabled={lockedDiameter != null}
+            title={
+              lockedDiameter != null ? "Set by the template's mold" : undefined
+            }
             onChange={(event) => patch({ diameterFeet: event.target.value })}
             className={structureInputClassName}
           >

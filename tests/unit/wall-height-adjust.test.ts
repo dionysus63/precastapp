@@ -157,8 +157,6 @@ function rectInput(overrides: Partial<RectStructureInput> = {}): RectStructureIn
     castingHeightFeet: 0,
     insideLengthFeet: 4,
     insideWidthFeet: 4,
-    hasTopSlab: false,
-    hasBaseSlab: true,
     baseAttached: true,
     template: {
       wallThicknessInches: 8,

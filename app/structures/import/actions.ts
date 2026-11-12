@@ -13,6 +13,7 @@ import {
   type StructureImportType,
 } from "@/lib/structure-import";
 import {
+  assertSizeAndSlabsUnchangedForSheets,
   buildNestedCreate,
   parseTemplateData,
 } from "@/lib/structure-template-payload";
@@ -145,7 +146,19 @@ async function importTemplates(
 
       const existing = await prisma.structureTemplate.findFirst({
         where: { name: payload.name },
-        select: { id: true, shape: true, rectPdfSetId: true },
+        select: {
+          id: true,
+          shape: true,
+          rectPdfSetId: true,
+          topSlabThicknessInches: true,
+          baseSlabThicknessInches: true,
+          diameters: { select: { insideDiameterFeet: true } },
+          rectSizes: {
+            orderBy: { sortOrder: "asc" },
+            select: { insideLengthInches: true, insideWidthInches: true },
+          },
+          _count: { select: { jobStructures: true } },
+        },
       });
 
       if (existing) {
@@ -154,6 +167,11 @@ async function importTemplates(
             `An existing template named "${payload.name}" is ${existing.shape === "CIRCULAR" ? "circular" : "rectangular"} — cannot change its shape via import.`,
           );
         }
+        assertSizeAndSlabsUnchangedForSheets(
+          existing,
+          payload,
+          existing._count.jobStructures,
+        );
         const nested = buildNestedCreate(payload);
         await prisma.$transaction(async (tx) => {
           await tx.structureTemplateDiameter.deleteMany({

@@ -111,8 +111,14 @@ export function parseTemplateData(data: Record<string, unknown>): TemplatePayloa
 
   const diametersRaw =
     shape === "CIRCULAR" && Array.isArray(data.diameters) ? data.diameters : [];
-  if (shape === "CIRCULAR" && diametersRaw.length === 0) {
-    throw new Error("Add at least one diameter.");
+  // A round template is built on one mold: exactly one inside diameter.
+  // Sheets and quotes take the size from the template.
+  if (shape === "CIRCULAR" && diametersRaw.length !== 1) {
+    throw new Error(
+      diametersRaw.length === 0
+        ? "Pick the template's mold."
+        : "A round template has exactly one mold. Duplicate the template for another size.",
+    );
   }
 
   const diameters: DiameterPayload[] = diametersRaw.map((item, index) => {
@@ -124,16 +130,6 @@ export function parseTemplateData(data: Record<string, unknown>): TemplatePayloa
       ),
     };
   });
-
-  const diameterKeys = new Set<number>();
-  for (const diameter of diameters) {
-    if (diameterKeys.has(diameter.insideDiameterFeet)) {
-      throw new Error(
-        `Duplicate diameter ${diameter.insideDiameterFeet}' in template.`,
-      );
-    }
-    diameterKeys.add(diameter.insideDiameterFeet);
-  }
 
   // A rectangular template is one mold/form: exactly one inside footprint.
   // Sheets and quotes take the size from the template and only pick height.
@@ -198,28 +194,18 @@ export function parseTemplateData(data: Record<string, unknown>): TemplatePayloa
       data.wallThicknessInches,
       "Wall thickness",
     ),
-    // Rect structures can be open-bottom / open-top: 0 (or blank) thickness
-    // means the template has no such slab. Circular still requires both.
-    baseSlabThicknessInches:
-      shape === "RECTANGULAR"
-        ? requireNonNegativeNumber(
-            data.baseSlabThicknessInches ?? 0,
-            "Base slab thickness",
-          )
-        : requirePositiveNumber(
-            data.baseSlabThicknessInches,
-            "Base slab thickness",
-          ),
-    topSlabThicknessInches:
-      shape === "RECTANGULAR"
-        ? requireNonNegativeNumber(
-            data.topSlabThicknessInches ?? 0,
-            "Top slab thickness",
-          )
-        : requirePositiveNumber(
-            data.topSlabThicknessInches,
-            "Top slab thickness",
-          ),
+    baseSlabThicknessInches: parseSlabThickness(
+      shape,
+      data.hasBaseSlab,
+      data.baseSlabThicknessInches,
+      "Base slab",
+    ),
+    topSlabThicknessInches: parseSlabThickness(
+      shape,
+      data.hasTopSlab,
+      data.topSlabThicknessInches,
+      "Top slab",
+    ),
     castingProductId: data.castingProductId
       ? String(data.castingProductId)
       : null,
@@ -277,6 +263,102 @@ export function parseTemplateData(data: Record<string, unknown>): TemplatePayloa
     diameters,
     rectSizes,
   };
+}
+
+/**
+ * A slab's stored thickness. The template decides whether a rectangular
+ * structure has each slab, and "no slab" is stored as a thickness of 0
+ * (open top / open bottom). The template form sends the Top Slab / Base Slab
+ * checkboxes as `hasTopSlab` / `hasBaseSlab`; callers that send no flag (the
+ * spreadsheet import) keep the older rule that 0 or blank means no slab.
+ * Round structures always have both slabs.
+ */
+function parseSlabThickness(
+  shape: StructureShape,
+  flag: unknown,
+  value: unknown,
+  label: string,
+): number {
+  if (shape !== "RECTANGULAR") {
+    return requirePositiveNumber(value, `${label} thickness`);
+  }
+  if (flag === false) {
+    return 0;
+  }
+  if (flag === true) {
+    const num = Number(value);
+    if (!Number.isFinite(num) || num <= 0) {
+      throw new Error(
+        `Enter the ${label.toLowerCase()} thickness, or uncheck ${label}.`,
+      );
+    }
+    return num;
+  }
+  return requireNonNegativeNumber(value ?? 0, `${label} thickness`);
+}
+
+/**
+ * The template decides the size and the slabs of every sheet built on it, so
+ * once sheets exist neither may change: that would silently rebuild those
+ * sheets as a different structure. (A legacy round template still listing
+ * several diameters may be narrowed to one.)
+ */
+export function assertSizeAndSlabsUnchangedForSheets(
+  existing: {
+    shape: "CIRCULAR" | "RECTANGULAR";
+    topSlabThicknessInches: unknown;
+    baseSlabThicknessInches: unknown;
+    diameters: { insideDiameterFeet: unknown }[];
+    rectSizes: { insideLengthInches: unknown; insideWidthInches: unknown }[];
+  },
+  payload: TemplatePayload,
+  sheetCount: number,
+): void {
+  if (sheetCount <= 0 || existing.shape !== payload.shape) {
+    return;
+  }
+  const usedBy = `${sheetCount} drill sheet${sheetCount === 1 ? " uses" : "s use"} it`;
+  if (payload.shape === "CIRCULAR") {
+    const next = payload.diameters[0]?.insideDiameterFeet;
+    if (
+      existing.diameters.length === 1 &&
+      next != null &&
+      Math.abs(Number(existing.diameters[0].insideDiameterFeet) - next) > 1e-6
+    ) {
+      throw new Error(
+        `This template's mold can't change while ${usedBy}. Duplicate it and change the copy instead.`,
+      );
+    }
+    return;
+  }
+  // A legacy template saved without a size may still be given one.
+  const currentSize = existing.rectSizes[0];
+  const nextSize = payload.rectSizes[0];
+  if (
+    currentSize &&
+    nextSize &&
+    (Math.abs(Number(currentSize.insideLengthInches) - nextSize.insideLengthInches) > 1e-6 ||
+      Math.abs(Number(currentSize.insideWidthInches) - nextSize.insideWidthInches) > 1e-6)
+  ) {
+    throw new Error(
+      `This template's inside size can't change while ${usedBy}. Duplicate it and change the copy instead.`,
+    );
+  }
+  if (
+    templateHasSlab(existing.topSlabThicknessInches) !==
+      templateHasSlab(payload.topSlabThicknessInches) ||
+    templateHasSlab(existing.baseSlabThicknessInches) !==
+      templateHasSlab(payload.baseSlabThicknessInches)
+  ) {
+    throw new Error(
+      `This template's slabs can't change while ${usedBy}. Duplicate it and change the copy instead.`,
+    );
+  }
+}
+
+/** True when a template's stored slab thickness means the slab exists. */
+export function templateHasSlab(thicknessInches: unknown): boolean {
+  return Number(thicknessInches) > 0;
 }
 
 /**

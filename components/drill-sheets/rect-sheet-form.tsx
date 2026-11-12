@@ -24,6 +24,7 @@ import {
   formatPounds,
   RECT_OPENING_TABLE_ROWS,
   RECT_WALL_LABELS,
+  rectTemplateSlabs,
   type RectOpeningPlacement,
   type RectStructureInput,
   type RectWall,
@@ -228,14 +229,6 @@ export function RectSheetForm({
   const [insideWidthFeet, setInsideWidthFeet] = useState(
     defaultValues?.insideWidthFeet ?? "",
   );
-  const [hasTopSlab, setHasTopSlab] = useState(
-    defaultValues?.hasTopSlab ??
-      (initialTemplate ? initialTemplate.topSlabThicknessInches > 0 : true),
-  );
-  const [hasBaseSlab, setHasBaseSlab] = useState(
-    defaultValues?.hasBaseSlab ??
-      (initialTemplate ? initialTemplate.baseSlabThicknessInches > 0 : true),
-  );
   const [baseAttached, setBaseAttached] = useState(
     defaultValues?.baseAttached ?? true,
   );
@@ -260,6 +253,9 @@ export function RectSheetForm({
 
   const template = templates.find((t) => t.id === templateId) ?? null;
   const casting = castings.find((c) => c.id === castingProductId) ?? null;
+  // The template decides the slabs; a sheet cannot switch one on or off.
+  const hasTopSlab = template ? rectTemplateSlabs(template).hasTopSlab : true;
+  const hasBaseSlab = template ? rectTemplateSlabs(template).hasBaseSlab : true;
 
   // The template's mold/form defines the footprint — sheets only choose the
   // height. Legacy templates without a size keep the free inputs.
@@ -289,12 +285,6 @@ export function RectSheetForm({
     if (next?.defaultCastingProductId) {
       setCastingProductId(next.defaultCastingProductId);
     }
-    if (next && next.topSlabThicknessInches <= 0) {
-      setHasTopSlab(false);
-    }
-    if (next && next.baseSlabThicknessInches <= 0) {
-      setHasBaseSlab(false);
-    }
   }
 
   const result = useMemo(() => {
@@ -308,8 +298,6 @@ export function RectSheetForm({
       wallHeightAdjustInches,
       insideLengthFeet: parseNum(effectiveLengthFeet),
       insideWidthFeet: parseNum(effectiveWidthFeet),
-      hasTopSlab,
-      hasBaseSlab,
       baseAttached,
       template: {
         wallThicknessInches: template.wallThicknessInches,
@@ -360,7 +348,6 @@ export function RectSheetForm({
     effectiveLengthFeet,
     effectiveWidthFeet,
     hasTopSlab,
-    hasBaseSlab,
     baseAttached,
     openingSizes,
     openings,
@@ -387,8 +374,6 @@ export function RectSheetForm({
         wallHeightAdjustInches,
         insideLengthFeet: effectiveLengthFeet,
         insideWidthFeet: effectiveWidthFeet,
-        hasTopSlab,
-        hasBaseSlab,
         baseAttached,
         topSlabOpeningLengthInches,
         topSlabOpeningWidthInches,
@@ -422,8 +407,6 @@ export function RectSheetForm({
       wallHeightAdjustInches,
       effectiveLengthFeet,
       effectiveWidthFeet,
-      hasTopSlab,
-      hasBaseSlab,
       baseAttached,
       topSlabOpeningLengthInches,
       topSlabOpeningWidthInches,
@@ -692,43 +675,20 @@ export function RectSheetForm({
                   ))}
                 </select>
               </div>
-              <div className="flex items-end gap-4 pb-1">
-                <label className="flex items-center gap-2 text-xs font-medium text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={hasTopSlab}
-                    disabled={
-                      template != null &&
-                      template.topSlabThicknessInches <= 0 &&
-                      !hasTopSlab
-                    }
-                    onChange={(e) => setHasTopSlab(e.target.checked)}
-                  />
-                  Top slab
-                  {template && template.topSlabThicknessInches <= 0 ? (
-                    <span className="text-[10px] font-normal text-slate-400">
-                      (none on template)
-                    </span>
-                  ) : null}
-                </label>
-                <label className="flex items-center gap-2 text-xs font-medium text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={hasBaseSlab}
-                    disabled={
-                      template != null &&
-                      template.baseSlabThicknessInches <= 0 &&
-                      !hasBaseSlab
-                    }
-                    onChange={(e) => setHasBaseSlab(e.target.checked)}
-                  />
-                  Base slab
-                  {template && template.baseSlabThicknessInches <= 0 ? (
-                    <span className="text-[10px] font-normal text-slate-400">
-                      (none on template)
-                    </span>
-                  ) : null}
-                </label>
+              <div className="pb-1">
+                <p className="block text-xs font-medium text-slate-700">
+                  Slabs
+                </p>
+                <p
+                  className="mt-2 text-xs text-slate-600"
+                  title="Set on the structure template (Structures → template → Slabs)."
+                >
+                  Top slab: {hasTopSlab ? "Yes" : "No"} · Base slab:{" "}
+                  {hasBaseSlab ? "Yes" : "No"}{" "}
+                  <span className="text-[10px] text-slate-400">
+                    (from template)
+                  </span>
+                </p>
               </div>
               {hasBaseSlab ? (
                 <div className="flex items-end pb-1">

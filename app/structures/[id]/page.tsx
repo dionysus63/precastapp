@@ -140,7 +140,7 @@ export default async function EditStructureTemplatePage({
   return (
     <DashboardShell
       title={`Edit ${template.name}`}
-      subtitle="Update template configuration and offered diameters."
+      subtitle="Update the size, slabs, casting and other settings."
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <BackButton href="/structures" label="Back to Structures" />

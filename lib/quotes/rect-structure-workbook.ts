@@ -17,6 +17,7 @@ import type { EditableQuoteLineItem } from "@/lib/quotes/types";
 import { createRowId } from "@/lib/quotes/structure-workbook";
 import {
   computeRectStructure,
+  rectTemplateSlabs,
   type RectOpeningPlacement,
   type RectStructureInput,
   type RectStructureResult,
@@ -396,9 +397,15 @@ export function createDefaultRectRow(
       defaults.castingProductId || template?.defaultCastingProductId || "",
     rimElevation: "",
     lowInvertElevation: "",
-    hasTopSlab: defaults.hasTopSlab,
-    hasBaseSlab: defaults.hasBaseSlab,
-    baseAttached: defaults.baseAttached,
+    hasTopSlab: template
+      ? rectTemplateSlabs(template).hasTopSlab
+      : defaults.hasTopSlab,
+    hasBaseSlab: template
+      ? rectTemplateSlabs(template).hasBaseSlab
+      : defaults.hasBaseSlab,
+    baseAttached: template
+      ? rectTemplateSlabs(template).hasBaseSlab && defaults.baseAttached
+      : defaults.baseAttached,
     topSlabOpeningLengthInches: "",
     topSlabOpeningWidthInches: "",
     topSlabOpeningSide: "UP",
@@ -502,13 +509,20 @@ export function computeRectWorkbookRowDetail(
     };
   }
 
-  const sizedRow = templateSize
-    ? {
-        ...row,
-        insideLengthFeet: String(templateSize.insideLengthFeet),
-        insideWidthFeet: String(templateSize.insideWidthFeet),
-      }
-    : row;
+  // The template also decides the slabs; a row can no longer drop one.
+  const templateSlabs = rectTemplateSlabs(template);
+  const sizedRow: RectWorkbookRow = {
+    ...row,
+    ...(templateSize
+      ? {
+          insideLengthFeet: String(templateSize.insideLengthFeet),
+          insideWidthFeet: String(templateSize.insideWidthFeet),
+        }
+      : {}),
+    hasTopSlab: templateSlabs.hasTopSlab,
+    hasBaseSlab: templateSlabs.hasBaseSlab,
+    baseAttached: templateSlabs.hasBaseSlab && row.baseAttached,
+  };
   const workingRow =
     mode === "FULL" ? syncRectRowFromOpenings(sizedRow) : sizedRow;
   const calcOpenings =
@@ -543,8 +557,6 @@ export function computeRectWorkbookRowDetail(
       casting?.heightFeet ?? template.defaultCastingHeightFeet ?? 0,
     insideLengthFeet: length,
     insideWidthFeet: width,
-    hasTopSlab: workingRow.hasTopSlab,
-    hasBaseSlab: workingRow.hasBaseSlab,
     baseAttached: workingRow.baseAttached,
     template: {
       wallThicknessInches: template.wallThicknessInches,

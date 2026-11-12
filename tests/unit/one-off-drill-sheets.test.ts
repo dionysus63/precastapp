@@ -11,6 +11,7 @@ import {
   mergeCircularRow,
   mergeRectRow,
   missingSetupFields,
+  withTemplateDiameter,
   nextFreeStructureNumber,
   rectRowFromSheet,
   resizeRowOpenings,
@@ -22,7 +23,10 @@ import {
 } from "@/lib/quotes/one-off-drill-sheets";
 import type { RectSheetFormValues } from "@/components/drill-sheets/rect-sheet-form";
 import type { DrillSheetFormValues } from "@/lib/drill-sheet-detail";
-import { parseStructureConfigJson } from "@/lib/quotes/structure-workbook";
+import {
+  parseStructureConfigJson,
+  templateDiameterFeet,
+} from "@/lib/quotes/structure-workbook";
 import { parseRectStructureConfigJson } from "@/lib/quotes/rect-structure-workbook";
 
 const circularOptions: OneOffCircularOptions = {
@@ -158,6 +162,33 @@ describe("one-off setup", () => {
     expect(missingSetupFields("CIRCULAR", filledSetup({ quantity: "0" }))).toEqual([
       "quantity",
     ]);
+  });
+
+  it("takes the diameter from the template's one mold", () => {
+    // Nothing to pick: a blank or stale diameter follows the template.
+    expect(
+      withTemplateDiameter(filledSetup({ diameterFeet: "" }), circularOptions.templates)
+        .diameterFeet,
+    ).toBe("4");
+    expect(
+      withTemplateDiameter(filledSetup({ diameterFeet: "6" }), circularOptions.templates)
+        .diameterFeet,
+    ).toBe("4");
+    // A legacy template that still lists several keeps the user's pick.
+    const legacy = [
+      {
+        ...circularOptions.templates[0],
+        diameters: [
+          { id: "d4", insideDiameterFeet: 4 },
+          { id: "d5", insideDiameterFeet: 5 },
+        ],
+      },
+    ];
+    expect(
+      withTemplateDiameter(filledSetup({ diameterFeet: "5" }), legacy).diameterFeet,
+    ).toBe("5");
+    expect(templateDiameterFeet(legacy[0])).toBeNull();
+    expect(templateDiameterFeet(circularOptions.templates[0])).toBe(4);
   });
 
   it("builds one numbered row per quantity with the setup picks", () => {
@@ -430,6 +461,27 @@ describe("editing saved sheets", () => {
       pipeSizeInches: "12",
       invertElevation: "93",
     });
+  });
+
+  it("fills a blank diameter from the template but never resizes a saved one", () => {
+    const loaded = circularRowFromSheet("js-1", savedCircular, circularOptions.templates);
+    const blank = mergeCircularRow(
+      savedCircular,
+      { ...loaded, diameterFeet: "" },
+      circularOptions.templates,
+      "2026-10-19",
+    );
+    if ("error" in blank) throw new Error(blank.error);
+    expect(blank.values.diameterId).toBe("d4");
+    // Saved at 6' on a template that is 4': the user must decide.
+    expect(
+      mergeCircularRow(
+        savedCircular,
+        { ...loaded, diameterFeet: "6" },
+        circularOptions.templates,
+        "2026-10-19",
+      ),
+    ).toEqual({ error: "Select a diameter" });
   });
 
   it("saves an inlet's changed pipe and drops cleared inlets", () => {

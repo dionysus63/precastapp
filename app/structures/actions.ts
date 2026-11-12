@@ -11,6 +11,7 @@ import {
 } from "@/lib/server/action-errors";
 import {
   assertPdfSetMatchesShape,
+  assertSizeAndSlabsUnchangedForSheets,
   buildNestedCreate,
   parseTemplateData,
   rectPriceEntryFromPayload,
@@ -189,16 +190,27 @@ async function updateStructureTemplateOrThrow(
       // (The structure import refuses this too.)
       const existing = await tx.structureTemplate.findUnique({
         where: { id: templateId },
-        select: { shape: true, _count: { select: { jobStructures: true } } },
+        select: {
+          shape: true,
+          topSlabThicknessInches: true,
+          baseSlabThicknessInches: true,
+          diameters: { select: { insideDiameterFeet: true } },
+          rectSizes: {
+            orderBy: { sortOrder: "asc" },
+            select: { insideLengthInches: true, insideWidthInches: true },
+          },
+          _count: { select: { jobStructures: true } },
+        },
       });
-      if (
-        existing &&
-        existing.shape !== payload.shape &&
-        existing._count.jobStructures > 0
-      ) {
+      const sheetCount = existing?._count.jobStructures ?? 0;
+      const usedBy = `${sheetCount} drill sheet${sheetCount === 1 ? " uses" : "s use"} it`;
+      if (existing && existing.shape !== payload.shape && sheetCount > 0) {
         throw new Error(
-          `This template's shape can't change while ${existing._count.jobStructures} drill sheet${existing._count.jobStructures === 1 ? " uses" : "s use"} it. Duplicate it and change the copy instead.`,
+          `This template's shape can't change while ${usedBy}. Duplicate it and change the copy instead.`,
         );
+      }
+      if (existing) {
+        assertSizeAndSlabsUnchangedForSheets(existing, payload, sheetCount);
       }
 
       await tx.structureTemplateDiameter.deleteMany({
