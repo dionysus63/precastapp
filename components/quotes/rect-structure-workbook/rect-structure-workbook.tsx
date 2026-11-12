@@ -459,7 +459,7 @@ export function RectStructureWorkbook({
           <button
             type="button"
             onClick={() => handleModeChange("QUOTE")}
-            className={`rounded-md px-3 py-1.5 text-[11px] font-semibold ${
+            className={`rounded-md px-3 py-1.5 text-2xs font-semibold ${
               workbookMode === "QUOTE"
                 ? "bg-slate-900 text-white"
                 : "text-slate-700 hover:bg-slate-50"
@@ -470,7 +470,7 @@ export function RectStructureWorkbook({
           <button
             type="button"
             onClick={() => handleModeChange("FULL")}
-            className={`rounded-md px-3 py-1.5 text-[11px] font-semibold ${
+            className={`rounded-md px-3 py-1.5 text-2xs font-semibold ${
               workbookMode === "FULL"
                 ? "bg-slate-900 text-white"
                 : "text-slate-700 hover:bg-slate-50"
@@ -493,21 +493,21 @@ export function RectStructureWorkbook({
           <button
             type="button"
             onClick={() => addRows(1)}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Add 1 row
           </button>
           <button
             type="button"
             onClick={() => addRows(5)}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Add 5 rows
           </button>
           <button
             type="button"
             onClick={() => addRows(10)}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Add 10 rows
           </button>
@@ -515,7 +515,7 @@ export function RectStructureWorkbook({
             type="button"
             onClick={duplicateSelected}
             disabled={selectedRowIds.size === 0}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
           >
             Duplicate selected
           </button>
@@ -523,14 +523,14 @@ export function RectStructureWorkbook({
             type="button"
             onClick={removeSelected}
             disabled={selectedRowIds.size === 0}
-            className="rounded-lg border border-red-200 px-3 py-1.5 text-[11px] font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40"
+            className="rounded-lg border border-red-200 px-3 py-1.5 text-2xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40"
           >
             Remove selected
           </button>
           <button
             type="button"
             onClick={removeEmptyRows}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Remove empty rows
           </button>
@@ -538,14 +538,14 @@ export function RectStructureWorkbook({
             type="button"
             onClick={repriceAllRows}
             title="Recompute every row's price from the quote's price list (use after changing the quote's list or updating template/opening prices)."
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Reprice from price list
           </button>
           <button
             type="button"
             onClick={() => setImportOpen(true)}
-            className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-700 hover:bg-sky-100"
+            className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-2xs font-semibold text-sky-700 hover:bg-sky-100"
           >
             Import from Excel
           </button>
@@ -553,7 +553,7 @@ export function RectStructureWorkbook({
             <button
               type="button"
               onClick={() => setJobSheetImportOpen(true)}
-              className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-700 hover:bg-sky-100"
+              className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-2xs font-semibold text-sky-700 hover:bg-sky-100"
             >
               Import from Job Drill Sheets
             </button>
@@ -571,7 +571,7 @@ export function RectStructureWorkbook({
           onSelectionChange={setSelectedRowIds}
         />
 
-        <p className="mt-2 text-[11px] text-slate-500">
+        <p className="mt-2 text-2xs text-slate-500">
           {pricedRows.length} of {rows.length} rows priced
           {pricedRows.length > 0
             ? ` — extended total ${formatQuoteCurrency(pricedTotal)}`
@@ -653,7 +653,7 @@ function RectDefaultsPanel({
     >
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-7">
         <div>
-          <label className="block text-[11px] font-medium text-slate-700">
+          <label className="block text-2xs font-medium text-slate-700">
             Name Prefix
           </label>
           <input
@@ -664,7 +664,7 @@ function RectDefaultsPanel({
           />
         </div>
         <div>
-          <label className="block text-[11px] font-medium text-slate-700">
+          <label className="block text-2xs font-medium text-slate-700">
             Start #
           </label>
           <input
@@ -678,7 +678,7 @@ function RectDefaultsPanel({
           />
         </div>
         <div>
-          <label className="block text-[11px] font-medium text-slate-700">
+          <label className="block text-2xs font-medium text-slate-700">
             Template
           </label>
           <select
@@ -709,7 +709,7 @@ function RectDefaultsPanel({
           </select>
         </div>
         <div>
-          <label className="block text-[11px] font-medium text-slate-700">
+          <label className="block text-2xs font-medium text-slate-700">
             Casting
           </label>
           <select
@@ -726,7 +726,7 @@ function RectDefaultsPanel({
           </select>
         </div>
         <div>
-          <label className="block text-[11px] font-medium text-slate-700">
+          <label className="block text-2xs font-medium text-slate-700">
             Size L x W (ft)
           </label>
           <div className="flex gap-1">
@@ -756,13 +756,13 @@ function RectDefaultsPanel({
             />
           </div>
           {template?.presetSizes[0] ? (
-            <p className="mt-0.5 text-[10px] text-slate-400">
+            <p className="mt-0.5 text-3xs text-slate-400">
               Set by the template.
             </p>
           ) : null}
         </div>
         <div>
-          <label className="block text-[11px] font-medium text-slate-700">
+          <label className="block text-2xs font-medium text-slate-700">
             Slabs
           </label>
           <select
@@ -780,7 +780,7 @@ function RectDefaultsPanel({
           </select>
         </div>
         <div>
-          <label className="block text-[11px] font-medium text-slate-700">
+          <label className="block text-2xs font-medium text-slate-700">
             Max Pick (lbs)
           </label>
           <input
@@ -836,7 +836,7 @@ function RowOpeningsEditor({
   };
 
   const subHeader =
-    "border-b border-r border-slate-200 bg-slate-100/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 last:border-r-0";
+    "border-b border-r border-slate-200 bg-slate-100/80 px-2 py-1 text-3xs font-semibold uppercase tracking-wide text-slate-500 last:border-r-0";
   const subCell = "border-b border-r border-slate-200 p-0 last:border-r-0";
   const subInput = `${tableCellInputClassName} py-1`;
 
@@ -869,7 +869,7 @@ function RowOpeningsEditor({
             return (
               <tr key={opening.id}>
                 <td
-                  className={`${subCell} px-2 py-1 text-center text-[11px] font-semibold text-slate-700`}
+                  className={`${subCell} px-2 py-1 text-center text-2xs font-semibold text-slate-700`}
                 >
                   {opening.label}
                 </td>
@@ -1016,7 +1016,7 @@ function RowOpeningsEditor({
                     }
                     disabled={row.openings.length <= 1}
                     title="Remove this opening"
-                    className="px-2 py-1 text-[10px] font-semibold text-red-600 disabled:opacity-30"
+                    className="px-2 py-1 text-3xs font-semibold text-red-600 disabled:opacity-30"
                   >
                     ✕
                   </button>
@@ -1046,12 +1046,12 @@ function RowOpeningsEditor({
               ],
             })
           }
-          className="rounded border border-slate-200 bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-700 hover:bg-white disabled:opacity-40"
+          className="rounded border border-slate-200 bg-white/70 px-2 py-0.5 text-3xs font-semibold text-slate-700 hover:bg-white disabled:opacity-40"
         >
           + Opening
         </button>
         {(rowTemplate ? rectTemplateSlabs(rowTemplate).hasTopSlab : row.hasTopSlab) ? (
-          <span className="flex items-center gap-1.5 text-[10px] font-medium text-slate-500">
+          <span className="flex items-center gap-1.5 text-3xs font-medium text-slate-500">
             TOP SLAB OPENING
             <input
               type="text"
@@ -1357,7 +1357,7 @@ export function RectWorkbookGrid({
                   .filter(Boolean)
                   .join(" + ")
               : "";
-            const computedCell = `${tableCellBordersClassName} whitespace-nowrap px-2 py-1.5 text-right text-[11px] tabular-nums`;
+            const computedCell = `${tableCellBordersClassName} whitespace-nowrap px-2 py-1.5 text-right text-2xs tabular-nums`;
             // Footprint comes from the row's template when it defines one.
             const rowTemplate = options.templates.find(
               (entry) => entry.id === row.templateId,
@@ -1640,7 +1640,7 @@ export function RectWorkbookGrid({
                       : "—"}
                   </td>
                   <td
-                    className={`${tableCellBordersClassName} max-w-[16rem] truncate px-2 py-1.5 text-[11px] text-slate-600`}
+                    className={`${tableCellBordersClassName} max-w-[16rem] truncate px-2 py-1.5 text-2xs text-slate-600`}
                     title={row.status}
                   >
                     {row.status || "—"}

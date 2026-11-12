@@ -53,7 +53,7 @@ export function JobInvoiceActions({ deliveries }: JobInvoiceActionsProps) {
               type="button"
               disabled={pending}
               onClick={() => handleConvert(ticket.id)}
-              className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-50"
+              className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-50"
             >
               {pending && busyId === ticket.id ? "Creating…" : "Create Invoice"}
             </button>

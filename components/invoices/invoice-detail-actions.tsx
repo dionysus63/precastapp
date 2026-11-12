@@ -52,7 +52,7 @@ export function InvoiceDetailActions({
       <button
         type="button"
         onClick={() => printPdfUrl(`/api/invoices/${invoiceId}/pdf`)}
-        className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+        className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
       >
         Print
       </button>
@@ -64,7 +64,7 @@ export function InvoiceDetailActions({
       <button
         type="button"
         onClick={() => printPdfUrl(`/api/invoices/${invoiceId}/pdf`)}
-        className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+        className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
       >
         Print
       </button>
@@ -72,7 +72,7 @@ export function InvoiceDetailActions({
         <>
           <Link
             href={`/invoices/${invoiceId}/edit`}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Edit draft
           </Link>
@@ -94,7 +94,7 @@ export function InvoiceDetailActions({
                 `Invoice ${invoiceNumber} finalized.`,
               );
             }}
-            className="rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50"
+            className="rounded-lg bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white disabled:opacity-50"
           >
             Finalize
           </button>
@@ -124,7 +124,7 @@ export function InvoiceDetailActions({
                 });
               });
             }}
-            className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[11px] font-semibold text-red-800 hover:bg-red-100 disabled:opacity-50"
+            className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-2xs font-semibold text-red-800 hover:bg-red-100 disabled:opacity-50"
           >
             Delete draft
           </button>
@@ -146,7 +146,7 @@ export function InvoiceDetailActions({
                 navigateAfterAction(`/invoices/${invoiceId}/edit`);
               }
             }}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Edit invoice
           </Link>
@@ -159,7 +159,7 @@ export function InvoiceDetailActions({
                 `Invoice ${invoiceNumber} marked paid.`,
               )
             }
-            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-2xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
           >
             Mark paid
           </button>
@@ -182,7 +182,7 @@ export function InvoiceDetailActions({
                 `Invoice ${invoiceNumber} voided.`,
               );
             }}
-            className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[11px] font-semibold text-red-800 hover:bg-red-100 disabled:opacity-50"
+            className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-2xs font-semibold text-red-800 hover:bg-red-100 disabled:opacity-50"
           >
             Void
           </button>
@@ -207,7 +207,7 @@ export function InvoiceDetailActions({
               `Invoice ${invoiceNumber} reopened as a draft.`,
             );
           }}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
         >
           Reopen as draft
         </button>

@@ -523,7 +523,7 @@ export function RectBulkGrid({
                     <button
                       type="button"
                       onClick={() => toggleExpanded(row.structureId)}
-                      className="rounded border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                      className="rounded border border-slate-200 px-2 py-0.5 text-2xs font-medium text-slate-600 hover:bg-slate-50"
                     >
                       {row.values.openings.length} {isExpanded ? "▴" : "▾"}
                     </button>
@@ -556,7 +556,7 @@ export function RectBulkGrid({
                   <tr>
                     <td
                       colSpan={18}
-                      className={`${tableCellBordersClassName} bg-rose-50 px-3 py-1 text-[11px] text-rose-700`}
+                      className={`${tableCellBordersClassName} bg-rose-50 px-3 py-1 text-2xs text-rose-700`}
                     >
                       {error ?? previewError}
                     </td>
@@ -569,7 +569,7 @@ export function RectBulkGrid({
                       className={`${tableCellBordersClassName} bg-slate-50/70 px-4 py-2`}
                     >
                       <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-600">
+                        <div className="flex flex-wrap items-center gap-4 text-2xs text-slate-600">
                           <label className="flex items-center gap-1.5">
                             <input
                               type="checkbox"
@@ -671,7 +671,7 @@ export function RectBulkGrid({
                         {row.values.openings.map((opening, openingIndex) => (
                           <div
                             key={opening.id}
-                            className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600"
+                            className="flex flex-wrap items-center gap-2 text-2xs text-slate-600"
                           >
                             <input
                               type="text"
@@ -822,7 +822,7 @@ export function RectBulkGrid({
                               ],
                             })
                           }
-                          className="rounded border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                          className="rounded border border-slate-200 px-2 py-0.5 text-2xs font-medium text-slate-600 hover:bg-slate-50"
                         >
                           + Add opening
                         </button>

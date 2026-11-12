@@ -85,7 +85,7 @@ export function PurchaseOrderDetailContent({
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-[11px] uppercase tracking-wide text-slate-500">Status</p>
+          <p className="text-2xs uppercase tracking-wide text-slate-500">Status</p>
           <div className="mt-2">
             <StatusBadge
               label={purchaseOrder.statusLabel}
@@ -94,19 +94,19 @@ export function PurchaseOrderDetailContent({
           </div>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-[11px] uppercase tracking-wide text-slate-500">Vendor</p>
+          <p className="text-2xs uppercase tracking-wide text-slate-500">Vendor</p>
           <p className="mt-2 text-sm font-semibold text-slate-900">
             {purchaseOrder.vendorName}
           </p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-[11px] uppercase tracking-wide text-slate-500">Order date</p>
+          <p className="text-2xs uppercase tracking-wide text-slate-500">Order date</p>
           <p className="mt-2 text-sm font-semibold text-slate-900">
             {purchaseOrder.orderDateLabel}
           </p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-[11px] uppercase tracking-wide text-slate-500">Total</p>
+          <p className="text-2xs uppercase tracking-wide text-slate-500">Total</p>
           <p className="mt-2 text-sm font-semibold text-slate-900">
             {formatUsd(purchaseOrder.total)}
           </p>
@@ -198,7 +198,7 @@ export function PurchaseOrderDetailContent({
                             style={{ width: `${percent}%` }}
                           />
                         </div>
-                        <span className="text-[11px] text-slate-500">{percent}%</span>
+                        <span className="text-2xs text-slate-500">{percent}%</span>
                       </div>
                     </td>
                     <td className={tableCellClassName}>{formatUsd(line.unitPrice)}</td>

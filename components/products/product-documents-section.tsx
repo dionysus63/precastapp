@@ -175,7 +175,7 @@ export function ProductDocumentsSection({
             type="button"
             disabled={pending}
             onClick={handleScan}
-            className="rounded-md border border-slate-200 px-3 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-md border border-slate-200 px-3 py-1.5 text-2xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
             Scan folder
           </button>
@@ -183,7 +183,7 @@ export function ProductDocumentsSection({
             type="button"
             disabled={pending}
             onClick={handleOpenFolder}
-            className="rounded-md border border-slate-200 px-3 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-md border border-slate-200 px-3 py-1.5 text-2xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
             Open folder in Explorer
           </button>
@@ -296,7 +296,7 @@ export function ProductDocumentsSection({
                             type="button"
                             disabled={pending}
                             onClick={() => handleOpenDocument(document.id)}
-                            className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                            className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                           >
                             Open
                           </button>
@@ -304,18 +304,18 @@ export function ProductDocumentsSection({
                             type="button"
                             disabled={pending}
                             onClick={() => handleDelete(document.id)}
-                            className="inline-flex rounded-md border border-red-200 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                            className="inline-flex rounded-md border border-red-200 px-2 py-1 text-2xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
                           >
                             Delete
                           </button>
                         </div>
                         {rowMessages[document.id]?.error ? (
-                          <span className="text-[10px] text-red-600">
+                          <span className="text-3xs text-red-600">
                             {rowMessages[document.id]?.error}
                           </span>
                         ) : null}
                         {rowMessages[document.id]?.success ? (
-                          <span className="text-[10px] text-green-700">
+                          <span className="text-3xs text-green-700">
                             {rowMessages[document.id]?.success}
                           </span>
                         ) : null}

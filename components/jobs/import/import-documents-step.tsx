@@ -31,12 +31,12 @@ function FileChip({
 }) {
   return (
     <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs">
-      <span className="flex h-8 w-7 flex-none items-center justify-center rounded bg-red-100 text-[9px] font-bold text-red-800">
+      <span className="flex h-8 w-7 flex-none items-center justify-center rounded bg-red-100 text-4xs font-bold text-red-800">
         PDF
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate font-semibold text-slate-800">{entry.name}</span>
-        <span className="block text-[11px] text-slate-500">
+        <span className="block text-2xs text-slate-500">
           {detail ??
             (entry.pageCount != null
               ? `${entry.pageCount} page${entry.pageCount === 1 ? "" : "s"}`
@@ -174,7 +174,7 @@ export function ImportDocumentsStep({
                 <div
                   role="radiogroup"
                   aria-label={`${KIND_HELP[kind.value].title} files`}
-                  className="inline-flex overflow-hidden rounded-lg border border-slate-300 text-[11px] font-semibold"
+                  className="inline-flex overflow-hidden rounded-lg border border-slate-300 text-2xs font-semibold"
                 >
                   {(["combined", "separate"] as const).map((option) => (
                     <button

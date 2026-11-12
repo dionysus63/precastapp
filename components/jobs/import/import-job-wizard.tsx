@@ -84,7 +84,7 @@ function Stepper({ step, onPick, canReach }: {
               }`}
             >
               <span
-                className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] ${
+                className={`flex h-5 w-5 items-center justify-center rounded-full text-2xs ${
                   current
                     ? "bg-white text-slate-900"
                     : done
@@ -481,7 +481,7 @@ export function ImportJobWizard({ defaultTaxRate }: { defaultTaxRate: number }) 
                     <span className={`text-xs ${active ? "text-slate-300" : "text-slate-500"}`}>
                       {option.description}
                     </span>
-                    <span className={`mt-auto text-[11px] font-semibold ${active ? "text-slate-200" : "text-slate-500"}`}>
+                    <span className={`mt-auto text-2xs font-semibold ${active ? "text-slate-200" : "text-slate-500"}`}>
                       {option.structureStatus
                         ? `Structures start as ${option.structureStatus.replace(/_/g, " ").toLowerCase()}`
                         : "Quote only, no structures yet"}

@@ -766,7 +766,7 @@ export function StructureWorkbookPlanTakeoff({
               key={value}
               type="button"
               onClick={() => setMode(value)}
-              className={`rounded-md px-2.5 py-1 text-[11px] font-semibold ${
+              className={`rounded-md px-2.5 py-1 text-2xs font-semibold ${
                 mode === value
                   ? "bg-slate-900 text-white"
                   : "text-slate-700 hover:bg-slate-50"
@@ -780,17 +780,17 @@ export function StructureWorkbookPlanTakeoff({
           <button
             type="button"
             onClick={() => setZoom((value) => Math.max(0.5, value - 0.1))}
-            className="rounded border border-slate-200 px-2 py-1 text-[11px]"
+            className="rounded border border-slate-200 px-2 py-1 text-2xs"
           >
             −
           </button>
-          <span className="text-[11px] text-slate-600">
+          <span className="text-2xs text-slate-600">
             {Math.round(zoom * 100)}%
           </span>
           <button
             type="button"
             onClick={() => setZoom((value) => Math.min(3, value + 0.1))}
-            className="rounded border border-slate-200 px-2 py-1 text-[11px]"
+            className="rounded border border-slate-200 px-2 py-1 text-2xs"
           >
             +
           </button>
@@ -800,11 +800,11 @@ export function StructureWorkbookPlanTakeoff({
               setZoom(1);
               setPan({ x: 0, y: 0 });
             }}
-            className="rounded border border-slate-200 px-2 py-1 text-[11px]"
+            className="rounded border border-slate-200 px-2 py-1 text-2xs"
           >
             Reset view
           </button>
-          <label className="flex items-center gap-1 text-[11px] text-slate-600">
+          <label className="flex items-center gap-1 text-2xs text-slate-600">
             Page
             <select
               value={pageNumber}
@@ -996,7 +996,7 @@ export function StructureWorkbookPlanTakeoff({
         ) : null}
       </div>
 
-      <p className="text-[11px] text-slate-500">
+      <p className="text-2xs text-slate-500">
         Hold Space to pan. Pipe angles snap to 5°; hold Shift while dragging for
         free angle. First pipe drawn from a structure is the outlet (0°).
       </p>
@@ -1213,14 +1213,14 @@ function StructurePopup({
           <button
             type="button"
             onClick={onDelete}
-            className="rounded border border-red-200 px-3 py-1.5 text-[11px] font-semibold text-red-700"
+            className="rounded border border-red-200 px-3 py-1.5 text-2xs font-semibold text-red-700"
           >
             Delete structure
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="rounded bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white"
+            className="rounded bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white"
           >
             Done
           </button>
@@ -1312,7 +1312,7 @@ function PipePopup({
               placeholder="e.g. 498.25"
             />
           </label>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-2xs text-slate-500">
             Angle: {opening.angleDegrees || "0"}° from outlet
           </p>
         </div>
@@ -1320,14 +1320,14 @@ function PipePopup({
           <button
             type="button"
             onClick={onDelete}
-            className="rounded border border-red-200 px-3 py-1.5 text-[11px] font-semibold text-red-700"
+            className="rounded border border-red-200 px-3 py-1.5 text-2xs font-semibold text-red-700"
           >
             Delete pipe
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="rounded bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white"
+            className="rounded bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white"
           >
             Done
           </button>

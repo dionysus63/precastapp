@@ -126,7 +126,7 @@ function TicketQuickActions({
                 );
               });
             }}
-            className="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+            className="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-2xs text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
           >
             Mark delivered
           </button>
@@ -155,14 +155,14 @@ function TicketQuickActions({
                 reloadAfterAction({ type: "success", text: "Ticket cancelled." });
               });
             }}
-            className="rounded border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] text-red-800 hover:bg-red-100 disabled:opacity-50"
+            className="rounded border border-red-200 bg-red-50 px-2 py-0.5 text-2xs text-red-800 hover:bg-red-100 disabled:opacity-50"
           >
             Cancel
           </button>
         ) : null}
         <Link
           href={`/delivery-tickets/${ticket.id}`}
-          className="text-[11px] text-slate-700 underline hover:text-slate-900"
+          className="text-2xs text-slate-700 underline hover:text-slate-900"
         >
           View
         </Link>
@@ -172,7 +172,7 @@ function TicketQuickActions({
           type="date"
           value={moveDate}
           onChange={(event) => setMoveDate(event.target.value)}
-          className="rounded border border-slate-200 px-1.5 py-0.5 text-[11px]"
+          className="rounded border border-slate-200 px-1.5 py-0.5 text-2xs"
         />
         <button
           type="button"
@@ -187,13 +187,13 @@ function TicketQuickActions({
               reloadAfterAction({ type: "success", text: "Date updated." });
             });
           }}
-          className="rounded border border-slate-200 px-2 py-0.5 text-[11px] hover:bg-slate-50 disabled:opacity-50"
+          className="rounded border border-slate-200 px-2 py-0.5 text-2xs hover:bg-slate-50 disabled:opacity-50"
         >
           Move date
         </button>
       </div>
       {message ? (
-        <p className="text-[10px] text-slate-500">{message}</p>
+        <p className="text-3xs text-slate-500">{message}</p>
       ) : null}
     </div>
   );
@@ -237,12 +237,12 @@ function TicketTable({
                 <td className={`${tableCellClassName} font-medium`}>
                   {ticket.ticketNumber}
                   {ticket.hasInvoice ? (
-                    <span className="ml-1.5 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-normal text-sky-800">
+                    <span className="ml-1.5 rounded bg-sky-100 px-1.5 py-0.5 text-3xs font-normal text-sky-800">
                       Invoiced
                     </span>
                   ) : null}
                   {ticket.ticketType === "WALK_IN" ? (
-                    <span className="ml-1.5 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-normal text-violet-800">
+                    <span className="ml-1.5 rounded bg-violet-100 px-1.5 py-0.5 text-3xs font-normal text-violet-800">
                       Walk-in
                     </span>
                   ) : null}
@@ -267,7 +267,7 @@ function TicketTable({
                       {flags.map((flag) => (
                         <li
                           key={flag}
-                          className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-800"
+                          className="rounded bg-amber-50 px-1.5 py-0.5 text-3xs text-amber-800"
                         >
                           {flag}
                         </li>

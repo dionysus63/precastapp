@@ -35,7 +35,7 @@ const CASTING_COLUMN_INDEX: Partial<Record<StructureImportType, number>> = {
 };
 
 const textareaClassName =
-  "mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-[11px] text-slate-900 focus:border-slate-400 focus:outline-none";
+  "mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-2xs text-slate-900 focus:border-slate-400 focus:outline-none";
 
 export function StructureBulkImportForm() {
   const [importType, setImportType] =
@@ -186,7 +186,7 @@ export function StructureBulkImportForm() {
             >
               <span className="block text-xs font-semibold">{option.label}</span>
               <span
-                className={`mt-0.5 block text-[11px] ${
+                className={`mt-0.5 block text-2xs ${
                   option.type === importType ? "text-slate-300" : "text-slate-500"
                 }`}
               >
@@ -200,10 +200,10 @@ export function StructureBulkImportForm() {
           <p className="text-xs font-medium text-slate-700">
             Expected column order ({definition.label})
           </p>
-          <p className="mt-1 text-[11px] text-slate-500">
+          <p className="mt-1 text-2xs text-slate-500">
             {definition.columns.join(" → ")}
           </p>
-          <p className="mt-2 text-[11px] text-slate-500">
+          <p className="mt-2 text-2xs text-slate-500">
             {definition.description}
           </p>
         </div>

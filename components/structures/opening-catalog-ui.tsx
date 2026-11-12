@@ -14,7 +14,7 @@ export const catalogTableClassName =
   "w-full border-separate border-spacing-0 text-center text-xs";
 
 const catalogHeaderCellBaseClassName =
-  "whitespace-nowrap border-r border-slate-300 px-1.5 text-center text-[10.5px] font-semibold uppercase tracking-wide text-slate-600 last:border-r-0";
+  "whitespace-nowrap border-r border-slate-300 px-1.5 text-center text-[length:calc(10.5px*var(--text-scale))] font-semibold uppercase tracking-wide text-slate-600 last:border-r-0";
 
 export const catalogHeaderCellClassName = `${catalogHeaderCellBaseClassName} border-b-2 border-b-slate-300 bg-slate-100 py-1.5`;
 
@@ -57,14 +57,14 @@ export function CatalogFilterBar({
       <button
         type="button"
         onClick={onToggleAll}
-        className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+        className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
       >
         {allCollapsed ? "Expand All" : "Collapse All"}
       </button>
       <button
         type="button"
         onClick={onAddMaterial}
-        className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+        className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
       >
         + Add Material
       </button>
@@ -124,7 +124,7 @@ export function CatalogMaterialCard({
           title="Material / type. Renaming changes every size under it."
           className="w-44 min-w-0 rounded-md border border-transparent bg-transparent px-1.5 py-1 text-sm font-semibold text-slate-900 placeholder:font-normal placeholder:text-slate-300 hover:border-slate-200 focus:border-slate-200 focus:bg-slate-50 focus:outline-none"
         />
-        <span className="text-[11px] text-slate-500">
+        <span className="text-2xs text-slate-500">
           {sizeCount} {sizeCount === 1 ? "size" : "sizes"}
         </span>
         <span className="flex-1" />
@@ -144,13 +144,13 @@ export function CatalogMaterialCard({
             });
             if (accepted) onRemove();
           }}
-          className="px-1 text-[11px] font-medium text-rose-600 hover:text-rose-800"
+          className="px-1 text-2xs font-medium text-rose-600 hover:text-rose-800"
         >
           Remove Material
         </button>
       </div>
       {notice ? (
-        <p className="border-b border-amber-100 bg-amber-50 px-3 py-1.5 text-[11px] text-amber-800">
+        <p className="border-b border-amber-100 bg-amber-50 px-3 py-1.5 text-2xs text-amber-800">
           {notice}
         </p>
       ) : null}
@@ -161,11 +161,11 @@ export function CatalogMaterialCard({
             <button
               type="button"
               onClick={onAddSize}
-              className="rounded-md border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-md border border-slate-200 px-2.5 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
             >
               + Add Size
             </button>
-            <span className="text-[11px] text-slate-400">
+            <span className="text-2xs text-slate-400">
               Sizes sort smallest to largest when you save.
             </span>
           </div>
@@ -199,7 +199,7 @@ export function CatalogRemoveSizeButton({
         });
         if (accepted) onRemove();
       }}
-      className="px-1 text-[11px] font-medium text-rose-600 hover:text-rose-800"
+      className="px-1 text-2xs font-medium text-rose-600 hover:text-rose-800"
     >
       Remove
     </button>

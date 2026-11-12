@@ -86,7 +86,7 @@ export function ImportDropZone({
           browse your computer
         </button>
       </span>
-      {hint ? <span className="text-[11px] text-slate-500">{hint}</span> : null}
+      {hint ? <span className="text-2xs text-slate-500">{hint}</span> : null}
       <input
         ref={inputRef}
         type="file"

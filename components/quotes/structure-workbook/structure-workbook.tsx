@@ -610,7 +610,7 @@ export function StructureWorkbook({
           <button
             type="button"
             onClick={() => handleViewModeChange("grid")}
-            className={`rounded-md px-3 py-1.5 text-[11px] font-semibold ${
+            className={`rounded-md px-3 py-1.5 text-2xs font-semibold ${
               viewMode === "grid"
                 ? "bg-slate-900 text-white"
                 : "text-slate-700 hover:bg-slate-50"
@@ -621,7 +621,7 @@ export function StructureWorkbook({
           <button
             type="button"
             onClick={() => handleViewModeChange("takeoff")}
-            className={`rounded-md px-3 py-1.5 text-[11px] font-semibold ${
+            className={`rounded-md px-3 py-1.5 text-2xs font-semibold ${
               viewMode === "takeoff"
                 ? "bg-slate-900 text-white"
                 : "text-slate-700 hover:bg-slate-50"
@@ -644,7 +644,7 @@ export function StructureWorkbook({
           <button
             type="button"
             onClick={() => handleModeChange("QUOTE")}
-            className={`rounded-md px-3 py-1.5 text-[11px] font-semibold ${
+            className={`rounded-md px-3 py-1.5 text-2xs font-semibold ${
               workbookMode === "QUOTE"
                 ? "bg-slate-900 text-white"
                 : "text-slate-700 hover:bg-slate-50"
@@ -655,7 +655,7 @@ export function StructureWorkbook({
           <button
             type="button"
             onClick={() => handleModeChange("DRILL_SHEET")}
-            className={`rounded-md px-3 py-1.5 text-[11px] font-semibold ${
+            className={`rounded-md px-3 py-1.5 text-2xs font-semibold ${
               workbookMode === "DRILL_SHEET"
                 ? "bg-slate-900 text-white"
                 : "text-slate-700 hover:bg-slate-50"
@@ -704,21 +704,21 @@ export function StructureWorkbook({
           <button
             type="button"
             onClick={() => addRows(1)}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Add 1 row
           </button>
           <button
             type="button"
             onClick={() => addRows(5)}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Add 5 rows
           </button>
           <button
             type="button"
             onClick={() => addRows(10)}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Add 10 rows
           </button>
@@ -726,7 +726,7 @@ export function StructureWorkbook({
             type="button"
             onClick={duplicateSelected}
             disabled={selectedRowIds.size === 0}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
           >
             Duplicate selected
           </button>
@@ -734,14 +734,14 @@ export function StructureWorkbook({
             type="button"
             onClick={removeSelected}
             disabled={selectedRowIds.size === 0}
-            className="rounded-lg border border-red-200 px-3 py-1.5 text-[11px] font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40"
+            className="rounded-lg border border-red-200 px-3 py-1.5 text-2xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40"
           >
             Remove selected
           </button>
           <button
             type="button"
             onClick={removeEmptyRows}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Remove empty rows
           </button>
@@ -749,14 +749,14 @@ export function StructureWorkbook({
             type="button"
             onClick={repriceAllRows}
             title="Recompute every row's price from the quote's price list (use after changing the quote's list or updating mold/boot prices)."
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Reprice from price list
           </button>
           <button
             type="button"
             onClick={() => setImportOpen(true)}
-            className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-700 hover:bg-sky-100"
+            className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-2xs font-semibold text-sky-700 hover:bg-sky-100"
           >
             Import from Excel
           </button>
@@ -764,7 +764,7 @@ export function StructureWorkbook({
             <button
               type="button"
               onClick={() => setJobSheetImportOpen(true)}
-              className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-700 hover:bg-sky-100"
+              className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-2xs font-semibold text-sky-700 hover:bg-sky-100"
             >
               Import from Job Drill Sheets
             </button>
@@ -781,7 +781,7 @@ export function StructureWorkbook({
           onSelectionChange={setSelectedRowIds}
         />
 
-        <p className="mt-2 text-[11px] text-slate-500">
+        <p className="mt-2 text-2xs text-slate-500">
           {pricedCount} of {rows.length} rows priced
           {pricedCount > 0
             ? ` — extended total ${formatQuoteCurrency(pricedTotal)}`

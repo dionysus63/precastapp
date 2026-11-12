@@ -147,7 +147,7 @@ function StepCard({
           <button
             type="button"
             onClick={onEdit}
-            className="rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+            className="rounded-md border border-slate-200 px-2 py-1 text-2xs font-semibold text-slate-600 hover:bg-slate-50"
           >
             Change
           </button>
@@ -640,7 +640,7 @@ export function OneOffDrillSheets({
                   {setupSummary(section, shape) || "Nothing picked yet"}
                 </span>
               ) : (
-                <span className="min-w-0 flex-1 truncate text-[11px] text-slate-400">
+                <span className="min-w-0 flex-1 truncate text-2xs text-slate-400">
                   {section.rows != null
                     ? "Folds away once the rows are built. Open it to rebuild."
                     : "Pick what every structure starts from, then build the rows."}
@@ -679,7 +679,7 @@ export function OneOffDrillSheets({
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   {label} grid
                 </h4>
-                <span className="text-[11px] text-slate-500">
+                <span className="text-2xs text-slate-500">
                   {sectionReady} of {section.rows.length} ready
                 </span>
               </div>
@@ -832,7 +832,7 @@ export function OneOffDrillSheets({
           </div>
           {(shapeChoice === "CIRCULAR" && rect.rows != null) ||
           (shapeChoice === "RECTANGULAR" && circular.rows != null) ? (
-            <p className="mt-2 text-[11px] text-slate-500">
+            <p className="mt-2 text-2xs text-slate-500">
               Rows already typed for the other shape are kept but won&apos;t be
               created unless you switch back.
             </p>

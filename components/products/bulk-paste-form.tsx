@@ -603,7 +603,7 @@ export function BulkPasteForm({
             <p className="text-xs font-medium text-slate-700">
               Paste columns ({bulkImportPresetLabels[importPreset]})
             </p>
-            <p className="mt-1 text-[11px] text-slate-500">
+            <p className="mt-1 text-2xs text-slate-500">
               {columnHeaders.join(" → ")}
             </p>
           </div>
@@ -621,7 +621,7 @@ export function BulkPasteForm({
               onChange={(event) => setPasteText(event.target.value)}
               rows={10}
               placeholder="Paste copied Excel rows here..."
-              className={`${productInputClassName} font-mono text-[11px]`}
+              className={`${productInputClassName} font-mono text-2xs`}
             />
           </div>
 
@@ -731,7 +731,7 @@ export function BulkPasteForm({
                             column.key === "issues"
                               ? "text-red-600"
                               : column.key === "productCode"
-                                ? "font-mono text-[11px] text-slate-900"
+                                ? "font-mono text-2xs text-slate-900"
                                 : column.key === "status"
                                   ? ""
                                   : "text-slate-600"

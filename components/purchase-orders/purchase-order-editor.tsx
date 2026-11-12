@@ -376,7 +376,7 @@ export function PurchaseOrderEditor({
                         <button
                           type="button"
                           onClick={() => removeLine(line.id)}
-                          className="text-[11px] text-slate-500 hover:text-slate-900"
+                          className="text-2xs text-slate-500 hover:text-slate-900"
                         >
                           Remove
                         </button>

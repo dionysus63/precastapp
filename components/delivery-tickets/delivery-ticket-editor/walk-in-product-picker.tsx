@@ -70,7 +70,7 @@ export function WalkInProductPicker({
             <div
               role="group"
               aria-label="Filter products by"
-              className="inline-flex overflow-hidden rounded-md border border-slate-200 text-[11px] font-medium"
+              className="inline-flex overflow-hidden rounded-md border border-slate-200 text-2xs font-medium"
             >
               <button
                 type="button"
@@ -104,7 +104,7 @@ export function WalkInProductPicker({
                 <button
                   type="button"
                   onClick={() => selectWalkInGroup(null)}
-                  className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+                  className={`rounded-full border px-2.5 py-1 text-2xs font-medium ${
                     walkInGroupId == null
                       ? "border-slate-900 bg-slate-900 text-white"
                       : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
@@ -126,7 +126,7 @@ export function WalkInProductPicker({
                     key={group.id}
                     type="button"
                     onClick={() => selectWalkInGroup(group.id)}
-                    className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+                    className={`rounded-full border px-2.5 py-1 text-2xs font-medium ${
                       walkInGroupId === group.id
                         ? "border-slate-900 bg-slate-900 text-white"
                         : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
@@ -148,13 +148,13 @@ export function WalkInProductPicker({
               {walkInGroupId &&
               (subgroupsByParent.get(walkInGroupId) ?? []).length > 0 ? (
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-2xs text-slate-400">
                     Sub-group:
                   </span>
                   <button
                     type="button"
                     onClick={() => setWalkInSubgroupId(null)}
-                    className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${
+                    className={`rounded-md border px-2 py-0.5 text-2xs font-medium ${
                       walkInSubgroupId == null
                         ? "border-slate-300 bg-slate-100 text-slate-900"
                         : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
@@ -168,7 +168,7 @@ export function WalkInProductPicker({
                         key={subgroup.id}
                         type="button"
                         onClick={() => setWalkInSubgroupId(subgroup.id)}
-                        className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${
+                        className={`rounded-md border px-2 py-0.5 text-2xs font-medium ${
                           walkInSubgroupId === subgroup.id
                             ? "border-slate-300 bg-slate-100 text-slate-900"
                             : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
@@ -191,7 +191,7 @@ export function WalkInProductPicker({
             <button
               type="button"
               onClick={() => selectWalkInCategory("all")}
-              className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+              className={`rounded-full border px-2.5 py-1 text-2xs font-medium ${
                 walkInCategoryId === "all"
                   ? "border-slate-900 bg-slate-900 text-white"
                   : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
@@ -213,7 +213,7 @@ export function WalkInProductPicker({
                 key={category.id}
                 type="button"
                 onClick={() => selectWalkInCategory(category.id)}
-                className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+                className={`rounded-full border px-2.5 py-1 text-2xs font-medium ${
                   walkInCategoryId === category.id
                     ? "border-slate-900 bg-slate-900 text-white"
                     : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
@@ -234,13 +234,13 @@ export function WalkInProductPicker({
           </div>
           {walkInSubcategories.length > 0 ? (
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] text-slate-400">
+              <span className="text-2xs text-slate-400">
                 Subcategory:
               </span>
               <button
                 type="button"
                 onClick={() => setWalkInSubcategoryId(null)}
-                className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${
+                className={`rounded-md border px-2 py-0.5 text-2xs font-medium ${
                   walkInSubcategoryId == null
                     ? "border-slate-300 bg-slate-100 text-slate-900"
                     : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
@@ -253,7 +253,7 @@ export function WalkInProductPicker({
                   key={subcategory.id}
                   type="button"
                   onClick={() => setWalkInSubcategoryId(subcategory.id)}
-                  className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${
+                  className={`rounded-md border px-2 py-0.5 text-2xs font-medium ${
                     walkInSubcategoryId === subcategory.id
                       ? "border-slate-300 bg-slate-100 text-slate-900"
                       : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
@@ -305,7 +305,7 @@ export function WalkInProductPicker({
                               {formatUsd(pickupEach)}
                             </span>
                             {showsDeliveredStrike ? (
-                              <span className="ml-1 text-[10px] text-slate-400 line-through">
+                              <span className="ml-1 text-3xs text-slate-400 line-through">
                                 {formatUsd(product.unitPrice!)}
                               </span>
                             ) : null}
@@ -317,16 +317,16 @@ export function WalkInProductPicker({
                         )}
                       </span>
                       {product.currentStock != null ? (
-                        <span className="hidden shrink-0 text-[10px] text-slate-400 sm:inline">
+                        <span className="hidden shrink-0 text-3xs text-slate-400 sm:inline">
                           {product.currentStock} in stock
                         </span>
                       ) : null}
                       {onTicket > 0 ? (
-                        <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800">
+                        <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-3xs font-semibold text-emerald-800">
                           {onTicket} on ticket
                         </span>
                       ) : (
-                        <span className="shrink-0 rounded-md border border-slate-300 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                        <span className="shrink-0 rounded-md border border-slate-300 px-1.5 py-0.5 text-3xs font-semibold text-slate-600">
                           Add
                         </span>
                       )}
@@ -335,7 +335,7 @@ export function WalkInProductPicker({
                 })}
               </div>
               {walkInFiltered.length > walkInResults.length ? (
-                <p className="text-[11px] text-slate-400">
+                <p className="text-2xs text-slate-400">
                   Showing {walkInResults.length} of {walkInFiltered.length} —
                   refine with search or a subcategory.
                 </p>

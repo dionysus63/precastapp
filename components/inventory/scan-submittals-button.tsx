@@ -41,10 +41,10 @@ export function ScanSubmittalsButton() {
         {pending ? "Scanning…" : "Scan Submittals Folder"}
       </button>
       {message.error ? (
-        <span className="text-[10px] text-red-600">{message.error}</span>
+        <span className="text-3xs text-red-600">{message.error}</span>
       ) : null}
       {message.success ? (
-        <span className="text-[10px] text-green-700">{message.success}</span>
+        <span className="text-3xs text-green-700">{message.success}</span>
       ) : null}
     </div>
   );

@@ -57,7 +57,7 @@ export function RectSheetPreview({
             {meta.structureNumber ? `${meta.structureNumber} — ` : ""}
             {meta.templateName || "Rectangular Structure"}
           </h3>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-2xs text-slate-500">
             {result.insideLengthFeet != null && result.insideWidthFeet != null
               ? `${formatFeetInchesShort(result.insideLengthFeet)} x ${formatFeetInchesShort(result.insideWidthFeet)} inside`
               : "Enter a size"}
@@ -494,7 +494,7 @@ function SummaryPanel({
           <span className="font-semibold">Price:</span> $
           {result.totalPrice.toFixed(2)}
           {result.minPricingApplied ? " (minimum height applied)" : ""}
-          <span className="block text-[11px] text-slate-500">
+          <span className="block text-2xs text-slate-500">
             walls ${result.wallPrice.toFixed(2)}
             {result.topSlabPrice > 0
               ? ` + top slab $${result.topSlabPrice.toFixed(2)}`

@@ -2,6 +2,7 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { ActionForm } from "@/components/ui/action-form";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { JobsDefaultTabForm } from "@/components/settings/jobs-default-tab-form";
+import { TextSizeForm } from "@/components/settings/text-size-form";
 import { customerInputClassName } from "@/components/customers/customer-form";
 import {
   changeMyPassword,
@@ -103,6 +104,13 @@ export default async function ProfilePage() {
         description="Which tab opens when you click Jobs. This is your own setting."
       >
         <JobsDefaultTabForm current={user.defaultJobsTab} />
+      </SectionCard>
+
+      <SectionCard
+        title="Text Size"
+        description="How big the words on your screens are. This is your own setting."
+      >
+        <TextSizeForm current={user.textSize} />
       </SectionCard>
 
       <SectionCard title="Change Password">

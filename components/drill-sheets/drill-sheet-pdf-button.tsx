@@ -31,12 +31,12 @@ export function DrillSheetPdfButton({ drillSheetId }: DrillSheetPdfButtonProps) 
             setMessage(result.error);
           });
         }}
-        className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
       >
         {pending ? "Generating…" : "Generate PDF"}
       </button>
       {message ? (
-        <p className="max-w-xs text-right text-[10px] text-slate-500">
+        <p className="max-w-xs text-right text-3xs text-slate-500">
           {message}
         </p>
       ) : null}

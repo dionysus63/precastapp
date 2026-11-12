@@ -73,7 +73,7 @@ function PreviewPanel({
 }) {
   return (
     <div className={`border border-slate-200 p-2 ${className ?? ""}`}>
-      <h4 className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+      <h4 className="mb-1 text-3xs font-semibold uppercase tracking-wide text-slate-500">
         {title}
       </h4>
       {children}
@@ -84,8 +84,8 @@ function PreviewPanel({
 function HeaderRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-2 border-b border-slate-100 py-0.5">
-      <span className="text-[10px] font-medium text-slate-500">{label}</span>
-      <span className="text-[10px] font-semibold text-slate-900">{value}</span>
+      <span className="text-3xs font-medium text-slate-500">{label}</span>
+      <span className="text-3xs font-semibold text-slate-900">{value}</span>
     </div>
   );
 }
@@ -107,15 +107,15 @@ function CalcRow({
           : "border-b border-slate-100 text-slate-700"
       }`}
     >
-      <span className="text-[10px]">{label}</span>
-      <span className="text-[10px] tabular-nums">{value}</span>
+      <span className="text-3xs">{label}</span>
+      <span className="text-3xs tabular-nums">{value}</span>
     </div>
   );
 }
 
 // Compact 10px variant of the shared Excel-style gridlines (lib/table-styles)
 // sized to mirror the printed drill sheet.
-const compactTableHead = "bg-slate-100 text-[10px] uppercase tracking-wide text-slate-600";
+const compactTableHead = "bg-slate-100 text-3xs uppercase tracking-wide text-slate-600";
 const compactTh =
   "border-b-2 border-r border-b-slate-300 border-r-slate-200 px-2 py-1 font-semibold last:border-r-0";
 const compactTd =
@@ -193,14 +193,14 @@ export function DrillSheetPreview({ meta, result }: DrillSheetPreviewProps) {
   return (
     <div className="space-y-2">
       {result.errorMessage ? (
-        <div className="rounded border border-rose-200 bg-rose-50 p-2 text-[10px] text-rose-800">
+        <div className="rounded border border-rose-200 bg-rose-50 p-2 text-3xs text-rose-800">
           {result.errorMessage}
         </div>
       ) : null}
 
       {result.warnings.length > 0 ? (
         <div className="rounded border border-amber-200 bg-amber-50 p-2">
-          <ul className="list-disc pl-4 text-[10px] text-amber-800">
+          <ul className="list-disc pl-4 text-3xs text-amber-800">
             {result.warnings.map((warning) => (
               <li key={warning}>{warning}</li>
             ))}
@@ -261,7 +261,7 @@ export function DrillSheetPreview({ meta, result }: DrillSheetPreviewProps) {
           <div className="mt-2 grid gap-2 lg:grid-cols-2">
             {elevations.length > 0 ? (
               <PreviewPanel title="Elevations (top to bottom)">
-                <table className="min-w-full text-left text-[10px]">
+                <table className="min-w-full text-left text-3xs">
                   <thead>
                     <tr className={compactTableHead}>
                       <th className={`${compactTh} text-left`}>Location</th>
@@ -288,7 +288,7 @@ export function DrillSheetPreview({ meta, result }: DrillSheetPreviewProps) {
 
             {dimensions.length > 0 ? (
               <PreviewPanel title="Dimensions (top to bottom)">
-                <table className="min-w-full text-left text-[10px]">
+                <table className="min-w-full text-left text-3xs">
                   <thead>
                     <tr className={compactTableHead}>
                       <th className={`${compactTh} text-left`}>Component</th>
@@ -325,13 +325,13 @@ export function DrillSheetPreview({ meta, result }: DrillSheetPreviewProps) {
             className={hasPlan ? undefined : "lg:col-span-2"}
           >
             {result.sections.length === 0 ? (
-              <p className="text-[10px] text-slate-500">No sections selected.</p>
+              <p className="text-3xs text-slate-500">No sections selected.</p>
             ) : (
               <ul className="space-y-0.5">
                 {result.sections.map((section, index) => (
                   <li
                     key={`${section.role}-${index}`}
-                    className="flex justify-between text-[10px] text-slate-700"
+                    className="flex justify-between text-3xs text-slate-700"
                   >
                     <span>
                       {section.role === "BASE" ? "Base" : "Riser"}
@@ -365,14 +365,14 @@ export function DrillSheetPreview({ meta, result }: DrillSheetPreviewProps) {
             {result.totalWeightLb != null ? (
               <div className="mt-1 space-y-0.5 border-t border-slate-100 pt-1">
                 {result.topSlabWeightLb != null ? (
-                  <div className="flex justify-between text-[10px] text-slate-700">
+                  <div className="flex justify-between text-3xs text-slate-700">
                     <span>Top Slab</span>
                     <span className="tabular-nums">
                       {result.topSlabWeightLb.toLocaleString()} lb
                     </span>
                   </div>
                 ) : null}
-                <div className="flex justify-between text-[10px] font-semibold text-slate-900">
+                <div className="flex justify-between text-3xs font-semibold text-slate-900">
                   <span>Total Weight</span>
                   <span className="tabular-nums">
                     {result.totalWeightLb.toLocaleString()} lb
@@ -380,25 +380,25 @@ export function DrillSheetPreview({ meta, result }: DrillSheetPreviewProps) {
                 </div>
               </div>
             ) : null}
-            <p className="mt-1 text-[9px] text-slate-500">
+            <p className="mt-1 text-4xs text-slate-500">
               Top slab is always separate.
             </p>
             {meta.useBase || meta.useRiser || meta.brickAdjustment ? (
               <dl className="mt-1 space-y-0.5 border-t border-slate-100 pt-1">
                 {meta.useBase ? (
-                  <div className="flex justify-between text-[10px]">
+                  <div className="flex justify-between text-3xs">
                     <dt className="text-slate-500">Use (Base)</dt>
                     <dd className="font-medium text-slate-900">{meta.useBase}</dd>
                   </div>
                 ) : null}
                 {meta.useRiser ? (
-                  <div className="flex justify-between text-[10px]">
+                  <div className="flex justify-between text-3xs">
                     <dt className="text-slate-500">Use (Riser)</dt>
                     <dd className="font-medium text-slate-900">{meta.useRiser}</dd>
                   </div>
                 ) : null}
                 {meta.brickAdjustment ? (
-                  <div className="flex justify-between text-[10px]">
+                  <div className="flex justify-between text-3xs">
                     <dt className="text-slate-500">Brick Adjustment</dt>
                     <dd className="font-medium text-slate-900">
                       {meta.brickAdjustment}
@@ -411,7 +411,7 @@ export function DrillSheetPreview({ meta, result }: DrillSheetPreviewProps) {
         </div>
 
         <div className="mt-2 overflow-x-auto border border-slate-200">
-          <table className="min-w-full text-left text-[10px]">
+          <table className="min-w-full text-left text-3xs">
             <thead>
               <tr className={compactTableHead}>
                 <th className={compactTh}>Opening</th>

@@ -144,7 +144,7 @@ export function GroupMemberReorderTable({
               onDragEnd={clearDrag}
               title="Drag to reorder"
               aria-label={`Drag ${row.productCode} to reorder`}
-              className="inline-flex h-6 w-4 shrink-0 cursor-grab select-none items-center justify-center rounded text-[13px] leading-none text-slate-300 hover:bg-slate-200/70 hover:text-slate-600 active:cursor-grabbing"
+              className="inline-flex h-6 w-4 shrink-0 cursor-grab select-none items-center justify-center rounded text-xsm leading-none text-slate-300 hover:bg-slate-200/70 hover:text-slate-600 active:cursor-grabbing"
             >
               ⋮⋮
             </span>
@@ -172,7 +172,7 @@ export function GroupMemberReorderTable({
               <button
                 type="submit"
                 aria-label={`Remove ${row.productCode}`}
-                className="inline-flex h-6 w-6 items-center justify-center rounded text-[13px] text-red-500 hover:bg-red-50 hover:text-red-700"
+                className="inline-flex h-6 w-6 items-center justify-center rounded text-xsm text-red-500 hover:bg-red-50 hover:text-red-700"
               >
                 ✕
               </button>

@@ -127,7 +127,7 @@ export default async function StructuresPage() {
                       <div className="flex items-center gap-1.5">
                         <Link
                           href={`/structures/${template.id}`}
-                          className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                          className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50"
                         >
                           Edit
                         </Link>
@@ -140,7 +140,7 @@ export default async function StructuresPage() {
                           <button
                             type="submit"
                             title={`Create a copy of ${template.name}`}
-                            className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                            className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50"
                           >
                             Duplicate
                           </button>

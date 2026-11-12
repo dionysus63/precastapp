@@ -121,8 +121,8 @@ export default async function FileSettingsPage({
         title="Job folder template"
         description="Subfolder names are fixed for existing jobs. Renaming requires a disk migration."
       >
-        <p className="mb-3 font-mono text-[11px] text-slate-600">{previewPath}</p>
-        <ul className="space-y-1 rounded-lg border border-slate-100 bg-slate-50/80 p-3 font-mono text-[11px] text-slate-700">
+        <p className="mb-3 font-mono text-2xs text-slate-600">{previewPath}</p>
+        <ul className="space-y-1 rounded-lg border border-slate-100 bg-slate-50/80 p-3 font-mono text-2xs text-slate-700">
           {settings.jobSubfolders.map((folder) => (
             <li key={folder}>📁 {folder}</li>
           ))}

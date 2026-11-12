@@ -108,7 +108,7 @@ export default async function ProductCatalogSettingsPage({
                           <form action={updateProductCategoryFormAction} className="grid gap-2">
                             <input type="hidden" name="id" value={category.id} />
                             <div>
-                              <label className="text-[11px] font-medium text-slate-600">
+                              <label className="text-2xs font-medium text-slate-600">
                                 Name
                               </label>
                               <input
@@ -119,7 +119,7 @@ export default async function ProductCatalogSettingsPage({
                               />
                             </div>
                             <div>
-                              <label className="text-[11px] font-medium text-slate-600">
+                              <label className="text-2xs font-medium text-slate-600">
                                 Product type
                               </label>
                               <select
@@ -136,7 +136,7 @@ export default async function ProductCatalogSettingsPage({
                               </select>
                             </div>
                             <div>
-                              <label className="text-[11px] font-medium text-slate-600">
+                              <label className="text-2xs font-medium text-slate-600">
                                 Default product kind
                               </label>
                               <select
@@ -155,7 +155,7 @@ export default async function ProductCatalogSettingsPage({
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                               <div>
-                                <label className="text-[11px] font-medium text-slate-600">
+                                <label className="text-2xs font-medium text-slate-600">
                                   Status
                                 </label>
                                 <select
@@ -168,7 +168,7 @@ export default async function ProductCatalogSettingsPage({
                                 </select>
                               </div>
                               <div>
-                                <label className="text-[11px] font-medium text-slate-600">
+                                <label className="text-2xs font-medium text-slate-600">
                                   Sort
                                 </label>
                                 <input
@@ -195,7 +195,7 @@ export default async function ProductCatalogSettingsPage({
                           />
 
                           <div className="border-t border-slate-200 pt-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            <p className="text-2xs font-semibold uppercase tracking-wide text-slate-500">
                               Subcategories
                             </p>
                             {category.subcategories.length === 0 ? (
@@ -225,13 +225,13 @@ export default async function ProductCatalogSettingsPage({
                                           required
                                           className={inputClass}
                                         />
-                                        <span className="shrink-0 text-[11px] text-slate-500">
+                                        <span className="shrink-0 text-2xs text-slate-500">
                                           {subcategory._count.products} products
                                         </span>
                                       </div>
                                       <div className="flex items-end gap-2">
                                         <div className="flex-1">
-                                          <label className="text-[11px] font-medium text-slate-600">
+                                          <label className="text-2xs font-medium text-slate-600">
                                             Sort
                                           </label>
                                           <input

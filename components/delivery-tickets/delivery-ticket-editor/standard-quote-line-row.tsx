@@ -114,7 +114,7 @@ export function StandardQuoteLineRow({
                   <span>{line.itemCode}</span>
                 )}
                 {line.lineType !== "STOCK_PRODUCT" ? (
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  <span className="text-3xs font-semibold uppercase tracking-wide text-slate-400">
                     {formatLineTypeLabel(line.lineType)}
                   </span>
                 ) : null}
@@ -122,7 +122,7 @@ export function StandardQuoteLineRow({
                   <button
                     type="button"
                     onClick={() => openSplitForm(line)}
-                    className="rounded border border-slate-200 bg-white px-1.5 py-px text-[10px] font-medium text-slate-600 hover:bg-slate-50"
+                    className="rounded border border-slate-200 bg-white px-1.5 py-px text-3xs font-medium text-slate-600 hover:bg-slate-50"
                   >
                     Split for shipping
                   </button>
@@ -138,7 +138,7 @@ export function StandardQuoteLineRow({
               {splitFormOpen ? (
                 <div className="mt-2 max-w-md rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <div className="flex items-center gap-2">
-                    <label className="text-[11px] font-medium text-slate-700">
+                    <label className="text-2xs font-medium text-slate-700">
                       Pieces
                     </label>
                     <input
@@ -154,7 +154,7 @@ export function StandardQuoteLineRow({
                       }
                       className={`w-16 ${inlineTableInputClass}`}
                     />
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-3xs text-slate-400">
                       Names + optional weight each (lb)
                     </span>
                   </div>
@@ -184,14 +184,14 @@ export function StandardQuoteLineRow({
                     ))}
                   </div>
                   {splitError ? (
-                    <p className="mt-2 text-[11px] text-red-600">{splitError}</p>
+                    <p className="mt-2 text-2xs text-red-600">{splitError}</p>
                   ) : null}
                   <div className="mt-2 flex gap-2">
                     <button
                       type="button"
                       disabled={splitPending}
                       onClick={() => void saveSplit(line)}
-                      className="rounded-md bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
+                      className="rounded-md bg-slate-900 px-2.5 py-1 text-2xs font-semibold text-white disabled:opacity-50"
                     >
                       {splitPending
                         ? "Splitting…"
@@ -201,7 +201,7 @@ export function StandardQuoteLineRow({
                       type="button"
                       disabled={splitPending}
                       onClick={() => setSplitFormStructureId(null)}
-                      className="rounded-md border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-white disabled:opacity-50"
+                      className="rounded-md border border-slate-200 px-2.5 py-1 text-2xs font-medium text-slate-700 hover:bg-white disabled:opacity-50"
                     >
                       Cancel
                     </button>

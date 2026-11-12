@@ -61,12 +61,12 @@ export function OneOffDraftBar({
           />
         </label>
         <span
-          className={`text-[11px] ${draft && !dirty && !saving ? "text-emerald-700" : "text-slate-500"}`}
+          className={`text-2xs ${draft && !dirty && !saving ? "text-emerald-700" : "text-slate-500"}`}
           suppressHydrationWarning
         >
           {status}
         </span>
-        {error ? <span className="text-[11px] text-red-600">{error}</span> : null}
+        {error ? <span className="text-2xs text-red-600">{error}</span> : null}
       </div>
       <div className="flex items-center gap-2">
         {draft ? (

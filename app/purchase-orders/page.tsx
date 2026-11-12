@@ -185,7 +185,7 @@ export default async function PurchaseOrdersPage({
               <tbody className={tableBodyClassName}>
                 {rows.map((row) => (
                   <tr key={row.id} className={tableRowClassName}>
-                    <td className={`${tableCellClassName} font-mono text-[11px] font-medium`}>
+                    <td className={`${tableCellClassName} font-mono text-2xs font-medium`}>
                       <Link
                         href={`/purchase-orders/${row.id}`}
                         className="text-slate-900 hover:text-slate-700"

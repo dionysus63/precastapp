@@ -89,7 +89,7 @@ function ModeCard({
 function ReadOnlyField({ label, value }: { label: string; value: string | null }) {
   return (
     <div>
-      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+      <p className="text-2xs font-medium uppercase tracking-wide text-slate-500">
         {label}
       </p>
       <p className="mt-0.5 text-sm text-slate-900">{value?.trim() || "—"}</p>
@@ -182,10 +182,10 @@ export function OneOffJobStep({
               inputClassName={jobInputClassName}
             />
             {loading ? (
-              <p className="mt-1 text-[11px] text-slate-500">Loading job…</p>
+              <p className="mt-1 text-2xs text-slate-500">Loading job…</p>
             ) : null}
             {loadError ? (
-              <p className="mt-1 text-[11px] text-red-600">{loadError}</p>
+              <p className="mt-1 text-2xs text-red-600">{loadError}</p>
             ) : null}
           </div>
           {choice.job ? (
@@ -210,7 +210,7 @@ export function OneOffJobStep({
                   .filter(Boolean)
                   .join(" · ")}
               />
-              <p className="text-[11px] text-slate-500 sm:col-span-3">
+              <p className="text-2xs text-slate-500 sm:col-span-3">
                 {choice.job.structureNumbers.length > 0
                   ? `This job already has ${choice.job.structureNumbers.length} numbered structure${choice.job.structureNumbers.length === 1 ? "" : "s"}; new rows are numbered after them.`
                   : "This job has no structures yet."}{" "}

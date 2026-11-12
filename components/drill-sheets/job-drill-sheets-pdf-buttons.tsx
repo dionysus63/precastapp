@@ -20,7 +20,7 @@ export function JobDrillSheetsPdfButtons({ jobId }: { jobId: string }) {
           href={`/api/jobs/${jobId}/drill-sheets`}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center justify-center rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-700 hover:bg-sky-100"
+          className="inline-flex items-center justify-center rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-2xs font-semibold text-sky-700 hover:bg-sky-100"
         >
           View All Sheets
         </a>
@@ -46,13 +46,13 @@ export function JobDrillSheetsPdfButtons({ jobId }: { jobId: string }) {
               setMessage(result.error);
             });
           }}
-          className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
         >
           {pending ? "Saving…" : "Save All Sheets"}
         </button>
       </div>
       {message ? (
-        <p className="max-w-sm text-right text-[10px] text-slate-500">
+        <p className="max-w-sm text-right text-3xs text-slate-500">
           {message}
         </p>
       ) : null}

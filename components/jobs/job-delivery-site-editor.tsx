@@ -97,7 +97,7 @@ export function JobDeliverySiteEditor({
       type="button"
       onClick={startEditing}
       aria-label={`Edit delivery site for job ${jobNumber}`}
-      className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+      className="rounded-lg border border-slate-200 px-2.5 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
     >
       {hasAddress || hasContact ? "Edit" : "Add"}
     </button>
@@ -161,7 +161,7 @@ export function JobDeliverySiteEditor({
                 type="button"
                 disabled={pending}
                 onClick={() => update("deliveryAddress", projectAddress)}
-                className="text-[11px] font-medium text-slate-500 underline decoration-dotted underline-offset-2 hover:text-slate-700"
+                className="text-2xs font-medium text-slate-500 underline decoration-dotted underline-offset-2 hover:text-slate-700"
               >
                 Use project address
               </button>
@@ -177,7 +177,7 @@ export function JobDeliverySiteEditor({
             placeholder={"Street\nTown, NY 11700"}
             className={jobInputClassName}
           />
-          <p className="mt-1 text-[11px] text-slate-500">
+          <p className="mt-1 text-2xs text-slate-500">
             One line per row as it should print on the ticket.
           </p>
         </div>
@@ -202,7 +202,7 @@ export function JobDeliverySiteEditor({
                     siteContactEmail: site.jobContact.email,
                   }))
                 }
-                className="text-[11px] font-medium text-slate-500 underline decoration-dotted underline-offset-2 hover:text-slate-700"
+                className="text-2xs font-medium text-slate-500 underline decoration-dotted underline-offset-2 hover:text-slate-700"
               >
                 Use job contact
               </button>
@@ -272,14 +272,14 @@ export function JobDeliverySiteEditor({
             type="button"
             onClick={cancel}
             disabled={pending}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={pending}
-            className="rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+            className="rounded-lg bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
           >
             {pending ? "Saving…" : "Save"}
           </button>
@@ -317,7 +317,7 @@ function SiteRow({
           {display || "—"}
         </span>
         {note ? (
-          <span className="block text-[10px] italic text-slate-400">{note}</span>
+          <span className="block text-3xs italic text-slate-400">{note}</span>
         ) : null}
       </dd>
     </div>

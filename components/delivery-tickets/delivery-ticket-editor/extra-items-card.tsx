@@ -220,7 +220,7 @@ export function ExtraItemsCard({
                       <button
                         type="button"
                         onClick={() => removeLine(line.key)}
-                        className="rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-red-600 hover:bg-red-50"
+                        className="rounded border border-slate-200 px-1.5 py-0.5 text-2xs font-medium text-red-600 hover:bg-red-50"
                       >
                         Remove
                       </button>

@@ -42,11 +42,17 @@ import {
 
 /** Width of each structure column, fixed so the grid stays compact. */
 const STRUCTURE_COLUMN_PX = 64;
-/** Width of the field-name column down the left. */
+/** Width of the field-name column down the left, at Normal text size. */
 const LABEL_COLUMN_PX = 88;
+/**
+ * The label column grows with the user's Text Size so "Structure #" stays on
+ * one line. Structure columns stay 64px at every size (they fit up to Extra
+ * Large), so the same number of structures shows.
+ */
+const LABEL_COLUMN_WIDTH = `calc(${LABEL_COLUMN_PX}px * var(--text-scale, 1))`;
 
 const cellInputClassName =
-  "block h-8 w-full min-w-0 border-0 bg-transparent px-1 text-[13px] text-slate-900 placeholder:text-slate-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-sky-500";
+  "block h-8 w-full min-w-0 border-0 bg-transparent px-1 text-xsm text-slate-900 placeholder:text-slate-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-sky-500";
 const labelCellClassName =
   "sticky left-0 z-10 border-b border-r border-slate-300 bg-slate-50 px-2 text-left text-xs font-semibold text-slate-600";
 
@@ -123,7 +129,7 @@ function setOpening(
 /** How the grid is typed in; rendered above the grid so it can span the page. */
 export function OneOffGridHint({ editMode = false }: { editMode?: boolean }) {
   return (
-    <p className="text-[11px] text-slate-500">
+    <p className="text-2xs text-slate-500">
       One column per structure, fields down the side. Enter moves down, Tab
       moves to the next structure, arrows move between cells, and a block
       copied from Excel (laid out the same way) pastes in. Rim and inverts
@@ -673,7 +679,7 @@ export function OneOffGrid({
     (row) => (row.openings[openingCount - 1]?.invert ?? "").trim() !== "",
   );
 
-  const tableWidth = LABEL_COLUMN_PX + STRUCTURE_COLUMN_PX * rows.length;
+  const tableWidth = `calc(${LABEL_COLUMN_WIDTH} + ${STRUCTURE_COLUMN_PX * rows.length}px)`;
 
   /** Per-structure facts the read-only rows show. */
   const summaries = rows.map((row, rowIndex) => {
@@ -706,7 +712,7 @@ export function OneOffGrid({
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <div className="flex items-center gap-1.5">
-          <span className="text-[11px] font-medium text-slate-600">
+          <span className="text-2xs font-medium text-slate-600">
             Openings: {openingCount}
           </span>
           <button
@@ -718,7 +724,7 @@ export function OneOffGrid({
                 ? `Clear the Inv ${openingLetter(openingCount - 1)} row first`
                 : "Remove the last opening"
             }
-            className="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+            className="rounded border border-slate-200 bg-white px-2 py-0.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
           >
             − Opening
           </button>
@@ -726,7 +732,7 @@ export function OneOffGrid({
             type="button"
             onClick={() => changeOpeningCount(openingCount + 1)}
             disabled={openingCount >= ONE_OFF_MAX_OPENINGS}
-            className="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+            className="rounded border border-slate-200 bg-white px-2 py-0.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
           >
             + Opening
           </button>
@@ -740,7 +746,7 @@ export function OneOffGrid({
           style={{ width: tableWidth, tableLayout: "fixed" }}
         >
           <colgroup>
-            <col style={{ width: LABEL_COLUMN_PX }} />
+            <col style={{ width: LABEL_COLUMN_WIDTH }} />
             {rows.map((row) => (
               <col key={row.id} style={{ width: STRUCTURE_COLUMN_PX }} />
             ))}
@@ -748,7 +754,7 @@ export function OneOffGrid({
           <thead>
             <tr>
               <th
-                className={`${labelCellClassName} h-9 text-[10px] uppercase tracking-wide`}
+                className={`${labelCellClassName} h-9 text-3xs uppercase tracking-wide`}
               >
                 #
               </th>
@@ -763,7 +769,7 @@ export function OneOffGrid({
                         ? "Previewing this structure"
                         : "Click to preview this structure"
                     }
-                    className={`h-9 cursor-pointer border-b border-r border-slate-300 px-1 text-left text-[13px] font-semibold ${
+                    className={`h-9 cursor-pointer border-b border-r border-slate-300 px-1 text-left text-xsm font-semibold ${
                       active
                         ? "bg-sky-100 text-sky-800 shadow-[inset_0_3px_0_0_#0369a1]"
                         : "bg-slate-100 text-slate-700 hover:bg-slate-200/70"
@@ -782,7 +788,7 @@ export function OneOffGrid({
                 <tr key={`group-${column.key}`}>
                   <td
                     colSpan={rows.length + 1}
-                    className="sticky left-0 h-6 border-b border-slate-300 bg-slate-200 px-2 text-[10px] font-bold uppercase tracking-wide text-slate-600"
+                    className="sticky left-0 h-6 border-b border-slate-300 bg-slate-200 px-2 text-3xs font-bold uppercase tracking-wide text-slate-600"
                   >
                     {column.groupLabel}
                   </td>
@@ -874,11 +880,11 @@ export function OneOffGrid({
                             >
                               <div className="flex h-11 items-start gap-0.5 px-1 py-1">
                                 <span
-                                  className={`line-clamp-2 min-w-0 flex-1 break-words text-[11px] leading-[1.25] ${missing ? "text-amber-800" : "text-slate-900"}`}
+                                  className={`line-clamp-2 min-w-0 flex-1 break-words text-2xs leading-[1.25] ${missing ? "text-amber-800" : "text-slate-900"}`}
                                 >
                                   {currentLabel || "— pick —"}
                                 </span>
-                                <span aria-hidden="true" className="mt-0.5 text-[9px] text-slate-400">
+                                <span aria-hidden="true" className="mt-0.5 text-4xs text-slate-400">
                                   ▼
                                 </span>
                               </div>
@@ -963,7 +969,7 @@ export function OneOffGrid({
                         ? `Moved ${formatWallHeightAdjust(adjust)} by hand`
                         : undefined
                     }
-                    className={`${structureCellClass(rowIndex)} h-8 whitespace-nowrap px-1 text-[13px] tabular-nums ${
+                    className={`${structureCellClass(rowIndex)} h-8 whitespace-nowrap px-1 text-xsm tabular-nums ${
                       adjust !== 0
                         ? "font-bold text-sky-700"
                         : "font-medium text-slate-900"
@@ -1022,7 +1028,7 @@ export function OneOffGrid({
                           <path d="M2 4 L6 8.5 L10 4" />
                         </svg>
                       </button>
-                      <span className="flex min-w-0 flex-1 items-center justify-center text-[10px] font-bold tabular-nums text-sky-700">
+                      <span className="flex min-w-0 flex-1 items-center justify-center text-3xs font-bold tabular-nums text-sky-700">
                         {formatWallHeightAdjust(adjust)}
                       </span>
                       <button
@@ -1089,7 +1095,7 @@ export function OneOffGrid({
                   >
                     <span className="flex items-center gap-1 overflow-hidden">
                       <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />
-                      <span className="truncate text-[11px] font-semibold">
+                      <span className="truncate text-2xs font-semibold">
                         {statusText || "—"}
                       </span>
                     </span>
@@ -1109,7 +1115,7 @@ export function OneOffGrid({
                       type="button"
                       onClick={() => duplicateRow(rowIndex)}
                       title="Copy this structure to a new column"
-                      className="mr-1.5 text-[11px] font-semibold text-slate-500 hover:text-slate-900"
+                      className="mr-1.5 text-2xs font-semibold text-slate-500 hover:text-slate-900"
                     >
                       Copy
                     </button>
@@ -1117,7 +1123,7 @@ export function OneOffGrid({
                       type="button"
                       onClick={() => removeRow(rowIndex)}
                       title="Remove this structure"
-                      className="text-[11px] font-semibold text-red-600 hover:text-red-800"
+                      className="text-2xs font-semibold text-red-600 hover:text-red-800"
                     >
                       ✕
                     </button>
@@ -1134,7 +1140,7 @@ export function OneOffGrid({
           type="button"
           onClick={addRow}
           disabled={rows.length >= ONE_OFF_MAX_ROWS}
-          className="rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:border-slate-400 hover:bg-slate-50 disabled:opacity-40"
+          className="rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-2xs font-semibold text-slate-600 hover:border-slate-400 hover:bg-slate-50 disabled:opacity-40"
         >
           + Add structure
         </button>

@@ -34,15 +34,15 @@ export function LinkStructuresButton({ quoteId }: { quoteId: string }) {
             });
           })
         }
-        className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
       >
         Link structures
       </button>
       {message ? (
-        <span className="text-[11px] text-emerald-700">{message}</span>
+        <span className="text-2xs text-emerald-700">{message}</span>
       ) : null}
       {error ? (
-        <span className="text-[11px] text-red-600">{error}</span>
+        <span className="text-2xs text-red-600">{error}</span>
       ) : null}
     </div>
   );

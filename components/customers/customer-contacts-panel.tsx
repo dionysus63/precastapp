@@ -71,7 +71,7 @@ function RoleChip({
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${roleChipClassNames[role]}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-3xs font-semibold ${roleChipClassNames[role]}`}
     >
       {label}
       {isDefault ? (
@@ -223,7 +223,7 @@ export function CustomerContactsPanel({
               setEditingId(null);
               setForm(emptyForm);
             }}
-            className="rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-800"
+            className="rounded-lg bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white hover:bg-slate-800"
           >
             Add Contact
           </button>
@@ -310,7 +310,7 @@ export function CustomerContactsPanel({
                   </label>
                 ))}
               </div>
-              <p className="mt-1 text-[11px] text-slate-500">
+              <p className="mt-1 text-2xs text-slate-500">
                 Estimating gets quotes, Billing gets invoices, Field gets
                 delivery tickets.
               </p>
@@ -329,7 +329,7 @@ export function CustomerContactsPanel({
               />
             </div>
           </div>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-2xs text-slate-500">
             At least one of email or phone is required.
           </p>
           <div className="flex gap-2">
@@ -337,7 +337,7 @@ export function CustomerContactsPanel({
               type="button"
               disabled={pending}
               onClick={handleSave}
-              className="rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+              className="rounded-lg bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
             >
               {pending ? "Saving…" : editingId ? "Save Contact" : "Add Contact"}
             </button>
@@ -345,7 +345,7 @@ export function CustomerContactsPanel({
               type="button"
               disabled={pending}
               onClick={resetForm}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
             >
               Cancel
             </button>
@@ -383,12 +383,12 @@ export function CustomerContactsPanel({
                       {contact.name}
                     </span>
                     {contact.isPrimary ? (
-                      <span className="ml-1.5 rounded-full border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                      <span className="ml-1.5 rounded-full border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-3xs font-medium text-slate-600">
                         Main
                       </span>
                     ) : null}
                     {contact.title !== "—" ? (
-                      <span className="block text-[11px] text-slate-500">
+                      <span className="block text-2xs text-slate-500">
                         {contact.title}
                       </span>
                     ) : null}
@@ -420,7 +420,7 @@ export function CustomerContactsPanel({
                         type="button"
                         disabled={pending}
                         onClick={() => startEdit(contact)}
-                        className="text-[11px] font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50"
+                        className="text-2xs font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50"
                       >
                         Edit
                       </button>
@@ -429,7 +429,7 @@ export function CustomerContactsPanel({
                           type="button"
                           disabled={pending}
                           onClick={() => handleSetPrimary(contact.id)}
-                          className="text-[11px] font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50"
+                          className="text-2xs font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50"
                         >
                           Set main
                         </button>
@@ -438,7 +438,7 @@ export function CustomerContactsPanel({
                         type="button"
                         disabled={pending}
                         onClick={() => handleDelete(contact.id)}
-                        className="text-[11px] font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+                        className="text-2xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
                       >
                         Delete
                       </button>

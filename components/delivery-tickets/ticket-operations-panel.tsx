@@ -38,11 +38,11 @@ export function TicketOperationsPanel({
             }
           })
         }
-        className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
       >
         Convert to Invoice
       </button>
-      {error ? <p className="text-[11px] text-red-600">{error}</p> : null}
+      {error ? <p className="text-2xs text-red-600">{error}</p> : null}
     </>
   );
 }

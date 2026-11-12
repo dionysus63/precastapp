@@ -215,7 +215,7 @@ export default async function Home() {
                         >
                           {quote.quoteNumber}
                         </Link>
-                        <p className="text-[11px] text-slate-500">
+                        <p className="text-2xs text-slate-500">
                           {quote.projectName}
                         </p>
                       </td>
@@ -282,7 +282,7 @@ export default async function Home() {
                       </td>
                       <td className={tableCellClassName}>
                         <p className="font-medium text-slate-900">{job.projectName}</p>
-                        <p className="text-[11px] text-slate-500">
+                        <p className="text-2xs text-slate-500">
                           {job.customerName}
                         </p>
                       </td>
@@ -392,7 +392,7 @@ export default async function Home() {
                           {product.name}
                         </Link>
                       </td>
-                      <td className={`${tableCellClassName} font-mono text-[11px] text-slate-500`}>
+                      <td className={`${tableCellClassName} font-mono text-2xs text-slate-500`}>
                         {product.productCode}
                       </td>
                       <td className={tableCellClassName}>

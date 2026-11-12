@@ -120,7 +120,7 @@ export function ProductionEntryForm({ products }: ProductionEntryFormProps) {
           <button
             type="button"
             onClick={addLine}
-            className="rounded border border-slate-200 px-2 py-1 text-[11px] hover:bg-slate-50"
+            className="rounded border border-slate-200 px-2 py-1 text-2xs hover:bg-slate-50"
           >
             Add row
           </button>

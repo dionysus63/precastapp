@@ -75,7 +75,7 @@ export function JobStatusSelect({
         disabled={pending}
         onChange={(event) => handleChange(event.target.value)}
         aria-label={`Status for job ${jobNumber}`}
-        className={`cursor-pointer rounded-full border py-0.5 pl-2 pr-6 text-[11px] font-medium disabled:opacity-50 ${
+        className={`cursor-pointer rounded-full border py-0.5 pl-2 pr-6 text-2xs font-medium disabled:opacity-50 ${
           statusSelectVariantClassName[statusVariant] ??
           statusSelectVariantClassName.default
         }`}
@@ -87,7 +87,7 @@ export function JobStatusSelect({
         ))}
       </select>
       {error ? (
-        <p className="mt-1 max-w-[160px] text-[10px] text-red-600">{error}</p>
+        <p className="mt-1 max-w-[160px] text-3xs text-red-600">{error}</p>
       ) : null}
     </div>
   );
@@ -185,7 +185,7 @@ export function JobCustomerEditor({
           type="button"
           onClick={() => setEditing(true)}
           aria-label={`Change contractor for job ${jobNumber}`}
-          className="text-[11px] font-medium text-slate-400 underline decoration-dotted underline-offset-2 hover:text-slate-600"
+          className="text-2xs font-medium text-slate-400 underline decoration-dotted underline-offset-2 hover:text-slate-600"
         >
           change
         </button>
@@ -219,7 +219,7 @@ export function JobCustomerEditor({
           onClick={cancel}
           disabled={pending}
           aria-label="Cancel contractor change"
-          className="rounded-md border border-slate-200 px-1.5 py-1 text-[11px] text-slate-500 hover:bg-slate-50"
+          className="rounded-md border border-slate-200 px-1.5 py-1 text-2xs text-slate-500 hover:bg-slate-50"
         >
           ✕
         </button>
@@ -260,7 +260,7 @@ export function JobCustomerEditor({
           </>
         )}
         {error ? (
-          <p className="border-t border-slate-100 px-3 py-1.5 text-[10px] text-red-600">
+          <p className="border-t border-slate-100 px-3 py-1.5 text-3xs text-red-600">
             {error}
           </p>
         ) : null}

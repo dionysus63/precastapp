@@ -495,7 +495,7 @@ function ToggleChip({
       role="switch"
       aria-checked={on}
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-2xs font-semibold ${
         on
           ? `border-transparent ${onClassName}`
           : "border-slate-200 bg-white text-slate-400 hover:text-slate-600"
@@ -503,7 +503,7 @@ function ToggleChip({
     >
       <span
         aria-hidden
-        className="inline-grid h-3 w-3 place-items-center rounded-[3px] border-[1.5px] border-current text-[8px] leading-none"
+        className="inline-grid h-3 w-3 place-items-center rounded-[3px] border-[1.5px] border-current text-5xs leading-none"
       >
         {on ? "✓" : ""}
       </span>

@@ -262,7 +262,7 @@ export function JobBiddingPanel({
                 setAwardDialogOpen(true);
               }}
               title="Mark the winning quote Won, update the job customer, and mark all other quotes Lost-BC."
-              className="rounded-lg bg-emerald-700 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-emerald-600 disabled:opacity-50"
+              className="rounded-lg bg-emerald-700 px-3 py-1.5 text-2xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50"
             >
               Award Job…
             </button>
@@ -292,7 +292,7 @@ export function JobBiddingPanel({
                   type="button"
                   disabled={pending || !selectedCustomerId}
                   onClick={handleAddBidder}
-                  className="rounded-lg bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+                  className="rounded-lg bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
                 >
                   Add
                 </button>
@@ -324,7 +324,7 @@ export function JobBiddingPanel({
                   disabled={pending || bidders.length === 0}
                   onClick={handleGenerateQuotes}
                   title="Copy line items from the master quote to every bidder who does not have a quote yet."
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                 >
                   Generate Quotes for All Bidders
                 </button>
@@ -381,7 +381,7 @@ export function JobBiddingPanel({
                       {bidder.quoteId || isAwarded ? (
                         <>
                           <div>{bidder.contactName}</div>
-                          <div className="text-[11px] text-slate-500">
+                          <div className="text-2xs text-slate-500">
                             {bidder.contactEmail}
                           </div>
                         </>
@@ -421,7 +421,7 @@ export function JobBiddingPanel({
                               return null;
                             }
                             return (
-                              <div className="mt-1 text-[11px] text-slate-500">
+                              <div className="mt-1 text-2xs text-slate-500">
                                 {selected.email || selected.phone
                                   ? [selected.email, selected.phone]
                                       .filter(Boolean)
@@ -434,7 +434,7 @@ export function JobBiddingPanel({
                       ) : (
                         <>
                           <div>—</div>
-                          <div className="text-[11px] text-slate-500">
+                          <div className="text-2xs text-slate-500">
                             Add contacts on the customer record.
                           </div>
                         </>
@@ -476,7 +476,7 @@ export function JobBiddingPanel({
                           type="button"
                           disabled={pending}
                           onClick={() => handleRemoveBidder(bidder.id)}
-                          className="text-[11px] font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+                          className="text-2xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
                         >
                           Remove
                         </button>

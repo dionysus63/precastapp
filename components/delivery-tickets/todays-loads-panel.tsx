@@ -82,7 +82,7 @@ export function TodaysLoadsPanel({
                   key={ticket.id}
                   className={`${tableRowClassName}${delivered ? " bg-emerald-50/40" : ""}`}
                 >
-                  <td className={`${tableCellClassName} font-mono text-[11px] font-medium`}>
+                  <td className={`${tableCellClassName} font-mono text-2xs font-medium`}>
                     <Link
                       href={`/delivery-tickets/${ticket.id}`}
                       className="text-slate-900 hover:text-sky-700 hover:underline"
@@ -90,7 +90,7 @@ export function TodaysLoadsPanel({
                       {ticket.ticketNumber}
                     </Link>
                   </td>
-                  <td className={`${tableCellClassName} font-mono text-[11px] text-slate-700`}>
+                  <td className={`${tableCellClassName} font-mono text-2xs text-slate-700`}>
                     {ticket.jobId ? (
                       <Link
                         href={`/jobs/${ticket.jobId}`}
@@ -164,13 +164,13 @@ export function TodaysLoadsPanel({
                     <div className="flex flex-wrap gap-1.5">
                       <Link
                         href={`/delivery-tickets/${ticket.id}/preview?from=hub`}
-                        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+                        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-700 hover:bg-slate-50"
                       >
                         Print
                       </Link>
                       <Link
                         href={`/delivery-tickets/${ticket.id}/submittals/preview?from=hub`}
-                        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+                        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-700 hover:bg-slate-50"
                       >
                         Submittals
                       </Link>

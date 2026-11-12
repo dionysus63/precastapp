@@ -187,7 +187,7 @@ const JobsTable = memo(function JobsTable({
                     initialFavorited={favoriteIdSet.has(job.id)}
                   />
                 </td>
-                <td className={`${tableCellClassName} font-mono text-[11px] font-medium text-slate-900`}>
+                <td className={`${tableCellClassName} font-mono text-2xs font-medium text-slate-900`}>
                   <Link
                     href={`/jobs/${job.id}`}
                     className="hover:text-slate-600 hover:underline"
@@ -341,7 +341,7 @@ export function JobsList({
               type="button"
               onClick={() => setParams({ status: "" })}
               title="Clear status filter"
-              className="mb-1 ml-2 inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
+              className="mb-1 ml-2 inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-2xs font-medium text-slate-700 hover:bg-slate-100"
             >
               Status: {singleStatusLabel}
               <span aria-hidden="true">×</span>

@@ -40,7 +40,7 @@ export function TicketStatusActions({
           type="button"
           disabled={pending}
           onClick={() => run("SCHEDULED")}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
         >
           Schedule
         </button>
@@ -50,7 +50,7 @@ export function TicketStatusActions({
           type="button"
           disabled={pending}
           onClick={() => run("IN_TRANSIT")}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
         >
           Mark In Transit
         </button>
@@ -60,13 +60,13 @@ export function TicketStatusActions({
           type="button"
           disabled={pending}
           onClick={() => run("DELIVERED")}
-          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-2xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
         >
           Mark Delivered
         </button>
       ) : null}
       {message ? (
-        <span className="w-full text-[10px] text-amber-700">{message}</span>
+        <span className="w-full text-3xs text-amber-700">{message}</span>
       ) : null}
     </div>
   );

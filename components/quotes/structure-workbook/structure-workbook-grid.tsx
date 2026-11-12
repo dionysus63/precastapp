@@ -107,7 +107,7 @@ function RowPenetrationsEditor({
 
   return (
     <div className="flex flex-wrap items-start gap-x-4 gap-y-1 py-1.5 pl-10 pr-3">
-      <span className="mt-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+      <span className="mt-1.5 text-3xs font-semibold uppercase tracking-wide text-slate-500">
         Pipes
       </span>
       <div className="flex flex-col gap-1">
@@ -152,7 +152,7 @@ function RowPenetrationsEditor({
                   </option>
                 ))}
               </select>
-              <span className="text-[10px] text-slate-500">×</span>
+              <span className="text-3xs text-slate-500">×</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -176,7 +176,7 @@ function RowPenetrationsEditor({
                 }
                 disabled={penetrations.length <= 1}
                 title="Remove this pipe size"
-                className="text-[10px] font-semibold text-red-600 disabled:opacity-30"
+                className="text-3xs font-semibold text-red-600 disabled:opacity-30"
               >
                 ✕
               </button>
@@ -189,7 +189,7 @@ function RowPenetrationsEditor({
         onClick={() =>
           onPenetrationsChange([...penetrations, createDefaultPenetration()])
         }
-        className="mt-0.5 rounded border border-slate-200 bg-white/70 px-2 py-1 text-[10px] font-semibold text-slate-700 hover:bg-white"
+        className="mt-0.5 rounded border border-slate-200 bg-white/70 px-2 py-1 text-3xs font-semibold text-slate-700 hover:bg-white"
       >
         + Pipe size
       </button>
@@ -225,10 +225,10 @@ function RowOpeningsEditor({
   return (
     <div className="py-1.5 pl-10 pr-3">
       <div className="flex items-center gap-3">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+        <span className="text-3xs font-semibold uppercase tracking-wide text-slate-500">
           Openings
         </span>
-        <span className="text-[10px] text-slate-400">
+        <span className="text-3xs text-slate-400">
           material · size · invert · angle
         </span>
         <button
@@ -239,7 +239,7 @@ function RowOpeningsEditor({
               createDefaultOpening(nextOpeningLabel(row.openings.length)),
             ])
           }
-          className="rounded border border-slate-200 bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-slate-700 hover:bg-white"
+          className="rounded border border-slate-200 bg-white/70 px-2 py-0.5 text-3xs font-semibold text-slate-700 hover:bg-white"
         >
           + Opening
         </button>
@@ -253,7 +253,7 @@ function RowOpeningsEditor({
 
           return (
             <div key={opening.id} className="flex items-center gap-1.5">
-              <span className="w-5 text-center text-[11px] font-semibold text-slate-700">
+              <span className="w-5 text-center text-2xs font-semibold text-slate-700">
                 {opening.label}
               </span>
               <select
@@ -324,7 +324,7 @@ function RowOpeningsEditor({
                 }
                 disabled={row.openings.length <= 1}
                 title="Remove this opening"
-                className="text-[10px] font-semibold text-red-600 disabled:opacity-30"
+                className="text-3xs font-semibold text-red-600 disabled:opacity-30"
               >
                 ✕
               </button>

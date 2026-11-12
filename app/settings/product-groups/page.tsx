@@ -57,7 +57,7 @@ function GroupEditor({
           <div>
             <label
               htmlFor={`group-name-${group.id}`}
-              className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500"
+              className="block text-3xs font-semibold uppercase tracking-wide text-slate-500"
             >
               {isSubGroup ? "Sub-group name" : "Group name"}
             </label>
@@ -72,7 +72,7 @@ function GroupEditor({
           <div>
             <label
               htmlFor={`group-sort-${group.id}`}
-              className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500"
+              className="block text-3xs font-semibold uppercase tracking-wide text-slate-500"
             >
               Sort
             </label>
@@ -136,7 +136,7 @@ function GroupEditor({
           </span>
         </summary>
         <div className="border-t border-slate-100 px-3 py-2">
-          <p className="mb-2 text-[11px] text-slate-400">
+          <p className="mb-2 text-2xs text-slate-400">
             Products appear on the walk-in screen in this order — drag ⋮⋮ to
             rearrange.
           </p>
@@ -208,7 +208,7 @@ export default async function ProductGroupsPage() {
           <div>
             <label
               htmlFor="newGroupName"
-              className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500"
+              className="block text-3xs font-semibold uppercase tracking-wide text-slate-500"
             >
               Name
             </label>
@@ -223,7 +223,7 @@ export default async function ProductGroupsPage() {
           <div>
             <label
               htmlFor="newGroupParent"
-              className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500"
+              className="block text-3xs font-semibold uppercase tracking-wide text-slate-500"
             >
               Parent group (optional)
             </label>
@@ -243,7 +243,7 @@ export default async function ProductGroupsPage() {
           <div>
             <label
               htmlFor="newGroupSort"
-              className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500"
+              className="block text-3xs font-semibold uppercase tracking-wide text-slate-500"
             >
               Sort
             </label>

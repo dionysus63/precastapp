@@ -76,7 +76,7 @@ export function QuotePoInline({
         type="button"
         onClick={save}
         disabled={pending}
-        className="rounded bg-slate-900 px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+        className="rounded bg-slate-900 px-2 py-0.5 text-2xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
       >
         {pending ? "…" : "Save"}
       </button>
@@ -84,12 +84,12 @@ export function QuotePoInline({
         type="button"
         onClick={() => setEditing(false)}
         disabled={pending}
-        className="rounded border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+        className="rounded border border-slate-200 px-2 py-0.5 text-2xs font-medium text-slate-600 hover:bg-slate-50"
       >
         Cancel
       </button>
       {error ? (
-        <span className="text-[11px] font-medium text-red-600">{error}</span>
+        <span className="text-2xs font-medium text-red-600">{error}</span>
       ) : null}
     </span>
   );

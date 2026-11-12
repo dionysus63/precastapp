@@ -36,7 +36,7 @@ function OptionalField({
   }
   return (
     <div>
-      <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+      <dt className="text-2xs font-medium uppercase tracking-wide text-slate-500">
         {label}
       </dt>
       <dd className="mt-1 text-sm text-slate-900">
@@ -55,7 +55,7 @@ function OptionalField({
 function StatItem({ label, value, detail }: { label: string; value: string; detail?: string | null }) {
   return (
     <div>
-      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+      <div className="text-3xs font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </div>
       <div className="mt-0.5 text-sm font-medium text-slate-900">
@@ -164,7 +164,7 @@ export function DeliveryTicketDetailContent({
         <div className="flex flex-wrap gap-2">
           <Link
             href={ticketId ? `/delivery-tickets/${ticketId}/edit` : "#"}
-            className={`rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold ${ticketId ? "text-slate-700 hover:bg-slate-50" : "pointer-events-none text-slate-400"}`}
+            className={`rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold ${ticketId ? "text-slate-700 hover:bg-slate-50" : "pointer-events-none text-slate-400"}`}
           >
             Edit Ticket
           </Link>
@@ -172,7 +172,7 @@ export function DeliveryTicketDetailContent({
             <>
               <Link
                 href={`/delivery-tickets/${ticketId}/preview`}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
               >
                 Preview/Print
               </Link>
@@ -182,7 +182,7 @@ export function DeliveryTicketDetailContent({
             <button
               type="button"
               disabled
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-400"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-400"
             >
               Preview/Print
             </button>
@@ -206,7 +206,7 @@ export function DeliveryTicketDetailContent({
             <button
               type="button"
               disabled
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-400"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-400"
             >
               Mark Delivered
             </button>
@@ -303,14 +303,14 @@ export function DeliveryTicketDetailContent({
                         <div className="font-medium text-slate-900">
                           {line.item}
                         </div>
-                        <div className="mt-0.5 text-[10px] uppercase tracking-wide text-slate-400">
+                        <div className="mt-0.5 text-3xs uppercase tracking-wide text-slate-400">
                           {formatLineType(line.type)}
                         </div>
                       </td>
                       <td className={`${tableCellClassName} align-top text-slate-600`}>
                         <RichTextContent value={line.description} />
                         {!isBlank(line.notes) ? (
-                          <div className="mt-1 text-[11px] text-slate-400">
+                          <div className="mt-1 text-2xs text-slate-400">
                             {line.notes}
                           </div>
                         ) : null}
@@ -364,7 +364,7 @@ export function DeliveryTicketDetailContent({
               <dl className="grid gap-5">
                 {noteEntries.map(([label, value]) => (
                   <div key={label}>
-                    <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+                    <dt className="text-2xs font-medium uppercase tracking-wide text-slate-500">
                       {label}
                     </dt>
                     <dd className="mt-1 text-sm text-slate-900">{value}</dd>

@@ -75,11 +75,11 @@ export function DeleteProductCategoryButton({
         {isPending ? "Deleting…" : "Delete category"}
       </button>
       {blockedReason ? (
-        <p className="mt-1 text-[11px] text-slate-500">
+        <p className="mt-1 text-2xs text-slate-500">
           Cannot delete while {blockedReason}.
         </p>
       ) : null}
-      {error ? <p className="mt-1 text-[11px] text-red-700">{error}</p> : null}
+      {error ? <p className="mt-1 text-2xs text-red-700">{error}</p> : null}
     </div>
   );
 }
@@ -142,7 +142,7 @@ export function DeleteProductSubcategoryButton({
       >
         {isPending ? "Deleting…" : "Delete"}
       </button>
-      {error ? <p className="mt-1 text-[11px] text-red-700">{error}</p> : null}
+      {error ? <p className="mt-1 text-2xs text-red-700">{error}</p> : null}
     </div>
   );
 }

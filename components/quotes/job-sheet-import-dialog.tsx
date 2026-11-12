@@ -105,9 +105,9 @@ export function JobSheetImportDialog<Row>({
               .
             </p>
           ) : (
-            <table className="min-w-full text-left text-[11px]">
+            <table className="min-w-full text-left text-2xs">
               <thead>
-                <tr className="border-b border-slate-200 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                <tr className="border-b border-slate-200 text-3xs font-semibold uppercase tracking-wide text-slate-500">
                   <th className="py-1 pr-2">
                     <input
                       type="checkbox"
@@ -169,7 +169,7 @@ export function JobSheetImportDialog<Row>({
             </table>
           )}
           {alreadyInWorkbook > 0 && selectable.length > 0 ? (
-            <p className="text-[11px] text-slate-500">
+            <p className="text-2xs text-slate-500">
               {alreadyInWorkbook} structure
               {alreadyInWorkbook === 1 ? " is" : "s are"} already in the
               workbook and not listed.

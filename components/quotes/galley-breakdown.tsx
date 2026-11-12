@@ -93,7 +93,7 @@ function BreakdownDialog({
               <span className="text-xs font-medium text-slate-700">
                 {galleyTypeLabels[type]}
                 {family.memberCodes[type] ? (
-                  <span className="ml-1.5 font-mono text-[10px] font-normal text-slate-400">
+                  <span className="ml-1.5 font-mono text-3xs font-normal text-slate-400">
                     {family.memberCodes[type]}
                   </span>
                 ) : null}
@@ -124,7 +124,7 @@ function BreakdownDialog({
           </span>
         </div>
 
-        <p className="mt-2 text-[11px] text-slate-500">
+        <p className="mt-2 text-2xs text-slate-500">
           Counts must add up to the quoted total — price and quote total never
           change. The mix stays adjustable until a piece is ticketed.
         </p>
@@ -201,7 +201,7 @@ export function GalleyBreakdownBanner({
                 key={family.familyCode}
                 type="button"
                 onClick={() => setOpenFamilyCode(family.familyCode)}
-                className="rounded-lg bg-amber-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-amber-700"
+                className="rounded-lg bg-amber-600 px-3 py-1.5 text-2xs font-semibold text-white hover:bg-amber-700"
               >
                 Break down {family.familyCode} ({family.total})
               </button>
@@ -215,7 +215,7 @@ export function GalleyBreakdownBanner({
           <span className="font-medium text-slate-700">Galley mix</span>
           {adjustableFamilies.map((family) => (
             <span key={family.familyCode} className="inline-flex items-center gap-1.5">
-              <span className="font-mono text-[11px] font-semibold text-slate-800">
+              <span className="font-mono text-2xs font-semibold text-slate-800">
                 {family.familyCode}
               </span>
               {formatMixSummary(family) || "—"}

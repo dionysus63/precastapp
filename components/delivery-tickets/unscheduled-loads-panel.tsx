@@ -86,7 +86,7 @@ export function UnscheduledLoadsPanel({ drafts }: UnscheduledLoadsPanelProps) {
             <tbody className={tableBodyClassName}>
               {jobGroups.map((group) => (
                 <tr key={group.jobId} className={tableRowClassName}>
-                  <td className={`${tableCellClassName} font-mono text-[11px] font-medium text-slate-900`}>
+                  <td className={`${tableCellClassName} font-mono text-2xs font-medium text-slate-900`}>
                     {group.jobNumber}
                   </td>
                   <td className={`${tableCellClassName} font-medium text-slate-900`}>
@@ -112,7 +112,7 @@ export function UnscheduledLoadsPanel({ drafts }: UnscheduledLoadsPanelProps) {
                   <td className={tableCellClassName}>
                     <Link
                       href={`/delivery-tickets/schedule?jobId=${group.jobId}`}
-                      className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+                      className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-700 hover:bg-slate-50"
                     >
                       Schedule →
                     </Link>

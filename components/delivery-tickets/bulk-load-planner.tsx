@@ -1564,7 +1564,7 @@ export function BulkLoadPlanner({
             <button
               type="button"
               onClick={() => toggleRingMode(group.key)}
-              className="shrink-0 rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-50"
+              className="shrink-0 rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-3xs font-semibold text-slate-600 hover:bg-slate-50"
             >
               {mode === "pool" ? "Auto-assign" : "Assign by pool"}
             </button>
@@ -1582,7 +1582,7 @@ export function BulkLoadPlanner({
         </td>
         <td
           colSpan={loads.length}
-          className={`${tableCellClassName} text-[11px] ${
+          className={`${tableCellClassName} text-2xs ${
             error
               ? "font-medium text-red-700"
               : warning
@@ -1647,11 +1647,11 @@ export function BulkLoadPlanner({
                 {option.productCode}
               </span>{" "}
               <span className="text-slate-600">{option.name}</span>
-              <span className="ml-1 text-[11px] text-slate-400">
+              <span className="ml-1 text-2xs text-slate-400">
                 {option.heightFeet}&apos; ring
               </span>
               {noStock ? (
-                <span className="ml-1 text-[11px] text-amber-600">
+                <span className="ml-1 text-2xs text-amber-600">
                   (No stock)
                 </span>
               ) : null}
@@ -1723,7 +1723,7 @@ export function BulkLoadPlanner({
               type="button"
               onClick={handleRestoreSavedPlan}
               disabled={parkPending}
-              className="rounded-lg bg-sky-700 px-3 py-1 text-[11px] font-semibold text-white hover:bg-sky-800 disabled:opacity-50"
+              className="rounded-lg bg-sky-700 px-3 py-1 text-2xs font-semibold text-white hover:bg-sky-800 disabled:opacity-50"
             >
               Restore plan
             </button>
@@ -1731,7 +1731,7 @@ export function BulkLoadPlanner({
               type="button"
               onClick={handleDiscardSavedPlan}
               disabled={parkPending}
-              className="rounded-lg border border-sky-200 bg-white px-3 py-1 text-[11px] font-semibold text-sky-800 hover:bg-sky-100 disabled:opacity-50"
+              className="rounded-lg border border-sky-200 bg-white px-3 py-1 text-2xs font-semibold text-sky-800 hover:bg-sky-100 disabled:opacity-50"
             >
               Discard
             </button>
@@ -1746,7 +1746,7 @@ export function BulkLoadPlanner({
       {editableRows.length > 0 ? (
         <div className="grid gap-x-6 gap-y-3 rounded-lg border border-slate-200 bg-white px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <p className="text-2xs font-semibold uppercase tracking-wide text-slate-400">
               Remaining to Deliver
             </p>
             <p className="mt-0.5 text-lg font-semibold text-slate-900">
@@ -1760,13 +1760,13 @@ export function BulkLoadPlanner({
                 </span>
               ) : null}
             </p>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-2xs text-slate-500">
               {formatQuantity(remaining.pieces)} pieces
               {remaining.hasRingFootage ? " + ring footage" : ""}
             </p>
           </div>
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <p className="text-2xs font-semibold uppercase tracking-wide text-slate-400">
               Expected Loads
             </p>
             {expectedLoads ? (
@@ -1774,7 +1774,7 @@ export function BulkLoadPlanner({
                 <p className="mt-0.5 text-lg font-semibold text-slate-900">
                   {expectedLoads}
                 </p>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-2xs text-slate-500">
                   Capacity {loadCapacityLabel} · ≈{" "}
                   {formatWeightLb(remaining.weight / expectedLoads)} per load
                 </p>
@@ -1784,7 +1784,7 @@ export function BulkLoadPlanner({
             )}
           </div>
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <p className="text-2xs font-semibold uppercase tracking-wide text-slate-400">
               Planned Columns
             </p>
             <p className="mt-0.5 text-lg font-semibold text-slate-900">
@@ -1794,21 +1794,21 @@ export function BulkLoadPlanner({
               <button
                 type="button"
                 onClick={setColumnsToExpected}
-                className="mt-0.5 rounded border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                className="mt-0.5 rounded border border-slate-200 px-1.5 py-0.5 text-2xs font-medium text-slate-600 hover:bg-slate-50"
               >
                 Use {expectedLoads} columns
               </button>
             ) : null}
           </div>
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <p className="text-2xs font-semibold uppercase tracking-wide text-slate-400">
               Assigned So Far
             </p>
             <p className="mt-0.5 text-lg font-semibold text-slate-900">
               {totalPieces > 0 ? formatWeightLb(totalWeight) : "—"}
             </p>
             {totalPieces > 0 && remaining.weight > 0 ? (
-              <p className="text-[11px] text-slate-500">
+              <p className="text-2xs text-slate-500">
                 {Math.round((totalWeight / remaining.weight) * 100)}% of
                 remaining weight
               </p>
@@ -1837,7 +1837,7 @@ export function BulkLoadPlanner({
               </Link>
             ))}
           </span>
-          <p className="mt-1 text-[11px] text-slate-400">
+          <p className="mt-1 text-2xs text-slate-400">
             Other open tickets — their quantities are already subtracted from
             the Available column. Draft loads for this quote appear as editable
             columns in the grid instead.
@@ -1855,7 +1855,7 @@ export function BulkLoadPlanner({
                 <button
                   type="button"
                   onClick={() => undoDelete(entry.ticketId)}
-                  className="ml-1 rounded border border-amber-300 px-1 text-[10px] font-medium hover:bg-amber-100"
+                  className="ml-1 rounded border border-amber-300 px-1 text-3xs font-medium hover:bg-amber-100"
                 >
                   undo
                 </button>
@@ -1901,17 +1901,17 @@ export function BulkLoadPlanner({
                           <span className="min-w-0">
                             <Link
                               href={`/delivery-tickets/${load.ticketId}`}
-                              className="text-[11px] font-semibold text-sky-700 hover:text-sky-900"
+                              className="text-2xs font-semibold text-sky-700 hover:text-sky-900"
                               title={`Open ${load.ticketNumber ?? `planned load ${loadIndex + 1}`}`}
                             >
                               {load.ticketNumber ?? `Load ${loadIndex + 1}`}
                             </Link>
-                            <span className="ml-1 rounded border border-slate-300 px-1 text-[9px] font-medium uppercase text-slate-400">
+                            <span className="ml-1 rounded border border-slate-300 px-1 text-4xs font-medium uppercase text-slate-400">
                               {load.ticketNumber ? "draft" : "planned"}
                             </span>
                           </span>
                         ) : (
-                          <span className="text-[11px] font-semibold uppercase tracking-wide">
+                          <span className="text-2xs font-semibold uppercase tracking-wide">
                             Load {loadIndex + 1}
                           </span>
                         )}
@@ -1934,7 +1934,7 @@ export function BulkLoadPlanner({
                           ✕
                         </button>
                       </div>
-                      <div className="mt-0.5 text-right text-[10px] font-semibold normal-case tabular-nums text-slate-700">
+                      <div className="mt-0.5 text-right text-3xs font-semibold normal-case tabular-nums text-slate-700">
                         {totals && totals.pieces > 0 ? (
                           <>
                             {formatWeightLb(totals.weight)}
@@ -1958,7 +1958,7 @@ export function BulkLoadPlanner({
                   className={`${tableHeaderCellClassName} sticky right-0 z-20 text-right align-top ${stickyRightEdgeShadow}`}
                 >
                   <div>Assigned / Left</div>
-                  <div className="mt-0.5 text-[10px] font-semibold normal-case tabular-nums text-slate-700">
+                  <div className="mt-0.5 text-3xs font-semibold normal-case tabular-nums text-slate-700">
                     {totalPieces > 0 ? (
                       formatWeightLb(totalWeight)
                     ) : (
@@ -1976,7 +1976,7 @@ export function BulkLoadPlanner({
                     <tr key={row.key}>
                       <td
                         colSpan={loads.length + 3}
-                        className={`${tableCellClassName} sticky left-0 bg-slate-100/80 text-[11px] font-semibold uppercase tracking-wide text-slate-500`}
+                        className={`${tableCellClassName} sticky left-0 bg-slate-100/80 text-2xs font-semibold uppercase tracking-wide text-slate-500`}
                       >
                         {row.label}
                       </td>
@@ -2048,7 +2048,7 @@ export function BulkLoadPlanner({
                                     ? "Show the component pieces to load a partial set."
                                     : "Enter complete assemblies per load."
                               }
-                              className="shrink-0 rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                              className="shrink-0 rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-3xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                             >
                               {castingMode === "sets"
                                 ? "Adjust pieces"
@@ -2106,7 +2106,7 @@ export function BulkLoadPlanner({
                           );
                         })
                       ) : (
-                        <td colSpan={loads.length} className={`${tableCellClassName} text-[11px] text-slate-400`}>
+                        <td colSpan={loads.length} className={`${tableCellClassName} text-2xs text-slate-400`}>
                           <SpanHint>
                             {group.isCastingAssembly
                               ? "Assign piece counts below — a set is complete only when every piece ships."
@@ -2150,12 +2150,12 @@ export function BulkLoadPlanner({
                         </span>{" "}
                         <span className="text-slate-600">{row.displayName}</span>
                         {row.detail ? (
-                          <span className="ml-1 text-[11px] text-slate-400">
+                          <span className="ml-1 text-2xs text-slate-400">
                             {row.detail}
                           </span>
                         ) : null}
                         {row.warning ? (
-                          <span className="ml-1 text-[11px] text-amber-600">
+                          <span className="ml-1 text-2xs text-amber-600">
                             ({row.warning})
                           </span>
                         ) : null}
@@ -2228,7 +2228,7 @@ export function BulkLoadPlanner({
                             <button
                               type="button"
                               onClick={() => fillRemainder(row)}
-                              className="rounded border border-slate-200 px-1 text-[10px] text-slate-500 hover:bg-slate-100"
+                              className="rounded border border-slate-200 px-1 text-3xs text-slate-500 hover:bg-slate-100"
                               title={`Put the remaining ${formatQuantity(leftForGroup)} on Load ${loads.length}`}
                             >
                               fill
@@ -2287,7 +2287,7 @@ export function BulkLoadPlanner({
             <tfoot>
               {/* Per-load weight lives pinned in the header with the load numbers. */}
               <tr className="border-t-2 border-slate-300">
-                <td className={`${tableCellClassName} sticky left-0 z-[5] w-64 min-w-[16rem] max-w-[16rem] bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500`}>
+                <td className={`${tableCellClassName} sticky left-0 z-[5] w-64 min-w-[16rem] max-w-[16rem] bg-slate-50 text-2xs font-semibold uppercase tracking-wide text-slate-500`}>
                   Pieces
                 </td>
                 <td className={`${stickyAvailableCellClassName} !bg-slate-50`} />
@@ -2305,7 +2305,7 @@ export function BulkLoadPlanner({
               </tr>
               {loadCapacityLbs ? (
                 <tr>
-                  <td className={`${tableCellClassName} sticky left-0 z-[5] w-64 min-w-[16rem] max-w-[16rem] bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-500`}>
+                  <td className={`${tableCellClassName} sticky left-0 z-[5] w-64 min-w-[16rem] max-w-[16rem] bg-slate-50 text-2xs font-semibold uppercase tracking-wide text-slate-500`}>
                     Capacity
                   </td>
                   <td className={`${stickyAvailableCellClassName} !bg-slate-50`} />
@@ -2331,7 +2331,7 @@ export function BulkLoadPlanner({
                               />
                             </div>
                             <div
-                              className={`mt-0.5 text-right text-[10px] tabular-nums ${
+                              className={`mt-0.5 text-right text-3xs tabular-nums ${
                                 pct > 100 ? "font-semibold text-red-600" : "text-slate-500"
                               }`}
                             >
@@ -2355,7 +2355,7 @@ export function BulkLoadPlanner({
           <p className="font-semibold text-slate-700">
             Needs the single-ticket editor
           </p>
-          <p className="mt-0.5 text-[11px] text-slate-400">
+          <p className="mt-0.5 text-2xs text-slate-400">
             These casting assemblies have no component pieces defined, so there
             is nothing to plan piece-by-piece here.
           </p>
@@ -2494,7 +2494,7 @@ export function BulkLoadPlanner({
               </div>
             ))}
           </div>
-          <p className="mt-2 text-[11px] text-slate-400">
+          <p className="mt-2 text-2xs text-slate-400">
             Saved loads stay drafts — assign dates, drivers, and trailers on
             the scheduling page. Existing tickets keep their schedule details.
           </p>

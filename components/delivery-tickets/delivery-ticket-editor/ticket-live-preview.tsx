@@ -85,7 +85,7 @@ export function TicketLivePreview({
           type="button"
           onClick={onHide}
           title="Hide the ticket preview and give the inputs the whole width"
-          className="rounded border border-slate-300 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+          className="rounded border border-slate-300 bg-white px-2 py-0.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
         >
           Hide preview
         </button>

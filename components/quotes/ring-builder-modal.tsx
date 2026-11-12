@@ -467,7 +467,7 @@ export function RingBuilderModal({
                   ),
                 ])
               }
-              className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-slate-200 px-2 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
             >
               Add row
             </button>
@@ -596,7 +596,7 @@ export function RingBuilderModal({
                                 current.filter((entry) => entry.id !== row.id),
                               )
                             }
-                            className="text-[11px] font-medium text-red-600 hover:text-red-800"
+                            className="text-2xs font-medium text-red-600 hover:text-red-800"
                           >
                             Remove
                           </button>

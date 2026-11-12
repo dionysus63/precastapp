@@ -71,7 +71,7 @@ export function CastingAssemblyRow({
             <span className="ml-2 text-slate-500">
               {line.itemCode}
             </span>
-            <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-800">
+            <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-3xs font-semibold uppercase text-amber-800">
               Casting
             </span>
           </div>
@@ -95,7 +95,7 @@ export function CastingAssemblyRow({
         ) : (
           <>
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-              <label className="flex items-center gap-2 text-[11px] font-medium text-slate-700">
+              <label className="flex items-center gap-2 text-2xs font-medium text-slate-700">
                 Sets on load
                 <input
                   aria-label={`${line.displayName} sets on load`}
@@ -110,7 +110,7 @@ export function CastingAssemblyRow({
                   }
                 />
               </label>
-              <span className="text-[10px] text-slate-400">
+              <span className="text-3xs text-slate-400">
                 1 set ={" "}
                 {line.castingComponentOptions
                   .map(
@@ -133,14 +133,14 @@ export function CastingAssemblyRow({
                       return next;
                     })
                   }
-                  className="rounded border border-slate-200 bg-white px-1.5 py-px text-[10px] font-medium text-slate-600 hover:bg-slate-50"
+                  className="rounded border border-slate-200 bg-white px-1.5 py-px text-3xs font-medium text-slate-600 hover:bg-slate-50"
                 >
                   {piecesExpanded
                     ? "Hide pieces"
                     : "Adjust pieces"}
                 </button>
               ) : (
-                <span className="text-[10px] font-medium text-amber-600">
+                <span className="text-3xs font-medium text-amber-600">
                   Partial set — piece counts differ
                 </span>
               )}
@@ -157,7 +157,7 @@ export function CastingAssemblyRow({
                         {formatCastingPieceRoleLabel(option.pieceRole)} ·{" "}
                         {option.name}
                       </div>
-                      <div className="truncate text-[10px] text-slate-500">
+                      <div className="truncate text-3xs text-slate-500">
                         {option.productCode} ·{" "}
                         {option.currentStock != null
                           ? `${option.currentStock} on hand`
@@ -193,7 +193,7 @@ export function CastingAssemblyRow({
           </>
         )}
 
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-600">
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-2xs text-slate-600">
           <span>
             On load:{" "}
             <span className="font-semibold text-slate-900">
@@ -295,7 +295,7 @@ export function AdsPipeRow({
                     </span>
                   </div>
                   <div
-                    className={`truncate text-[10px] ${
+                    className={`truncate text-3xs ${
                       option.isSubstitute
                         ? "text-amber-700"
                         : "text-slate-500"
@@ -333,7 +333,7 @@ export function AdsPipeRow({
           </div>
         )}
 
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-600">
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-2xs text-slate-600">
           <span>
             On load:{" "}
             <span className="font-semibold text-slate-900">
@@ -426,7 +426,7 @@ export function SplitStructureRow({
                 {line.itemCode}
               </span>
             )}
-            <span className="ml-2 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-sky-800">
+            <span className="ml-2 rounded bg-sky-100 px-1.5 py-0.5 text-3xs font-semibold uppercase text-sky-800">
               Split · {line.structurePieceOptions.length} pieces
             </span>
           </div>
@@ -477,7 +477,7 @@ export function SplitStructureRow({
                 </div>
                 {claimedBy ? (
                   <p
-                    className={`mt-1 text-[11px] font-medium ${
+                    className={`mt-1 text-2xs font-medium ${
                       option.deliveredTicketNumber
                         ? "text-green-700"
                         : "text-sky-700"
@@ -517,13 +517,13 @@ export function SplitStructureRow({
               type="button"
               disabled={splitPending}
               onClick={() => void removeSplit(line)}
-              className="text-[11px] font-medium text-slate-500 underline-offset-2 hover:text-slate-900 hover:underline disabled:opacity-50"
+              className="text-2xs font-medium text-slate-500 underline-offset-2 hover:text-slate-900 hover:underline disabled:opacity-50"
             >
               Remove split (ship whole)
             </button>
           ) : null}
           {splitError && splitFormStructureId === null ? (
-            <span className="text-[11px] text-red-600">{splitError}</span>
+            <span className="text-2xs text-red-600">{splitError}</span>
           ) : null}
         </div>
       </td>

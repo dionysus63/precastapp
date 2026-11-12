@@ -132,7 +132,7 @@ export function JobStructureDetailContent({
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+          <p className="text-2xs font-medium uppercase tracking-wide text-slate-500">
             {detail.jobNumber} — {detail.projectName}
           </p>
           <h2 className="mt-1 text-lg font-semibold text-slate-900">
@@ -198,13 +198,13 @@ export function JobStructureDetailContent({
       <SectionCard title="Structure Info">
         <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            <dt className="text-2xs font-medium uppercase tracking-wide text-slate-500">
               Type
             </dt>
             <dd className="mt-1 text-sm text-slate-900">{detail.typeLabel}</dd>
           </div>
           <div>
-            <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            <dt className="text-2xs font-medium uppercase tracking-wide text-slate-500">
               Quantity
             </dt>
             <dd className="mt-1 text-sm text-slate-900">
@@ -212,7 +212,7 @@ export function JobStructureDetailContent({
             </dd>
           </div>
           <div>
-            <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            <dt className="text-2xs font-medium uppercase tracking-wide text-slate-500">
               Needs submittal
             </dt>
             <dd className="mt-1 text-sm text-slate-900">
@@ -220,7 +220,7 @@ export function JobStructureDetailContent({
             </dd>
           </div>
           <div>
-            <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            <dt className="text-2xs font-medium uppercase tracking-wide text-slate-500">
               Documents
             </dt>
             <dd className="mt-1 text-sm text-slate-900">
@@ -248,7 +248,7 @@ export function JobStructureDetailContent({
               }`}
             >
               <p
-                className={`text-[11px] font-semibold uppercase tracking-wide ${
+                className={`text-2xs font-semibold uppercase tracking-wide ${
                   step.isCurrent
                     ? "text-white/80"
                     : step.isComplete

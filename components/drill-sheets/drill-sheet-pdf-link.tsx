@@ -18,7 +18,7 @@ export function DrillSheetPdfLink({
       rel="noopener noreferrer"
       className={
         className ??
-        "inline-flex rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-medium text-sky-800 hover:bg-sky-100"
+        "inline-flex rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-2xs font-medium text-sky-800 hover:bg-sky-100"
       }
     >
       {label}

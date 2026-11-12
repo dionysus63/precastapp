@@ -147,7 +147,7 @@ export default async function DrillSheetsPage({
                       <div className="flex gap-1.5">
                         <Link
                           href={`/drill-sheets/${sheet.id}`}
-                          className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                          className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50"
                         >
                           View
                         </Link>
@@ -157,7 +157,7 @@ export default async function DrillSheetsPage({
                               ? `/drill-sheets/rect/${sheet.id}/edit`
                               : `/drill-sheets/${sheet.id}/edit`
                           }
-                          className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                          className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50"
                         >
                           Edit
                         </Link>

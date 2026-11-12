@@ -213,7 +213,7 @@ export function CustomerForm({
           defaultValue={defaultValues?.nickname ?? ""}
           className={customerInputClassName}
         />
-        <p className="mt-1 text-[11px] text-slate-500">
+        <p className="mt-1 text-2xs text-slate-500">
           Short name used for sent-quote PDF filenames and other shorthand.
           Falls back to the full customer name when blank.
         </p>
@@ -255,7 +255,7 @@ export function CustomerForm({
           defaultValue={defaultValues?.phone ?? ""}
           className={customerInputClassName}
         />
-        <p className="mt-1 text-[11px] text-slate-500">
+        <p className="mt-1 text-2xs text-slate-500">
           Main office line. People and their emails live under Contacts on the
           customer page.
         </p>

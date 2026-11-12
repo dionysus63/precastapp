@@ -121,7 +121,7 @@ export function FileUploadDropzone({
         <p className="text-sm font-medium text-slate-800">{label}</p>
         <p className="mt-1 text-xs text-slate-500">or click to browse</p>
         {description ? (
-          <p className="mt-2 max-w-md text-[11px] text-slate-500">{description}</p>
+          <p className="mt-2 max-w-md text-2xs text-slate-500">{description}</p>
         ) : null}
       </div>
 
@@ -151,7 +151,7 @@ export function FileUploadDropzone({
               type="button"
               disabled={disabled}
               onClick={() => onFilesChange([])}
-              className="text-[11px] font-medium text-slate-500 hover:text-slate-900 disabled:opacity-50"
+              className="text-2xs font-medium text-slate-500 hover:text-slate-900 disabled:opacity-50"
             >
               Clear
             </button>

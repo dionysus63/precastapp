@@ -609,7 +609,7 @@ export function DrillSheetForm({
             {diameterId === "" &&
             initialValues?.unmatchedDiameterFeet != null &&
             templateId === initialValues.templateId ? (
-              <p className="mt-1 text-[11px] text-amber-700">
+              <p className="mt-1 text-2xs text-amber-700">
                 This sheet was built at {initialValues.unmatchedDiameterFeet}&apos;
                 ID, but its template is now a different size. Pick the
                 diameter to recompute it with.
@@ -617,12 +617,12 @@ export function DrillSheetForm({
             ) : null}
             {!diameterConfig ? (
               diameterId ? (
-                <p className="mt-1 text-[11px] text-amber-700">
+                <p className="mt-1 text-2xs text-amber-700">
                   No mold configured in Settings for this size.
                 </p>
               ) : null
             ) : (
-              <p className="mt-1 text-[11px] text-slate-500">
+              <p className="mt-1 text-2xs text-slate-500">
                 {diameterConfig.label ? `${diameterConfig.label} · ` : "Mold: "}
                 {diameterConfig.wallThicknessInches != null
                   ? `${diameterConfig.wallThicknessInches}" wall · `
@@ -698,7 +698,7 @@ export function DrillSheetForm({
               className={structureInputClassName}
             />
             {wallHeightAdjustInches !== 0 ? (
-              <p className="mt-1 text-[11px] font-medium text-sky-700">
+              <p className="mt-1 text-2xs font-medium text-sky-700">
                 Wall moved {formatWallHeightAdjust(wallHeightAdjustInches)} by
                 hand in Quick Build. Change it there with the arrows.
               </p>
@@ -818,7 +818,7 @@ export function DrillSheetForm({
           <button
             type="button"
             onClick={addOpening}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
           >
             Add Opening
           </button>
@@ -945,7 +945,7 @@ export function DrillSheetForm({
                       <button
                         type="button"
                         onClick={() => removeOpening(opening.id)}
-                        className="text-[11px] font-medium text-rose-600 hover:text-rose-800"
+                        className="text-2xs font-medium text-rose-600 hover:text-rose-800"
                       >
                         Remove
                       </button>

@@ -89,13 +89,13 @@ export function StructureStatusBadge({
   return (
     <span className="inline-flex items-center gap-1 whitespace-nowrap">
       <span
-        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadgeClasses[status] ?? "bg-slate-100 text-slate-600"}`}
+        className={`rounded-full px-2 py-0.5 text-3xs font-semibold ${statusBadgeClasses[status] ?? "bg-slate-100 text-slate-600"}`}
       >
         {statusLabels[status] ?? status}
       </span>
       {isProduced ? (
         <span
-          className="text-[10px] font-semibold text-amber-600"
+          className="text-3xs font-semibold text-amber-600"
           title="Already poured or shipped — number changes here will not match the produced piece."
         >
           ⚠

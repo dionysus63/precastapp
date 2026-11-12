@@ -47,7 +47,7 @@ export function MarkPickedUpControl({
       </label>
 
       {message ? (
-        <p className="mt-2 text-[10px] text-amber-700">{message}</p>
+        <p className="mt-2 text-3xs text-amber-700">{message}</p>
       ) : null}
 
       {showConfirm ? (

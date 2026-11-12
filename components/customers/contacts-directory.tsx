@@ -187,14 +187,14 @@ export function ContactsDirectory({
                     <td className={tableCellClassName}>
                       <div className="flex flex-wrap gap-1">
                         {row.isPrimary ? (
-                          <span className="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                          <span className="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-3xs font-semibold text-slate-700">
                             Main
                           </span>
                         ) : null}
                         {row.roles.map((role) => (
                           <span
                             key={role}
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${roleChipClassNames[role]}`}
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-3xs font-semibold ${roleChipClassNames[role]}`}
                           >
                             {contactRoleLabels[role] ?? role}
                             {row.defaultForRoles.includes(role) ? (

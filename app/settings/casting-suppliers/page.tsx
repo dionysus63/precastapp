@@ -101,7 +101,7 @@ export default async function CastingSuppliersPage({
                         >
                           <input type="hidden" name="id" value={supplier.id} />
                           <div>
-                            <label className="text-[11px] font-medium text-slate-600">
+                            <label className="text-2xs font-medium text-slate-600">
                               Name
                             </label>
                             <input
@@ -112,7 +112,7 @@ export default async function CastingSuppliersPage({
                             />
                           </div>
                           <div>
-                            <label className="text-[11px] font-medium text-slate-600">
+                            <label className="text-2xs font-medium text-slate-600">
                               Origin
                             </label>
                             <select
@@ -129,7 +129,7 @@ export default async function CastingSuppliersPage({
                           </div>
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <label className="text-[11px] font-medium text-slate-600">
+                              <label className="text-2xs font-medium text-slate-600">
                                 Status
                               </label>
                               <select
@@ -142,7 +142,7 @@ export default async function CastingSuppliersPage({
                               </select>
                             </div>
                             <div>
-                              <label className="text-[11px] font-medium text-slate-600">
+                              <label className="text-2xs font-medium text-slate-600">
                                 Sort
                               </label>
                               <input
@@ -154,7 +154,7 @@ export default async function CastingSuppliersPage({
                             </div>
                           </div>
                           <div>
-                            <label className="text-[11px] font-medium text-slate-600">
+                            <label className="text-2xs font-medium text-slate-600">
                               Notes
                             </label>
                             <textarea

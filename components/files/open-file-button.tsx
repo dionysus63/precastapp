@@ -39,13 +39,13 @@ export function OpenFileButton({ fileId, fileName }: OpenFileButtonProps) {
         onClick={handleClick}
         disabled={pending}
         title={fileName}
-        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
       >
         {pending ? "Opening…" : "Open"}
       </button>
-      {error ? <span className="text-[10px] text-red-600">{error}</span> : null}
+      {error ? <span className="text-3xs text-red-600">{error}</span> : null}
       {success ? (
-        <span className="text-[10px] text-green-700" title={success}>
+        <span className="text-3xs text-green-700" title={success}>
           {success}
         </span>
       ) : null}

@@ -42,7 +42,7 @@ import {
 function DetailField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+      <dt className="text-2xs font-medium uppercase tracking-wide text-slate-500">
         {label}
       </dt>
       <dd className="mt-1 text-sm text-slate-900">{value}</dd>
@@ -61,7 +61,7 @@ function HeaderStat({
 }) {
   return (
     <div className="px-4 py-2 first:pl-3 last:pr-3">
-      <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+      <p className="text-3xs font-medium uppercase tracking-wide text-slate-500">
         {label}
       </p>
       <p
@@ -93,7 +93,7 @@ function RelatedChip({
     </>
   );
   const chipClassName =
-    "inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-2.5 py-0.5 text-[11px]";
+    "inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-2.5 py-0.5 text-2xs";
 
   if (href) {
     return (
@@ -107,9 +107,9 @@ function RelatedChip({
 }
 
 const toolbarButtonClassName =
-  "rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50";
+  "rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50";
 const toolbarDisabledClassName =
-  "rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-400";
+  "rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-400";
 
 type QuoteDetailContentProps = {
   quote: QuoteDetailView;
@@ -320,13 +320,13 @@ export function QuoteDetailContent({
               variant={quote.statusVariant}
             />
             {quote.scopeLabel ? (
-              <span className="inline-flex rounded-full bg-sky-100 px-2.5 py-0.5 text-[11px] font-semibold text-sky-900">
+              <span className="inline-flex rounded-full bg-sky-100 px-2.5 py-0.5 text-2xs font-semibold text-sky-900">
                 {quote.scopeLabel}
               </span>
             ) : null}
             {quote.revisionHistory.length > 1 ? (
               <span className="ml-auto flex flex-wrap items-center gap-1.5">
-                <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                <span className="text-3xs font-medium uppercase tracking-wide text-slate-400">
                   Revisions
                 </span>
                 {quote.revisionHistory.map((entry) => {
@@ -335,7 +335,7 @@ export function QuoteDetailContent({
                     <span
                       key={entry.id}
                       title={entry.label}
-                      className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-sky-900"
+                      className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 font-mono text-2xs font-semibold text-sky-900"
                     >
                       {chipText}
                     </span>
@@ -344,7 +344,7 @@ export function QuoteDetailContent({
                       key={entry.id}
                       href={`/quotes/${entry.id}`}
                       title={entry.label}
-                      className="inline-flex rounded-full border border-slate-200 px-2.5 py-0.5 font-mono text-[11px] text-slate-600 hover:bg-slate-50"
+                      className="inline-flex rounded-full border border-slate-200 px-2.5 py-0.5 font-mono text-2xs text-slate-600 hover:bg-slate-50"
                     >
                       {chipText}
                     </Link>
@@ -390,7 +390,7 @@ export function QuoteDetailContent({
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+            <span className="text-3xs font-medium uppercase tracking-wide text-slate-400">
               Related
             </span>
             <RelatedChip
@@ -426,7 +426,7 @@ export function QuoteDetailContent({
 
           {quote.customerTabs.length > 1 ? (
             <div className="border-t border-slate-100 pt-3">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+              <p className="text-2xs font-medium uppercase tracking-wide text-slate-500">
                 Same quote for {quote.customerTabs.length} customers
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -434,7 +434,7 @@ export function QuoteDetailContent({
                   <Link
                     key={tab.id}
                     href={`/quotes/${tab.id}`}
-                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-2xs font-medium transition-colors ${
                       tab.isCurrent
                         ? "border-slate-900 bg-slate-900 text-white"
                         : "border-slate-200 text-slate-700 hover:bg-slate-50"
@@ -526,7 +526,7 @@ export function QuoteDetailContent({
                         <StatusBadge label={line.typeLabel} variant="neutral" />
                       </td>
                       <td className={tableCellBordersClassName} colSpan={10}>
-                        <div className="flex items-center gap-2 px-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                        <div className="flex items-center gap-2 px-2 py-1.5 text-2xs font-medium uppercase tracking-wide text-slate-400">
                           <span className="h-0 flex-1 border-t-2 border-dashed border-slate-300" />
                           New page on the printed quote
                           <span className="h-0 flex-1 border-t-2 border-dashed border-slate-300" />
@@ -625,7 +625,7 @@ export function QuoteDetailContent({
           </table>
         </div>
         <div className="flex flex-wrap items-end justify-between gap-4 border-t border-slate-200 bg-slate-50/60 px-4 py-3">
-          <p className="text-[11px] text-slate-500">
+          <p className="text-2xs text-slate-500">
             Total Weight{" "}
             <span className="font-medium text-slate-700">
               {quote.summary.totalWeight}
@@ -741,7 +741,7 @@ export function QuoteDetailContent({
                               />
                               <Link
                                 href={`/drill-sheets/${structure.drillSheetId}`}
-                                className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                                className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50"
                               >
                                 Drill Sheet
                               </Link>

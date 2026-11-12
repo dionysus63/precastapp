@@ -93,7 +93,7 @@ export function Sidebar({
           return (
             <div key={section.id} className={sectionIndex > 0 ? "mt-5" : undefined}>
               <div
-                className="mb-1.5 select-none px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400"
+                className="mb-1.5 select-none px-3 text-3xs font-bold uppercase tracking-[0.14em] text-slate-400"
                 aria-hidden="true"
               >
                 {section.label}
@@ -106,7 +106,7 @@ export function Sidebar({
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${
+                      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-xsm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${
                         isActive
                           ? "bg-slate-900 text-white shadow-md shadow-slate-900/20"
                           : "text-slate-600 hover:bg-slate-200/60 hover:text-slate-900"
@@ -128,16 +128,16 @@ export function Sidebar({
 
       <div className="flex shrink-0 items-center gap-2.5 border-t border-slate-200/80 px-4 py-3">
         <div
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[11px] font-semibold text-slate-600"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-2xs font-semibold text-slate-600"
           aria-hidden="true"
         >
           {userInitials}
         </div>
         <div className="min-w-0">
-          <p className="truncate text-[11px] font-semibold text-slate-700">
+          <p className="truncate text-2xs font-semibold text-slate-700">
             {userDisplayName}
           </p>
-          <p className="text-[11px] text-slate-400">{ROLE_LABELS[userRole]}</p>
+          <p className="text-2xs text-slate-400">{ROLE_LABELS[userRole]}</p>
         </div>
       </div>
     </aside>

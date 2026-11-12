@@ -12,10 +12,55 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/*
+ * Per-user Text Size (My Preferences): <html data-text-size> sets
+ * --text-scale and every text size utility multiplies by it, so only the
+ * letters grow. Spacing and widths are untouched (they don't use these
+ * variables), and printed PDFs never load this stylesheet.
+ *
+ * `inline` puts the calc() into each utility, so --text-scale is read where
+ * the text is: setting it on any element resizes just that part (the size
+ * samples on the Text Size form do this).
+ *
+ * text-5xs … text-2xs and text-xsm are this app's small sizes below and
+ * around text-xs. Always use them instead of a pixel size like text-[11px],
+ * which would ignore the setting (tests/unit/text-size.test.ts checks).
+ */
+@theme inline {
+  --text-5xs: calc(8px * var(--text-scale));
+  --text-4xs: calc(9px * var(--text-scale));
+  --text-3xs: calc(10px * var(--text-scale));
+  --text-2xs: calc(11px * var(--text-scale));
+  --text-xsm: calc(13px * var(--text-scale));
+  --text-xs: calc(0.75rem * var(--text-scale));
+  --text-sm: calc(0.875rem * var(--text-scale));
+  --text-base: calc(1rem * var(--text-scale));
+  --text-lg: calc(1.125rem * var(--text-scale));
+  --text-xl: calc(1.25rem * var(--text-scale));
+  --text-2xl: calc(1.5rem * var(--text-scale));
+  --text-3xl: calc(1.875rem * var(--text-scale));
+  --text-4xl: calc(2.25rem * var(--text-scale));
+}
+
+/* Keep in step with TEXT_SIZE_SCALE in lib/text-size.ts. */
+:root {
+  --text-scale: 1;
+}
+
+:root[data-text-size="LARGE"] {
+  --text-scale: 1.1;
+}
+
+:root[data-text-size="EXTRA_LARGE"] {
+  --text-scale: 1.2;
+}
+
 body {
   background: var(--background);
   color: #0f172a;
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+  /* Text with no size class of its own follows the setting too. */
+  font-size: calc(1rem * var(--text-scale));
 }
 
 .rich-text-content b,

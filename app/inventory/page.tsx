@@ -320,7 +320,7 @@ export default async function InventoryPage({
               card.active ? "border-slate-400 ring-1 ring-slate-300" : "border-slate-200"
             }`}
           >
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <div className="text-2xs font-semibold uppercase tracking-wide text-slate-500">
               {card.label}
             </div>
             <div className={`mt-1 text-xl font-semibold ${card.valueClassName}`}>
@@ -475,11 +475,11 @@ export default async function InventoryPage({
                             : "—"
                           : `${product.currentStockQuantity} ${product.unit}`}
                         {out ? (
-                          <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-red-700">
+                          <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-3xs font-semibold uppercase text-red-700">
                             Out
                           </span>
                         ) : low ? (
-                          <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-700">
+                          <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-3xs font-semibold uppercase text-amber-700">
                             Low
                           </span>
                         ) : null}

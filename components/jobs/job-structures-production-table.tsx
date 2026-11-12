@@ -163,10 +163,10 @@ export function JobStructuresProductionTable({
     <div className={tableFlushWrapperClassName}>
       {selected.size > 0 ? (
         <div className="flex flex-wrap items-center gap-2 border-b border-sky-100 bg-sky-50 px-4 py-2">
-          <span className="text-[11px] font-semibold text-sky-800">
+          <span className="text-2xs font-semibold text-sky-800">
             {selected.size} selected
           </span>
-          <label className="text-[11px] font-medium text-sky-800" htmlFor="bulk-structure-status">
+          <label className="text-2xs font-medium text-sky-800" htmlFor="bulk-structure-status">
             Set status:
           </label>
           <select
@@ -176,7 +176,7 @@ export function JobStructuresProductionTable({
             onChange={(event) =>
               setBulkStatus(event.target.value as BulkStructureStatus)
             }
-            className="rounded-md border border-sky-200 bg-white px-2 py-1 text-[11px] text-slate-900"
+            className="rounded-md border border-sky-200 bg-white px-2 py-1 text-2xs text-slate-900"
           >
             {BULK_STATUS_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -188,7 +188,7 @@ export function JobStructuresProductionTable({
             type="button"
             disabled={pending}
             onClick={() => void applyBulkStatus()}
-            className="rounded-md bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+            className="rounded-md bg-slate-900 px-3 py-1 text-2xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
           >
             {pending ? "Applying…" : "Apply"}
           </button>
@@ -202,7 +202,7 @@ export function JobStructuresProductionTable({
                 ? "None of the selected structures have drill sheets."
                 : undefined
             }
-            className="rounded-md border border-sky-200 bg-white px-3 py-1 text-[11px] font-semibold text-sky-800 hover:bg-sky-100 disabled:opacity-50"
+            className="rounded-md border border-sky-200 bg-white px-3 py-1 text-2xs font-semibold text-sky-800 hover:bg-sky-100 disabled:opacity-50"
           >
             Print sheets ({selectedSheetIds.length})
           </button>
@@ -215,7 +215,7 @@ export function JobStructuresProductionTable({
                 ? "None of the selected structures have drill sheets."
                 : "Download the selected sheets as one PDF."
             }
-            className="rounded-md border border-sky-200 bg-white px-3 py-1 text-[11px] font-semibold text-sky-800 hover:bg-sky-100 disabled:opacity-50"
+            className="rounded-md border border-sky-200 bg-white px-3 py-1 text-2xs font-semibold text-sky-800 hover:bg-sky-100 disabled:opacity-50"
           >
             Save sheets ({selectedSheetIds.length})
           </button>
@@ -223,12 +223,12 @@ export function JobStructuresProductionTable({
             type="button"
             disabled={pending}
             onClick={() => void deleteSelected()}
-            className="rounded-md border border-red-200 bg-white px-3 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+            className="rounded-md border border-red-200 bg-white px-3 py-1 text-2xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
           >
             {pending ? "Working…" : "Delete"}
           </button>
           {jobNotActive ? (
-            <label className="ml-auto inline-flex items-center gap-1.5 text-[11px] font-medium text-sky-800">
+            <label className="ml-auto inline-flex items-center gap-1.5 text-2xs font-medium text-sky-800">
               <input
                 type="checkbox"
                 checked={setJobActive}
@@ -239,7 +239,7 @@ export function JobStructuresProductionTable({
             </label>
           ) : null}
           {error ? (
-            <span className="w-full text-[11px] font-medium text-red-600">
+            <span className="w-full text-2xs font-medium text-red-600">
               {error}
             </span>
           ) : null}
@@ -341,7 +341,7 @@ export function JobStructuresProductionTable({
                     {structure.createDrillSheetHref ? (
                       <Link
                         href={structure.createDrillSheetHref}
-                        className="inline-flex w-fit rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-100"
+                        className="inline-flex w-fit rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-2xs font-medium text-sky-700 hover:bg-sky-100"
                       >
                         Create Drill Sheet
                       </Link>
@@ -354,7 +354,7 @@ export function JobStructuresProductionTable({
                         />
                         <Link
                           href={`/drill-sheets/${structure.drillSheetId}`}
-                          className="inline-flex w-fit rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+                          className="inline-flex w-fit rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50"
                         >
                           Drill Sheet
                         </Link>

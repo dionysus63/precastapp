@@ -54,14 +54,14 @@ export function Header({ title, subtitle, user }: HeaderProps) {
               >
                 {user.displayName}
               </Link>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-2xs text-slate-500">
                 {ROLE_LABELS[user.role]}
               </p>
             </div>
             <form action={signOut}>
               <button
                 type="submit"
-                className="rounded-md px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                className="rounded-md px-2 py-1 text-2xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900"
               >
                 Sign out
               </button>

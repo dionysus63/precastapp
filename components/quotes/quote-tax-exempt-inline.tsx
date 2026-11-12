@@ -42,14 +42,14 @@ export function QuoteTaxExemptInline({
     return (
       <span className="inline-flex items-center gap-1.5">
         {isExempt ? (
-          <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-emerald-800">
+          <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-3xs font-semibold uppercase text-emerald-800">
             Tax Exempt
           </span>
         ) : null}
         <button
           type="button"
           onClick={() => setConfirming(true)}
-          className="text-[11px] font-medium text-sky-700 hover:text-sky-900 hover:underline"
+          className="text-2xs font-medium text-sky-700 hover:text-sky-900 hover:underline"
         >
           {isExempt
             ? `Apply ${defaultTaxRatePercent}% tax`
@@ -61,7 +61,7 @@ export function QuoteTaxExemptInline({
 
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className="text-[11px] text-slate-600">
+      <span className="text-2xs text-slate-600">
         {isExempt
           ? `Re-apply ${defaultTaxRatePercent}% sales tax and recalculate the total?`
           : `Remove the ${taxRatePercent}% sales tax and recalculate the total?`}
@@ -70,7 +70,7 @@ export function QuoteTaxExemptInline({
         type="button"
         onClick={apply}
         disabled={pending}
-        className="rounded bg-slate-900 px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+        className="rounded bg-slate-900 px-2 py-0.5 text-2xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
       >
         {pending ? "…" : "Confirm"}
       </button>
@@ -78,12 +78,12 @@ export function QuoteTaxExemptInline({
         type="button"
         onClick={() => setConfirming(false)}
         disabled={pending}
-        className="rounded border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+        className="rounded border border-slate-200 px-2 py-0.5 text-2xs font-medium text-slate-600 hover:bg-slate-50"
       >
         Cancel
       </button>
       {error ? (
-        <span className="text-[11px] font-medium text-red-600">{error}</span>
+        <span className="text-2xs font-medium text-red-600">{error}</span>
       ) : null}
     </span>
   );

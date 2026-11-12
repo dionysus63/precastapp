@@ -30,7 +30,7 @@ export function SendQuoteButton({
   projectName = "",
   disabled = false,
   disabledReason,
-  buttonClassName = "rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50",
+  buttonClassName = "rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50",
   defaultOpen = false,
 }: SendQuoteButtonProps) {
   const [open, setOpen] = useState(defaultOpen && !disabled);
@@ -248,7 +248,7 @@ export function SendQuoteButton({
                       ))}
                     </div>
                   ) : (
-                    <p className="mt-1 text-[11px] text-slate-500">
+                    <p className="mt-1 text-2xs text-slate-500">
                       No customer contacts with an email address — enter one
                       below.
                     </p>

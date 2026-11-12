@@ -28,7 +28,7 @@ export const tableCompactClassName =
   "w-auto border-separate border-spacing-0 border-r border-slate-300 text-left text-xs";
 
 const tableHeaderCellBaseClassName =
-  "sticky top-0 z-10 border-b-2 border-r border-b-slate-300 border-r-slate-300 bg-slate-100 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600 last:border-r-0";
+  "sticky top-0 z-10 border-b-2 border-r border-b-slate-300 border-r-slate-300 bg-slate-100 px-2 py-1.5 text-2xs font-semibold uppercase tracking-wide text-slate-600 last:border-r-0";
 
 export const tableHeaderCellClassName = `${tableHeaderCellBaseClassName} whitespace-nowrap`;
 

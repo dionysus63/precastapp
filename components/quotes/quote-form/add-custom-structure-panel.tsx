@@ -84,7 +84,7 @@ export function AddCustomStructurePanel({
               <button
                 type="button"
                 onClick={() => void onOpenImport()}
-                className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 hover:bg-sky-100"
+                className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-2xs font-semibold text-sky-700 hover:bg-sky-100"
               >
                 Import from job structures
               </button>
@@ -95,7 +95,7 @@ export function AddCustomStructurePanel({
                 setCustomPasteOpen((current) => !current);
                 setCustomPasteError(null);
               }}
-              className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 hover:bg-sky-100"
+              className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-2xs font-semibold text-sky-700 hover:bg-sky-100"
             >
               Paste from Excel
             </button>
@@ -107,7 +107,7 @@ export function AddCustomStructurePanel({
                   createDefaultCustomStructureRow(current),
                 ])
               }
-              className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-slate-200 px-2.5 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
             >
               Add another structure
             </button>
@@ -115,7 +115,7 @@ export function AddCustomStructurePanel({
         </div>
         {customPasteOpen ? (
           <div className="rounded-xl border border-sky-200 bg-sky-50/40 p-3">
-            <p className="text-[11px] font-medium text-slate-700">
+            <p className="text-2xs font-medium text-slate-700">
               Paste cells from Excel — include the header row.
               Recognized columns: Structure #, Description, Qty, Unit
               Price, Weight, Yards.
@@ -130,10 +130,10 @@ export function AddCustomStructurePanel({
               placeholder={
                 "Structure #\tDescription\tQty\tUnit Price\tWeight\tYards\nCS-1\tCustom 8'x12' valve vault\t2\t32500\t28500\t9.2"
               }
-              className="mt-2 block w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 font-mono text-[11px] text-slate-900"
+              className="mt-2 block w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 font-mono text-2xs text-slate-900"
             />
             {customPasteError ? (
-              <p className="mt-2 text-[11px] font-medium text-red-600">
+              <p className="mt-2 text-2xs font-medium text-red-600">
                 {customPasteError}
               </p>
             ) : null}
@@ -142,7 +142,7 @@ export function AddCustomStructurePanel({
                 type="button"
                 onClick={onPaste}
                 disabled={!customPasteText.trim()}
-                className="rounded-lg bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-slate-800 disabled:opacity-40"
+                className="rounded-lg bg-slate-900 px-2.5 py-1 text-2xs font-semibold text-white hover:bg-slate-800 disabled:opacity-40"
               >
                 Add pasted structures
               </button>
@@ -152,7 +152,7 @@ export function AddCustomStructurePanel({
                   setCustomPasteOpen(false);
                   setCustomPasteError(null);
                 }}
-                className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-slate-200 px-2.5 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
               >
                 Cancel
               </button>
@@ -167,7 +167,7 @@ export function AddCustomStructurePanel({
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="grid flex-1 gap-3 sm:grid-cols-[minmax(8rem,1fr)_5rem]">
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-700">
+                  <label className="block text-2xs font-medium text-slate-700">
                     Structure #
                   </label>
                   <input
@@ -184,7 +184,7 @@ export function AddCustomStructurePanel({
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-700">
+                  <label className="block text-2xs font-medium text-slate-700">
                     Qty
                   </label>
                   <input
@@ -205,7 +205,7 @@ export function AddCustomStructurePanel({
                 <button
                   type="button"
                   onClick={() => duplicateCustomStructureRow(row.id)}
-                  className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                  className="rounded-lg border border-slate-200 px-2 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
                 >
                   Duplicate
                 </button>
@@ -217,7 +217,7 @@ export function AddCustomStructurePanel({
                         current.filter((entry) => entry.id !== row.id),
                       )
                     }
-                    className="rounded-lg border border-red-200 px-2 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-50"
+                    className="rounded-lg border border-red-200 px-2 py-1 text-2xs font-semibold text-red-600 hover:bg-red-50"
                   >
                     Remove
                   </button>
@@ -226,7 +226,7 @@ export function AddCustomStructurePanel({
             </div>
 
             <div>
-              <label className="block text-[11px] font-medium text-slate-700">
+              <label className="block text-2xs font-medium text-slate-700">
                 Description
               </label>
               <div className="mt-1">
@@ -247,7 +247,7 @@ export function AddCustomStructurePanel({
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <label className="block text-[11px] font-medium text-slate-700">
+                <label className="block text-2xs font-medium text-slate-700">
                   Weight (lb)
                 </label>
                 <input
@@ -265,7 +265,7 @@ export function AddCustomStructurePanel({
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-medium text-slate-700">
+                <label className="block text-2xs font-medium text-slate-700">
                   Yards
                 </label>
                 <input
@@ -281,7 +281,7 @@ export function AddCustomStructurePanel({
                   placeholder="9.2"
                   className={`${quoteInputClassName} mt-1`}
                 />
-                <p className="mt-1 text-[11px] text-slate-500">
+                <p className="mt-1 text-2xs text-slate-500">
                   Used for production and delivery planning.
                 </p>
               </div>

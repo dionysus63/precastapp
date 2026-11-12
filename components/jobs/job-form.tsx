@@ -88,7 +88,7 @@ export function JobForm({
       {isEdit ? (
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            <p className="text-2xs font-medium uppercase tracking-wide text-slate-500">
               Job Number
             </p>
             <p className="mt-1 font-mono text-sm text-slate-900">
@@ -96,7 +96,7 @@ export function JobForm({
             </p>
           </div>
           <div>
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+            <p className="text-2xs font-medium uppercase tracking-wide text-slate-500">
               Job Year
             </p>
             <p className="mt-1 text-sm text-slate-900">{defaultValues?.jobYear}</p>

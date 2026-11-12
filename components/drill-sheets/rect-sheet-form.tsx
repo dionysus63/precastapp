@@ -593,7 +593,7 @@ export function RectSheetForm({
                   className={structureInputClassName}
                 />
                 {templateSize ? (
-                  <p className="mt-1 text-[11px] text-slate-400">
+                  <p className="mt-1 text-2xs text-slate-400">
                     Set by the template —{" "}
                     {formatFeetInchesShort(templateSize.insideLengthFeet)}.
                   </p>
@@ -613,7 +613,7 @@ export function RectSheetForm({
                   className={structureInputClassName}
                 />
                 {templateSize ? (
-                  <p className="mt-1 text-[11px] text-slate-400">
+                  <p className="mt-1 text-2xs text-slate-400">
                     Set by the template —{" "}
                     {formatFeetInchesShort(templateSize.insideWidthFeet)}.
                   </p>
@@ -644,12 +644,12 @@ export function RectSheetForm({
                   className={structureInputClassName}
                   placeholder="Auto"
                 />
-                <p className="mt-1 text-[11px] text-slate-400">
+                <p className="mt-1 text-2xs text-slate-400">
                   Walls drop to the 6&quot; pour leaving at least this much
                   brick. Blank = template minimum.
                 </p>
                 {wallHeightAdjustInches !== 0 ? (
-                  <p className="mt-1 text-[11px] font-medium text-sky-700">
+                  <p className="mt-1 text-2xs font-medium text-sky-700">
                     Wall moved {formatWallHeightAdjust(wallHeightAdjustInches)}{" "}
                     by hand in Quick Build. Change it there with the arrows.
                   </p>
@@ -685,7 +685,7 @@ export function RectSheetForm({
                 >
                   Top slab: {hasTopSlab ? "Yes" : "No"} · Base slab:{" "}
                   {hasBaseSlab ? "Yes" : "No"}{" "}
-                  <span className="text-[10px] text-slate-400">
+                  <span className="text-3xs text-slate-400">
                     (from template)
                   </span>
                 </p>
@@ -725,7 +725,7 @@ export function RectSheetForm({
                     }
                     className={structureInputClassName}
                   />
-                  <p className="mt-1 text-[11px] text-slate-400">
+                  <p className="mt-1 text-2xs text-slate-400">
                     {usesTemplateOpening
                       ? "Using the template's opening. Enter a size to override."
                       : templateOpening
@@ -794,7 +794,7 @@ export function RectSheetForm({
                 onClick={() =>
                   setOpenings((current) => [...current, createOpening()])
                 }
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
               >
                 Add Opening
               </button>
@@ -929,7 +929,7 @@ export function RectSheetForm({
                             className={`${structureTableInputClassName} w-16`}
                           />
                         ) : (
-                          <span className="text-[11px] text-slate-400">—</span>
+                          <span className="text-2xs text-slate-400">—</span>
                         )}
                       </td>
                       <td className={tableCellClassName}>
@@ -968,7 +968,7 @@ export function RectSheetForm({
                                 current.filter((row) => row.id !== opening.id),
                               )
                             }
-                            className="text-[11px] font-medium text-rose-600 hover:text-rose-800"
+                            className="text-2xs font-medium text-rose-600 hover:text-rose-800"
                           >
                             Remove
                           </button>
@@ -999,7 +999,7 @@ export function RectSheetForm({
                       : [...current, createSection()],
                   )
                 }
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
               >
                 {sections.length === 0 ? "Split Sections" : "Add Section"}
               </button>
@@ -1059,7 +1059,7 @@ export function RectSheetForm({
                         className={`${structureTableInputClassName} w-24`}
                       />
                       {index < sections.length - 1 ? (
-                        <label className="flex items-center gap-1.5 text-[11px] font-medium text-slate-600">
+                        <label className="flex items-center gap-1.5 text-2xs font-medium text-slate-600">
                           <input
                             type="checkbox"
                             checked={section.topKey}
@@ -1073,7 +1073,7 @@ export function RectSheetForm({
                         </label>
                       ) : null}
                       <span
-                        className={`text-[11px] font-medium ${over ? "text-rose-600" : "text-slate-500"}`}
+                        className={`text-2xs font-medium ${over ? "text-rose-600" : "text-slate-500"}`}
                       >
                         {formatPounds(weight)}
                         {over ? " — over max pick" : ""}
@@ -1085,7 +1085,7 @@ export function RectSheetForm({
                             current.filter((row) => row.id !== section.id),
                           )
                         }
-                        className="text-[11px] font-medium text-rose-600 hover:text-rose-800"
+                        className="text-2xs font-medium text-rose-600 hover:text-rose-800"
                       >
                         Remove
                       </button>
@@ -1093,7 +1093,7 @@ export function RectSheetForm({
                   );
                 })}
                 {result && result.wallHeightFeet > 0 ? (
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-2xs text-slate-500">
                     Wall height to fill: {result.wallHeightFeet.toFixed(2)}&apos;
                   </p>
                 ) : null}

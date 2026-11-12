@@ -68,11 +68,11 @@ function aboveFloorText(opening: ComputedRectOpening): string {
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+      <p className="text-2xs font-medium uppercase tracking-wide text-slate-500">
         {label}
       </p>
       <p className="text-base font-semibold text-slate-900">{value}</p>
-      {hint ? <p className="text-[11px] text-slate-500">{hint}</p> : null}
+      {hint ? <p className="text-2xs text-slate-500">{hint}</p> : null}
     </div>
   );
 }
@@ -235,7 +235,7 @@ export function RectSheetDetailView({
                         {opening.label?.trim() ||
                           String.fromCharCode(65 + index)}
                         {opening.isLowInvert ? (
-                          <span className="ml-1 text-[10px] font-medium text-sky-700">
+                          <span className="ml-1 text-3xs font-medium text-sky-700">
                             low
                           </span>
                         ) : null}
