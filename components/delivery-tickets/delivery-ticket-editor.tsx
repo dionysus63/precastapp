@@ -17,9 +17,15 @@ import {
   type SaveDeliveryTicketInput,
 } from "@/app/delivery-tickets/actions";
 import { getQuoteFulfillmentWithOpenLoads } from "@/app/operations/actions";
+import {
+  portraitPreviewPaneClassName,
+  portraitPreviewSplitClassName,
+} from "@/components/common/live-pdf-preview";
 import { BackButton } from "@/components/dashboard/back-button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { useStoredFlag } from "@/lib/hooks/use-stored-flag";
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning";
+import { standardPageWidthClassName } from "@/lib/page-width";
 import type { QuoteLineFulfillment } from "@/lib/delivery-fulfillment";
 import { buildDrainRingDiameterGroups } from "@/components/delivery-tickets/drain-ring-matrix-utils";
 import { collapseCastingTicketLines } from "@/lib/casting-ticket-lines";
@@ -49,6 +55,7 @@ import { JobTicketHeader } from "@/components/delivery-tickets/delivery-ticket-e
 import { LeaveConfirmDialog } from "@/components/delivery-tickets/delivery-ticket-editor/leave-confirm-dialog";
 import { PickupPricingCard } from "@/components/delivery-tickets/delivery-ticket-editor/pickup-pricing-card";
 import { QuoteLinesTable } from "@/components/delivery-tickets/delivery-ticket-editor/quote-lines-table";
+import { TicketLivePreview } from "@/components/delivery-tickets/delivery-ticket-editor/ticket-live-preview";
 import type {
   EditorLine,
   JobOption,
@@ -65,6 +72,8 @@ import { WalkInTicketLinesCard } from "@/components/delivery-tickets/delivery-ti
 export type DeliveryTicketEditorProps = {
   mode: "create" | "edit";
   ticketId?: string;
+  /** Shown on the live preview pane while editing a saved ticket. */
+  ticketNumber?: string | null;
   // ISO updatedAt of the ticket as loaded for editing; sent back with the
   // save so the server can reject stale writes (optimistic concurrency).
   expectedUpdatedAt?: string;
@@ -98,6 +107,7 @@ export type DeliveryTicketEditorProps = {
 export function DeliveryTicketEditor({
   mode,
   ticketId,
+  ticketNumber,
   expectedUpdatedAt,
   jobs,
   products: initialProducts = [],
@@ -128,6 +138,11 @@ export function DeliveryTicketEditor({
   const priceListRequestRef = useRef(0);
   const [isDirty, setIsDirty] = useState(false);
   useUnsavedChangesWarning(isDirty);
+  // The live ticket PDF beside the inputs; hiding it is remembered per PC.
+  const [previewHidden, setPreviewHidden] = useStoredFlag(
+    "precastapp:ticket-editor-preview-hidden",
+    false,
+  );
 
   function markDirty() {
     setIsDirty(true);
@@ -923,14 +938,29 @@ export function DeliveryTicketEditor({
   );
 
   return (
-    <div className="space-y-4" onChange={markDirty}>
-      {backHref ? (
-        <BackButton
-          href={backHref}
-          label={backLabel ?? "Back"}
-          onClick={(event) => guardLeave(event, backHref)}
-        />
-      ) : null}
+    // The page is full width for the preview; with the preview hidden the
+    // inputs go back to the standard centered column they were laid out for.
+    <div className={`space-y-4 ${previewHidden ? standardPageWidthClassName : ""}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {backHref ? (
+          <BackButton
+            href={backHref}
+            label={backLabel ?? "Back"}
+            onClick={(event) => guardLeave(event, backHref)}
+          />
+        ) : (
+          <span />
+        )}
+        {previewHidden ? (
+          <button
+            type="button"
+            onClick={() => setPreviewHidden(false)}
+            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+          >
+            Show ticket preview
+          </button>
+        ) : null}
+      </div>
 
       {leaveTarget ? (
         <LeaveConfirmDialog
@@ -954,163 +984,176 @@ export function DeliveryTicketEditor({
         />
       ) : null}
 
-      {ticketType === "WALK_IN" ? (
-        <WalkInTicketHeader
-          stickyRef={stickyRegionRef}
-          ticketTypeButtons={ticketTypeButtons}
-          actionButtons={actionButtons}
-          walkInPieceCount={walkInPieceCount}
-          walkInSubtotal={walkInSubtotal}
-          walkInMissingPriceCount={walkInMissingPriceCount}
-          totalWeight={totalWeight}
-          walkInOneOff={walkInOneOff}
-          setWalkInOneOff={setWalkInOneOff}
-          walkInCustomer={walkInCustomer}
-          setWalkInCustomer={setWalkInCustomer}
-          walkInCustomerId={walkInCustomerId}
-          setWalkInCustomerId={setWalkInCustomerId}
-          walkInReference={walkInReference}
-          setWalkInReference={setWalkInReference}
-          deliveryDate={deliveryDate}
-          setDeliveryDate={setDeliveryDate}
-          paymentMethod={paymentMethod}
-          setPaymentMethod={setPaymentMethod}
-          pickedUpBy={pickedUpBy}
-          setPickedUpBy={setPickedUpBy}
-          paymentReceived={paymentReceived}
-          setPaymentReceived={setPaymentReceived}
-          priceListOptions={priceListOptions}
-          priceListId={priceListId}
-          priceListLoading={priceListLoading}
-          onPriceListChange={handlePriceListChange}
-          markDirty={markDirty}
-        />
-      ) : null}
+      <div className={previewHidden ? "" : portraitPreviewSplitClassName}>
+        <div className="min-w-0 space-y-4" onChange={markDirty}>
+          {ticketType === "WALK_IN" ? (
+            <WalkInTicketHeader
+              stickyRef={stickyRegionRef}
+              ticketTypeButtons={ticketTypeButtons}
+              actionButtons={actionButtons}
+              walkInPieceCount={walkInPieceCount}
+              walkInSubtotal={walkInSubtotal}
+              walkInMissingPriceCount={walkInMissingPriceCount}
+              totalWeight={totalWeight}
+              walkInOneOff={walkInOneOff}
+              setWalkInOneOff={setWalkInOneOff}
+              walkInCustomer={walkInCustomer}
+              setWalkInCustomer={setWalkInCustomer}
+              walkInCustomerId={walkInCustomerId}
+              setWalkInCustomerId={setWalkInCustomerId}
+              walkInReference={walkInReference}
+              setWalkInReference={setWalkInReference}
+              deliveryDate={deliveryDate}
+              setDeliveryDate={setDeliveryDate}
+              paymentMethod={paymentMethod}
+              setPaymentMethod={setPaymentMethod}
+              pickedUpBy={pickedUpBy}
+              setPickedUpBy={setPickedUpBy}
+              paymentReceived={paymentReceived}
+              setPaymentReceived={setPaymentReceived}
+              priceListOptions={priceListOptions}
+              priceListId={priceListId}
+              priceListLoading={priceListLoading}
+              onPriceListChange={handlePriceListChange}
+              markDirty={markDirty}
+            />
+          ) : null}
 
-      {ticketType === "WALK_IN" && error ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-          {error}
-        </p>
-      ) : null}
+          {ticketType === "WALK_IN" && error ? (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              {error}
+            </p>
+          ) : null}
 
-      {ticketType === "JOB" ? (
-        <JobTicketHeader
-          stickyRef={stickyRegionRef}
-          ticketTypeButtons={ticketTypeButtons}
-          actionButtons={actionButtons}
-          selectedLineCount={selectedLineCount}
-          totalWeight={totalWeight}
-          isPickup={isPickup}
-          loadCapacityLabel={loadCapacityLabel}
-          selectedJob={selectedJob}
-          onJobChange={handleJobChange}
-          quoteId={quoteId}
-          onQuoteChange={handleQuoteChange}
-          hasQuote={Boolean(quote)}
-          fulfillmentMethod={fulfillmentMethod}
-          setFulfillmentMethod={setFulfillmentMethod}
-          deliveryDate={deliveryDate}
-          setDeliveryDate={setDeliveryDate}
-          drivers={drivers}
-          driver={driver}
-          setDriver={setDriver}
-          driverOther={driverOther}
-          setDriverOther={setDriverOther}
-          trailers={trailers}
-          trailer={trailer}
-          setTrailer={setTrailer}
-          trailerOther={trailerOther}
-          setTrailerOther={setTrailerOther}
-          customLine={customLine}
-          setCustomLine={setCustomLine}
-          error={error}
-          markDirty={markDirty}
-        />
-      ) : null}
+          {ticketType === "JOB" ? (
+            <JobTicketHeader
+              stickyRef={stickyRegionRef}
+              ticketTypeButtons={ticketTypeButtons}
+              actionButtons={actionButtons}
+              selectedLineCount={selectedLineCount}
+              totalWeight={totalWeight}
+              isPickup={isPickup}
+              loadCapacityLabel={loadCapacityLabel}
+              selectedJob={selectedJob}
+              onJobChange={handleJobChange}
+              quoteId={quoteId}
+              onQuoteChange={handleQuoteChange}
+              hasQuote={Boolean(quote)}
+              fulfillmentMethod={fulfillmentMethod}
+              setFulfillmentMethod={setFulfillmentMethod}
+              deliveryDate={deliveryDate}
+              setDeliveryDate={setDeliveryDate}
+              drivers={drivers}
+              driver={driver}
+              setDriver={setDriver}
+              driverOther={driverOther}
+              setDriverOther={setDriverOther}
+              trailers={trailers}
+              trailer={trailer}
+              setTrailer={setTrailer}
+              trailerOther={trailerOther}
+              setTrailerOther={setTrailerOther}
+              customLine={customLine}
+              setCustomLine={setCustomLine}
+              error={error}
+              markDirty={markDirty}
+            />
+          ) : null}
 
-      {ticketType === "JOB" && quote ? (
-        <QuoteLinesTable
-          fulfillment={fulfillment}
-          isPickup={isPickup}
-          drainRingDiameterGroups={drainRingDiameterGroups}
-          editing={editing}
-          split={split}
-          getAvailableQty={getAvailableQty}
-          getOnOpenLoadsQty={getOnOpenLoadsQty}
-          linesByKey={linesByKey}
-          selectedLineIds={selectedLineIds}
-          setLines={setLines}
-          expandedCastingIds={expandedCastingIds}
-          setExpandedCastingIds={setExpandedCastingIds}
-          totalWeight={totalWeight}
-          loadCapacityLabel={loadCapacityLabel}
-          stickyRegionHeight={stickyRegionHeight}
-        />
-      ) : null}
+          {ticketType === "JOB" && quote ? (
+            <QuoteLinesTable
+              fulfillment={fulfillment}
+              isPickup={isPickup}
+              drainRingDiameterGroups={drainRingDiameterGroups}
+              editing={editing}
+              split={split}
+              getAvailableQty={getAvailableQty}
+              getOnOpenLoadsQty={getOnOpenLoadsQty}
+              linesByKey={linesByKey}
+              selectedLineIds={selectedLineIds}
+              setLines={setLines}
+              expandedCastingIds={expandedCastingIds}
+              setExpandedCastingIds={setExpandedCastingIds}
+              totalWeight={totalWeight}
+              loadCapacityLabel={loadCapacityLabel}
+              stickyRegionHeight={stickyRegionHeight}
+            />
+          ) : null}
 
-      {ticketType === "JOB" && quote && isPickup ? (
-        <PickupPricingCard
-          lines={lines}
-          selectedLineIds={selectedLineIds}
-          fulfillmentById={fulfillmentById}
-          onApplyPickupListPrices={applyPickupListPrices}
-          updateLine={updateWalkInLine}
-          markDirty={markDirty}
-        />
-      ) : null}
+          {ticketType === "JOB" && quote && isPickup ? (
+            <PickupPricingCard
+              lines={lines}
+              selectedLineIds={selectedLineIds}
+              fulfillmentById={fulfillmentById}
+              onApplyPickupListPrices={applyPickupListPrices}
+              updateLine={updateWalkInLine}
+              markDirty={markDirty}
+            />
+          ) : null}
 
-      {ticketType === "JOB" && quote ? (
-        <ExtraItemsCard
-          isPickup={isPickup}
-          extraSearch={extraSearch}
-          onExtraSearchChange={setExtraSearch}
-          extraResults={extraResults}
-          extraLines={extraLines}
-          onAddProduct={addExtraProduct}
-          onAddCustomLine={addExtraCustomLine}
-          updateLine={updateWalkInLine}
-          removeLine={removeLine}
-        />
-      ) : null}
+          {ticketType === "JOB" && quote ? (
+            <ExtraItemsCard
+              isPickup={isPickup}
+              extraSearch={extraSearch}
+              onExtraSearchChange={setExtraSearch}
+              extraResults={extraResults}
+              extraLines={extraLines}
+              onAddProduct={addExtraProduct}
+              onAddCustomLine={addExtraCustomLine}
+              updateLine={updateWalkInLine}
+              removeLine={removeLine}
+            />
+          ) : null}
 
-      {ticketType === "WALK_IN" ? (
-        <div className="grid items-start gap-4 xl:grid-cols-2">
-          <WalkInProductPicker
-            products={products}
-            filter={walkInFilter}
-            walkInQtyByProductId={walkInQtyByProductId}
-            onAddProduct={addWalkInLine}
-          />
+          {ticketType === "WALK_IN" ? (
+            <div className="grid items-start gap-4 xl:grid-cols-2">
+              <WalkInProductPicker
+                products={products}
+                filter={walkInFilter}
+                walkInQtyByProductId={walkInQtyByProductId}
+                onAddProduct={addWalkInLine}
+              />
 
-          <WalkInTicketLinesCard
-            stickyRegionHeight={stickyRegionHeight}
-            lines={lines}
-            products={products}
-            showLineWeights={showLineWeights}
-            onToggleLineWeights={() => setShowLineWeights((current) => !current)}
-            updateLine={updateWalkInLine}
-            removeLine={removeLine}
-            markDirty={markDirty}
-            walkInSubtotal={walkInSubtotal}
-            walkInMoney={walkInMoney}
-            walkInMissingPriceCount={walkInMissingPriceCount}
-            defaultTaxRatePercent={defaultTaxRatePercent}
-            totalWeight={totalWeight}
-          />
+              <WalkInTicketLinesCard
+                stickyRegionHeight={stickyRegionHeight}
+                lines={lines}
+                products={products}
+                showLineWeights={showLineWeights}
+                onToggleLineWeights={() => setShowLineWeights((current) => !current)}
+                updateLine={updateWalkInLine}
+                removeLine={removeLine}
+                markDirty={markDirty}
+                walkInSubtotal={walkInSubtotal}
+                walkInMoney={walkInMoney}
+                walkInMissingPriceCount={walkInMissingPriceCount}
+                defaultTaxRatePercent={defaultTaxRatePercent}
+                totalWeight={totalWeight}
+              />
+            </div>
+          ) : null}
+
+          {ticketType === "JOB" && fulfillmentMethod === "PICKUP" ? (
+            <JobPickupPaymentCard
+              paymentMethod={paymentMethod}
+              setPaymentMethod={setPaymentMethod}
+              pickedUpBy={pickedUpBy}
+              setPickedUpBy={setPickedUpBy}
+              paymentReceived={paymentReceived}
+              setPaymentReceived={setPaymentReceived}
+            />
+          ) : null}
         </div>
-      ) : null}
-
-      {ticketType === "JOB" && fulfillmentMethod === "PICKUP" ? (
-        <JobPickupPaymentCard
-          paymentMethod={paymentMethod}
-          setPaymentMethod={setPaymentMethod}
-          pickedUpBy={pickedUpBy}
-          setPickedUpBy={setPickedUpBy}
-          paymentReceived={paymentReceived}
-          setPaymentReceived={setPaymentReceived}
-        />
-      ) : null}
-
+        {previewHidden ? null : (
+          <div className={portraitPreviewPaneClassName}>
+            <TicketLivePreview
+              ticketId={mode === "edit" ? ticketId : undefined}
+              ticketNumber={mode === "edit" ? ticketNumber : null}
+              payload={buildPayload("DRAFT")}
+              onHide={() => setPreviewHidden(true)}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
