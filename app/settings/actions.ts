@@ -31,6 +31,10 @@ import {
   verifySettingsResetPassword,
 } from "@/lib/settings-reset-password";
 import { prisma, withDatabaseRetry } from "@/lib/prisma";
+import {
+  deleteAllScanUploads,
+  setAsideAllSignedTickets,
+} from "@/lib/ticket-scan/storage";
 import type { AuthUser } from "@/lib/auth/permissions";
 import { returnActionError } from "@/lib/server/action-errors";
 import type { ActionFormResult } from "@/components/ui/action-form";
@@ -1431,18 +1435,39 @@ async function clearAllDeliveryTicketsOrThrow(
 
   const result = await prisma.$transaction(async (tx) => {
     // Invoice -> DeliveryTicket is Restrict, so invoices go first (their line
-    // items cascade). Ticket line items cascade with each ticket.
+    // items cascade). Ticket line items and signed-ticket file rows cascade
+    // with each ticket. Scan In's scans (the one being worked on and the
+    // record of each filing) only make sense with the tickets they name.
     const invoicesDeleted = await tx.invoice.deleteMany();
     const ticketsDeleted = await tx.deliveryTicket.deleteMany();
+    const scansDeleted = await tx.ticketScanBatch.deleteMany();
     const ticketSequencesDeleted = await tx.deliveryTicketSequence.deleteMany();
     const invoiceSequencesDeleted = await tx.invoiceSequence.deleteMany();
     return {
       invoicesDeleted: invoicesDeleted.count,
       ticketsDeleted: ticketsDeleted.count,
+      scansDeleted: scansDeleted.count,
       sequencesDeleted:
         ticketSequencesDeleted.count + invoiceSequencesDeleted.count,
     };
   });
+
+  // The files behind them. Uploaded scans go. Signed tickets are kept, moved
+  // out of the year folders so a ticket number used again starts clean. A
+  // problem here does not undo the reset: filing never overwrites a signed
+  // copy it finds in its way.
+  let signedTicketsNote = "";
+  await deleteAllScanUploads().catch(() => undefined);
+  try {
+    const clearedFolder = await setAsideAllSignedTickets();
+    if (clearedFolder) {
+      signedTicketsNote = ` The signed ticket PDFs were kept, in storage\\signed-tickets\\${clearedFolder}.`;
+    }
+  } catch (error) {
+    signedTicketsNote = ` The signed ticket PDFs could not be moved aside (${
+      error instanceof Error ? error.message : "unknown error"
+    }); they are still in storage\\signed-tickets and nothing will overwrite them.`;
+  }
 
   await writeAuditLog({
     userId: user.id,
@@ -1452,6 +1477,7 @@ async function clearAllDeliveryTicketsOrThrow(
     metadata: {
       ticketsDeleted: result.ticketsDeleted,
       invoicesDeleted: result.invoicesDeleted,
+      scansDeleted: result.scansDeleted,
       sequencesDeleted: result.sequencesDeleted,
     },
   });
@@ -1461,6 +1487,6 @@ async function clearAllDeliveryTicketsOrThrow(
   revalidatePath("/invoices");
   revalidatePath("/settings/data-reset");
   return {
-    success: `Deleted ${result.ticketsDeleted} delivery ticket${result.ticketsDeleted === 1 ? "" : "s"} and ${result.invoicesDeleted} invoice${result.invoicesDeleted === 1 ? "" : "s"}.${result.sequencesDeleted > 0 ? " Ticket and invoice numbering will start over." : ""}`,
+    success: `Deleted ${result.ticketsDeleted} delivery ticket${result.ticketsDeleted === 1 ? "" : "s"} and ${result.invoicesDeleted} invoice${result.invoicesDeleted === 1 ? "" : "s"}.${result.sequencesDeleted > 0 ? " Ticket and invoice numbering will start over." : ""}${signedTicketsNote}`,
   };
 }

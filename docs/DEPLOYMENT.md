@@ -79,7 +79,7 @@ Then complete **Phase 4** (app settings) in the desktop app and **Phase 7** (off
 
 | Software | Notes |
 |----------|-------|
-| Node.js 20 LTS or 22 LTS | [nodejs.org](https://nodejs.org) |
+| Node.js 22 LTS or 24 LTS | [nodejs.org](https://nodejs.org). The Scan In reader, which opens the scanned ticket PDFs, needs 22.13 or newer |
 | Git for Windows | Clone/pull updates |
 | PostgreSQL 18 | Service `postgresql-x64-18`; see [COMMANDS.md](../COMMANDS.md) |
 | Brave or Google Chrome | Quote/drill-sheet PDFs |
@@ -250,6 +250,18 @@ cd C:\Apps\precastapp
 npm run deploy:update
 ```
 
+After the update that first brings Scan In, and after any Node.js update on
+the server, prove the scan reader there:
+
+```powershell
+npm run check:scan-reader
+```
+
+It reads a sample ticket page, draws a preview and files a test copy in a
+scratch folder under the temp folder, then prints `[OK]` or `[FAIL]` lines.
+It does not open the database or touch the app's `storage` folder. To read
+a real scan as well, name the PDF: `npm run check:scan-reader -- "C:\Scans\today.pdf"`.
+
 Equivalent manual steps, if you ever need them individually:
 
 ```powershell
@@ -409,9 +421,14 @@ Summary:
 `scripts\backup-database.ps1` backs up everything the app can't rebuild:
 
 - the database, as a `pg_dump` archive: `precastapp_<date>_<time>.dump`
-- `storage\` (uploaded sheet PDF sets, which are not in the database), as `precastapp-storage_<date>_<time>.zip`
+- `storage\` (uploaded sheet PDFs, which are not in the database), as `precastapp-storage_<date>_<time>.zip`
+- the signed delivery tickets filed on the Scan In tab (`storage\signed-tickets`, one
+  scanned PDF per ticket), as a plain folder: `signed-tickets\<year>\<ticket>.pdf`.
+  They are kept for good, so they are left out of the nightly zip (which would
+  otherwise hold every signed ticket again each night). Each run copies only the
+  new or changed files into the folder, and nothing in it is ever pruned.
 
-Both go to `C:\Backups\precastapp`, which is on the same disk as the database. For
+All three go to `C:\Backups\precastapp`, which is on the same disk as the database. For
 real protection send them off the server too: upload to Backblaze B2 (see
 [Off-site copy to Backblaze B2](#off-site-copy-to-backblaze-b2)), copy to a NAS or
 another PC's share, or both. Settings live in `.env` on the server:
@@ -440,9 +457,13 @@ cloud copies.
    - Name: anything unique, e.g. `liprecast-backups`; Files: **Private**
    - **Object Lock: Enable** (only possible at creation). Then set its default
      retention to **Governance, 30 days**.
-   - Lifecycle Settings → custom rule: file name prefix blank,
+   - Lifecycle Settings → custom rule: file name prefix **`precastapp/precastapp`**,
      **days till hide 90**, **days till delete 1**. This keeps about 90 days of
-     backups; storage cost for a few GB is cents a month.
+     nightly backups; storage cost for a few GB is cents a month. The prefix
+     matches the nightly `.dump` and `.zip` only, so the signed tickets
+     (`precastapp/signed-tickets/...`) are kept for good. With a blank prefix
+     each signed ticket would be hidden after 90 days and uploaded again by the
+     next backup.
 2. **Create an application key** (B2 → Application Keys → Add a New Application Key):
    access to **that bucket only**, type **Read and Write**. Copy the **keyID** and
    **applicationKey**; the key is shown only once.
@@ -517,6 +538,7 @@ Stop the app first, then:
     -d precastapp --clean --if-exists "C:\Backups\precastapp\<file>.dump"
 Expand-Archive "C:\Backups\precastapp\precastapp-storage_<date>_<time>.zip" `
     -DestinationPath C:\Apps\precastapp\storage -Force
+robocopy "C:\Backups\precastapp\signed-tickets" "C:\Apps\precastapp\storage\signed-tickets" /E
 ```
 
 Restore the `.dump` and `.zip` with the same timestamp so sheet PDF sets match the
@@ -535,6 +557,7 @@ for restoring into a scratch database to inspect first.
 | Server URL change only | **Staff PCs** | Edit `%APPDATA%\Precast Ops\config.json` |
 | Schema changes | **Server** | `npx prisma migrate deploy` + `npx prisma generate` (via `deploy-app.ps1`) |
 | Database + uploaded sheet PDF backup | **Server** | Nightly task from `install-backup-task.ps1`; check with `check-backup.ps1` ([Backups](#backups)) |
+| Scan In reader check | **Server** | `npm run check:scan-reader` after a Node.js update, or when Scan In says the scan reader is not working |
 | Job files | File share | Existing share backup policy |
 | Re-index files | **Server** | `npm run db:sync-files` after bulk moves |
 
@@ -559,6 +582,7 @@ for restoring into a scratch database to inspect first.
 | Cannot write to jobs root | Fix UNC permissions for service account; test in Settings |
 | Port 3000 unreachable | Firewall rule; service running; `Get-Service PrecastApp` |
 | Electron — cannot connect | Server running; correct URL in installer or `%APPDATA%\Precast Ops\config.json`; on office LAN/VPN |
+| Scan In: "the scan reader on this server is not working" | Run `npm run check:scan-reader` on the server and read the first `[FAIL]` line. The reader needs Node.js 22.13 or newer (`node --version`) and the packages `npm ci` installs. Restart `PrecastApp` after a fix. |
 | Session cookie issues over HTTP | Leave `SESSION_COOKIE_SECURE` unset or `false` for LAN HTTP; set `true` only behind HTTPS. Restart app after `.env` change. |
 
 ---

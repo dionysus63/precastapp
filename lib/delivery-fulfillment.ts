@@ -1877,7 +1877,14 @@ export async function undoTicketDelivery(
     // Compare-and-set: only a ticket that is still DELIVERED is undone, once.
     const claimed = await tx.deliveryTicket.updateMany({
       where: { id: deliveryTicketId, status: "DELIVERED" },
-      data: { status: to, deliveredAt: null },
+      data: {
+        status: to,
+        deliveredAt: null,
+        // Scan In's "Delivered, No Signed Copy" was said about the delivery
+        // being undone: the ticket goes back on the Still Out list.
+        closedWithoutSignedCopyAt: null,
+        closedWithoutSignedCopyBy: null,
+      },
     });
     if (claimed.count === 0) {
       throw new Error("Only delivered tickets can be undone.");

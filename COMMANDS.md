@@ -22,6 +22,7 @@ Open **[http://localhost:3000](http://localhost:3000)**
 | `npm run build` | Production build                                         |
 | `npm run start` | Run production build                                     |
 | `npm run lint`  | ESLint                                                   |
+| `npm run check:scan-reader` | Scan In self-check: reads a sample ticket page on this PC (see below) |
 
 
 ---
@@ -140,6 +141,22 @@ Update `.env` with the correct `postgres` user password from your PostgreSQL ins
 
 Another `npm run dev` is running. Use the URL shown in the terminal (e.g. `http://localhost:3001`) or stop the other process.
 
+### Scan In — "the scan reader on this server is not working"
+
+Scan In reads the scanned tickets on the server itself (pdf.js, a canvas and a
+code reader from `node_modules`). Prove it on the PC that runs the app:
+
+```powershell
+npm run check:scan-reader
+# also read a real scan, page by page:
+npm run check:scan-reader -- "C:\Scans\today.pdf"
+```
+
+Every line should say `[OK]`. It needs Node.js 22.13 or newer (`node --version`)
+and the packages from `npm install` / `npm ci`. It files its test copy in a
+scratch folder under the temp folder and removes it; the database and the
+app's `storage` folder are not touched. Restart the app after a fix.
+
 ### Quote PDF — "Could not find Chrome" / browser not found
 
 PDF generation uses **Brave** first (headless, on the server — not your open browser tab), then Puppeteer's bundled Chrome, then Google Chrome.
@@ -238,6 +255,8 @@ Full setup: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#backups).
 
 - Backups: `C:\Backups\precastapp\precastapp_<date>_<time>.dump` (pg_dump custom format)
   and `precastapp-storage_<date>_<time>.zip` (the `storage/` folder of uploaded sheet PDFs)
+- Signed tickets from Scan In: `C:\Backups\precastapp\signed-tickets\<year>\<ticket>.pdf`, a plain
+  folder that gets only the new files each night and is never pruned
 - Off-site: set `BACKUP_RCLONE_REMOTE` in `.env` to upload to Backblaze B2 via rclone,
   and/or `BACKUP_COPY_DIR` to copy to a UNC share on another machine
 - Retention: 30 days (`BACKUP_RETENTION_DAYS`), pruned automatically; log at `C:\Backups\precastapp\backup.log`

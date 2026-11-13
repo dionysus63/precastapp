@@ -1,16 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { PaginationControls } from "@/components/common/pagination-controls";
 import { useListQuery } from "@/components/common/use-list-query";
 import { markInvoicePaid, type InvoiceListRow } from "@/app/invoices/actions";
-import {
-  ReconcileDay,
-  type ReconcileTicket,
-} from "@/components/delivery-tickets/reconcile-day";
+import { ScanInTab } from "@/components/invoices/scan-in/scan-in-tab";
 import {
   INVOICE_LIST_FILTERS,
   invoiceStatusLabel,
@@ -20,12 +17,9 @@ import {
   type InvoiceListFilter,
 } from "@/lib/invoice-status";
 import { printPdfUrl } from "@/lib/print-pdf-url";
-import {
-  addLocalDays,
-  localTodayInput,
-  toLocalDayInput,
-} from "@/lib/date-only";
+import { localTodayInput } from "@/lib/date-only";
 import type { PageInfo } from "@/lib/list-params";
+import type { ScanInView } from "@/lib/ticket-scan/view-types";
 
 import {
   tableBodyClassName,
@@ -37,32 +31,17 @@ import {
 } from "@/lib/table-styles";
 import { reloadAfterAction } from "@/lib/reload-after-action";
 
-export type ReconcileTabData = {
-  allowed: boolean;
-  mode: "day" | "range" | "all" | "unreconciled";
-  from: string;
-  to: string;
-  days: Array<{
-    date: string;
-    scheduledTickets: ReconcileTicket[];
-    deliveredOtherDayTickets: ReconcileTicket[];
-    reconciliation: {
-      confirmedBy: string | null;
-      confirmedAt: Date | null;
-      notes: string | null;
-    } | null;
-  }>;
-  truncated: boolean;
-};
-
 type InvoicesTabsProps = {
   invoices: InvoiceListRow[];
   pageInfo: PageInfo;
   filterCounts: InvoiceFilterCounts;
-  initialTab: "invoices" | "reconcile";
+  tab: "scan" | "invoices";
   filter: InvoiceListFilter;
   canManage: boolean;
-  reconcile: ReconcileTabData | null;
+  /** Can file a scan: has both the invoice and the delivery permission. */
+  canFile: boolean;
+  /** What the Scan In tab shows; null while the list is open. */
+  scanIn: { view: ScanInView; viewing: string | null } | null;
 };
 
 function formatMoney(value: number): string {
@@ -172,7 +151,10 @@ function InvoicesListTab({
             type="button"
             aria-pressed={filter === chip.value}
             onClick={() =>
-              setParams({ status: chip.value === "ALL" ? null : chip.value })
+              setParams({
+                tab: "invoices",
+                status: chip.value === "ALL" ? null : chip.value,
+              })
             }
             className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
               filter === chip.value
@@ -365,161 +347,30 @@ function InvoicesListTab({
   );
 }
 
-function ReconcileTab({
-  data,
-  canManageInvoices,
-}: {
-  data: ReconcileTabData;
-  canManageInvoices: boolean;
-}) {
-  const { setParams } = useListQuery();
-  const [fromInput, setFromInput] = useState(data.from);
-  const [toInput, setToInput] = useState(data.to);
-
-  if (!data.allowed) {
-    return (
-      <p className="text-sm text-slate-500">
-        You need delivery management permission to reconcile delivery days.
-      </p>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-        <span>Date</span>
-        <input
-          type="date"
-          value={fromInput}
-          onChange={(event) => setFromInput(event.target.value)}
-          aria-label="Reconcile date from"
-          className="rounded border border-slate-200 px-2 py-1"
-        />
-        <span>to</span>
-        <input
-          type="date"
-          value={toInput}
-          onChange={(event) => setToInput(event.target.value)}
-          aria-label="Reconcile date to"
-          className="rounded border border-slate-200 px-2 py-1"
-        />
-        <button
-          type="button"
-          onClick={() =>
-            setParams({
-              date: fromInput || null,
-              dateTo: toInput || null,
-              all: null,
-              unreconciled: null,
-            })
-          }
-          className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium hover:bg-slate-50"
-        >
-          Go
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            // Local date, not UTC — matches how the page resolves "today".
-            const date = toLocalDayInput(addLocalDays(new Date(), -1));
-            setFromInput(date);
-            setToInput("");
-            setParams({ date, dateTo: null, all: null, unreconciled: null });
-          }}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium hover:bg-slate-50"
-        >
-          Yesterday
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setFromInput("");
-            setToInput("");
-            setParams({ date: null, dateTo: null, all: null, unreconciled: null });
-          }}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium hover:bg-slate-50"
-        >
-          Today
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setFromInput("");
-            setToInput("");
-            setParams({ all: "1", date: null, dateTo: null, unreconciled: null });
-          }}
-          className={`rounded-lg px-3 py-1.5 font-medium ${
-            data.mode === "all"
-              ? "bg-slate-900 text-white"
-              : "border border-slate-200 text-slate-700 hover:bg-slate-50"
-          }`}
-        >
-          View all
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setFromInput("");
-            setToInput("");
-            setParams({ unreconciled: "1", all: null, date: null, dateTo: null });
-          }}
-          className={`rounded-lg px-3 py-1.5 font-medium ${
-            data.mode === "unreconciled"
-              ? "bg-slate-900 text-white"
-              : "border border-slate-200 text-slate-700 hover:bg-slate-50"
-          }`}
-        >
-          View all Unreconciled Days
-        </button>
-        {data.mode === "range" ? (
-          <span className="text-slate-500">
-            Showing {data.from} – {data.to}
-          </span>
-        ) : null}
-      </div>
-
-      {data.truncated ? (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          Showing the most recent days only — narrow the date range to see
-          older tickets.
-        </p>
-      ) : null}
-
-      {data.days.length === 0 ? (
-        <p className="text-sm text-slate-500">
-          {data.mode === "day"
-            ? "No delivery tickets for this date."
-            : data.mode === "unreconciled"
-              ? "No unreconciled days — every delivery day is confirmed."
-              : "No delivery tickets in this range."}
-        </p>
-      ) : (
-        data.days.map((day) => (
-          <ReconcileDay
-            key={day.date}
-            date={day.date}
-            scheduledTickets={day.scheduledTickets}
-            deliveredOtherDayTickets={day.deliveredOtherDayTickets}
-            reconciliation={day.reconciliation}
-            canManageInvoices={canManageInvoices}
-          />
-        ))
-      )}
-    </div>
-  );
-}
-
 export function InvoicesTabs({
   invoices,
   pageInfo,
   filterCounts,
-  initialTab,
+  tab,
   filter,
   canManage,
-  reconcile,
+  canFile,
+  scanIn,
 }: InvoicesTabsProps) {
   const { setParams } = useListQuery();
-  const tab = initialTab;
+  // Filing a scan makes invoices without loading the page again: Scan In
+  // says how many there are now. A fresh count from the server wins.
+  const serverCount = filterCounts.ALL;
+  const [scanCount, setScanCount] = useState<{
+    since: number;
+    count: number;
+  } | null>(null);
+  const reportInvoiceCount = useCallback(
+    (count: number) => setScanCount({ since: serverCount, count }),
+    [serverCount],
+  );
+  const invoiceCount =
+    scanCount && scanCount.since === serverCount ? scanCount.count : serverCount;
 
   const tabButtonClassName = (active: boolean) =>
     `rounded-lg px-3 py-1.5 text-xs font-medium ${
@@ -531,31 +382,31 @@ export function InvoicesTabs({
       <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-2">
         <button
           type="button"
-          onClick={() => setParams({ tab: "reconcile", status: null })}
-          className={tabButtonClassName(tab === "reconcile")}
+          aria-pressed={tab === "scan"}
+          onClick={() =>
+            // Scan In is where /invoices opens for someone who can file.
+            setParams({ tab: canFile ? null : "scan", status: null, scan: null })
+          }
+          className={tabButtonClassName(tab === "scan")}
         >
-          Reconcile Day
+          Scan In
         </button>
         <button
           type="button"
-          onClick={() =>
-            setParams({
-              tab: null,
-              status: null,
-              date: null,
-              dateTo: null,
-              all: null,
-              unreconciled: null,
-            })
-          }
+          aria-pressed={tab === "invoices"}
+          onClick={() => setParams({ tab: "invoices", status: null, scan: null })}
           className={tabButtonClassName(tab === "invoices")}
         >
-          Invoices ({filterCounts.ALL.toLocaleString()})
+          Invoices ({invoiceCount.toLocaleString()})
         </button>
       </div>
 
-      {tab === "reconcile" && reconcile ? (
-        <ReconcileTab data={reconcile} canManageInvoices={canManage} />
+      {tab === "scan" && scanIn ? (
+        <ScanInTab
+          initialView={scanIn.view}
+          initialViewing={scanIn.viewing}
+          onInvoiceCount={reportInvoiceCount}
+        />
       ) : (
         <InvoicesListTab
           invoices={invoices}

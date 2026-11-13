@@ -53,7 +53,9 @@ function DataResetSection({
         setMessage(result);
         if (result.success) {
           setPassword("");
-          reloadAfterAction();
+          // Say what happened on the reloaded page too: the note above is
+          // gone the moment the page reloads.
+          reloadAfterAction({ type: "success", text: result.success });
         }
       } catch {
         setMessage({ error: "An unexpected error occurred. Please try again." });
@@ -291,8 +293,10 @@ export function DataResetPanel({ stats }: DataResetPanelProps) {
             in the database) with its line items — including the walk-in and
             pickup tickets on the Walk-Ins board — and every invoice (
             {stats.invoiceCount} currently in the database). Ticket and invoice
-            numbering sequences are reset. Jobs, quotes, and the inventory
-            ledger are not touched.
+            numbering sequences are reset. Scan In starts empty; the signed
+            ticket PDFs already filed are kept on the server, moved into a
+            folder of their own. Jobs, quotes, and the inventory ledger are
+            not touched.
           </>
         }
         inputId="reset-password-delivery-tickets"

@@ -22,18 +22,11 @@ vi.mock("server-only", () => ({}));
 
 import { deleteDrillSheet } from "@/app/drill-sheets/actions";
 import { deleteStructureTemplate } from "@/app/structures/actions";
-import {
-  confirmDeliveryDayReconciliation,
-  createMissingInvoicesForDay,
-  deliverAllTicketsForDay,
-  deliverTicket,
-} from "@/app/operations/actions";
+import { convertTicketToInvoice, deliverTicket } from "@/app/operations/actions";
 import { markDeliveryTicketDelivered } from "@/lib/delivery-fulfillment";
 import { prisma } from "@/lib/prisma";
 
 const tag = `STATUSGUARD-${Date.now()}`;
-// A far-future day nothing else is scheduled on.
-const RECONCILE_DAY = "2099-03-17";
 
 let jobId: string;
 
@@ -72,12 +65,6 @@ afterAll(async () => {
   await prisma.deliveryTicket.deleteMany({
     where: { customerName: `${tag} Customer` },
   });
-  await prisma.deliveryDayReconciliation.deleteMany({
-    where: {
-      confirmedBy: "Test User",
-      reconciliationDate: { gte: new Date(Date.UTC(2099, 0, 1)) },
-    },
-  });
   await prisma.jobStructure.deleteMany({ where: { jobId } });
   await prisma.job.delete({ where: { id: jobId } });
   await prisma.$disconnect();
@@ -98,12 +85,12 @@ describe("delivery ticket status guards", () => {
     ).toBe("CANCELLED");
   });
 
-  it("delivers the day's live tickets but leaves drafts alone", async () => {
+  it("delivering a ticket makes its invoice and leaves the day's other tickets alone", async () => {
     const draft = await ticket("DRAFT");
     const scheduled = await ticket("SCHEDULED");
 
-    const result = await deliverAllTicketsForDay(RECONCILE_DAY);
-    expect(result).toMatchObject({ success: true, delivered: 1 });
+    const result = await deliverTicket(scheduled.id);
+    expect(result).toMatchObject({ success: true, invoiceCreated: true });
 
     const [draftAfter, scheduledAfter] = await Promise.all([
       prisma.deliveryTicket.findUniqueOrThrow({ where: { id: draft.id } }),
@@ -111,7 +98,7 @@ describe("delivery ticket status guards", () => {
     ]);
     expect(draftAfter.status).toBe("DRAFT");
     expect(scheduledAfter.status).toBe("DELIVERED");
-    // Each ticket delivered this way gets its invoice in the same click.
+    // The delivered ticket gets its invoice in the same click.
     expect(
       await prisma.invoice.count({
         where: { deliveryTicketId: { in: [draft.id, scheduled.id] } },
@@ -145,8 +132,8 @@ describe("delivery ticket status guards", () => {
   });
 });
 
-describe("checking a delivery day", () => {
-  it("confirms the day without making invoices, and makes missing ones only on request", async () => {
+describe("a delivered ticket with no invoice", () => {
+  it("gets one from Convert to Invoice, and only one", async () => {
     // Delivered with no invoice: delivered before invoices were made at
     // delivery, or its invoice was deleted on purpose.
     const delivered = await ticket("DELIVERED", {
@@ -156,34 +143,20 @@ describe("checking a delivery day", () => {
     const invoiceOf = () =>
       prisma.invoice.findUnique({
         where: { deliveryTicketId: delivered.id },
-        select: { status: true },
+        select: { id: true, status: true },
       });
-
-    // Confirming only records that the day was checked against the paper.
-    expect(await confirmDeliveryDayReconciliation(RECONCILE_DAY)).toEqual({
-      success: true,
-    });
     expect(await invoiceOf()).toBeNull();
-    expect(
-      await prisma.deliveryDayReconciliation.count({
-        where: {
-          confirmedBy: "Test User",
-          reconciliationDate: { gte: new Date(Date.UTC(2099, 0, 1)) },
-        },
-      }),
-    ).toBe(1);
 
-    // The catch-up is its own, deliberate click.
-    const made = await createMissingInvoicesForDay(RECONCILE_DAY);
-    expect(made).toMatchObject({ success: true });
-    const { conversionResult } = made as {
-      conversionResult: { created: number };
-    };
-    expect(conversionResult.created).toBeGreaterThanOrEqual(1);
-    expect(await invoiceOf()).toEqual({ status: "SENT" });
+    // The catch-up is its own, deliberate click on that ticket.
+    const made = await convertTicketToInvoice(delivered.id);
+    const invoice = await invoiceOf();
+    expect(invoice).toMatchObject({ status: "SENT" });
+    expect(made).toEqual({ invoiceId: invoice?.id });
 
-    // Nothing left to make for that ticket the second time.
-    await createMissingInvoicesForDay(RECONCILE_DAY);
+    // A second click hands back the same invoice instead of making another.
+    expect(await convertTicketToInvoice(delivered.id)).toEqual({
+      invoiceId: invoice?.id,
+    });
     expect(
       await prisma.invoice.count({ where: { deliveryTicketId: delivered.id } }),
     ).toBe(1);

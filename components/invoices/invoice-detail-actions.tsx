@@ -141,7 +141,7 @@ export function InvoiceDetailActions({
                   window.alert(result.error);
                   return;
                 }
-                navigateAfterAction("/invoices", {
+                navigateAfterAction("/invoices?tab=invoices", {
                   type: "success",
                   text: `Invoice ${invoiceNumber} deleted.`,
                 });

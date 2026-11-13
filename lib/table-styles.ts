@@ -27,13 +27,26 @@ export const tableClassName =
 export const tableCompactClassName =
   "w-auto border-separate border-spacing-0 border-r border-slate-300 text-left text-xs";
 
-const tableHeaderCellBaseClassName =
-  "sticky top-0 z-10 border-b-2 border-r border-b-slate-300 border-r-slate-300 bg-slate-100 px-2 py-1.5 text-2xs font-semibold uppercase tracking-wide text-slate-600 last:border-r-0";
+const tableHeaderCellLookClassName =
+  "border-b-2 border-r border-b-slate-300 border-r-slate-300 bg-slate-100 px-2 py-1.5 text-2xs font-semibold uppercase tracking-wide text-slate-600 last:border-r-0";
+
+const tableHeaderCellBaseClassName = `sticky top-0 z-10 ${tableHeaderCellLookClassName}`;
 
 export const tableHeaderCellClassName = `${tableHeaderCellBaseClassName} whitespace-nowrap`;
 
 /** Header cell whose label wraps instead of widening the column. */
 export const tableHeaderCellWrapClassName = tableHeaderCellBaseClassName;
+
+/**
+ * A grid's last column pinned to the right edge, so it stays in view when the
+ * window is narrower than the columns (a frozen column, as in Excel). The
+ * header cell sits above the other header cells; each body cell needs a solid
+ * background of its own (what scrolls past must not show through).
+ */
+export const tableHeaderCellPinnedClassName = `sticky top-0 right-0 z-20 ${tableHeaderCellLookClassName} whitespace-nowrap shadow-[inset_1px_0_0_#cbd5e1]`;
+
+export const tablePinnedCellClassName =
+  "sticky right-0 shadow-[inset_1px_0_0_#cbd5e1]";
 
 /** Gridline borders only — compose with custom padding when needed. */
 export const tableCellBordersClassName =

@@ -99,6 +99,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRoleKey, PermissionKey[]> = {
     "INVOICES_VIEW",
     "INVOICES_MANAGE",
     "DELIVERY_VIEW",
+    // Scan In (Invoices) files the signed tickets, which marks them
+    // delivered: the office needs both halves.
+    "DELIVERY_MANAGE",
     "FILES_VIEW",
   ],
   READ_ONLY: [...VIEW_PERMISSIONS],

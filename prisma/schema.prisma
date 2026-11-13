@@ -1424,9 +1424,15 @@ model DeliveryTicket {
   deliveredAt            DateTime?
   signedBy               String?
   paperTicketPrinted     Boolean              @default(false)
+  /// The signed copy came back and was filed (Invoices -> Scan In), with who
+  /// filed it and when.
   paperTicketVerified    Boolean              @default(false)
   verifiedAt             DateTime?
   verifiedBy             String?
+  /// Scan In's "Delivered, No Signed Copy": the ticket went out and its
+  /// signed copy is not coming back. Takes the ticket off the Still Out list.
+  closedWithoutSignedCopyAt DateTime?
+  closedWithoutSignedCopyBy String?
   createdAt              DateTime             @default(now())
   updatedAt              DateTime             @updatedAt
 
@@ -1436,6 +1442,7 @@ model DeliveryTicket {
   priceList PriceList?  @relation(fields: [priceListId], references: [id], onDelete: SetNull)
   invoice   Invoice?
   lineItems DeliveryTicketLineItem[]
+  signedFiles SignedTicketFile[]
 
   @@unique([year, sequenceNumber])
   @@index([jobId])
@@ -1510,6 +1517,78 @@ model DeliveryTicketSequence {
   lastNumber Int      @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+enum TicketScanStatus {
+  /// The pages that are not filed yet.
+  OPEN
+  /// One click of File: the tickets filed together, in paper stack order.
+  FILED
+}
+
+/// A scanned stack of signed delivery tickets (Invoices -> Scan In).
+///
+/// There is at most one OPEN row: the pages still to be filed. Dropping
+/// another scan adds its pages to it. Each click of File moves the pages it
+/// dealt with into a new FILED row, the record of what was filed together and
+/// in what order (Print Invoices follows it). Pages still waiting stay in the
+/// OPEN row, with their uploaded PDFs, until they are filed or left out.
+model TicketScanBatch {
+  id              String           @id @default(cuid())
+  status          TicketScanStatus @default(OPEN)
+  /// JSON: ScanSource[] (lib/ticket-scan/types.ts), the uploaded PDFs. An OPEN
+  /// row's files sit in storage/ticket-scans/<id>/; a FILED row keeps only
+  /// their names.
+  sourcesJson     Json
+  /// JSON: ScanPage[] while OPEN, FiledScanPage[] once FILED.
+  pagesJson       Json
+  /// JSON: ScanTicketChoices, what was chosen on the grid per ticket (OPEN).
+  choicesJson     Json             @default("{}")
+  /// JSON: FiledScanResult, what File did with each ticket (FILED).
+  resultJson      Json?
+  /// Next page number to hand out: the Pg column keeps counting across drops.
+  nextSeq         Int              @default(1)
+  /// Bumped on every save, so two people working the same scan cannot
+  /// overwrite each other's rows.
+  version         Int              @default(0)
+  /// Set while File runs, so a second click cannot file the same pages twice.
+  filingStartedAt DateTime?
+  uploadedBy      String?
+  filedBy         String?
+  filedAt         DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  signedFiles SignedTicketFile[]
+
+  @@index([status, filedAt])
+}
+
+/// One signed delivery ticket PDF in storage/signed-tickets. Scanning a
+/// ticket again and choosing Replace adds a row: the newest is the current
+/// signed copy, and the ones before it stay as earlier versions.
+model SignedTicketFile {
+  id                String   @id @default(cuid())
+  deliveryTicketId  String
+  batchId           String?
+  /// Relative to storage/signed-tickets, "/" on every platform:
+  /// "2026/T10189.pdf".
+  filePath          String
+  pageCount         Int
+  fileSize          Int
+  /// Where the copy in the job's delivery tickets folder went. Null for a
+  /// ticket with no job folder, or when that copy could not be written.
+  jobFolderCopyPath String?
+  /// False once a later scan replaced this copy (its file is kept, renamed).
+  isCurrent         Boolean  @default(true)
+  filedBy           String?
+  createdAt         DateTime @default(now())
+
+  deliveryTicket DeliveryTicket   @relation(fields: [deliveryTicketId], references: [id], onDelete: Cascade)
+  batch          TicketScanBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  @@index([deliveryTicketId, isCurrent])
+  @@index([batchId])
 }
 
 enum ReceivingCategory {
@@ -2046,6 +2125,10 @@ model AppSettings {
   yardLongitude Decimal? @db.Decimal(9, 6)
   ringBuilderConfig  Json     @default("[]")
   rolePermissions    Json     @default("{}")
+  /// When Scan In went live here (the moment its migration ran). Tickets
+  /// delivered before this never show on the Still Out list, so that list
+  /// does not start out full of old deliveries.
+  scanInStartedAt    DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

@@ -57,6 +57,26 @@ function Check-Folder([string] $dir, [string] $label) {
 Check-Folder $backupDir "Local"
 if ($copyDir) { Check-Folder $copyDir "Copy" }
 
+# --- Signed tickets (copied file by file into a signed-tickets folder, not zipped) ---
+$signedDir = Join-Path $repoRoot "storage\signed-tickets"
+$signedDue = 0
+if (Test-Path $signedDir) {
+    # Tickets filed since the last backup are not copied yet, so count only the older ones.
+    $cutoff = (Get-Date).AddHours(-$MaxAgeHours)
+    $signedDue = @(Get-ChildItem $signedDir -File -Recurse |
+        Where-Object { $_.Extension -ne ".part" -and $_.LastWriteTime -lt $cutoff }).Count
+}
+function Check-SignedTickets([string] $dir, [string] $label) {
+    $mirror = Join-Path $dir "signed-tickets"
+    $have = 0
+    if (Test-Path $mirror) { $have = @(Get-ChildItem $mirror -File -Recurse).Count }
+    Report ($have -ge $signedDue) "$label has $have signed ticket file(s); the app holds $signedDue filed more than $MaxAgeHours h ago"
+}
+if ($signedDue -gt 0) {
+    if (Test-Path $backupDir) { Check-SignedTickets $backupDir "Local" }
+    if ($copyDir -and (Test-Path $copyDir)) { Check-SignedTickets $copyDir "Copy" }
+}
+
 # --- Cloud (rclone) ---
 if ($rcloneRemote) {
     if (-not (Test-Path $rcloneExe -PathType Leaf)) {
@@ -82,6 +102,23 @@ if ($rcloneRemote) {
             $zips = @($recent | Where-Object { "$_" -like "*-storage_*.zip" })
             Report ($dumps.Count -gt 0) "Cloud $rcloneRemote has $($dumps.Count) .dump file(s) from the last $MaxAgeHours h"
             Report ($zips.Count -gt 0) "Cloud $rcloneRemote has $($zips.Count) storage .zip file(s) from the last $MaxAgeHours h"
+        }
+        if ($code -eq 0 -and $signedDue -gt 0) {
+            try {
+                $ErrorActionPreference = "Stop"
+                $signedCloud = @(& $rcloneExe @rcloneArgs lsf "$($rcloneRemote.TrimEnd('/'))/signed-tickets" -R --files-only 2>&1)
+                $signedCode = $LASTEXITCODE
+            } catch {
+                $signedCloud = @("could not start rclone: $($_.Exception.Message)")
+                $signedCode = -1
+            } finally {
+                $ErrorActionPreference = "Continue"
+            }
+            if ($signedCode -ne 0) {
+                Report $false "Cannot list the signed tickets in $rcloneRemote (rclone exit $signedCode): $($signedCloud | Select-Object -Last 1)"
+            } else {
+                Report ($signedCloud.Count -ge $signedDue) "Cloud $rcloneRemote has $($signedCloud.Count) signed ticket file(s); the app holds $signedDue filed more than $MaxAgeHours h ago"
+            }
         }
     }
 }
