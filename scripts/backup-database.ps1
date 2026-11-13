@@ -14,11 +14,13 @@
 #   (storage\ticket-scans) are deleted as soon as their pages are filed and
 #   are not backed up.
 # - Optionally copies both files to a second location (e.g. a UNC share on
-#   another machine) and/or uploads them off-site with rclone (e.g. a
-#   Backblaze B2 bucket), so a dead disk does not take the backups with it.
-#   Old files in the cloud are removed by the bucket's lifecycle rule, not by
-#   this script, so the upload key does not need delete rights. The signed
-#   tickets folder goes to both places the same way: only what is new.
+#   another machine) and/or uploads them to a Backblaze B2 bucket, so a dead
+#   disk does not take the backups with it. The upload is plain PowerShell
+#   (backup-b2.ps1): there is no extra program to install or for antivirus
+#   to block. Old files in the cloud are removed by the bucket's lifecycle
+#   rule, not by this script, so the upload key does not need delete rights.
+#   The signed tickets folder goes to both places the same way: only what is
+#   new.
 # - Keeps the most recent 30 days of backups in each location and prunes
 #   older ones.
 # - Appends one line per run (OK / WARN / FAIL) to backup.log in the backup
@@ -29,9 +31,10 @@
 #   -BackupDir       BACKUP_DIR             C:\Backups\precastapp
 #   -CopyDir         BACKUP_COPY_DIR        (none; e.g. \\NAS\Backups\precastapp)
 #   -RetentionDays   BACKUP_RETENTION_DAYS  30
-#   -RcloneRemote    BACKUP_RCLONE_REMOTE   (none; e.g. b2:precast-backups/precastapp)
-#   -RcloneExe       BACKUP_RCLONE_EXE      C:\Program Files\rclone\rclone.exe
-#   -RcloneConfig    BACKUP_RCLONE_CONFIG   (rclone's default for the task's account)
+#   -B2Bucket        BACKUP_B2_BUCKET       (none = no cloud upload)
+#                    BACKUP_B2_KEY_ID       the application key's keyID
+#                    BACKUP_B2_KEY          the application key itself
+#                    BACKUP_B2_PREFIX       precastapp/  (folder inside the bucket)
 #
 # Exit codes: 0 OK, 1 backup failed (or the signed tickets could not be
 # copied), 2 local backup OK but the second copy or cloud upload failed.
@@ -49,9 +52,7 @@ param(
     [string] $BackupDir,
     [string] $CopyDir,
     [int] $RetentionDays = 0,
-    [string] $RcloneRemote,
-    [string] $RcloneExe,
-    [string] $RcloneConfig,
+    [string] $B2Bucket,
     [string] $PgBin = "C:\Program Files\PostgreSQL\18\bin"
 )
 
@@ -183,10 +184,13 @@ try {
     if (-not $BackupDir) { $BackupDir = Get-EnvValue $envLines "BACKUP_DIR" }
     if (-not $BackupDir) { $BackupDir = $DefaultBackupDir }
     if (-not $CopyDir) { $CopyDir = Get-EnvValue $envLines "BACKUP_COPY_DIR" }
-    if (-not $RcloneRemote) { $RcloneRemote = Get-EnvValue $envLines "BACKUP_RCLONE_REMOTE" }
-    if (-not $RcloneExe) { $RcloneExe = Get-EnvValue $envLines "BACKUP_RCLONE_EXE" }
-    if (-not $RcloneExe) { $RcloneExe = "C:\Program Files\rclone\rclone.exe" }
-    if (-not $RcloneConfig) { $RcloneConfig = Get-EnvValue $envLines "BACKUP_RCLONE_CONFIG" }
+    if (-not $B2Bucket) { $B2Bucket = Get-EnvValue $envLines "BACKUP_B2_BUCKET" }
+    $B2KeyId = Get-EnvValue $envLines "BACKUP_B2_KEY_ID"
+    $B2Key = Get-EnvValue $envLines "BACKUP_B2_KEY"
+    $B2Prefix = Get-EnvValue $envLines "BACKUP_B2_PREFIX"
+    if (-not $B2Prefix) { $B2Prefix = "precastapp/" }
+    $B2Prefix = $B2Prefix.TrimStart("/")
+    if ($B2Prefix -and -not $B2Prefix.EndsWith("/")) { $B2Prefix += "/" }
     if ($RetentionDays -le 0) {
         $configured = Get-EnvValue $envLines "BACKUP_RETENTION_DAYS"
         $RetentionDays = if ($configured) { [int]$configured } else { 30 }
@@ -287,40 +291,32 @@ try {
         }
     }
 
-    # --- Cloud upload (rclone verifies checksums on upload) ---
-    if ($RcloneRemote) {
+    # --- Cloud upload (Backblaze B2; every upload is checked with a SHA-1) ---
+    if ($B2Bucket) {
         try {
-            if (-not (Test-Path $RcloneExe -PathType Leaf)) {
-                throw "rclone not found at $RcloneExe"
-            }
-            $rcloneArgs = @()
-            if ($RcloneConfig) { $rcloneArgs += @("--config", $RcloneConfig) }
+            . (Join-Path $PSScriptRoot "backup-b2.ps1")
+            $b2 = Connect-B2 $B2KeyId $B2Key $B2Bucket
             foreach ($file in $made) {
-                # rclone logs to stderr; under "Stop", Windows PowerShell would treat that as an error.
-                $ErrorActionPreference = "Continue"
-                $output = & $RcloneExe @rcloneArgs copy $file $RcloneRemote --retries 3 --low-level-retries 10 2>&1
-                $ErrorActionPreference = "Stop"
-                if ($LASTEXITCODE -ne 0) {
-                    $detail = ($output | Select-Object -Last 1)
-                    throw "rclone exited with code $LASTEXITCODE for $([System.IO.Path]::GetFileName($file)): $detail"
-                }
+                Send-B2File $b2 $file ($B2Prefix + [System.IO.Path]::GetFileName($file)) | Out-Null
             }
+            $summary += "; uploaded to Backblaze bucket $B2Bucket"
             if ($hasSignedTickets) {
-                # "copy" sends only files that are new or changed and never
-                # deletes anything at the far end.
-                $signedRemote = "$($RcloneRemote.TrimEnd('/'))/$SignedTicketsFolder"
-                $ErrorActionPreference = "Continue"
-                $output = & $RcloneExe @rcloneArgs copy $signedDir $signedRemote --exclude "*.part" --retries 3 --low-level-retries 10 2>&1
-                $ErrorActionPreference = "Stop"
-                if ($LASTEXITCODE -ne 0) {
-                    $detail = ($output | Select-Object -Last 1)
-                    throw "rclone exited with code $LASTEXITCODE for the signed tickets: $detail"
+                # Only files that are new or changed are sent, and nothing is
+                # ever deleted at the far end.
+                try {
+                    $signedCloud = Send-B2NewFiles $b2 $signedDir ($B2Prefix + "$SignedTicketsFolder/")
+                    $summary += ", $($signedCloud.Sent) new signed tickets"
+                } catch {
+                    $offsiteErrors += "signed tickets not uploaded to Backblaze bucket ${B2Bucket}: $($_.Exception.Message)"
                 }
             }
-            $summary += "; uploaded to $RcloneRemote"
         } catch {
-            $offsiteErrors += "upload to $RcloneRemote failed: $($_.Exception.Message)"
+            $offsiteErrors += "upload to Backblaze bucket $B2Bucket failed: $($_.Exception.Message)"
         }
+    } elseif (Get-EnvValue $envLines "BACKUP_RCLONE_REMOTE") {
+        # Servers set up before the upload moved off rclone: keep saying so
+        # until .env is changed, or the backups would quietly stay on this disk.
+        $offsiteErrors += "cloud upload is not set up: .env still has BACKUP_RCLONE_REMOTE, which is no longer used. Set BACKUP_B2_BUCKET, BACKUP_B2_KEY_ID and BACKUP_B2_KEY instead (docs\DEPLOYMENT.md, Backups)"
     }
 
     if ($localErrors.Count -gt 0) {
