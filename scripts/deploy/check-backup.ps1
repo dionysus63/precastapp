@@ -1,4 +1,6 @@
 # Quick health check for the nightly backup. Read-only; safe to run any time.
+# Run it from an administrator PowerShell: a window without administrator
+# rights may not be able to see the scheduled task.
 #   .\scripts\deploy\check-backup.ps1
 
 param(
@@ -15,10 +17,11 @@ function Get-EnvValue([string] $name) {
 $backupDir = Get-EnvValue "BACKUP_DIR"
 if (-not $backupDir) { $backupDir = "C:\Backups\precastapp" }
 $copyDir = Get-EnvValue "BACKUP_COPY_DIR"
-$rcloneRemote = Get-EnvValue "BACKUP_RCLONE_REMOTE"
-$rcloneExe = Get-EnvValue "BACKUP_RCLONE_EXE"
-if (-not $rcloneExe) { $rcloneExe = "C:\Program Files\rclone\rclone.exe" }
-$rcloneConfig = Get-EnvValue "BACKUP_RCLONE_CONFIG"
+$b2Bucket = Get-EnvValue "BACKUP_B2_BUCKET"
+$b2Prefix = Get-EnvValue "BACKUP_B2_PREFIX"
+if (-not $b2Prefix) { $b2Prefix = "precastapp/" }
+$b2Prefix = $b2Prefix.TrimStart("/")
+if ($b2Prefix -and -not $b2Prefix.EndsWith("/")) { $b2Prefix += "/" }
 $problems = 0
 
 function Report([bool] $ok, [string] $text) {
@@ -29,7 +32,13 @@ function Report([bool] $ok, [string] $text) {
 # --- Scheduled task ---
 $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
 if (-not $task) {
-    Report $false "Task '$TaskName' is not installed (run scripts\deploy\install-backup-task.ps1)"
+    $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+        [Security.Principal.WindowsBuiltInRole]::Administrator)
+    if ($isAdmin) {
+        Report $false "Task '$TaskName' is not installed (run scripts\deploy\install-backup-task.ps1)"
+    } else {
+        Report $false "Task '$TaskName' was not found, but this window is not running as administrator and may not be able to see it. Open PowerShell with Run as administrator and run this check again"
+    }
 } else {
     $info = $task | Get-ScheduledTaskInfo
     $logon = $task.Principal.LogonType
@@ -77,54 +86,33 @@ if ($signedDue -gt 0) {
     if ($copyDir -and (Test-Path $copyDir)) { Check-SignedTickets $copyDir "Copy" }
 }
 
-# --- Cloud (rclone) ---
-if ($rcloneRemote) {
-    if (-not (Test-Path $rcloneExe -PathType Leaf)) {
-        Report $false "rclone not found at $rcloneExe"
-    } else {
-        $rcloneArgs = @()
-        if ($rcloneConfig) { $rcloneArgs += @("--config", $rcloneConfig) }
-        # Run as the same account as the task, or rclone may not find its config.
-        try {
-            $ErrorActionPreference = "Stop"   # so a failure to start rclone lands in catch
-            $recent = @(& $rcloneExe @rcloneArgs lsf $rcloneRemote --files-only --max-age "${MaxAgeHours}h" 2>&1)
-            $code = $LASTEXITCODE
-        } catch {
-            $recent = @("could not start rclone: $($_.Exception.Message)")
-            $code = -1
-        } finally {
-            $ErrorActionPreference = "Continue"
+# --- Cloud (Backblaze B2) ---
+if ($b2Bucket) {
+    try {
+        . (Join-Path $PSScriptRoot "..\backup-b2.ps1")
+        $b2 = Connect-B2 (Get-EnvValue "BACKUP_B2_KEY_ID") (Get-EnvValue "BACKUP_B2_KEY") $b2Bucket
+        $cloud = "Cloud bucket $b2Bucket/$b2Prefix"
+        # The nightly files sit straight in that folder; the delimiter keeps
+        # the signed tickets folder out of this listing.
+        $since = [DateTimeOffset]::UtcNow.AddHours(-$MaxAgeHours).ToUnixTimeMilliseconds()
+        $recent = @(Get-B2Files $b2 $b2Prefix "/" | Where-Object { $_.action -ne "folder" -and ([int64] $_.uploadTimestamp) -ge $since })
+        $dumps = @($recent | Where-Object { $_.fileName -like "*.dump" })
+        $zips = @($recent | Where-Object { $_.fileName -like "*-storage_*.zip" })
+        Report ($dumps.Count -gt 0) "$cloud has $($dumps.Count) .dump file(s) from the last $MaxAgeHours h"
+        Report ($zips.Count -gt 0) "$cloud has $($zips.Count) storage .zip file(s) from the last $MaxAgeHours h"
+        if ($signedDue -gt 0) {
+            $signedCloud = @(Get-B2Files $b2 ($b2Prefix + "signed-tickets/"))
+            Report ($signedCloud.Count -ge $signedDue) "$cloud has $($signedCloud.Count) signed ticket file(s); the app holds $signedDue filed more than $MaxAgeHours h ago"
         }
-        if ($code -ne 0) {
-            Report $false "Cannot list $rcloneRemote (rclone exit $code): $($recent | Select-Object -Last 1)"
-        } else {
-            $dumps = @($recent | Where-Object { "$_" -like "*.dump" })
-            $zips = @($recent | Where-Object { "$_" -like "*-storage_*.zip" })
-            Report ($dumps.Count -gt 0) "Cloud $rcloneRemote has $($dumps.Count) .dump file(s) from the last $MaxAgeHours h"
-            Report ($zips.Count -gt 0) "Cloud $rcloneRemote has $($zips.Count) storage .zip file(s) from the last $MaxAgeHours h"
-        }
-        if ($code -eq 0 -and $signedDue -gt 0) {
-            try {
-                $ErrorActionPreference = "Stop"
-                $signedCloud = @(& $rcloneExe @rcloneArgs lsf "$($rcloneRemote.TrimEnd('/'))/signed-tickets" -R --files-only 2>&1)
-                $signedCode = $LASTEXITCODE
-            } catch {
-                $signedCloud = @("could not start rclone: $($_.Exception.Message)")
-                $signedCode = -1
-            } finally {
-                $ErrorActionPreference = "Continue"
-            }
-            if ($signedCode -ne 0) {
-                Report $false "Cannot list the signed tickets in $rcloneRemote (rclone exit $signedCode): $($signedCloud | Select-Object -Last 1)"
-            } else {
-                Report ($signedCloud.Count -ge $signedDue) "Cloud $rcloneRemote has $($signedCloud.Count) signed ticket file(s); the app holds $signedDue filed more than $MaxAgeHours h ago"
-            }
-        }
+    } catch {
+        Report $false "Cannot check Backblaze bucket ${b2Bucket}: $($_.Exception.Message)"
     }
+} elseif (Get-EnvValue "BACKUP_RCLONE_REMOTE") {
+    Report $false "Nothing is uploaded off this server: .env still has BACKUP_RCLONE_REMOTE, which is no longer used. Set BACKUP_B2_BUCKET, BACKUP_B2_KEY_ID and BACKUP_B2_KEY instead (docs\DEPLOYMENT.md, Backups)"
 }
 
-if (-not $copyDir -and -not $rcloneRemote) {
-    Write-Host "[--]   No BACKUP_COPY_DIR or BACKUP_RCLONE_REMOTE set; backups exist only on this server" -ForegroundColor Yellow
+if (-not $copyDir -and -not $b2Bucket) {
+    Write-Host "[--]   No BACKUP_COPY_DIR or BACKUP_B2_BUCKET set; backups exist only on this server" -ForegroundColor Yellow
 }
 
 $log = Join-Path $backupDir "backup.log"
