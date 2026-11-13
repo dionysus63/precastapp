@@ -1,5 +1,5 @@
 # Checks Node.js, PostgreSQL 18, Git, and a Chromium browser for office deployment.
-# Does not install software automatically — reports status and download links.
+# Does not install software automatically - reports status and download links.
 # Run from repo root: .\scripts\deploy\install-prerequisites.ps1
 
 $ErrorActionPreference = "Stop"
@@ -8,7 +8,7 @@ function Test-CommandExists($name) {
     return [bool](Get-Command $name -ErrorAction SilentlyContinue)
 }
 
-Write-Host "Precast Ops — prerequisite check" -ForegroundColor Cyan
+Write-Host "Precast Ops - prerequisite check" -ForegroundColor Cyan
 Write-Host ""
 
 $allOk = $true
@@ -17,14 +17,14 @@ $allOk = $true
 if (Test-CommandExists "node") {
     $nodeVersion = node -v
     $major = [int]($nodeVersion -replace "^v(\d+).*", '$1')
-    if ($major -ge 20) {
+    if ($major -ge 22) {
         Write-Host "[OK] Node.js $nodeVersion" -ForegroundColor Green
     } else {
-        Write-Host "[WARN] Node.js $nodeVersion — need v20 LTS or newer" -ForegroundColor Yellow
+        Write-Host "[WARN] Node.js $nodeVersion - need v22 LTS or newer (the Scan In reader is built for 22 or newer)" -ForegroundColor Yellow
         $allOk = $false
     }
 } else {
-    Write-Host "[MISSING] Node.js — install from https://nodejs.org (20 LTS or 22 LTS)" -ForegroundColor Red
+    Write-Host "[MISSING] Node.js - install from https://nodejs.org (22 LTS or 24 LTS)" -ForegroundColor Red
     $allOk = $false
 }
 
@@ -40,7 +40,7 @@ if (Test-CommandExists "npm") {
 if (Test-CommandExists "git") {
     Write-Host "[OK] Git $(git --version)" -ForegroundColor Green
 } else {
-    Write-Host "[MISSING] Git — https://git-scm.com/download/win" -ForegroundColor Red
+    Write-Host "[MISSING] Git - https://git-scm.com/download/win" -ForegroundColor Red
     $allOk = $false
 }
 
@@ -57,7 +57,7 @@ if (Test-Path $psqlPath) {
         $allOk = $false
     }
 } else {
-    Write-Host "[MISSING] PostgreSQL 18 — https://www.postgresql.org/download/windows/" -ForegroundColor Red
+    Write-Host "[MISSING] PostgreSQL 18 - https://www.postgresql.org/download/windows/" -ForegroundColor Red
     $allOk = $false
 }
 
@@ -76,14 +76,14 @@ foreach ($p in $browserPaths) {
     }
 }
 if (-not $foundBrowser) {
-    Write-Host "[WARN] No Brave/Chrome found — install one, or run 'npm run puppeteer:install' after deploy" -ForegroundColor Yellow
+    Write-Host "[WARN] No Brave/Chrome found - install one, or run 'npm run puppeteer:install' after deploy" -ForegroundColor Yellow
 }
 
 # NSSM (optional, for Phase 5)
 if (Test-CommandExists "nssm") {
     Write-Host "[OK] NSSM available for Windows service install" -ForegroundColor Green
 } else {
-    Write-Host "[INFO] NSSM not in PATH — needed for install-windows-service.ps1 (https://nssm.cc/)" -ForegroundColor Gray
+    Write-Host "[INFO] NSSM not in PATH - needed for install-windows-service.ps1 (https://nssm.cc/)" -ForegroundColor Gray
 }
 
 Write-Host ""

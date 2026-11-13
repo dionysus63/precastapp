@@ -137,7 +137,7 @@ export default async function Home() {
       label: "Pending Invoices",
       value: String(pendingInvoicesCount),
       detail: `${outstandingTotal} outstanding`,
-      href: "/invoices?status=OPEN",
+      href: "/invoices?tab=invoices&status=OPEN",
     },
     {
       label: "Inventory Alerts",
@@ -308,7 +308,7 @@ export default async function Home() {
             description="Outstanding billing ready for follow-up"
             action={
               <Link
-                href="/invoices"
+                href="/invoices?tab=invoices"
                 className="text-xs font-medium text-slate-600 hover:text-slate-900"
               >
                 View all

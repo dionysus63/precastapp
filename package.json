@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:sync-files": "npx tsx scripts/sync-job-files.ts",
+    "check:scan-reader": "npx tsx scripts/check-scan-reader.ts",
     "deploy:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy/install-prerequisites.ps1",
     "deploy:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy/deploy-app.ps1",
     "deploy:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy/start-production.ps1",
@@ -24,6 +25,7 @@
     "puppeteer:install": "puppeteer browsers install chrome"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^1.0.10",
     "@pdf-lib/fontkit": "^1.1.1",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
@@ -42,7 +44,8 @@
     "react-leaflet": "^5.0.0",
     "server-only": "^0.0.1",
     "sonner": "^2.0.7",
-    "xlsx": "file:vendor/xlsx-0.20.3.tgz"
+    "xlsx": "file:vendor/xlsx-0.20.3.tgz",
+    "zxing-wasm": "^3.1.6"
   },
   "overrides": {
     "@hono/node-server": "^1.19.13",

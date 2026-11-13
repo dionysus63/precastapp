@@ -66,7 +66,7 @@ export function InvoiceDetailContent({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
-          href="/invoices"
+          href="/invoices?tab=invoices"
           className="text-xs font-medium text-slate-500 hover:text-slate-900"
         >
           ← Back to Invoices

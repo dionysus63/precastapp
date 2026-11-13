@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PdfDragChip } from "@/components/common/pdf-drag-chip";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { TicketOperationsPanel } from "@/components/delivery-tickets/ticket-operations-panel";
@@ -116,6 +117,16 @@ type DeliveryTicketDetailContentProps = {
   invoiceId?: string | null;
   pickupInfo?: PickupInfo | null;
   canManageInvoices?: boolean;
+  /** The signed copy filed from Invoices → Scan In. */
+  signedTicket?: {
+    downloadUrl: string;
+    /** "T10189 - Signed.pdf" */
+    fileName: string;
+    /** "Filed 11-12-2026, 4:42 PM by Dana" */
+    filedLabel: string;
+  } | null;
+  /** "Closed with no signed copy 11-12-2026, 4:42 PM by Dana" */
+  closedWithoutSignedCopy?: string | null;
 };
 
 function paymentMethodLabel(method: PickupInfo["paymentMethod"]): string {
@@ -136,6 +147,8 @@ export function DeliveryTicketDetailContent({
   invoiceId = null,
   pickupInfo = null,
   canManageInvoices = false,
+  signedTicket = null,
+  closedWithoutSignedCopy = null,
 }: DeliveryTicketDetailContentProps) {
   const isPickup = pickupInfo?.fulfillmentMethod === "PICKUP";
 
@@ -177,6 +190,15 @@ export function DeliveryTicketDetailContent({
                 Preview/Print
               </Link>
               <TicketSubmittalButton ticketId={ticketId} />
+              {signedTicket ? (
+                <PdfDragChip
+                  href={signedTicket.downloadUrl}
+                  fileName={signedTicket.fileName}
+                  title={`The signed copy. ${signedTicket.filedLabel}. Drag it into an email or a folder, or click to save it.`}
+                  label="Signed Ticket"
+                  className="rounded-lg border border-sky-300 bg-sky-50 px-3 py-1.5 text-2xs font-semibold text-sky-900 hover:border-sky-400 hover:bg-sky-100"
+                />
+              ) : null}
             </>
           ) : (
             <button
@@ -441,11 +463,37 @@ export function DeliveryTicketDetailContent({
                 value={ticket.relatedRecords.photos}
                 href={null}
               />
-              <RelatedRecordRow
-                label="Signed Ticket"
-                value={ticket.relatedRecords.signedTicket}
-                href={null}
-              />
+              {signedTicket ? (
+                <div className="flex items-start justify-between gap-3">
+                  <dt className="text-slate-500">Signed Ticket</dt>
+                  <dd className="text-right font-medium text-slate-900">
+                    <a
+                      href={`${signedTicket.downloadUrl}?view=1`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sky-700 hover:underline"
+                    >
+                      View the signed copy
+                    </a>
+                    <span className="block font-normal text-slate-500">
+                      {signedTicket.filedLabel}
+                    </span>
+                  </dd>
+                </div>
+              ) : closedWithoutSignedCopy ? (
+                <div className="flex items-start justify-between gap-3">
+                  <dt className="text-slate-500">Signed Ticket</dt>
+                  <dd className="text-right font-normal text-slate-600">
+                    {closedWithoutSignedCopy}
+                  </dd>
+                </div>
+              ) : (
+                <RelatedRecordRow
+                  label="Signed Ticket"
+                  value={ticket.relatedRecords.signedTicket}
+                  href={null}
+                />
+              )}
             </dl>
           </SectionCard>
 

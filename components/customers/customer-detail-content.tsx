@@ -149,7 +149,7 @@ export function CustomerDetailContent({ customer }: CustomerDetailContentProps) 
           <StatTile
             label="Unpaid Invoices"
             value={customer.stats.unpaidTotal}
-            href={`/invoices?q=${search}`}
+            href={`/invoices?tab=invoices&q=${search}`}
           />
           <StatTile
             label="Last Activity"
