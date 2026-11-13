@@ -9,6 +9,7 @@ import type {
   FulfillmentMethod,
   TicketPaymentMethod,
 } from "@/app/generated/prisma/client";
+import { writeAuditLog } from "@/lib/auth/audit";
 import { requirePermission } from "@/lib/auth/session";
 import { getDefaultContactForRole } from "@/lib/customer-contacts";
 import { hasSiteContact } from "@/lib/delivery-site";
@@ -20,6 +21,7 @@ import {
 import {
   buildQuoteLineAliasMap,
   undoTicketDelivery,
+  UndoDeliveryNeedsInvoiceRemovalError,
   getQuoteLineageQuoteIds,
   getQuoteLineFulfillmentAndScheduled,
   markDeliveryTicketDelivered,
@@ -29,7 +31,7 @@ import {
 import { formatDrainRingStyleLabel } from "@/lib/drain-ring-utils";
 import { deliveryTicketStatusFlow } from "@/components/delivery-tickets/delivery-ticket-utils";
 import { generateSubmittalPackageForDeliveryTicket } from "@/lib/submittal-package";
-import { maybeCreatePayNowInvoiceForTicket } from "@/lib/invoicing-service";
+import { ensureInvoiceAfterDelivery } from "@/lib/invoicing-service";
 import {
   getDefaultPriceListId,
   getProductPriceEntriesForList,
@@ -1353,16 +1355,57 @@ export async function generateDeliveryTicketSubmittalPackage(
   }
 }
 
+export type UndoDeliveryImpact = {
+  /** The ticket's invoice, which undoing the delivery affects; null when
+   * there is none. Number and status only: this is a dispatch screen, so no
+   * invoice amounts cross over. */
+  invoice: {
+    invoiceNumber: string;
+    status: "DRAFT" | "SENT" | "PAID" | "VOID";
+  } | null;
+};
+
+/**
+ * What undoing a delivery would do to the ticket's invoice, so the screen can
+ * ask about it in plain words before anything changes.
+ */
+export async function getUndoDeliveryImpact(
+  ticketId: string,
+): Promise<UndoDeliveryImpact | { error: string }> {
+  await requirePermission(AppPermission.DELIVERY_MANAGE);
+  try {
+    const invoice = await withDatabaseRetry((client) =>
+      client.invoice.findUnique({
+        where: { deliveryTicketId: ticketId },
+        select: { invoiceNumber: true, status: true },
+      }),
+    );
+    return { invoice };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not check this ticket's invoice.",
+    };
+  }
+}
+
 export async function updateDeliveryTicketStatus(
   ticketId: string,
   status: DeliveryTicketStatus,
+  options: {
+    /** Undoing a delivery deletes its unpaid invoice — only when the user
+     * was asked and said yes. Without it the undo is refused. */
+    removeUnpaidInvoice?: boolean;
+  } = {},
 ) {
   const actor = await requirePermission(AppPermission.DELIVERY_MANAGE);
   try {
     const ticket = await withDatabaseRetry((client) =>
       client.deliveryTicket.findUnique({
         where: { id: ticketId },
-        select: { status: true },
+        select: { status: true, ticketNumber: true },
       }),
     );
 
@@ -1376,25 +1419,41 @@ export async function updateDeliveryTicketStatus(
     }
 
     let invoiceWarning: string | null = null;
+    // Set only when this call made the invoice, for the confirmation toast.
+    let invoiceMade: string | null = null;
     if (status === "DELIVERED") {
       await withDatabaseRetry((client) =>
         markDeliveryTicketDelivered(client, ticketId),
       );
+      // Same as deliverTicket: the invoice is made with the delivery.
       const invoiceResult = await withDatabaseRetry((client) =>
-        maybeCreatePayNowInvoiceForTicket(client, ticketId),
+        ensureInvoiceAfterDelivery(client, ticketId),
       );
-      if (invoiceResult.error) {
-        invoiceWarning = `Ticket completed, but the pay-now invoice could not be created: ${invoiceResult.error}`;
-      } else if (invoiceResult.invoiceId) {
+      invoiceWarning = invoiceResult.warning;
+      if (invoiceResult.invoice) {
         revalidatePath("/invoices");
+        if (invoiceResult.created) {
+          invoiceMade = invoiceResult.invoice.invoiceNumber;
+        }
       }
     } else if (
       ticket.status === "DELIVERED" &&
       (status === "SCHEDULED" || status === "CANCELLED")
     ) {
-      await withDatabaseRetry((client) =>
-        undoTicketDelivery(client, ticketId, status, actor.displayName),
+      const undone = await withDatabaseRetry((client) =>
+        undoTicketDelivery(client, ticketId, status, actor.displayName, {
+          removeUnpaidInvoice: options.removeUnpaidInvoice === true,
+        }),
       );
+      if (undone.removedInvoiceNumber) {
+        await writeAuditLog({
+          userId: actor.id,
+          action: "invoice.delete",
+          entityType: "Invoice",
+          summary: `${actor.displayName} undid the delivery of ticket ${ticket.ticketNumber ?? ticketId}, which deleted unpaid invoice ${undone.removedInvoiceNumber}`,
+        });
+        revalidatePath("/invoices");
+      }
     } else {
       await withDatabaseRetry((client) =>
         client.$transaction(async (tx) => {
@@ -1424,8 +1483,15 @@ export async function updateDeliveryTicketStatus(
     revalidatePath(`/delivery-tickets/${ticketId}`);
     revalidatePath("/walk-ins");
     revalidatePath("/inventory");
-    return { success: true, warning: invoiceWarning };
+    return { success: true, warning: invoiceWarning, invoiceMade };
   } catch (error) {
+    if (error instanceof UndoDeliveryNeedsInvoiceRemovalError) {
+      // Not a failure: the screen asks about the invoice and calls again.
+      return {
+        error: error.message,
+        needsInvoiceRemoval: { invoiceNumber: error.invoiceNumber },
+      };
+    }
     return {
       error:
         error instanceof Error ? error.message : "Could not update ticket status.",

@@ -8,18 +8,22 @@ import {
   type InvoiceStatus,
 } from "@/app/generated/prisma/client";
 import { Prisma } from "@/app/generated/prisma/client";
-import { getAppSettings } from "@/lib/app-settings";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { requirePermission } from "@/lib/auth/session";
-import { parseLocalDay, startOfLocalDay } from "@/lib/date-only";
-import { invoiceDueDateFromDelivery } from "@/lib/invoicing-service";
+import {
+  INVOICE_LIST_FILTERS,
+  isUnpaidInvoiceStatus,
+  UNPAID_INVOICE_STATUSES,
+  type InvoiceFilterCounts,
+  type InvoiceListFilter,
+} from "@/lib/invoice-status";
 import { computeMoneyTotals } from "@/lib/money";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { computeDeliveryAmount } from "@/lib/quotes/money-rules";
 import { buildPageInfo } from "@/lib/list-params";
 import { returnActionError } from "@/lib/server/action-errors";
 
-export type DraftInvoiceLineInput = {
+export type InvoiceLineInput = {
   id?: string;
   lineNumber: number;
   lineType: InvoiceLineType;
@@ -28,23 +32,25 @@ export type DraftInvoiceLineInput = {
   quantity: number;
   unit: string;
   unitPrice: number;
+  /**
+   * A line still waiting for a price (prints PRICE NEEDED). Only a line that
+   * is already flagged can stay flagged, and only at $0: typing a price
+   * clears it, and so does an explicit `false` with a $0 price (no charge).
+   */
+  needsPrice?: boolean;
   taxable: boolean;
 };
 
-export type UpdateDraftInvoiceInput = {
+export type UpdateInvoiceInput = {
   invoiceId: string;
   taxRate: number;
   discountAmount: number;
-  lines: DraftInvoiceLineInput[];
+  lines: InvoiceLineInput[];
   deletedLineIds: string[];
 };
 
-function parseInvoiceDate(value: string | null | undefined): Date | null {
-  return value ? parseLocalDay(value) : null;
-}
-
 function computeInvoiceFinancials(
-  lines: DraftInvoiceLineInput[],
+  lines: InvoiceLineInput[],
   taxRate: number,
   discountAmount: number,
 ) {
@@ -70,10 +76,9 @@ function computeInvoiceFinancials(
   return { computed, deliveryAmount };
 }
 
-// Paid and voided invoices are immutable records; drafts and final unpaid
-// (SENT) invoices can be edited — the latter behind an explicit confirm.
-const EDITABLE_INVOICE_STATUSES = ["DRAFT", "SENT"] as const;
-
+// There is no draft stage: an invoice is open from the moment its ticket is
+// marked delivered, and stays editable until it is paid or voided
+// (see lib/invoice-status).
 async function requireEditableInvoice(invoiceId: string) {
   const invoice = await withDatabaseRetry((client) =>
     client.invoice.findUnique({
@@ -86,106 +91,41 @@ async function requireEditableInvoice(invoiceId: string) {
     throw new Error("Invoice not found.");
   }
 
-  if (!EDITABLE_INVOICE_STATUSES.includes(invoice.status as "DRAFT" | "SENT")) {
+  if (!isUnpaidInvoiceStatus(invoice.status)) {
     throw new Error("Paid or voided invoices cannot be edited.");
   }
 
   return invoice;
 }
 
-export async function finalizeInvoices(
-  invoiceIds: string[],
-  invoiceDateRaw?: string,
-) {
-  const user = await requirePermission(AppPermission.INVOICES_MANAGE);
-  const uniqueIds = [...new Set(invoiceIds.filter(Boolean))];
-
-  if (uniqueIds.length === 0) {
-    return { error: "Select at least one draft invoice to finalize." };
-  }
-
-  const invoiceDate = parseInvoiceDate(invoiceDateRaw) ?? startOfLocalDay();
-
-  try {
-    const result = await withDatabaseRetry(async (client) => {
-      // Due dates are one month after each ticket's delivery/pickup date,
-      // so the batch updates per invoice. Status stays in the WHERE clause:
-      // an invoice finalized (or voided) by a concurrent caller between the
-      // find and an update must not be stamped again.
-      const drafts = await client.invoice.findMany({
-        where: { id: { in: uniqueIds }, status: "DRAFT" },
-        select: {
-          id: true,
-          deliveryTicket: { select: { deliveryDate: true } },
-        },
-      });
-
-      let finalized = 0;
-      for (const draft of drafts) {
-        const updated = await client.invoice.updateMany({
-          where: { id: draft.id, status: "DRAFT" },
-          data: {
-            status: "SENT",
-            invoiceDate,
-            dueDate: invoiceDueDateFromDelivery(
-              draft.deliveryTicket?.deliveryDate,
-              invoiceDate,
-            ),
-            finalizedAt: new Date(),
-            finalizedBy: user.displayName,
-          },
-        });
-        finalized += updated.count;
-      }
-
-      if (finalized === 0) {
-        throw new Error("No draft invoices found to finalize.");
-      }
-
-      return { finalized };
-    });
-
-    revalidatePath("/invoices");
-    for (const id of uniqueIds) {
-      revalidatePath(`/invoices/${id}`);
-    }
-    return { success: true, finalized: result.finalized };
-  } catch (error) {
-    return {
-      error:
-        error instanceof Error ? error.message : "Could not finalize invoices.",
-    };
-  }
-}
-
-export async function finalizeAllDraftInvoices(invoiceDateRaw?: string) {
-  await requirePermission(AppPermission.INVOICES_MANAGE);
-  const draftIds = await withDatabaseRetry((client) =>
-    client.invoice.findMany({
-      where: { status: "DRAFT" },
-      select: { id: true },
-    }),
-  );
-  return finalizeInvoices(
-    draftIds.map((invoice) => invoice.id),
-    invoiceDateRaw,
-  );
-}
-
 export async function markInvoicePaid(invoiceId: string) {
   await requirePermission(AppPermission.INVOICES_MANAGE);
   try {
-    // Only a finalized (SENT) invoice can be paid, and paying must not
-    // rewrite the invoice date — that's the billing date on the document.
+    // Only an open invoice can be paid, and paying must not rewrite the
+    // invoice date. A line still waiting for a price blocks it: the total is
+    // not known yet, so "paid" would be recording the wrong amount.
     const updated = await withDatabaseRetry((client) =>
       client.invoice.updateMany({
-        where: { id: invoiceId, status: "SENT" },
+        where: {
+          id: invoiceId,
+          status: { in: [...UNPAID_INVOICE_STATUSES] },
+          lineItems: { none: { needsPrice: true } },
+        },
         data: { status: "PAID" },
       }),
     );
     if (updated.count === 0) {
+      const current = await withDatabaseRetry((client) =>
+        client.invoice.findUnique({
+          where: { id: invoiceId },
+          select: { status: true },
+        }),
+      );
       return {
-        error: "Only finalized invoices can be marked paid.",
+        error:
+          current && isUnpaidInvoiceStatus(current.status)
+            ? "This invoice still has a line waiting for a price. Type the price (or 0 for no charge) before marking it paid."
+            : "Only open invoices can be marked paid.",
       };
     }
     revalidatePath("/invoices");
@@ -200,28 +140,51 @@ export async function markInvoicePaid(invoiceId: string) {
 }
 
 /**
- * Drafts only: removes the invoice outright (line items cascade), freeing
- * the delivery ticket to be re-converted — e.g. after a pricing fix. The
- * re-created invoice derives the same number back from the ticket number.
- * Finalized invoices are voided instead so the numbering trail survives.
+ * Unpaid invoices only: removes the invoice outright (line items cascade).
+ * The ticket stays delivered and can be invoiced again from the ticket page
+ * (Convert to Invoice) — e.g. after fixing a price on the quote — and the new
+ * invoice derives the same number back from the ticket number. A paid invoice
+ * is voided instead, so the record of the payment survives.
  */
-export async function deleteDraftInvoice(invoiceId: string) {
-  await requirePermission(AppPermission.INVOICES_MANAGE);
+export async function deleteInvoice(invoiceId: string) {
+  const user = await requirePermission(AppPermission.INVOICES_MANAGE);
   try {
-    const deleted = await withDatabaseRetry((client) =>
-      client.invoice.deleteMany({
-        where: { id: invoiceId, status: "DRAFT" },
+    const invoice = await withDatabaseRetry((client) =>
+      client.invoice.findUnique({
+        where: { id: invoiceId },
+        select: {
+          invoiceNumber: true,
+          deliveryTicket: { select: { id: true, ticketNumber: true } },
+        },
       }),
     );
-    if (deleted.count === 0) {
-      return { error: "Only draft invoices can be deleted." };
+    // Status stays in the WHERE clause: a payment recorded between the read
+    // above and this delete must never be wiped out.
+    const deleted = await withDatabaseRetry((client) =>
+      client.invoice.deleteMany({
+        where: { id: invoiceId, status: { in: [...UNPAID_INVOICE_STATUSES] } },
+      }),
+    );
+    if (deleted.count === 0 || !invoice) {
+      return {
+        error:
+          "Only unpaid invoices can be deleted. Void a paid invoice instead.",
+      };
     }
+    await writeAuditLog({
+      userId: user.id,
+      action: "invoice.delete",
+      entityType: "Invoice",
+      entityId: invoiceId,
+      summary: `${user.displayName} deleted unpaid invoice ${invoice.invoiceNumber} (ticket ${invoice.deliveryTicket.ticketNumber ?? "—"})`,
+    });
     revalidatePath("/invoices");
+    revalidatePath(`/delivery-tickets/${invoice.deliveryTicket.id}`);
     return { success: true };
   } catch (error) {
     return {
       error:
-        error instanceof Error ? error.message : "Could not delete the draft.",
+        error instanceof Error ? error.message : "Could not delete the invoice.",
     };
   }
 }
@@ -229,17 +192,20 @@ export async function deleteDraftInvoice(invoiceId: string) {
 export async function voidInvoice(invoiceId: string) {
   await requirePermission(AppPermission.INVOICES_MANAGE);
   try {
-    // SENT or PAID only: drafts should be edited or deleted instead, and
-    // re-voiding is a no-op that would hide the earlier state.
+    // Open or paid only: re-voiding is a no-op that would hide the earlier
+    // state.
     const updated = await withDatabaseRetry((client) =>
       client.invoice.updateMany({
-        where: { id: invoiceId, status: { in: ["SENT", "PAID"] } },
+        where: {
+          id: invoiceId,
+          status: { in: [...UNPAID_INVOICE_STATUSES, "PAID"] },
+        },
         data: { status: "VOID" },
       }),
     );
     if (updated.count === 0) {
       return {
-        error: "Only finalized or paid invoices can be voided.",
+        error: "This invoice is already void.",
       };
     }
     revalidatePath("/invoices");
@@ -254,12 +220,11 @@ export async function voidInvoice(invoiceId: string) {
 }
 
 /**
- * Undo a void: the invoice comes back as a DRAFT with its number, ticket and
- * lines intact, to be corrected and finalized again. (A voided invoice keeps
- * its delivery ticket — one invoice per ticket, numbered from it — so without
- * this a void, e.g. to fix a price, left the delivery unbillable.) For a
- * fresh invoice priced from scratch, delete the reopened draft and convert
- * the ticket again.
+ * Undo a void: the invoice comes back open with its number, ticket and lines
+ * intact, ready to be corrected. (A voided invoice keeps its delivery ticket
+ * — one invoice per ticket, numbered from it — so without this a void left
+ * the delivery unbillable.) For a fresh invoice priced from scratch, delete
+ * the reopened invoice and convert the ticket again.
  */
 export async function reopenVoidedInvoice(invoiceId: string) {
   const user = await requirePermission(AppPermission.INVOICES_MANAGE);
@@ -273,7 +238,7 @@ export async function reopenVoidedInvoice(invoiceId: string) {
     const reopened = await withDatabaseRetry((client) =>
       client.invoice.updateMany({
         where: { id: invoiceId, status: "VOID" },
-        data: { status: "DRAFT" },
+        data: { status: "SENT" },
       }),
     );
     if (reopened.count === 0 || !invoice) {
@@ -284,7 +249,7 @@ export async function reopenVoidedInvoice(invoiceId: string) {
       action: "invoice.reopen",
       entityType: "Invoice",
       entityId: invoiceId,
-      summary: `${user.displayName} reopened voided invoice ${invoice.invoiceNumber} as a draft`,
+      summary: `${user.displayName} reopened voided invoice ${invoice.invoiceNumber}`,
     });
     revalidatePath("/invoices");
     revalidatePath(`/invoices/${invoiceId}`);
@@ -297,7 +262,7 @@ export async function reopenVoidedInvoice(invoiceId: string) {
   }
 }
 
-export async function updateDraftInvoice(input: UpdateDraftInvoiceInput) {
+export async function updateInvoice(input: UpdateInvoiceInput) {
   await requirePermission(AppPermission.INVOICES_MANAGE);
   const editable = await returnActionError(() =>
     requireEditableInvoice(input.invoiceId),
@@ -329,24 +294,28 @@ export async function updateDraftInvoice(input: UpdateDraftInvoiceInput) {
   );
 
   try {
-    // One transaction: the draft check, line writes, and totals commit or
-    // roll back together, so a concurrent finalization can't interleave and
-    // a mid-save failure can't leave lines and totals disagreeing.
+    // One transaction: the status check, line writes, and totals commit or
+    // roll back together, so a concurrent payment can't interleave and a
+    // mid-save failure can't leave lines and totals disagreeing.
     const lineIds = await withDatabaseRetry((client) =>
       client.$transaction(async (tx) => {
         const savedLineIds: string[] = [];
         const invoice = await tx.invoice.findUnique({
           where: { id: input.invoiceId },
-          select: { status: true },
+          select: {
+            status: true,
+            lineItems: { select: { id: true, needsPrice: true } },
+          },
         });
-        if (
-          !invoice ||
-          !EDITABLE_INVOICE_STATUSES.includes(
-            invoice.status as "DRAFT" | "SENT",
-          )
-        ) {
+        if (!invoice || !isUnpaidInvoiceStatus(invoice.status)) {
           throw new Error("Paid or voided invoices cannot be edited.");
         }
+        // PRICE NEEDED can only be kept, never newly set, from the editor.
+        const flaggedLineIds = new Set(
+          invoice.lineItems
+            .filter((line) => line.needsPrice)
+            .map((line) => line.id),
+        );
 
         if (input.deletedLineIds.length > 0) {
           await tx.invoiceLineItem.deleteMany({
@@ -368,6 +337,13 @@ export async function updateDraftInvoice(input: UpdateDraftInvoiceInput) {
             quantity: new Prisma.Decimal(line.quantity),
             unit: line.unit.trim() || "EA",
             unitPrice: new Prisma.Decimal(line.unitPrice),
+            // Still waiting for a price only while it stays at $0 and nobody
+            // said "no charge" (an explicit false). Any price clears it.
+            needsPrice:
+              line.id != null &&
+              flaggedLineIds.has(line.id) &&
+              line.unitPrice === 0 &&
+              line.needsPrice !== false,
             taxable: line.taxable,
             total,
             sortOrder: index,
@@ -403,7 +379,7 @@ export async function updateDraftInvoice(input: UpdateDraftInvoiceInput) {
         const updatedInvoice = await tx.invoice.updateMany({
           where: {
             id: input.invoiceId,
-            status: { in: [...EDITABLE_INVOICE_STATUSES] },
+            status: { in: [...UNPAID_INVOICE_STATUSES] },
           },
           data: {
             subtotal: computed.subtotal,
@@ -432,20 +408,20 @@ export async function updateDraftInvoice(input: UpdateDraftInvoiceInput) {
   } catch (error) {
     return {
       error:
-        error instanceof Error ? error.message : "Could not save draft invoice.",
+        error instanceof Error ? error.message : "Could not save the invoice.",
     };
   }
 }
 
-export async function saveDraftInvoiceAndRedirect(input: UpdateDraftInvoiceInput) {
-  const result = await updateDraftInvoice(input);
+export async function saveInvoiceAndRedirect(input: UpdateInvoiceInput) {
+  const result = await updateInvoice(input);
   if (result.error) {
     return result;
   }
   redirect(`/invoices/${input.invoiceId}`);
 }
 
-export async function getDraftInvoiceEditorData(invoiceId: string) {
+export async function getInvoiceEditorData(invoiceId: string) {
   await requirePermission(AppPermission.INVOICES_VIEW);
   const invoice = await withDatabaseRetry((client) =>
     client.invoice.findUnique({
@@ -477,8 +453,8 @@ export type InvoiceListRow = {
   customerName: string;
   projectName: string;
   status: InvoiceStatus;
-  subtotal: number;
-  deliveryAmount: number;
+  /** Price before tax: the subtotal with any discount taken off. */
+  price: number;
   salesTax: number;
   total: number;
   invoiceDate: Date | null;
@@ -487,85 +463,78 @@ export type InvoiceListRow = {
   paymentMethod: string | null;
   paymentReceived: boolean;
   deliveryDate: Date | null;
-  hasZeroPriceLine: boolean;
+  /** Item codes of the lines still waiting for a price (PRICE NEEDED). */
+  priceNeededItems: string[];
 };
 
-function mapInvoiceListRow(invoice: {
-  id: string;
-  invoiceNumber: string;
-  customerName: string;
-  projectName: string;
-  status: InvoiceStatus;
-  subtotal: { toString(): string };
-  deliveryAmount: { toString(): string };
-  salesTax: { toString(): string };
-  total: { toString(): string };
-  invoiceDate: Date | null;
+function invoiceListWhere(filter: InvoiceListFilter): Prisma.InvoiceWhereInput {
+  switch (filter) {
+    case "PRICE_NEEDED":
+      return {
+        status: { in: [...UNPAID_INVOICE_STATUSES] },
+        lineItems: { some: { needsPrice: true } },
+      };
+    case "OPEN":
+      return { status: { in: [...UNPAID_INVOICE_STATUSES] } };
+    case "PAID":
+      return { status: "PAID" };
+    case "VOID":
+      return { status: "VOID" };
+    default:
+      return {};
+  }
+}
+
+const INVOICE_LIST_INCLUDE = {
   deliveryTicket: {
-    // Invoiced tickets are always numbered; nullable only to match the model.
-    ticketNumber: string | null;
-    ticketType: string;
-    paymentMethod: string | null;
-    paymentReceived: boolean;
-    deliveryDate: Date | null;
-  };
-  lineItems: Array<{ unitPrice: { toString(): string } }>;
-}): InvoiceListRow {
+    select: {
+      ticketNumber: true,
+      ticketType: true,
+      paymentMethod: true,
+      paymentReceived: true,
+      deliveryDate: true,
+    },
+  },
+  lineItems: {
+    where: { needsPrice: true },
+    orderBy: { lineNumber: "asc" },
+    select: { itemCode: true },
+  },
+} as const satisfies Prisma.InvoiceInclude;
+
+function mapInvoiceListRow(
+  invoice: Prisma.InvoiceGetPayload<{ include: typeof INVOICE_LIST_INCLUDE }>,
+): InvoiceListRow {
   return {
     id: invoice.id,
     invoiceNumber: invoice.invoiceNumber,
     customerName: invoice.customerName,
     projectName: invoice.projectName,
     status: invoice.status,
-    subtotal: Number(invoice.subtotal),
-    deliveryAmount: Number(invoice.deliveryAmount),
+    price: Number(invoice.subtotal) - Number(invoice.discountAmount),
     salesTax: Number(invoice.salesTax),
     total: Number(invoice.total),
     invoiceDate: invoice.invoiceDate,
+    // Invoiced tickets are always numbered; nullable only to match the model.
     ticketNumber: invoice.deliveryTicket.ticketNumber ?? "—",
     ticketType: invoice.deliveryTicket.ticketType,
     paymentMethod: invoice.deliveryTicket.paymentMethod,
     paymentReceived: invoice.deliveryTicket.paymentReceived,
     deliveryDate: invoice.deliveryTicket.deliveryDate,
-    hasZeroPriceLine: invoice.lineItems.some(
-      (line) => Number(line.unitPrice) === 0,
-    ),
+    // Only an unpaid invoice can still be waiting for a price.
+    priceNeededItems: isUnpaidInvoiceStatus(invoice.status)
+      ? invoice.lineItems.map((line) => line.itemCode)
+      : [],
   };
 }
 
 export async function listInvoicesForPage(options: {
-  tab: "drafts" | "final";
-  status?: string;
+  filter: InvoiceListFilter;
   page: number;
-  /** Drafts tab only: inclusive delivery-date range (YYYY-MM-DD). */
-  deliveryFrom?: string | null;
-  deliveryTo?: string | null;
 }) {
   await requirePermission(AppPermission.INVOICES_VIEW);
 
-  const deliveryFrom = parseInvoiceDate(options.deliveryFrom);
-  const deliveryToEnd = parseInvoiceDate(options.deliveryTo);
-  if (deliveryToEnd) {
-    deliveryToEnd.setHours(23, 59, 59, 999);
-  }
-  const deliveryDateFilter =
-    options.tab === "drafts" && (deliveryFrom || deliveryToEnd)
-      ? {
-          deliveryTicket: {
-            deliveryDate: {
-              ...(deliveryFrom ? { gte: deliveryFrom } : {}),
-              ...(deliveryToEnd ? { lte: deliveryToEnd } : {}),
-            },
-          },
-        }
-      : {};
-
-  const where =
-    options.tab === "drafts"
-      ? { status: "DRAFT" as const, ...deliveryDateFilter }
-      : options.status && options.status !== "ALL"
-        ? { status: options.status as InvoiceStatus }
-        : { status: { in: ["SENT", "PAID", "VOID"] as InvoiceStatus[] } };
+  const where = invoiceListWhere(options.filter);
 
   const total = await withDatabaseRetry((client) =>
     client.invoice.count({ where }),
@@ -578,20 +547,7 @@ export async function listInvoicesForPage(options: {
       orderBy: [{ createdAt: "desc" }],
       skip: pageInfo.skip,
       take: pageInfo.take,
-      include: {
-        deliveryTicket: {
-          select: {
-            ticketNumber: true,
-            ticketType: true,
-            paymentMethod: true,
-            paymentReceived: true,
-            deliveryDate: true,
-          },
-        },
-        lineItems: {
-          select: { unitPrice: true },
-        },
-      },
+      include: INVOICE_LIST_INCLUDE,
     }),
   );
 
@@ -601,63 +557,20 @@ export async function listInvoicesForPage(options: {
   };
 }
 
-export async function getInvoiceTabCounts() {
+/** One count per filter chip, so each chip shows how many it holds. */
+export async function getInvoiceFilterCounts(): Promise<InvoiceFilterCounts> {
   await requirePermission(AppPermission.INVOICES_VIEW);
 
-  const [draftCount, finalCount, paidWalkInCount] = await withDatabaseRetry(
-    (client) =>
-      Promise.all([
-        client.invoice.count({ where: { status: "DRAFT" } }),
-        client.invoice.count({
-          where: { status: { in: ["SENT", "PAID", "VOID"] } },
-        }),
-        client.invoice.count({
-          where: {
-            status: "PAID",
-            deliveryTicket: {
-              ticketType: "WALK_IN",
-              paymentMethod: "PAY_NOW",
-              paymentReceived: true,
-            },
-          },
-        }),
-      ]),
+  const filters = INVOICE_LIST_FILTERS.map((filter) => filter.value);
+  const counts = await withDatabaseRetry((client) =>
+    Promise.all(
+      filters.map((filter) =>
+        client.invoice.count({ where: invoiceListWhere(filter) }),
+      ),
+    ),
   );
 
-  return { draftCount, finalCount, paidWalkInCount };
-}
-
-export async function listPaidWalkInInvoices() {
-  await requirePermission(AppPermission.INVOICES_VIEW);
-
-  const invoices = await withDatabaseRetry((client) =>
-    client.invoice.findMany({
-      where: {
-        status: "PAID",
-        deliveryTicket: {
-          ticketType: "WALK_IN",
-          paymentMethod: "PAY_NOW",
-          paymentReceived: true,
-        },
-      },
-      orderBy: [{ createdAt: "desc" }],
-      take: 50,
-      include: {
-        deliveryTicket: {
-          select: {
-            ticketNumber: true,
-            ticketType: true,
-            paymentMethod: true,
-            paymentReceived: true,
-            deliveryDate: true,
-          },
-        },
-        lineItems: {
-          select: { unitPrice: true },
-        },
-      },
-    }),
-  );
-
-  return invoices.map(mapInvoiceListRow);
+  return Object.fromEntries(
+    filters.map((filter, index) => [filter, counts[index]!]),
+  ) as InvoiceFilterCounts;
 }

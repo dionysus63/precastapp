@@ -26,10 +26,19 @@ export function MarkPickedUpControl({
         setMessage(result.error);
         return;
       }
+      // Carried over the reload as a toast, so it is still there to read.
       if ("warning" in result && result.warning) {
-        setMessage(result.warning);
+        reloadAfterAction({ type: "warning", text: result.warning });
+        return;
       }
-      reloadAfterAction();
+      reloadAfterAction(
+        "invoiceCreated" in result && result.invoiceCreated && result.invoice
+          ? {
+              type: "success",
+              text: `Marked picked up. Invoice ${result.invoice.invoiceNumber} is ready on the Invoices screen.`,
+            }
+          : undefined,
+      );
     });
   }
 

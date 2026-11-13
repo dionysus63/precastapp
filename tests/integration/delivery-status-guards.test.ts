@@ -22,7 +22,12 @@ vi.mock("server-only", () => ({}));
 
 import { deleteDrillSheet } from "@/app/drill-sheets/actions";
 import { deleteStructureTemplate } from "@/app/structures/actions";
-import { deliverAllTicketsForDay, deliverTicket } from "@/app/operations/actions";
+import {
+  confirmDeliveryDayReconciliation,
+  createMissingInvoicesForDay,
+  deliverAllTicketsForDay,
+  deliverTicket,
+} from "@/app/operations/actions";
 import { markDeliveryTicketDelivered } from "@/lib/delivery-fulfillment";
 import { prisma } from "@/lib/prisma";
 
@@ -60,8 +65,18 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  // Marking a ticket delivered makes its invoice.
+  await prisma.invoice.deleteMany({
+    where: { customerName: `${tag} Customer` },
+  });
   await prisma.deliveryTicket.deleteMany({
     where: { customerName: `${tag} Customer` },
+  });
+  await prisma.deliveryDayReconciliation.deleteMany({
+    where: {
+      confirmedBy: "Test User",
+      reconciliationDate: { gte: new Date(Date.UTC(2099, 0, 1)) },
+    },
   });
   await prisma.jobStructure.deleteMany({ where: { jobId } });
   await prisma.job.delete({ where: { id: jobId } });
@@ -96,6 +111,18 @@ describe("delivery ticket status guards", () => {
     ]);
     expect(draftAfter.status).toBe("DRAFT");
     expect(scheduledAfter.status).toBe("DELIVERED");
+    // Each ticket delivered this way gets its invoice in the same click.
+    expect(
+      await prisma.invoice.count({
+        where: { deliveryTicketId: { in: [draft.id, scheduled.id] } },
+      }),
+    ).toBe(1);
+    expect(
+      await prisma.invoice.findUnique({
+        where: { deliveryTicketId: scheduled.id },
+        select: { status: true },
+      }),
+    ).toEqual({ status: "SENT" });
   });
 
   it("doesn't flip payment received on a sale that's already complete", async () => {
@@ -115,6 +142,51 @@ describe("delivery ticket status guards", () => {
       (await prisma.deliveryTicket.findUniqueOrThrow({ where: { id: completed.id } }))
         .paymentReceived,
     ).toBe(false);
+  });
+});
+
+describe("checking a delivery day", () => {
+  it("confirms the day without making invoices, and makes missing ones only on request", async () => {
+    // Delivered with no invoice: delivered before invoices were made at
+    // delivery, or its invoice was deleted on purpose.
+    const delivered = await ticket("DELIVERED", {
+      deliveredAt: new Date(2099, 2, 17, 10),
+      ticketNumber: `${tag}-T1X`,
+    });
+    const invoiceOf = () =>
+      prisma.invoice.findUnique({
+        where: { deliveryTicketId: delivered.id },
+        select: { status: true },
+      });
+
+    // Confirming only records that the day was checked against the paper.
+    expect(await confirmDeliveryDayReconciliation(RECONCILE_DAY)).toEqual({
+      success: true,
+    });
+    expect(await invoiceOf()).toBeNull();
+    expect(
+      await prisma.deliveryDayReconciliation.count({
+        where: {
+          confirmedBy: "Test User",
+          reconciliationDate: { gte: new Date(Date.UTC(2099, 0, 1)) },
+        },
+      }),
+    ).toBe(1);
+
+    // The catch-up is its own, deliberate click.
+    const made = await createMissingInvoicesForDay(RECONCILE_DAY);
+    expect(made).toMatchObject({ success: true });
+    const { conversionResult } = made as {
+      conversionResult: { created: number };
+    };
+    expect(conversionResult.created).toBeGreaterThanOrEqual(1);
+    expect(await invoiceOf()).toEqual({ status: "SENT" });
+
+    // Nothing left to make for that ticket the second time.
+    await createMissingInvoicesForDay(RECONCILE_DAY);
+    expect(
+      await prisma.invoice.count({ where: { deliveryTicketId: delivered.id } }),
+    ).toBe(1);
   });
 });
 

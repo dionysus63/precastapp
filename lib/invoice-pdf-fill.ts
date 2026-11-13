@@ -7,6 +7,7 @@ import {
   rgb,
   degrees,
   type PDFFont,
+  type PDFPage,
 } from "pdf-lib";
 import { removeFlattenLeftovers } from "@/lib/pdf-flatten-cleanup";
 import { setPdfFieldText } from "@/lib/pdf-text";
@@ -17,6 +18,7 @@ import { prisma } from "@/lib/prisma";
 import {
   buildInvoiceFormData,
   formatCustomerAddress,
+  invoiceNeedsPrice,
   mapInvoiceLineItemsForPdf,
   type DbInvoiceForPdf,
   type InvoiceContentPage,
@@ -159,16 +161,22 @@ function fillAcroFormFields(
   removeFlattenLeftovers(doc);
 }
 
-function drawDraftWatermark(page: import("pdf-lib").PDFPage, font: import("pdf-lib").PDFFont) {
+/**
+ * Printed across every page of an invoice that still has a line waiting for
+ * a price, so a page with a blank price can't be mistaken for a finished
+ * invoice. (There is no DRAFT stamp any more: an invoice prints clean from
+ * the moment it is made.)
+ */
+function drawPriceNeededWatermark(page: PDFPage, font: PDFFont) {
   const { width, height } = page.getSize();
-  page.drawText("DRAFT", {
-    x: width * 0.22,
-    y: height * 0.45,
-    size: 72,
+  page.drawText("PRICE NEEDED", {
+    x: width * 0.13,
+    y: height * 0.36,
+    size: 54,
     font,
     color: rgb(0.75, 0.75, 0.75),
-    rotate: degrees(-35),
-    opacity: 0.35,
+    rotate: degrees(35),
+    opacity: 0.4,
   });
 }
 
@@ -176,7 +184,7 @@ async function buildInvoicePageBytes(
   templateBytes: Uint8Array,
   formData: Record<string, string>,
   slice: InvoiceLineItemPageSlice,
-  showDraftWatermark: boolean,
+  showPriceNeeded: boolean,
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.load(templateBytes);
   const font = await doc.embedFont(StandardFonts.Helvetica);
@@ -187,8 +195,8 @@ async function buildInvoicePageBytes(
 
   drawInvoiceLineItemsOnPage(page, font, boldFont, slice);
 
-  if (showDraftWatermark) {
-    drawDraftWatermark(page, boldFont);
+  if (showPriceNeeded) {
+    drawPriceNeededWatermark(page, boldFont);
   }
 
   return doc.save(PDF_SAVE_OPTIONS);
@@ -226,7 +234,7 @@ export async function generateInvoicePdfBytes(
   const measureDoc = await PDFDocument.load(templateBytes);
   const measureFont = await measureDoc.embedFont(StandardFonts.Helvetica);
   const slices = paginateInvoiceLineItems(lineItems, measureFont);
-  const showDraftWatermark = invoice.status === "DRAFT";
+  const showPriceNeeded = invoiceNeedsPrice(invoice);
 
   const merged = await PDFDocument.create();
 
@@ -253,7 +261,7 @@ export async function generateInvoicePdfBytes(
       slice.isLastPage ? templateBytes : contTemplateBytes,
       formData,
       slice,
-      showDraftWatermark,
+      showPriceNeeded,
     );
     const pageDoc = await PDFDocument.load(pageBytes);
     const [copied] = await merged.copyPages(pageDoc, [0]);
@@ -263,7 +271,11 @@ export async function generateInvoicePdfBytes(
   return merged.save(PDF_SAVE_OPTIONS);
 }
 
-export async function generateDraftInvoicesBatchPdfBytes(
+/**
+ * Several invoices in one PDF, in the order given, optionally behind a cover
+ * (the Invoice Summary page).
+ */
+export async function generateInvoicesBatchPdfBytes(
   invoices: DbInvoiceForPdf[],
   coverPdfBytes?: Uint8Array,
 ): Promise<Uint8Array> {

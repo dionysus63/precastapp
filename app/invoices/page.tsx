@@ -4,9 +4,8 @@ import {
   type ReconcileTabData,
 } from "@/components/invoices/invoices-tabs";
 import {
-  getInvoiceTabCounts,
+  getInvoiceFilterCounts,
   listInvoicesForPage,
-  listPaidWalkInInvoices,
 } from "@/app/invoices/actions";
 import {
   listTicketsForReconciliation,
@@ -16,6 +15,7 @@ import { AppPermission } from "@/app/generated/prisma/client";
 import { getCurrentUser } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
 import { localTodayInput } from "@/lib/date-only";
+import { parseInvoiceListFilter } from "@/lib/invoice-status";
 import {
   buildPageInfo,
   parsePageParam,
@@ -36,25 +36,17 @@ export default async function InvoicesPage({
   searchParams: Promise<RawSearchParams>;
 }) {
   const params = await searchParams;
-  const tabParam = parseStringParam(params.tab);
-  const statusParam = parseStringParam(params.status) || "ALL";
+  // One list of invoices, plus Reconcile Day. Old links to the Draft Review
+  // and Final tabs (?tab=drafts / ?tab=final) land on the list.
+  const initialTab: "invoices" | "reconcile" =
+    parseStringParam(params.tab) === "reconcile" ? "reconcile" : "invoices";
+  const filter = parseInvoiceListFilter(parseStringParam(params.status));
   const requestedPage = parsePageParam(params.page);
-  const draftFrom = parseDateParam(params.from);
-  const draftTo = parseDateParam(params.to);
 
-  const [{ draftCount, finalCount, paidWalkInCount }, user] = await Promise.all([
-    getInvoiceTabCounts(),
+  const [filterCounts, user] = await Promise.all([
+    getInvoiceFilterCounts(),
     getCurrentUser(),
   ]);
-
-  const initialTab: "drafts" | "final" | "reconcile" =
-    tabParam === "final"
-      ? "final"
-      : tabParam === "reconcile"
-        ? "reconcile"
-        : tabParam === "drafts" || draftCount > 0
-          ? "drafts"
-          : "final";
 
   const [canManage, canReconcile] = await Promise.all([
     user
@@ -67,7 +59,6 @@ export default async function InvoicesPage({
 
   let invoices: Awaited<ReturnType<typeof listInvoicesForPage>>["invoices"] = [];
   let pageInfo = buildPageInfo(0, 1);
-  let paidWalkIns: Awaited<ReturnType<typeof listPaidWalkInInvoices>> = [];
   let reconcile: ReconcileTabData | null = null;
 
   if (initialTab === "reconcile") {
@@ -138,40 +129,26 @@ export default async function InvoicesPage({
       };
     }
   } else {
-    const [listResult, walkIns] = await Promise.all([
-      listInvoicesForPage({
-        tab: initialTab,
-        status: statusParam,
-        page: requestedPage,
-        deliveryFrom: draftFrom || null,
-        deliveryTo: draftTo || null,
-      }),
-      initialTab === "drafts" ? listPaidWalkInInvoices() : Promise.resolve([]),
-    ]);
+    const listResult = await listInvoicesForPage({
+      filter,
+      page: requestedPage,
+    });
     invoices = listResult.invoices;
     pageInfo = listResult.pageInfo;
-    paidWalkIns = walkIns;
   }
 
   return (
     <DashboardShell
       title="Invoices"
-      subtitle="Reconcile delivery days, review draft invoices, then finalize and print."
+      subtitle="A ticket gets its invoice the moment it is marked delivered. Check it, fix a price if needed, and print."
     >
       <InvoicesTabs
         invoices={invoices}
-        paidWalkIns={paidWalkIns}
         pageInfo={pageInfo}
-        tabCounts={{
-          drafts: draftCount,
-          finals: finalCount,
-          paidWalkIns: paidWalkInCount,
-        }}
+        filterCounts={filterCounts}
         initialTab={initialTab}
-        initialStatus={statusParam}
+        filter={filter}
         canManage={canManage}
-        draftFrom={draftFrom}
-        draftTo={draftTo}
         reconcile={reconcile}
       />
     </DashboardShell>

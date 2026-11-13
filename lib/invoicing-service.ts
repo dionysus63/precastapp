@@ -1,5 +1,8 @@
 import { randomUUID } from "crypto";
-import type { PrismaClient } from "@/app/generated/prisma/client";
+import type {
+  InvoiceStatus,
+  PrismaClient,
+} from "@/app/generated/prisma/client";
 import { Prisma } from "@/app/generated/prisma/client";
 import { getDefaultPriceListId } from "@/lib/price-list-service";
 import { getAppSettings } from "@/lib/app-settings";
@@ -48,8 +51,9 @@ export type BatchInvoiceConversionResult = {
 };
 
 /**
- * Convert multiple delivered tickets to invoices. Skips tickets that already
- * have an invoice or fail price resolution; collects per-ticket errors.
+ * Make the invoices for several delivered tickets (the "make missing
+ * invoices" catch-up). Skips tickets that already have an invoice and
+ * collects per-ticket errors.
  */
 export async function batchConvertDeliveredTicketsToInvoices(
   client: PrismaClient,
@@ -277,7 +281,7 @@ async function resolveUnitPrice(
   }
 
   // No quote line or price-list entry. Signal unresolved so the caller can
-  // fail closed instead of billing at $0.
+  // mark the line PRICE NEEDED instead of silently billing $0.
   return { unitPrice: new Prisma.Decimal(0), taxable: true, resolved: false };
 }
 
@@ -515,36 +519,42 @@ async function preloadUnitPriceLookups(
   };
 }
 
+export type EnsureInvoiceResult = {
+  /** The ticket's invoice (new or already there); null when none was made. */
+  invoiceId: string | null;
+  /** True when this call made the invoice. */
+  created: boolean;
+  /** Soft failure: the delivery stands, the invoice could not be made. */
+  error: string | null;
+};
+
 /**
- * For a delivered customer-pickup ticket marked "pay now", create the invoice
- * automatically. Returns the (existing or new) invoice id, or a soft error
- * message so the caller can surface a warning without failing completion.
+ * Every delivered ticket gets its invoice the moment it is marked delivered
+ * (there is no draft stage and no separate "create invoices" step). Returns
+ * the existing or new invoice id, or a soft error message so the caller can
+ * show a warning without failing the delivery itself.
+ *
+ * An invoice that already exists is left alone whatever its status, so a
+ * voided invoice is never silently replaced.
  */
-export async function maybeCreatePayNowInvoiceForTicket(
+export async function ensureInvoiceForDeliveredTicket(
   client: PrismaClient,
   deliveryTicketId: string,
-): Promise<{ invoiceId: string | null; error: string | null }> {
+): Promise<EnsureInvoiceResult> {
   const ticket = await client.deliveryTicket.findUnique({
     where: { id: deliveryTicketId },
     select: {
       status: true,
-      fulfillmentMethod: true,
-      paymentMethod: true,
       invoice: { select: { id: true } },
     },
   });
 
-  if (
-    !ticket ||
-    ticket.status !== "DELIVERED" ||
-    ticket.fulfillmentMethod !== "PICKUP" ||
-    ticket.paymentMethod !== "PAY_NOW"
-  ) {
-    return { invoiceId: null, error: null };
+  if (!ticket || ticket.status !== "DELIVERED") {
+    return { invoiceId: null, created: false, error: null };
   }
 
   if (ticket.invoice) {
-    return { invoiceId: ticket.invoice.id, error: null };
+    return { invoiceId: ticket.invoice.id, created: false, error: null };
   }
 
   try {
@@ -552,24 +562,101 @@ export async function maybeCreatePayNowInvoiceForTicket(
       client,
       deliveryTicketId,
     );
-    return { invoiceId, error: null };
+    return { invoiceId, created: true, error: null };
   } catch (error) {
     // A concurrent caller already created it — that is a success for us.
     if (error instanceof InvoiceAlreadyExistsError) {
-      return { invoiceId: error.invoiceId, error: null };
+      return { invoiceId: error.invoiceId, created: false, error: null };
     }
     return {
       invoiceId: null,
+      created: false,
       error:
-        error instanceof Error
-          ? error.message
-          : "Could not auto-create the pay-now invoice.",
+        error instanceof Error ? error.message : "Could not make the invoice.",
     };
   }
 }
 
+export type DeliveredTicketInvoice = {
+  id: string;
+  invoiceNumber: string;
+  status: InvoiceStatus;
+};
+
 /**
- * Create one invoice from a delivered delivery ticket (1:1).
+ * The one call every "mark delivered" path makes right after the delivery:
+ * makes the ticket's invoice (or finds the one it has) and words the warning
+ * for the person who clicked, if the invoice needs their attention. A line
+ * waiting for a price is NOT a warning here — pricing sees it on the invoice
+ * and under the Price needed filter — except on a counter sale that was paid
+ * for, which could not be marked paid because of it.
+ *
+ * Also runs when the ticket was already delivered, so a second click repairs
+ * a delivery whose invoice could not be made the first time.
+ */
+export async function ensureInvoiceAfterDelivery(
+  client: PrismaClient,
+  deliveryTicketId: string,
+): Promise<{
+  invoice: DeliveredTicketInvoice | null;
+  created: boolean;
+  warning: string | null;
+}> {
+  const result = await ensureInvoiceForDeliveredTicket(client, deliveryTicketId);
+  const found = result.invoiceId
+    ? await client.invoice.findUnique({
+        where: { id: result.invoiceId },
+        select: {
+          id: true,
+          invoiceNumber: true,
+          status: true,
+          deliveryTicket: {
+            select: { paymentMethod: true, paymentReceived: true },
+          },
+          _count: { select: { lineItems: { where: { needsPrice: true } } } },
+        },
+      })
+    : null;
+  const invoice = found
+    ? { id: found.id, invoiceNumber: found.invoiceNumber, status: found.status }
+    : null;
+
+  let warning: string | null = null;
+  if (result.error) {
+    warning = `The ticket is marked delivered, but its invoice could not be made: ${result.error.replace(/\.\s*$/, "")}. Use Convert to Invoice on the ticket once that is fixed.`;
+  } else if (found && !result.created && found.status === "VOID") {
+    warning = `The ticket is marked delivered. Its invoice ${found.invoiceNumber} is void, so no new invoice was made. Reopen that invoice if this delivery should be billed.`;
+  } else if (
+    found &&
+    result.created &&
+    found.status !== "PAID" &&
+    found.deliveryTicket.paymentMethod === "PAY_NOW" &&
+    found.deliveryTicket.paymentReceived &&
+    found._count.lineItems > 0
+  ) {
+    // The one time a missing price is the clicker's business: money changed
+    // hands at the counter and the invoice cannot say how much.
+    warning = `Invoice ${found.invoiceNumber} is not marked paid yet, because ${
+      found._count.lineItems === 1 ? "a line has" : "some lines have"
+    } no price. Type the price on the invoice, then mark it paid.`;
+  }
+
+  return { invoice, created: result.created, warning };
+}
+
+/**
+ * Create one invoice from a delivered delivery ticket (1:1). The invoice is
+ * open (SENT) straight away — PAID for a counter sale already paid for.
+ *
+ * A line the app cannot price does not block the invoice: it bills $0 and is
+ * flagged `needsPrice`, which prints PRICE NEEDED until someone types the
+ * price on the invoice. The same goes for a $0 price that came from the quote
+ * or the price list (blank prices on imported and Quick Build jobs are stored
+ * as 0). A $0 typed on the ticket line itself is a deliberate "no charge".
+ *
+ * An invoice with a line waiting for a price is never created PAID, counter
+ * sale or not: its total is not known yet, so it stays open until the price
+ * is typed and someone marks it paid.
  */
 export async function convertDeliveryTicketToInvoice(
   client: PrismaClient,
@@ -598,7 +685,6 @@ export async function convertDeliveryTicketToInvoice(
 
   const isPaidWalkIn =
     ticket.paymentMethod === "PAY_NOW" && ticket.paymentReceived === true;
-  const invoiceStatus = isPaidWalkIn ? "PAID" : "DRAFT";
   const invoiceDate = isPaidWalkIn
     ? (ticket.deliveredAt ?? new Date())
     : new Date();
@@ -660,6 +746,8 @@ export async function convertDeliveryTicketToInvoice(
       unitPrice: Prisma.Decimal;
       taxable: boolean;
       description: string | null;
+      /** Nothing to bill this line at yet — prints PRICE NEEDED. */
+      needsPrice: boolean;
     }> = [];
 
     const isPickupTicket = ticket.fulfillmentMethod === "PICKUP";
@@ -673,11 +761,10 @@ export async function convertDeliveryTicketToInvoice(
         priceLookups,
       );
 
-      if (!resolved) {
-        throw new Error(
-          `No price found for line "${line.itemCode}". Set a unit price via the quote or price list before invoicing.`,
-        );
-      }
+      // No price anywhere, or a $0 one nobody typed on the ticket: the
+      // invoice is still made and the line waits for a price.
+      const needsPrice =
+        !resolved || (line.unitPrice == null && unitPrice.isZero());
 
       // Ticket lines carry editor-only suffixes ("(5' ring)", ADS joint
       // types); invoices store the clean customer-facing description.
@@ -707,12 +794,20 @@ export async function convertDeliveryTicketToInvoice(
         }
       }
 
-      resolvedLines.push({ line, unitPrice, taxable, description: cleanDescription });
+      resolvedLines.push({
+        line,
+        unitPrice,
+        taxable,
+        description: cleanDescription,
+        needsPrice,
+      });
     }
 
     // A split structure is billed exactly once across all its piece lines:
     // the first (non-void) invoice to carry any of its pieces bills the full
-    // quote-line price; every other piece line bills $0 "(included)".
+    // quote-line price; every other piece line bills $0 "(included)". A piece
+    // still waiting for its price counts as the one carrying it, so the price
+    // is typed once and the later pieces stay "(included)".
     const splitStructureIds = [
       ...new Set(
         current.lineItems
@@ -723,7 +818,7 @@ export async function convertDeliveryTicketToInvoice(
     if (splitStructureIds.length > 0) {
       const billedElsewhere = await tx.invoiceLineItem.findMany({
         where: {
-          unitPrice: { gt: 0 },
+          OR: [{ unitPrice: { gt: 0 } }, { needsPrice: true }],
           invoice: { status: { not: "VOID" } },
           deliveryTicketLineItem: {
             jobStructurePieceId: { not: null },
@@ -748,6 +843,7 @@ export async function convertDeliveryTicketToInvoice(
         }
         if (billedStructureIds.has(structureId)) {
           entry.unitPrice = new Prisma.Decimal(0);
+          entry.needsPrice = false;
           entry.description = entry.description
             ? `${entry.description} (included)`
             : "(included)";
@@ -768,6 +864,7 @@ export async function convertDeliveryTicketToInvoice(
     for (const entry of resolvedLines) {
       if (castingSets.pieceLineIds.has(entry.line.id)) {
         entry.unitPrice = new Prisma.Decimal(0);
+        entry.needsPrice = false;
         entry.description = entry.description
           ? `${entry.description} (partial set)`
           : "(partial set)";
@@ -790,6 +887,7 @@ export async function convertDeliveryTicketToInvoice(
         quantity: entry.line.quantity,
         unit: entry.line.unit,
         unitPrice: entry.unitPrice,
+        needsPrice: entry.needsPrice,
         taxable: entry.taxable,
         sortOrder: entry.line.sortOrder,
       },
@@ -806,6 +904,9 @@ export async function convertDeliveryTicketToInvoice(
           quantity: new Prisma.Decimal(charge.sets),
           unit: "EA",
           unitPrice: charge.unitPrice,
+          // The set's price lives on the quote line; a blank ($0) one waits
+          // for a price like any other line.
+          needsPrice: charge.unitPrice.isZero(),
           taxable: charge.taxable,
           sortOrder: entry.line.sortOrder,
         })),
@@ -871,7 +972,12 @@ export async function convertDeliveryTicketToInvoice(
         jobNumber: ticket.jobNumber,
         customerName: ticket.customerName,
         projectName: ticket.projectName,
-        status: invoiceStatus,
+        // Paid at the counter means PAID — unless a line still needs its
+        // price, because then nobody knows yet what "paid" would be.
+        status:
+          isPaidWalkIn && !drafts.some((draft) => draft.needsPrice)
+            ? "PAID"
+            : "SENT",
         subtotal: computed.subtotal,
         deliveryAmount,
         taxableAmount: computed.taxableAmount,

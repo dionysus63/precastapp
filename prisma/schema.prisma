@@ -1802,7 +1802,10 @@ model DeliveryDayReconciliation {
 }
 
 enum InvoiceStatus {
+  /// Legacy: there is no draft stage any more. Nothing creates DRAFT rows;
+  /// the value stays so the enum never needs a destructive migration.
   DRAFT
+  /// Open: made when the ticket was marked delivered, not paid yet.
   SENT
   PAID
   VOID
@@ -1830,7 +1833,7 @@ model Invoice {
   jobNumber       String?
   customerName    String
   projectName     String
-  status          InvoiceStatus @default(DRAFT)
+  status          InvoiceStatus @default(SENT)
   subtotal        Decimal       @default(0) @db.Decimal(12, 2)
   discountAmount  Decimal       @default(0) @db.Decimal(12, 2)
   deliveryAmount  Decimal       @default(0) @db.Decimal(12, 2)
@@ -1876,6 +1879,10 @@ model InvoiceLineItem {
   quantity                 Decimal         @default(1) @db.Decimal(12, 4)
   unit                     String          @default("EA")
   unitPrice                Decimal         @default(0) @db.Decimal(12, 2)
+  /// The app had no price for this line when the invoice was made (nothing on
+  /// the ticket line, the quote or the price list, or only a $0 one). It bills
+  /// $0 and the invoice prints PRICE NEEDED until someone types a price.
+  needsPrice               Boolean         @default(false)
   taxable                  Boolean         @default(true)
   total                    Decimal         @default(0) @db.Decimal(12, 2)
   sortOrder                Int             @default(0)

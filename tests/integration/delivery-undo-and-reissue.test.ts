@@ -15,10 +15,17 @@ vi.mock("@/lib/auth/audit", () => ({
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
+vi.mock("server-only", () => ({}));
 
-import { reopenVoidedInvoice } from "@/app/invoices/actions";
+import {
+  getUndoDeliveryImpact,
+  updateDeliveryTicketStatus,
+} from "@/app/delivery-tickets/actions";
+import { reopenVoidedInvoice, voidInvoice } from "@/app/invoices/actions";
+import { writeAuditLog } from "@/lib/auth/audit";
 import {
   markDeliveryTicketDelivered,
+  UndoDeliveryNeedsInvoiceRemovalError,
   undoTicketDelivery,
 } from "@/lib/delivery-fulfillment";
 import { loadProductEditVersion } from "@/lib/product-edit-version";
@@ -102,35 +109,109 @@ describe("undoing a delivery", () => {
     expect(await stock()).toBe(10);
   });
 
-  it("refuses while a live invoice bills the delivery", async () => {
-    await markDeliveryTicketDelivered(prisma, ticketId);
-    const invoice = await prisma.invoice.create({
-      data: {
-        invoiceNumber: `${tag}-I1`,
-        year: 2099,
-        yearTwoDigit: 99,
-        sequenceNumber: Number(String(Date.now()).slice(-7)),
-        deliveryTicketId: ticketId,
-        customerName: `${tag} Customer`,
-        projectName: `${tag} project`,
-        status: "SENT",
-      },
+  async function ticketNow() {
+    return prisma.deliveryTicket.findUniqueOrThrow({
+      where: { id: ticketId },
+      include: { invoice: true },
+    });
+  }
+
+  it("takes the unpaid invoice away with the delivery, but only after asking", async () => {
+    // Marking delivered makes the invoice.
+    const delivered = await updateDeliveryTicketStatus(ticketId, "DELIVERED");
+    expect(delivered).toMatchObject({ success: true, warning: null });
+    const invoice = (await ticketNow()).invoice!;
+    expect(invoice.status).toBe("SENT");
+    expect(Number(invoice.total)).toBeGreaterThan(0);
+    expect((delivered as { invoiceMade: string }).invoiceMade).toBe(
+      invoice.invoiceNumber,
+    );
+
+    // The screen asks first, so it can name the invoice.
+    expect(await getUndoDeliveryImpact(ticketId)).toEqual({
+      invoice: { invoiceNumber: invoice.invoiceNumber, status: "SENT" },
     });
 
+    // Without the user's yes the undo is refused and nothing changes.
     await expect(
-      undoTicketDelivery(prisma, ticketId, "CANCELLED"),
-    ).rejects.toThrow(/void it/i);
-    expect(
-      (await prisma.deliveryTicket.findUniqueOrThrow({ where: { id: ticketId } }))
-        .status,
-    ).toBe("DELIVERED");
+      undoTicketDelivery(prisma, ticketId, "SCHEDULED"),
+    ).rejects.toBeInstanceOf(UndoDeliveryNeedsInvoiceRemovalError);
+    const refused = await updateDeliveryTicketStatus(ticketId, "SCHEDULED");
+    expect(refused).toMatchObject({
+      error: expect.stringMatching(/deletes that invoice too/i),
+      needsInvoiceRemoval: { invoiceNumber: invoice.invoiceNumber },
+    });
+    expect((await ticketNow()).status).toBe("DELIVERED");
+    expect((await ticketNow()).invoice?.id).toBe(invoice.id);
     expect(await stock()).toBe(7);
 
-    // A voided invoice can be reopened as a draft (same number and ticket).
-    await prisma.invoice.update({ where: { id: invoice.id }, data: { status: "VOID" } });
+    // With it, the delivery and its invoice are both undone, and it is logged.
+    vi.mocked(writeAuditLog).mockClear();
+    const undone = await updateDeliveryTicketStatus(ticketId, "SCHEDULED", {
+      removeUnpaidInvoice: true,
+    });
+    expect(undone).toMatchObject({ success: true });
+    const after = await ticketNow();
+    expect(after.status).toBe("SCHEDULED");
+    expect(after.invoice).toBeNull();
+    expect(await stock()).toBe(10);
+    expect(writeAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "invoice.delete",
+        summary: expect.stringContaining(invoice.invoiceNumber),
+      }),
+    );
+    expect(await getUndoDeliveryImpact(ticketId)).toEqual({ invoice: null });
+  });
+
+  it("refuses while the invoice is paid, and keeps a voided one on file", async () => {
+    // Delivered again: a fresh invoice.
+    await updateDeliveryTicketStatus(ticketId, "DELIVERED");
+    const invoice = (await ticketNow()).invoice!;
+    await prisma.invoice.update({
+      where: { id: invoice.id },
+      data: { status: "PAID" },
+    });
+
+    // A paid invoice blocks the undo, yes or no.
+    const blocked = await updateDeliveryTicketStatus(ticketId, "CANCELLED", {
+      removeUnpaidInvoice: true,
+    });
+    expect(blocked).toMatchObject({
+      error: expect.stringMatching(/is paid\. Void the invoice first/i),
+    });
+    expect(blocked).not.toHaveProperty("needsInvoiceRemoval");
+    expect((await ticketNow()).status).toBe("DELIVERED");
+    expect((await ticketNow()).invoice?.status).toBe("PAID");
+    expect(await stock()).toBe(7);
+
+    // Voided, it no longer bills anything: the undo goes through without
+    // being asked about it, and the void stays as the record it is.
+    expect(await voidInvoice(invoice.id)).toEqual({ success: true });
+    const undone = await updateDeliveryTicketStatus(ticketId, "SCHEDULED");
+    expect(undone).toMatchObject({ success: true });
+    expect((await ticketNow()).status).toBe("SCHEDULED");
+    expect((await ticketNow()).invoice).toMatchObject({
+      id: invoice.id,
+      status: "VOID",
+    });
+    expect(await stock()).toBe(10);
+
+    // Delivering again does not bill over the void; it says so instead.
+    const redelivered = await updateDeliveryTicketStatus(ticketId, "DELIVERED");
+    expect(redelivered).toMatchObject({ success: true, invoiceMade: null });
+    expect((redelivered as { warning: string }).warning).toMatch(
+      /is void, so no new invoice was made/i,
+    );
+    expect(
+      await prisma.invoice.count({ where: { deliveryTicketId: ticketId } }),
+    ).toBe(1);
+
+    // A voided invoice can be reopened: open again, same number and ticket.
     expect(await reopenVoidedInvoice(invoice.id)).toEqual({ success: true });
     const reopened = await prisma.invoice.findUniqueOrThrow({ where: { id: invoice.id } });
-    expect(reopened.status).toBe("DRAFT");
+    expect(reopened.status).toBe("SENT");
+    expect(reopened.invoiceNumber).toBe(invoice.invoiceNumber);
     expect(reopened.deliveryTicketId).toBe(ticketId);
     expect(await reopenVoidedInvoice(invoice.id)).toEqual({
       error: "Only voided invoices can be reopened.",

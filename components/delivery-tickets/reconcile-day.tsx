@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/dashboard/status-badge";
 import {
   cancelTicketFromReconcile,
   confirmDeliveryDayReconciliation,
+  createMissingInvoicesForDay,
   deliverAllTicketsForDay,
   deliverTicket,
   moveTicketDeliveryDate,
@@ -122,7 +123,14 @@ function TicketQuickActions({
                 reloadAfterAction(
                   result.warning
                     ? { type: "warning", text: result.warning }
-                    : { type: "success", text: "Marked delivered." },
+                    : {
+                        type: "success",
+                        // The invoice is made right here, with the delivery.
+                        text:
+                          result.invoiceCreated && result.invoice
+                            ? `Marked delivered. Invoice ${result.invoice.invoiceNumber} is ready on the Invoices tab.`
+                            : "Marked delivered.",
+                      },
                 );
               });
             }}
@@ -304,10 +312,14 @@ export function ReconcileDay({
   const [deliverAllMessage, setDeliverAllMessage] = useState<string | null>(
     null,
   );
+  const [missingPending, startMissingTransition] = useTransition();
 
   const allTickets = [...scheduledTickets, ...deliveredOtherDayTickets];
   const warningFlags = allTickets.flatMap(getMismatchFlags);
   const hasWarnings = warningFlags.length > 0;
+  // A ticket gets its invoice when it is marked delivered, so this is only
+  // ever a ticket delivered before that was the case, one whose invoice could
+  // not be made at the time, or one whose invoice was deleted.
   const deliveredUninvoiced = allTickets.filter(
     (ticket) => ticket.status === "DELIVERED" && !ticket.hasInvoice,
   ).length;
@@ -342,7 +354,9 @@ export function ReconcileDay({
           return;
         }
         const parts = [
-          `${result.delivered} ticket${result.delivered === 1 ? "" : "s"} marked delivered.`,
+          `${result.delivered} ticket${result.delivered === 1 ? "" : "s"} marked delivered${
+            result.delivered > 0 ? ", each with its invoice" : ""
+          }.`,
         ];
         if (result.failed.length > 0) {
           parts.push(
@@ -361,6 +375,30 @@ export function ReconcileDay({
         });
       });
     })();
+  }
+
+  function handleMakeMissingInvoices() {
+    setResultMessage(null);
+    startMissingTransition(async () => {
+      const result = await createMissingInvoicesForDay(date);
+      if (isActionError(result)) {
+        setResultMessage(result.error);
+        return;
+      }
+      const { created, skipped } = result.conversionResult;
+      const parts = [`${created} invoice${created === 1 ? "" : "s"} made.`];
+      if (skipped.length > 0) {
+        parts.push(
+          `${skipped.length} could not be made: ${skipped
+            .map((item) => `${item.ticketNumber} (${item.reason})`)
+            .join("; ")}`,
+        );
+      }
+      reloadAfterAction({
+        type: skipped.length > 0 ? "warning" : "success",
+        text: parts.join(" "),
+      });
+    });
   }
 
   return (
@@ -405,14 +443,33 @@ export function ReconcileDay({
                 ? new Date(reconciliation.confirmedAt).toLocaleString()
                 : "—"}
               {reconciliation.notes ? ` — ${reconciliation.notes}` : ""}
-              {canManageInvoices && deliveredUninvoiced > 0
-                ? ` · ${deliveredUninvoiced} delivered ticket${
-                    deliveredUninvoiced === 1 ? " still needs" : "s still need"
-                  } a draft invoice — re-run confirm to create ${
-                    deliveredUninvoiced === 1 ? "it" : "them"
-                  }.`
-                : ""}
             </p>
+          ) : null}
+          {deliveredUninvoiced > 0 ? (
+            <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-900">
+              <span>
+                {deliveredUninvoiced === 1
+                  ? "1 delivered ticket on this day has no invoice."
+                  : `${deliveredUninvoiced} delivered tickets on this day have no invoice.`}
+                {canManageInvoices
+                  ? ""
+                  : " Someone with invoice permissions can make them here."}
+              </span>
+              {canManageInvoices ? (
+                <button
+                  type="button"
+                  disabled={missingPending}
+                  onClick={handleMakeMissingInvoices}
+                  className="rounded-lg border border-amber-300 bg-white px-3 py-1 font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+                >
+                  {missingPending
+                    ? "Making…"
+                    : deliveredUninvoiced === 1
+                      ? "Make the missing invoice"
+                      : "Make the missing invoices"}
+                </button>
+              ) : null}
+            </div>
           ) : null}
           {hasWarnings ? (
             <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-900">
@@ -432,63 +489,20 @@ export function ReconcileDay({
                     setResultMessage(result.error);
                     return;
                   }
-                  const parts: string[] = [`${date} confirmed.`];
-                  if (result.conversionResult) {
-                    const { created, skipped, alreadyInvoiced } =
-                      result.conversionResult;
-                    parts.push(
-                      `${created} draft invoice${created === 1 ? "" : "s"} created.`,
-                    );
-                    if (alreadyInvoiced > 0) {
-                      parts.push(`${alreadyInvoiced} already invoiced.`);
-                    }
-                    if (skipped.length > 0) {
-                      parts.push(
-                        `${skipped.length} skipped: ${skipped
-                          .map(
-                            (item: { ticketNumber: string; reason: string }) =>
-                              `${item.ticketNumber} (${item.reason})`,
-                          )
-                          .join("; ")}`,
-                      );
-                    }
-                  } else if (canManageInvoices) {
-                    parts.push("No new draft invoices were created.");
-                  }
                   reloadAfterAction({
-                    type:
-                      result.conversionResult &&
-                      result.conversionResult.skipped.length > 0
-                        ? "warning"
-                        : "success",
-                    text: parts.join(" "),
+                    type: "success",
+                    text: `${date} confirmed.`,
                   });
                 });
               }}
               className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
             >
-              {pending
-                ? "Confirming…"
-                : `Confirm ${date} & create draft invoices`}
+              {pending ? "Confirming…" : `Confirm ${date}`}
             </button>
-            {canManageInvoices ? (
-              <span className="text-xs text-slate-600">
-                {deliveredUninvoiced} delivered ticket
-                {deliveredUninvoiced === 1 ? "" : "s"} ready to invoice
-              </span>
-            ) : (
-              <span className="text-xs text-slate-500">
-                You need invoice permissions to create draft invoices.
-              </span>
-            )}
-            {resultMessage ? (
-              <Link
-                href="/invoices?tab=drafts"
-                className="text-xs font-medium text-sky-700 underline hover:text-sky-900"
-              >
-                Go to Draft Review →
-              </Link>
-            ) : null}
+            <span className="text-xs text-slate-600">
+              Confirming records that this day was checked against the paper
+              tickets. Invoices are made as each ticket is marked delivered.
+            </span>
           </div>
           {resultMessage ? (
             <p className="text-xs text-slate-700">{resultMessage}</p>

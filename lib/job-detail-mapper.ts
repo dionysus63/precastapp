@@ -33,6 +33,10 @@ import { OPEN_STATUSES } from "@/lib/quotes/list-summary";
 import { formatDateShort, formatUsd, formatWeightLb } from "@/lib/format";
 import { addLocalDays } from "@/lib/date-only";
 import { formatPostalAddressLines } from "@/lib/delivery-site";
+import {
+  invoiceStatusLabel,
+  invoiceStatusVariant,
+} from "@/lib/invoice-status";
 import { jobStatusVariant, quoteStatusVariant } from "@/lib/status-variants";
 import {
   deliveryTicketStatusLabels,
@@ -109,19 +113,6 @@ function deliveryStatusVariant(status: string): JobStatusVariant {
       return "danger";
     default:
       return "neutral";
-  }
-}
-
-function invoiceStatusVariant(status: string): JobStatusVariant {
-  switch (status) {
-    case "PAID":
-      return "success";
-    case "SENT":
-      return "info";
-    case "VOID":
-      return "neutral";
-    default:
-      return "default";
   }
 }
 
@@ -386,7 +377,7 @@ function mapInvoice(
     id: invoice.id,
     invoiceNumber: invoice.invoiceNumber,
     ticketNumber: invoice.deliveryTicket?.ticketNumber ?? "—",
-    statusLabel: invoice.status.replace(/_/g, " "),
+    statusLabel: invoiceStatusLabel(invoice.status),
     statusVariant: invoiceStatusVariant(invoice.status),
     total: formatUsd(invoice.total),
     invoiceDate: formatDate(invoice.invoiceDate),
@@ -712,7 +703,7 @@ export function buildJobOverview(
       typeLabel: "Invoice",
       recordNumber: invoice.invoiceNumber,
       href: `/invoices/${invoice.id}`,
-      statusLabel: invoice.status.replace(/_/g, " "),
+      statusLabel: invoiceStatusLabel(invoice.status),
       statusVariant: invoiceStatusVariant(invoice.status),
       updated: formatDate(invoice.updatedAt),
       sortDate: invoice.updatedAt,

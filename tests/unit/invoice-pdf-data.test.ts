@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { mapInvoiceLineItemsForPdf } from "@/lib/invoice-pdf-data";
+import {
+  invoiceNeedsPrice,
+  mapInvoiceLineItemsForPdf,
+} from "@/lib/invoice-pdf-data";
 import type { DbInvoiceForPdf } from "@/lib/invoice-pdf-data";
 
 type DbLine = DbInvoiceForPdf["lineItems"][number];
@@ -13,6 +16,7 @@ function line(overrides: {
   total: number;
   lineType?: DbLine["lineType"];
   unit?: string;
+  needsPrice?: boolean;
 }): DbLine {
   lineNumber += 1;
   return {
@@ -28,6 +32,7 @@ function line(overrides: {
     quantity: overrides.quantity,
     unit: overrides.unit ?? "EA",
     unitPrice: overrides.unitPrice,
+    needsPrice: overrides.needsPrice ?? false,
     taxable: true,
     total: overrides.total,
     sortOrder: lineNumber,
@@ -130,5 +135,72 @@ describe("mapInvoiceLineItemsForPdf", () => {
       }),
     ]);
     expect(rows).toHaveLength(2);
+  });
+});
+
+describe("a line waiting for a price", () => {
+  const waiting = (itemCode: string, quantity: number) =>
+    line({
+      itemCode,
+      description: "4' Dia. Manhole Riser",
+      quantity,
+      unitPrice: 0,
+      total: 0,
+      needsPrice: true,
+    });
+
+  it("prints its price cells blank, never $0.00", () => {
+    const rows = mapInvoiceLineItemsForPdf([
+      waiting("MH-4-RISER", 2),
+      line({
+        itemCode: "GIFT",
+        description: "No charge item",
+        quantity: 1,
+        unitPrice: 0,
+        total: 0,
+      }),
+    ]);
+
+    expect(rows[0]).toMatchObject({
+      item: "MH-4-RISER",
+      qty: "2",
+      unitPrice: "",
+      total: "",
+    });
+    // A deliberate no charge still prints as money.
+    expect(rows[1]).toMatchObject({ unitPrice: "$0.00", total: "$0.00" });
+  });
+
+  it("merges only with another line that is also waiting", () => {
+    const rows = mapInvoiceLineItemsForPdf([
+      waiting("MH-4-RISER", 2),
+      line({
+        itemCode: "MH-4-RISER",
+        description: "4' Dia. Manhole Riser",
+        quantity: 1,
+        unitPrice: 0,
+        total: 0,
+      }),
+      waiting("MH-4-RISER", 3),
+    ]);
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({ qty: "5", unitPrice: "", total: "" });
+    expect(rows[1]).toMatchObject({ qty: "1", unitPrice: "$0.00" });
+  });
+
+  it("marks the whole invoice PRICE NEEDED while any line waits", () => {
+    const priced = line({
+      itemCode: "A",
+      description: "Priced",
+      quantity: 1,
+      unitPrice: 10,
+      total: 10,
+    });
+    expect(invoiceNeedsPrice({ lineItems: [priced] })).toBe(false);
+    expect(invoiceNeedsPrice({ lineItems: [priced, waiting("B", 1)] })).toBe(
+      true,
+    );
+    expect(invoiceNeedsPrice({ lineItems: [] })).toBe(false);
   });
 });

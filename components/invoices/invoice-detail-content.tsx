@@ -43,7 +43,7 @@ export function InvoiceDetailContent({
     {
       label: "Status",
       value: invoice.statusLabel,
-      detail: invoice.status,
+      detail: invoice.statusDetail,
     },
     {
       label: "Total",
@@ -69,7 +69,7 @@ export function InvoiceDetailContent({
           href="/invoices"
           className="text-xs font-medium text-slate-500 hover:text-slate-900"
         >
-          â† Back to Invoices
+          ← Back to Invoices
         </Link>
         {ticketId ? (
           <Link
@@ -82,10 +82,33 @@ export function InvoiceDetailContent({
         <InvoiceDetailActions
           invoiceId={invoice.id}
           invoiceNumber={invoice.invoiceNumber}
+          ticketNumber={invoice.ticketNumber}
           status={invoice.status}
+          needsPrice={invoice.priceNeededCount > 0}
           canManage={canManage}
         />
       </div>
+
+      {invoice.priceNeededCount > 0 ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="min-w-0 flex-1">
+            <strong>Price needed.</strong>{" "}
+            {invoice.priceNeededCount === 1
+              ? "One line has no price yet"
+              : `${invoice.priceNeededCount} lines have no price yet`}
+            , so this invoice prints PRICE NEEDED and its total is not
+            complete. Type the price on the invoice and the mark comes off.
+          </p>
+          {canManage ? (
+            <Link
+              href={`/invoices/${invoice.id}/edit`}
+              className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+            >
+              Type the price
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {summaryCards.map((card) => (
@@ -139,7 +162,10 @@ export function InvoiceDetailContent({
                 </thead>
                 <tbody className={`${tableBodyClassName} text-slate-700`}>
                   {invoice.lineItems.map((line) => (
-                    <tr key={line.id} className={tableRowClassName}>
+                    <tr
+                      key={line.id}
+                      className={`${tableRowClassName} ${line.needsPrice ? "bg-amber-50" : ""}`}
+                    >
                       <td className={`${tableCellClassName} text-slate-700`}>{line.lineNumber}</td>
                       <td className={`${tableCellClassName} font-medium text-slate-900`}>
                         {line.itemCode}
@@ -149,9 +175,17 @@ export function InvoiceDetailContent({
                       </td>
                       <td className={`${tableCellClassName} text-slate-600`}>{line.quantity}</td>
                       <td className={`${tableCellClassName} text-slate-600`}>{line.unit}</td>
-                      <td className={`${tableCellClassName} text-slate-700`}>{line.unitPrice}</td>
+                      <td className={`${tableCellClassName} text-slate-700`}>
+                        {line.needsPrice ? (
+                          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-2xs font-semibold text-amber-900">
+                            Price needed
+                          </span>
+                        ) : (
+                          line.unitPrice
+                        )}
+                      </td>
                       <td className={`${tableCellClassName} font-medium text-slate-900`}>
-                        {line.total}
+                        {line.needsPrice ? "—" : line.total}
                       </td>
                     </tr>
                   ))}

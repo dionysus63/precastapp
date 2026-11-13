@@ -25,6 +25,10 @@ import {
 import { deliveryTicketStatusLabels } from "@/components/delivery-tickets/delivery-ticket-utils";
 import { formatDateShort, formatUsd } from "@/lib/format";
 import {
+  invoiceStatusLabel,
+  invoiceStatusVariant,
+} from "@/lib/invoice-status";
+import {
   customerStatusVariant,
   quoteStatusVariant,
 } from "@/lib/status-variants";
@@ -124,28 +128,13 @@ export function mapDeliveryTicketToCustomerRelated(
   };
 }
 
-function invoiceStatusVariant(
-  status: string,
-): CustomerRelatedInvoice["statusVariant"] {
-  switch (status) {
-    case "PAID":
-      return "success";
-    case "SENT":
-      return "info";
-    case "VOID":
-      return "neutral";
-    default:
-      return "default";
-  }
-}
-
 export function mapInvoiceToCustomerRelated(
   invoice: Invoice,
 ): CustomerRelatedInvoice {
   return {
     id: invoice.id,
     invoiceNumber: invoice.invoiceNumber,
-    statusLabel: invoice.status.replace(/_/g, " "),
+    statusLabel: invoiceStatusLabel(invoice.status),
     statusVariant: invoiceStatusVariant(invoice.status),
     total: formatUsd(invoice.total),
     invoiceDate: invoice.invoiceDate

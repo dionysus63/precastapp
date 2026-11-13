@@ -34,7 +34,10 @@ type TicketLine = {
   unitPrice?: number;
 };
 
-async function deliveredTicket(lines: TicketLine[]) {
+async function deliveredTicket(
+  lines: TicketLine[],
+  quote: { quoteId: string; setLineId: string } = { quoteId, setLineId },
+) {
   ticketCounter += 1;
   const ticket = await prisma.deliveryTicket.create({
     data: {
@@ -43,7 +46,7 @@ async function deliveredTicket(lines: TicketLine[]) {
       ticketNumber: `${tag}-T${ticketCounter}X`,
       customerName: `${tag} Contractor`,
       projectName: `${tag} project`,
-      quoteId,
+      quoteId: quote.quoteId,
       status: "DELIVERED",
       deliveredAt: new Date(),
       lineItems: {
@@ -51,7 +54,7 @@ async function deliveredTicket(lines: TicketLine[]) {
           lineNumber: index + 1,
           sortOrder: index + 1,
           lineType: "STOCK_PRODUCT" as const,
-          quoteLineItemId: setLineId,
+          quoteLineItemId: quote.setLineId,
           productId: line.productId,
           itemCode: line.itemCode,
           description: line.itemCode,
@@ -158,6 +161,12 @@ describe("casting sets shipped in pieces", () => {
     expect(setCharge!.deliveryTicketLineItemId).toBeNull();
     expect(setCharge!.quoteLineItemId).toBe(setLineId);
     expect(setCharge!.description).toBe("Frame & Grate (set shipped in pieces)");
+    // Priced on the quote, so neither line waits for a price: the $0 piece
+    // is billed on the set line.
+    expect(first.lineItems.map((line) => line.needsPrice)).toEqual([
+      false,
+      false,
+    ]);
 
     // The matching grate completes that set: nothing more to bill.
     const second = await invoiceFor(
@@ -167,6 +176,53 @@ describe("casting sets shipped in pieces", () => {
     );
     expect(Number(second.total)).toBe(0);
     expect(second.lineItems).toHaveLength(1);
+    expect(second.lineItems[0]!.needsPrice).toBe(false);
+  });
+
+  it("asks for the price on the set line when nobody priced the set", async () => {
+    // A blank price on an imported or Quick Build quote is stored as $0.
+    const unpriced = await prisma.quote.create({
+      data: {
+        quoteNumber: `${tag}-Q2`,
+        customerName: `${tag} Contractor`,
+        projectName: `${tag} project`,
+        status: "WON",
+        taxRate: 0,
+        lineItems: {
+          create: {
+            lineNumber: 1,
+            lineType: "STOCK_PRODUCT",
+            productId: assemblyId,
+            itemCode: `${tag}-SET`,
+            description: "Frame &amp; Grate",
+            quantity: 2,
+            unit: "EA",
+            unitPrice: 0,
+            taxable: false,
+            total: 0,
+          },
+        },
+      },
+      include: { lineItems: true },
+    });
+    const quote = {
+      quoteId: unpriced.id,
+      setLineId: unpriced.lineItems[0]!.id,
+    };
+
+    const invoice = await invoiceFor(
+      await deliveredTicket(
+        [{ productId: frameId, itemCode: `${tag}-FRAME`, quantity: 1 }],
+        quote,
+      ),
+    );
+    const [frameLine, setCharge] = invoice.lineItems;
+    // The price is typed once, on the set: the piece stays "(partial set)".
+    expect(frameLine).toMatchObject({ needsPrice: false });
+    expect(frameLine!.description).toContain("(partial set)");
+    expect(setCharge).toMatchObject({ needsPrice: true });
+    expect(Number(setCharge!.unitPrice)).toBe(0);
+    expect(invoice.status).toBe("SENT");
   });
 
   it("bills whole-set lines normally next to pieces that start new sets", async () => {
