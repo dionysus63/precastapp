@@ -3,11 +3,15 @@ import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { parseLocalDay } from "@/lib/date-only";
 import { contentDisposition, fileRouteErrorResponse } from "@/lib/http-responses";
-import { generateDraftInvoicesBatchPdfBytes } from "@/lib/invoice-pdf-fill";
+import { generateInvoicesBatchPdfBytes } from "@/lib/invoice-pdf-fill";
 import { INVOICE_PDF_INCLUDE } from "@/lib/invoice-pdf-data";
+import { UNPAID_INVOICE_STATUSES } from "@/lib/invoice-status";
+import { buildInvoiceSummaryHtml } from "@/lib/invoice-summary-html";
 import { withDatabaseRetry } from "@/lib/prisma";
+import { renderPdfBytesFromHtml } from "@/lib/quote-pdf";
 
-/** Same bound as the draft batch: one day's billing stays far below this. */
+/** The whole batch is loaded with full includes and rendered into one PDF in
+ * memory. One day's billing stays far below this bound. */
 const MAX_BATCH_INVOICES = 200;
 
 function parseDateParam(value: string | null): Date | null {
@@ -15,9 +19,10 @@ function parseDateParam(value: string | null): Date | null {
 }
 
 /**
- * One combined PDF of every finalized (SENT or PAID, never VOID) invoice
- * whose invoice date falls on the given day. The date is required — an
- * unbounded "all finals ever" batch has no printing use case.
+ * "Print all for day": one PDF of every invoice made on the given day (open
+ * or paid, never void), in invoice number order, behind the Invoice Summary
+ * page the office types into QuickBooks from. The date is required — an
+ * unbounded "every invoice ever" batch has no printing use case.
  */
 export async function GET(request: Request) {
   try {
@@ -43,7 +48,7 @@ export async function GET(request: Request) {
     const invoices = await withDatabaseRetry((prisma) =>
       prisma.invoice.findMany({
         where: {
-          status: { in: ["SENT", "PAID"] },
+          status: { in: [...UNPAID_INVOICE_STATUSES, "PAID"] },
           invoiceDate: { gte: date, lte: endOfDay },
         },
         orderBy: { invoiceNumber: "asc" },
@@ -53,7 +58,7 @@ export async function GET(request: Request) {
     );
 
     if (invoices.length === 0) {
-      return new NextResponse("No finalized invoices for that day.", {
+      return new NextResponse("No invoices were made on that day.", {
         status: 404,
       });
     }
@@ -65,7 +70,19 @@ export async function GET(request: Request) {
       );
     }
 
-    const pdfBytes = await generateDraftInvoicesBatchPdfBytes(invoices);
+    const summaryHtml = buildInvoiceSummaryHtml(invoices, {
+      heading: `Invoices made ${date.toLocaleDateString("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        year: "numeric",
+      })}`,
+      order: "in invoice number order",
+    });
+    const summaryPdfBytes = await renderPdfBytesFromHtml(summaryHtml);
+    const pdfBytes = await generateInvoicesBatchPdfBytes(
+      invoices,
+      summaryPdfBytes,
+    );
 
     const dateSlug = url.searchParams.get("date")!.trim();
     return new NextResponse(Buffer.from(pdfBytes), {

@@ -91,6 +91,16 @@ const STRUCTURE_INVOICE_LINE_TYPES = new Set([
   "CUSTOM_STRUCTURE",
 ]);
 
+/**
+ * True while any line is still waiting for a price: the invoice prints
+ * PRICE NEEDED across the page, and those lines print with blank price cells.
+ */
+export function invoiceNeedsPrice(invoice: {
+  lineItems: Array<{ needsPrice: boolean }>;
+}): boolean {
+  return invoice.lineItems.some((line) => line.needsPrice);
+}
+
 export function mapInvoiceLineItemsForPdf(
   lineItems: DbInvoiceForPdf["lineItems"],
 ): InvoiceDrawLineItem[] {
@@ -108,12 +118,14 @@ export function mapInvoiceLineItemsForPdf(
     const description = removeAdsJointTypeSuffix(
       removeTrailingRingHeightSuffix(line.description?.trim() ?? ""),
     );
+    // A line waiting for a price prints its price cells blank — never
+    // "$0.00", which would read as a decision that the item is free.
     const item: InvoiceDrawLineItem = {
       item: line.itemCode.trim(),
       qty: formatQuantity(line.quantity),
       description,
-      unitPrice: formatMoneyForPdf(line.unitPrice),
-      total: formatMoneyForPdf(line.total),
+      unitPrice: line.needsPrice ? "" : formatMoneyForPdf(line.unitPrice),
+      total: line.needsPrice ? "" : formatMoneyForPdf(line.total),
     };
 
     const qtyNumber = Number.parseFloat(line.quantity.toString());
@@ -122,7 +134,9 @@ export function mapInvoiceLineItemsForPdf(
       !STRUCTURE_INVOICE_LINE_TYPES.has(line.lineType) &&
       Number.isFinite(qtyNumber) &&
       Number.isFinite(totalNumber)
-        ? `${item.item}::${line.unit}::${description}::${item.unitPrice}`
+        ? `${item.item}::${line.unit}::${description}::${
+            line.needsPrice ? "price-needed" : item.unitPrice
+          }`
         : null;
 
     if (mergeKey != null) {
@@ -134,7 +148,7 @@ export function mapInvoiceLineItemsForPdf(
         result[existingIndex] = {
           ...result[existingIndex]!,
           qty: formatQuantity(sums.qty),
-          total: formatMoneyForPdf(sums.total),
+          total: line.needsPrice ? "" : formatMoneyForPdf(sums.total),
         };
         continue;
       }

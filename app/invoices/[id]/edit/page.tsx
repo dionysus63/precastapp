@@ -1,16 +1,17 @@
 import { notFound, redirect } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import { InvoiceDraftEditor } from "@/components/invoices/invoice-draft-editor";
-import { getDraftInvoiceEditorData } from "@/app/invoices/actions";
+import { InvoiceEditor } from "@/components/invoices/invoice-editor";
+import { getInvoiceEditorData } from "@/app/invoices/actions";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { getCurrentUser } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/permissions";
+import { isUnpaidInvoiceStatus } from "@/lib/invoice-status";
 
 type PageProps = {
   params: Promise<{ id: string }>;
 };
 
-export default async function EditDraftInvoicePage({ params }: PageProps) {
+export default async function EditInvoicePage({ params }: PageProps) {
   const { id } = await params;
   const user = await getCurrentUser();
   const canManage = user
@@ -21,28 +22,22 @@ export default async function EditDraftInvoicePage({ params }: PageProps) {
     redirect(`/invoices/${id}`);
   }
 
-  const invoice = await getDraftInvoiceEditorData(id);
+  const invoice = await getInvoiceEditorData(id);
   if (!invoice) {
     notFound();
   }
 
-  // Drafts and final unpaid invoices are editable; paid/void are immutable.
-  if (invoice.status !== "DRAFT" && invoice.status !== "SENT") {
+  // An invoice stays editable until it is paid or voided.
+  if (!isUnpaidInvoiceStatus(invoice.status)) {
     redirect(`/invoices/${id}`);
   }
-  const finalized = invoice.status === "SENT";
 
   return (
     <DashboardShell
       title={`Edit ${invoice.invoiceNumber}`}
-      subtitle={
-        finalized
-          ? "This invoice is final — saved changes update it immediately."
-          : "Adjust pricing, tax, and delivery before finalizing."
-      }
+      subtitle="Fix a price, quantity or tax, then save. Changes update the invoice right away."
     >
-      <InvoiceDraftEditor
-        finalized={finalized}
+      <InvoiceEditor
         invoiceId={invoice.id}
         invoiceNumber={invoice.invoiceNumber}
         ticketNumber={invoice.deliveryTicket.ticketNumber ?? "—"}
@@ -59,6 +54,7 @@ export default async function EditDraftInvoicePage({ params }: PageProps) {
           quantity: Number(line.quantity),
           unit: line.unit,
           unitPrice: Number(line.unitPrice),
+          needsPrice: line.needsPrice,
           taxable: line.taxable,
         }))}
       />

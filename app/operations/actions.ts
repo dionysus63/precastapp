@@ -32,10 +32,9 @@ import {
 import {
   batchConvertDeliveredTicketsToInvoices,
   convertDeliveryTicketToInvoice,
+  ensureInvoiceAfterDelivery,
   InvoiceAlreadyExistsError,
-  maybeCreatePayNowInvoiceForTicket,
 } from "@/lib/invoicing-service";
-import { hasPermission } from "@/lib/auth/permissions";
 import { returnActionError } from "@/lib/server/action-errors";
 
 /**
@@ -513,13 +512,13 @@ export async function deliverTicket(
   deliveryTicketId: string,
   options: {
     /** Counter flow: set the ticket's payment-received flag before the
-     * pay-now invoice is created, so it comes out PAID (or a draft). */
+     * invoice is created, so a pay-now sale comes out PAID (or open). */
     paymentReceived?: boolean;
   } = {},
 ) {
   await requirePermission(AppPermission.DELIVERY_MANAGE);
   try {
-    // The flag only decides how the pay-now invoice is created, so it may
+    // The flag only decides how the invoice is created, so it may
     // only change before completion. A reprint of a completed sale must not
     // flip it: the existing invoice wouldn't follow, leaving the ticket
     // saying "paid" next to an unpaid invoice (or the reverse).
@@ -548,33 +547,34 @@ export async function deliverTicket(
     await withDatabaseRetry((client) =>
       markDeliveryTicketDelivered(client, deliveryTicketId),
     );
+    // Every delivered ticket gets its invoice right away (no draft stage, no
+    // separate "create invoices" step). A failure here is a warning, never a
+    // failed delivery: the stock is already deducted.
     const invoiceResult = await withDatabaseRetry((client) =>
-      maybeCreatePayNowInvoiceForTicket(client, deliveryTicketId),
+      ensureInvoiceAfterDelivery(client, deliveryTicketId),
     );
-    // Invoice number for the counter confirmation strip ("Invoice I10123").
-    const invoice = invoiceResult.invoiceId
-      ? await withDatabaseRetry((client) =>
-          client.invoice.findUnique({
-            where: { id: invoiceResult.invoiceId! },
-            select: { id: true, invoiceNumber: true, status: true },
-          }),
-        )
-      : null;
     revalidatePath("/delivery-tickets");
     revalidatePath(`/delivery-tickets/${deliveryTicketId}`);
     revalidatePath("/walk-ins");
     revalidatePath("/inventory");
-    if (invoiceResult.invoiceId) {
+    if (invoiceResult.invoice) {
       revalidatePath("/invoices");
     }
     return {
       success: true,
-      invoice,
-      warning: invoiceResult.error
-        ? `Ticket completed, but the pay-now invoice could not be created: ${invoiceResult.error}`
-        : paymentFlagIgnored
-          ? "This sale was already completed, so its payment status wasn't changed. Record the payment on the invoice instead."
-          : null,
+      // Number and status for the confirmation ("Invoice I10123 made") and
+      // for the counter flow, which prints a pay-now invoice straight away.
+      invoice: invoiceResult.invoice,
+      invoiceCreated: invoiceResult.created,
+      warning:
+        [
+          paymentFlagIgnored
+            ? "This sale was already completed, so its payment status wasn't changed. Record the payment on the invoice instead."
+            : null,
+          invoiceResult.warning,
+        ]
+          .filter(Boolean)
+          .join(" ") || null,
     };
   } catch (error) {
     // The DB blocks negative stock; translate the raw constraint failure for
@@ -596,8 +596,8 @@ export async function deliverTicket(
 }
 
 export async function convertTicketToInvoice(deliveryTicketId: string) {
-  // Creating an invoice is a billing operation, not a dispatch one. (The
-  // automatic pay-now invoice on deliverTicket stays under DELIVERY_MANAGE
+  // Making an invoice by hand is a billing operation, not a dispatch one.
+  // (The automatic invoice on deliverTicket stays under DELIVERY_MANAGE
   // because it is a system side effect of completing the delivery.)
   await requirePermission(AppPermission.INVOICES_MANAGE);
   try {
@@ -650,8 +650,8 @@ export async function deliverAllTicketsForDay(
   end.setHours(23, 59, 59, 999);
 
   // Live tickets only: a DRAFT dated today is an abandoned counter ticket or
-  // an unconfirmed planner load — completing it deducts stock and can bill a
-  // pay-now invoice, so drafts take a deliberate per-ticket click.
+  // an unconfirmed planner load — completing it deducts stock and makes an
+  // invoice, so drafts take a deliberate per-ticket click.
   const openTickets = await withDatabaseRetry((client) =>
     client.deliveryTicket.findMany({
       where: {
@@ -688,8 +688,53 @@ export async function deliverAllTicketsForDay(
   return { success: true as const, delivered, failed, warnings };
 }
 
+/**
+ * Stamp a delivery day as checked against the paper tickets. Invoices are not
+ * made here any more — each ticket gets its invoice when it is marked
+ * delivered. See createMissingInvoicesForDay for the catch-up.
+ */
 export async function confirmDeliveryDayReconciliation(dateRaw: string) {
   const user = await requirePermission(AppPermission.DELIVERY_MANAGE);
+
+  const reconciliationDate = parseReconciliationDate(dateRaw);
+  if (!reconciliationDate) {
+    return { error: "Invalid date." };
+  }
+
+  return returnActionError(async () => {
+    await withDatabaseRetry((client) =>
+      // Confirmation is stamped with the signed-in user; the old free-text
+      // confirmed-by/notes inputs are gone.
+      client.deliveryDayReconciliation.upsert({
+        where: {
+          reconciliationDate: calendarDateFromLocalDay(reconciliationDate),
+        },
+        create: {
+          reconciliationDate: calendarDateFromLocalDay(reconciliationDate),
+          confirmedBy: user.displayName,
+          confirmedAt: new Date(),
+        },
+        update: {
+          confirmedBy: user.displayName,
+          confirmedAt: new Date(),
+        },
+      }),
+    );
+
+    revalidatePath("/delivery-tickets/reconcile");
+    revalidatePath("/invoices");
+    return { success: true as const };
+  });
+}
+
+/**
+ * Catch-up for delivered tickets on a day that have no invoice: ones
+ * delivered before invoices were made at delivery, or whose invoice could not
+ * be made at the time. Deliberate, never automatic — an invoice someone
+ * deleted on purpose must not come back by itself.
+ */
+export async function createMissingInvoicesForDay(dateRaw: string) {
+  await requirePermission(AppPermission.INVOICES_MANAGE);
 
   const reconciliationDate = parseReconciliationDate(dateRaw);
   if (!reconciliationDate) {
@@ -702,75 +747,52 @@ export async function confirmDeliveryDayReconciliation(dateRaw: string) {
 
   return returnActionError(async () => {
     const conversionResult = await withDatabaseRetry(async (client) => {
-      // Confirmation is stamped with the signed-in user; the old free-text
-      // confirmed-by/notes inputs are gone.
-      await client.deliveryDayReconciliation.upsert({
-        where: { reconciliationDate: calendarDateFromLocalDay(start) },
-        create: {
-          reconciliationDate: calendarDateFromLocalDay(start),
-          confirmedBy: user.displayName,
-          confirmedAt: new Date(),
-        },
-        update: {
-          confirmedBy: user.displayName,
-          confirmedAt: new Date(),
-        },
-      });
+      const [scheduledTickets, deliveredOtherDayTickets] = await Promise.all([
+        client.deliveryTicket.findMany({
+          where: { deliveryDate: { gte: start, lte: end } },
+          select: {
+            id: true,
+            status: true,
+            invoice: { select: { id: true } },
+          },
+        }),
+        client.deliveryTicket.findMany({
+          where: {
+            status: "DELIVERED",
+            deliveredAt: { gte: start, lte: end },
+            OR: [
+              { deliveryDate: { lt: start } },
+              { deliveryDate: { gt: end } },
+              { deliveryDate: null },
+            ],
+          },
+          select: {
+            id: true,
+            status: true,
+            invoice: { select: { id: true } },
+          },
+        }),
+      ]);
 
-      if (await hasPermission(user, AppPermission.INVOICES_MANAGE)) {
-        const [scheduledTickets, deliveredOtherDayTickets] = await Promise.all([
-          client.deliveryTicket.findMany({
-            where: { deliveryDate: { gte: start, lte: end } },
-            select: {
-              id: true,
-              status: true,
-              invoice: { select: { id: true } },
-            },
-          }),
-          client.deliveryTicket.findMany({
-            where: {
-              status: "DELIVERED",
-              deliveredAt: { gte: start, lte: end },
-              OR: [
-                { deliveryDate: { lt: start } },
-                { deliveryDate: { gt: end } },
-                { deliveryDate: null },
-              ],
-            },
-            select: {
-              id: true,
-              status: true,
-              invoice: { select: { id: true } },
-            },
-          }),
-        ]);
+      const ticketIds = collectDeliveredUninvoicedTicketIds(
+        scheduledTickets.map((ticket) => ({
+          id: ticket.id,
+          status: ticket.status,
+          hasInvoice: Boolean(ticket.invoice),
+        })),
+        deliveredOtherDayTickets.map((ticket) => ({
+          id: ticket.id,
+          status: ticket.status,
+          hasInvoice: Boolean(ticket.invoice),
+        })),
+      );
 
-        const ticketIds = collectDeliveredUninvoicedTicketIds(
-          scheduledTickets.map((ticket) => ({
-            id: ticket.id,
-            status: ticket.status,
-            hasInvoice: Boolean(ticket.invoice),
-          })),
-          deliveredOtherDayTickets.map((ticket) => ({
-            id: ticket.id,
-            status: ticket.status,
-            hasInvoice: Boolean(ticket.invoice),
-          })),
-        );
-
-        return batchConvertDeliveredTicketsToInvoices(client, ticketIds);
-      }
-
-      return null;
+      return batchConvertDeliveredTicketsToInvoices(client, ticketIds);
     });
 
     revalidatePath("/delivery-tickets/reconcile");
     revalidatePath("/invoices");
-    return {
-      success: true as const,
-      conversionResult,
-      invoicesCreated: conversionResult?.created ?? 0,
-    };
+    return { success: true as const, conversionResult };
   });
 }
 

@@ -8,6 +8,10 @@ import { jobStatusLabels } from "@/components/jobs/job-utils";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { addLocalDays, startOfLocalDay } from "@/lib/date-only";
 import { formatUsd } from "@/lib/format";
+import {
+  invoiceStatusLabel,
+  invoiceStatusVariant,
+} from "@/lib/invoice-status";
 
 import {
   tableBodyClassName,
@@ -133,7 +137,7 @@ export default async function Home() {
       label: "Pending Invoices",
       value: String(pendingInvoicesCount),
       detail: `${outstandingTotal} outstanding`,
-      href: "/invoices?tab=drafts",
+      href: "/invoices?status=OPEN",
     },
     {
       label: "Inventory Alerts",
@@ -340,7 +344,10 @@ export default async function Home() {
                         {invoice.customerName}
                       </td>
                       <td className={tableCellClassName}>
-                        <StatusBadge label={invoice.status} variant="warning" />
+                        <StatusBadge
+                          label={invoiceStatusLabel(invoice.status)}
+                          variant={invoiceStatusVariant(invoice.status)}
+                        />
                       </td>
                       <td className={`${tableCellClassName} text-right font-medium text-slate-900`}>
                         {formatUsd(invoice.total)}

@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { useTransition } from "react";
 import {
-  deleteDraftInvoice,
-  finalizeInvoices,
+  deleteInvoice,
   markInvoicePaid,
   reopenVoidedInvoice,
   voidInvoice,
 } from "@/app/invoices/actions";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { isUnpaidInvoiceStatus } from "@/lib/invoice-status";
 import { printPdfUrl } from "@/lib/print-pdf-url";
 import {
   navigateAfterAction,
@@ -19,18 +19,29 @@ import {
 type InvoiceDetailActionsProps = {
   invoiceId: string;
   invoiceNumber: string;
+  ticketNumber: string;
   status: string;
+  /** A line is still waiting for a price, so the total isn't known yet. */
+  needsPrice: boolean;
   canManage: boolean;
 };
+
+const plainButtonClassName =
+  "rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50";
+const dangerButtonClassName =
+  "rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-2xs font-semibold text-red-800 hover:bg-red-100 disabled:opacity-50";
 
 export function InvoiceDetailActions({
   invoiceId,
   invoiceNumber,
+  ticketNumber,
   status,
+  needsPrice,
   canManage,
 }: InvoiceDetailActionsProps) {
   const confirm = useConfirm();
   const [pending, startTransition] = useTransition();
+  const unpaid = isUnpaidInvoiceStatus(status);
 
   /** Run a status action, then reload so the page shows the new status. */
   function runAndReload(
@@ -47,15 +58,22 @@ export function InvoiceDetailActions({
     });
   }
 
-  if (!canManage && status !== "DRAFT" && status !== "SENT" && status !== "PAID") {
-    return (
-      <button
-        type="button"
-        onClick={() => printPdfUrl(`/api/invoices/${invoiceId}/pdf`)}
-        className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
-      >
-        Print
-      </button>
+  async function confirmVoid() {
+    if (
+      !(await confirm({
+        title: "Void invoice?",
+        message: unpaid
+          ? `Void invoice ${invoiceNumber}? To correct a price or quantity, use Edit instead. A voided invoice stays on file and can be reopened later.`
+          : `Void paid invoice ${invoiceNumber}? It stays on file and can be reopened later.`,
+        confirmLabel: "Void invoice",
+        variant: "danger",
+      }))
+    ) {
+      return;
+    }
+    runAndReload(
+      () => voidInvoice(invoiceId),
+      `Invoice ${invoiceNumber} voided.`,
     );
   }
 
@@ -64,39 +82,44 @@ export function InvoiceDetailActions({
       <button
         type="button"
         onClick={() => printPdfUrl(`/api/invoices/${invoiceId}/pdf`)}
-        className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+        className={plainButtonClassName}
       >
         Print
       </button>
-      {canManage && status === "DRAFT" ? (
+      {canManage && unpaid ? (
         <>
           <Link
             href={`/invoices/${invoiceId}/edit`}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+            className={
+              needsPrice
+                ? "rounded-lg bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white hover:bg-slate-800"
+                : plainButtonClassName
+            }
           >
-            Edit draft
+            Edit
           </Link>
+          {needsPrice ? null : (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() =>
+                runAndReload(
+                  () => markInvoicePaid(invoiceId),
+                  `Invoice ${invoiceNumber} marked paid.`,
+                )
+              }
+              className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-2xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+            >
+              Mark paid
+            </button>
+          )}
           <button
             type="button"
             disabled={pending}
-            onClick={async () => {
-              if (
-                !(await confirm({
-                  title: "Finalize invoice?",
-                  message: `Finalize invoice ${invoiceNumber} and move it to Final Invoices?`,
-                  confirmLabel: "Finalize",
-                }))
-              ) {
-                return;
-              }
-              runAndReload(
-                () => finalizeInvoices([invoiceId]),
-                `Invoice ${invoiceNumber} finalized.`,
-              );
-            }}
-            className="rounded-lg bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white disabled:opacity-50"
+            onClick={confirmVoid}
+            className={dangerButtonClassName}
           >
-            Finalize
+            Void
           </button>
           <button
             type="button"
@@ -104,89 +127,41 @@ export function InvoiceDetailActions({
             onClick={async () => {
               if (
                 !(await confirm({
-                  title: "Delete draft?",
-                  message: `Delete draft invoice ${invoiceNumber}? The delivery ticket can be converted again afterwards.`,
-                  confirmLabel: "Delete draft",
+                  title: "Delete invoice?",
+                  message: `Delete invoice ${invoiceNumber}? Ticket ${ticketNumber} stays delivered. If it should be billed after all, Convert to Invoice on the ticket makes the invoice again.`,
+                  confirmLabel: "Delete invoice",
                   variant: "danger",
                 }))
               ) {
                 return;
               }
               startTransition(async () => {
-                const result = await deleteDraftInvoice(invoiceId);
+                const result = await deleteInvoice(invoiceId);
                 if (result.error) {
                   window.alert(result.error);
                   return;
                 }
                 navigateAfterAction("/invoices", {
                   type: "success",
-                  text: `Draft ${invoiceNumber} deleted.`,
+                  text: `Invoice ${invoiceNumber} deleted.`,
                 });
               });
             }}
-            className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-2xs font-semibold text-red-800 hover:bg-red-100 disabled:opacity-50"
+            className={dangerButtonClassName}
           >
-            Delete draft
+            Delete
           </button>
         </>
       ) : null}
-      {canManage && status === "SENT" ? (
-        <>
-          <Link
-            href={`/invoices/${invoiceId}/edit`}
-            onClick={async (event) => {
-              event.preventDefault();
-              if (
-                await confirm({
-                  title: "Edit final invoice?",
-                  message: `Invoice ${invoiceNumber} is final. Changes will alter what the customer is billed — are you sure?`,
-                  confirmLabel: "Edit invoice",
-                })
-              ) {
-                navigateAfterAction(`/invoices/${invoiceId}/edit`);
-              }
-            }}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            Edit invoice
-          </Link>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() =>
-              runAndReload(
-                () => markInvoicePaid(invoiceId),
-                `Invoice ${invoiceNumber} marked paid.`,
-              )
-            }
-            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-2xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
-          >
-            Mark paid
-          </button>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={async () => {
-              if (
-                !(await confirm({
-                  title: "Void invoice?",
-                  message: `Void invoice ${invoiceNumber}? To correct a price or quantity, use Edit invoice instead. A voided invoice can be reopened as a draft later.`,
-                  confirmLabel: "Void invoice",
-                  variant: "danger",
-                }))
-              ) {
-                return;
-              }
-              runAndReload(
-                () => voidInvoice(invoiceId),
-                `Invoice ${invoiceNumber} voided.`,
-              );
-            }}
-            className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-2xs font-semibold text-red-800 hover:bg-red-100 disabled:opacity-50"
-          >
-            Void
-          </button>
-        </>
+      {canManage && status === "PAID" ? (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={confirmVoid}
+          className={dangerButtonClassName}
+        >
+          Void
+        </button>
       ) : null}
       {canManage && status === "VOID" ? (
         <button
@@ -196,20 +171,20 @@ export function InvoiceDetailActions({
             if (
               !(await confirm({
                 title: "Reopen invoice?",
-                message: `Reopen voided invoice ${invoiceNumber} as a draft? It keeps its number and delivery ticket; correct it and finalize again.`,
-                confirmLabel: "Reopen as draft",
+                message: `Reopen voided invoice ${invoiceNumber}? It keeps its number, ticket and lines, and can be edited again.`,
+                confirmLabel: "Reopen",
               }))
             ) {
               return;
             }
             runAndReload(
               () => reopenVoidedInvoice(invoiceId),
-              `Invoice ${invoiceNumber} reopened as a draft.`,
+              `Invoice ${invoiceNumber} reopened.`,
             );
           }}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          className={plainButtonClassName}
         >
-          Reopen as draft
+          Reopen
         </button>
       ) : null}
     </div>

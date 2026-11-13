@@ -15,9 +15,13 @@ vi.mock("next/cache", () => ({
 vi.mock("server-only", () => ({}));
 
 import { createDeliveryTicket } from "@/app/delivery-tickets/actions";
+import { markInvoicePaid } from "@/app/invoices/actions";
 import { deliverTicket } from "@/app/operations/actions";
 import { getAppSettings } from "@/lib/app-settings";
-import { convertDeliveryTicketToInvoice } from "@/lib/invoicing-service";
+import {
+  convertDeliveryTicketToInvoice,
+  InvoiceAlreadyExistsError,
+} from "@/lib/invoicing-service";
 import { prisma } from "@/lib/prisma";
 
 const tag = `MAINPATH-${Date.now()}`;
@@ -246,8 +250,14 @@ describe("delivering a job ticket built from a quote", () => {
     expect(created).toMatchObject({ success: true });
     jobTicketId = (created as { ticketId: string }).ticketId;
 
+    // The invoice is made with the delivery: open, nothing to finalize.
     const result = await deliverTicket(jobTicketId);
-    expect(result).toMatchObject({ success: true, invoice: null, warning: null });
+    expect(result).toMatchObject({
+      success: true,
+      invoiceCreated: true,
+      invoice: { status: "SENT" },
+      warning: null,
+    });
 
     const ticket = await prisma.deliveryTicket.findUniqueOrThrow({
       where: { id: jobTicketId },
@@ -297,19 +307,34 @@ describe("delivering a job ticket built from a quote", () => {
     ).toBe("ACTIVE");
   });
 
-  it("delivering again is a no-op for stock and the ledger", async () => {
+  it("delivering again is a no-op for stock, the ledger and the invoice", async () => {
+    const before = await prisma.invoice.findUniqueOrThrow({
+      where: { deliveryTicketId: jobTicketId },
+    });
+
     const again = await deliverTicket(jobTicketId);
-    expect(again).toMatchObject({ success: true });
+    expect(again).toMatchObject({
+      success: true,
+      invoiceCreated: false,
+      invoice: { id: before.id },
+      warning: null,
+    });
     expect(await stockOf(trackedId)).toBe(16);
     expect(
       await prisma.inventoryTransaction.count({ where: { productId: trackedId } }),
     ).toBe(1);
+    expect(
+      await prisma.invoice.count({ where: { deliveryTicketId: jobTicketId } }),
+    ).toBe(1);
   });
 
   it("invoices the ticket at quote prices with the quote's tax rate and taxability", async () => {
-    const invoiceId = await convertDeliveryTicketToInvoice(prisma, jobTicketId);
+    // Made by the delivery above; a second conversion is refused.
+    await expect(
+      convertDeliveryTicketToInvoice(prisma, jobTicketId),
+    ).rejects.toBeInstanceOf(InvoiceAlreadyExistsError);
     const invoice = await prisma.invoice.findUniqueOrThrow({
-      where: { id: invoiceId },
+      where: { deliveryTicketId: jobTicketId },
       include: { lineItems: { orderBy: { lineNumber: "asc" } } },
     });
     const ticket = await prisma.deliveryTicket.findUniqueOrThrow({
@@ -318,7 +343,8 @@ describe("delivering a job ticket built from a quote", () => {
     });
 
     expect(invoice).toMatchObject({
-      status: "DRAFT",
+      // Open straight away: there is no draft stage.
+      status: "SENT",
       deliveryTicketId: jobTicketId,
       jobId,
       quoteId,
@@ -341,6 +367,8 @@ describe("delivering a job ticket built from a quote", () => {
     });
 
     const [tracked, untracked, structure] = invoice.lineItems;
+    // Every line found its price, so nothing waits for one.
+    expect(invoice.lineItems.every((line) => !line.needsPrice)).toBe(true);
     // Quote price wins over the price list (99) for the quoted product.
     expect(Number(tracked!.unitPrice)).toBe(TRACKED_QUOTE_PRICE);
     expect(Number(tracked!.total)).toBe(TRACKED_QUOTE_PRICE * 4);
@@ -432,21 +460,158 @@ describe("delivering a walk-in ticket with no quote", () => {
     );
   });
 
-  it("fails closed when a line has no quote, list or ticket price", async () => {
+  it("keeps a paid counter sale open with PRICE NEEDED when a line has no price", async () => {
     const ticket = await walkInTicket("2", [
+      { productId: trackedId, code: "TRACKED", quantity: 1 },
       { productId: unpricedId, code: "UNPRICED", quantity: 1 },
     ]);
 
-    // Delivery still completes; the pay-now invoice is refused with a warning.
+    // Delivery completes and the invoice is made, but it cannot be PAID:
+    // nobody knows the total yet. The counter is told why.
     const result = await deliverTicket(ticket.id, { paymentReceived: true });
-    expect(result).toMatchObject({ success: true, invoice: null });
-    expect((result as { warning: string }).warning).toMatch(/No price found/);
+    expect(result).toMatchObject({
+      success: true,
+      invoiceCreated: true,
+      invoice: { status: "SENT" },
+    });
+    expect((result as { warning: string }).warning).toMatch(
+      /not marked paid yet, because a line has no price/,
+    );
 
-    await expect(
-      convertDeliveryTicketToInvoice(prisma, ticket.id),
-    ).rejects.toThrow(/No price found for line/);
+    const invoice = await prisma.invoice.findUniqueOrThrow({
+      where: { deliveryTicketId: ticket.id },
+      include: { lineItems: { orderBy: { lineNumber: "asc" } } },
+    });
+    const [priced, unpriced] = invoice.lineItems;
+    expect(priced).toMatchObject({ needsPrice: false });
+    expect(Number(priced!.unitPrice)).toBe(TRACKED_LIST_PRICE);
+    expect(unpriced).toMatchObject({ needsPrice: true });
+    expect(Number(unpriced!.unitPrice)).toBe(0);
+    expect(Number(unpriced!.total)).toBe(0);
+    // The totals carry the priced line only.
+    expect(Number(invoice.subtotal)).toBe(TRACKED_LIST_PRICE);
+
+    // And it cannot be marked paid until the price is typed.
+    const paid = await markInvoicePaid(invoice.id);
+    expect(paid.error).toMatch(/waiting for a price/i);
+  });
+});
+
+describe("a line the app cannot price", () => {
+  // Blank prices on imported and Quick Build jobs are stored as $0 on the
+  // quote line, so "$0 from the quote" means "nobody priced this yet".
+  async function jobTicketWithLines(
+    suffix: string,
+    lines: Array<{
+      code: string;
+      quotePrice?: number;
+      productId?: string;
+      ticketPrice?: number;
+      description?: string;
+    }>,
+  ) {
+    const quote = await prisma.quote.create({
+      data: {
+        quoteNumber: `${tag}-QP${suffix}`,
+        jobId,
+        customerId,
+        customerName: `${tag} Contractor`,
+        projectName: `${tag} project`,
+        status: "WON",
+        taxRate: 0,
+        lineItems: {
+          create: lines
+            .filter((line) => line.quotePrice !== undefined)
+            .map((line, index) => ({
+              lineNumber: index + 1,
+              lineType: "STOCK_PRODUCT" as const,
+              itemCode: `${tag}-${line.code}`,
+              description: line.code,
+              quantity: 1,
+              unit: "EA",
+              unitPrice: line.quotePrice!,
+              taxable: false,
+              total: line.quotePrice!,
+            })),
+        },
+      },
+      include: { lineItems: true },
+    });
+    const quoteLineId = (code: string) =>
+      quote.lineItems.find((line) => line.itemCode === `${tag}-${code}`)?.id ??
+      null;
+
+    return prisma.deliveryTicket.create({
+      data: {
+        ticketNumber: `${tag}-P${suffix}X`,
+        ticketType: "JOB",
+        status: "SCHEDULED",
+        jobId,
+        quoteId: quote.id,
+        jobNumber: `${tag}-JOB`,
+        customerName: `${tag} Contractor`,
+        projectName: `${tag} project`,
+        lineItems: {
+          create: lines.map((line, index) => ({
+            lineNumber: index + 1,
+            sortOrder: index,
+            lineType: "STOCK_PRODUCT" as const,
+            quoteLineItemId: quoteLineId(line.code),
+            productId: line.productId ?? null,
+            itemCode: `${tag}-${line.code}`,
+            description: line.description ?? line.code,
+            quantity: 1,
+            unit: "EA",
+            unitPrice: line.ticketPrice ?? null,
+          })),
+        },
+      },
+    });
+  }
+
+  it("still makes the invoice and flags only the lines nobody priced", async () => {
+    const ticket = await jobTicketWithLines("1", [
+      // Priced on the quote: billed as quoted.
+      { code: "QUOTED", quotePrice: 120 },
+      // $0 on the quote: nobody priced it yet.
+      { code: "BLANK", quotePrice: 0 },
+      // Not on the quote, no price list entry, nothing typed: no price at all.
+      { code: "NOWHERE", productId: unpricedId },
+      // $0 typed on the ticket itself: a deliberate no charge.
+      { code: "NOCHARGE", ticketPrice: 0 },
+      // $0 on the quote but a price typed on the ticket: the typed price wins.
+      { code: "TYPED", quotePrice: 0, ticketPrice: 35 },
+    ]);
+
+    // The person marking it delivered gets no warning: pricing sees it on
+    // the invoice and under the Price needed filter.
+    const result = await deliverTicket(ticket.id);
+    expect(result).toMatchObject({
+      success: true,
+      invoiceCreated: true,
+      invoice: { status: "SENT" },
+      warning: null,
+    });
+
+    const invoice = await prisma.invoice.findUniqueOrThrow({
+      where: { deliveryTicketId: ticket.id },
+      include: { lineItems: { orderBy: { lineNumber: "asc" } } },
+    });
     expect(
-      await prisma.invoice.findUnique({ where: { deliveryTicketId: ticket.id } }),
-    ).toBeNull();
+      invoice.lineItems.map((line) => [
+        line.itemCode.replace(`${tag}-`, ""),
+        Number(line.unitPrice),
+        line.needsPrice,
+      ]),
+    ).toEqual([
+      ["QUOTED", 120, false],
+      ["BLANK", 0, true],
+      ["NOWHERE", 0, true],
+      ["NOCHARGE", 0, false],
+      ["TYPED", 35, false],
+    ]);
+    // The totals carry what is priced so far.
+    expect(Number(invoice.subtotal)).toBe(155);
+    expect(Number(invoice.total)).toBe(155);
   });
 });

@@ -30,10 +30,12 @@ export function JobInvoiceActions({ deliveries }: JobInvoiceActionsProps) {
   }
 
   // Parent only renders this when there are un-invoiced delivered tickets.
+  // A ticket gets its invoice when it is marked delivered, so these are ones
+  // delivered before that was the case, or whose invoice was deleted.
   return (
     <SectionCard
       title="Create Invoice"
-      description={`${deliveries.length} delivered ticket${deliveries.length === 1 ? "" : "s"} ready to invoice`}
+      description={`${deliveries.length} delivered ticket${deliveries.length === 1 ? " has" : "s have"} no invoice`}
       noPadding
     >
       <div>

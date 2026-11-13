@@ -26,10 +26,19 @@ export function TicketStatusActions({
         setMessage(result.error);
         return;
       }
+      // Carried over the reload as a toast, so it is still there to read.
       if ("warning" in result && result.warning) {
-        setMessage(result.warning);
+        reloadAfterAction({ type: "warning", text: result.warning });
+        return;
       }
-      reloadAfterAction();
+      reloadAfterAction(
+        "invoiceMade" in result && result.invoiceMade
+          ? {
+              type: "success",
+              text: `Marked delivered. Invoice ${result.invoiceMade} is ready on the Invoices screen.`,
+            }
+          : undefined,
+      );
     });
   }
 

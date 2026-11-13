@@ -1841,19 +1841,39 @@ export async function markDeliveryTicketDelivered(
 }
 
 /**
+ * Thrown when undoing a delivery would delete its unpaid invoice and the
+ * caller has not said that is intended. Screens catch it, ask the user, and
+ * call again with `removeUnpaidInvoice`.
+ */
+export class UndoDeliveryNeedsInvoiceRemovalError extends Error {
+  constructor(public readonly invoiceNumber: string) {
+    super(
+      `Invoice ${invoiceNumber} bills this delivery. Undoing the delivery deletes that invoice too. Undo it from the status dropdown on the Delivery Hub, which asks first.`,
+    );
+    this.name = "UndoDeliveryNeedsInvoiceRemovalError";
+  }
+}
+
+/**
  * Undo a delivery: back to SCHEDULED (delivered by mistake / not actually
  * delivered) or straight to CANCELLED. Restores the deducted stock, reopens
  * the lines so a re-delivery deducts again, and puts shipped structures back
- * to MADE. Refused while the ticket has a live (non-void) invoice — void or
- * delete that first, since billing depends on the delivery.
+ * to MADE.
+ *
+ * The invoice follows the delivery: it was made when the ticket was marked
+ * delivered, so undoing the delivery removes it — but only an UNPAID one, and
+ * only when the caller passes `removeUnpaidInvoice` (the user confirmed).
+ * A paid invoice blocks the undo (void it first); a voided one is kept as the
+ * record it is. Marking the ticket delivered again makes a fresh invoice.
  */
 export async function undoTicketDelivery(
   client: PrismaClient,
   deliveryTicketId: string,
   to: "SCHEDULED" | "CANCELLED",
   createdBy?: string | null,
-): Promise<void> {
-  await client.$transaction(async (tx) => {
+  options: { removeUnpaidInvoice?: boolean } = {},
+): Promise<{ removedInvoiceNumber: string | null }> {
+  return client.$transaction(async (tx) => {
     // Compare-and-set: only a ticket that is still DELIVERED is undone, once.
     const claimed = await tx.deliveryTicket.updateMany({
       where: { id: deliveryTicketId, status: "DELIVERED" },
@@ -1863,14 +1883,31 @@ export async function undoTicketDelivery(
       throw new Error("Only delivered tickets can be undone.");
     }
 
+    let removedInvoiceNumber: string | null = null;
     const invoice = await tx.invoice.findUnique({
       where: { deliveryTicketId },
-      select: { invoiceNumber: true, status: true },
+      select: { id: true, invoiceNumber: true, status: true },
     });
-    if (invoice && invoice.status !== "VOID") {
+    if (invoice?.status === "PAID") {
       throw new Error(
-        `Invoice ${invoice.invoiceNumber} bills this delivery — void it (or delete the draft) before undoing the delivery.`,
+        `Invoice ${invoice.invoiceNumber} for this delivery is paid. Void the invoice first, then undo the delivery.`,
       );
+    }
+    if (invoice && invoice.status !== "VOID") {
+      if (options.removeUnpaidInvoice !== true) {
+        throw new UndoDeliveryNeedsInvoiceRemovalError(invoice.invoiceNumber);
+      }
+      // Still conditional on being unpaid: a payment recorded between the
+      // read above and this delete must never be wiped out.
+      const deleted = await tx.invoice.deleteMany({
+        where: { id: invoice.id, status: { in: ["DRAFT", "SENT"] } },
+      });
+      if (deleted.count === 0) {
+        throw new Error(
+          `Invoice ${invoice.invoiceNumber} changed just now. Reload and try again.`,
+        );
+      }
+      removedInvoiceNumber = invoice.invoiceNumber;
     }
 
     await reverseInventoryForTicket(tx, deliveryTicketId, new Date(), createdBy);
@@ -1895,5 +1932,7 @@ export async function undoTicketDelivery(
         data: { status: "MADE", shippedDate: null },
       });
     }
+
+    return { removedInvoiceNumber };
   });
 }
