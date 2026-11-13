@@ -110,6 +110,9 @@ type DbJob = {
 } | null;
 
 export type DbDeliveryTicketForPdf = {
+  /** Database id. With the ticket number it makes the scan code; a ticket
+   * without one (an unsaved preview) prints no code. */
+  id?: string | null;
   /** Null for planner drafts that haven't been scheduled yet ("DRAFT" prints). */
   ticketNumber: string | null;
   /** "PICKUP" renders the pickup-ticket layout; anything else is delivery. */

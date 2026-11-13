@@ -184,6 +184,8 @@ export function buildDraftTicketForPdf(
   );
 
   return {
+    // Only a saved ticket has an id, so only its preview shows the scan code.
+    id: saved ? input.ticketId : null,
     ticketNumber: saved?.ticketNumber ?? null,
     fulfillmentMethod: input.fulfillmentMethod,
     customLine:
