@@ -436,7 +436,8 @@ another PC's share, or both. Settings live in `.env` on the server:
 ```env
 # BACKUP_DIR=C:\Backups\precastapp                     # default
 # BACKUP_RETENTION_DAYS=30                               # local and share copies
-BACKUP_B2_BUCKET=YOUR-BUCKET                             # cloud upload (optional, recommended)
+# Cloud upload (optional, recommended):
+BACKUP_B2_BUCKET=YOUR-BUCKET
 BACKUP_B2_KEY_ID="YOUR_KEY_ID"
 BACKUP_B2_KEY="YOUR_APPLICATION_KEY"
 # BACKUP_B2_PREFIX=precastapp/                           # default folder in the bucket
