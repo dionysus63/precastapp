@@ -33,6 +33,10 @@ import {
   toPickupCopyTitles,
 } from "@/lib/delivery-ticket-pdf-pickup";
 import { DEFAULT_TABLE_LAYOUT } from "@/lib/delivery-ticket-pdf-layout";
+import {
+  drawTicketScanCode,
+  type TicketScanCodeInput,
+} from "@/lib/delivery-ticket-pdf-scan-code";
 
 const DEFAULT_COPY_COUNT = 3;
 const TERMS_FONT_SIZE = 9;
@@ -187,6 +191,7 @@ async function buildContentPageBytes(
   totalPieces: string,
   isPickup: boolean,
   customLine: string | null,
+  scanCode: TicketScanCodeInput,
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.load(templateBytes);
   const font = await doc.embedFont(StandardFonts.Helvetica);
@@ -201,6 +206,7 @@ async function buildContentPageBytes(
     fillAcroFormFields(doc, formData, font);
     drawLineItemsOnPage(page, font, slice, totalPieces, PICKUP_TABLE_LAYOUT);
     if (customLine) drawCustomLine(page, boldFont, customLine);
+    drawTicketScanCode(page, font, scanCode);
     return doc.save(PDF_SAVE_OPTIONS);
   }
 
@@ -208,6 +214,7 @@ async function buildContentPageBytes(
   redrawDriverLabel(page, boldFont);
   drawLineItemsOnPage(page, font, slice, totalPieces);
   if (customLine) drawCustomLine(page, boldFont, customLine);
+  drawTicketScanCode(page, font, scanCode);
 
   return doc.save(PDF_SAVE_OPTIONS);
 }
@@ -256,6 +263,14 @@ async function buildCopyPdfBytes(
       totalPieces,
       isPickup,
       ticket.customLine?.trim() || null,
+      {
+        ticketId: ticket.id,
+        ticketNumber: ticket.ticketNumber,
+        copyNumber: copyIndex,
+        pageNumber: contentPage.number,
+        pageCount: contentPage.count,
+        isPickup,
+      },
     );
     const pageDoc = await PDFDocument.load(pageBytes);
     const [copiedPage] = await merged.copyPages(pageDoc, [0]);
