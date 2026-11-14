@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import {
+  InvoicePaper,
+  PaperNote,
+  paperStyle,
+} from "@/components/invoices/invoice-paper";
 import {
   barButtonClassName,
   rowResult,
@@ -9,15 +14,6 @@ import {
 import type { ScanInRow } from "@/lib/ticket-scan/view-types";
 
 type Side = "ticket" | "invoice";
-
-/**
- * The paper is never taller than the window, so the foot of the page (where
- * the code is) stays in view while the pane sticks beside the grid. Letter
- * paper is 8.5 x 11: width = height x 0.7727.
- */
-const paperStyle = {
-  maxWidth: "min(42rem, calc((100vh - 13rem) * 0.7727))",
-} as const;
 
 /**
  * The paper beside the grid: the scanned page of the selected row, turned
@@ -144,17 +140,6 @@ export function ScanPaperPreview({
   );
 }
 
-function PaperNote({ text }: { text: string }) {
-  return (
-    <div
-      style={paperStyle}
-      className="mx-auto grid aspect-[612/792] w-full place-items-center border border-slate-300 bg-white px-10 text-center text-sm text-slate-500 shadow"
-    >
-      {text}
-    </div>
-  );
-}
-
 function TicketPaper({ row }: { row: ScanInRow }) {
   const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
   const box = row.codeBox;
@@ -204,91 +189,6 @@ function TicketPaper({ row }: { row: ScanInRow }) {
           >
             Code read{row.ticketNumber ? `: ${row.ticketNumber}` : ""}
           </span>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-type InvoicePage = { url: string; pageCount: number };
-
-function InvoicePaper({ invoiceId }: { invoiceId: string }) {
-  const [page, setPage] = useState(1);
-  const [loaded, setLoaded] = useState<InvoicePage | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    let objectUrl: string | null = null;
-    void (async () => {
-      try {
-        const response = await fetch(
-          `/api/invoices/${invoiceId}/pages/${page}/image`,
-        );
-        if (!response.ok) {
-          throw new Error((await response.text()).slice(0, 200));
-        }
-        const blob = await response.blob();
-        if (cancelled) {
-          return;
-        }
-        objectUrl = URL.createObjectURL(blob);
-        setError(null);
-        setLoaded({
-          url: objectUrl,
-          pageCount: Number(response.headers.get("X-Page-Count")) || 1,
-        });
-      } catch (caught) {
-        if (!cancelled) {
-          setError(
-            caught instanceof Error && caught.message
-              ? caught.message
-              : "The invoice could not be drawn.",
-          );
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [invoiceId, page]);
-
-  if (error) {
-    return <PaperNote text={error} />;
-  }
-  if (!loaded) {
-    return <PaperNote text="Drawing the invoice…" />;
-  }
-  return (
-    <div style={paperStyle} className="mx-auto w-full">
-      <div className="border border-slate-300 bg-white shadow">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={loaded.url} alt="Invoice page" className="block h-auto w-full" />
-      </div>
-      {loaded.pageCount > 1 ? (
-        <div className="mt-2 flex items-center justify-center gap-2 text-xs text-slate-600">
-          <button
-            type="button"
-            disabled={page <= 1}
-            onClick={() => setPage((current) => current - 1)}
-            className={`${barButtonClassName} px-2 py-0.5`}
-          >
-            ‹
-          </button>
-          <span>
-            Invoice page {page} of {loaded.pageCount}
-          </span>
-          <button
-            type="button"
-            disabled={page >= loaded.pageCount}
-            onClick={() => setPage((current) => current + 1)}
-            className={`${barButtonClassName} px-2 py-0.5`}
-          >
-            ›
-          </button>
         </div>
       ) : null}
     </div>
