@@ -4,6 +4,7 @@ import { BackButton } from "@/components/dashboard/back-button";
 import { CollapsibleSectionCard } from "@/components/dashboard/collapsible-section-card";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
+import { TabBar, TabLink } from "@/components/ui/tabs";
 import { GenerateSubmittalPackageButton } from "@/components/quotes/generate-submittal-package-button";
 import {
   CreateDrillSheetsButton,
@@ -429,25 +430,21 @@ export function QuoteDetailContent({
               <p className="text-2xs font-medium uppercase tracking-wide text-slate-500">
                 Same quote for {quote.customerTabs.length} customers
               </p>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <TabBar label="Customers on this quote" className="mt-2">
                 {quote.customerTabs.map((tab) => (
-                  <Link
+                  <TabLink
                     key={tab.id}
                     href={`/quotes/${tab.id}`}
-                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-2xs font-medium transition-colors ${
-                      tab.isCurrent
-                        ? "border-slate-900 bg-slate-900 text-white"
-                        : "border-slate-200 text-slate-700 hover:bg-slate-50"
-                    }`}
+                    active={tab.isCurrent}
                   >
                     <span>{tab.customerName}</span>
                     <StatusBadge
                       label={tab.statusLabel}
                       variant={tab.statusVariant}
                     />
-                  </Link>
+                  </TabLink>
                 ))}
-              </div>
+              </TabBar>
             </div>
           ) : null}
         </div>

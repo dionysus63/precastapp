@@ -5,6 +5,7 @@ import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { reloadAfterAction } from "@/lib/reload-after-action";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
+import { Tab, TabBar } from "@/components/ui/tabs";
 import {
   markStructureMade,
   startStructureProduction,
@@ -438,29 +439,18 @@ export function ProductionBoard({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-1.5">
-        {TABS.map((entry) => {
-          const isActive = entry.id === activeTab;
-          const count = Math.max(totals[entry.id], itemsByTab[entry.id].length);
-          return (
-            <button
-              key={entry.id}
-              type="button"
-              onClick={() => selectTab(entry.id)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
-                isActive
-                  ? "bg-slate-900 text-white"
-                  : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              {entry.label}{" "}
-              <span className={isActive ? "text-slate-300" : "text-slate-400"}>
-                {count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      <TabBar label="Production stages">
+        {TABS.map((entry) => (
+          <Tab
+            key={entry.id}
+            active={entry.id === activeTab}
+            count={Math.max(totals[entry.id], itemsByTab[entry.id].length)}
+            onClick={() => selectTab(entry.id)}
+          >
+            {entry.label}
+          </Tab>
+        ))}
+      </TabBar>
 
       <SectionCard
         title={tab.title}

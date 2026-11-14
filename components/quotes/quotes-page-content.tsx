@@ -5,6 +5,7 @@ import { memo } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { PaginationControls } from "@/components/common/pagination-controls";
+import { Tab, TabBar } from "@/components/ui/tabs";
 import {
   useDebouncedSearchParam,
   useListQuery,
@@ -233,40 +234,33 @@ export function QuotesPageContent({
 
   return (
     <>
-      <div className="border-b border-slate-200">
-        <div className="-mb-px flex flex-wrap items-center gap-1">
-          {statusTabs.map((tab) => (
-            <button
-              key={tab.label}
-              type="button"
-              onClick={() => setParams({ status: tab.param })}
-              className={`border-b-2 px-3 py-2 text-xs font-medium transition-colors ${
-                tab.isActive
-                  ? "border-slate-900 text-slate-900"
-                  : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
-              }`}
-            >
-              {tab.label}
-              <span
-                className={`ml-1.5 ${tab.isActive ? "text-slate-500" : "text-slate-400"}`}
-              >
-                {tab.count.toLocaleString()}
-              </span>
-            </button>
-          ))}
-          {singleStatusLabel ? (
+      <TabBar
+        label="Status"
+        trailing={
+          singleStatusLabel ? (
             <button
               type="button"
               onClick={() => setParams({ status: "" })}
               title="Clear status filter"
-              className="mb-1 ml-2 inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-2xs font-medium text-slate-700 hover:bg-slate-100"
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-2xs font-medium text-slate-700 hover:bg-slate-100"
             >
               Status: {singleStatusLabel}
               <span aria-hidden="true">×</span>
             </button>
-          ) : null}
-        </div>
-      </div>
+          ) : null
+        }
+      >
+        {statusTabs.map((tab) => (
+          <Tab
+            key={tab.label}
+            active={tab.isActive}
+            count={tab.count}
+            onClick={() => setParams({ status: tab.param })}
+          >
+            {tab.label}
+          </Tab>
+        ))}
+      </TabBar>
 
       <div className="flex flex-col gap-3 xl:flex-row xl:flex-wrap">
         <input

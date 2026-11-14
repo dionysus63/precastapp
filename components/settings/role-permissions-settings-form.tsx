@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Tab, TabBar } from "@/components/ui/tabs";
 import {
   ALL_PERMISSION_KEYS,
   formatPermissionLabel,
@@ -52,22 +53,17 @@ export function RolePermissionsSettingsForm({
 
   return (
     <form action={action} className="space-y-6">
-      <div className="flex flex-wrap gap-2">
+      <TabBar label="Role">
         {EDITABLE_ROLES.map((role) => (
-          <button
+          <Tab
             key={role}
-            type="button"
+            active={selectedRole === role}
             onClick={() => setSelectedRole(role)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-              selectedRole === role
-                ? "bg-slate-900 text-white"
-                : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-            }`}
           >
             {ROLE_LABELS[role]}
-          </button>
+          </Tab>
         ))}
-      </div>
+      </TabBar>
 
       <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-4 py-3 text-xs text-slate-600">
         <p className="font-medium text-slate-900">Admin role</p>
