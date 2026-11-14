@@ -4,6 +4,11 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import { SettingsShell } from "@/components/settings/settings-shell";
 import { getSettingsHubStatus } from "@/app/settings/actions";
 import { getCurrentUser, getUserPermissions } from "@/lib/auth/session";
+import {
+  describeBackupHealth,
+  formatBackupMoment,
+  getBackupHealth,
+} from "@/lib/backup-status";
 
 const settingSections = [
   {
@@ -131,6 +136,19 @@ export default async function SettingsPage() {
   const user = await getCurrentUser();
   const permissions = user ? await getUserPermissions(user) : [];
   const canManageUsers = permissions.includes(AppPermission.USERS_MANAGE);
+  // The server's nightly backup, for admins: the same check as the warning
+  // strip under the page header, shown here while it is healthy too.
+  const now = new Date();
+  const backup = canManageUsers ? await getBackupHealth(now) : null;
+  const backupChip =
+    !backup || backup.kind === "not-set-up"
+      ? null
+      : backup.kind === "ok"
+        ? { ok: true, detail: `Last backup ${formatBackupMoment(backup.lastBackupAt)}` }
+        : {
+            ok: false,
+            detail: describeBackupHealth(backup, now)?.headline ?? "See the warning above",
+          };
   const visibleSections = settingSections.filter((section) => {
     if ("adminOnly" in section && section.adminOnly) {
       return canManageUsers;
@@ -145,7 +163,9 @@ export default async function SettingsPage() {
       subtitle="Application configuration and shop defaults."
       showBackLink={false}
     >
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div
+        className={`grid gap-3 sm:grid-cols-2 ${backupChip ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}
+      >
         <StatusChip
           label="Database"
           ok={status.databaseOk}
@@ -166,6 +186,9 @@ export default async function SettingsPage() {
           ok={status.indexedFiles > 0}
           detail={`${status.indexedFiles} file record(s)`}
         />
+        {backupChip ? (
+          <StatusChip label="Backup" ok={backupChip.ok} detail={backupChip.detail} />
+        ) : null}
       </div>
 
       <SectionCard title="Configuration">

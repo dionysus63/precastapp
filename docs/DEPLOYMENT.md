@@ -528,10 +528,36 @@ Everything should read `[OK]`; it exits non-zero otherwise. Run it from an
 administrator PowerShell: a window without administrator rights may not be able
 to see the scheduled task, and then reports it as not found.
 
-Nothing else watches the backup, so run this check after every update and any
-time the server has been worked on. `scripts\deploy\test-backup-script.ps1` is a
-separate self-check of the backup scripts themselves; it works in a scratch
-folder against a stand-in for Backblaze and touches no real data.
+Run this check after every update and any time the server has been worked on.
+`scripts\deploy\test-backup-script.ps1` is a separate self-check of the backup
+scripts themselves; it works in a scratch folder against a stand-in for
+Backblaze and touches no real data.
+
+### The warning inside the app
+
+The app watches the backup as well, so a backup that has stopped does not go
+unnoticed between checks. Anyone who can manage users (the Admin role) sees a
+strip under the page header, on every page, for as long as something is wrong:
+
+| Strip | Shown when |
+| --- | --- |
+| Red: "No backup since ..." | the newest `.dump` in the backup folder is more than 26 hours old, so the nightly task is not running |
+| Red: "The last backup failed ..." | the last run wrote a `FAIL` line to `backup.log` |
+| Red: "No backup found." | the backup folder is missing or holds no `.dump` |
+| Amber: "The last backup was not fully copied off the server ..." | the last run wrote a `WARN` line (share copy or cloud upload failed) |
+| Amber: "The backup cannot be checked." | the account the app runs as may not read the backup folder |
+
+Nothing is shown while the backup is healthy; **Settings** then shows a
+**Backup** chip with the time of the last backup. Other users never see the
+strip or the chip.
+
+The app only reads the backup folder (`BACKUP_DIR`, or `C:\Backups\precastapp`)
+and the `backup.log` in it, at most every 15 seconds. It does not look at the
+scheduled task, the share or the cloud bucket themselves, so
+`check-backup.ps1` stays the full check, and the strip says to run it. The app
+reads `BACKUP_DIR` when it starts: restart the service after changing it. On a
+PC used for development (`npm run dev`) the strip stays hidden unless the
+backup folder exists there.
 
 ### Restore
 
