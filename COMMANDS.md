@@ -261,6 +261,9 @@ Full setup: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#backups).
   and/or `BACKUP_COPY_DIR` to copy to a UNC share on another machine
 - Retention: 30 days (`BACKUP_RETENTION_DAYS`), pruned automatically; log at `C:\Backups\precastapp\backup.log`
 - Credentials come from `DATABASE_URL` in `.env` — no secrets in the script
+- The app warns admins on every page (a red or amber strip under the header) when the
+  newest backup is more than 26 hours old, the last run failed, or it was not fully
+  copied off the server; Settings shows a Backup chip while it is healthy
 
 Run a backup manually:
 
