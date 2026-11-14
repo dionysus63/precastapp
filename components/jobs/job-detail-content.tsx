@@ -43,6 +43,7 @@ import {
   tableRowClassName,
 } from "@/lib/table-styles";
 import { BackButton } from "@/components/dashboard/back-button";
+import { TabBar, TabLink } from "@/components/ui/tabs";
 import { standardPageWidthClassName } from "@/lib/page-width";
 type JobDetailContentProps = {
   detail: JobDetailView;
@@ -103,38 +104,6 @@ function NewRecordLink({ href, label }: { href: string; label: string }) {
 
 function tabHref(jobId: string, tab: JobDetailTab) {
   return tab === "overview" ? `/jobs/${jobId}` : `/jobs/${jobId}?tab=${tab}`;
-}
-
-function TabLink({
-  jobId,
-  tab,
-  active,
-  count,
-}: {
-  jobId: string;
-  tab: JobDetailTab;
-  active: boolean;
-  count?: number;
-}) {
-  return (
-    <Link
-      href={tabHref(jobId, tab)}
-      className={`border-b-2 px-3 py-2 text-xs font-medium transition-colors ${
-        active
-          ? "border-slate-900 text-slate-900"
-          : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
-      }`}
-    >
-      {TAB_LABELS[tab]}
-      {typeof count === "number" ? (
-        <span
-          className={`ml-1.5 ${active ? "text-slate-500" : "text-slate-400"}`}
-        >
-          {count}
-        </span>
-      ) : null}
-    </Link>
-  );
 }
 
 function EmptyRow({ colSpan, message }: { colSpan: number; message: string }) {
@@ -295,19 +264,18 @@ export function JobDetailContent({
         </div>
       </section>
 
-      <div className={`${standardPageWidthClassName} border-b border-slate-200`}>
-        <div className="-mb-px flex flex-wrap items-center gap-1">
-          {TAB_ORDER.map((tab) => (
-            <TabLink
-              key={tab}
-              jobId={detail.id}
-              tab={tab}
-              active={activeTab === tab}
-              count={tabCounts[tab]}
-            />
-          ))}
-        </div>
-      </div>
+      <TabBar label="Job sections" className={standardPageWidthClassName}>
+        {TAB_ORDER.map((tab) => (
+          <TabLink
+            key={tab}
+            href={tabHref(detail.id, tab)}
+            active={activeTab === tab}
+            count={tabCounts[tab]}
+          >
+            {TAB_LABELS[tab]}
+          </TabLink>
+        ))}
+      </TabBar>
 
       {children}
     </div>

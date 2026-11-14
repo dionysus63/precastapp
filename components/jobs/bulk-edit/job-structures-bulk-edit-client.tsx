@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import { Tab, TabBar } from "@/components/ui/tabs";
 import type {
   BulkSheetRowInput,
   BulkSheetRowResult,
@@ -40,13 +41,6 @@ import {
   circularPayloadFromValues,
   rectPayloadFromValues,
 } from "@/components/jobs/bulk-edit/bulk-edit-payloads";
-
-const tabButtonClassName = (active: boolean) =>
-  `rounded-lg px-3 py-1.5 text-xs font-semibold ${
-    active
-      ? "bg-slate-900 text-white"
-      : "border border-slate-200 text-slate-600 hover:bg-slate-50"
-  }`;
 
 export function JobStructuresBulkEditClient({
   jobId,
@@ -263,41 +257,43 @@ export function JobStructuresBulkEditClient({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setTab("circular")}
-            className={tabButtonClassName(tab === "circular")}
-          >
-            Circular ({circularRows.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("rect")}
-            className={tabButtonClassName(tab === "rect")}
-          >
-            Rect ({rectRows.length})
-          </button>
-        </div>
-        <div className="flex items-center gap-3">
-          {message ? (
-            <p className="text-2xs text-slate-600">{message}</p>
-          ) : null}
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || dirtyCount === 0}
-            className="rounded-lg bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-slate-700 disabled:opacity-40"
-          >
-            {saving
-              ? "Saving…"
-              : dirtyCount > 0
-                ? `Save ${dirtyCount} changed`
-                : "No changes"}
-          </button>
-        </div>
-      </div>
+      <TabBar
+        label="Structure shape"
+        trailing={
+          <div className="ml-auto flex items-center gap-3">
+            {message ? (
+              <p className="text-2xs text-slate-600">{message}</p>
+            ) : null}
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || dirtyCount === 0}
+              className="rounded-lg bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-slate-700 disabled:opacity-40"
+            >
+              {saving
+                ? "Saving…"
+                : dirtyCount > 0
+                  ? `Save ${dirtyCount} changed`
+                  : "No changes"}
+            </button>
+          </div>
+        }
+      >
+        <Tab
+          active={tab === "circular"}
+          count={circularRows.length}
+          onClick={() => setTab("circular")}
+        >
+          Circular
+        </Tab>
+        <Tab
+          active={tab === "rect"}
+          count={rectRows.length}
+          onClick={() => setTab("rect")}
+        >
+          Rect
+        </Tab>
+      </TabBar>
 
       <p className="text-2xs text-slate-500">
         Enter moves down a column, Ctrl+D fills a cell from the row above, and

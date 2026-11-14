@@ -1,6 +1,7 @@
 "use client";
 
 import { useListQuery } from "@/components/common/use-list-query";
+import { Tab, TabBar } from "@/components/ui/tabs";
 
 export type CustomersPageTabCounts = {
   active: number;
@@ -63,28 +64,17 @@ export function CustomersPageTabs({ view, status, counts }: CustomersPageTabsPro
   ];
 
   return (
-    <div className="border-b border-slate-200">
-      <div className="-mb-px flex flex-wrap items-center gap-1">
-        {tabs.map((tab) => (
-          <button
-            key={tab.label}
-            type="button"
-            onClick={tab.select}
-            className={`border-b-2 px-3 py-2 text-xs font-medium transition-colors ${
-              tab.isActive
-                ? "border-slate-900 text-slate-900"
-                : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
-            }`}
-          >
-            {tab.label}
-            <span
-              className={`ml-1.5 ${tab.isActive ? "text-slate-500" : "text-slate-400"}`}
-            >
-              {tab.count.toLocaleString()}
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
+    <TabBar label="Customers and contacts">
+      {tabs.map((tab) => (
+        <Tab
+          key={tab.label}
+          active={tab.isActive}
+          count={tab.count}
+          onClick={tab.select}
+        >
+          {tab.label}
+        </Tab>
+      ))}
+    </TabBar>
   );
 }

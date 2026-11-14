@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { navigateAfterAction } from "@/lib/reload-after-action";
+import { Tab, TabBar } from "@/components/ui/tabs";
 import {
   approveStructureForProduction,
   uploadStructureSubmittalFile,
@@ -348,38 +349,31 @@ export function BulkAttachBoard({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-1.5">
-        {MODES.map((entry) => {
-          const count = groups.reduce(
-            (sum, group) => sum + targetsForMode(group, entry.id).length,
-            0,
-          );
-          const isActive = entry.id === mode;
-          return (
-            <button
-              key={entry.id}
-              type="button"
-              onClick={() => selectMode(entry.id)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
-                isActive
-                  ? "bg-slate-900 text-white"
-                  : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              {entry.label}{" "}
-              <span className={isActive ? "text-slate-300" : "text-slate-400"}>
-                {count}
-              </span>
-            </button>
-          );
-        })}
-        <Link
-          href="/production"
-          className="ml-auto text-xs font-medium text-slate-500 hover:text-slate-900"
-        >
-          ← Back to Production
-        </Link>
-      </div>
+      <TabBar
+        label="What to attach"
+        trailing={
+          <Link
+            href="/production"
+            className="ml-auto text-xs font-medium text-slate-500 hover:text-slate-900"
+          >
+            ← Back to Production
+          </Link>
+        }
+      >
+        {MODES.map((entry) => (
+          <Tab
+            key={entry.id}
+            active={entry.id === mode}
+            count={groups.reduce(
+              (sum, group) => sum + targetsForMode(group, entry.id).length,
+              0,
+            )}
+            onClick={() => selectMode(entry.id)}
+          >
+            {entry.label}
+          </Tab>
+        ))}
+      </TabBar>
 
       <p className="text-xs text-slate-500">{activeMode.description}</p>
 

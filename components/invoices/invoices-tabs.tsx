@@ -8,6 +8,7 @@ import type {
 } from "@/app/invoices/actions";
 import { InvoicesListTab } from "@/components/invoices/invoices-list-tab";
 import { ScanInTab } from "@/components/invoices/scan-in/scan-in-tab";
+import { Tab, TabBar } from "@/components/ui/tabs";
 import {
   INVOICE_LIST_SEARCH_KEYS,
   type InvoiceListSearch,
@@ -73,17 +74,11 @@ export function InvoicesTabs({
       ? scanCount.count
       : serverCount;
 
-  const tabButtonClassName = (active: boolean) =>
-    `rounded-lg px-3 py-1.5 text-xs font-medium ${
-      active ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"
-    }`;
-
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-2">
-        <button
-          type="button"
-          aria-pressed={tab === "scan"}
+      <TabBar label="Invoices">
+        <Tab
+          active={tab === "scan"}
           onClick={() =>
             // Scan In is where /invoices opens for someone who can file.
             setParams({
@@ -93,13 +88,12 @@ export function InvoicesTabs({
               ...clearedSearch,
             })
           }
-          className={tabButtonClassName(tab === "scan")}
         >
           Scan In
-        </button>
-        <button
-          type="button"
-          aria-pressed={tab === "invoices"}
+        </Tab>
+        <Tab
+          active={tab === "invoices"}
+          count={invoiceCount}
           onClick={() =>
             setParams({
               tab: "invoices",
@@ -108,11 +102,10 @@ export function InvoicesTabs({
               ...clearedSearch,
             })
           }
-          className={tabButtonClassName(tab === "invoices")}
         >
-          Invoices ({invoiceCount.toLocaleString()})
-        </button>
-      </div>
+          Invoices
+        </Tab>
+      </TabBar>
 
       {tab === "scan" && scanIn ? (
         <ScanInTab

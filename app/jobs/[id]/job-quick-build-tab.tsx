@@ -3,6 +3,7 @@ import { AppPermission } from "@/app/generated/prisma/client";
 import { OneOffAllSheetsButton } from "@/components/quotes/one-off/one-off-all-sheets-button";
 import { OneOffDrillSheets } from "@/components/quotes/one-off/one-off-drill-sheets";
 import { OneOffEditSheets } from "@/components/quotes/one-off/one-off-edit-sheets";
+import { TabBar, TabLink } from "@/components/ui/tabs";
 import { hasPermission, type AuthUser } from "@/lib/auth/permissions";
 import {
   loadOneOffDraftForResume,
@@ -26,30 +27,6 @@ export type JobQuickBuildParams = {
   draft?: string;
   sheets?: string;
 };
-
-function ViewPill({
-  href,
-  active,
-  children,
-}: {
-  href: string;
-  active: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? "page" : undefined}
-      className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-        active
-          ? "bg-slate-900 text-white"
-          : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-      }`}
-    >
-      {children}
-    </Link>
-  );
-}
 
 /**
  * Job page → Quick Build: the same build screen as Quotes → Quick Build
@@ -109,39 +86,45 @@ export async function JobQuickBuildTab({
     await loadOneOffOptions(usedTemplateIds);
 
   const header = (
-    <div className="flex flex-wrap items-center gap-2">
-      <ViewPill href={links.start} active={!editing}>
+    <TabBar
+      label="Quick Build view"
+      trailing={
+        <>
+          <span className="text-xs text-slate-500">
+            {editing
+              ? "Change cells on the saved drill sheets; only changed rows are saved."
+              : `New drill sheets are created on ${job.jobNumber} without picking the job.`}
+          </span>
+          <div className="ml-auto flex flex-wrap items-center gap-3">
+            {editing ? (
+              <OneOffAllSheetsButton
+                jobId={jobId}
+                jobNumber={job.jobNumber}
+                projectName={job.projectName}
+                sheetCount={sheetIds.length > 0 ? sheetIds.length : job.sheetCount}
+                structureIds={sheetIds}
+                unsavedNote
+              />
+            ) : null}
+            <Link
+              href={editing ? quickBuildPageLinks.edit(jobId) : quickBuildPageLinks.start}
+              className="text-xs font-medium text-sky-600 hover:underline"
+            >
+              Open full Quick Build page →
+            </Link>
+          </div>
+        </>
+      }
+    >
+      <TabLink href={links.start} active={!editing}>
         New Sheets
-      </ViewPill>
+      </TabLink>
       {job.sheetCount > 0 ? (
-        <ViewPill href={links.edit(jobId)} active={editing}>
-          Saved Sheets ({job.sheetCount})
-        </ViewPill>
+        <TabLink href={links.edit(jobId)} active={editing} count={job.sheetCount}>
+          Saved Sheets
+        </TabLink>
       ) : null}
-      <span className="text-xs text-slate-500">
-        {editing
-          ? "Change cells on the saved drill sheets; only changed rows are saved."
-          : `New drill sheets are created on ${job.jobNumber} without picking the job.`}
-      </span>
-      <div className="ml-auto flex flex-wrap items-center gap-3">
-        {editing ? (
-          <OneOffAllSheetsButton
-            jobId={jobId}
-            jobNumber={job.jobNumber}
-            projectName={job.projectName}
-            sheetCount={sheetIds.length > 0 ? sheetIds.length : job.sheetCount}
-            structureIds={sheetIds}
-            unsavedNote
-          />
-        ) : null}
-        <Link
-          href={editing ? quickBuildPageLinks.edit(jobId) : quickBuildPageLinks.start}
-          className="text-xs font-medium text-sky-600 hover:underline"
-        >
-          Open full Quick Build page →
-        </Link>
-      </div>
-    </div>
+    </TabBar>
   );
 
   if (editing) {
