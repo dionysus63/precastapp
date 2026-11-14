@@ -9,7 +9,6 @@ export default async function NewPurchaseOrderPage() {
   return (
     <DashboardShell
       title="New Purchase Order"
-      subtitle="Attach a vendor quote PDF and enter line items for accounts payable."
     >
       <BackButton href="/purchase-orders" label="Back to Purchase Orders" />
 

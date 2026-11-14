@@ -10,7 +10,7 @@ export default async function StructureImportPage() {
   return (
     <DashboardShell
       title="Bulk Import"
-      subtitle="Paste structure templates and pipe opening catalogs from Excel. Existing rows are updated by their natural key; new rows are created."
+     
     >
       <BackButton href="/structures" label="Back to Structures" />
 

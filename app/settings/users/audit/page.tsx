@@ -30,7 +30,6 @@ export default async function SettingsUsersAuditPage() {
   return (
     <SettingsShell
       title="Audit Log"
-      subtitle="Recent sign-ins, user changes, and other tracked actions."
     >
       <div>
         <BackButton href="/settings/users" label="Back to Users & Access" />

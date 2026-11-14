@@ -19,6 +19,7 @@ import { withDatabaseRetry } from "@/lib/prisma";
 import { toLocalDayInput } from "@/lib/date-only";
 
 import {
+  tableActionDangerButtonClassName,
   tableBodyClassName,
   tableCellClassName,
   tableClassName,
@@ -63,7 +64,6 @@ export default async function PriceListDetailPage({
   return (
     <SettingsShell
       title={priceList.name}
-      subtitle="Manage unit prices for products on this list."
       backHref="/settings/price-lists"
       backLabel="Back to Price Lists"
     >
@@ -317,7 +317,7 @@ export default async function PriceListDetailPage({
                           <input type="hidden" name="priceListId" value={priceList.id} />
                           <button
                             type="submit"
-                            className="text-red-700 underline hover:text-red-900"
+                            className={tableActionDangerButtonClassName}
                           >
                             Remove
                           </button>

@@ -69,9 +69,9 @@ export default async function EditJobPage({ params }: EditJobPageProps) {
   return (
     <DashboardShell
       title={`Edit ${job.jobNumber}`}
-      subtitle={`${job.projectName} — update job details.`}
+      subtitle={job.projectName}
     >
-      <div className="mx-auto max-w-3xl space-y-4">
+      <div className="max-w-3xl space-y-4">
         <BackButton href="/jobs" label="Back to Jobs" />
 
         <SectionCard

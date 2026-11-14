@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { isActionError, type ActionError } from "@/lib/action-result";
+import { selectedClassName } from "@/lib/selected-styles";
 
 /** Wait this long after the last change before filling the PDF again. */
 const DEFAULT_DEBOUNCE_MS = 600;
@@ -13,25 +14,26 @@ const MIN_PAGE_HEIGHT_PX = 320;
 /**
  * "Preview | inputs" for a portrait letter page, side by side from a 1800px
  * wide window up. The preview column grows with the window but stops once the
- * whole page fits on screen (8.5 / 11 = 0.773; 12rem is everything above and
- * below the drawn page, 1.625rem the pane's side padding), never takes more
+ * whole page fits on screen (8.5 / 11 = 0.773; the app header plus 7.3125rem
+ * is everything above and below the drawn page, 1.625rem the pane's side
+ * padding), never takes more
  * than 40%, and always leaves the inputs 64rem (the 1.25rem is the gap).
  *
  * On a narrower window there is no room for both: the inputs keep the
- * standard centered column they were laid out for and the preview stacks
+ * standard column they were laid out for and the preview stacks
  * underneath.
  */
 export const portraitPreviewSplitClassName =
-  "grid items-start gap-5 max-[1799px]:mx-auto max-[1799px]:max-w-7xl min-[1800px]:grid-cols-[min(40%,calc((100vh_-_12rem)_*_0.773_+_1.625rem),calc(100%_-_65.25rem))_minmax(0,1fr)]";
+  "grid items-start gap-5 max-[1799px]:max-w-7xl min-[1800px]:grid-cols-[min(40%,calc((100vh_-_var(--app-header-height)_-_7.3125rem)_*_0.773_+_1.625rem),calc(100%_-_65.25rem))_minmax(0,1fr)]";
 
 /**
  * The preview column itself: it comes after the inputs in the markup (so a
  * narrow window shows the inputs first), `order-first` moves it to the left
  * on a wide one, and it follows the page parked just below the sticky app
- * header (74px tall) while the inputs scroll.
+ * header (--app-header-height) while the inputs scroll.
  */
 export const portraitPreviewPaneClassName =
-  "min-w-0 max-[1799px]:w-full max-[1799px]:max-w-3xl min-[1800px]:order-first min-[1800px]:sticky min-[1800px]:top-[74px] min-[1800px]:max-h-[calc(100vh-5.5rem)] min-[1800px]:overflow-y-auto";
+  "min-w-0 max-[1799px]:w-full max-[1799px]:max-w-3xl min-[1800px]:order-first min-[1800px]:sticky min-[1800px]:top-[calc(var(--app-header-height)_-_1px)] min-[1800px]:max-h-[calc(100vh_-_var(--app-header-height)_-_0.875rem)] min-[1800px]:overflow-y-auto";
 
 export type LivePdfPreviewResult = { pdfBase64: string };
 
@@ -294,7 +296,7 @@ export function LivePdfPreview({
                   onClick={() => setActivePage(index + 1)}
                   className={`rounded border px-2 py-0.5 text-2xs font-semibold ${
                     shownPage === index + 1
-                      ? "border-slate-800 bg-slate-900 text-white"
+                      ? selectedClassName
                       : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                   }`}
                 >

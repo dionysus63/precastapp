@@ -16,7 +16,6 @@ export default async function NewQuoteStructuresPage() {
   return (
     <DashboardShell
       title="Circular Structure Workbook"
-      subtitle="Add configurable circular structures to a new quote"
     >
       <StructureWorkbookPageClient
         returnPath="/quotes/new"

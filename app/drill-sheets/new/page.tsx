@@ -22,7 +22,6 @@ export default async function NewDrillSheetPage({
   return (
     <DashboardShell
       title="New Drill Sheet"
-      subtitle="Enter rim and pipe data to compute wall height and build a drill sheet."
     >
       <BackButton href="/drill-sheets" label="Back to Workbook" />
 

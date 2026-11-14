@@ -33,7 +33,6 @@ export default async function BillingSettingsPage({
   return (
     <SettingsShell
       title="Billing & Quotes"
-      subtitle="Defaults applied when creating new quotes and invoices."
     >
       <SettingsFeedback
         error={params.error ? decodeURIComponent(params.error) : null}

@@ -13,6 +13,7 @@ import {
 import { withDatabaseRetry } from "@/lib/prisma";
 
 import {
+  tableActionButtonClassName,
   tableBodyClassName,
   tableCellClassName,
   tableClassName,
@@ -42,7 +43,6 @@ export default async function CastingSuppliersPage({
   return (
     <SettingsShell
       title="Casting Suppliers"
-      subtitle="Domestic and imported vendors for cast iron castings."
     >
       <SettingsFeedback
         error={params.error ? decodeURIComponent(params.error) : null}
@@ -92,7 +92,7 @@ export default async function CastingSuppliersPage({
                     </td>
                     <td className={tableCellClassName}>
                       <details>
-                        <summary className="cursor-pointer text-slate-700 underline hover:text-slate-900">
+                        <summary className={tableActionButtonClassName}>
                           Edit
                         </summary>
                         <form

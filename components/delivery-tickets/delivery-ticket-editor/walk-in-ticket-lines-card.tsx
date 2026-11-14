@@ -52,7 +52,6 @@ export function WalkInTicketLinesCard({
     >
       <SectionCard
         title="On this ticket"
-        description="Adjust quantities and prices here."
         action={
           lines.length > 0 ? (
             <button

@@ -45,6 +45,7 @@ import {
   createInitialWorkbookRows,
   StructureWorkbookGrid,
 } from "@/components/quotes/structure-workbook/structure-workbook-grid";
+import { selectedFillClassName } from "@/lib/selected-styles";
 
 type StructureWorkbookProps = {
   quoteId?: string;
@@ -612,7 +613,7 @@ export function StructureWorkbook({
             onClick={() => handleViewModeChange("grid")}
             className={`rounded-md px-3 py-1.5 text-2xs font-semibold ${
               viewMode === "grid"
-                ? "bg-slate-900 text-white"
+                ? selectedFillClassName
                 : "text-slate-700 hover:bg-slate-50"
             }`}
           >
@@ -623,7 +624,7 @@ export function StructureWorkbook({
             onClick={() => handleViewModeChange("takeoff")}
             className={`rounded-md px-3 py-1.5 text-2xs font-semibold ${
               viewMode === "takeoff"
-                ? "bg-slate-900 text-white"
+                ? selectedFillClassName
                 : "text-slate-700 hover:bg-slate-50"
             }`}
           >
@@ -646,7 +647,7 @@ export function StructureWorkbook({
             onClick={() => handleModeChange("QUOTE")}
             className={`rounded-md px-3 py-1.5 text-2xs font-semibold ${
               workbookMode === "QUOTE"
-                ? "bg-slate-900 text-white"
+                ? selectedFillClassName
                 : "text-slate-700 hover:bg-slate-50"
             }`}
           >
@@ -657,7 +658,7 @@ export function StructureWorkbook({
             onClick={() => handleModeChange("DRILL_SHEET")}
             className={`rounded-md px-3 py-1.5 text-2xs font-semibold ${
               workbookMode === "DRILL_SHEET"
-                ? "bg-slate-900 text-white"
+                ? selectedFillClassName
                 : "text-slate-700 hover:bg-slate-50"
             }`}
           >

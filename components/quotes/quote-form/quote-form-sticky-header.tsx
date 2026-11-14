@@ -57,7 +57,7 @@ export function QuoteFormStickyHeader({
   onSaveAndPreview: () => void;
 }) {
   return (
-    <div className="sticky top-[4.5rem] z-[9] -mx-5 mb-4 border-b border-slate-200/80 bg-white/95 px-5 py-2 shadow-sm backdrop-blur">
+    <div className="sticky top-[calc(var(--app-header-height)_-_1px)] z-[9] -mx-5 mb-4 border-b border-slate-200/80 bg-white/95 px-5 py-2 shadow-sm backdrop-blur">
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_7rem]">
         <div>
           <label

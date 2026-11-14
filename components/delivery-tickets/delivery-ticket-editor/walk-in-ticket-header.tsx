@@ -74,7 +74,7 @@ export function WalkInTicketHeader({
   return (
     <div
       ref={stickyRef}
-      className="sticky top-[74px] z-[9] rounded-xl border border-slate-300 bg-white/95 shadow-lg shadow-slate-900/5 backdrop-blur"
+      className="sticky top-[calc(var(--app-header-height)_-_1px)] z-[9] rounded-xl border border-slate-300 bg-white/95 shadow-lg shadow-slate-900/5 backdrop-blur"
     >
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-3 py-1.5">
         <div className="flex flex-wrap items-center gap-3">

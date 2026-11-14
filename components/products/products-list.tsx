@@ -26,7 +26,7 @@ import {
   tableBodyClassName,
   tableCellBordersClassName,
   tableCellClassName,
-  tableClassName,
+  tableCompactClassName,
   tableFlushWrapperClassName,
   tableHeaderCellClassName,
   tableNumericCellClassName,
@@ -126,7 +126,7 @@ const ProductsTable = memo(function ProductsTable({
   const sortProps = { sortColumn, sortDirection, onSort };
   return (
     <div className={tableFlushWrapperClassName}>
-      <table className={tableClassName}>
+      <table className={tableCompactClassName}>
         <thead>
           <tr>
             <SortableHeader column="code" label="Product Code" {...sortProps} />

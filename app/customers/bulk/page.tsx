@@ -6,9 +6,8 @@ export default function BulkCustomersPage() {
   return (
     <DashboardShell
       title="Bulk Add Customers"
-      subtitle="Paste customer rows copied from Excel and preview them before import."
     >
-      <div className="mx-auto max-w-6xl">
+      <div className="max-w-6xl">
         <BackButton href="/customers" label="Back to Customers" />
 
         <div className="mt-4">

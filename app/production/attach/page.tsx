@@ -103,7 +103,6 @@ export default async function BulkAttachPage({
   return (
     <DashboardShell
       title="Attach Submittals"
-      subtitle="Drag files onto structures to add submittals in bulk, or drop signed returns to approve them for production."
     >
       <BulkAttachBoard groups={groups} initialMode={initialMode} />
     </DashboardShell>

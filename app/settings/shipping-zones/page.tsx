@@ -30,7 +30,6 @@ export default async function ShippingZonesPage() {
   return (
     <SettingsShell
       title="Shipping Zones"
-      subtitle="Delivery pricing zones: radius rings from the yard plus hand-drawn NYC boundaries."
     >
       <ShippingZonesManager
         zones={zones}

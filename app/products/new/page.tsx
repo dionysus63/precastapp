@@ -27,9 +27,8 @@ export default async function NewProductPage() {
   return (
     <DashboardShell
       title="New Product"
-      subtitle="Add a product to your precast catalog."
     >
-      <div className="mx-auto max-w-3xl">
+      <div className="max-w-3xl">
         <BackButton href="/products" label="Back to Products" />
 
         <div className="mt-4">

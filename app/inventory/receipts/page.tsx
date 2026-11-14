@@ -15,6 +15,7 @@ import { withDatabaseRetry } from "@/lib/prisma";
 import type { Prisma } from "@/app/generated/prisma/client";
 
 import { BackButton } from "@/components/dashboard/back-button";
+import { selectedClassName } from "@/lib/selected-styles";
 type InventoryReceiptsPageProps = {
   searchParams: Promise<RawSearchParams>;
 };
@@ -65,7 +66,6 @@ export default async function InventoryReceiptsPage({
   return (
     <DashboardShell
       title="Receipt History"
-      subtitle="Past deliveries received from suppliers."
     >
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <BackButton href="/receiving" label="Back to Receiving" />
@@ -82,7 +82,7 @@ export default async function InventoryReceiptsPage({
           href={filterHref(null)}
           className={`rounded-lg border px-3 py-2 ${
             !categoryFilter
-              ? "border-slate-900 bg-slate-900 text-white"
+              ? selectedClassName
               : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
           }`}
         >
@@ -94,7 +94,7 @@ export default async function InventoryReceiptsPage({
             href={filterHref(category)}
             className={`rounded-lg border px-3 py-2 ${
               categoryFilter === category
-                ? "border-slate-900 bg-slate-900 text-white"
+                ? selectedClassName
                 : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
             }`}
           >

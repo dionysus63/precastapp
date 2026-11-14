@@ -33,7 +33,7 @@ export default async function RolesSettingsPage({
   return (
     <SettingsShell
       title="Roles & Permissions"
-      subtitle="Default permissions for each role. Changes apply to all users with that role unless they have personal overrides."
+     
     >
       <SettingsFeedback
         error={params.error ? decodeURIComponent(params.error) : null}

@@ -195,7 +195,7 @@ export default async function ProductGroupsPage() {
   return (
     <SettingsShell
       title="Product Groups"
-      subtitle="Custom groupings for the walk-in product picker. A product can belong to any number of groups and sub-groups."
+     
     >
       <SectionCard
         title="New group"

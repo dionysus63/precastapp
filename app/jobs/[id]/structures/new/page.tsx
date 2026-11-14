@@ -27,7 +27,7 @@ export default async function NewJobStructurePage({
   return (
     <DashboardShell
       title={`New Structure — ${job.jobNumber}`}
-      subtitle={`Add a structure to ${job.projectName}.`}
+      subtitle={job.projectName}
     >
       <BackButton href={`/jobs/${job.id}?tab=production`} label="Back to Job" />
 

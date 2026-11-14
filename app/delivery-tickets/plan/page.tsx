@@ -113,7 +113,7 @@ export default async function PlanLoadsPage({ searchParams }: PlanLoadsPageProps
 
   if (!jobId) {
     return (
-      <DashboardShell title="Plan Loads" subtitle="Lay out every load for a job at once.">
+      <DashboardShell title="Plan Loads">
         <EmptyState message="Open the load planner from a job's Deliveries tab so it knows which job to plan." />
       </DashboardShell>
     );
@@ -141,7 +141,7 @@ export default async function PlanLoadsPage({ searchParams }: PlanLoadsPageProps
 
   if (!job) {
     return (
-      <DashboardShell title="Plan Loads" subtitle="Lay out every load for a job at once.">
+      <DashboardShell title="Plan Loads">
         <EmptyState message="Job not found." />
       </DashboardShell>
     );

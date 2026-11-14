@@ -172,7 +172,7 @@ function PickupTileSection({
   renderCard,
 }: {
   title: string;
-  description: string;
+  description?: string;
   emptyMessage: string;
   rows: WalkInRow[];
   renderCard: (row: WalkInRow) => ReactNode;
@@ -180,7 +180,9 @@ function PickupTileSection({
   return (
     <section>
       <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
-      <p className="mb-3 text-xs text-slate-500">{description}</p>
+      {description ? (
+        <p className="mb-3 text-xs text-slate-500">{description}</p>
+      ) : null}
       {rows.length === 0 ? (
         <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-xs text-slate-500">
           {emptyMessage}
@@ -231,7 +233,6 @@ export function WalkInsBoard({
 
       <PickupTileSection
         title="Recently completed"
-        description="Walk-ins and pickups handled recently."
         emptyMessage="Nothing completed yet."
         rows={completed}
         renderCard={(row) => <CompletedPickupCard key={row.id} row={row} />}

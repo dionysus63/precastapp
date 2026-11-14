@@ -89,7 +89,7 @@ export default async function CompleteDrillSheetsPage({
   return (
     <DashboardShell
       title="Complete Drill Sheets"
-      subtitle={`Quote ${quote.quoteNumber} — fill in the drill-sheet detail for every quote-only structure at once.`}
+      subtitle={`Quote ${quote.quoteNumber}`}
     >
       <BackButton href={returnPath} label="Back" />
 

@@ -9,6 +9,7 @@ import { SettingsShell } from "@/components/settings/settings-shell";
 import { saveStructureDiameterConfigs } from "@/app/settings/diameters/actions";
 import { prisma } from "@/lib/prisma";
 import { listPriceListOptions } from "@/lib/price-list-service";
+import { selectedWithBorderClassName } from "@/lib/selected-styles";
 
 type StructureDiametersSettingsPageProps = {
   searchParams: Promise<{
@@ -67,7 +68,6 @@ export default async function StructureDiametersSettingsPage({
   return (
     <SettingsShell
       title="Structure Molds"
-      subtitle="One row per circular mold: wall thickness, max pour heights, key, and the diameter shown on drill sheets are shared; wall/base prices belong to the selected price list."
     >
       <SettingsFeedback
         error={params.error ? decodeURIComponent(params.error) : null}
@@ -89,7 +89,7 @@ export default async function StructureDiametersSettingsPage({
                   href={`/settings/diameters?priceList=${list.id}`}
                   className={`rounded-lg px-2.5 py-1 text-2xs font-semibold ${
                     list.id === selectedPriceList?.id
-                      ? "bg-slate-900 text-white"
+                      ? selectedWithBorderClassName
                       : "border border-slate-200 text-slate-600 hover:bg-slate-50"
                   }`}
                 >

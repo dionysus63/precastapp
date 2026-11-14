@@ -221,7 +221,7 @@ export default async function QuotesPage({
   const estimatorFilterOptions = ["All", ...appSettings.estimators];
 
   return (
-    <DashboardShell title="Quotes" subtitle="Manage bids, revisions, and quote status.">
+    <DashboardShell title="Quotes">
       <div className="space-y-4">
         <QuotesSummarySection tiles={statTiles} />
         <QuotesPageContent

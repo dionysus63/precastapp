@@ -26,6 +26,7 @@ import type {
   ScanInRowBand,
   ScanInSuggestion,
 } from "@/lib/ticket-scan/view-types";
+import { selectedFillClassName } from "@/lib/selected-styles";
 
 /** A change to the answers kept for one ticket; null takes an answer back. */
 export type ScanChoicePatch = {
@@ -490,7 +491,7 @@ function ChoiceButtons<T extends string>({
             index > 0 ? "border-l border-slate-300" : ""
           } ${
             current === value
-              ? "bg-slate-900 text-white"
+              ? selectedFillClassName
               : "bg-white text-slate-700 hover:bg-slate-50"
           }`}
         >

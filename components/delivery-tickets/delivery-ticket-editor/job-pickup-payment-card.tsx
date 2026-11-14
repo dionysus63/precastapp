@@ -26,7 +26,6 @@ export function JobPickupPaymentCard({
   return (
     <SectionCard
       title="Pickup & payment"
-      description="How the customer is paying and who is picking up."
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <div>

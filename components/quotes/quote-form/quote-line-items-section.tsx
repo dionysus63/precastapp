@@ -11,6 +11,7 @@ import {
 } from "@/components/quotes/quote-utils";
 import type { PipeQuoteProductType } from "@/lib/pipe-quote-utils";
 import type { AddLineModalType } from "@/components/quotes/quote-form/quote-form-utils";
+import { selectedClassName } from "@/lib/selected-styles";
 
 /** "Quote Line Items" card: the add-line buttons, type hint and the table. */
 export function QuoteLineItemsSection({
@@ -45,7 +46,6 @@ export function QuoteLineItemsSection({
   return (
     <SectionCard
       title="Quote Line Items"
-      description="Add stock products, structures, and services to the quote."
     >
       <div className="space-y-4">
         <div className="flex flex-wrap gap-2">
@@ -56,7 +56,7 @@ export function QuoteLineItemsSection({
               onClick={() => onOpenAddModal(option.value as AddLineModalType)}
               className={`rounded-lg border px-3 py-1.5 text-2xs font-semibold transition-colors ${
                 activeLineType === option.value
-                  ? "border-slate-900 bg-slate-900 text-white"
+                  ? selectedClassName
                   : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
               }`}
             >

@@ -237,7 +237,6 @@ export default async function ProductionPage({
   return (
     <DashboardShell
       title="Production"
-      subtitle="Approve, track, and mark job-specific structures as made, and view structures ready to ship."
     >
       <ProductionBoard
         approved={approvedQueue.map(mapStructure)}

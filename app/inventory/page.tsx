@@ -22,6 +22,7 @@ import { prisma, withDatabaseRetry } from "@/lib/prisma";
 import type { Prisma } from "@/app/generated/prisma/client";
 
 import {
+  tableActionButtonClassName,
   tableBodyClassName,
   tableCellClassName,
   tableClassName,
@@ -309,7 +310,6 @@ export default async function InventoryPage({
   return (
     <DashboardShell
       title="Inventory"
-      subtitle="Stock levels for tracked products and buildable casting sets."
     >
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {summaryCards.map((card) => (
@@ -504,7 +504,7 @@ export default async function InventoryPage({
                       <td className={tableCellClassName}>
                         <Link
                           href={`/inventory/${product.id}`}
-                          className="text-slate-700 underline hover:text-slate-900"
+                          className={tableActionButtonClassName}
                         >
                           View
                         </Link>

@@ -21,7 +21,6 @@ export default async function InventoryAdjustPage() {
   return (
     <DashboardShell
       title="Inventory Adjustment"
-      subtitle="Manually add or remove stock with a ledger entry."
     >
       <BackButton href="/inventory" label="Back to Inventory" />
       <div className="mt-4">

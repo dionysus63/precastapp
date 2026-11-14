@@ -10,6 +10,7 @@ import type {
   OneOffRowResult,
   OneOffShape,
 } from "@/lib/quotes/one-off-drill-sheets";
+import { selectedClassName } from "@/lib/selected-styles";
 
 /** Wait this long after the last keystroke before filling the PDF again. */
 const PREVIEW_DEBOUNCE_MS = 600;
@@ -25,25 +26,25 @@ const MIN_PAGE_HEIGHT_PX = 320;
  * Circular sheets are portrait: the preview takes half the width, but on a
  * wide (full-width) window it stops growing once the whole letter page fits
  * on screen, so the sheet never needs scrolling and the grid gets the rest.
- * 8.5 / 11 = 0.773; 12rem is everything above and below the drawn page (the
- * app header the pane sticks under, the pane's own header and padding) and
+ * 8.5 / 11 = 0.773; the app header plus 7.3125rem is everything above and
+ * below the drawn page (the pane's own header and padding) and
  * 1.625rem the pane's side padding. The 40rem floor keeps the size the
  * preview always had on a 1280px-wide page.
  */
 const SPLIT_CLASS_NAME: Record<OneOffShape, string> = {
   CIRCULAR:
-    "lg:grid-cols-[min(50%,max(40rem,calc((100vh_-_12rem)_*_0.773_+_1.625rem)))_minmax(0,1fr)]",
+    "lg:grid-cols-[min(50%,max(40rem,calc((100vh_-_var(--app-header-height)_-_7.3125rem)_*_0.773_+_1.625rem)))_minmax(0,1fr)]",
   RECTANGULAR: "lg:grid-cols-[60%_minmax(0,1fr)]",
 };
 
 /**
  * The preview column: follows the page while the grid scrolls, parked just
- * below the sticky app header (about 4.75rem tall) instead of sliding under
+ * below the sticky app header (--app-header-height) instead of sliding under
  * it. It comes after the grid in the markup (so a narrow window stacks the
  * grid first) and `order-first` moves it to the left column on wide ones.
  */
 export const oneOffPreviewPaneClassName =
-  "min-w-0 lg:order-first lg:sticky lg:top-[5.25rem] lg:max-h-[calc(100vh-6.25rem)] lg:overflow-y-auto";
+  "min-w-0 lg:order-first lg:sticky lg:top-[calc(var(--app-header-height)_+_0.5rem)] lg:max-h-[calc(100vh_-_var(--app-header-height)_-_1.5rem)] lg:overflow-y-auto";
 
 export function oneOffSplitClassName(shape: OneOffShape): string {
   return `grid items-start gap-5 ${SPLIT_CLASS_NAME[shape]}`;
@@ -342,7 +343,7 @@ export function OneOffSheetPreview({
                   }
                   className={`rounded border px-2 py-0.5 text-2xs font-semibold ${
                     activePage === index + 1
-                      ? "border-slate-800 bg-slate-900 text-white"
+                      ? selectedClassName
                       : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                   }`}
                 >

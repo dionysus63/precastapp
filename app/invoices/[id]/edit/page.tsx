@@ -35,7 +35,7 @@ export default async function EditInvoicePage({ params }: PageProps) {
   return (
     <DashboardShell
       title={`Edit ${invoice.invoiceNumber}`}
-      subtitle="Fix a price, quantity or tax, then save. Changes update the invoice right away."
+     
     >
       <InvoiceEditor
         invoiceId={invoice.id}

@@ -813,7 +813,6 @@ export function DrillSheetForm({
 
       <SectionCard
         title="Pipe Penetrations"
-        description="Enter invert elevation, pipe size, material, type, and angle for each opening."
         action={
           <button
             type="button"

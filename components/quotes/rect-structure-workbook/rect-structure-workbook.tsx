@@ -57,6 +57,7 @@ import {
   tableInlineInputClassName,
   tableWrapperClassName,
 } from "@/lib/table-styles";
+import { selectedFillClassName } from "@/lib/selected-styles";
 
 const WALL_OPTIONS: RectWall[] = ["UP", "DOWN", "LEFT", "RIGHT"];
 
@@ -461,7 +462,7 @@ export function RectStructureWorkbook({
             onClick={() => handleModeChange("QUOTE")}
             className={`rounded-md px-3 py-1.5 text-2xs font-semibold ${
               workbookMode === "QUOTE"
-                ? "bg-slate-900 text-white"
+                ? selectedFillClassName
                 : "text-slate-700 hover:bg-slate-50"
             }`}
           >
@@ -472,7 +473,7 @@ export function RectStructureWorkbook({
             onClick={() => handleModeChange("FULL")}
             className={`rounded-md px-3 py-1.5 text-2xs font-semibold ${
               workbookMode === "FULL"
-                ? "bg-slate-900 text-white"
+                ? selectedFillClassName
                 : "text-slate-700 hover:bg-slate-50"
             }`}
           >

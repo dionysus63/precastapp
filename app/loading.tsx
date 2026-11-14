@@ -23,7 +23,7 @@ export default function RootLoading() {
           <div className="mt-2 h-4 w-96 animate-pulse rounded bg-slate-100" />
         </div>
         <main className="flex-1 px-5 py-5">
-          <div className="mx-auto max-w-7xl space-y-4">
+          <div className="max-w-7xl space-y-4">
             <div className="grid gap-4 md:grid-cols-4">
               {Array.from({ length: 4 }).map((_, index) => (
                 <div

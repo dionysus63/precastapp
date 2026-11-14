@@ -12,7 +12,6 @@ export default async function NewQuoteRectStructuresPage() {
   return (
     <DashboardShell
       title="Rectangular Structure Workbook"
-      subtitle="Add rectangular structures (catch basins, boxes, leaching structures) to a new quote"
     >
       <RectStructureWorkbookPageClient
         returnPath="/quotes/new"

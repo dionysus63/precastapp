@@ -102,7 +102,6 @@ export default async function PurchaseOrdersPage({
   return (
     <DashboardShell
       title="Purchase Orders"
-      subtitle="Vendor quotes and AP tracking with receiving fulfillment."
     >
       <div className="mb-4 flex flex-wrap justify-between gap-3">
         <form method="get" className="flex flex-wrap gap-2 text-xs">

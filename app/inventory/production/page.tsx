@@ -20,7 +20,6 @@ export default async function InventoryProductionPage() {
   return (
     <DashboardShell
       title="Daily Production Entry"
-      subtitle="Record stock products made today — quantities are added to inventory."
     >
       <div className="mb-4">
         <BackButton href="/inventory" label="Back to Inventory" />

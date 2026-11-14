@@ -24,7 +24,6 @@ export default async function ShippingRatesPage() {
   return (
     <DashboardShell
       title="Shipping Rates"
-      subtitle="Enter a delivery address to find its zone and price per load."
     >
       {zoneRows.length === 0 ? (
         <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-800">

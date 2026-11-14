@@ -4,6 +4,7 @@ import { jobInputClassName } from "@/components/jobs/job-utils";
 import { IMPORT_DOC_KINDS, type ImportDocKind } from "@/lib/job-import";
 import { ImportDropZone } from "./import-drop-zone";
 import type { ImportFileEntry, ImportQuoteFields } from "./import-types";
+import { selectedFillClassName } from "@/lib/selected-styles";
 
 const KIND_HELP: Record<ImportDocKind, { title: string; help: string }> = {
   DRILL_SHEET: {
@@ -185,7 +186,7 @@ export function ImportDocumentsStep({
                       onClick={() => onModeChange(kind.value, option)}
                       className={`px-3 py-1.5 ${
                         mode === option
-                          ? "bg-slate-900 text-white"
+                          ? selectedFillClassName
                           : "bg-white text-slate-700 hover:bg-slate-50"
                       }`}
                     >

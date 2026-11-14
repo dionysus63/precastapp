@@ -11,6 +11,7 @@ import { formatReceivingCategoryLabel } from "@/lib/receiving-utils";
 import { withDatabaseRetry } from "@/lib/prisma";
 
 import {
+  tableActionButtonClassName,
   tableBodyClassName,
   tableCellClassName,
   tableClassName,
@@ -38,7 +39,6 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
   return (
     <SettingsShell
       title="Vendors"
-      subtitle="Suppliers for purchase orders and accounts payable."
     >
       <SettingsFeedback
         error={params.error ? decodeURIComponent(params.error) : null}
@@ -90,7 +90,7 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
                     </td>
                     <td className={tableCellClassName}>
                       <details>
-                        <summary className="cursor-pointer text-slate-700 underline hover:text-slate-900">
+                        <summary className={tableActionButtonClassName}>
                           Edit
                         </summary>
                         <form

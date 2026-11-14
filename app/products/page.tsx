@@ -342,7 +342,6 @@ export default async function ProductsPage({
   return (
     <DashboardShell
       title="Products"
-      subtitle="Manage precast product catalog, pricing, and inventory tracking."
     >
       <ImportFeedbackBanner
         imported={imported}

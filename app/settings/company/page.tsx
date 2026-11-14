@@ -84,7 +84,6 @@ export default async function CompanySettingsPage({
   return (
     <SettingsShell
       title="Company & Branding"
-      subtitle="Used on PDF letterhead and in the app sidebar."
     >
       <SettingsFeedback
         error={params.error ? decodeURIComponent(params.error) : null}

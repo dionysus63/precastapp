@@ -19,7 +19,6 @@ export function JobFilesPreview({
   return (
     <SectionCard
       title="Job Files"
-      description="Project documents stored in the Windows job folder."
       action={
         folderPath ? (
           <Link

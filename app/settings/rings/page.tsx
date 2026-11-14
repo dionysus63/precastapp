@@ -42,7 +42,6 @@ export default async function RingBuilderSettingsPage({
   return (
     <SettingsShell
       title="Ring Builder"
-      subtitle="Default ring pricing and Other product options per diameter and style."
     >
       <SettingsFeedback
         error={params.error ? decodeURIComponent(params.error) : null}

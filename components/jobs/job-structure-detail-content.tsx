@@ -233,7 +233,6 @@ export function JobStructureDetailContent({
 
       <SectionCard
         title="Production Workflow"
-        description="Track submittal, approval, production, and completion."
       >
         <ol className="grid gap-3 sm:grid-cols-5">
           {detail.workflowSteps.map((step) => (

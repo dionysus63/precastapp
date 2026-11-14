@@ -30,7 +30,6 @@ export default async function StructuresPage() {
   return (
     <DashboardShell
       title="Structures"
-      subtitle="Structure templates and per-shape opening catalogs for the Drill Sheet Workbook."
     >
       <div className="mb-4 flex flex-wrap justify-end gap-2">
         <Link

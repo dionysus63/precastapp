@@ -26,7 +26,7 @@ import {
   tableBodyClassName,
   tableCellBordersClassName,
   tableCellClassName,
-  tableClassName,
+  tableCompactClassName,
   tableFlushWrapperClassName,
   tableHeaderCellWrapClassName,
   tableRowClassName,
@@ -151,7 +151,7 @@ const JobsTable = memo(function JobsTable({
 
   return (
     <div className={tableFlushWrapperClassName}>
-      <table className={tableClassName}>
+      <table className={tableCompactClassName}>
         <thead>
           <tr>
             <th className={tableHeaderCellWrapClassName}>

@@ -61,7 +61,6 @@ export default async function RectOpeningSizesPage({
   return (
     <DashboardShell
       title="Rect Structure Openings"
-      subtitle="Global catalog for rectangular sheets, grouped by pipe material: each size → block-out opening width and height."
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <BackButton href="/structures" label="Back to Structures" />

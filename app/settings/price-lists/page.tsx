@@ -9,6 +9,7 @@ import { withDatabaseRetry } from "@/lib/prisma";
 import { formatDateShort } from "@/lib/format";
 
 import {
+  tableActionButtonClassName,
   tableBodyClassName,
   tableCellClassName,
   tableClassName,
@@ -33,7 +34,6 @@ export default async function PriceListsPage() {
   return (
     <SettingsShell
       title="Price Lists"
-      subtitle="Product pricing for quotes and walk-in delivery tickets."
     >
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <SectionCard title="Price lists" noPadding>
@@ -86,7 +86,7 @@ export default async function PriceListsPage() {
                       <td className={tableCellClassName}>
                         <Link
                           href={`/settings/price-lists/${list.id}`}
-                          className="text-slate-700 underline hover:text-slate-900"
+                          className={tableActionButtonClassName}
                         >
                           Manage
                         </Link>

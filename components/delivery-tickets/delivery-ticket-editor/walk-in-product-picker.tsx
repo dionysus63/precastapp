@@ -5,6 +5,7 @@ import { formatUsd } from "@/lib/format";
 import { productPriceFor } from "./editor-utils";
 import type { ProductOption } from "./types";
 import type { WalkInProductFilter } from "./use-walk-in-product-filter";
+import { selectedClassName, selectedFillClassName, selectedMutedTextClassName } from "@/lib/selected-styles";
 
 type WalkInProductPickerProps = {
   products: ProductOption[];
@@ -78,7 +79,7 @@ export function WalkInProductPicker({
                 onClick={() => selectWalkInPickerMode("categories")}
                 className={
                   walkInPickerMode === "categories"
-                    ? "bg-slate-900 px-2.5 py-1 text-white"
+                    ? `${selectedFillClassName} px-2.5 py-1`
                     : "px-2.5 py-1 text-slate-600 hover:bg-slate-50"
                 }
               >
@@ -90,7 +91,7 @@ export function WalkInProductPicker({
                 onClick={() => selectWalkInPickerMode("groups")}
                 className={
                   walkInPickerMode === "groups"
-                    ? "bg-slate-900 px-2.5 py-1 text-white"
+                    ? `${selectedFillClassName} px-2.5 py-1`
                     : "border-l border-slate-200 px-2.5 py-1 text-slate-600 hover:bg-slate-50"
                 }
               >
@@ -106,7 +107,7 @@ export function WalkInProductPicker({
                   onClick={() => selectWalkInGroup(null)}
                   className={`rounded-full border px-2.5 py-1 text-2xs font-medium ${
                     walkInGroupId == null
-                      ? "border-slate-900 bg-slate-900 text-white"
+                      ? selectedClassName
                       : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                   }`}
                 >
@@ -114,7 +115,7 @@ export function WalkInProductPicker({
                   <span
                     className={
                       walkInGroupId == null
-                        ? "text-slate-300"
+                        ? selectedMutedTextClassName
                         : "text-slate-400"
                     }
                   >
@@ -128,7 +129,7 @@ export function WalkInProductPicker({
                     onClick={() => selectWalkInGroup(group.id)}
                     className={`rounded-full border px-2.5 py-1 text-2xs font-medium ${
                       walkInGroupId === group.id
-                        ? "border-slate-900 bg-slate-900 text-white"
+                        ? selectedClassName
                         : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                     }`}
                   >
@@ -136,7 +137,7 @@ export function WalkInProductPicker({
                     <span
                       className={
                         walkInGroupId === group.id
-                          ? "text-slate-300"
+                          ? selectedMutedTextClassName
                           : "text-slate-400"
                       }
                     >
@@ -156,7 +157,7 @@ export function WalkInProductPicker({
                     onClick={() => setWalkInSubgroupId(null)}
                     className={`rounded-md border px-2 py-0.5 text-2xs font-medium ${
                       walkInSubgroupId == null
-                        ? "border-slate-300 bg-slate-100 text-slate-900"
+                        ? selectedClassName
                         : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
                     }`}
                   >
@@ -170,7 +171,7 @@ export function WalkInProductPicker({
                         onClick={() => setWalkInSubgroupId(subgroup.id)}
                         className={`rounded-md border px-2 py-0.5 text-2xs font-medium ${
                           walkInSubgroupId === subgroup.id
-                            ? "border-slate-300 bg-slate-100 text-slate-900"
+                            ? selectedClassName
                             : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
                         }`}
                       >
@@ -193,7 +194,7 @@ export function WalkInProductPicker({
               onClick={() => selectWalkInCategory("all")}
               className={`rounded-full border px-2.5 py-1 text-2xs font-medium ${
                 walkInCategoryId === "all"
-                  ? "border-slate-900 bg-slate-900 text-white"
+                  ? selectedClassName
                   : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
               }`}
             >
@@ -201,7 +202,7 @@ export function WalkInProductPicker({
               <span
                 className={
                   walkInCategoryId === "all"
-                    ? "text-slate-300"
+                    ? selectedMutedTextClassName
                     : "text-slate-400"
                 }
               >
@@ -215,7 +216,7 @@ export function WalkInProductPicker({
                 onClick={() => selectWalkInCategory(category.id)}
                 className={`rounded-full border px-2.5 py-1 text-2xs font-medium ${
                   walkInCategoryId === category.id
-                    ? "border-slate-900 bg-slate-900 text-white"
+                    ? selectedClassName
                     : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                 }`}
               >
@@ -223,7 +224,7 @@ export function WalkInProductPicker({
                 <span
                   className={
                     walkInCategoryId === category.id
-                      ? "text-slate-300"
+                      ? selectedMutedTextClassName
                       : "text-slate-400"
                   }
                 >
@@ -242,7 +243,7 @@ export function WalkInProductPicker({
                 onClick={() => setWalkInSubcategoryId(null)}
                 className={`rounded-md border px-2 py-0.5 text-2xs font-medium ${
                   walkInSubcategoryId == null
-                    ? "border-slate-300 bg-slate-100 text-slate-900"
+                    ? selectedClassName
                     : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
                 }`}
               >
@@ -255,7 +256,7 @@ export function WalkInProductPicker({
                   onClick={() => setWalkInSubcategoryId(subcategory.id)}
                   className={`rounded-md border px-2 py-0.5 text-2xs font-medium ${
                     walkInSubcategoryId === subcategory.id
-                      ? "border-slate-300 bg-slate-100 text-slate-900"
+                      ? selectedClassName
                       : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
                   }`}
                 >

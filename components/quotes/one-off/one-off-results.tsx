@@ -8,6 +8,7 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import { DrillSheetPdfCanvasPreview } from "@/components/drill-sheets/drill-sheet-pdf-canvas-preview";
 import { OneOffAllSheetsButton } from "@/components/quotes/one-off/one-off-all-sheets-button";
 import { drillSheetsPacketHref } from "@/lib/drill-sheets-packet";
+import { selectedClassName } from "@/lib/selected-styles";
 
 const chipClassName =
   "rounded-md border border-slate-200 bg-white px-2 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50";
@@ -174,7 +175,7 @@ export function OneOffResults({
                         onClick={() => setActivePage(index + 1)}
                         className={`rounded border px-3 py-1 text-xs font-semibold ${
                           activePage === index + 1
-                            ? "border-slate-800 bg-slate-900 text-white"
+                            ? selectedClassName
                             : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                         }`}
                       >

@@ -100,7 +100,6 @@ export default async function EditQuotePage({ params }: EditQuotePageProps) {
   return (
     <DashboardShell
       title={`Edit Quote ${quote.quoteNumber}`}
-      subtitle="Update quote details, line items, and pricing."
     >
       <div>
         <QuoteForm

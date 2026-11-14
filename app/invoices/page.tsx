@@ -123,7 +123,6 @@ export default async function InvoicesPage({
   return (
     <DashboardShell
       title="Invoices"
-      subtitle="Scan in the day's signed tickets, then print, check and edit the invoices."
       // Both tabs put a sheet of paper beside their grid.
       width="full"
     >
