@@ -11,8 +11,15 @@ import { Prisma } from "@/app/generated/prisma/client";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { requirePermission } from "@/lib/auth/session";
 import {
+  buildInvoiceListWhere,
+  MAX_SELECTED_INVOICES,
+  parseInvoiceListSearch,
+  type InvoiceListSearch,
+} from "@/lib/invoice-list-search";
+import {
   INVOICE_LIST_FILTERS,
   isUnpaidInvoiceStatus,
+  parseInvoiceListFilter,
   UNPAID_INVOICE_STATUSES,
   type InvoiceFilterCounts,
   type InvoiceListFilter,
@@ -22,6 +29,7 @@ import { withDatabaseRetry } from "@/lib/prisma";
 import { computeDeliveryAmount } from "@/lib/quotes/money-rules";
 import { buildPageInfo } from "@/lib/list-params";
 import { returnActionError } from "@/lib/server/action-errors";
+import { signedTicketJobCopyName } from "@/lib/ticket-scan/storage";
 
 export type InvoiceLineInput = {
   id?: string;
@@ -452,6 +460,7 @@ export type InvoiceListRow = {
   invoiceNumber: string;
   customerName: string;
   projectName: string;
+  jobNumber: string | null;
   status: InvoiceStatus;
   /** Price before tax: the subtotal with any discount taken off. */
   price: number;
@@ -465,25 +474,17 @@ export type InvoiceListRow = {
   deliveryDate: Date | null;
   /** Item codes of the lines still waiting for a price (PRICE NEEDED). */
   priceNeededItems: string[];
+  /**
+   * The signed copy of this invoice's ticket, as filed by Scan In. Null when
+   * no signed ticket has been scanned in for it.
+   */
+  signedTicket: {
+    fileId: string;
+    pageCount: number;
+    /** "T10189 - Signed.pdf" */
+    fileName: string;
+  } | null;
 };
-
-function invoiceListWhere(filter: InvoiceListFilter): Prisma.InvoiceWhereInput {
-  switch (filter) {
-    case "PRICE_NEEDED":
-      return {
-        status: { in: [...UNPAID_INVOICE_STATUSES] },
-        lineItems: { some: { needsPrice: true } },
-      };
-    case "OPEN":
-      return { status: { in: [...UNPAID_INVOICE_STATUSES] } };
-    case "PAID":
-      return { status: "PAID" };
-    case "VOID":
-      return { status: "VOID" };
-    default:
-      return {};
-  }
-}
 
 const INVOICE_LIST_INCLUDE = {
   deliveryTicket: {
@@ -493,6 +494,12 @@ const INVOICE_LIST_INCLUDE = {
       paymentMethod: true,
       paymentReceived: true,
       deliveryDate: true,
+      signedFiles: {
+        where: { isCurrent: true },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { id: true, pageCount: true },
+      },
     },
   },
   lineItems: {
@@ -505,11 +512,13 @@ const INVOICE_LIST_INCLUDE = {
 function mapInvoiceListRow(
   invoice: Prisma.InvoiceGetPayload<{ include: typeof INVOICE_LIST_INCLUDE }>,
 ): InvoiceListRow {
+  const signed = invoice.deliveryTicket.signedFiles[0] ?? null;
   return {
     id: invoice.id,
     invoiceNumber: invoice.invoiceNumber,
     customerName: invoice.customerName,
     projectName: invoice.projectName,
+    jobNumber: invoice.jobNumber,
     status: invoice.status,
     price: Number(invoice.subtotal) - Number(invoice.discountAmount),
     salesTax: Number(invoice.salesTax),
@@ -525,16 +534,26 @@ function mapInvoiceListRow(
     priceNeededItems: isUnpaidInvoiceStatus(invoice.status)
       ? invoice.lineItems.map((line) => line.itemCode)
       : [],
+    signedTicket: signed
+      ? {
+          fileId: signed.id,
+          pageCount: signed.pageCount,
+          fileName: signedTicketJobCopyName(
+            invoice.deliveryTicket.ticketNumber ?? "Ticket",
+          ),
+        }
+      : null,
   };
 }
 
 export async function listInvoicesForPage(options: {
   filter: InvoiceListFilter;
+  search?: InvoiceListSearch;
   page: number;
 }) {
   await requirePermission(AppPermission.INVOICES_VIEW);
 
-  const where = invoiceListWhere(options.filter);
+  const where = buildInvoiceListWhere(options.filter, options.search);
 
   const total = await withDatabaseRetry((client) =>
     client.invoice.count({ where }),
@@ -557,15 +576,20 @@ export async function listInvoicesForPage(options: {
   };
 }
 
-/** One count per filter chip, so each chip shows how many it holds. */
-export async function getInvoiceFilterCounts(): Promise<InvoiceFilterCounts> {
+/**
+ * One count per filter chip, so each chip shows how many it holds. With a
+ * search (contractor, job, dates, totals) the chips count inside that search.
+ */
+export async function getInvoiceFilterCounts(
+  search?: InvoiceListSearch,
+): Promise<InvoiceFilterCounts> {
   await requirePermission(AppPermission.INVOICES_VIEW);
 
   const filters = INVOICE_LIST_FILTERS.map((filter) => filter.value);
   const counts = await withDatabaseRetry((client) =>
     Promise.all(
       filters.map((filter) =>
-        client.invoice.count({ where: invoiceListWhere(filter) }),
+        client.invoice.count({ where: buildInvoiceListWhere(filter, search) }),
       ),
     ),
   );
@@ -573,4 +597,84 @@ export async function getInvoiceFilterCounts(): Promise<InvoiceFilterCounts> {
   return Object.fromEntries(
     filters.map((filter, index) => [filter, counts[index]!]),
   ) as InvoiceFilterCounts;
+}
+
+export type InvoiceSelectionEntry = { id: string; invoiceNumber: string };
+
+/**
+ * "Select all in this view": every invoice the chip and the search boxes
+ * show, across all its pages, so they can be ticked in one go.
+ */
+export async function listInvoiceSelectionForView(view: {
+  filter: InvoiceListFilter;
+  search: InvoiceListSearch;
+}): Promise<{ invoices: InvoiceSelectionEntry[] } | { error: string }> {
+  await requirePermission(AppPermission.INVOICES_VIEW);
+  try {
+    const where = buildInvoiceListWhere(
+      parseInvoiceListFilter(view.filter),
+      parseInvoiceListSearch(view.search),
+    );
+    const invoices = await withDatabaseRetry((client) =>
+      client.invoice.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }],
+        take: MAX_SELECTED_INVOICES + 1,
+        select: { id: true, invoiceNumber: true },
+      }),
+    );
+    if (invoices.length > MAX_SELECTED_INVOICES) {
+      return {
+        error: `More than ${MAX_SELECTED_INVOICES} invoices match. Narrow the filters to print or download them together.`,
+      };
+    }
+    return { invoices };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : "Could not load the invoices.",
+    };
+  }
+}
+
+export type InvoiceSearchSuggestions = {
+  /** Contractor names that have an invoice, A to Z. */
+  customers: string[];
+  /** Jobs that have an invoice (inside the contractor typed, if any). */
+  jobs: { projectName: string; jobNumber: string | null }[];
+};
+
+const MAX_SEARCH_SUGGESTIONS = 500;
+
+/** What the Contractor and Job boxes offer while typing. */
+export async function getInvoiceSearchSuggestions(
+  customer = "",
+): Promise<InvoiceSearchSuggestions> {
+  await requirePermission(AppPermission.INVOICES_VIEW);
+  const customerText = customer.trim();
+  const [customers, jobs] = await withDatabaseRetry((client) =>
+    Promise.all([
+      client.invoice.findMany({
+        distinct: ["customerName"],
+        orderBy: { customerName: "asc" },
+        take: MAX_SEARCH_SUGGESTIONS,
+        select: { customerName: true },
+      }),
+      client.invoice.findMany({
+        where: customerText
+          ? { customerName: { contains: customerText, mode: "insensitive" } }
+          : {},
+        distinct: ["projectName", "jobNumber"],
+        orderBy: [{ projectName: "asc" }, { jobNumber: "asc" }],
+        take: MAX_SEARCH_SUGGESTIONS,
+        select: { projectName: true, jobNumber: true },
+      }),
+    ]),
+  );
+  return {
+    customers: customers
+      .map((entry) => entry.customerName.trim())
+      .filter(Boolean),
+    jobs: jobs.filter((entry) => entry.projectName.trim() !== ""),
+  };
 }
