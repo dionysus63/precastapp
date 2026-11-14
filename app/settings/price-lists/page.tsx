@@ -34,7 +34,6 @@ export default async function PriceListsPage() {
   return (
     <SettingsShell
       title="Price Lists"
-      subtitle="Product pricing for quotes and walk-in delivery tickets."
     >
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <SectionCard title="Price lists" noPadding>

@@ -18,7 +18,7 @@ export default async function NewJobPage() {
   return (
     <DashboardShell
       title="New Job"
-      subtitle="Create a new job record. A job number will be assigned automatically for the current year."
+     
     >
       <div className="max-w-3xl">
         <BackButton href="/jobs" label="Back to Jobs" />

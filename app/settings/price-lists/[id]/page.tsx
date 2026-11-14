@@ -64,7 +64,6 @@ export default async function PriceListDetailPage({
   return (
     <SettingsShell
       title={priceList.name}
-      subtitle="Manage unit prices for products on this list."
       backHref="/settings/price-lists"
       backLabel="Back to Price Lists"
     >

@@ -45,6 +45,13 @@
 /* Keep in step with TEXT_SIZE_SCALE in lib/text-size.ts. */
 :root {
   --text-scale: 1;
+  /*
+   * The sticky bar at the top of every screen (components/dashboard/header.tsx)
+   * is exactly this tall, bottom line included. Anything that sticks under it
+   * (the preview panes, the ticket editor's bar, the quote form's bar) reads
+   * this instead of repeating a pixel number.
+   */
+  --app-header-height: 3.3125rem;
 }
 
 :root[data-text-size="LARGE"] {

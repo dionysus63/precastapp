@@ -106,7 +106,7 @@ export default async function PrintingSettingsPage({
   return (
     <SettingsShell
       title="Printing"
-      subtitle="Direct-print defaults: jobs go straight from the server to the printer, no browser dialog."
+     
     >
       <SettingsFeedback
         error={params.error ? decodeURIComponent(params.error) : null}

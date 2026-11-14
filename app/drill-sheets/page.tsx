@@ -66,7 +66,6 @@ export default async function DrillSheetsPage({
   return (
     <DashboardShell
       title="Drill Sheet Workbook"
-      subtitle="Build and review circular manhole and rectangular structure sheets."
     >
       <div className="mb-4 flex justify-end gap-2">
         <Link

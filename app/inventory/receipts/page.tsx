@@ -66,7 +66,6 @@ export default async function InventoryReceiptsPage({
   return (
     <DashboardShell
       title="Receipt History"
-      subtitle="Past deliveries received from suppliers."
     >
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <BackButton href="/receiving" label="Back to Receiving" />

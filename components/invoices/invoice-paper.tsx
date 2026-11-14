@@ -14,7 +14,8 @@ import { useEffect, useState } from "react";
  * width = height x 0.7727.
  */
 export const paperStyle = {
-  maxWidth: "min(42rem, calc((100vh - 13rem) * 0.7727))",
+  maxWidth:
+    "min(42rem, calc((100vh - var(--app-header-height) - 8.3125rem) * 0.7727))",
 } as const;
 
 const stepButtonClassName =

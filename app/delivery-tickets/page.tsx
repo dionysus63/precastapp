@@ -69,7 +69,6 @@ export default async function DeliveryTicketsPage() {
   return (
     <DashboardShell
       title="Delivery Hub"
-      subtitle="Dispatcher hub for scheduling, printing, and tracking deliveries."
     >
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-end gap-2">

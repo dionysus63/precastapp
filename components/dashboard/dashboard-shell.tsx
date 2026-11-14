@@ -85,12 +85,7 @@ export async function DashboardShell({
         userRole={user.role}
       />
       <div className="flex min-h-screen min-w-0 flex-col">
-        <Header
-          title={title}
-          subtitle={subtitle}
-          user={user}
-          permissions={permissions}
-        />
+        <Header title={title} subtitle={subtitle} />
         {/* Only an admin can do something about the server's backup. */}
         {permissions.includes(AppPermission.USERS_MANAGE) ? <BackupWarning /> : null}
         <main className="flex-1 px-5 py-5">

@@ -143,7 +143,6 @@ export default async function CustomerDetailPage({
   return (
     <DashboardShell
       title={detail.name}
-      subtitle="Customer profile and account details."
     >
       <CustomerDetailContent customer={detail} />
     </DashboardShell>

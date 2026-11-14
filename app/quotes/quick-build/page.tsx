@@ -54,11 +54,6 @@ export default async function QuickBuildPage({
       <DashboardShell
         width="full"
         title={resume ? `Quick Build — ${resume.name}` : "Quick Build"}
-        subtitle={
-          resume
-            ? "Picking up a saved Quick Build. Save again any time, or create the sheets when every row is ready."
-            : "Make a few drill sheets for a job without building a quote first."
-        }
       >
         {draftId && !resume ? (
           <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">

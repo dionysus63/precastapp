@@ -35,7 +35,6 @@ export default async function FileSettingsPage({
   return (
     <SettingsShell
       title="Files & Folders"
-      subtitle="Windows job folder root, stock submittals, and PDF output paths."
     >
       <SettingsFeedback
         error={params.error ? decodeURIComponent(params.error) : null}

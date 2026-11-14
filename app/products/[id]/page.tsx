@@ -107,7 +107,6 @@ export default async function ProductDetailPage({
   return (
     <DashboardShell
       title={detail.productName}
-      subtitle="Product catalog details and documents."
     >
       <div className="max-w-4xl space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">

@@ -8,7 +8,6 @@ export default function NewCustomerPage() {
   return (
     <DashboardShell
       title="New Customer"
-      subtitle="Create a customer record for quotes, jobs, and invoicing."
     >
       <div className="max-w-3xl">
         <BackButton href="/customers" label="Back to Customers" />

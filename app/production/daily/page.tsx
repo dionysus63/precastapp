@@ -35,7 +35,7 @@ export default async function DailyProductionPage({
   return (
     <DashboardShell
       title="Daily Production"
-      subtitle="Record what the yard made — job structures and stock. Everyone saves their own entry; entries add together per day."
+     
     >
       <div className="mt-4">
         <DailyProductionEntry

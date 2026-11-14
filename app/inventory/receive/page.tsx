@@ -42,7 +42,6 @@ export default async function ReceiveCastingsPage() {
   return (
     <DashboardShell
       title="Receive Castings"
-      subtitle="Record purchased cast iron inventory received from suppliers."
     >
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <BackButton href="/inventory" label="Back to Inventory" />

@@ -215,7 +215,6 @@ export default async function JobsPage({
   return (
     <DashboardShell
       title="Jobs"
-      subtitle="Track projects, bids, and job folders across your precast operation."
     >
       <JobsList
         jobs={rows}

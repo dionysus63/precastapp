@@ -118,7 +118,6 @@ export default async function JobDetailPage({
       // uses the whole window like the standalone Quick Build page.
       width={activeTab === "quick-build" ? "full" : "standard"}
       title={`${detail.jobNumber} — ${detail.projectName}`}
-      subtitle="Everything you need to know about this job."
     >
       {folderError && !detail.folderPath ? (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">

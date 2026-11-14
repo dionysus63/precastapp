@@ -37,7 +37,6 @@ export default async function ScheduleLoadsPage({
     return (
       <DashboardShell
         title="Schedule Loads"
-        subtitle="Assign delivery dates, drivers, and trailers to a job's created loads."
       >
         <EmptyState message="Open this page from the Delivery Hub's unscheduled-loads panel or a job's Deliveries tab so it knows which job to schedule." />
       </DashboardShell>
@@ -53,7 +52,6 @@ export default async function ScheduleLoadsPage({
     return (
       <DashboardShell
         title="Schedule Loads"
-        subtitle="Assign delivery dates, drivers, and trailers to a job's created loads."
       >
         <EmptyState message="Job not found." />
       </DashboardShell>

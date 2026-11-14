@@ -37,7 +37,6 @@ export default async function EditPurchaseOrderPage({
   return (
     <DashboardShell
       title={`Edit ${purchaseOrder.poNumber}`}
-      subtitle="Update purchase order details and line items."
     >
       <BackButton href={`/purchase-orders/${id}`} label="Back to PO" />
 

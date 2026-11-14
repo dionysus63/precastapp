@@ -63,10 +63,6 @@ export default async function NewDeliveryTicketPage({
     : isPickup
       ? "New Pickup Ticket"
       : "New Ticket";
-  const subtitle = isPickup || isWalkIn
-    ? "Prepare a counter / pickup order ready for the front desk."
-    : "Schedule and prepare products or structures for delivery.";
-
   const originKey =
     from && from in TICKET_ORIGINS
       ? (from as keyof typeof TICKET_ORIGINS)
@@ -76,7 +72,7 @@ export default async function NewDeliveryTicketPage({
   const origin = TICKET_ORIGINS[originKey];
 
   return (
-    <DashboardShell title={heading} subtitle={subtitle} width="full">
+    <DashboardShell title={heading} width="full">
       <div>
         <DeliveryTicketEditor
           backHref={origin.href}

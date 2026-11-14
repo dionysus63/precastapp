@@ -16,7 +16,6 @@ export default async function SettingsUsersPage() {
   return (
     <SettingsShell
       title="Users & Access"
-      subtitle="Manage who can sign in and what each person can do."
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>

@@ -46,7 +46,6 @@ export function QuoteLineItemsSection({
   return (
     <SectionCard
       title="Quote Line Items"
-      description="Add stock products, structures, and services to the quote."
     >
       <div className="space-y-4">
         <div className="flex flex-wrap gap-2">

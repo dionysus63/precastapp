@@ -228,7 +228,6 @@ export default async function CustomersPage({
     return (
       <DashboardShell
         title="Customers"
-        subtitle="Manage customer accounts, contacts, and billing relationships."
       >
         <ContactsDirectory
           rows={contacts.map((contact) => ({
@@ -327,7 +326,6 @@ export default async function CustomersPage({
   return (
     <DashboardShell
       title="Customers"
-      subtitle="Manage customer accounts, contacts, and billing relationships."
     >
       <ImportFeedbackBanner imported={imported} noun="customer" />
       <CustomersList

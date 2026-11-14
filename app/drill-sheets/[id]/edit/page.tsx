@@ -62,7 +62,6 @@ export default async function EditDrillSheetPage({
   return (
     <DashboardShell
       title={`Edit Drill Sheet — ${sheet.structureNumber ?? "Untitled"}`}
-      subtitle="Update rim, pipe data, and casting, then recompute the drill sheet."
     >
       <BackButton href={`/drill-sheets/${id}`} label="Back to Drill Sheet" />
 

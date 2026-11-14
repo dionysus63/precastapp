@@ -68,7 +68,6 @@ export default async function StructureDiametersSettingsPage({
   return (
     <SettingsShell
       title="Structure Molds"
-      subtitle="One row per circular mold: wall thickness, max pour heights, key, and the diameter shown on drill sheets are shared; wall/base prices belong to the selected price list."
     >
       <SettingsFeedback
         error={params.error ? decodeURIComponent(params.error) : null}

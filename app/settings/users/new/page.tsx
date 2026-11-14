@@ -13,7 +13,6 @@ export default async function NewSettingsUserPage() {
   return (
     <SettingsShell
       title="Add User"
-      subtitle="Create a new account and assign a role with optional permission overrides."
     >
       <SectionCard title="User Details">
         <UserPermissionsForm

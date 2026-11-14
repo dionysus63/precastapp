@@ -26,7 +26,6 @@ export default async function EditCustomerPage({ params }: EditCustomerPageProps
   return (
     <DashboardShell
       title={`Edit ${customer.name}`}
-      subtitle="Update customer account details."
     >
       <div className="max-w-3xl">
         <BackButton href={`/customers/${customer.id}`} label="Back to Customer" />

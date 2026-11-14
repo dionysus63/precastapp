@@ -79,7 +79,6 @@ export default async function NewQuotePage({
   return (
     <DashboardShell
       title="New Quote"
-      subtitle="Create a quote using stock products, configurable structures, custom structures, and services."
     >
       <div>
         <QuoteForm

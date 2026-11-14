@@ -46,7 +46,6 @@ export default async function ProductCatalogSettingsPage({
   return (
     <SettingsShell
       title="Product Catalog"
-      subtitle="Database-backed categories and subcategories for all products."
     >
       <SettingsFeedback
         error={params.error ? decodeURIComponent(params.error) : null}

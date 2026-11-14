@@ -16,7 +16,6 @@ export default async function BulkProductsPage() {
   return (
     <DashboardShell
       title="Bulk Add Products"
-      subtitle="Paste product rows copied from Excel and preview them before import."
     >
       <div className="max-w-6xl">
         <BackButton href="/products" label="Back to Products" />

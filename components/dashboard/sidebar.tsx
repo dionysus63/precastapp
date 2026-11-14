@@ -126,7 +126,12 @@ export function Sidebar({
         })}
       </nav>
 
-      <div className="flex shrink-0 items-center gap-2.5 border-t border-slate-200/80 px-4 py-3">
+      {/* The one place that says who is signed in; it opens My Profile. */}
+      <Link
+        href="/profile"
+        title="My profile"
+        className="flex shrink-0 items-center gap-2.5 border-t border-slate-200/80 px-4 py-3 transition-colors hover:bg-slate-200/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400"
+      >
         <div
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-2xs font-semibold text-slate-600"
           aria-hidden="true"
@@ -134,12 +139,12 @@ export function Sidebar({
           {userInitials}
         </div>
         <div className="min-w-0">
-          <p className="truncate text-2xs font-semibold text-slate-700">
+          <p className="truncate text-xs font-semibold text-slate-800">
             {userDisplayName}
           </p>
-          <p className="text-2xs text-slate-400">{ROLE_LABELS[userRole]}</p>
+          <p className="text-2xs text-slate-500">{ROLE_LABELS[userRole]}</p>
         </div>
-      </div>
+      </Link>
     </aside>
   );
 }

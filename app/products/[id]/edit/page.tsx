@@ -77,7 +77,6 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
   return (
     <DashboardShell
       title={`Edit ${product.name}`}
-      subtitle="Update product catalog details."
     >
       <div className="max-w-3xl">
         <BackButton href={`/products/${product.id}`} label="Back to Product" />

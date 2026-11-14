@@ -13,7 +13,6 @@ export default async function ImportExistingJobPage() {
   return (
     <DashboardShell
       title="Import Existing Job"
-      subtitle="Bring in a job that was quoted and submitted outside the app, with its PDFs, in one pass."
     >
       <BackButton href="/jobs" label="Back to Jobs" />
       <div className="mt-4">

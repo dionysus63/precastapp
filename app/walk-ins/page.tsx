@@ -89,7 +89,6 @@ export default async function WalkInsPage() {
   return (
     <DashboardShell
       title="Walk-Ins & Pickups"
-      subtitle="Front-desk counter sales and pre-arranged customer pickups."
     >
       <WalkInsBoard
         calledIn={calledInRecords.map(toRow)}

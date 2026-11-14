@@ -43,7 +43,6 @@ export default async function CastingSuppliersPage({
   return (
     <SettingsShell
       title="Casting Suppliers"
-      subtitle="Domestic and imported vendors for cast iron castings."
     >
       <SettingsFeedback
         error={params.error ? decodeURIComponent(params.error) : null}

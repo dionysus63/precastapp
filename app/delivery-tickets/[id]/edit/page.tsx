@@ -256,7 +256,6 @@ export default async function EditDeliveryTicketPage({
   return (
     <DashboardShell
       title={`Edit ${ticket.ticketNumber}`}
-      subtitle="Update delivery ticket lines and schedule."
       width="full"
     >
       <div>

@@ -119,7 +119,6 @@ export default async function AllDeliveryTicketsPage({
   return (
     <DashboardShell
       title="All Tickets"
-      subtitle="Search, filter, and print any delivery ticket."
     >
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-end gap-2">

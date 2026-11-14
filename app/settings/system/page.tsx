@@ -20,7 +20,6 @@ export default async function SystemSettingsPage() {
   return (
     <SettingsShell
       title="System & Maintenance"
-      subtitle="Document numbering, file sync, and environment summary."
     >
       <SectionCard title="Next document numbers" description={numbering.quoteNote}>
         <div className={tableFlushWrapperClassName}>

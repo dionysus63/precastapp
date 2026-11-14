@@ -39,7 +39,6 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
   return (
     <SettingsShell
       title="Vendors"
-      subtitle="Suppliers for purchase orders and accounts payable."
     >
       <SettingsFeedback
         error={params.error ? decodeURIComponent(params.error) : null}

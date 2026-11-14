@@ -91,7 +91,6 @@ export default async function ReceivingPage() {
   return (
     <DashboardShell
       title="Receiving"
-      subtitle="Track when deliveries arrive and record new inventory."
     >
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {categoryCards.map((card) => (

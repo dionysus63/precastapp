@@ -170,7 +170,6 @@ export default async function Home() {
   return (
     <DashboardShell
       title="Dashboard"
-      subtitle="Quotes, jobs, billing, and inventory at a glance."
     >
       <div className="space-y-5">
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -182,7 +181,6 @@ export default async function Home() {
         <div className="grid gap-4 xl:grid-cols-2">
           <SectionCard
             title="Open Quotes"
-            description="Quotes waiting on review or customer response"
             action={
               <Link
                 href="/quotes"
@@ -247,7 +245,6 @@ export default async function Home() {
 
           <SectionCard
             title="Active Jobs"
-            description="Jobs currently moving through production"
             action={
               <Link
                 href="/jobs?status=OPEN"
@@ -305,7 +302,6 @@ export default async function Home() {
 
           <SectionCard
             title="Pending Invoices"
-            description="Outstanding billing ready for follow-up"
             action={
               <Link
                 href="/invoices?tab=invoices"
@@ -361,7 +357,6 @@ export default async function Home() {
 
           <SectionCard
             title="Inventory Alerts"
-            description="Materials that may affect quoting or production"
             action={
               <Link
                 href="/inventory"
@@ -416,7 +411,7 @@ export default async function Home() {
           </SectionCard>
         </div>
 
-        <SectionCard title="Quick Actions" description="Common tasks for daily operations">
+        <SectionCard title="Quick Actions">
           <div className="flex flex-wrap gap-2">
             {quickActions.map((action) => (
               <Link

@@ -110,7 +110,6 @@ export default async function ReceivePage({ searchParams }: ReceivePageProps) {
     return (
       <DashboardShell
         title={`Record ${categoryLabel}`}
-        subtitle="Enter products and quantities received on this delivery."
       >
         <BackButton href="/receiving" label="Back to Receiving" />
 
@@ -173,7 +172,6 @@ export default async function ReceivePage({ searchParams }: ReceivePageProps) {
     return (
       <DashboardShell
         title={`Record ${categoryLabel}`}
-        subtitle="Record purchased cast iron inventory received from suppliers."
       >
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <BackButton href="/receiving" label="Back to Receiving" />

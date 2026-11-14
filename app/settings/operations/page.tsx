@@ -33,7 +33,6 @@ export default async function OperationsSettingsPage({
   return (
     <SettingsShell
       title="Fleet & Crew"
-      subtitle="Dropdown options for quotes and delivery tickets."
     >
       <SettingsFeedback
         error={params.error ? decodeURIComponent(params.error) : null}

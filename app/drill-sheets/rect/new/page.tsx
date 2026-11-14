@@ -107,8 +107,8 @@ export default async function NewRectSheetPage({
       }
       subtitle={
         placeholder
-          ? "Complete the drill sheet for this quoted structure. Saving upgrades it in place — quote link, status, and documents are kept."
-          : "Enter rim, size, and pipe data to compute heights, sections, and pick weights for a rectangular structure."
+          ? "Saving upgrades the quoted structure in place: quote link, status and documents are kept."
+          : undefined
       }
     >
       <BackButton

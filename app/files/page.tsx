@@ -27,7 +27,6 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
   return (
     <DashboardShell
       title="Files"
-      subtitle="Job project files indexed from Windows job folders."
     >
       <BackButton href="/jobs" label="Browse jobs" />
 

@@ -160,7 +160,6 @@ export default async function SettingsPage() {
   return (
     <SettingsShell
       title="Settings"
-      subtitle="Application configuration and shop defaults."
       showBackLink={false}
     >
       <div

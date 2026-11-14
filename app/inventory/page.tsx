@@ -310,7 +310,6 @@ export default async function InventoryPage({
   return (
     <DashboardShell
       title="Inventory"
-      subtitle="Stock levels for tracked products and buildable casting sets."
     >
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {summaryCards.map((card) => (
