@@ -31,7 +31,6 @@ export function InvoiceListPreview({
   onNext,
   hasPrevious,
   hasNext,
-  onHide,
 }: {
   row: InvoiceListRow | null;
   side: InvoicePreviewSide;
@@ -41,7 +40,6 @@ export function InvoiceListPreview({
   onNext: () => void;
   hasPrevious: boolean;
   hasNext: boolean;
-  onHide: () => void;
 }) {
   const signed = row?.signedTicket ?? null;
   const showSigned = side === "signed";
@@ -120,44 +118,34 @@ export function InvoiceListPreview({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-1.5">
-        {shownPdfUrl ? (
-          <>
-            <a
-              href={shownPdfUrl}
-              target="_blank"
-              rel="noreferrer"
-              className={paneButtonClassName}
-            >
-              Open PDF
-            </a>
-            <button
-              type="button"
-              onClick={() => printPdfUrl(shownPdfUrl)}
-              className={paneButtonClassName}
-            >
-              Print
-            </button>
-          </>
-        ) : null}
-        {row && showSigned && signed ? (
-          <PdfDragChip
-            href={signedTicketViewUrl(signed.fileId)}
-            fileName={signed.fileName}
-            title={`Signed copy of ${row.ticketNumber}: drag it into an email or a folder, or click to save it`}
-            label="Signed PDF"
+      {shownPdfUrl ? (
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-1.5">
+          <a
+            href={shownPdfUrl}
+            target="_blank"
+            rel="noreferrer"
             className={paneButtonClassName}
-          />
-        ) : null}
-        <button
-          type="button"
-          onClick={onHide}
-          title="Hide this preview and give the list the room"
-          className={`${paneButtonClassName} ml-auto`}
-        >
-          Hide preview
-        </button>
-      </div>
+          >
+            Open PDF
+          </a>
+          <button
+            type="button"
+            onClick={() => printPdfUrl(shownPdfUrl)}
+            className={paneButtonClassName}
+          >
+            Print
+          </button>
+          {row && showSigned && signed ? (
+            <PdfDragChip
+              href={signedTicketViewUrl(signed.fileId)}
+              fileName={signed.fileName}
+              title={`Signed copy of ${row.ticketNumber}: drag it into an email or a folder, or click to save it`}
+              label="Signed PDF"
+              className={paneButtonClassName}
+            />
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="bg-slate-100 p-3">
         {!row ? (

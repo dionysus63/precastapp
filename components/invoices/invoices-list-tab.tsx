@@ -90,12 +90,22 @@ const barPrimaryButtonClassName =
   "rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50";
 
 /**
- * "Paper | list", side by side from a 1024px window up. The list keeps 69.5rem
+ * "List | paper", side by side from a 1024px window up. The list keeps 69.5rem
  * (its columns without a sideways scroll) wherever the window has it; the
- * paper takes what is left, up to 38%, and never less than 22rem.
+ * paper takes what is left, up to 38%, and never less than 22rem. On a
+ * narrower window the paper stacks above the list.
  */
 const previewSplitClassName =
-  "grid items-start gap-3 lg:grid-cols-[min(38%,max(22rem,calc(100%_-_70.25rem)))_minmax(0,1fr)]";
+  "grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_min(38%,max(22rem,calc(100%_-_70.25rem)))]";
+
+/**
+ * The list with the paper hidden: exactly as wide as it is beside the paper
+ * (the whole width less the paper's column and the gap), so hiding the
+ * preview moves nothing. Only where that is too narrow for the columns does
+ * the list take the room the paper gave up, up to its 69.5rem.
+ */
+const listAloneClassName =
+  "lg:w-[max(calc(100%_-_min(38%,max(22rem,calc(100%_-_70.25rem)))_-_0.75rem),min(100%,69.5rem))]";
 
 /** Remembered per computer: the preview pane beside the list is hidden. */
 const PREVIEW_HIDDEN_KEY = "precastapp:invoice-list-preview-hidden";
@@ -281,25 +291,10 @@ export function InvoicesListTab({
         }${tooMany ? `. At most ${MAX_SELECTED_INVOICES} at a time.` : ""}`;
 
   return (
-    // The paper sits to the left of everything else, from the tabs down, so
-    // a whole page fits the window. With the preview hidden the list keeps
-    // the 1280px column it was laid out for, flush left under the tabs.
-    <div className={showPreview ? previewSplitClassName : "max-w-7xl"}>
-      {showPreview ? (
-        <div className="lg:sticky lg:top-[82px]">
-          <InvoiceListPreview
-            row={previewRow}
-            side={side}
-            onSideChange={setSide}
-            onPrevious={() => stepPreview(-1)}
-            onNext={() => stepPreview(1)}
-            hasPrevious={previewAt > 0}
-            hasNext={previewAt < invoices.length - 1}
-            onHide={() => setPreviewHidden(true)}
-          />
-        </div>
-      ) : null}
-
+    // The paper sits to the right of everything else, from the tabs down, so
+    // a whole page fits the window. The list is on the left and stays where
+    // it is when the preview is hidden.
+    <div className={showPreview ? previewSplitClassName : listAloneClassName}>
       <div className="min-w-0 space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           {chips.map((chip) => (
@@ -410,14 +405,21 @@ export function InvoicesListTab({
                   Download Selected
                 </button>
               )}
-              {previewHidden && invoices.length > 0 ? (
+              {invoices.length > 0 ? (
+                // One button in one place for both: it does not jump away
+                // from under the pointer, and nothing beside it shifts.
                 <button
                   type="button"
-                  onClick={() => setPreviewHidden(false)}
-                  title="Show the clicked invoice beside the list"
-                  className={barButtonClassName}
+                  aria-pressed={!previewHidden}
+                  onClick={() => setPreviewHidden(!previewHidden)}
+                  title={
+                    previewHidden
+                      ? "Show the clicked invoice to the right of the list"
+                      : "Hide the preview on the right"
+                  }
+                  className={`${barButtonClassName} min-w-[7.5rem]`}
                 >
-                  Show preview
+                  {previewHidden ? "Show preview" : "Hide preview"}
                 </button>
               ) : null}
             </div>
@@ -692,6 +694,20 @@ export function InvoicesListTab({
           />
         </section>
       </div>
+
+      {showPreview ? (
+        <div className="max-lg:order-first lg:sticky lg:top-[82px]">
+          <InvoiceListPreview
+            row={previewRow}
+            side={side}
+            onSideChange={setSide}
+            onPrevious={() => stepPreview(-1)}
+            onNext={() => stepPreview(1)}
+            hasPrevious={previewAt > 0}
+            hasNext={previewAt < invoices.length - 1}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
