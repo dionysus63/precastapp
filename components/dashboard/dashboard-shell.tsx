@@ -1,5 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { AppPermission } from "@/app/generated/prisma/client";
+import { BackupWarning } from "./backup-warning";
 import { Header } from "./header";
 import { Sidebar } from "./sidebar";
 import { PermissionRouteGuard } from "./permission-route-guard";
@@ -89,6 +91,8 @@ export async function DashboardShell({
           user={user}
           permissions={permissions}
         />
+        {/* Only an admin can do something about the server's backup. */}
+        {permissions.includes(AppPermission.USERS_MANAGE) ? <BackupWarning /> : null}
         <main className="flex-1 px-5 py-5">
           <div data-page-width={width} className={pageWidthClassName(width)}>
             {children}
