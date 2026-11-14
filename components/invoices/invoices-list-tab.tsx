@@ -39,6 +39,8 @@ import type { PageInfo } from "@/lib/list-params";
 import { printPdfUrl } from "@/lib/print-pdf-url";
 import { reloadAfterAction } from "@/lib/reload-after-action";
 import {
+  tableActionButtonClassName,
+  tableActionPositiveButtonClassName,
   tableBodyClassName,
   tableCellBordersClassName,
   tableCellClassName,
@@ -82,7 +84,6 @@ function InvoiceBadges({ row }: { row: InvoiceListRow }) {
   );
 }
 
-const rowLinkClassName = "text-slate-700 underline hover:text-slate-900";
 
 const barButtonClassName =
   "rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50";
@@ -610,12 +611,12 @@ export function InvoicesListTab({
                           )}
                         </td>
                         <td className={`${cell} whitespace-nowrap`}>
-                          <div className="flex gap-2">
+                          <div className="flex gap-1.5">
                             {canManage && unpaid ? (
                               <Link
                                 href={`/invoices/${row.id}/edit`}
                                 onClick={stop}
-                                className="text-sky-700 underline hover:text-sky-900"
+                                className={tableActionButtonClassName}
                               >
                                 Edit
                               </Link>
@@ -625,7 +626,7 @@ export function InvoicesListTab({
                               target="_blank"
                               rel="noreferrer"
                               onClick={stop}
-                              className={rowLinkClassName}
+                              className={tableActionButtonClassName}
                             >
                               View PDF
                             </a>
@@ -635,7 +636,7 @@ export function InvoicesListTab({
                                 event.stopPropagation();
                                 printPdfUrl(`/api/invoices/${row.id}/pdf`);
                               }}
-                              className={rowLinkClassName}
+                              className={tableActionButtonClassName}
                             >
                               Print
                             </button>
@@ -659,7 +660,7 @@ export function InvoicesListTab({
                                     });
                                   });
                                 }}
-                                className="text-emerald-700 underline hover:text-emerald-900 disabled:opacity-50"
+                                className={tableActionPositiveButtonClassName}
                               >
                                 Mark paid
                               </button>

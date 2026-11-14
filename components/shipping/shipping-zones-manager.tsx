@@ -18,6 +18,8 @@ import type {
   ResolvableZone,
 } from "@/lib/shipping/zones";
 import {
+  tableActionButtonClassName,
+  tableActionDangerButtonClassName,
   tableBodyClassName,
   tableCellClassName,
   tableClassName,
@@ -324,7 +326,7 @@ export function ShippingZonesManager({
                         <button
                           type="button"
                           onClick={() => startEdit(zone)}
-                          className="text-slate-700 underline hover:text-slate-900"
+                          className={tableActionButtonClassName}
                         >
                           Edit
                         </button>
@@ -332,7 +334,7 @@ export function ShippingZonesManager({
                           type="button"
                           onClick={() => removeZone(zone)}
                           disabled={isPending}
-                          className="text-red-600 underline hover:text-red-800 disabled:opacity-50"
+                          className={tableActionDangerButtonClassName}
                         >
                           Delete
                         </button>

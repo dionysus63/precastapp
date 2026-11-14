@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { openProductSubmittalsFolder } from "@/app/products/actions";
 import { unwrapAction } from "@/lib/action-result";
+import { tableActionButtonClassName } from "@/lib/table-styles";
 
 type InventorySubmittalsCellProps = {
   productId: string;
@@ -39,7 +40,7 @@ export function InventorySubmittalsCell({
         </span>
         <Link
           href={`/products/${productId}`}
-          className="text-slate-600 underline hover:text-slate-900"
+          className={tableActionButtonClassName}
         >
           Docs
         </Link>

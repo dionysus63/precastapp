@@ -21,6 +21,7 @@ import type {
 } from "@/components/jobs/job-utils";
 
 import {
+  tableActionDangerButtonClassName,
   tableBodyClassName,
   tableCellBordersClassName,
   tableCellClassName,
@@ -476,7 +477,7 @@ export function JobBiddingPanel({
                           type="button"
                           disabled={pending}
                           onClick={() => handleRemoveBidder(bidder.id)}
-                          className="text-2xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+                          className={tableActionDangerButtonClassName}
                         >
                           Remove
                         </button>

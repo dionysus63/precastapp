@@ -9,6 +9,7 @@ import { withDatabaseRetry } from "@/lib/prisma";
 import { formatDateShort } from "@/lib/format";
 
 import {
+  tableActionButtonClassName,
   tableBodyClassName,
   tableCellClassName,
   tableClassName,
@@ -86,7 +87,7 @@ export default async function PriceListsPage() {
                       <td className={tableCellClassName}>
                         <Link
                           href={`/settings/price-lists/${list.id}`}
-                          className="text-slate-700 underline hover:text-slate-900"
+                          className={tableActionButtonClassName}
                         >
                           Manage
                         </Link>

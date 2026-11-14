@@ -21,6 +21,7 @@ import {
 } from "@/lib/product-types";
 
 import {
+  tableActionButtonClassName,
   tableBodyClassName,
   tableCellClassName,
   tableClassName,
@@ -101,7 +102,7 @@ export default async function ProductCatalogSettingsPage({
                     </td>
                     <td className={tableCellClassName}>
                       <details>
-                        <summary className="cursor-pointer text-slate-700 underline hover:text-slate-900">
+                        <summary className={tableActionButtonClassName}>
                           Edit
                         </summary>
                         <div className="mt-3 min-w-[320px] space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">

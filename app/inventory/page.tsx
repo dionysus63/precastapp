@@ -22,6 +22,7 @@ import { prisma, withDatabaseRetry } from "@/lib/prisma";
 import type { Prisma } from "@/app/generated/prisma/client";
 
 import {
+  tableActionButtonClassName,
   tableBodyClassName,
   tableCellClassName,
   tableClassName,
@@ -504,7 +505,7 @@ export default async function InventoryPage({
                       <td className={tableCellClassName}>
                         <Link
                           href={`/inventory/${product.id}`}
-                          className="text-slate-700 underline hover:text-slate-900"
+                          className={tableActionButtonClassName}
                         >
                           View
                         </Link>

@@ -87,3 +87,20 @@ export const tableInlineInputClassName =
 
 export const tableCellTextareaClassName =
   "block w-full min-w-[18rem] resize-none whitespace-pre-wrap border-0 bg-transparent px-2 py-1.5 text-sm leading-snug text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-sky-500";
+
+/**
+ * The actions in a table row (Edit, View PDF, Print, Delete…): small boxed
+ * buttons, the same on every screen. Works on <button>, <a>, <Link> and a
+ * <details> <summary>. Never underlined words: an underline is for a link to
+ * a record (a job number, an invoice number), not for something you do.
+ */
+const tableActionButtonBaseClassName =
+  "inline-flex cursor-pointer items-center whitespace-nowrap rounded-md border bg-white px-2 py-1 text-2xs font-medium disabled:cursor-not-allowed disabled:opacity-50";
+
+export const tableActionButtonClassName = `${tableActionButtonBaseClassName} border-slate-200 text-slate-700 hover:bg-slate-50`;
+
+/** Delete / Remove. */
+export const tableActionDangerButtonClassName = `${tableActionButtonBaseClassName} border-red-200 text-red-600 hover:bg-red-50`;
+
+/** The step that finishes the row (Mark paid). */
+export const tableActionPositiveButtonClassName = `${tableActionButtonBaseClassName} border-emerald-300 text-emerald-800 hover:bg-emerald-50`;

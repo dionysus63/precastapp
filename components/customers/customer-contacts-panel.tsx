@@ -17,6 +17,8 @@ import {
 } from "@/components/customers/customer-utils";
 
 import {
+  tableActionButtonClassName,
+  tableActionDangerButtonClassName,
   tableBodyClassName,
   tableCellBordersClassName,
   tableCellClassName,
@@ -420,7 +422,7 @@ export function CustomerContactsPanel({
                         type="button"
                         disabled={pending}
                         onClick={() => startEdit(contact)}
-                        className="text-2xs font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50"
+                        className={tableActionButtonClassName}
                       >
                         Edit
                       </button>
@@ -429,7 +431,7 @@ export function CustomerContactsPanel({
                           type="button"
                           disabled={pending}
                           onClick={() => handleSetPrimary(contact.id)}
-                          className="text-2xs font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50"
+                          className={tableActionButtonClassName}
                         >
                           Set main
                         </button>
@@ -438,7 +440,7 @@ export function CustomerContactsPanel({
                         type="button"
                         disabled={pending}
                         onClick={() => handleDelete(contact.id)}
-                        className="text-2xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+                        className={tableActionDangerButtonClassName}
                       >
                         Delete
                       </button>
