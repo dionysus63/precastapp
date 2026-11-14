@@ -468,9 +468,6 @@ export function InvoicesListTab({
                     </th>
                     <th className={tableHeaderCellClassName}>Invoice · Date</th>
                     <th className={tableHeaderCellClassName}>
-                      Ticket · Delivered
-                    </th>
-                    <th className={tableHeaderCellClassName}>
                       Contractor / job
                     </th>
                     <th className={tableHeaderCellClassName}>Price</th>
@@ -549,15 +546,6 @@ export function InvoicesListTab({
                             {formatDate(row.invoiceDate)}
                           </span>
                           <InvoiceBadges row={row} />
-                        </td>
-                        <td className={`${cell} whitespace-nowrap`}>
-                          {row.ticketNumber}
-                          <span
-                            className="block text-slate-500"
-                            title="Delivery date"
-                          >
-                            {formatDate(row.deliveryDate)}
-                          </span>
                         </td>
                         <td className={`${cell} min-w-[10rem]`}>
                           {row.customerName}
