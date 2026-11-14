@@ -28,6 +28,7 @@ import {
   tableRowClassName,
 } from "@/lib/table-styles";
 import { reloadAfterAction } from "@/lib/reload-after-action";
+import { selectedClassName, selectedMutedTextClassName } from "@/lib/selected-styles";
 
 const CASTING_COLUMN_INDEX: Partial<Record<StructureImportType, number>> = {
   "circular-templates": 12,
@@ -180,14 +181,14 @@ export function StructureBulkImportForm() {
               onClick={() => handleTypeChange(option.type)}
               className={`rounded-lg border px-3 py-2 text-left transition-colors ${
                 option.type === importType
-                  ? "border-slate-900 bg-slate-900 text-white"
+                  ? selectedClassName
                   : "border-slate-200 text-slate-700 hover:bg-slate-50"
               }`}
             >
               <span className="block text-xs font-semibold">{option.label}</span>
               <span
                 className={`mt-0.5 block text-2xs ${
-                  option.type === importType ? "text-slate-300" : "text-slate-500"
+                  option.type === importType ? selectedMutedTextClassName : "text-slate-500"
                 }`}
               >
                 {option.columns.length} columns

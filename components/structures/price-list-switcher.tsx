@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { PriceListOption } from "@/lib/price-list-service";
+import { selectedWithBorderClassName } from "@/lib/selected-styles";
 
 /**
  * Link tabs that scope a settings/catalog page's price columns to one price
@@ -28,7 +29,7 @@ export function PriceListSwitcher({
           href={`${basePath}?priceList=${list.id}`}
           className={`rounded-lg px-2.5 py-1 text-2xs font-semibold ${
             list.id === selectedId
-              ? "bg-slate-900 text-white"
+              ? selectedWithBorderClassName
               : "border border-slate-200 text-slate-600 hover:bg-slate-50"
           }`}
         >

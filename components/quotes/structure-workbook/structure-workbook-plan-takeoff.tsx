@@ -26,6 +26,7 @@ import {
   pipeSizesForMaterial,
   uniquePipeMaterials,
 } from "@/components/quotes/structure-workbook/structure-workbook-pipe-options";
+import { selectedFillClassName } from "@/lib/selected-styles";
 
 type TakeoffMode = "add_structure" | "draw_pipes" | "select";
 
@@ -768,7 +769,7 @@ export function StructureWorkbookPlanTakeoff({
               onClick={() => setMode(value)}
               className={`rounded-md px-2.5 py-1 text-2xs font-semibold ${
                 mode === value
-                  ? "bg-slate-900 text-white"
+                  ? selectedFillClassName
                   : "text-slate-700 hover:bg-slate-50"
               }`}
             >

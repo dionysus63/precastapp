@@ -16,6 +16,7 @@ import {
 } from "@/lib/date-only";
 import { randomId } from "@/lib/random-id";
 import { reloadAfterAction } from "@/lib/reload-after-action";
+import { selectedWithBorderClassName } from "@/lib/selected-styles";
 
 type TaxonomyCategory = {
   id: string;
@@ -396,7 +397,7 @@ export function DailyProductionEntry({
                   }}
                   className={`rounded-full px-3 py-1 text-2xs font-medium ${
                     categoryId === category.id
-                      ? "bg-slate-900 text-white"
+                      ? selectedWithBorderClassName
                       : "border border-slate-200 text-slate-600 hover:bg-slate-50"
                   }`}
                 >
@@ -411,7 +412,7 @@ export function DailyProductionEntry({
                   onClick={() => setSubcategoryId(null)}
                   className={`rounded-full px-3 py-1 text-2xs font-medium ${
                     subcategoryId === null
-                      ? "bg-slate-700 text-white"
+                      ? selectedWithBorderClassName
                       : "border border-slate-200 text-slate-600 hover:bg-slate-50"
                   }`}
                 >
@@ -424,7 +425,7 @@ export function DailyProductionEntry({
                     onClick={() => setSubcategoryId(subcategory.id)}
                     className={`rounded-full px-3 py-1 text-2xs font-medium ${
                       subcategoryId === subcategory.id
-                        ? "bg-slate-700 text-white"
+                        ? selectedWithBorderClassName
                         : "border border-slate-200 text-slate-600 hover:bg-slate-50"
                     }`}
                   >

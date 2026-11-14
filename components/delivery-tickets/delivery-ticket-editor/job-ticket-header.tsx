@@ -7,6 +7,7 @@ import { CUSTOM_LINE_MAX_LENGTH } from "@/lib/delivery-ticket-custom-line";
 import { compactInputClass, compactLabelClass } from "./editor-styles";
 import { formatWeight } from "./editor-utils";
 import type { JobOption } from "./types";
+import { selectedFillClassName } from "@/lib/selected-styles";
 
 type JobTicketHeaderProps = {
   stickyRef: Ref<HTMLDivElement>;
@@ -178,7 +179,7 @@ export function JobTicketHeader({
               }}
               className={
                 fulfillmentMethod === "DELIVERY"
-                  ? "bg-slate-900 px-2 font-semibold text-white"
+                  ? `${selectedFillClassName} px-2 font-semibold`
                   : "px-2 text-slate-600 hover:bg-slate-50"
               }
             >
@@ -193,7 +194,7 @@ export function JobTicketHeader({
               }}
               className={
                 fulfillmentMethod === "PICKUP"
-                  ? "bg-slate-900 px-2 font-semibold text-white"
+                  ? `${selectedFillClassName} px-2 font-semibold`
                   : "border-l border-slate-200 px-2 text-slate-600 hover:bg-slate-50"
               }
             >

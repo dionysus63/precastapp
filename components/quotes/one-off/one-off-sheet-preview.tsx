@@ -10,6 +10,7 @@ import type {
   OneOffRowResult,
   OneOffShape,
 } from "@/lib/quotes/one-off-drill-sheets";
+import { selectedClassName } from "@/lib/selected-styles";
 
 /** Wait this long after the last keystroke before filling the PDF again. */
 const PREVIEW_DEBOUNCE_MS = 600;
@@ -342,7 +343,7 @@ export function OneOffSheetPreview({
                   }
                   className={`rounded border px-2 py-0.5 text-2xs font-semibold ${
                     activePage === index + 1
-                      ? "border-slate-800 bg-slate-900 text-white"
+                      ? selectedClassName
                       : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                   }`}
                 >

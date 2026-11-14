@@ -28,6 +28,7 @@ import {
   tableFlushWrapperClassName,
   tableHeaderCellClassName,
 } from "@/lib/table-styles";
+import { selectedClassName } from "@/lib/selected-styles";
 type JobFilesBrowserProps = {
   jobId: string;
   jobNumber: string;
@@ -473,7 +474,7 @@ function CategoryTab({
       href={href}
       className={`rounded-lg border px-2.5 py-1.5 text-2xs font-medium ${
         active
-          ? "border-slate-900 bg-slate-900 text-white"
+          ? selectedClassName
           : "border-slate-200 text-slate-700 hover:bg-slate-50"
       }`}
     >

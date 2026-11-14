@@ -63,6 +63,7 @@ import {
   type OneOffShape,
   type OneOffShapeChoice,
 } from "@/lib/quotes/one-off-drill-sheets";
+import { selectedClassName, selectedMutedTextClassName } from "@/lib/selected-styles";
 
 type OneOffDrillSheetsProps = {
   circularOptions: OneOffCircularOptions;
@@ -816,13 +817,13 @@ export function OneOffDrillSheets({
                   onClick={() => chooseShape(choice.value)}
                   className={`rounded-xl border px-4 py-3 text-left transition-colors ${
                     active
-                      ? "border-slate-900 bg-slate-900 text-white"
+                      ? selectedClassName
                       : "border-slate-200 bg-white text-slate-800 hover:border-slate-300 hover:bg-slate-50"
                   }`}
                 >
                   <span className="block text-sm font-semibold">{choice.title}</span>
                   <span
-                    className={`mt-0.5 block text-xs ${active ? "text-slate-300" : "text-slate-500"}`}
+                    className={`mt-0.5 block text-xs ${active ? selectedMutedTextClassName : "text-slate-500"}`}
                   >
                     {choice.description}
                   </span>

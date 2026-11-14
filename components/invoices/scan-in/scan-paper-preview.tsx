@@ -12,6 +12,7 @@ import {
   scanCardClassName,
 } from "@/components/invoices/scan-in/scan-ui";
 import type { ScanInRow } from "@/lib/ticket-scan/view-types";
+import { selectedFillClassName } from "@/lib/selected-styles";
 
 type Side = "ticket" | "invoice";
 
@@ -79,7 +80,7 @@ export function ScanPaperPreview({
                   onClick={() => onSideChange(value)}
                   className={
                     side === value
-                      ? "bg-slate-900 px-2.5 py-1 text-white"
+                      ? `${selectedFillClassName} px-2.5 py-1`
                       : "bg-white px-2.5 py-1 text-slate-600 hover:bg-slate-50"
                   }
                 >

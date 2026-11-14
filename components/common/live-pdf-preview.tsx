@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { isActionError, type ActionError } from "@/lib/action-result";
+import { selectedClassName } from "@/lib/selected-styles";
 
 /** Wait this long after the last change before filling the PDF again. */
 const DEFAULT_DEBOUNCE_MS = 600;
@@ -294,7 +295,7 @@ export function LivePdfPreview({
                   onClick={() => setActivePage(index + 1)}
                   className={`rounded border px-2 py-0.5 text-2xs font-semibold ${
                     shownPage === index + 1
-                      ? "border-slate-800 bg-slate-900 text-white"
+                      ? selectedClassName
                       : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                   }`}
                 >

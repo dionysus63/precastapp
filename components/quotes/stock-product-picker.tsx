@@ -13,6 +13,7 @@ import {
   buildSubcategoryFilterOptions,
   type ProductTaxonomyCategory,
 } from "@/lib/product-taxonomy";
+import { selectedClassName } from "@/lib/selected-styles";
 
 export type StagedStockProduct = {
   product: QuoteFormProductOption;
@@ -29,7 +30,7 @@ type StockProductPickerProps = {
 function chipClassName(active: boolean) {
   return `rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
     active
-      ? "border-slate-900 bg-slate-900 text-white"
+      ? selectedClassName
       : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
   }`;
 }

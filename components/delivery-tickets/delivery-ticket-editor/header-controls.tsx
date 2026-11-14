@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { MouseEvent } from "react";
+import { selectedFillClassName } from "@/lib/selected-styles";
 
 type TicketTypeToggleProps = {
   ticketType: "JOB" | "WALK_IN";
@@ -22,7 +23,7 @@ export function TicketTypeToggle({ ticketType, onChange }: TicketTypeToggleProps
         onClick={() => onChange("JOB")}
         className={
           ticketType === "JOB"
-            ? "bg-slate-900 px-3 py-1.5 text-white"
+            ? `${selectedFillClassName} px-3 py-1.5`
             : "px-3 py-1.5 text-slate-600 hover:bg-slate-50"
         }
       >
@@ -34,7 +35,7 @@ export function TicketTypeToggle({ ticketType, onChange }: TicketTypeToggleProps
         onClick={() => onChange("WALK_IN")}
         className={
           ticketType === "WALK_IN"
-            ? "bg-slate-900 px-3 py-1.5 text-white"
+            ? `${selectedFillClassName} px-3 py-1.5`
             : "border-l border-slate-200 px-3 py-1.5 text-slate-600 hover:bg-slate-50"
         }
       >

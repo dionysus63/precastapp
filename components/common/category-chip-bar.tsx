@@ -1,6 +1,7 @@
 "use client";
 
 import { useListQuery } from "@/components/common/use-list-query";
+import { selectedClassName, selectedMutedTextClassName } from "@/lib/selected-styles";
 
 export type CategoryChip = {
   id: string;
@@ -34,7 +35,7 @@ export function CategoryChipBar({
   function categoryChipClass(active: boolean) {
     return `rounded-full border px-2.5 py-1 text-2xs font-medium ${
       active
-        ? "border-slate-900 bg-slate-900 text-white"
+        ? selectedClassName
         : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
     }`;
   }
@@ -42,7 +43,7 @@ export function CategoryChipBar({
   function subcategoryChipClass(active: boolean) {
     return `rounded-md border px-2 py-0.5 text-2xs font-medium ${
       active
-        ? "border-slate-300 bg-slate-100 text-slate-900"
+        ? selectedClassName
         : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
     }`;
   }
@@ -56,7 +57,7 @@ export function CategoryChipBar({
           className={categoryChipClass(!selectedCategoryId)}
         >
           All{" "}
-          <span className={!selectedCategoryId ? "text-slate-300" : "text-slate-400"}>
+          <span className={!selectedCategoryId ? selectedMutedTextClassName : "text-slate-400"}>
             {totalCount}
           </span>
         </button>
@@ -76,7 +77,7 @@ export function CategoryChipBar({
               className={categoryChipClass(active)}
             >
               {chip.name}{" "}
-              <span className={active ? "text-slate-300" : "text-slate-400"}>
+              <span className={active ? selectedMutedTextClassName : "text-slate-400"}>
                 {chip.count}
               </span>
             </button>

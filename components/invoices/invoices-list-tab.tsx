@@ -46,6 +46,7 @@ import {
   tableFlushWrapperClassName,
   tableHeaderCellClassName,
 } from "@/lib/table-styles";
+import { selectedWithBorderClassName } from "@/lib/selected-styles";
 
 function formatDate(value: Date | null): string {
   if (!value) return "—";
@@ -310,7 +311,7 @@ export function InvoicesListTab({
               }
               className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
                 filter === chip.value
-                  ? "bg-slate-900 text-white"
+                  ? selectedWithBorderClassName
                   : chip.value === "PRICE_NEEDED" &&
                       filterCounts.PRICE_NEEDED > 0
                     ? "border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100"

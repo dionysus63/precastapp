@@ -37,6 +37,7 @@ import {
 } from "./import-structures-step";
 import type { ImportFileEntry, ImportQuoteFields } from "./import-types";
 import { loadPdfFromFile } from "./pdf-page-thumbnails";
+import { selectedClassName, selectedMutedTextClassName } from "@/lib/selected-styles";
 
 const STEP_LABELS = ["Job and phase", "Drop the PDFs", "Structures", "Review and import"];
 
@@ -473,15 +474,15 @@ export function ImportJobWizard({ defaultTaxRate }: { defaultTaxRate: number }) 
                     aria-pressed={active}
                     className={`flex min-h-24 flex-col gap-1 rounded-xl border px-3 py-3 text-left transition-colors ${
                       active
-                        ? "border-slate-900 bg-slate-900 text-white"
+                        ? selectedClassName
                         : "border-slate-200 bg-white text-slate-800 hover:border-slate-300 hover:bg-slate-50"
                     }`}
                   >
                     <span className="text-sm font-semibold">{option.title}</span>
-                    <span className={`text-xs ${active ? "text-slate-300" : "text-slate-500"}`}>
+                    <span className={`text-xs ${active ? selectedMutedTextClassName : "text-slate-500"}`}>
                       {option.description}
                     </span>
-                    <span className={`mt-auto text-2xs font-semibold ${active ? "text-slate-200" : "text-slate-500"}`}>
+                    <span className={`mt-auto text-2xs font-semibold ${active ? selectedMutedTextClassName : "text-slate-500"}`}>
                       {option.structureStatus
                         ? `Structures start as ${option.structureStatus.replace(/_/g, " ").toLowerCase()}`
                         : "Quote only, no structures yet"}

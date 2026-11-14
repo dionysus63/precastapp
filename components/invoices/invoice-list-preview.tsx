@@ -8,6 +8,7 @@ import {
   SignedTicketPaper,
 } from "@/components/invoices/invoice-paper";
 import { printPdfUrl } from "@/lib/print-pdf-url";
+import { selectedFillClassName } from "@/lib/selected-styles";
 
 export type InvoicePreviewSide = "invoice" | "signed";
 
@@ -85,7 +86,7 @@ export function InvoiceListPreview({
                 onClick={() => onSideChange(value)}
                 className={
                   side === value
-                    ? "bg-slate-900 px-2.5 py-1 text-white"
+                    ? `${selectedFillClassName} px-2.5 py-1`
                     : "bg-white px-2.5 py-1 text-slate-600 hover:bg-slate-50"
                 }
               >
