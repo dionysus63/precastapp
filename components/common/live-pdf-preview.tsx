@@ -18,11 +18,11 @@ const MIN_PAGE_HEIGHT_PX = 320;
  * than 40%, and always leaves the inputs 64rem (the 1.25rem is the gap).
  *
  * On a narrower window there is no room for both: the inputs keep the
- * standard centered column they were laid out for and the preview stacks
+ * standard column they were laid out for and the preview stacks
  * underneath.
  */
 export const portraitPreviewSplitClassName =
-  "grid items-start gap-5 max-[1799px]:mx-auto max-[1799px]:max-w-7xl min-[1800px]:grid-cols-[min(40%,calc((100vh_-_12rem)_*_0.773_+_1.625rem),calc(100%_-_65.25rem))_minmax(0,1fr)]";
+  "grid items-start gap-5 max-[1799px]:max-w-7xl min-[1800px]:grid-cols-[min(40%,calc((100vh_-_12rem)_*_0.773_+_1.625rem),calc(100%_-_65.25rem))_minmax(0,1fr)]";
 
 /**
  * The preview column itself: it comes after the inputs in the markup (so a

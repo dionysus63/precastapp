@@ -28,7 +28,7 @@ export default async function EditCustomerPage({ params }: EditCustomerPageProps
       title={`Edit ${customer.name}`}
       subtitle="Update customer account details."
     >
-      <div className="mx-auto max-w-3xl">
+      <div className="max-w-3xl">
         <BackButton href={`/customers/${customer.id}`} label="Back to Customer" />
 
         <div className="mt-4">

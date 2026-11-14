@@ -10,7 +10,7 @@ export default function NewCustomerPage() {
       title="New Customer"
       subtitle="Create a customer record for quotes, jobs, and invoicing."
     >
-      <div className="mx-auto max-w-3xl">
+      <div className="max-w-3xl">
         <BackButton href="/customers" label="Back to Customers" />
 
         <div className="mt-4">

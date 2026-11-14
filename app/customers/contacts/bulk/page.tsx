@@ -8,7 +8,7 @@ export default function BulkContactsPage() {
       title="Import Contacts"
       subtitle="Paste contact rows copied from Excel; rows match customers by exact name."
     >
-      <div className="mx-auto max-w-6xl">
+      <div className="max-w-6xl">
         <BackButton href="/customers" label="Back to Customers" />
 
         <div className="mt-4">
