@@ -20,7 +20,7 @@ import {
   tableBodyClassName,
   tableCellBordersClassName,
   tableCellClassName,
-  tableClassName,
+  tableCompactClassName,
   tableFlushWrapperClassName,
   tableHeaderCellWrapClassName,
   tableNumericCellClassName,
@@ -109,7 +109,7 @@ const CustomersTable = memo(function CustomersTable({
 }) {
   return (
     <div className={tableFlushWrapperClassName}>
-      <table className={tableClassName}>
+      <table className={tableCompactClassName}>
         <thead>
           <tr>
             <SortableHeader

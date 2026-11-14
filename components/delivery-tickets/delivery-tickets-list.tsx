@@ -22,7 +22,7 @@ import {
   tableBodyClassName,
   tableCellBordersClassName,
   tableCellClassName,
-  tableClassName,
+  tableCompactClassName,
   tableFlushWrapperClassName,
   tableHeaderCellClassName,
   tableRowClassName,
@@ -51,7 +51,7 @@ const TicketsTable = memo(function TicketsTable({
 }) {
   return (
     <div className={tableFlushWrapperClassName}>
-      <table className={tableClassName}>
+      <table className={tableCompactClassName}>
         <thead>
           <tr>
             <th className={tableHeaderCellClassName}>Ticket</th>
