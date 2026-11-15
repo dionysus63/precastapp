@@ -18,21 +18,22 @@ export function Header({ title, subtitle }: HeaderProps) {
 
   return (
     // One line, one fixed height (--app-header-height in globals.css): the
-    // bars that stick under this one are placed by that number.
-    <header className="sticky top-0 z-10 h-[var(--app-header-height)] border-b border-slate-300 bg-white">
+    // bars that stick under this one are placed by that number. It is the
+    // same gray band as the sidebar, so the two frame the page as one piece.
+    <header className="sticky top-0 z-10 h-[var(--app-header-height)] border-b border-sidebar-edge bg-sidebar">
       <div className="flex h-full items-center justify-between gap-4 px-5">
         <div className="flex min-w-0 items-baseline gap-3">
           <h2 className="shrink-0 text-lg font-semibold text-slate-900">{title}</h2>
           {/* Which record this is, or a rule worth knowing; never a
               description of the screen. One line: the bar keeps its height. */}
           {subtitle ? (
-            <p title={subtitle} className="min-w-0 truncate text-xs text-slate-500">
+            <p title={subtitle} className="min-w-0 truncate text-xs text-slate-600">
               {subtitle}
             </p>
           ) : null}
         </div>
         <div className="hidden shrink-0 items-center gap-2 sm:flex">
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-500">
+          <div className="rounded-lg border border-sidebar-edge px-3 py-1.5 text-xs text-slate-600">
             {today}
           </div>
           <Link
