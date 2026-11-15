@@ -21,7 +21,13 @@ import {
   type QuoteSaveDestination,
 } from "@/app/quotes/actions";
 import { SectionCard } from "@/components/dashboard/section-card";
+import {
+  portraitPreviewPaneClassName,
+  portraitPreviewSplitClassName,
+} from "@/components/common/live-pdf-preview";
+import { useStoredFlag } from "@/lib/hooks/use-stored-flag";
 import { useUnsavedChangesWarning } from "@/lib/hooks/use-unsaved-changes-warning";
+import { standardPageWidthClassName } from "@/lib/page-width";
 import {
   type EditableQuoteLineItem,
   type QuoteFormCustomerOption,
@@ -84,6 +90,7 @@ import { useCustomStructureBuilder } from "@/components/quotes/quote-form/use-cu
 import { useCustomStructureLineEditor } from "@/components/quotes/quote-form/use-custom-structure-line-editor";
 import { QuoteFormLeaveDialog } from "@/components/quotes/quote-form/quote-form-leave-dialog";
 import { QuoteFormStickyHeader } from "@/components/quotes/quote-form/quote-form-sticky-header";
+import { QuoteLivePreview } from "@/components/quotes/quote-form/quote-live-preview";
 import { QuoteLineItemsSection } from "@/components/quotes/quote-form/quote-line-items-section";
 import {
   QuoteJobContactFields,
@@ -141,6 +148,8 @@ type QuoteFormProps = {
   pipeProducts?: QuotePipeProductOption[];
   taxonomy?: ProductTaxonomyCategory[];
   quoteId?: string;
+  /** The quote being edited, shown on the live preview pane. */
+  quoteNumber?: string;
   initialValues?: QuoteFormInitialValues;
   /** ISO updatedAt of the quote when the edit page loaded it — rejects
    * stale saves (optimistic concurrency). */
@@ -171,6 +180,7 @@ export function QuoteForm({
   pipeProducts = [],
   taxonomy = [],
   quoteId,
+  quoteNumber,
   initialValues,
   expectedUpdatedAt,
   quoteDefaults,
@@ -214,6 +224,11 @@ export function QuoteForm({
   const [isPending, startTransition] = useTransition();
   const [isDirty, setIsDirty] = useState(false);
   useUnsavedChangesWarning(isDirty);
+  // The live quote PDF beside the form; hiding it is remembered per PC.
+  const [previewHidden, setPreviewHidden] = useStoredFlag(
+    "precastapp:quote-form-preview-hidden",
+    false,
+  );
   // Back-pill guard: client-side navigation skips beforeunload, so the pill
   // opens this dialog instead when there are unsaved changes.
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
@@ -1041,18 +1056,35 @@ export function QuoteForm({
   }
 
   return (
-    <>
-    {backHref ? (
-      <BackButton
-        href={backHref}
-        label={backLabel ?? "Back"}
-        onClick={(event) => {
-          if (isDirty) {
-            event.preventDefault();
-            setShowLeaveConfirm(true);
-          }
-        }}
-      />
+    // The page is full width for the preview; with the preview hidden the
+    // form goes back to the standard column it was laid out for.
+    <div className={previewHidden ? standardPageWidthClassName : undefined}>
+    {backHref || previewHidden ? (
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {backHref ? (
+          <BackButton
+            href={backHref}
+            label={backLabel ?? "Back"}
+            onClick={(event) => {
+              if (isDirty) {
+                event.preventDefault();
+                setShowLeaveConfirm(true);
+              }
+            }}
+          />
+        ) : (
+          <span />
+        )}
+        {previewHidden ? (
+          <button
+            type="button"
+            onClick={() => setPreviewHidden(false)}
+            className="rounded-md btn-plain px-3 py-1.5 text-xs font-medium"
+          >
+            Show quote preview
+          </button>
+        ) : null}
+      </div>
     ) : null}
 
     {showLeaveConfirm && backHref ? (
@@ -1071,10 +1103,15 @@ export function QuoteForm({
       />
     ) : null}
 
+    <div
+      className={`${backHref || previewHidden ? "mt-4" : ""} ${
+        previewHidden ? "" : portraitPreviewSplitClassName
+      }`}
+    >
     <form
       onSubmit={handleSubmit}
       onChange={() => setIsDirty(true)}
-      className={backHref ? "mt-4" : undefined}
+      className="min-w-0"
     >
       {flashMessage ? (
         <div
@@ -1361,6 +1398,33 @@ export function QuoteForm({
         />
       ) : null}
     </form>
-    </>
+    {previewHidden ? null : (
+      <div className={portraitPreviewPaneClassName}>
+        <QuoteLivePreview
+          quoteId={quoteId}
+          quoteNumber={quoteNumber}
+          fields={{
+            customerName,
+            projectName,
+            jobNumber,
+            projectAddress,
+            contactName,
+            contactEmail,
+            contactPhone,
+            estimator,
+            quoteDate,
+            expirationDate,
+            customerNotes,
+            termsAndConditions,
+            fob,
+          }}
+          lineItems={lineItems}
+          taxRatePercent={taxRatePercent}
+          onHide={() => setPreviewHidden(true)}
+        />
+      </div>
+    )}
+    </div>
+    </div>
   );
 }

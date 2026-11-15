@@ -100,12 +100,14 @@ export default async function EditQuotePage({ params }: EditQuotePageProps) {
   return (
     <DashboardShell
       title={`Edit Quote ${quote.quoteNumber}`}
+      width="full"
     >
       <div>
         <QuoteForm
           backHref={`/quotes/${quote.id}`}
           backLabel="Back to Quote"
           quoteId={quote.id}
+          quoteNumber={quote.quoteNumber}
           initialValues={initialValues}
           expectedUpdatedAt={quote.updatedAt.toISOString()}
           initialCustomer={
