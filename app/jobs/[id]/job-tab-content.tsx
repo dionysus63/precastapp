@@ -7,12 +7,12 @@ import {
   PURCHASE_ORDERS_CATEGORY,
   TAX_EXEMPT_CERT_CATEGORY,
 } from "@/lib/job-folder-constants";
+import { JobOverviewSection } from "@/components/jobs/overview/job-overview-section";
 import { JobProgressPanel } from "@/components/jobs/job-progress-panel";
 import { JobFilesBrowser } from "@/components/files/job-files-browser";
 import {
   JobDeliveriesSection,
   JobInvoicesSection,
-  JobOverviewSection,
   JobProductionSection,
   JobQuotesSection,
 } from "@/components/jobs/job-detail-content";
@@ -20,7 +20,6 @@ import type { JobDetailTab, JobDetailView } from "@/components/jobs/job-utils";
 import { mapFilesForBrowser } from "@/lib/job-file-mapper";
 import { getJobFilesForBrowser } from "@/app/files/actions";
 import {
-  buildJobOverview,
   mapJobBidders,
   mapJobDeliveries,
   mapJobInvoiceableDeliveries,
@@ -29,6 +28,7 @@ import {
   mapJobQuotes,
   mapJobStructures,
 } from "@/lib/job-detail-mapper";
+import { CONSTRUCTION_PLANS_CATEGORY, loadJobOverview } from "@/lib/job-overview";
 import { getJobProgress } from "@/lib/job-progress";
 import { formatQuantity } from "@/lib/format";
 import { structureNeedsDrillSheet } from "@/components/structures/structure-utils";
@@ -38,8 +38,6 @@ import { AppPermission, type Prisma } from "@/app/generated/prisma/client";
 import { isDeliveryServiceLine } from "@/lib/quotes/money-rules";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { JobQuickBuildTab, type JobQuickBuildParams } from "./job-quick-build-tab";
-
-const CONSTRUCTION_PLANS_CATEGORY = "01 Construction Plans";
 
 type JobTabContentProps = {
   jobId: string;
@@ -60,59 +58,49 @@ export async function JobTabContent({
   user,
 }: JobTabContentProps) {
   if (activeTab === "overview") {
-    const [quotes, deliveryTickets, structures, invoices] =
-      await withDatabaseRetry((prisma) =>
-        Promise.all([
-          prisma.quote.findMany({
-            where: { jobId },
-            select: {
-              id: true,
-              quoteNumber: true,
-              status: true,
-              bidDueDate: true,
-              updatedAt: true,
-            },
-          }),
-          prisma.deliveryTicket.findMany({
-            where: { jobId },
-            select: {
-              id: true,
-              ticketNumber: true,
-              status: true,
-              updatedAt: true,
-              invoice: { select: { id: true } },
-            },
-          }),
-          prisma.jobStructure.findMany({
-            where: { jobId },
-            select: {
-              id: true,
-              structureNumber: true,
-              status: true,
-              needsSubmittal: true,
-              updatedAt: true,
-            },
-          }),
-          prisma.invoice.findMany({
-            where: { jobId },
-            select: {
-              id: true,
-              invoiceNumber: true,
-              status: true,
-              updatedAt: true,
-            },
-          }),
-        ]),
-      );
+    const can = (permission: AppPermission) =>
+      user ? hasPermission(user, permission) : Promise.resolve(false);
+    const [
+      overview,
+      canManageDeliveries,
+      canManageProduction,
+      canViewQuotes,
+      canManageQuotes,
+      canViewInvoices,
+      canManageInvoices,
+      canViewFiles,
+      canManageFiles,
+    ] = await Promise.all([
+      withDatabaseRetry((prisma) => loadJobOverview(prisma, jobId)),
+      can(AppPermission.DELIVERY_MANAGE),
+      can(AppPermission.PRODUCTION_MANAGE),
+      can(AppPermission.QUOTES_VIEW),
+      can(AppPermission.QUOTES_MANAGE),
+      can(AppPermission.INVOICES_VIEW),
+      can(AppPermission.INVOICES_MANAGE),
+      can(AppPermission.FILES_VIEW),
+      can(AppPermission.FILES_MANAGE),
+    ]);
 
-    const overview = buildJobOverview(jobId, detail.folderPath, {
-      quotes,
-      deliveryTickets,
-      structures,
-      invoices,
-    });
-
-    return <JobOverviewSection detail={detail} overview={overview} />;
+    return (
+      <JobOverviewSection
+        jobId={jobId}
+        hasFolder={Boolean(detail.folderPath)}
+        overview={overview}
+        permissions={{
+          canManageDeliveries,
+          // Filing a signed ticket needs both, as the Scan In tab does.
+          canScanIn: canManageDeliveries && canManageInvoices,
+          canManageProduction,
+          canViewQuotes,
+          canManageQuotes,
+          canViewInvoices,
+          canManageInvoices,
+          canViewFiles,
+          canManageFiles,
+        }}
+      />
+    );
   }
 
   if (activeTab === "bidding") {

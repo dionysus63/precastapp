@@ -1,5 +1,7 @@
 type SectionCardProps = {
   title: string;
+  /** Small grey number after the title ("Loads 3"). */
+  count?: number;
   description?: string;
   action?: React.ReactNode;
   children: React.ReactNode;
@@ -10,6 +12,7 @@ type SectionCardProps = {
 
 export function SectionCard({
   title,
+  count,
   description,
   action,
   children,
@@ -23,7 +26,14 @@ export function SectionCard({
     >
       <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
         <div>
-          <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+          <h3 className="text-sm font-semibold text-slate-900">
+            {title}
+            {count !== undefined ? (
+              <span className="ml-1.5 font-normal tabular-nums text-slate-500">
+                {count.toLocaleString()}
+              </span>
+            ) : null}
+          </h3>
           {description ? (
             <p className="mt-0.5 text-xs text-slate-500">{description}</p>
           ) : null}

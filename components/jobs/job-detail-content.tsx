@@ -17,14 +17,18 @@ import {
 import { JobDrillSheetsPdfButtons } from "@/components/drill-sheets/job-drill-sheets-pdf-buttons";
 import { MarkAllSubmittedButton } from "@/components/drill-sheets/mark-all-submitted-button";
 import { JobDeliveriesTable } from "@/components/jobs/job-deliveries-table";
-import { JobDeliverySiteEditor } from "@/components/jobs/job-delivery-site-editor";
+import {
+  JobFieldEmpty,
+  JobFieldGrid,
+  JobFieldRow,
+  JobFieldText,
+} from "@/components/jobs/job-field-grid";
+import { JobSiteGrid } from "@/components/jobs/job-site-grid";
 import {
   groupJobRelatedQuotes,
-  type JobAttentionItem,
   type JobDetailTab,
   type JobDetailView,
   type JobInvoiceableDelivery,
-  type JobOverviewData,
   type JobRelatedDelivery,
   type JobRelatedInvoice,
   type JobRelatedQuote,
@@ -82,14 +86,7 @@ const TAB_LABELS: Record<JobDetailTab, string> = {
   files: "Files",
 };
 
-/** Which tab each summary stat card links to. */
-const STAT_TABS: Record<string, JobDetailTab> = {
-  Quotes: "quotes",
-  "Won Value": "quotes",
-  Structures: "production",
-  Deliveries: "deliveries",
-  Invoices: "invoices",
-};
+const topLabelClassName = "text-sm font-medium text-slate-500";
 
 function NewRecordLink({ href, label }: { href: string; label: string }) {
   return (
@@ -143,12 +140,6 @@ export function JobDetailContent({
     invoices: detail.counts.invoices,
   };
 
-  // Customer moved out of the context line — the header's quick contractor
-  // select shows (and edits) it.
-  const contextLine = [
-    detail.projectAddress !== "—" ? detail.projectAddress : null,
-  ].filter(Boolean);
-
   // The job header and tab bar keep the standard page width even when a tab
   // (Quick Build) uses the whole window, so the tabs don't jump sideways when
   // switching between them.
@@ -173,12 +164,6 @@ export function JobDetailContent({
                 View Customer
               </Link>
             ) : null}
-            <Link
-              href={`/quotes/new?jobId=${detail.id}`}
-              className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
-            >
-              New Quote
-            </Link>
             {detail.folderPath ? (
               <OpenJobFolderButton
                 jobId={detail.id}
@@ -190,77 +175,80 @@ export function JobDetailContent({
           </div>
         </div>
 
-        <div className="space-y-3 px-4 py-3">
-          <div className="flex flex-wrap items-center gap-2">
+        {/* Every item carries its name in front of it ("Job Number: 26-140"). */}
+        <div className="flex flex-wrap items-center gap-x-10 gap-y-2 px-4 pb-3 pt-3">
+          <div className="flex items-center gap-2">
             <JobFavoriteStar
               jobId={detail.id}
               initialFavorited={isFavorited}
             />
-            <h2 className="font-mono text-lg font-semibold text-slate-900">
+            <span className={topLabelClassName}>Job Number:</span>
+            <h2 className="font-mono text-xl font-semibold text-slate-900">
               {detail.jobNumber}
             </h2>
+          </div>
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+            <span className={topLabelClassName}>Job Name:</span>
+            <span className="break-words text-xl font-semibold text-slate-900">
+              {detail.projectName}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={topLabelClassName}>Status:</span>
             <JobStatusSelect
               jobId={detail.id}
               jobNumber={detail.jobNumber}
               statusValue={detail.statusValue}
               statusVariant={detail.statusVariant}
             />
-            <JobCustomerEditor
-              jobId={detail.id}
-              jobNumber={detail.jobNumber}
-              customerId={detail.customerId}
-              customerName={detail.customer}
-            />
-            {detail.poQuoteId ? (
-              <span className="rounded-lg border border-slate-200 bg-slate-50/60 px-2 py-1 text-xs text-slate-700">
+          </div>
+        </div>
+
+        <div className="grid items-start gap-3 px-4 pb-3.5 md:grid-cols-2 xl:grid-cols-3">
+          <JobFieldGrid>
+            <JobFieldRow label="Contractor:">
+              <JobCustomerEditor
+                jobId={detail.id}
+                jobNumber={detail.jobNumber}
+                customerId={detail.customerId}
+                customerName={detail.customer}
+              />
+            </JobFieldRow>
+            <JobFieldRow label="Contact:">
+              <JobFieldText value={detail.contactName} />
+            </JobFieldRow>
+            <JobFieldRow label="Contact Phone:">
+              <JobFieldText value={detail.contactPhone} />
+            </JobFieldRow>
+          </JobFieldGrid>
+
+          <JobSiteGrid
+            jobId={detail.id}
+            jobNumber={detail.jobNumber}
+            site={detail.deliverySite}
+          />
+
+          <JobFieldGrid>
+            <JobFieldRow label="PO Number:">
+              {detail.poQuoteId ? (
                 <QuotePoInline
                   quoteId={detail.poQuoteId}
                   customerPo={detail.customerPO}
+                  showPrefix={false}
                 />
-              </span>
-            ) : null}
-          </div>
-
-          <p className="text-sm text-slate-600">
-            <span className="font-medium text-slate-900">
-              {detail.projectName}
-            </span>
-            {contextLine.length > 0 ? ` · ${contextLine.join(" · ")}` : ""}
-          </p>
-
-          <div className="flex flex-wrap divide-x divide-slate-200 rounded-lg border border-slate-200/80 bg-slate-50/60">
-            {detail.stats.map((stat) => {
-              const statTab = STAT_TABS[stat.label];
-              const body = (
-                <>
-                  <p className="text-3xs font-medium uppercase tracking-wide text-slate-500">
-                    {stat.label}
-                  </p>
-                  <p className="text-base font-semibold text-slate-900">
-                    {stat.value}
-                    <span className="ml-1.5 text-xs font-normal text-slate-500">
-                      {stat.detail}
-                    </span>
-                  </p>
-                </>
-              );
-
-              return statTab ? (
-                <Link
-                  key={stat.label}
-                  href={tabHref(detail.id, statTab)}
-                  title={`Open ${TAB_LABELS[statTab]}`}
-                  className="px-4 py-2 transition-colors hover:bg-slate-100/70"
-                >
-                  {body}
-                </Link>
               ) : (
-                <div key={stat.label} className="px-4 py-2">
-                  {body}
-                </div>
-              );
-            })}
-          </div>
+                <JobFieldEmpty />
+              )}
+            </JobFieldRow>
+            <JobFieldRow label="Created By:">
+              <JobFieldText value={detail.createdByName} />
+            </JobFieldRow>
+            <JobFieldRow label="Notes:">
+              <span className="font-normal">
+                <JobFieldText value={detail.notes} />
+              </span>
+            </JobFieldRow>
+          </JobFieldGrid>
         </div>
       </section>
 
@@ -278,177 +266,6 @@ export function JobDetailContent({
       </TabBar>
 
       {children}
-    </div>
-  );
-}
-
-const attentionToneClassName: Record<JobAttentionItem["tone"], string> = {
-  warning: "bg-amber-400",
-  danger: "bg-red-500",
-  info: "bg-sky-500",
-};
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start justify-between gap-3 border-b border-slate-100 py-1.5 text-xs last:border-b-0">
-      <dt className="shrink-0 text-slate-500">{label}</dt>
-      <dd className="break-words text-right font-medium text-slate-800">
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-export function JobOverviewSection({
-  detail,
-  overview,
-}: {
-  detail: JobDetailView;
-  overview: JobOverviewData;
-}) {
-  const shippedPercent =
-    overview.structuresTotal > 0
-      ? Math.round(
-          (overview.structuresShipped / overview.structuresTotal) * 100,
-        )
-      : 0;
-
-  return (
-    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-      <div className="space-y-4">
-        <SectionCard title="Needs Attention" noPadding>
-          {overview.attentionItems.length === 0 ? (
-            <p className="px-4 py-6 text-center text-sm text-slate-500">
-              Nothing needs attention on this job right now.
-            </p>
-          ) : (
-            <div>
-              {overview.attentionItems.map((item) => (
-                <Link
-                  key={item.key}
-                  href={tabHref(detail.id, item.tab)}
-                  className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-2.5 last:border-b-0 hover:bg-slate-50"
-                >
-                  <span className="flex items-center gap-2.5 text-sm text-slate-800">
-                    <span
-                      aria-hidden="true"
-                      className={`h-2 w-2 shrink-0 rounded-full ${attentionToneClassName[item.tone]}`}
-                    />
-                    {item.label}
-                  </span>
-                  <span className="whitespace-nowrap text-2xs text-slate-400">
-                    {TAB_LABELS[item.tab]} →
-                  </span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </SectionCard>
-
-        <SectionCard title="Recent Activity" noPadding>
-          {overview.recentActivity.length === 0 ? (
-            <p className="px-4 py-6 text-center text-sm text-slate-500">
-              No quotes, deliveries, structures, or invoices on this job yet.
-            </p>
-          ) : (
-            <div>
-              {overview.recentActivity.map((item) => (
-                <div
-                  key={item.key}
-                  className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-2 last:border-b-0"
-                >
-                  <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
-                    <span className="w-14 shrink-0 text-slate-400">
-                      {item.typeLabel}
-                    </span>
-                    <Link
-                      href={item.href}
-                      className="font-mono text-2xs font-medium text-slate-900 hover:underline"
-                    >
-                      {item.recordNumber}
-                    </Link>
-                    <StatusBadge
-                      label={item.statusLabel}
-                      variant={item.statusVariant}
-                    />
-                  </div>
-                  <span className="whitespace-nowrap text-2xs text-slate-500">
-                    {item.updated}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </SectionCard>
-      </div>
-
-      <div className="space-y-4">
-        {detail.deliverySite.visible ? (
-          <JobDeliverySiteEditor
-            jobId={detail.id}
-            jobNumber={detail.jobNumber}
-            site={detail.deliverySite}
-          />
-        ) : null}
-
-        <SectionCard title="Job Information">
-          <dl>
-            <InfoRow label="Contact" value={detail.contactName} />
-            <InfoRow label="Phone" value={detail.contactPhone} />
-            <InfoRow label="Email" value={detail.contactEmail} />
-            <InfoRow label="Bid Date" value={detail.bidDate} />
-            <InfoRow label="Awarded Date" value={detail.awardedDate} />
-            <InfoRow label="Year" value={String(detail.year)} />
-            <InfoRow
-              label="Bidding"
-              value={detail.biddingSummary.summaryText}
-            />
-            <InfoRow label="Created" value={detail.createdAt} />
-            <InfoRow label="Created By" value={detail.createdByName} />
-            <InfoRow label="Last Updated" value={detail.updatedAt} />
-            <InfoRow
-              label="Folder"
-              value={detail.folderPath ?? "No folder yet"}
-            />
-          </dl>
-          <div className="mt-3 border-t border-slate-100 pt-3">
-            <p className="text-2xs font-medium uppercase tracking-wide text-slate-500">
-              Notes
-            </p>
-            <p className="mt-1 whitespace-pre-wrap text-xs text-slate-700">
-              {detail.notes}
-            </p>
-          </div>
-        </SectionCard>
-
-        {overview.structuresTotal > 0 ? (
-          <SectionCard title="Production Progress">
-            <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-              <div
-                className="h-full rounded-full bg-emerald-500"
-                style={{ width: `${shippedPercent}%` }}
-              />
-            </div>
-            <p className="mt-2 text-2xs text-slate-500">
-              {overview.structuresShipped} of {overview.structuresTotal}{" "}
-              structure{overview.structuresTotal === 1 ? "" : "s"} shipped
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {detail.structureStatusBreakdown.map((entry) => (
-                <span
-                  key={entry.label}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-2xs font-medium text-slate-700"
-                >
-                  {entry.label}
-                  <span className="rounded-full bg-white px-1.5 text-3xs font-semibold text-slate-600">
-                    {entry.count}
-                  </span>
-                </span>
-              ))}
-            </div>
-          </SectionCard>
-        ) : null}
-      </div>
     </div>
   );
 }
