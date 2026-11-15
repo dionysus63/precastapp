@@ -79,6 +79,7 @@ export default async function NewQuotePage({
   return (
     <DashboardShell
       title="New Quote"
+      width="full"
     >
       <div>
         <QuoteForm
