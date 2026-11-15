@@ -6,7 +6,7 @@ export type JobSheetNavEntry = {
 };
 
 const buttonClassName =
-  "rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50";
+  "rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold";
 const disabledClassName =
   "rounded-lg border border-slate-100 px-3 py-1.5 text-2xs font-semibold text-slate-300";
 

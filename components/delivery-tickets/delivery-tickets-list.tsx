@@ -121,7 +121,7 @@ const TicketsTable = memo(function TicketsTable({
                 <td className={tableCellClassName}>
                   <Link
                     href={`/delivery-tickets/${ticket.id}/preview`}
-                    className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-700 hover:bg-slate-50"
+                    className="inline-flex rounded-md btn-plain px-2 py-1 text-2xs font-medium"
                   >
                     Print
                   </Link>

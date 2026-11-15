@@ -51,7 +51,7 @@ export const DispatcherWeekCalendar = memo(function DispatcherWeekCalendar({
             <button
               type="button"
               onClick={() => setWeekOffset(0)}
-              className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-2xs font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-lg btn-plain px-2.5 py-1.5 text-2xs font-medium"
             >
               Today
             </button>
@@ -59,7 +59,7 @@ export const DispatcherWeekCalendar = memo(function DispatcherWeekCalendar({
           <button
             type="button"
             onClick={() => setWeekOffset((offset) => offset - 1)}
-            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-2xs font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-lg btn-plain px-2.5 py-1.5 text-2xs font-medium"
             aria-label="Previous week"
           >
             ←
@@ -67,7 +67,7 @@ export const DispatcherWeekCalendar = memo(function DispatcherWeekCalendar({
           <button
             type="button"
             onClick={() => setWeekOffset((offset) => offset + 1)}
-            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-2xs font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-lg btn-plain px-2.5 py-1.5 text-2xs font-medium"
             aria-label="Next week"
           >
             →

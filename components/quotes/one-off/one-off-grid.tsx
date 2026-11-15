@@ -724,7 +724,7 @@ export function OneOffGrid({
                 ? `Clear the Inv ${openingLetter(openingCount - 1)} row first`
                 : "Remove the last opening"
             }
-            className="rounded border border-slate-200 bg-white px-2 py-0.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+            className="rounded btn-plain px-2 py-0.5 text-2xs font-semibold disabled:opacity-40"
           >
             − Opening
           </button>
@@ -732,7 +732,7 @@ export function OneOffGrid({
             type="button"
             onClick={() => changeOpeningCount(openingCount + 1)}
             disabled={openingCount >= ONE_OFF_MAX_OPENINGS}
-            className="rounded border border-slate-200 bg-white px-2 py-0.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+            className="rounded btn-plain px-2 py-0.5 text-2xs font-semibold disabled:opacity-40"
           >
             + Opening
           </button>

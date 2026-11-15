@@ -122,7 +122,7 @@ export function StandardQuoteLineRow({
                   <button
                     type="button"
                     onClick={() => openSplitForm(line)}
-                    className="rounded border border-slate-200 bg-white px-1.5 py-px text-3xs font-medium text-slate-600 hover:bg-slate-50"
+                    className="rounded btn-plain px-1.5 py-px text-3xs font-medium"
                   >
                     Split for shipping
                   </button>
@@ -191,7 +191,7 @@ export function StandardQuoteLineRow({
                       type="button"
                       disabled={splitPending}
                       onClick={() => void saveSplit(line)}
-                      className="rounded-md bg-slate-900 px-2.5 py-1 text-2xs font-semibold text-white disabled:opacity-50"
+                      className="rounded-md btn-main px-2.5 py-1 text-2xs font-semibold disabled:opacity-50"
                     >
                       {splitPending
                         ? "Splitting…"

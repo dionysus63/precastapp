@@ -88,7 +88,7 @@ export function UsersList({ users }: UsersListProps) {
                 <div className="flex justify-end gap-2">
                   <Link
                     href={`/settings/users/${user.id}`}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50"
+                    className="rounded-lg btn-plain px-3 py-1.5 font-semibold"
                   >
                     Edit
                   </Link>

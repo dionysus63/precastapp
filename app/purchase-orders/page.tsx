@@ -149,14 +149,14 @@ export default async function PurchaseOrdersPage({
           </select>
           <button
             type="submit"
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 font-medium text-slate-800 hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-2 font-medium"
           >
             Filter
           </button>
         </form>
         <Link
           href="/purchase-orders/new"
-          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+          className="rounded-lg btn-main px-4 py-2 text-xs font-semibold"
         >
           New Purchase Order
         </Link>

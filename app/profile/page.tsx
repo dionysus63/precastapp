@@ -90,7 +90,7 @@ export default async function ProfilePage() {
           <div className="flex justify-end">
             <button
               type="submit"
-              className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+              className="rounded-lg btn-main px-4 py-2 text-xs font-semibold"
             >
               Save Profile
             </button>
@@ -170,7 +170,7 @@ export default async function ProfilePage() {
           <div className="flex justify-end">
             <button
               type="submit"
-              className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+              className="rounded-lg btn-main px-4 py-2 text-xs font-semibold"
             >
               Change Password
             </button>

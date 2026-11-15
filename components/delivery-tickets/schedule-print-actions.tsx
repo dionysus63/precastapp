@@ -8,7 +8,7 @@ type SchedulePrintActionsProps = {
 };
 
 const pillClassName =
-  "inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 transition-colors hover:bg-slate-50";
+  "inline-flex items-center justify-center rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold transition-colors";
 
 export function SchedulePrintActions({ jobId }: SchedulePrintActionsProps) {
   const [pending, startTransition] = useTransition();

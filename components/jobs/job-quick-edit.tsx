@@ -25,7 +25,7 @@ const statusSelectVariantClassName: Record<string, string> = {
   info: "border-sky-200 bg-sky-50 text-sky-700",
   warning: "border-amber-200 bg-amber-50 text-amber-800",
   danger: "border-red-200 bg-red-50 text-red-700",
-  neutral: "border-zinc-200 bg-zinc-100 text-zinc-600",
+  neutral: "border-slate-200 bg-slate-100 text-slate-600",
   default: "border-slate-200 bg-slate-100 text-slate-700",
 };
 
@@ -219,7 +219,7 @@ export function JobCustomerEditor({
           onClick={cancel}
           disabled={pending}
           aria-label="Cancel contractor change"
-          className="rounded-md border border-slate-200 px-1.5 py-1 text-2xs text-slate-500 hover:bg-slate-50"
+          className="rounded-md btn-plain px-1.5 py-1 text-2xs"
         >
           ✕
         </button>

@@ -182,7 +182,7 @@ export default async function PriceListDetailPage({
             <div className="sm:col-span-4">
               <button
                 type="submit"
-                className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white"
+                className="rounded-lg btn-main px-4 py-2 text-xs font-medium"
               >
                 Save item
               </button>
@@ -238,7 +238,7 @@ export default async function PriceListDetailPage({
                           </div>
                           <button
                             type="submit"
-                            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                            className="rounded-lg btn-plain px-3 py-1.5 text-xs font-medium"
                           >
                             Add
                           </button>
@@ -305,7 +305,7 @@ export default async function PriceListDetailPage({
                           />
                           <button
                             type="submit"
-                            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                            className="rounded-lg btn-plain px-3 py-1.5 text-xs font-medium"
                           >
                             Save
                           </button>

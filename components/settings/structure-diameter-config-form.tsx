@@ -187,7 +187,7 @@ export function StructureDiameterConfigForm({
         <button
           type="button"
           onClick={() => setRows((current) => [...current, createRow()])}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+          className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
         >
           Add Diameter
         </button>
@@ -395,7 +395,7 @@ export function StructureDiameterConfigForm({
                           current.filter((r) => r.id !== row.id),
                         )
                       }
-                      className="text-2xs font-medium text-rose-600 hover:text-rose-800"
+                      className="text-2xs font-medium text-red-600 hover:text-red-800"
                     >
                       Remove
                     </button>
@@ -430,7 +430,7 @@ export function StructureDiameterConfigForm({
       </div>
 
       {saveError ? (
-        <p className="w-0 min-w-full rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+        <p className="w-0 min-w-full rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
           {saveError}
         </p>
       ) : null}
@@ -438,7 +438,7 @@ export function StructureDiameterConfigForm({
       <div className="flex justify-end">
         <button
           type="submit"
-          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+          className="rounded-lg btn-main px-4 py-2 text-xs font-semibold"
         >
           Save Molds ({priceListName} prices)
         </button>

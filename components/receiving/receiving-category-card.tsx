@@ -14,7 +14,7 @@ import {
 const accentBorderStyles = {
   emerald: "border-emerald-200 bg-emerald-50/30",
   amber: "border-amber-200 bg-amber-50/30",
-  rose: "border-rose-200 bg-rose-50/30",
+  rose: "border-red-200 bg-red-50/30",
   sky: "border-sky-200 bg-sky-50/30",
 };
 
@@ -93,14 +93,14 @@ export function ReceivingCategoryCard({
         {canManage ? (
           <Link
             href={`/receiving/receive?category=${category}`}
-            className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+            className="rounded-lg btn-main px-3 py-2 text-xs font-semibold"
           >
             Record delivery
           </Link>
         ) : null}
         <Link
           href={`/inventory/receipts?category=${category}`}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-sm hover:bg-slate-50"
+          className="rounded-lg btn-plain px-3 py-2 text-xs font-medium"
         >
           History
         </Link>

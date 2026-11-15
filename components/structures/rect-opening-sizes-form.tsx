@@ -263,7 +263,7 @@ export function RectOpeningSizesForm({
                             }
                             className={`${catalogCellInputClassName} font-semibold ${
                               duplicates.has(line.key)
-                                ? "bg-rose-50 text-rose-700"
+                                ? "bg-red-50 text-red-700"
                                 : ""
                             }`}
                           />

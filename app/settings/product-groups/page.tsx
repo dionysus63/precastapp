@@ -87,7 +87,7 @@ function GroupEditor({
           </div>
           <button
             type="submit"
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-xs font-medium"
           >
             Save
           </button>
@@ -258,7 +258,7 @@ export default async function ProductGroupsPage() {
           </div>
           <button
             type="submit"
-            className="rounded-lg bg-slate-900 px-4 py-1.5 text-xs font-medium text-white"
+            className="rounded-lg btn-main px-4 py-1.5 text-xs font-medium"
           >
             Create
           </button>

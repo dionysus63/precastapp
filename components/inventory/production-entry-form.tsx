@@ -120,7 +120,7 @@ export function ProductionEntryForm({ products }: ProductionEntryFormProps) {
           <button
             type="button"
             onClick={addLine}
-            className="rounded border border-slate-200 px-2 py-1 text-2xs hover:bg-slate-50"
+            className="rounded btn-plain px-2 py-1 text-2xs"
           >
             Add row
           </button>
@@ -181,14 +181,14 @@ export function ProductionEntryForm({ products }: ProductionEntryFormProps) {
       <div className="flex justify-end gap-2">
         <Link
           href="/inventory"
-          className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium hover:bg-slate-50"
+          className="rounded-lg btn-plain px-4 py-2 text-xs font-medium"
         >
           Cancel
         </Link>
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+          className="rounded-lg btn-main px-4 py-2 text-xs font-medium disabled:opacity-50"
         >
           {pending ? "Saving…" : "Save Production Entry"}
         </button>

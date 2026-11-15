@@ -5,7 +5,7 @@
  */
 export default function RootLoading() {
   return (
-    <div className="min-h-screen bg-slate-50/80 pl-60">
+    <div className="min-h-screen bg-page pl-60">
       <div className="fixed inset-y-0 left-0 w-60 border-r border-slate-200 bg-white p-4">
         <div className="h-8 w-36 animate-pulse rounded bg-slate-200" />
         <div className="mt-8 space-y-3">

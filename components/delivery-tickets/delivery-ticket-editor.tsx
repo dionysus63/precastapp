@@ -955,7 +955,7 @@ export function DeliveryTicketEditor({
           <button
             type="button"
             onClick={() => setPreviewHidden(false)}
-            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+            className="rounded-md btn-plain px-3 py-1.5 text-xs font-medium"
           >
             Show ticket preview
           </button>

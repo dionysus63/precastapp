@@ -56,7 +56,7 @@ export function LoginForm({ users }: LoginFormProps) {
             onClick={() => handleSelectUser(user)}
             className="flex w-full items-center gap-4 rounded-xl border border-slate-200 bg-white px-4 py-4 text-left shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-sm font-semibold text-white">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-charcoal text-sm font-semibold text-white">
               {user.initials}
             </div>
             <div>
@@ -83,7 +83,7 @@ export function LoginForm({ users }: LoginFormProps) {
 
       <div className="mt-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-sm font-semibold text-white">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-charcoal text-sm font-semibold text-white">
             {selectedUser.initials}
           </div>
           <div>
@@ -119,7 +119,7 @@ export function LoginForm({ users }: LoginFormProps) {
           </div>
 
           {error ? (
-            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
               {error}
             </p>
           ) : null}
@@ -127,7 +127,7 @@ export function LoginForm({ users }: LoginFormProps) {
           <button
             type="submit"
             disabled={isPending}
-            className="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-lg btn-main px-4 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isPending ? "Signing in..." : "Sign In"}
           </button>

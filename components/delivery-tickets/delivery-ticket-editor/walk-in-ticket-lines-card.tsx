@@ -57,7 +57,7 @@ export function WalkInTicketLinesCard({
             <button
               type="button"
               onClick={onToggleLineWeights}
-              className="shrink-0 rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50"
+              className="shrink-0 rounded-md btn-plain px-2 py-1 text-2xs font-medium"
             >
               {showLineWeights
                 ? "Hide individual weights"

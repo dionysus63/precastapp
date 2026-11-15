@@ -86,10 +86,10 @@ function InvoiceBadges({ row }: { row: InvoiceListRow }) {
 
 
 const barButtonClassName =
-  "rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50";
+  "rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50";
 
 const barPrimaryButtonClassName =
-  "rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50";
+  "rounded-lg btn-main px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50";
 
 /**
  * "List | paper", side by side from a 1024px window up. The list keeps 69.5rem
@@ -338,7 +338,7 @@ export function InvoicesListTab({
               disabled={!printDay || printPending}
               onClick={printAllForDay}
               title="Prints the Invoice Summary page, then every invoice made on that day"
-              className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium hover:bg-slate-50 disabled:opacity-50"
+              className="rounded-lg btn-plain px-3 py-1.5 font-medium disabled:opacity-50"
             >
               {printPending ? "Preparing…" : "Print all for day"}
             </button>

@@ -164,13 +164,13 @@ export function TodaysLoadsPanel({
                     <div className="flex flex-wrap gap-1.5">
                       <Link
                         href={`/delivery-tickets/${ticket.id}/preview?from=hub`}
-                        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-700 hover:bg-slate-50"
+                        className="inline-flex rounded-md btn-plain px-2 py-1 text-2xs font-medium"
                       >
                         Print
                       </Link>
                       <Link
                         href={`/delivery-tickets/${ticket.id}/submittals/preview?from=hub`}
-                        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-700 hover:bg-slate-50"
+                        className="inline-flex rounded-md btn-plain px-2 py-1 text-2xs font-medium"
                       >
                         Submittals
                       </Link>

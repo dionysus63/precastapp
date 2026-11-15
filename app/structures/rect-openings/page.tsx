@@ -72,7 +72,7 @@ export default async function RectOpeningSizesPage({
           />
           <Link
             href="/structures/import"
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            className="inline-flex items-center justify-center rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold transition-colors"
           >
             Bulk Import
           </Link>

@@ -65,7 +65,7 @@ export default async function ProductInventoryPage({
         <BackButton href="/inventory" label="Back to Inventory" />
         <Link
           href={`/inventory/adjust?productId=${product.id}`}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50"
+          className="rounded-lg btn-plain px-3 py-1.5 text-xs font-medium"
         >
           Adjust stock
         </Link>

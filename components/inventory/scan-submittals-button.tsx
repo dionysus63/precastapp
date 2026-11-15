@@ -36,7 +36,7 @@ export function ScanSubmittalsButton() {
         type="button"
         disabled={pending}
         onClick={handleScan}
-        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+        className="rounded-lg btn-plain px-3 py-2 text-xs font-medium disabled:opacity-50"
       >
         {pending ? "Scanning…" : "Scan Submittals Folder"}
       </button>
@@ -44,7 +44,7 @@ export function ScanSubmittalsButton() {
         <span className="text-3xs text-red-600">{message.error}</span>
       ) : null}
       {message.success ? (
-        <span className="text-3xs text-green-700">{message.success}</span>
+        <span className="text-3xs text-emerald-700">{message.success}</span>
       ) : null}
     </div>
   );

@@ -19,7 +19,7 @@ export function Header({ title, subtitle }: HeaderProps) {
   return (
     // One line, one fixed height (--app-header-height in globals.css): the
     // bars that stick under this one are placed by that number.
-    <header className="sticky top-0 z-10 h-[var(--app-header-height)] border-b border-slate-200/80 bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-10 h-[var(--app-header-height)] border-b border-slate-300 bg-white">
       <div className="flex h-full items-center justify-between gap-4 px-5">
         <div className="flex min-w-0 items-baseline gap-3">
           <h2 className="shrink-0 text-lg font-semibold text-slate-900">{title}</h2>
@@ -38,7 +38,7 @@ export function Header({ title, subtitle }: HeaderProps) {
           <Link
             href="/"
             aria-label="Home"
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+            className="btn-plain flex h-8 w-8 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
           >
             <NavIcon name="home" className="h-4 w-4" />
           </Link>
@@ -46,7 +46,7 @@ export function Header({ title, subtitle }: HeaderProps) {
           <form action={signOut}>
             <button
               type="submit"
-              className="flex h-8 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+              className="flex h-8 items-center rounded-lg btn-plain px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
             >
               Sign out
             </button>

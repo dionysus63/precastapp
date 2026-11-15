@@ -26,7 +26,7 @@ const VARIANT_SELECT_STYLES: Record<
   warning: "border-amber-200 bg-amber-50 text-amber-800",
   danger: "border-red-200 bg-red-50 text-red-700",
   info: "border-sky-200 bg-sky-50 text-sky-700",
-  neutral: "border-zinc-200 bg-zinc-100 text-zinc-600",
+  neutral: "border-slate-200 bg-slate-100 text-slate-600",
 };
 
 type StatusSelectProps = {

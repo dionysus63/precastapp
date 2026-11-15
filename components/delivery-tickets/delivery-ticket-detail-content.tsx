@@ -177,7 +177,7 @@ export function DeliveryTicketDetailContent({
         <div className="flex flex-wrap gap-2">
           <Link
             href={ticketId ? `/delivery-tickets/${ticketId}/edit` : "#"}
-            className={`rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold ${ticketId ? "text-slate-700 hover:bg-slate-50" : "pointer-events-none text-slate-400"}`}
+            className={`btn-plain rounded-lg px-3 py-1.5 text-2xs font-semibold ${ticketId ? "" : "pointer-events-none opacity-50"}`}
           >
             Edit Ticket
           </Link>
@@ -185,7 +185,7 @@ export function DeliveryTicketDetailContent({
             <>
               <Link
                 href={`/delivery-tickets/${ticketId}/preview`}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
               >
                 Preview/Print
               </Link>

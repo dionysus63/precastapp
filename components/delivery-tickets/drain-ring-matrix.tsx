@@ -189,7 +189,7 @@ function DrainRingStyleTable({
                       setMode((current) => (current === "pool" ? "auto" : "pool"));
                       setAutoError(null);
                     }}
-                    className="shrink-0 rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-3xs font-semibold normal-case tracking-normal text-slate-600 hover:bg-slate-50"
+                    className="shrink-0 rounded-md btn-plain px-1.5 py-0.5 text-3xs font-semibold normal-case tracking-normal"
                   >
                     {mode === "pool" ? "Auto-assign" : "Assign by pool"}
                   </button>

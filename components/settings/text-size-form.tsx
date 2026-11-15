@@ -61,7 +61,7 @@ export function TextSizeForm({ current }: { current: TextSizeValue }) {
       <div className="mt-4 flex justify-start">
         <button
           type="submit"
-          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+          className="rounded-lg btn-main px-4 py-2 text-xs font-semibold"
         >
           Save
         </button>

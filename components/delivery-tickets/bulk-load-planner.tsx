@@ -1564,7 +1564,7 @@ export function BulkLoadPlanner({
             <button
               type="button"
               onClick={() => toggleRingMode(group.key)}
-              className="shrink-0 rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-3xs font-semibold text-slate-600 hover:bg-slate-50"
+              className="shrink-0 rounded-md btn-plain px-1.5 py-0.5 text-3xs font-semibold"
             >
               {mode === "pool" ? "Auto-assign" : "Assign by pool"}
             </button>
@@ -1794,7 +1794,7 @@ export function BulkLoadPlanner({
               <button
                 type="button"
                 onClick={setColumnsToExpected}
-                className="mt-0.5 rounded border border-slate-200 px-1.5 py-0.5 text-2xs font-medium text-slate-600 hover:bg-slate-50"
+                className="mt-0.5 rounded btn-plain px-1.5 py-0.5 text-2xs font-medium"
               >
                 Use {expectedLoads} columns
               </button>
@@ -2048,7 +2048,7 @@ export function BulkLoadPlanner({
                                     ? "Show the component pieces to load a partial set."
                                     : "Enter complete assemblies per load."
                               }
-                              className="shrink-0 rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-3xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                              className="shrink-0 rounded-md btn-plain px-1.5 py-0.5 text-3xs font-semibold disabled:opacity-50"
                             >
                               {castingMode === "sets"
                                 ? "Adjust pieces"
@@ -2228,7 +2228,7 @@ export function BulkLoadPlanner({
                             <button
                               type="button"
                               onClick={() => fillRemainder(row)}
-                              className="rounded border border-slate-200 px-1 text-3xs text-slate-500 hover:bg-slate-100"
+                              className="rounded btn-plain px-1 text-3xs"
                               title={`Put the remaining ${formatQuantity(leftForGroup)} on Load ${loads.length}`}
                             >
                               fill
@@ -2409,7 +2409,7 @@ export function BulkLoadPlanner({
             <button
               type="button"
               onClick={addLoad}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold"
             >
               + Add Load
             </button>
@@ -2418,7 +2418,7 @@ export function BulkLoadPlanner({
               onClick={handleSaveForLater}
               disabled={parkPending || pending}
               title="Park this layout without creating tickets; it will be offered next time the planner opens."
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
             >
               {parkPending ? "Saving…" : "Save for Later"}
             </button>
@@ -2426,7 +2426,7 @@ export function BulkLoadPlanner({
               type="button"
               onClick={() => setConfirming(true)}
               disabled={!canSubmit}
-              className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-lg btn-main px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40"
             >
               {hasExistingDrafts || deletedTickets.length > 0
                 ? "Review & Save Plan"
@@ -2503,7 +2503,7 @@ export function BulkLoadPlanner({
               type="button"
               onClick={handleSubmit}
               disabled={pending || saved}
-              className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+              className="rounded-lg btn-main px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
             >
               {pending ? "Saving…" : "Confirm & Save Plan"}
             </button>
@@ -2511,7 +2511,7 @@ export function BulkLoadPlanner({
               type="button"
               onClick={() => setConfirming(false)}
               disabled={pending}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold"
             >
               Keep Editing
             </button>

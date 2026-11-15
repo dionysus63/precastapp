@@ -362,7 +362,7 @@ export function CustomerForm({
       <div className="flex justify-end gap-2 border-t border-slate-100 pt-5">
         <Link
           href={cancelHref}
-          className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          className="rounded-lg btn-plain px-4 py-2 text-xs font-semibold"
         >
           Cancel
         </Link>
@@ -371,7 +371,7 @@ export function CustomerForm({
             <button
               type="button"
               onClick={() => setShowConfirmPanel(false)}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-lg btn-plain px-4 py-2 text-xs font-semibold"
             >
               Go Back
             </button>
@@ -388,7 +388,7 @@ export function CustomerForm({
           <button
             type="submit"
             disabled={isSubmitting}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+            className="rounded-lg btn-main px-4 py-2 text-xs font-semibold disabled:opacity-60"
           >
             {isSubmitting ? "Saving…" : submitLabel}
           </button>

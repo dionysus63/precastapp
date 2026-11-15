@@ -132,7 +132,7 @@ function FieldCheck({ id, version }: { id: string; version: number }) {
     return <span className="text-slate-400">Checking…</span>;
   }
   if (state.status === "error") {
-    return <span className="text-rose-700">{state.message}</span>;
+    return <span className="text-red-700">{state.message}</span>;
   }
   const summary = sheetPdfCoverageSummary(state);
   return (
@@ -140,7 +140,7 @@ function FieldCheck({ id, version }: { id: string; version: number }) {
       <p
         className={
           summary.ok
-            ? "font-semibold text-green-700"
+            ? "font-semibold text-emerald-700"
             : "font-semibold text-amber-700"
         }
       >
@@ -218,7 +218,7 @@ export function SheetPdfManager({
       {message.error ? (
         <p
           role="alert"
-          className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700"
+          className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700"
         >
           {message.error}
         </p>
@@ -317,7 +317,7 @@ export function SheetPdfManager({
           <button
             type="submit"
             disabled={pending}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+            className="rounded-lg btn-main px-4 py-2 text-xs font-semibold disabled:opacity-50"
           >
             Add
           </button>
@@ -509,7 +509,7 @@ function SheetPdfRow({
             disabled={pending}
             title="Upload an edited PDF in place of this one. Every template using it follows."
             onClick={() => fileInputRef.current?.click()}
-            className={`${actionButtonClassName} border-slate-300 bg-white text-slate-800 hover:bg-slate-50`}
+            className={`${actionButtonClassName} btn-plain`}
           >
             Replace
           </button>

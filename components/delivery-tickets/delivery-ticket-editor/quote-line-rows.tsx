@@ -133,7 +133,7 @@ export function CastingAssemblyRow({
                       return next;
                     })
                   }
-                  className="rounded border border-slate-200 bg-white px-1.5 py-px text-3xs font-medium text-slate-600 hover:bg-slate-50"
+                  className="rounded btn-plain px-1.5 py-px text-3xs font-medium"
                 >
                   {piecesExpanded
                     ? "Hide pieces"
@@ -479,7 +479,7 @@ export function SplitStructureRow({
                   <p
                     className={`mt-1 text-2xs font-medium ${
                       option.deliveredTicketNumber
-                        ? "text-green-700"
+                        ? "text-emerald-700"
                         : "text-sky-700"
                     }`}
                   >

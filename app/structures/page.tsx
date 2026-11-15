@@ -34,31 +34,31 @@ export default async function StructuresPage() {
       <div className="mb-4 flex flex-wrap justify-end gap-2">
         <Link
           href="/structures/pipe-openings"
-          className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+          className="inline-flex items-center justify-center rounded-lg btn-plain px-4 py-2 text-xs font-semibold transition-colors"
         >
           Round Structure Openings ({pipeOpeningCount})
         </Link>
         <Link
           href="/structures/rect-openings"
-          className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+          className="inline-flex items-center justify-center rounded-lg btn-plain px-4 py-2 text-xs font-semibold transition-colors"
         >
           Rect Structure Openings ({rectOpeningCount})
         </Link>
         <Link
           href="/structures/sheet-pdfs"
-          className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+          className="inline-flex items-center justify-center rounded-lg btn-plain px-4 py-2 text-xs font-semibold transition-colors"
         >
           Sheet PDFs
         </Link>
         <Link
           href="/structures/import"
-          className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+          className="inline-flex items-center justify-center rounded-lg btn-plain px-4 py-2 text-xs font-semibold transition-colors"
         >
           Bulk Import
         </Link>
         <Link
           href="/structures/new"
-          className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
+          className="inline-flex items-center justify-center rounded-lg btn-main px-4 py-2 text-xs font-semibold transition-colors"
         >
           New Template
         </Link>
@@ -126,7 +126,7 @@ export default async function StructuresPage() {
                       <div className="flex items-center gap-1.5">
                         <Link
                           href={`/structures/${template.id}`}
-                          className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50"
+                          className="inline-flex rounded-md btn-plain px-2 py-1 text-2xs font-medium"
                         >
                           Edit
                         </Link>
@@ -139,7 +139,7 @@ export default async function StructuresPage() {
                           <button
                             type="submit"
                             title={`Create a copy of ${template.name}`}
-                            className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50"
+                            className="inline-flex rounded-md btn-plain px-2 py-1 text-2xs font-medium"
                           >
                             Duplicate
                           </button>

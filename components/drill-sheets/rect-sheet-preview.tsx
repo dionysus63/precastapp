@@ -527,12 +527,12 @@ function SummaryPanel({
       </div>
 
       {result.errorMessage ? (
-        <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 font-medium text-rose-700">
+        <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 font-medium text-red-700">
           {result.errorMessage}
         </p>
       ) : null}
       {result.pipeErrors.length > 0 ? (
-        <ul className="mt-3 space-y-1 rounded-lg bg-rose-50 px-3 py-2 font-medium text-rose-700">
+        <ul className="mt-3 space-y-1 rounded-lg bg-red-50 px-3 py-2 font-medium text-red-700">
           {result.pipeErrors.map((error, index) => (
             <li key={index}>{error}</li>
           ))}

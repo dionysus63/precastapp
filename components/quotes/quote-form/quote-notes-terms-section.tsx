@@ -295,7 +295,7 @@ export function QuoteDeliveryPricingPanel({
             type="button"
             onClick={onApplyDeliveryLine}
             disabled={deliveryTotal === null}
-            className="mt-1 rounded-lg bg-slate-900 px-2.5 py-1 text-2xs font-semibold text-white hover:bg-slate-800 disabled:opacity-40"
+            className="mt-1 rounded-lg btn-main px-2.5 py-1 text-2xs font-semibold disabled:opacity-40"
           >
             {hasDeliveryLine
               ? "Update delivery line"

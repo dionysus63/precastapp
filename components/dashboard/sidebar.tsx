@@ -62,8 +62,9 @@ export function Sidebar({
   }, "");
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-20 flex h-screen w-60 flex-col border-r border-slate-200/80 bg-gradient-to-b from-white to-slate-50">
-      <div className="shrink-0 border-b border-slate-100 px-4 py-4">
+    <aside className="fixed inset-y-0 left-0 z-20 flex h-screen w-60 flex-col border-r border-sidebar-edge bg-sidebar">
+      {/* The logo sits on white: it is drawn for a white sheet. */}
+      <div className="shrink-0 border-b border-sidebar-edge bg-white px-4 py-4">
         <Link
           href="/"
           aria-label="Dashboard"
@@ -77,7 +78,7 @@ export function Sidebar({
               className="h-14 w-full max-w-[200px] object-contain object-left"
             />
           ) : (
-            <div className="flex h-14 max-w-[200px] items-center justify-center rounded bg-slate-900 px-4 text-sm font-bold tracking-wide text-white">
+            <div className="flex h-14 max-w-[200px] items-center justify-center rounded bg-charcoal px-4 text-sm font-bold tracking-wide text-white">
               PC
             </div>
           )}
@@ -93,7 +94,7 @@ export function Sidebar({
           return (
             <div key={section.id} className={sectionIndex > 0 ? "mt-5" : undefined}>
               <div
-                className="mb-1.5 select-none px-3 text-3xs font-bold uppercase tracking-[0.14em] text-slate-400"
+                className="mb-1.5 select-none px-3 text-3xs font-bold uppercase tracking-[0.14em] text-slate-500"
                 aria-hidden="true"
               >
                 {section.label}
@@ -108,8 +109,8 @@ export function Sidebar({
                       href={item.href}
                       className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-xsm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 ${
                         isActive
-                          ? "bg-slate-900 text-white shadow-md shadow-slate-900/20"
-                          : "text-slate-600 hover:bg-slate-200/60 hover:text-slate-900"
+                          ? "bg-charcoal text-white shadow-sm"
+                          : "text-slate-700 hover:bg-sidebar-hover hover:text-slate-900"
                       }`}
                     >
                       <NavIcon
@@ -130,10 +131,10 @@ export function Sidebar({
       <Link
         href="/profile"
         title="My profile"
-        className="flex shrink-0 items-center gap-2.5 border-t border-slate-200/80 px-4 py-3 transition-colors hover:bg-slate-200/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400"
+        className="flex shrink-0 items-center gap-2.5 border-t border-sidebar-edge px-4 py-3 transition-colors hover:bg-sidebar-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400"
       >
         <div
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-2xs font-semibold text-slate-600"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-2xs font-semibold text-slate-600"
           aria-hidden="true"
         >
           {userInitials}
@@ -142,7 +143,7 @@ export function Sidebar({
           <p className="truncate text-xs font-semibold text-slate-800">
             {userDisplayName}
           </p>
-          <p className="text-2xs text-slate-500">{ROLE_LABELS[userRole]}</p>
+          <p className="text-2xs text-slate-600">{ROLE_LABELS[userRole]}</p>
         </div>
       </Link>
     </aside>

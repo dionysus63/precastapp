@@ -118,7 +118,7 @@ export function PurchaseOrderDetailContent({
           <>
             <Link
               href={`/purchase-orders/${purchaseOrder.id}/edit`}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
+              className="rounded-lg btn-plain px-3 py-2 text-xs font-semibold"
             >
               Edit
             </Link>
@@ -126,7 +126,7 @@ export function PurchaseOrderDetailContent({
               type="button"
               disabled={pending}
               onClick={() => runStatus("ISSUED")}
-              className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+              className="rounded-lg btn-main px-3 py-2 text-xs font-semibold disabled:opacity-60"
             >
               Issue PO
             </button>
@@ -150,7 +150,7 @@ export function PurchaseOrderDetailContent({
             type="button"
             disabled={pending}
             onClick={() => runStatus("CANCELLED")}
-            className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            className="rounded-lg btn-plain px-3 py-2 text-xs font-semibold disabled:opacity-60"
           >
             Cancel
           </button>

@@ -817,7 +817,7 @@ export function DrillSheetForm({
           <button
             type="button"
             onClick={addOpening}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
           >
             Add Opening
           </button>
@@ -944,7 +944,7 @@ export function DrillSheetForm({
                       <button
                         type="button"
                         onClick={() => removeOpening(opening.id)}
-                        className="text-2xs font-medium text-rose-600 hover:text-rose-800"
+                        className="text-2xs font-medium text-red-600 hover:text-red-800"
                       >
                         Remove
                       </button>
@@ -969,7 +969,7 @@ export function DrillSheetForm({
       ) : null}
 
       {saveError ? (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
           {saveError}
         </p>
       ) : null}
@@ -977,14 +977,14 @@ export function DrillSheetForm({
       <div className="flex flex-wrap justify-end gap-2 rounded-xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm">
         <Link
           href={cancelHref}
-          className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          className="rounded-lg btn-plain px-4 py-2 text-xs font-semibold"
         >
           Cancel
         </Link>
         <button
           type="submit"
           disabled={!diameterConfig}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+          className="rounded-lg btn-main px-4 py-2 text-xs font-semibold disabled:opacity-50"
         >
           {submitLabel}
         </button>

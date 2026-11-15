@@ -164,7 +164,7 @@ export function DeliveryTileMenu({
         title="Quick edit"
         className={
           appearance === "pill"
-            ? `inline-flex items-center justify-center rounded-md border border-slate-200 px-2 py-1 text-slate-700 transition-colors hover:bg-slate-50 ${
+            ? `btn-plain inline-flex items-center justify-center rounded-md px-2 py-1 transition-colors ${
                 open ? "bg-slate-50" : ""
               }`
             : `inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 ${
@@ -215,7 +215,7 @@ export function DeliveryTileMenu({
                 type="button"
                 onClick={saveDate}
                 disabled={!dateChanged || pending}
-                className="shrink-0 rounded-md bg-slate-900 px-2 py-1 text-2xs font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                className="shrink-0 rounded-md btn-main px-2 py-1 text-2xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {pending ? "Saving…" : "Move"}
               </button>

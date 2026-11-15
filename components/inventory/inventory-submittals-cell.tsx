@@ -49,7 +49,7 @@ export function InventorySubmittalsCell({
             type="button"
             disabled={pending}
             onClick={handleOpen}
-            className="rounded-md border border-slate-200 px-2 py-0.5 text-3xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-md btn-plain px-2 py-0.5 text-3xs font-medium disabled:opacity-50"
           >
             {pending ? "Opening…" : "Open"}
           </button>

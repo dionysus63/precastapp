@@ -33,13 +33,13 @@ export function TicketSubmittalButton({ ticketId }: { ticketId: string }) {
             });
           })
         }
-        className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold disabled:opacity-50"
       >
         {pending ? "Building…" : "Print Submittals"}
       </button>
 
       {result?.type === "success" ? (
-        <div className="max-w-xs text-right text-3xs text-green-700">
+        <div className="max-w-xs text-right text-3xs text-emerald-700">
           <p>Saved: {result.filePath}</p>
           {result.missing.length > 0 ? (
             <p className="text-amber-700">

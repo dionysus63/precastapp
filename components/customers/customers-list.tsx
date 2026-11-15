@@ -272,19 +272,19 @@ export function CustomersList({
           <ExportExcelLink href="/api/export/customers" />
           <Link
             href="/customers/bulk"
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            className="inline-flex items-center justify-center rounded-lg btn-plain px-4 py-2 text-xs font-semibold transition-colors"
           >
             Bulk Add / Paste from Excel
           </Link>
           <Link
             href="/customers/contacts/bulk"
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            className="inline-flex items-center justify-center rounded-lg btn-plain px-4 py-2 text-xs font-semibold transition-colors"
           >
             Import Contacts
           </Link>
           <Link
             href="/customers/new"
-            className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
+            className="inline-flex items-center justify-center rounded-lg btn-main px-4 py-2 text-xs font-semibold transition-colors"
           >
             Add Customer
           </Link>

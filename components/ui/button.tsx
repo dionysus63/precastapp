@@ -4,10 +4,9 @@ const baseClassName =
   "inline-flex items-center justify-center rounded-lg px-4 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
 
 const variantClassNames = {
-  primary: "bg-slate-900 text-white hover:bg-slate-800",
-  secondary:
-    "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-  danger: "border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100",
+  primary: "btn-main",
+  secondary: "btn-plain",
+  danger: "border border-red-200 bg-red-50 text-red-800 hover:bg-red-100",
   ghost: "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
 } as const;
 

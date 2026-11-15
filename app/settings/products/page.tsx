@@ -181,7 +181,7 @@ export default async function ProductCatalogSettingsPage({
                             </div>
                             <button
                               type="submit"
-                              className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+                              className="rounded-lg btn-main px-3 py-1.5 text-xs font-semibold"
                             >
                               Save category
                             </button>
@@ -243,7 +243,7 @@ export default async function ProductCatalogSettingsPage({
                                         </div>
                                         <button
                                           type="submit"
-                                          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                                          className="rounded-lg btn-plain px-3 py-2 text-xs font-semibold"
                                         >
                                           Save
                                         </button>
@@ -286,7 +286,7 @@ export default async function ProductCatalogSettingsPage({
                               />
                               <button
                                 type="submit"
-                                className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+                                className="rounded-lg btn-main px-3 py-1.5 text-xs font-semibold"
                               >
                                 Add subcategory
                               </button>
@@ -357,7 +357,7 @@ export default async function ProductCatalogSettingsPage({
           <div className="sm:col-span-2 flex justify-end">
             <button
               type="submit"
-              className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+              className="rounded-lg btn-main px-4 py-2 text-xs font-semibold"
             >
               Add Category
             </button>

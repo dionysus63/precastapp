@@ -197,7 +197,7 @@ export function PdfPageThumbnails({
               <button
                 type="button"
                 onClick={() => setZoomPage(null)}
-                className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-md btn-plain px-3 py-1 text-xs font-semibold"
               >
                 Close
               </button>

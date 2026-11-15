@@ -70,7 +70,7 @@ export function QuoteTaxExemptInline({
         type="button"
         onClick={apply}
         disabled={pending}
-        className="rounded bg-slate-900 px-2 py-0.5 text-2xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+        className="rounded btn-main px-2 py-0.5 text-2xs font-semibold disabled:opacity-50"
       >
         {pending ? "…" : "Confirm"}
       </button>
@@ -78,7 +78,7 @@ export function QuoteTaxExemptInline({
         type="button"
         onClick={() => setConfirming(false)}
         disabled={pending}
-        className="rounded border border-slate-200 px-2 py-0.5 text-2xs font-medium text-slate-600 hover:bg-slate-50"
+        className="rounded btn-plain px-2 py-0.5 text-2xs font-medium"
       >
         Cancel
       </button>

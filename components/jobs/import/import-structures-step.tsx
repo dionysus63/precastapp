@@ -459,7 +459,7 @@ export function ImportStructuresStep({
               <button
                 type="button"
                 onClick={() => onRowsChange([...structureRows, newStructureRow(defaultStatus), ...productRows])}
-                className="h-8 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                className="h-8 rounded-lg btn-plain px-3 text-xs font-semibold"
               >
                 + Add structure
               </button>
@@ -611,7 +611,7 @@ export function ImportStructuresStep({
             <button
               type="button"
               onClick={() => onRowsChange([...rows, newProductRow()])}
-              className="h-8 rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="h-8 rounded-lg btn-plain px-3 text-xs font-semibold"
             >
               + Add casting or stock item
             </button>
@@ -761,7 +761,7 @@ export function ImportStructuresStep({
                     type="button"
                     onClick={() => matchPagesInOrder(file)}
                     disabled={structureRows.length === 0 || !file.pageCount}
-                    className="flex-none rounded-lg border border-slate-300 bg-white px-2 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    className="flex-none rounded-lg btn-plain px-2 py-1 text-2xs font-semibold disabled:opacity-50"
                   >
                     Match in order
                   </button>

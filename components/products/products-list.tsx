@@ -250,7 +250,7 @@ const ProductsTable = memo(function ProductsTable({
                 <td className={tableCellClassName}>
                   <Link
                     href={`/products/${product.id}`}
-                    className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50"
+                    className="inline-flex rounded-md btn-plain px-2 py-1 text-2xs font-medium"
                   >
                     View
                   </Link>
@@ -359,13 +359,13 @@ export function ProductsList({
           <ExportExcelLink href="/api/export/products" />
           <Link
             href="/products/bulk"
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            className="inline-flex items-center justify-center rounded-lg btn-plain px-4 py-2 text-xs font-semibold transition-colors"
           >
             Bulk Add / Paste from Excel
           </Link>
           <Link
             href="/products/new"
-            className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
+            className="inline-flex items-center justify-center rounded-lg btn-main px-4 py-2 text-xs font-semibold transition-colors"
           >
             Add Product
           </Link>

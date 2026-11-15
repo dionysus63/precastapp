@@ -1221,7 +1221,7 @@ function StructurePopup({
           <button
             type="button"
             onClick={onClose}
-            className="rounded bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white"
+            className="rounded btn-main px-3 py-1.5 text-2xs font-semibold"
           >
             Done
           </button>
@@ -1328,7 +1328,7 @@ function PipePopup({
           <button
             type="button"
             onClick={onClose}
-            className="rounded bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white"
+            className="rounded btn-main px-3 py-1.5 text-2xs font-semibold"
           >
             Done
           </button>

@@ -50,7 +50,7 @@ export function ResetPasswordButton({
       </form>
 
       {error ? (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
           {error}
         </p>
       ) : null}

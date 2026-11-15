@@ -104,7 +104,7 @@ function PickupCardBody({ row }: { row: WalkInRow }) {
         </p>
         <p
           className={`${tileLineClass} ${
-            row.paymentReceived ? "text-green-700" : ""
+            row.paymentReceived ? "text-emerald-700" : ""
           }`}
         >
           {itemsPaymentLine(row)}
@@ -134,20 +134,20 @@ function CalledInPickupCard({ row }: { row: WalkInRow }) {
         {row.ticketType === "WALK_IN" && row.status === "DRAFT" ? (
           <Link
             href={`/delivery-tickets/${row.id}/edit`}
-            className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white hover:bg-slate-800"
+            className="inline-flex items-center justify-center rounded-lg btn-main px-3 py-1.5 text-2xs font-semibold"
           >
             Resume Sale
           </Link>
         ) : null}
         <Link
           href={`/delivery-tickets/${row.id}/preview?from=walk-ins`}
-          className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+          className="inline-flex items-center justify-center rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
         >
           Print Ticket
         </Link>
         <Link
           href={`/delivery-tickets/${row.id}/submittals/preview?from=walk-ins`}
-          className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+          className="inline-flex items-center justify-center rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
         >
           Print Submittals
         </Link>
@@ -197,7 +197,7 @@ function PickupTileSection({
 }
 
 const newTicketLinkClass =
-  "inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50";
+  "inline-flex items-center justify-center rounded-lg btn-plain px-4 py-2 text-xs font-semibold transition-colors";
 
 export function WalkInsBoard({
   calledIn,

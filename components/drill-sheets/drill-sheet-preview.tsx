@@ -193,7 +193,7 @@ export function DrillSheetPreview({ meta, result }: DrillSheetPreviewProps) {
   return (
     <div className="space-y-2">
       {result.errorMessage ? (
-        <div className="rounded border border-rose-200 bg-rose-50 p-2 text-3xs text-rose-800">
+        <div className="rounded border border-red-200 bg-red-50 p-2 text-3xs text-red-800">
           {result.errorMessage}
         </div>
       ) : null}

@@ -105,7 +105,7 @@ export function CircularImportDialog({
 
         <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
           <div className="flex flex-wrap items-center gap-2">
-            <label className="cursor-pointer rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50">
+            <label className="cursor-pointer rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold">
               Choose .xlsx file…
               <input
                 type="file"
@@ -136,7 +136,7 @@ export function CircularImportDialog({
             <button
               type="button"
               onClick={handlePasteParse}
-              className="mt-2 rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="mt-2 rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
             >
               Preview pasted rows
             </button>
@@ -233,7 +233,7 @@ export function CircularImportDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg btn-plain px-4 py-2 text-xs font-semibold"
           >
             Cancel
           </button>
@@ -244,7 +244,7 @@ export function CircularImportDialog({
               onImport(importable.map((structure) => structure.row));
               onClose();
             }}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-40"
+            className="rounded-lg btn-main px-4 py-2 text-xs font-semibold disabled:opacity-40"
           >
             Add {importable.length > 0 ? importable.length : ""} structure
             {importable.length === 1 ? "" : "s"}

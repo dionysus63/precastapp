@@ -87,7 +87,7 @@ export function JobTicketHeader({
         <div className="flex flex-wrap items-center gap-3">
           {ticketTypeButtons}
           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-            <span className="rounded-full bg-slate-900 px-2 py-0.5 font-semibold text-white">
+            <span className="rounded-full bg-charcoal px-2 py-0.5 font-semibold text-white">
               {selectedLineCount} {selectedLineCount === 1 ? "line" : "lines"}
             </span>
             <span>

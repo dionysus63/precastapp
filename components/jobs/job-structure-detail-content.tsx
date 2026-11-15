@@ -158,14 +158,14 @@ export function JobStructureDetailContent({
         />
         <Link
           href="/production"
-          className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-50"
+          className="rounded-lg btn-plain px-3 py-1.5 font-medium"
         >
           Production queue
         </Link>
         {detail.quoteId ? (
           <Link
             href={`/quotes/${detail.quoteId}`}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-1.5 font-medium"
           >
             Quote {detail.quoteNumber}
           </Link>
@@ -187,7 +187,7 @@ export function JobStructureDetailContent({
             />
             <Link
               href={`/drill-sheets/${detail.drillSheetId}`}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-lg btn-plain px-3 py-1.5 font-medium"
             >
               Drill sheet details
             </Link>
@@ -240,7 +240,7 @@ export function JobStructureDetailContent({
               key={step.status}
               className={`rounded-lg border px-3 py-3 ${
                 step.isCurrent
-                  ? "border-slate-900 bg-slate-900 text-white"
+                  ? "border-charcoal bg-charcoal text-white"
                   : step.isComplete
                     ? "border-emerald-200 bg-emerald-50"
                     : "border-slate-200 bg-white"
@@ -289,7 +289,7 @@ export function JobStructureDetailContent({
               type="button"
               disabled={pending || nextAction.disabled}
               onClick={nextAction.onClick}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+              className="rounded-lg btn-main px-4 py-2 text-xs font-semibold disabled:opacity-50"
             >
               {pending ? "Working…" : nextAction.label}
             </button>
@@ -315,7 +315,7 @@ export function JobStructureDetailContent({
         <p className="text-sm text-red-600">{message.error}</p>
       ) : null}
       {message.success ? (
-        <p className="text-sm text-green-700">{message.success}</p>
+        <p className="text-sm text-emerald-700">{message.success}</p>
       ) : null}
 
       {approveDialogOpen && canApproveDirectly ? (

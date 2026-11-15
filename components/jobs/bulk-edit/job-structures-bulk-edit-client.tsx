@@ -268,7 +268,7 @@ export function JobStructuresBulkEditClient({
               type="button"
               onClick={handleSave}
               disabled={saving || dirtyCount === 0}
-              className="rounded-lg bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-slate-700 disabled:opacity-40"
+              className="rounded-lg btn-main px-4 py-1.5 text-xs font-semibold disabled:opacity-40"
             >
               {saving
                 ? "Saving…"

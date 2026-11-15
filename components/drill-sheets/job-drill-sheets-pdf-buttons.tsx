@@ -46,7 +46,7 @@ export function JobDrillSheetsPdfButtons({ jobId }: { jobId: string }) {
               setMessage(result.error);
             });
           }}
-          className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          className="inline-flex items-center justify-center rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold disabled:opacity-50"
         >
           {pending ? "Saving…" : "Save All Sheets"}
         </button>
