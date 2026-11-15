@@ -2,23 +2,23 @@ import type { ScanInRow } from "@/lib/ticket-scan/view-types";
 
 /** Small button inside a grid cell. */
 export const cellButtonClassName =
-  "rounded border border-slate-300 bg-white px-2 py-0.5 text-2xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50";
+  "rounded btn-plain px-2 py-0.5 text-2xs font-medium disabled:cursor-not-allowed disabled:opacity-50";
 
 export const cellPrimaryButtonClassName =
-  "rounded border border-slate-900 bg-slate-900 px-2 py-0.5 text-2xs font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50";
+  "rounded btn-main px-2 py-0.5 text-2xs font-medium disabled:cursor-not-allowed disabled:opacity-50";
 
 export const cellLinkClassName =
   "text-2xs text-sky-700 underline hover:text-sky-900 disabled:opacity-50";
 
 /** A PDF drag chip inside a table cell. */
 export const cellChipClassName =
-  "whitespace-nowrap rounded border border-slate-300 bg-white px-2 py-0.5 text-2xs font-medium text-slate-700 hover:bg-slate-50";
+  "whitespace-nowrap rounded btn-plain px-2 py-0.5 text-2xs font-medium";
 
 export const barButtonClassName =
-  "rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50";
+  "rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50";
 
 export const barPrimaryButtonClassName =
-  "rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50";
+  "rounded-lg btn-main px-4 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50";
 
 /** A scan's cards share one frame, like the app's SectionCard. */
 export const scanCardClassName =

@@ -13,6 +13,69 @@
 }
 
 /*
+ * THE APP'S COLORS LIVE HERE. Change a value in this block and every screen
+ * follows; nothing else needs editing.
+ *
+ * Greys: the app's grey is a warm "concrete" grey, close to the grey in the
+ * company logo. Tailwind's `slate` scale is redefined to it, so every
+ * `slate-*` class in the code means this grey. Do not use `gray`, `zinc`
+ * or `stone` in app screens. (`neutral` is kept for the print preview
+ * screens only, which must stay plain black and white.)
+ *
+ * Named colors:
+ *   page          the desk: the grey behind the white cards and grids
+ *   sidebar…      the menu band on the left, a step darker than the page
+ *   charcoal      "you are here": the menu's current page, the selected tab,
+ *                 the current step of a wizard. Never a button.
+ *
+ * Meaning colors are Tailwind's own and are not redefined: `red` problem,
+ * `amber` warning or waiting, `emerald` done or active, `sky` scheduled,
+ * open or selected (lib/selected-styles.ts). Use those four families only
+ * (not `rose`, not `green`).
+ */
+@theme {
+  --color-slate-50: #f8f7f6;
+  --color-slate-100: #f1f0ee;
+  --color-slate-200: #e4e2df;
+  --color-slate-300: #cfccc8;
+  --color-slate-400: #a19c96;
+  --color-slate-500: #6b655f;
+  --color-slate-600: #55504b;
+  --color-slate-700: #403c38;
+  --color-slate-800: #2b2826;
+  --color-slate-900: #1d1b19;
+  --color-slate-950: #0c0a09;
+
+  --color-page: #e8e6e2;
+  --color-sidebar: #dcd9d4;
+  --color-sidebar-hover: #cfcbc5;
+  --color-sidebar-edge: #c4c0ba;
+  --color-charcoal: #3a3633;
+}
+
+/*
+ * THE APP'S BUTTONS. Every button that is not red (delete), green (finish
+ * the row) or a small row button in a table (lib/table-styles.ts) wears one
+ * of these two, plus its own size classes (rounded-lg px-4 py-2 text-xs …).
+ *
+ *   btn-plain   an ordinary button
+ *   btn-main    the one button that finishes the job on a screen (Create
+ *               Job, Save, New Ticket)
+ *
+ * They look the same on purpose: Nick chose no special color for the main
+ * button (2026-11-14), so a filled dark shape always means "you are here"
+ * and never "press me". The two names are kept apart so the main button can
+ * be given a look of its own later by editing btn-main alone.
+ */
+@utility btn-plain {
+  @apply border border-slate-300 bg-white text-slate-700 shadow-sm hover:bg-slate-50;
+}
+
+@utility btn-main {
+  @apply border border-slate-300 bg-white text-slate-700 shadow-sm hover:bg-slate-50;
+}
+
+/*
  * Per-user Text Size (My Preferences): <html data-text-size> sets
  * --text-scale and every text size utility multiplies by it, so only the
  * letters grow. Spacing and widths are untouched (they don't use these
@@ -64,7 +127,7 @@
 
 body {
   background: var(--background);
-  color: #0f172a;
+  color: var(--color-slate-900);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   /* Text with no size class of its own follows the setting too. */
   font-size: calc(1rem * var(--text-scale));
@@ -86,7 +149,7 @@ body {
 
 .rich-text-editor:empty::before {
   content: attr(data-placeholder);
-  color: #94a3b8;
+  color: var(--color-slate-400);
   pointer-events: none;
 }
 

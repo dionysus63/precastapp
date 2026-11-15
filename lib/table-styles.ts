@@ -43,10 +43,10 @@ export const tableHeaderCellWrapClassName = tableHeaderCellBaseClassName;
  * header cell sits above the other header cells; each body cell needs a solid
  * background of its own (what scrolls past must not show through).
  */
-export const tableHeaderCellPinnedClassName = `sticky top-0 right-0 z-20 ${tableHeaderCellLookClassName} whitespace-nowrap shadow-[inset_1px_0_0_#cbd5e1]`;
+export const tableHeaderCellPinnedClassName = `sticky top-0 right-0 z-20 ${tableHeaderCellLookClassName} whitespace-nowrap shadow-[inset_1px_0_0_var(--color-slate-300)]`;
 
 export const tablePinnedCellClassName =
-  "sticky right-0 shadow-[inset_1px_0_0_#cbd5e1]";
+  "sticky right-0 shadow-[inset_1px_0_0_var(--color-slate-300)]";
 
 /** Gridline borders only — compose with custom padding when needed. */
 export const tableCellBordersClassName =
@@ -97,7 +97,7 @@ export const tableCellTextareaClassName =
 const tableActionButtonBaseClassName =
   "inline-flex cursor-pointer items-center whitespace-nowrap rounded-md border bg-white px-2 py-1 text-2xs font-medium disabled:cursor-not-allowed disabled:opacity-50";
 
-export const tableActionButtonClassName = `${tableActionButtonBaseClassName} border-slate-200 text-slate-700 hover:bg-slate-50`;
+export const tableActionButtonClassName = `${tableActionButtonBaseClassName} border-slate-300 text-slate-700 hover:bg-slate-50`;
 
 /** Delete / Remove. */
 export const tableActionDangerButtonClassName = `${tableActionButtonBaseClassName} border-red-200 text-red-600 hover:bg-red-50`;

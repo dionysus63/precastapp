@@ -55,7 +55,7 @@ export function CustomStructureCostBreakdown({
         <button
           type="button"
           onClick={addItem}
-          className="rounded-lg border border-slate-200 px-2.5 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+          className="rounded-lg btn-plain px-2.5 py-1 text-2xs font-semibold"
         >
           Add cost line
         </button>

@@ -35,7 +35,7 @@ export function CreateJobFolderButton({ jobId }: CreateJobFolderButtonProps) {
         type="button"
         onClick={handleClick}
         disabled={pending}
-        className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+        className="inline-flex rounded-md btn-plain px-2 py-1 text-2xs font-medium disabled:cursor-wait disabled:opacity-60"
       >
         {pending ? "Creating..." : "Create Folder"}
       </button>

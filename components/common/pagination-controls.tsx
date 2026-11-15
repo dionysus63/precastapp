@@ -43,7 +43,7 @@ export function PaginationControls({
         {page > 1 ? (
           <Link
             href={hrefForPage(page - 1)}
-            className="rounded-md border border-slate-200 px-2.5 py-1 font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-md btn-plain px-2.5 py-1 font-medium"
           >
             Previous
           </Link>
@@ -58,7 +58,7 @@ export function PaginationControls({
         {page < totalPages ? (
           <Link
             href={hrefForPage(page + 1)}
-            className="rounded-md border border-slate-200 px-2.5 py-1 font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-md btn-plain px-2.5 py-1 font-medium"
           >
             Next
           </Link>

@@ -101,7 +101,7 @@ export function PickupPricingCard({
                 <button
                   type="button"
                   onClick={onApplyPickupListPrices}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  className="rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold"
                 >
                   Apply price-list pickup prices
                 </button>
@@ -189,7 +189,7 @@ export function PickupPricingCard({
                       className={`${tableCellClassName} text-right font-medium text-slate-700`}
                     >
                       {savings > 0.004 ? (
-                        <span className="mr-3 font-normal text-green-700">
+                        <span className="mr-3 font-normal text-emerald-700">
                           {formatUsd(savings)} below quoted — invoice will
                           note the pickup adjustment
                         </span>

@@ -78,7 +78,7 @@ function Stepper({ step, onPick, canReach }: {
               aria-current={current ? "step" : undefined}
               className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed ${
                 current
-                  ? "bg-slate-900 text-white"
+                  ? "bg-charcoal text-white"
                   : done
                     ? "bg-emerald-100 text-emerald-900 hover:bg-emerald-200"
                     : "bg-slate-200 text-slate-600"
@@ -418,14 +418,14 @@ export function ImportJobWizard({ defaultTaxRate }: { defaultTaxRate: number }) 
         <div className="flex flex-wrap gap-2">
           <Link
             href={`/jobs/${result.jobId}`}
-            className="inline-flex items-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+            className="inline-flex items-center rounded-lg btn-main px-4 py-2 text-xs font-semibold"
           >
             Open the job
           </Link>
           <button
             type="button"
             onClick={startOver}
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg btn-plain px-4 py-2 text-xs font-semibold"
           >
             Import another job
           </button>
@@ -435,9 +435,9 @@ export function ImportJobWizard({ defaultTaxRate }: { defaultTaxRate: number }) 
   }
 
   const nextButtonClass =
-    "inline-flex items-center rounded-lg bg-slate-900 px-5 py-2.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50";
+    "inline-flex items-center rounded-lg btn-main px-5 py-2.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50";
   const backButtonClass =
-    "inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50";
+    "inline-flex items-center rounded-lg btn-plain px-4 py-2.5 text-xs font-semibold";
 
   return (
     <div className="space-y-5">

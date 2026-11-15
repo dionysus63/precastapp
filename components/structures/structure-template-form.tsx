@@ -887,11 +887,11 @@ export function StructureTemplateForm({
                   Checking fields…
                 </span>
               ) : sheetPdfCoverage.status === "error" ? (
-                <span className="text-rose-700">
+                <span className="text-red-700">
                   Field check: {sheetPdfCoverage.message}
                 </span>
               ) : sheetPdfCoverageSummary(sheetPdfCoverage).ok ? (
-                <span className="text-green-700">
+                <span className="text-emerald-700">
                   Field check: all fields matched
                 </span>
               ) : (
@@ -1121,7 +1121,7 @@ export function StructureTemplateForm({
       </SectionCard>
 
       {saveError ? (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
           {saveError}
         </p>
       ) : null}
@@ -1129,13 +1129,13 @@ export function StructureTemplateForm({
       <div className="flex flex-wrap justify-end gap-2 rounded-xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm">
         <Link
           href={cancelHref}
-          className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          className="rounded-lg btn-plain px-4 py-2 text-xs font-semibold"
         >
           Cancel
         </Link>
         <button
           type="submit"
-          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+          className="rounded-lg btn-main px-4 py-2 text-xs font-semibold"
         >
           {submitLabel}
         </button>

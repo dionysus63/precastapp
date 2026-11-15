@@ -27,7 +27,7 @@ type InvoiceDetailActionsProps = {
 };
 
 const plainButtonClassName =
-  "rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50";
+  "rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold disabled:opacity-50";
 const dangerButtonClassName =
   "rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-2xs font-semibold text-red-800 hover:bg-red-100 disabled:opacity-50";
 
@@ -92,7 +92,7 @@ export function InvoiceDetailActions({
             href={`/invoices/${invoiceId}/edit`}
             className={
               needsPrice
-                ? "rounded-lg bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white hover:bg-slate-800"
+                ? "rounded-lg btn-main px-3 py-1.5 text-2xs font-semibold"
                 : plainButtonClassName
             }
           >

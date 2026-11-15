@@ -95,7 +95,7 @@ function NewRecordLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white transition-colors hover:bg-slate-800"
+      className="inline-flex items-center justify-center rounded-lg btn-main px-3 py-1.5 text-2xs font-semibold transition-colors"
     >
       {label}
     </Link>
@@ -161,21 +161,21 @@ export function JobDetailContent({
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href={`/jobs/${detail.id}/edit`}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
             >
               Edit Job
             </Link>
             {detail.customerId ? (
               <Link
                 href={`/customers/${detail.customerId}`}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
               >
                 View Customer
               </Link>
             ) : null}
             <Link
               href={`/quotes/new?jobId=${detail.id}`}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
             >
               New Quote
             </Link>
@@ -573,18 +573,18 @@ export function JobDeliveriesSection({
         <div className="flex flex-wrap items-center gap-2">
           <Link
             href={`/delivery-tickets/plan?jobId=${jobId}`}
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            className="inline-flex items-center justify-center rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold transition-colors"
           >
             Plan Loads
           </Link>
           <Link
             href={`/delivery-tickets/schedule?jobId=${jobId}`}
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            className="inline-flex items-center justify-center rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold transition-colors"
           >
             Schedule Loads
           </Link>
           <details className="relative">
-            <summary className="flex cursor-pointer list-none items-center gap-1 rounded-lg bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white hover:bg-slate-800 [&::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center gap-1 rounded-lg btn-main px-3 py-1.5 text-2xs font-semibold [&::-webkit-details-marker]:hidden">
               New Ticket
               <svg
                 viewBox="0 0 16 16"
@@ -683,14 +683,14 @@ export function JobProductionSection({
           ) : null}
           <Link
             href="/production"
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center justify-center rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
           >
             Production queue
           </Link>
           {structures.some((structure) => structure.drillSheetId) ? (
             <Link
               href={`/jobs/${jobId}/structures/bulk-edit`}
-              className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center justify-center rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
             >
               Bulk Edit
             </Link>
@@ -698,13 +698,13 @@ export function JobProductionSection({
           <JobStructureImportButton jobId={jobId} />
           <Link
             href={`/drill-sheets/new?jobId=${jobId}`}
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center justify-center rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
           >
             Circular Drill Sheet
           </Link>
           <Link
             href={`/drill-sheets/rect/new?jobId=${jobId}`}
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center justify-center rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
           >
             New Rectangular Drill Sheet
           </Link>

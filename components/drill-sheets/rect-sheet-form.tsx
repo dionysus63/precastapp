@@ -794,7 +794,7 @@ export function RectSheetForm({
                 onClick={() =>
                   setOpenings((current) => [...current, createOpening()])
                 }
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold disabled:opacity-50"
               >
                 Add Opening
               </button>
@@ -968,7 +968,7 @@ export function RectSheetForm({
                                 current.filter((row) => row.id !== opening.id),
                               )
                             }
-                            className="text-2xs font-medium text-rose-600 hover:text-rose-800"
+                            className="text-2xs font-medium text-red-600 hover:text-red-800"
                           >
                             Remove
                           </button>
@@ -999,7 +999,7 @@ export function RectSheetForm({
                       : [...current, createSection()],
                   )
                 }
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
               >
                 {sections.length === 0 ? "Split Sections" : "Add Section"}
               </button>
@@ -1073,7 +1073,7 @@ export function RectSheetForm({
                         </label>
                       ) : null}
                       <span
-                        className={`text-2xs font-medium ${over ? "text-rose-600" : "text-slate-500"}`}
+                        className={`text-2xs font-medium ${over ? "text-red-600" : "text-slate-500"}`}
                       >
                         {formatPounds(weight)}
                         {over ? " — over max pick" : ""}
@@ -1085,7 +1085,7 @@ export function RectSheetForm({
                             current.filter((row) => row.id !== section.id),
                           )
                         }
-                        className="text-2xs font-medium text-rose-600 hover:text-rose-800"
+                        className="text-2xs font-medium text-red-600 hover:text-red-800"
                       >
                         Remove
                       </button>
@@ -1114,7 +1114,7 @@ export function RectSheetForm({
       </div>
 
       {saveError ? (
-        <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
           {saveError}
         </p>
       ) : null}
@@ -1122,13 +1122,13 @@ export function RectSheetForm({
       <div className="flex flex-wrap justify-end gap-2 rounded-xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm">
         <Link
           href="/drill-sheets"
-          className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          className="rounded-lg btn-plain px-4 py-2 text-xs font-semibold"
         >
           Cancel
         </Link>
         <button
           type="submit"
-          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+          className="rounded-lg btn-main px-4 py-2 text-xs font-semibold"
         >
           {submitLabel}
         </button>

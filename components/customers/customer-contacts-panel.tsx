@@ -225,7 +225,7 @@ export function CustomerContactsPanel({
               setEditingId(null);
               setForm(emptyForm);
             }}
-            className="rounded-lg bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white hover:bg-slate-800"
+            className="rounded-lg btn-main px-3 py-1.5 text-2xs font-semibold"
           >
             Add Contact
           </button>
@@ -339,7 +339,7 @@ export function CustomerContactsPanel({
               type="button"
               disabled={pending}
               onClick={handleSave}
-              className="rounded-lg bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+              className="rounded-lg btn-main px-3 py-1.5 text-2xs font-semibold disabled:opacity-50"
             >
               {pending ? "Saving…" : editingId ? "Save Contact" : "Add Contact"}
             </button>
@@ -347,7 +347,7 @@ export function CustomerContactsPanel({
               type="button"
               disabled={pending}
               onClick={resetForm}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
             >
               Cancel
             </button>

@@ -370,7 +370,7 @@ function PipeMaterialCard({
                         : undefined
                     }
                     className={`${catalogCellInputClassName} font-semibold ${
-                      duplicates.has(line.key) ? "bg-rose-50 text-rose-700" : ""
+                      duplicates.has(line.key) ? "bg-red-50 text-red-700" : ""
                     }`}
                   />
                 </td>

@@ -218,7 +218,7 @@ export function StockProductPicker({
                             </span>
                           ) : null}
                           {product.castingOrigin ? (
-                            <span className="ml-1.5 rounded-full bg-zinc-100 px-1.5 py-0.5 text-3xs font-medium text-zinc-600 ring-1 ring-inset ring-zinc-200">
+                            <span className="ml-1.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-3xs font-medium text-slate-600 ring-1 ring-inset ring-slate-200">
                               {formatCastingSupplierOriginLabel(
                                 product.castingOrigin,
                               )}
@@ -312,7 +312,7 @@ export function StockProductPicker({
             <button
               type="button"
               onClick={onCancel}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold"
             >
               Cancel
             </button>
@@ -320,7 +320,7 @@ export function StockProductPicker({
               type="button"
               onClick={() => onAdd(stagedItems)}
               disabled={stagedItems.length === 0}
-              className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-lg btn-main px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
             >
               Add {stagedItems.length > 0 ? `${stagedPieces} ` : ""}to Quote
             </button>

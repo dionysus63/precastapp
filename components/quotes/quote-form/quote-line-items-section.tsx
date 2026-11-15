@@ -66,21 +66,21 @@ export function QuoteLineItemsSection({
           <button
             type="button"
             onClick={() => onOpenRingBuilder()}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-2xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold transition-colors"
           >
             Add Rings
           </button>
           <button
             type="button"
             onClick={() => onOpenPipeModal("ADS_PIPE")}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-2xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold transition-colors"
           >
             Add ADS Pipe
           </button>
           <button
             type="button"
             onClick={() => onOpenPipeModal("PRECAST_PIPE")}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-2xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold transition-colors"
           >
             Add RCP Pipe
           </button>
@@ -101,7 +101,7 @@ export function QuoteLineItemsSection({
           <button
             type="button"
             onClick={onAddCategoryLine}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-2xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold transition-colors"
           >
             Add Category
           </button>
@@ -109,7 +109,7 @@ export function QuoteLineItemsSection({
             type="button"
             onClick={onAddNoteLine}
             title="A text-only row on the printed quote — no quantity or price."
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-2xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold transition-colors"
           >
             Add Note
           </button>
@@ -117,7 +117,7 @@ export function QuoteLineItemsSection({
             type="button"
             onClick={onAddPageBreakLine}
             title="Everything after this line starts on a new page of the printed quote."
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-2xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold transition-colors"
           >
             Add Page Break
           </button>

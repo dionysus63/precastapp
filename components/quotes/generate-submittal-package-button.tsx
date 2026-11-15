@@ -46,13 +46,13 @@ export function GenerateSubmittalPackageButton({
             });
           })
         }
-        className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50"
+        className="rounded-lg btn-plain px-4 py-2 text-xs font-semibold disabled:opacity-50"
       >
         {pending ? "Generating…" : "Generate Submittal Package"}
       </button>
 
       {result?.type === "success" ? (
-        <div className="space-y-1 text-2xs text-green-700">
+        <div className="space-y-1 text-2xs text-emerald-700">
           <p>Package saved: {result.filePath}</p>
           {result.missing.length > 0 ? (
             <p className="text-amber-700">

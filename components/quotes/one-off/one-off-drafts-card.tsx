@@ -122,7 +122,7 @@ export function OneOffDraftsCard({
                       type="button"
                       disabled={deleting}
                       onClick={() => setConfirmingId(null)}
-                      className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                      className="rounded-md btn-plain px-2.5 py-1 text-xs font-semibold disabled:opacity-50"
                     >
                       Keep
                     </button>
@@ -131,7 +131,7 @@ export function OneOffDraftsCard({
                   <>
                     <Link
                       href={resumeHref(draft.id)}
-                      className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+                      className="inline-flex items-center justify-center rounded-lg btn-main px-3 py-1.5 text-xs font-semibold"
                     >
                       Resume
                     </Link>
@@ -141,7 +141,7 @@ export function OneOffDraftsCard({
                         setError(null);
                         setConfirmingId(draft.id);
                       }}
-                      className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                      className="rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold"
                     >
                       Delete
                     </button>

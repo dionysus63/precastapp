@@ -331,7 +331,7 @@ export function ProductionBoard({
               type="button"
               disabled={pending}
               onClick={() => runAction(() => startStructureProduction(item.id))}
-              className="rounded border border-slate-200 px-2 py-1 text-2xs hover:bg-slate-50 disabled:opacity-50"
+              className="rounded btn-plain px-2 py-1 text-2xs disabled:opacity-50"
             >
               Start
             </button>
@@ -358,7 +358,7 @@ export function ProductionBoard({
             {item.jobId ? (
               <Link
                 href={`/jobs/${item.jobId}?tab=deliveries`}
-                className="rounded border border-slate-200 px-2 py-1 text-2xs hover:bg-slate-50"
+                className="rounded btn-plain px-2 py-1 text-2xs"
               >
                 Deliveries
               </Link>
@@ -370,7 +370,7 @@ export function ProductionBoard({
         return item.jobId ? (
           <Link
             href={`/jobs/${item.jobId}/structures/${item.id}#submittals`}
-            className="rounded border border-slate-200 px-2 py-1 text-2xs font-medium hover:bg-slate-50"
+            className="rounded btn-plain px-2 py-1 text-2xs font-medium"
           >
             Add submittal
           </Link>
@@ -389,7 +389,7 @@ export function ProductionBoard({
             {item.completeWorkbookHref ? (
               <Link
                 href={item.completeWorkbookHref}
-                className="rounded border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50"
+                className="rounded btn-plain px-2 py-1 text-2xs font-medium"
               >
                 Complete all in workbook
               </Link>
@@ -398,7 +398,7 @@ export function ProductionBoard({
         ) : item.jobId ? (
           <Link
             href={`/jobs/${item.jobId}/structures/${item.id}`}
-            className="rounded border border-slate-200 px-2 py-1 text-2xs hover:bg-slate-50"
+            className="rounded btn-plain px-2 py-1 text-2xs"
           >
             Open structure
           </Link>
@@ -412,7 +412,7 @@ export function ProductionBoard({
             {!item.noSubmittalRequired && item.jobId ? (
               <Link
                 href={`/jobs/${item.jobId}/structures/${item.id}#submittals`}
-                className="rounded border border-slate-200 px-2 py-1 text-2xs hover:bg-slate-50"
+                className="rounded btn-plain px-2 py-1 text-2xs"
               >
                 View
               </Link>
@@ -428,7 +428,7 @@ export function ProductionBoard({
                   needsSubmittal: item.needsSubmittal,
                 });
               }}
-              className="rounded border border-slate-200 bg-white px-2 py-1 text-2xs font-medium hover:bg-slate-50"
+              className="rounded btn-plain px-2 py-1 text-2xs font-medium"
             >
               Approve for production
             </button>

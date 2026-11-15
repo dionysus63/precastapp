@@ -113,7 +113,7 @@ export default async function ProductDetailPage({
           <BackButton href="/products" label="Back to Products" />
           <Link
             href={`/products/${product.id}/edit`}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold"
           >
             Edit Product
           </Link>

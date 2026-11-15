@@ -78,7 +78,7 @@ export function JobStructureSubmittalActions({
             <button
               type="submit"
               disabled={pending}
-              className="rounded border border-slate-200 px-2 py-1 text-3xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="rounded btn-plain px-2 py-1 text-3xs font-medium disabled:opacity-50"
             >
               {pending ? "…" : "Upload"}
             </button>
@@ -106,7 +106,7 @@ export function JobStructureSubmittalActions({
       {message ? (
         <span
           className={`text-3xs ${
-            message === "Uploaded." ? "text-green-700" : "text-red-600"
+            message === "Uploaded." ? "text-emerald-700" : "text-red-600"
           }`}
         >
           {message}

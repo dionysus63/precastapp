@@ -217,21 +217,21 @@ export function BulkPasteForm() {
             <button
               type="button"
               onClick={handleParsePreview}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+              className="rounded-lg btn-main px-4 py-2 text-xs font-semibold"
             >
               Parse Preview
             </button>
             <button
               type="button"
               onClick={handleLoadExample}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-lg btn-plain px-4 py-2 text-xs font-semibold"
             >
               Load Example
             </button>
             <button
               type="button"
               onClick={handleClear}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-lg btn-plain px-4 py-2 text-xs font-semibold"
             >
               Clear
             </button>
@@ -320,7 +320,7 @@ export function BulkPasteForm() {
             <div className="flex justify-end gap-2">
               <Link
                 href="/customers"
-                className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-lg btn-plain px-4 py-2 text-xs font-semibold"
               >
                 Cancel
               </Link>
@@ -328,7 +328,7 @@ export function BulkPasteForm() {
                 type="button"
                 onClick={handleImport}
                 disabled={validCount === 0 || isPending || importComplete}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg btn-main px-4 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isPending
                   ? "Importing..."

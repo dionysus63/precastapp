@@ -446,7 +446,7 @@ export function ScheduleLoadsEditor({
           type="button"
           onClick={handleSave}
           disabled={!dirty || pending}
-          className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-lg btn-main px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40"
         >
           {pending ? "Saving…" : "Save Schedule"}
         </button>

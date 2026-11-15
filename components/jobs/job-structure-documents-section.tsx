@@ -161,7 +161,7 @@ export function JobStructureDocumentsSection({
               type="button"
               disabled={pending}
               onClick={handleOpenFolder}
-              className="rounded-md border border-slate-200 px-3 py-1.5 text-2xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="rounded-md btn-plain px-3 py-1.5 text-2xs font-medium disabled:opacity-50"
             >
               Open submittals folder
             </button>
@@ -218,7 +218,7 @@ export function JobStructureDocumentsSection({
             <button
               type="submit"
               disabled={pending || !folderPath}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+              className="rounded-lg btn-main px-4 py-2 text-xs font-semibold disabled:opacity-50"
             >
               {pending ? "Uploading…" : "Upload"}
             </button>
@@ -229,7 +229,7 @@ export function JobStructureDocumentsSection({
           <p className="text-xs text-red-600">{message.error}</p>
         ) : null}
         {message.success ? (
-          <p className="text-xs text-green-700">{message.success}</p>
+          <p className="text-xs text-emerald-700">{message.success}</p>
         ) : null}
 
         <div className={tableWrapperClassName}>
@@ -275,7 +275,7 @@ export function JobStructureDocumentsSection({
                             type="button"
                             disabled={pending}
                             onClick={() => handleOpenDocument(document.id)}
-                            className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                            className="inline-flex rounded-md btn-plain px-2 py-1 text-2xs font-medium disabled:opacity-50"
                           >
                             Open
                           </button>
@@ -294,7 +294,7 @@ export function JobStructureDocumentsSection({
                           </span>
                         ) : null}
                         {rowMessages[document.id]?.success ? (
-                          <span className="text-3xs text-green-700">
+                          <span className="text-3xs text-emerald-700">
                             {rowMessages[document.id]?.success}
                           </span>
                         ) : null}

@@ -309,7 +309,7 @@ export function LivePdfPreview({
             <button
               type="button"
               onClick={openPdf}
-              className="rounded border border-slate-300 bg-white px-2 py-0.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded btn-plain px-2 py-0.5 text-2xs font-semibold"
             >
               Open PDF
             </button>

@@ -170,7 +170,7 @@ export default async function PriceListsPage() {
             </div>
             <button
               type="submit"
-              className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white"
+              className="rounded-lg btn-main px-4 py-2 text-xs font-medium"
             >
               Create
             </button>

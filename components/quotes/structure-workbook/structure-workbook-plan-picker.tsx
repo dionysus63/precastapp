@@ -112,7 +112,7 @@ export function StructureWorkbookPlanPicker({
           type="button"
           disabled={isPending}
           onClick={() => fileInputRef.current?.click()}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+          className="rounded-lg btn-main px-4 py-2 text-xs font-semibold disabled:opacity-60"
         >
           Upload plan PDF
         </button>

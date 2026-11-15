@@ -232,14 +232,14 @@ export function JobStructureForm({ jobId, jobNumber }: JobStructureFormProps) {
       <div className="flex flex-wrap justify-end gap-2 rounded-xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm">
         <Link
           href={`/jobs/${jobId}?tab=production`}
-          className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          className="rounded-lg btn-plain px-4 py-2 text-xs font-semibold"
         >
           Cancel
         </Link>
         <button
           type="submit"
           disabled={isSubmitting}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+          className="rounded-lg btn-main px-4 py-2 text-xs font-semibold disabled:opacity-60"
         >
           {isSubmitting ? "Saving…" : "Save Structure"}
         </button>

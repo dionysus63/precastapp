@@ -137,7 +137,7 @@ export function PriceListSettingsForm({ priceList }: PriceListSettingsFormProps)
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
+          className="rounded-lg btn-main px-4 py-2 text-xs font-medium disabled:opacity-50"
         >
           {pending ? "Saving…" : "Save settings"}
         </button>

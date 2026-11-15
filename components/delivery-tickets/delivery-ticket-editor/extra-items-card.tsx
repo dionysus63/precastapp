@@ -83,7 +83,7 @@ export function ExtraItemsCard({
         <button
           type="button"
           onClick={onAddCustomLine}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          className="rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold"
         >
           + Custom item
         </button>

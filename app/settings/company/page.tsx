@@ -125,7 +125,7 @@ export default async function CompanySettingsPage({
               <form action={removeCompanyLogo}>
                 <button
                   type="submit"
-                  className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  className="rounded-lg btn-plain px-4 py-2 text-xs font-medium"
                 >
                   Remove logo
                 </button>

@@ -356,7 +356,7 @@ export function OneOffSheetPreview({
             <button
               type="button"
               onClick={openPdf}
-              className="rounded border border-slate-300 bg-white px-2 py-0.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded btn-plain px-2 py-0.5 text-2xs font-semibold"
             >
               Open PDF
             </button>
@@ -366,7 +366,7 @@ export function OneOffSheetPreview({
               href={`/api/drill-sheets/${savedSheetId}/preview?download=1`}
               fileName={`drill-sheet-${safeFilePart(row.structureNumber)}.pdf`}
               title="Drag onto an email, a folder, or your desktop to copy this saved drill sheet, or click to download it. Changes you haven't saved yet are not in the file."
-              className="rounded border border-slate-300 bg-white px-2 py-0.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded btn-plain px-2 py-0.5 text-2xs font-semibold"
             />
           ) : null}
           {row ? (

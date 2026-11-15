@@ -129,14 +129,14 @@ export function EditCustomStructureDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onSave}
-            className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+            className="rounded-lg btn-main px-3 py-1.5 text-xs font-semibold"
           >
             Save Changes
           </button>

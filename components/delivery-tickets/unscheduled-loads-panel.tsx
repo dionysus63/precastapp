@@ -112,7 +112,7 @@ export function UnscheduledLoadsPanel({ drafts }: UnscheduledLoadsPanelProps) {
                   <td className={tableCellClassName}>
                     <Link
                       href={`/delivery-tickets/schedule?jobId=${group.jobId}`}
-                      className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-700 hover:bg-slate-50"
+                      className="inline-flex rounded-md btn-plain px-2 py-1 text-2xs font-medium"
                     >
                       Schedule →
                     </Link>

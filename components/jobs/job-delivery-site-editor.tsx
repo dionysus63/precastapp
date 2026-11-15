@@ -97,7 +97,7 @@ export function JobDeliverySiteEditor({
       type="button"
       onClick={startEditing}
       aria-label={`Edit delivery site for job ${jobNumber}`}
-      className="rounded-lg border border-slate-200 px-2.5 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+      className="rounded-lg btn-plain px-2.5 py-1 text-2xs font-semibold"
     >
       {hasAddress || hasContact ? "Edit" : "Add"}
     </button>
@@ -272,14 +272,14 @@ export function JobDeliverySiteEditor({
             type="button"
             onClick={cancel}
             disabled={pending}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={pending}
-            className="rounded-lg bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+            className="rounded-lg btn-main px-3 py-1.5 text-2xs font-semibold disabled:opacity-50"
           >
             {pending ? "Saving…" : "Save"}
           </button>

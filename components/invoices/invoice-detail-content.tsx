@@ -74,7 +74,7 @@ export function InvoiceDetailContent({
         {ticketId ? (
           <Link
             href={`/delivery-tickets/${ticketId}`}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
           >
             View Ticket
           </Link>
@@ -102,7 +102,7 @@ export function InvoiceDetailContent({
           {canManage ? (
             <Link
               href={`/invoices/${invoice.id}/edit`}
-              className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+              className="rounded-lg btn-main px-3 py-1.5 text-xs font-semibold"
             >
               Type the price
             </Link>

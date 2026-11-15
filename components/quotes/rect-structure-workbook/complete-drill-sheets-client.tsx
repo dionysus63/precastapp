@@ -187,7 +187,7 @@ export function CompleteDrillSheetsClient({
           <div className="flex gap-2">
             <Link
               href={returnPath}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold"
             >
               Cancel
             </Link>
@@ -195,7 +195,7 @@ export function CompleteDrillSheetsClient({
               type="button"
               disabled={pending || readyRows.length === 0}
               onClick={handleCreate}
-              className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-lg btn-main px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
             >
               {pending
                 ? "Creating…"
@@ -209,7 +209,7 @@ export function CompleteDrillSheetsClient({
           </p>
         ) : null}
         {message?.success ? (
-          <p className="mt-2 text-xs font-medium text-green-700">
+          <p className="mt-2 text-xs font-medium text-emerald-700">
             {message.success}
           </p>
         ) : null}

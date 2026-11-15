@@ -293,7 +293,7 @@ export function JobBiddingPanel({
                   type="button"
                   disabled={pending || !selectedCustomerId}
                   onClick={handleAddBidder}
-                  className="rounded-lg bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+                  className="rounded-lg btn-main px-3 py-1.5 text-2xs font-semibold disabled:opacity-50"
                 >
                   Add
                 </button>
@@ -325,7 +325,7 @@ export function JobBiddingPanel({
                   disabled={pending || bidders.length === 0}
                   onClick={handleGenerateQuotes}
                   title="Copy line items from the master quote to every bidder who does not have a quote yet."
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold disabled:opacity-50"
                 >
                   Generate Quotes for All Bidders
                 </button>
@@ -545,7 +545,7 @@ export function JobBiddingPanel({
                 type="button"
                 disabled={pending}
                 onClick={() => setAwardDialogOpen(false)}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-lg btn-plain px-4 py-2 text-xs font-semibold"
               >
                 Cancel
               </button>

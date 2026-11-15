@@ -108,7 +108,7 @@ function RelatedChip({
 }
 
 const toolbarButtonClassName =
-  "rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50";
+  "rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold";
 const toolbarDisabledClassName =
   "rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-400";
 
@@ -250,7 +250,7 @@ export function QuoteDetailContent({
                 {quote.jobId ? (
                   <Link
                     href={`/jobs/${quote.jobId}?tab=production`}
-                    className="rounded-lg border border-slate-200 px-4 py-2 text-center text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    className="rounded-lg btn-plain px-4 py-2 text-center text-xs font-semibold"
                   >
                     Job Production & Submittals
                   </Link>
@@ -267,7 +267,7 @@ export function QuoteDetailContent({
                   <Link
                     href={`/jobs/${quote.jobId}?tab=invoices`}
                     title="Invoices are created from delivered delivery tickets on the job's Invoices tab."
-                    className="rounded-lg border border-slate-200 px-4 py-2 text-center text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    className="rounded-lg btn-plain px-4 py-2 text-center text-xs font-semibold"
                   >
                     Convert to Invoice
                   </Link>
@@ -284,7 +284,7 @@ export function QuoteDetailContent({
                 {quote.jobId ? (
                   <Link
                     href={`/delivery-tickets/new?jobId=${quote.jobId}`}
-                    className="rounded-lg border border-slate-200 px-4 py-2 text-center text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    className="rounded-lg btn-plain px-4 py-2 text-center text-xs font-semibold"
                   >
                     Create Ticket
                   </Link>
@@ -738,7 +738,7 @@ export function QuoteDetailContent({
                               />
                               <Link
                                 href={`/drill-sheets/${structure.drillSheetId}`}
-                                className="inline-flex rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50"
+                                className="inline-flex rounded-md btn-plain px-2 py-1 text-2xs font-medium"
                               >
                                 Drill Sheet
                               </Link>

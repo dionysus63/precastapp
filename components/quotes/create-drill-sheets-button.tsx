@@ -63,7 +63,7 @@ export function CreateDrillSheetsButton({
       {createdCount > 0 ? (
         <a
           href="#structures-submittals"
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+          className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
         >
           View Drill Sheets ({createdCount})
         </a>

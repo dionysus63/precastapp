@@ -148,7 +148,7 @@ export function JobFileDropPanel({
           <button
             type="button"
             onClick={handlePrint}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
+            className="rounded-lg btn-main px-4 py-2 text-xs font-semibold transition-colors"
           >
             Print
           </button>
@@ -156,7 +156,7 @@ export function JobFileDropPanel({
             href={fileUrl ?? "#"}
             target="_blank"
             rel="noreferrer"
-            className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-2 text-xs font-semibold"
           >
             Open in new tab
           </a>

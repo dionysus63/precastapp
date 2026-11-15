@@ -246,7 +246,7 @@ export function InvoiceEditor({
             type="button"
             disabled={pending}
             onClick={() => save("stay")}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-xs font-medium disabled:opacity-50"
           >
             Save
           </button>
@@ -254,7 +254,7 @@ export function InvoiceEditor({
             type="button"
             disabled={pending}
             onClick={() => save("view")}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-xs font-medium disabled:opacity-50"
           >
             Save &amp; view
           </button>
@@ -262,7 +262,7 @@ export function InvoiceEditor({
             type="button"
             disabled={pending}
             onClick={() => save("print")}
-            className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+            className="rounded-lg btn-main px-3 py-1.5 text-xs font-medium disabled:opacity-50"
           >
             Save &amp; Print
           </button>
@@ -462,14 +462,14 @@ export function InvoiceEditor({
           <button
             type="button"
             onClick={() => addLine("MISC")}
-            className="rounded border border-slate-200 px-2 py-1 text-2xs hover:bg-slate-50"
+            className="rounded btn-plain px-2 py-1 text-2xs"
           >
             Add misc line
           </button>
           <button
             type="button"
             onClick={() => addLine("SERVICE")}
-            className="rounded border border-slate-200 px-2 py-1 text-2xs hover:bg-slate-50"
+            className="rounded btn-plain px-2 py-1 text-2xs"
           >
             Add delivery / service
           </button>

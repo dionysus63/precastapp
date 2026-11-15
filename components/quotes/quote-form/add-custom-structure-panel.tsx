@@ -107,7 +107,7 @@ export function AddCustomStructurePanel({
                   createDefaultCustomStructureRow(current),
                 ])
               }
-              className="rounded-lg border border-slate-200 px-2.5 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-lg btn-plain px-2.5 py-1 text-2xs font-semibold"
             >
               Add another structure
             </button>
@@ -142,7 +142,7 @@ export function AddCustomStructurePanel({
                 type="button"
                 onClick={onPaste}
                 disabled={!customPasteText.trim()}
-                className="rounded-lg bg-slate-900 px-2.5 py-1 text-2xs font-semibold text-white hover:bg-slate-800 disabled:opacity-40"
+                className="rounded-lg btn-main px-2.5 py-1 text-2xs font-semibold disabled:opacity-40"
               >
                 Add pasted structures
               </button>
@@ -152,7 +152,7 @@ export function AddCustomStructurePanel({
                   setCustomPasteOpen(false);
                   setCustomPasteError(null);
                 }}
-                className="rounded-lg border border-slate-200 px-2.5 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-lg btn-plain px-2.5 py-1 text-2xs font-semibold"
               >
                 Cancel
               </button>
@@ -205,7 +205,7 @@ export function AddCustomStructurePanel({
                 <button
                   type="button"
                   onClick={() => duplicateCustomStructureRow(row.id)}
-                  className="rounded-lg border border-slate-200 px-2 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+                  className="rounded-lg btn-plain px-2 py-1 text-2xs font-semibold"
                 >
                   Duplicate
                 </button>
@@ -332,14 +332,14 @@ export function AddCustomStructurePanel({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onAdd}
-            className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+            className="rounded-lg btn-main px-3 py-1.5 text-xs font-semibold"
           >
             Add to Quote
           </button>

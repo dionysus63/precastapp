@@ -66,7 +66,7 @@ function FolderActionRow({
           type="button"
           disabled={pending}
           onClick={onOpenFolder}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold disabled:opacity-50"
         >
           Open folder in Explorer
         </button>
@@ -74,7 +74,7 @@ function FolderActionRow({
           type="button"
           disabled={pending}
           onClick={onRefresh}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold disabled:opacity-50"
         >
           {pending ? "Refreshing…" : "Refresh file list"}
         </button>
@@ -83,7 +83,7 @@ function FolderActionRow({
         <p className="mt-2 text-xs text-red-600">{openError}</p>
       ) : null}
       {openSuccess ? (
-        <p className="mt-2 truncate text-xs text-green-700" title={openSuccess}>
+        <p className="mt-2 truncate text-xs text-emerald-700" title={openSuccess}>
           {openSuccess}
         </p>
       ) : null}
@@ -276,7 +276,7 @@ export function JobFilesBrowser({
                 type="button"
                 disabled={pending}
                 onClick={handleRefresh}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold disabled:opacity-50"
               >
                 {pending ? "Refreshing…" : "Refresh file list"}
               </button>
@@ -335,7 +335,7 @@ export function JobFilesBrowser({
             ) : null}
             {openSuccess ? (
               <p
-                className="mt-1 truncate text-3xs text-green-700"
+                className="mt-1 truncate text-3xs text-emerald-700"
                 title={openSuccess}
               >
                 {openSuccess}
@@ -413,7 +413,7 @@ export function JobFilesBrowser({
             <button
               type="submit"
               disabled={pending || selectedFiles.length === 0}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
+              className="rounded-lg btn-main px-4 py-2 text-xs font-medium disabled:opacity-50"
             >
               {uploadProgress ??
                 (pending
@@ -440,7 +440,7 @@ export function JobFilesBrowser({
             <p className="text-xs text-red-600">{uploadError}</p>
           ) : null}
           {uploadSuccess ? (
-            <p className="text-xs text-green-700">{uploadSuccess}</p>
+            <p className="text-xs text-emerald-700">{uploadSuccess}</p>
           ) : null}
           {!lockedCategory && (openError || openSuccess) ? (
             <>
@@ -448,7 +448,7 @@ export function JobFilesBrowser({
                 <p className="text-xs text-red-600">{openError}</p>
               ) : null}
               {openSuccess ? (
-                <p className="truncate text-xs text-green-700" title={openSuccess}>
+                <p className="truncate text-xs text-emerald-700" title={openSuccess}>
                   {openSuccess}
                 </p>
               ) : null}

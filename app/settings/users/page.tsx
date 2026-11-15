@@ -27,13 +27,13 @@ export default async function SettingsUsersPage() {
         <div className="flex gap-2">
           <Link
             href="/settings/users/audit"
-            className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg btn-plain px-4 py-2 text-xs font-semibold"
           >
             Audit Log
           </Link>
           <Link
             href="/settings/users/new"
-            className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+            className="rounded-lg btn-main px-4 py-2 text-xs font-semibold"
           >
             Add User
           </Link>

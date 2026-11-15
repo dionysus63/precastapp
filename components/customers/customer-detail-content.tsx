@@ -75,12 +75,12 @@ export function CustomerDetailContent({ customer }: CustomerDetailContentProps) 
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href={`/customers/${customer.id}/edit`}
-              className="rounded-lg bg-slate-900 px-3 py-1.5 text-2xs font-semibold text-white hover:bg-slate-800"
+              className="rounded-lg btn-main px-3 py-1.5 text-2xs font-semibold"
             >
               Edit Customer
             </Link>
             <details className="group relative">
-              <summary className="cursor-pointer list-none rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+              <summary className="cursor-pointer list-none rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold [&::-webkit-details-marker]:hidden">
                 Actions ▾
               </summary>
               <div className="absolute right-0 z-20 mt-1 w-44 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">

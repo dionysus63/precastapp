@@ -494,21 +494,21 @@ export function RectStructureWorkbook({
           <button
             type="button"
             onClick={() => addRows(1)}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
           >
             Add 1 row
           </button>
           <button
             type="button"
             onClick={() => addRows(5)}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
           >
             Add 5 rows
           </button>
           <button
             type="button"
             onClick={() => addRows(10)}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
           >
             Add 10 rows
           </button>
@@ -516,7 +516,7 @@ export function RectStructureWorkbook({
             type="button"
             onClick={duplicateSelected}
             disabled={selectedRowIds.size === 0}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+            className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold disabled:opacity-40"
           >
             Duplicate selected
           </button>
@@ -531,7 +531,7 @@ export function RectStructureWorkbook({
           <button
             type="button"
             onClick={removeEmptyRows}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
           >
             Remove empty rows
           </button>
@@ -539,7 +539,7 @@ export function RectStructureWorkbook({
             type="button"
             onClick={repriceAllRows}
             title="Recompute every row's price from the quote's price list (use after changing the quote's list or updating template/opening prices)."
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold"
           >
             Reprice from price list
           </button>
@@ -592,14 +592,14 @@ export function RectStructureWorkbook({
         <button
           type="button"
           onClick={handleApply}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+          className="rounded-lg btn-main px-4 py-2 text-xs font-semibold"
         >
           Apply to Quote
         </button>
         <button
           type="button"
           onClick={handleCancel}
-          className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          className="rounded-lg btn-plain px-4 py-2 text-xs font-semibold"
         >
           Cancel
         </button>
@@ -1618,7 +1618,7 @@ export function RectWorkbookGrid({
                   <td
                     className={`${computedCell} ${
                       overPick
-                        ? "bg-rose-50 font-semibold text-rose-600"
+                        ? "bg-red-50 font-semibold text-red-600"
                         : "bg-slate-50/60 text-slate-700"
                     }`}
                     title={

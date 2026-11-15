@@ -390,7 +390,7 @@ export function JobForm({
       <div className="flex justify-end gap-2 border-t border-slate-100 pt-5">
         <Link
           href={cancelHref}
-          className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          className="rounded-lg btn-plain px-4 py-2 text-xs font-semibold"
         >
           Cancel
         </Link>

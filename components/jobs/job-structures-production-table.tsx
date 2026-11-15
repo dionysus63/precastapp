@@ -188,7 +188,7 @@ export function JobStructuresProductionTable({
             type="button"
             disabled={pending}
             onClick={() => void applyBulkStatus()}
-            className="rounded-md bg-slate-900 px-3 py-1 text-2xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+            className="rounded-md btn-main px-3 py-1 text-2xs font-semibold disabled:opacity-50"
           >
             {pending ? "Applying…" : "Apply"}
           </button>
@@ -354,7 +354,7 @@ export function JobStructuresProductionTable({
                         />
                         <Link
                           href={`/drill-sheets/${structure.drillSheetId}`}
-                          className="inline-flex w-fit rounded-md border border-slate-200 px-2 py-1 text-2xs font-medium text-slate-600 hover:bg-slate-50"
+                          className="inline-flex w-fit rounded-md btn-plain px-2 py-1 text-2xs font-medium"
                         >
                           Drill Sheet
                         </Link>

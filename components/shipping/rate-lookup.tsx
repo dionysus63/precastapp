@@ -91,7 +91,7 @@ export function RateLookup({ zones, yard }: RateLookupProps) {
             type="button"
             onClick={search}
             disabled={isPending || !address.trim()}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+            className="rounded-lg btn-main px-4 py-2 text-sm font-semibold disabled:opacity-50"
           >
             {isPending ? "Looking up…" : "Get shipping price"}
           </button>

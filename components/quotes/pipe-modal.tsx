@@ -254,7 +254,7 @@ export function PipeModal({
             <button
               type="button"
               onClick={handleClose}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold"
             >
               Close
             </button>
@@ -310,7 +310,7 @@ export function PipeModal({
               <button
                 type="button"
                 onClick={handleClose}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold"
               >
                 Cancel
               </button>
@@ -338,7 +338,7 @@ export function PipeModal({
                       createDefaultQuoteRow(productsForType),
                     ])
                   }
-                  className="rounded-lg border border-slate-200 px-2 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+                  className="rounded-lg btn-plain px-2 py-1 text-2xs font-semibold"
                 >
                   Add row
                 </button>
@@ -435,7 +435,7 @@ export function PipeModal({
                                 )
                               }
                               disabled={quoteRows.length <= 1}
-                              className="rounded border border-slate-200 px-2 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              className="rounded btn-plain px-2 py-1 text-2xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               Remove
                             </button>
@@ -451,7 +451,7 @@ export function PipeModal({
               <button
                 type="button"
                 onClick={() => setMode("choose")}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold"
               >
                 Back
               </button>
@@ -459,14 +459,14 @@ export function PipeModal({
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  className="rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleAddQuoteLines}
-                  className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+                  className="rounded-lg btn-main px-3 py-1.5 text-xs font-semibold"
                 >
                   Add to Quote
                 </button>
@@ -513,7 +513,7 @@ export function PipeModal({
               <button
                 type="button"
                 onClick={() => setMode("choose")}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold"
               >
                 Back
               </button>
@@ -521,14 +521,14 @@ export function PipeModal({
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  className="rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleAddUnitPricesToDescription}
-                  className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800"
+                  className="rounded-lg btn-main px-3 py-1.5 text-xs font-semibold"
                 >
                   Add to Description
                 </button>

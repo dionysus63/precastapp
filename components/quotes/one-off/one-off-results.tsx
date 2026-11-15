@@ -11,7 +11,7 @@ import { drillSheetsPacketHref } from "@/lib/drill-sheets-packet";
 import { selectedClassName } from "@/lib/selected-styles";
 
 const chipClassName =
-  "rounded-md border border-slate-200 bg-white px-2 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50";
+  "rounded-md btn-plain px-2 py-1 text-2xs font-semibold";
 
 function safeFilePart(value: string): string {
   return value.replace(/[\\/:*?"<>|]+/g, "-").trim() || "sheet";
@@ -201,7 +201,7 @@ export function OneOffResults({
       <div className="flex flex-wrap gap-2">
         <Link
           href={`/jobs/${result.jobId}`}
-          className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          className="inline-flex items-center justify-center rounded-lg btn-plain px-4 py-2 text-xs font-semibold"
         >
           Go to Job
         </Link>
@@ -211,7 +211,7 @@ export function OneOffResults({
               result.jobId,
               result.sheets.map((sheet) => sheet.id),
             )}
-            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center justify-center rounded-lg btn-plain px-4 py-2 text-xs font-semibold"
           >
             Edit These Sheets
           </Link>
@@ -219,7 +219,7 @@ export function OneOffResults({
         <button
           type="button"
           onClick={onStartOver}
-          className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+          className="inline-flex items-center justify-center rounded-lg btn-main px-4 py-2 text-xs font-semibold"
         >
           {mode === "created" ? "Start Another Quick Build" : "Keep Editing"}
         </button>

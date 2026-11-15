@@ -472,14 +472,14 @@ export function PurchaseReceiptForm({
       <div className="flex justify-end gap-2">
         <Link
           href={returnPath.startsWith("/receiving") ? "/receiving" : "/inventory"}
-          className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          className="rounded-lg btn-plain px-4 py-2 text-xs font-semibold"
         >
           Cancel
         </Link>
         <button
           type="submit"
           disabled={pending || !supplierId}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+          className="rounded-lg btn-main px-4 py-2 text-xs font-semibold disabled:opacity-60"
         >
           {pending ? "Saving…" : "Receive Castings"}
         </button>

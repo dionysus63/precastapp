@@ -74,7 +74,7 @@ export function OneOffDraftBar({
             type="button"
             onClick={onDiscard}
             disabled={saving}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
           >
             Discard Draft
           </button>
@@ -83,7 +83,7 @@ export function OneOffDraftBar({
           type="button"
           onClick={onSave}
           disabled={saving || (draft != null && !dirty)}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving ? "Saving…" : draft ? "Save Changes" : "Save for Later"}
         </button>

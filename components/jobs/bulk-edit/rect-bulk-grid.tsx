@@ -523,7 +523,7 @@ export function RectBulkGrid({
                     <button
                       type="button"
                       onClick={() => toggleExpanded(row.structureId)}
-                      className="rounded border border-slate-200 px-2 py-0.5 text-2xs font-medium text-slate-600 hover:bg-slate-50"
+                      className="rounded btn-plain px-2 py-0.5 text-2xs font-medium"
                     >
                       {row.values.openings.length} {isExpanded ? "▴" : "▾"}
                     </button>
@@ -556,7 +556,7 @@ export function RectBulkGrid({
                   <tr>
                     <td
                       colSpan={18}
-                      className={`${tableCellBordersClassName} bg-rose-50 px-3 py-1 text-2xs text-rose-700`}
+                      className={`${tableCellBordersClassName} bg-red-50 px-3 py-1 text-2xs text-red-700`}
                     >
                       {error ?? previewError}
                     </td>
@@ -792,7 +792,7 @@ export function RectBulkGrid({
                                   ),
                                 })
                               }
-                              className="text-rose-500 hover:text-rose-700"
+                              className="text-red-500 hover:text-red-700"
                               title="Remove opening"
                             >
                               ✕
@@ -822,7 +822,7 @@ export function RectBulkGrid({
                               ],
                             })
                           }
-                          className="rounded border border-slate-200 px-2 py-0.5 text-2xs font-medium text-slate-600 hover:bg-slate-50"
+                          className="rounded btn-plain px-2 py-0.5 text-2xs font-medium"
                         >
                           + Add opening
                         </button>

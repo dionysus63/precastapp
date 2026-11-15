@@ -81,7 +81,7 @@ export function MarkPickedUpControl({
                 type="button"
                 disabled={pending}
                 onClick={() => setShowConfirm(false)}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                className="rounded-lg btn-plain px-3 py-1.5 text-xs font-medium disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -89,7 +89,7 @@ export function MarkPickedUpControl({
                 type="button"
                 disabled={pending}
                 onClick={handleConfirm}
-                className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+                className="rounded-lg btn-main px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
               >
                 {pending ? "Saving…" : "Yes, mark picked up"}
               </button>

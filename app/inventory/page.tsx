@@ -351,25 +351,25 @@ export default async function InventoryPage({
           <ScanSubmittalsButton />
           <Link
             href="/inventory/receipts"
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-sm hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-2 text-xs font-medium"
           >
             Receipt History
           </Link>
           <Link
             href="/inventory/adjust"
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-sm hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-2 text-xs font-medium"
           >
             Adjust Stock
           </Link>
           <Link
             href="/inventory/production"
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-800 shadow-sm hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-2 text-xs font-medium"
           >
             Daily Production Entry
           </Link>
           <Link
             href="/inventory/receive"
-            className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white shadow-sm hover:bg-slate-800"
+            className="rounded-lg btn-main px-3 py-2 text-xs font-medium"
           >
             Receive Castings
           </Link>

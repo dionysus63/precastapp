@@ -49,7 +49,7 @@ export function TicketStatusActions({
           type="button"
           disabled={pending}
           onClick={() => run("SCHEDULED")}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold disabled:opacity-50"
         >
           Schedule
         </button>
@@ -59,7 +59,7 @@ export function TicketStatusActions({
           type="button"
           disabled={pending}
           onClick={() => run("IN_TRANSIT")}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          className="rounded-lg btn-plain px-3 py-1.5 text-2xs font-semibold disabled:opacity-50"
         >
           Mark In Transit
         </button>

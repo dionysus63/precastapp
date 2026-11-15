@@ -27,7 +27,7 @@ export function JobsRootTestButton() {
             setMessage(result);
           })
         }
-        className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        className="rounded-lg btn-plain px-4 py-2 text-xs font-medium disabled:opacity-50"
       >
         {pending ? "Testing…" : "Test write access"}
       </button>
@@ -53,7 +53,7 @@ export function StockSubmittalsRootTestButton() {
             setMessage(result);
           })
         }
-        className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        className="rounded-lg btn-plain px-4 py-2 text-xs font-medium disabled:opacity-50"
       >
         {pending ? "Testing…" : "Test submittals folder"}
       </button>
@@ -85,7 +85,7 @@ export function SystemMaintenancePanel() {
           type="button"
           disabled={pending}
           onClick={() => run(syncAllJobFilesFromSettingsAction)}
-          className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          className="rounded-lg btn-plain px-4 py-2 text-xs font-medium disabled:opacity-50"
         >
           Sync all job files from disk
         </button>
@@ -93,7 +93,7 @@ export function SystemMaintenancePanel() {
           type="button"
           disabled={pending}
           onClick={() => run(ensureYearSequencesAction)}
-          className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          className="rounded-lg btn-plain px-4 py-2 text-xs font-medium disabled:opacity-50"
         >
           Ensure {new Date().getFullYear()} sequences
         </button>

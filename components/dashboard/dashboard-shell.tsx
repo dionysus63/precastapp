@@ -70,7 +70,7 @@ export async function DashboardShell({
   const logoUrl = logoUpdatedAt ? companyLogoApiUrl(logoUpdatedAt) : null;
 
   return (
-    <div className="min-h-screen bg-slate-50/80 pl-60">
+    <div className="min-h-screen bg-page pl-60">
       <PermissionRouteGuard
         role={user.role as UserRoleKey}
         permissions={permissions as PermissionKey[]}

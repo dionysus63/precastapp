@@ -19,7 +19,7 @@ export const paperStyle = {
 } as const;
 
 const stepButtonClassName =
-  "rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50";
+  "rounded-lg btn-plain px-2 py-0.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50";
 
 /** A blank sheet with a line of text; `heading` is the large line above it. */
 export function PaperNote({

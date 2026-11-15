@@ -182,7 +182,7 @@ export function QuoteFormStickyHeader({
             type="button"
             onClick={() => onSaveDraft()}
             disabled={isPending}
-            className="rounded-md bg-slate-900 px-2.5 py-1 text-2xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md btn-main px-2.5 py-1 text-2xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isPending
               ? "Saving..."
@@ -194,7 +194,7 @@ export function QuoteFormStickyHeader({
             type="button"
             onClick={onSaveAndPreview}
             disabled={isPending}
-            className="rounded-md border border-slate-200 px-2.5 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md btn-plain px-2.5 py-1 text-2xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isPending ? "Saving..." : "Preview PDF"}
           </button>
@@ -203,13 +203,13 @@ export function QuoteFormStickyHeader({
             disabled={isPending}
             onClick={() => onSaveDraft("send")}
             title="Save the quote, then open the send dialog"
-            className="rounded-md border border-slate-200 px-2.5 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md btn-plain px-2.5 py-1 text-2xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isPending ? "Saving..." : "Send Quote"}
           </button>
           <Link
             href={isEditing ? `/quotes/${quoteId}` : "/quotes"}
-            className="rounded-md border border-slate-200 px-2.5 py-1 text-2xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-md btn-plain px-2.5 py-1 text-2xs font-semibold"
           >
             Cancel
           </Link>

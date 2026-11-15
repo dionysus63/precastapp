@@ -133,7 +133,7 @@ function BreakdownDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold"
           >
             Cancel
           </button>
@@ -141,7 +141,7 @@ function BreakdownDialog({
             type="button"
             disabled={pending || !balanced}
             onClick={submit}
-            className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg btn-main px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
           >
             {pending ? "Applying…" : "Apply breakdown"}
           </button>
