@@ -131,16 +131,20 @@ describe("what the database is asked for", () => {
     });
   });
 
-  it("includes both ends of the invoice date range, in local time", () => {
+  it("filters on the ticket's ship date, both ends included, in local time", () => {
     const where = buildInvoiceListWhere("ALL", {
       ...EMPTY_INVOICE_LIST_SEARCH,
       from: "2026-11-01",
       to: "2026-11-14",
     });
     expect(where).toEqual({
-      invoiceDate: {
-        gte: new Date(2026, 10, 1),
-        lte: new Date(2026, 10, 14, 23, 59, 59, 999),
+      deliveryTicket: {
+        is: {
+          deliveryDate: {
+            gte: new Date(2026, 10, 1),
+            lte: new Date(2026, 10, 14, 23, 59, 59, 999),
+          },
+        },
       },
     });
   });
@@ -151,14 +155,18 @@ describe("what the database is asked for", () => {
         ...EMPTY_INVOICE_LIST_SEARCH,
         from: "2026-11-01",
       }),
-    ).toEqual({ invoiceDate: { gte: new Date(2026, 10, 1) } });
+    ).toEqual({
+      deliveryTicket: { is: { deliveryDate: { gte: new Date(2026, 10, 1) } } },
+    });
     expect(
       buildInvoiceListWhere("ALL", {
         ...EMPTY_INVOICE_LIST_SEARCH,
         to: "2026-11-14",
       }),
     ).toEqual({
-      invoiceDate: { lte: new Date(2026, 10, 14, 23, 59, 59, 999) },
+      deliveryTicket: {
+        is: { deliveryDate: { lte: new Date(2026, 10, 14, 23, 59, 59, 999) } },
+      },
     });
   });
 

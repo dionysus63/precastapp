@@ -7,8 +7,8 @@ import {
 } from "@/lib/invoice-status";
 
 /**
- * The search boxes above the Invoices list: contractor, job, a range of
- * invoice dates and a range of totals. They live in the address
+ * The search boxes above the Invoices list: contractor, job, a range of ship
+ * dates and a range of totals. They live in the address
  * (`?customer=&job=&from=&to=&min=&max=`) next to the status chip
  * (`?status=`), so a filtered list can be paged, reloaded and linked.
  */
@@ -17,9 +17,9 @@ export type InvoiceListSearch = {
   customer: string;
   /** Part of the job's name or its job number. */
   job: string;
-  /** First invoice date shown, "yyyy-mm-dd". */
+  /** First ship date shown, "yyyy-mm-dd". */
   from: string;
-  /** Last invoice date shown, "yyyy-mm-dd". */
+  /** Last ship date shown, "yyyy-mm-dd". */
   to: string;
   /** Lowest invoice total shown, as typed ("1500", "1,500.00"). */
   min: string;
@@ -131,8 +131,9 @@ function statusWhere(filter: InvoiceListFilter): Prisma.InvoiceWhereInput {
  *
  * - Contractor and job match any part of the name, in any letter case; job
  *   also matches the job number.
- * - The dates are invoice dates and both ends are included (the "to" day runs
- *   to its last millisecond).
+ * - The dates are ship dates, the ticket's delivery date that the list shows
+ *   (the "Ship Date" printed on the ticket), and both ends are included. An
+ *   invoice whose ticket has no ship date is left out of a date range.
  * - The amounts are invoice totals (tax included), both ends included.
  */
 export function buildInvoiceListWhere(
@@ -177,7 +178,7 @@ export function buildInvoiceListWhere(
         999,
       );
     }
-    conditions.push({ invoiceDate: range });
+    conditions.push({ deliveryTicket: { is: { deliveryDate: range } } });
   }
 
   const min = search.min ? parseMoneyInput(search.min) : null;

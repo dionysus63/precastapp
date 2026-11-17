@@ -84,7 +84,6 @@ function InvoiceBadges({ row }: { row: InvoiceListRow }) {
   );
 }
 
-
 const barButtonClassName =
   "rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -121,7 +120,7 @@ function stop(event: React.SyntheticEvent) {
  * delivered — there is no draft stage and nothing to finalize. "Price needed"
  * holds the ones with a line the app could not price.
  *
- * Above it: the status chips and the search boxes (contractor, job, invoice
+ * Above it: the status chips and the search boxes (contractor, job, ship
  * dates, totals). Beside it: the clicked invoice as it prints, or its signed
  * ticket. Tick boxes pick invoices to print or download as one PDF; the
  * ticks stay while paging and filtering.
@@ -468,7 +467,8 @@ export function InvoicesListTab({
                         />
                       </label>
                     </th>
-                    <th className={tableHeaderCellClassName}>Invoice · Date</th>
+                    <th className={tableHeaderCellClassName}>Invoice</th>
+                    <th className={tableHeaderCellClassName}>Ship date</th>
                     <th className={tableHeaderCellClassName}>
                       Contractor / job
                     </th>
@@ -541,13 +541,13 @@ export function InvoicesListTab({
                           >
                             {row.invoiceNumber}
                           </Link>
-                          <span
-                            className="block font-normal text-slate-500"
-                            title="Invoice date"
-                          >
-                            {formatDate(row.invoiceDate)}
-                          </span>
                           <InvoiceBadges row={row} />
+                        </td>
+                        <td
+                          className={`${cell} whitespace-nowrap tabular-nums`}
+                          title={`Ship date of ticket ${row.ticketNumber}`}
+                        >
+                          {formatDate(row.deliveryDate)}
                         </td>
                         <td className={`${cell} min-w-[10rem]`}>
                           {row.customerName}
@@ -571,7 +571,9 @@ export function InvoicesListTab({
                           {formatUsd(row.total)}
                         </td>
                         <td className={`${cell} whitespace-nowrap`}>
-                          <div className="flex items-center gap-1">
+                          {/* Price needed goes under the status, so the
+                              column is one badge wide. */}
+                          <div className="flex flex-col items-start gap-1">
                             <StatusBadge
                               label={invoiceStatusLabel(row.status)}
                               variant={invoiceStatusVariant(row.status)}
