@@ -35,13 +35,22 @@ export const PREVIEW_BESIDE_INPUTS_MIN_WIDTH = 1600;
  * preview keeps its 24rem and the inputs get about 56rem, the narrowest the
  * ticket editor's lines table reads well at.
  *
+ * The room both share (--preview-room) is worked out from the window, not
+ * from the row itself: the window less the sidebar (15rem) and the page's
+ * side padding (2 x 1.25rem). A share of the row ("40%") would change by a
+ * scrollbar's width whenever the page starts or stops scrolling, the preview
+ * would be redrawn a few pixels shorter or taller, and at the window heights
+ * where that alone decides whether the page scrolls, the two chase each
+ * other: the scrollbar and the preview flicker without end. Only the inputs
+ * give way to the scrollbar now.
+ *
  * Below 1600px there is no room for both: the inputs keep the standard
  * column they were laid out for, and the preview is either stacked underneath
  * (`portraitPreviewPaneClassName`) or opened over the right side of the
  * window on request (`portraitPreviewDrawerPaneClassName`).
  */
 export const portraitPreviewSplitClassName =
-  "grid items-start gap-5 max-[1600px]:max-w-7xl min-[1600px]:grid-cols-[min(40%,calc((100vh_-_var(--app-header-height)_-_7.3125rem)_*_0.773_+_1.625rem),max(24rem,calc(100%_-_57rem_*_var(--text-scale)_-_1.25rem)))_minmax(0,1fr)]";
+  "grid items-start gap-5 max-[1600px]:max-w-7xl min-[1600px]:[--preview-room:calc(100vw_-_17.5rem)] min-[1600px]:grid-cols-[min(calc(var(--preview-room)_*_0.4),calc((100vh_-_var(--app-header-height)_-_7.3125rem)_*_0.773_+_1.625rem),max(24rem,calc(var(--preview-room)_-_57rem_*_var(--text-scale)_-_1.25rem)))_minmax(0,1fr)]";
 
 /**
  * The preview column beside the inputs: it comes after the inputs in the
