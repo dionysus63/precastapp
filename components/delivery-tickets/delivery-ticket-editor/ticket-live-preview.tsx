@@ -2,7 +2,11 @@
 
 import type { SaveDeliveryTicketInput } from "@/app/delivery-tickets/actions";
 import { renderDeliveryTicketDraftPreview } from "@/app/delivery-tickets/preview-actions";
-import { LivePdfPreview } from "@/components/common/live-pdf-preview";
+import {
+  LivePdfPreview,
+  previewBesideOnlyClassName,
+  previewDrawerOnlyClassName,
+} from "@/components/common/live-pdf-preview";
 import type { DeliveryTicketDraftPreviewInput } from "@/lib/delivery-ticket-draft-preview";
 
 type TicketLivePreviewProps = {
@@ -84,10 +88,17 @@ export function TicketLivePreview({
         <button
           type="button"
           onClick={onHide}
-          title="Hide the ticket preview and give the inputs the whole width"
           className="rounded btn-plain px-2 py-0.5 text-2xs font-semibold"
         >
-          Hide preview
+          {/* Beside the inputs it is put away for good (remembered on this
+              computer); opened over them on a narrow window it just closes. */}
+          <span
+            className={previewBesideOnlyClassName}
+            title="Hide the ticket preview and give the inputs the whole width"
+          >
+            Hide preview
+          </span>
+          <span className={previewDrawerOnlyClassName}>Close preview</span>
         </button>
       }
     />

@@ -12,28 +12,88 @@ const MAX_PAGE_HEIGHT_VH = 1.6;
 const MIN_PAGE_HEIGHT_PX = 320;
 
 /**
- * "Preview | inputs" for a portrait letter page, side by side from a 1800px
+ * Narrowest window (px) that shows the preview beside the inputs. It is the
+ * number in every `min-[1600px]:` and `max-[1600px]:` class below (Tailwind
+ * needs them written out; `max-[1600px]:` means narrower than 1600px, so the
+ * two never both apply), and what `isPreviewBesideInputs` asks the window.
+ *
+ * Why 1600: the office monitors are 3840px wide and each PC picks its own
+ * Windows scale and app zoom. 150% gives the app a 2560px window, 200% gives
+ * 1920px, and 200% with one or two clicks of Zoom In gives 1753px or 1600px.
+ * All of those must keep the preview on screen.
+ */
+export const PREVIEW_BESIDE_INPUTS_MIN_WIDTH = 1600;
+
+/**
+ * "Preview | inputs" for a portrait letter page, side by side from a 1600px
  * wide window up. The preview column grows with the window but stops once the
  * whole page fits on screen (8.5 / 11 = 0.773; the app header plus 7.3125rem
  * is everything above and below the drawn page, 1.625rem the pane's side
- * padding), never takes more
- * than 40%, and always leaves the inputs 64rem (the 1.25rem is the gap).
+ * padding), never takes more than 40%, and leaves the inputs 57rem (more
+ * with a larger Text Size, hence --text-scale; the 1.25rem is the gap) for
+ * as long as that keeps the preview at least 24rem wide. At 1600px the
+ * preview keeps its 24rem and the inputs get about 56rem, the narrowest the
+ * ticket editor's lines table reads well at.
  *
- * On a narrower window there is no room for both: the inputs keep the
- * standard column they were laid out for and the preview stacks
- * underneath.
+ * The room both share (--preview-room) is worked out from the window, not
+ * from the row itself: the window less the sidebar (15rem) and the page's
+ * side padding (2 x 1.25rem). A share of the row ("40%") would change by a
+ * scrollbar's width whenever the page starts or stops scrolling, the preview
+ * would be redrawn a few pixels shorter or taller, and at the window heights
+ * where that alone decides whether the page scrolls, the two chase each
+ * other: the scrollbar and the preview flicker without end. Only the inputs
+ * give way to the scrollbar now.
+ *
+ * Below 1600px there is no room for both: the inputs keep the standard
+ * column they were laid out for, and the preview is either stacked underneath
+ * (`portraitPreviewPaneClassName`) or opened over the right side of the
+ * window on request (`portraitPreviewDrawerPaneClassName`).
  */
 export const portraitPreviewSplitClassName =
-  "grid items-start gap-5 max-[1799px]:max-w-7xl min-[1800px]:grid-cols-[min(40%,calc((100vh_-_var(--app-header-height)_-_7.3125rem)_*_0.773_+_1.625rem),calc(100%_-_65.25rem))_minmax(0,1fr)]";
+  "grid items-start gap-5 max-[1600px]:max-w-7xl min-[1600px]:[--preview-room:calc(100vw_-_17.5rem)] min-[1600px]:grid-cols-[min(calc(var(--preview-room)_*_0.4),calc((100vh_-_var(--app-header-height)_-_7.3125rem)_*_0.773_+_1.625rem),max(24rem,calc(var(--preview-room)_-_57rem_*_var(--text-scale)_-_1.25rem)))_minmax(0,1fr)]";
 
 /**
- * The preview column itself: it comes after the inputs in the markup (so a
- * narrow window shows the inputs first), `order-first` moves it to the left
- * on a wide one, and it follows the page parked just below the sticky app
- * header (--app-header-height) while the inputs scroll.
+ * The preview column beside the inputs: it comes after the inputs in the
+ * markup, `order-first` moves it to the left, and it follows the page parked
+ * just below the sticky app header (--app-header-height) while the inputs
+ * scroll.
  */
-export const portraitPreviewPaneClassName =
-  "min-w-0 max-[1799px]:w-full max-[1799px]:max-w-3xl min-[1800px]:order-first min-[1800px]:sticky min-[1800px]:top-[calc(var(--app-header-height)_-_1px)] min-[1800px]:max-h-[calc(100vh_-_var(--app-header-height)_-_0.875rem)] min-[1800px]:overflow-y-auto";
+const previewBesideInputsClassName =
+  "min-w-0 min-[1600px]:order-first min-[1600px]:sticky min-[1600px]:top-[calc(var(--app-header-height)_-_1px)] min-[1600px]:max-h-[calc(100vh_-_var(--app-header-height)_-_0.875rem)] min-[1600px]:overflow-y-auto";
+
+/**
+ * The preview column that stacks under the inputs on a narrow window. Out of
+ * sight there until the page is scrolled to its end, so a screen people work
+ * on with a narrow window should use the drawer below instead.
+ */
+export const portraitPreviewPaneClassName = `${previewBesideInputsClassName} max-[1600px]:w-full max-[1600px]:max-w-3xl`;
+
+/**
+ * The preview column that, on a narrow window, stays out of the page until
+ * asked for and then opens over the right side of the window, below the app
+ * header, as wide as a readable page (the 17rem keeps the sidebar and a
+ * strip of the inputs in view). The screen needs a button that opens it:
+ * give that button `previewDrawerOnlyClassName`.
+ */
+export function portraitPreviewDrawerPaneClassName(open: boolean): string {
+  return `${previewBesideInputsClassName} ${
+    open
+      ? "max-[1600px]:fixed max-[1600px]:right-0 max-[1600px]:bottom-0 max-[1600px]:top-[var(--app-header-height)] max-[1600px]:z-30 max-[1600px]:w-[min(46rem,calc(100vw_-_17rem))] max-[1600px]:overflow-y-auto max-[1600px]:border-l max-[1600px]:border-slate-300 max-[1600px]:bg-page max-[1600px]:p-3 max-[1600px]:shadow-2xl"
+      : "max-[1600px]:hidden"
+  }`;
+}
+
+/** For controls that only make sense while the preview is a drawer. */
+export const previewDrawerOnlyClassName = "min-[1600px]:hidden";
+/** For controls that only make sense while the preview sits beside the inputs. */
+export const previewBesideOnlyClassName = "max-[1600px]:hidden";
+
+/** Whether the window is wide enough to show the preview beside the inputs. */
+export function isPreviewBesideInputs(): boolean {
+  return window.matchMedia(
+    `(min-width: ${PREVIEW_BESIDE_INPUTS_MIN_WIDTH}px)`,
+  ).matches;
+}
 
 export type LivePdfPreviewResult = { pdfBase64: string };
 
