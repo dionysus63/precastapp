@@ -1,15 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { isActionError, type ActionError } from "@/lib/action-result";
 import { selectedClassName } from "@/lib/selected-styles";
 
 /** Wait this long after the last change before filling the PDF again. */
 const DEFAULT_DEBOUNCE_MS = 600;
-/** Tallest the page is drawn: the pane scrolls past this, so width usually rules. */
+/**
+ * Tallest the page is drawn where no pane limits it (the preview stacked
+ * under the inputs, or opened as a drawer): the page or the drawer scrolls.
+ */
 const MAX_PAGE_HEIGHT_VH = 1.6;
 const MIN_PAGE_HEIGHT_PX = 320;
+/** Smallest height the page is fitted into, however short the window is. */
+const MIN_PAGE_ROOM_PX = 160;
 /**
  * Zoom steps, as multiples of the size at which the page fits the pane. The
  * first one is "fit"; past it the page scrolls inside the pane.
@@ -63,7 +68,9 @@ export const portraitPreviewSplitClassName =
  * The preview column beside the inputs: it comes after the inputs in the
  * markup, `order-first` moves it to the left, and it follows the page parked
  * just below the sticky app header (--app-header-height) while the inputs
- * scroll.
+ * scroll. It is never taller than the window. `LivePdfPreview` finds it by
+ * that height limit and fits its page into what the pane has left, so the
+ * pane's own scrollbar never has to come out (see `measurePageRoom`).
  */
 const previewBesideInputsClassName =
   "min-w-0 min-[1600px]:order-first min-[1600px]:sticky min-[1600px]:top-[calc(var(--app-header-height)_-_1px)] min-[1600px]:max-h-[calc(100vh_-_var(--app-header-height)_-_0.875rem)] min-[1600px]:overflow-y-auto";
@@ -85,7 +92,7 @@ export const portraitPreviewPaneClassName = `${previewBesideInputsClassName} max
 export function portraitPreviewDrawerPaneClassName(open: boolean): string {
   return `${previewBesideInputsClassName} ${
     open
-      ? "max-[1600px]:fixed max-[1600px]:right-0 max-[1600px]:bottom-0 max-[1600px]:top-[var(--app-header-height)] max-[1600px]:z-30 max-[1600px]:w-[min(46rem,calc(100vw_-_17rem))] max-[1600px]:overflow-y-auto max-[1600px]:border-l max-[1600px]:border-slate-300 max-[1600px]:bg-page max-[1600px]:p-3 max-[1600px]:shadow-2xl"
+      ? "max-[1600px]:fixed max-[1600px]:right-0 max-[1600px]:bottom-0 max-[1600px]:top-[var(--app-header-height)] max-[1600px]:z-30 max-[1600px]:w-[min(46rem,calc(100vw_-_17rem))] max-[1600px]:overflow-y-auto max-[1600px]:[scrollbar-gutter:stable] max-[1600px]:border-l max-[1600px]:border-slate-300 max-[1600px]:bg-page max-[1600px]:p-3 max-[1600px]:shadow-2xl"
       : "max-[1600px]:hidden"
   }`;
 }
@@ -150,6 +157,43 @@ function decodeBase64(value: string): Uint8Array {
 }
 
 /**
+ * How tall the page may be drawn so that the pane around it does not have to
+ * scroll, or null where nothing limits the pane's height.
+ *
+ * The pane is the nearest box above that scrolls and has a height limit (the
+ * preview column beside the inputs). Its room is that limit less everything
+ * in it that is not the page: the heading, a tab bar a screen puts above,
+ * padding. Fitting the page by width alone is not safe there: a page a few
+ * pixels too tall brings out the pane's scrollbar, the scrollbar makes the
+ * pane narrower and the page shorter, the page fits, the scrollbar goes, and
+ * the two chase each other without end.
+ */
+function measurePageRoom(pageBox: HTMLElement): number | null {
+  for (
+    let pane = pageBox.parentElement;
+    pane && pane !== document.body;
+    pane = pane.parentElement
+  ) {
+    const style = window.getComputedStyle(pane);
+    if (!/auto|scroll/.test(style.overflowY)) {
+      continue;
+    }
+    const limit = Number.parseFloat(style.maxHeight);
+    if (!Number.isFinite(limit)) {
+      return null;
+    }
+    const borders =
+      Number.parseFloat(style.borderTopWidth) +
+      Number.parseFloat(style.borderBottomWidth);
+    // The pane is as tall as what is in it, so its scroll height is exactly
+    // that; less the page's own box, what remains is everything else.
+    const around = pane.scrollHeight - pageBox.offsetHeight;
+    return Math.max(MIN_PAGE_ROOM_PX, Math.floor(limit - borders - around) - 1);
+  }
+  return null;
+}
+
+/**
  * A document PDF as it will print, filled on the server from what is on
  * screen and filled again as the inputs change. The page keeps showing the
  * last good fill (dimmed) while a newer one is on its way.
@@ -167,6 +211,8 @@ export function LivePdfPreview({
 }: LivePdfPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const pageBoxRef = useRef<HTMLDivElement>(null);
   const [loaded, setLoaded] = useState<LoadedPreview | null>(null);
   const [activePage, setActivePage] = useState(1);
   /** The request key last answered (filled or failed), to tell pending apart. */
@@ -176,6 +222,8 @@ export function LivePdfPreview({
   );
   const [renderError, setRenderError] = useState<string | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
+  /** Height the page must fit in (see measurePageRoom); null: no limit. */
+  const [pageRoom, setPageRoom] = useState<number | null>(null);
   /** Index into PDF_ZOOM_STEPS; 0 is the page fitted to the pane. */
   const [zoomIndex, setZoomIndex] = useState(0);
   const zoom = PDF_ZOOM_STEPS[zoomIndex] ?? 1;
@@ -249,19 +297,47 @@ export function LivePdfPreview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The room for the page: as wide as the pane, and where the pane has a
+  // height limit, no taller than what it has left.
+  const measure = useCallback(() => {
+    const container = containerRef.current;
+    const pageBox = pageBoxRef.current;
+    // Nothing to measure while the pane is not on screen (another tab, a
+    // closed drawer): keep what was measured last.
+    if (!container || !pageBox || container.clientWidth <= 0) {
+      return;
+    }
+    const width = container.clientWidth;
+    setContainerWidth((current) => (Math.abs(current - width) < 1 ? current : width));
+    const room = measurePageRoom(pageBox);
+    setPageRoom((current) =>
+      current != null && room != null && Math.abs(current - room) < 1 ? current : room,
+    );
+  }, []);
+
   useEffect(() => {
     const container = containerRef.current;
+    const header = headerRef.current;
     if (!container || typeof ResizeObserver === "undefined") {
       return;
     }
-    const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? 0;
-      setContainerWidth((current) => (Math.abs(current - width) < 1 ? current : width));
-    });
+    const observer = new ResizeObserver(measure);
     observer.observe(container);
-    setContainerWidth(container.clientWidth);
-    return () => observer.disconnect();
-  }, []);
+    if (header) {
+      observer.observe(header);
+    }
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [measure]);
+
+  // What is above the pane's page can also change with the screen around it
+  // (a tab bar appearing), which only shows up as a new render.
+  useEffect(() => {
+    measure();
+  });
 
   const showPdf = loaded != null && requestKey != null;
   const pageCount = showPdf ? loaded.document.numPages : 1;
@@ -283,10 +359,9 @@ export function LivePdfPreview({
           return;
         }
         const base = page.getViewport({ scale: 1 });
-        const maxHeight = Math.max(
-          MIN_PAGE_HEIGHT_PX,
-          window.innerHeight * MAX_PAGE_HEIGHT_VH,
-        );
+        const maxHeight =
+          pageRoom ??
+          Math.max(MIN_PAGE_HEIGHT_PX, window.innerHeight * MAX_PAGE_HEIGHT_VH);
         const cssScale =
           Math.min(containerWidth / base.width, maxHeight / base.height) * zoom;
         // Sharp at the screen's own pixels, up to the pixel budget.
@@ -336,7 +411,7 @@ export function LivePdfPreview({
       cancelled = true;
       renderTask?.cancel();
     };
-  }, [loaded, showPdf, shownPage, containerWidth, zoom]);
+  }, [loaded, showPdf, shownPage, containerWidth, pageRoom, zoom]);
 
   function openPdf() {
     if (!loaded) {
@@ -361,7 +436,10 @@ export function LivePdfPreview({
 
   return (
     <div className="flex min-h-[12rem] flex-col rounded-xl border border-slate-200 bg-slate-50/60 p-3">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+      <div
+        ref={headerRef}
+        className="mb-2 flex flex-wrap items-center justify-between gap-2"
+      >
         <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           {title}
           {subject ? (
@@ -437,8 +515,17 @@ export function LivePdfPreview({
           ) : null}
           {actions}
           {requestKey != null && (live || pending) ? (
-            <span className="text-2xs text-slate-500">
-              {pending ? (live ? "Updating…" : "Loading…") : "Updates as you type."}
+            // The longest wording holds the width, so the heading does not
+            // wrap one way while a fill is on its way and another after.
+            <span className="grid text-2xs text-slate-500">
+              {live ? (
+                <span aria-hidden className="invisible col-start-1 row-start-1">
+                  Updates as you type.
+                </span>
+              ) : null}
+              <span className="col-start-1 row-start-1">
+                {pending ? (live ? "Updating…" : "Loading…") : "Updates as you type."}
+              </span>
             </span>
           ) : null}
         </div>
@@ -448,11 +535,14 @@ export function LivePdfPreview({
           (that feedback makes a pane flicker). */}
       <div ref={containerRef} className="relative min-w-0 flex-1">
         <div
+          ref={pageBoxRef}
           className={
             zoomIndex === 0
               ? "flex justify-center"
               : "max-h-[calc(100vh_-_var(--app-header-height)_-_11rem)] overflow-auto"
           }
+          // Zoomed, the page scrolls in a box as tall as the fitted page had.
+          style={zoomIndex > 0 && pageRoom != null ? { maxHeight: pageRoom } : undefined}
           data-live-pdf-scroll
         >
           <canvas
