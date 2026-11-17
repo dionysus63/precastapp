@@ -200,13 +200,114 @@ export function buildInvoiceListWhere(
   return conditions.length === 1 ? conditions[0]! : { AND: conditions };
 }
 
-/** The whole view an address asks for: its status chip and its search. */
+/**
+ * The column headers that sort the list when clicked: the invoice number, the
+ * ship date and the contractor. They live in the address too
+ * (`?sort=ship&dir=desc`), so a sorted list can be paged, filtered and linked.
+ */
+export const INVOICE_LIST_SORT_COLUMNS = [
+  "invoice",
+  "ship",
+  "customer",
+] as const;
+
+export type InvoiceListSortColumn = (typeof INVOICE_LIST_SORT_COLUMNS)[number];
+
+export type InvoiceListSortDirection = "asc" | "desc";
+
+/** Null is the list as it opens: the invoice made last comes first. */
+export type InvoiceListSort = {
+  column: InvoiceListSortColumn;
+  direction: InvoiceListSortDirection;
+} | null;
+
+/** Reads `?sort=&dir=`; an unknown column reads as not sorted. */
+export function parseInvoiceListSort(
+  sort: ParamValue,
+  dir: ParamValue,
+): InvoiceListSort {
+  const column = INVOICE_LIST_SORT_COLUMNS.find(
+    (candidate) => candidate === text(sort),
+  );
+  if (!column) {
+    return null;
+  }
+  return { column, direction: text(dir) === "desc" ? "desc" : "asc" };
+}
+
+/**
+ * What a click on a column header asks for: A to Z (oldest first) on a new
+ * column, the other way round on the column the list is sorted by already.
+ */
+export function nextInvoiceListSort(
+  current: InvoiceListSort,
+  column: InvoiceListSortColumn,
+): NonNullable<InvoiceListSort> {
+  return {
+    column,
+    direction:
+      current?.column === column && current.direction === "asc"
+        ? "desc"
+        : "asc",
+  };
+}
+
+/**
+ * The order the database is asked for.
+ *
+ * - Invoice: by number, read as the year and the count inside it, so I10000
+ *   comes after I9999.
+ * - Ship date: the ticket's delivery date; invoices whose ticket has no ship
+ *   date come last either way. A day's invoices run in number order.
+ * - Contractor: by contractor name, then job name, then invoice number.
+ *
+ * Every order ends on the invoice number, which no two invoices share, so
+ * paging never repeats or skips a row.
+ */
+export function buildInvoiceListOrderBy(
+  sort: InvoiceListSort,
+): Prisma.InvoiceOrderByWithRelationInput[] {
+  if (!sort) {
+    return [{ createdAt: "desc" }, { id: "desc" }];
+  }
+  const { direction } = sort;
+  switch (sort.column) {
+    case "invoice":
+      return [{ year: direction }, { sequenceNumber: direction }];
+    case "ship":
+      return [
+        {
+          deliveryTicket: {
+            deliveryDate: { sort: direction, nulls: "last" },
+          },
+        },
+        { year: direction },
+        { sequenceNumber: direction },
+      ];
+    case "customer":
+      return [
+        { customerName: direction },
+        { projectName: direction },
+        { year: "asc" },
+        { sequenceNumber: "asc" },
+      ];
+  }
+}
+
+/** The whole view an address asks for: its status chip, search and order. */
 export function parseInvoiceListView(
-  params: Partial<Record<keyof InvoiceListSearch | "status", ParamValue>>,
-): { filter: InvoiceListFilter; search: InvoiceListSearch } {
+  params: Partial<
+    Record<keyof InvoiceListSearch | "status" | "sort" | "dir", ParamValue>
+  >,
+): {
+  filter: InvoiceListFilter;
+  search: InvoiceListSearch;
+  sort: InvoiceListSort;
+} {
   return {
     filter: parseInvoiceListFilter(text(params.status)),
     search: parseInvoiceListSearch(params),
+    sort: parseInvoiceListSort(params.sort, params.dir),
   };
 }
 

@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildInvoiceListOrderBy,
   buildInvoiceListWhere,
   EMPTY_INVOICE_LIST_SEARCH,
   hasInvoiceListSearch,
   invoiceListSearchParams,
   MAX_SELECTED_INVOICES,
+  nextInvoiceListSort,
   parseInvoiceListSearch,
+  parseInvoiceListSort,
   parseInvoiceListView,
   parseMoneyInput,
   parseSelectedInvoiceIds,
@@ -85,8 +88,78 @@ describe("the invoice list search in the address", () => {
     expect(parseInvoiceListView({ status: "PAID", customer: "Acme" })).toEqual({
       filter: "PAID",
       search: { ...EMPTY_INVOICE_LIST_SEARCH, customer: "Acme" },
+      sort: null,
     });
     expect(parseInvoiceListView({ status: "nonsense" }).filter).toBe("ALL");
+    expect(parseInvoiceListView({ sort: "ship", dir: "desc" }).sort).toEqual({
+      column: "ship",
+      direction: "desc",
+    });
+  });
+});
+
+describe("the column the list is sorted by", () => {
+  it("reads the column and the direction out of the address", () => {
+    expect(parseInvoiceListSort("invoice", "desc")).toEqual({
+      column: "invoice",
+      direction: "desc",
+    });
+    expect(parseInvoiceListSort(["customer"], undefined)).toEqual({
+      column: "customer",
+      direction: "asc",
+    });
+    // Anything but "desc" reads as A to Z.
+    expect(parseInvoiceListSort("ship", "sideways")?.direction).toBe("asc");
+  });
+
+  it("reads no column, or one that cannot be sorted, as not sorted", () => {
+    expect(parseInvoiceListSort(undefined, "desc")).toBeNull();
+    expect(parseInvoiceListSort("", "")).toBeNull();
+    expect(parseInvoiceListSort("total", "asc")).toBeNull();
+  });
+
+  it("starts a new column A to Z and turns the same column round", () => {
+    expect(nextInvoiceListSort(null, "ship")).toEqual({
+      column: "ship",
+      direction: "asc",
+    });
+    const once = nextInvoiceListSort(null, "invoice");
+    const twice = nextInvoiceListSort(once, "invoice");
+    expect(twice).toEqual({ column: "invoice", direction: "desc" });
+    expect(nextInvoiceListSort(twice, "invoice").direction).toBe("asc");
+    expect(nextInvoiceListSort(twice, "customer")).toEqual({
+      column: "customer",
+      direction: "asc",
+    });
+  });
+
+  it("opens with the invoice made last on top", () => {
+    expect(buildInvoiceListOrderBy(null)[0]).toEqual({ createdAt: "desc" });
+  });
+
+  it("sorts invoice numbers by year and count, not letter by letter", () => {
+    expect(
+      buildInvoiceListOrderBy({ column: "invoice", direction: "desc" }),
+    ).toEqual([{ year: "desc" }, { sequenceNumber: "desc" }]);
+  });
+
+  it("keeps tickets without a ship date at the bottom either way", () => {
+    for (const direction of ["asc", "desc"] as const) {
+      expect(buildInvoiceListOrderBy({ column: "ship", direction })[0]).toEqual(
+        {
+          deliveryTicket: { deliveryDate: { sort: direction, nulls: "last" } },
+        },
+      );
+    }
+  });
+
+  it("sorts by contractor, then job", () => {
+    expect(
+      buildInvoiceListOrderBy({ column: "customer", direction: "asc" }).slice(
+        0,
+        2,
+      ),
+    ).toEqual([{ customerName: "asc" }, { projectName: "asc" }]);
   });
 });
 

@@ -23,9 +23,12 @@ import { useStoredFlag } from "@/lib/hooks/use-stored-flag";
 import {
   hasInvoiceListSearch,
   MAX_SELECTED_INVOICES,
+  nextInvoiceListSort,
   selectedInvoicesFileName,
   selectedInvoicesPdfUrl,
   type InvoiceListSearch,
+  type InvoiceListSort,
+  type InvoiceListSortColumn,
 } from "@/lib/invoice-list-search";
 import {
   INVOICE_LIST_FILTERS,
@@ -111,6 +114,61 @@ const listAloneClassName =
 /** Remembered per computer: the preview pane beside the list is hidden. */
 const PREVIEW_HIDDEN_KEY = "precastapp:invoice-list-preview-hidden";
 
+/**
+ * A column header that sorts the list when clicked: A to Z (oldest first)
+ * the first time, the other way round the second. The arrow marks the column
+ * the list is sorted by.
+ */
+function SortHeader({
+  column,
+  sort,
+  onSort,
+  children,
+}: {
+  column: InvoiceListSortColumn;
+  sort: InvoiceListSort;
+  onSort: (column: InvoiceListSortColumn) => void;
+  children: React.ReactNode;
+}) {
+  const direction = sort?.column === column ? sort.direction : null;
+  return (
+    // The whole header cell is the target; the button inside is what the
+    // keyboard reaches, and its click comes up to the cell.
+    <th
+      scope="col"
+      aria-sort={
+        direction === "asc"
+          ? "ascending"
+          : direction === "desc"
+            ? "descending"
+            : "none"
+      }
+      onClick={() => onSort(column)}
+      title={
+        direction === "asc"
+          ? "Sorted A to Z, oldest first. Click to reverse."
+          : direction === "desc"
+            ? "Sorted Z to A, newest first. Click to reverse."
+            : "Click to sort by this column"
+      }
+      className={`${tableHeaderCellClassName} cursor-pointer select-none transition-colors hover:bg-slate-200 hover:text-slate-700`}
+    >
+      <button
+        type="button"
+        className="inline-flex cursor-pointer items-center gap-1 font-semibold uppercase tracking-wide"
+      >
+        {children}
+        <span
+          aria-hidden="true"
+          className={direction ? "text-slate-900" : "text-slate-400"}
+        >
+          {direction === "asc" ? "↑" : direction === "desc" ? "↓" : "↕"}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 function stop(event: React.SyntheticEvent) {
   event.stopPropagation();
 }
@@ -130,6 +188,7 @@ export function InvoicesListTab({
   pageInfo,
   filter,
   search,
+  sort,
   filterCounts,
   suggestions,
   canManage,
@@ -138,11 +197,16 @@ export function InvoicesListTab({
   pageInfo: PageInfo;
   filter: InvoiceListFilter;
   search: InvoiceListSearch;
+  sort: InvoiceListSort;
   filterCounts: InvoiceFilterCounts;
   suggestions: InvoiceSearchSuggestions;
   canManage: boolean;
 }) {
   const { setParams } = useListQuery();
+  const sortBy = (column: InvoiceListSortColumn) => {
+    const next = nextInvoiceListSort(sort, column);
+    setParams({ tab: "invoices", sort: next.column, dir: next.direction });
+  };
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   // Local date, not UTC — an evening print should default to today.
@@ -467,11 +531,15 @@ export function InvoicesListTab({
                         />
                       </label>
                     </th>
-                    <th className={tableHeaderCellClassName}>Invoice</th>
-                    <th className={tableHeaderCellClassName}>Ship date</th>
-                    <th className={tableHeaderCellClassName}>
+                    <SortHeader column="invoice" sort={sort} onSort={sortBy}>
+                      Invoice
+                    </SortHeader>
+                    <SortHeader column="ship" sort={sort} onSort={sortBy}>
+                      Ship date
+                    </SortHeader>
+                    <SortHeader column="customer" sort={sort} onSort={sortBy}>
                       Contractor / job
-                    </th>
+                    </SortHeader>
                     <th className={tableHeaderCellClassName}>Price</th>
                     <th className={tableHeaderCellClassName}>Tax</th>
                     <th className={tableHeaderCellClassName}>Total</th>

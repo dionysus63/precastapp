@@ -21,6 +21,7 @@ import {
 import {
   EMPTY_INVOICE_LIST_SEARCH,
   type InvoiceListSearch,
+  type InvoiceListSort,
 } from "@/lib/invoice-list-search";
 import { prisma } from "@/lib/prisma";
 
@@ -233,6 +234,53 @@ describe("searching the invoices list", () => {
       search({ customer: `${tag} Bay` }),
     );
     expect(counts).toMatchObject({ ALL: 2, OPEN: 1, PAID: 0, VOID: 1 });
+  });
+});
+
+describe("sorting the invoices list by a column header", () => {
+  async function order(sort?: InvoiceListSort) {
+    const result = await listInvoicesForPage({
+      filter: "ALL",
+      search: search({}),
+      sort,
+      page: 1,
+    });
+    return result.invoices.map((row) => row.invoiceNumber.slice(-1)).join("");
+  }
+
+  it("opens with the invoice made last on top", async () => {
+    expect(await order()).toBe("EDCBA");
+    expect(await order(null)).toBe("EDCBA");
+  });
+
+  it("sorts by invoice number, both ways", async () => {
+    expect(await order({ column: "invoice", direction: "asc" })).toBe("ABCDE");
+    expect(await order({ column: "invoice", direction: "desc" })).toBe("EDCBA");
+  });
+
+  it("sorts by ship date, a ticket without one last either way", async () => {
+    expect(await order({ column: "ship", direction: "asc" })).toBe("DABCE");
+    expect(await order({ column: "ship", direction: "desc" })).toBe("CBADE");
+  });
+
+  it("sorts by contractor, then by job", async () => {
+    expect(await order({ column: "customer", direction: "asc" })).toBe("BADCE");
+    expect(await order({ column: "customer", direction: "desc" })).toBe(
+      "ECDAB",
+    );
+  });
+
+  it("keeps the search and the status chip while sorted", async () => {
+    const result = await listInvoicesForPage({
+      filter: "OPEN",
+      search: search({ job: "main street" }),
+      sort: { column: "ship", direction: "desc" },
+      page: 1,
+    });
+    expect(result.invoices.map((row) => row.invoiceNumber.slice(-1))).toEqual([
+      "C",
+      "A",
+    ]);
   });
 });
 
