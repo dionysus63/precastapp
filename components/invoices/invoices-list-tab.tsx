@@ -22,6 +22,7 @@ import { formatUsd } from "@/lib/format";
 import { useStoredFlag } from "@/lib/hooks/use-stored-flag";
 import {
   hasInvoiceListSearch,
+  INVOICE_LIST_SEARCH_KEYS,
   MAX_SELECTED_INVOICES,
   nextInvoiceListSort,
   selectedInvoicesFileName,
@@ -94,22 +95,19 @@ const barPrimaryButtonClassName =
   "rounded-lg btn-main px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50";
 
 /**
- * "List | paper", side by side from a 1024px window up. The list keeps 60rem
- * (its columns without a sideways scroll) wherever the window has it; the
- * paper takes what is left, up to 38%, and never less than 22rem. On a
- * narrower window the paper stacks above the list.
+ * "List | paper", side by side from a 1024px window up. The list is as wide
+ * as its columns need (62rem) and no wider; the paper takes all the room that
+ * is left, and never less than 22rem. On a narrower window the paper stacks
+ * above the list.
  */
 const previewSplitClassName =
-  "grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_min(38%,max(22rem,calc(100%_-_60.75rem)))]";
+  "grid items-start gap-3 lg:grid-cols-[minmax(0,62rem)_minmax(22rem,1fr)]";
 
 /**
- * The list with the paper hidden: exactly as wide as it is beside the paper
- * (the whole width less the paper's column and the gap), so hiding the
- * preview moves nothing. Only where that is too narrow for the columns does
- * the list take the room the paper gave up, up to its 60rem.
+ * The list with the paper hidden: the same 62rem it has beside the paper, so
+ * hiding the preview moves nothing.
  */
-const listAloneClassName =
-  "lg:w-[max(calc(100%_-_min(38%,max(22rem,calc(100%_-_60.75rem)))_-_0.75rem),min(100%,60rem))]";
+const listAloneClassName = "lg:w-[min(100%,62rem)]";
 
 /** Remembered per computer: the preview pane beside the list is hidden. */
 const PREVIEW_HIDDEN_KEY = "precastapp:invoice-list-preview-hidden";
@@ -356,9 +354,9 @@ export function InvoicesListTab({
         }${tooMany ? `. At most ${MAX_SELECTED_INVOICES} at a time.` : ""}`;
 
   return (
-    // The paper sits to the right of everything else, from the tabs down, so
-    // a whole page fits the window. The list is on the left and stays where
-    // it is when the preview is hidden.
+    // The paper sits to the right of everything else, from the tabs down,
+    // and takes the room the list does not need. The list is on the left and
+    // stays where it is when the preview is hidden.
     <div className={showPreview ? previewSplitClassName : listAloneClassName}>
       <div className="min-w-0 space-y-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -385,6 +383,23 @@ export function InvoicesListTab({
               {chip.label} ({filterCounts[chip.value].toLocaleString()})
             </button>
           ))}
+          {searching ? (
+            <button
+              type="button"
+              onClick={() =>
+                setParams({
+                  tab: "invoices",
+                  ...Object.fromEntries(
+                    INVOICE_LIST_SEARCH_KEYS.map((key) => [key, null]),
+                  ),
+                })
+              }
+              title="Empty the search boxes below"
+              className="rounded-lg btn-plain px-3 py-1.5 text-xs font-medium"
+            >
+              Clear filters
+            </button>
+          ) : null}
           <div className="ml-auto flex flex-wrap items-center gap-2 text-xs text-slate-600">
             <label htmlFor="print-day" className="font-medium">
               Made on

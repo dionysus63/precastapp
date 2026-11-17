@@ -56,7 +56,9 @@ export function InvoiceListPreview({
   return (
     <section
       aria-label="Invoice preview"
-      className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm"
+      // No taller than the window under the app header: the paper scrolls
+      // inside the pane, and its buttons stay in view.
+      className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm lg:max-h-[calc(100vh_-_82px_-_0.75rem)]"
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-slate-100 px-3 py-2">
         <p className="text-sm font-semibold text-slate-900">
@@ -148,9 +150,12 @@ export function InvoiceListPreview({
         </div>
       ) : null}
 
-      <div className="bg-slate-100 p-3">
+      <div className="min-h-0 overflow-y-auto bg-slate-100 p-3">
         {!row ? (
-          <PaperNote text="Click an invoice in the list to see it here." />
+          <PaperNote
+            text="Click an invoice in the list to see it here."
+            size="fill"
+          />
         ) : showSigned ? (
           signed ? (
             <SignedTicketPaper
@@ -158,11 +163,13 @@ export function InvoiceListPreview({
               fileId={signed.fileId}
               pageCount={signed.pageCount}
               ticketNumber={row.ticketNumber}
+              size="fill"
             />
           ) : (
             <PaperNote
               heading="NOT AVAILABLE"
               text={`No signed copy of ticket ${row.ticketNumber} has been scanned in.`}
+              size="fill"
             />
           )
         ) : (
@@ -170,6 +177,7 @@ export function InvoiceListPreview({
             // A payment, an edit or a void changes what prints.
             key={`${row.id}:${row.status}:${row.total}`}
             invoiceId={row.id}
+            size="fill"
           />
         )}
       </div>

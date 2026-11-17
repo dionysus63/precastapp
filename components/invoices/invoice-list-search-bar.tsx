@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import type { InvoiceSearchSuggestions } from "@/app/invoices/actions";
 import { useListQuery } from "@/components/common/use-list-query";
 import {
-  hasInvoiceListSearch,
   INVOICE_LIST_SEARCH_KEYS,
   parseMoneyInput,
   type InvoiceListSearch,
@@ -96,7 +95,8 @@ const acceptMoney = (value: string) => parseMoneyInput(value) != null;
 /**
  * The search boxes above the Invoices list: contractor, job, a range of
  * ship dates and a range of totals. Every box that has something in it
- * must match, on top of the status chip.
+ * must match, on top of the status chip. The boxes fit on one line of the
+ * list's 62rem; "Clear filters" sits with the status chips above them.
  */
 export function InvoiceListSearchBar({
   search,
@@ -105,7 +105,6 @@ export function InvoiceListSearchBar({
   search: InvoiceListSearch;
   suggestions: InvoiceSearchSuggestions;
 }) {
-  const { setParams } = useListQuery();
   const [drafts, setDraft] = useSearchBoxes(search);
   const { customer, job, from, to, min, max } = drafts;
   const setCustomer = (value: string) => setDraft("customer", value);
@@ -136,7 +135,7 @@ export function InvoiceListSearchBar({
           onChange={(event) => setCustomer(event.target.value)}
           placeholder="Any contractor"
           autoComplete="off"
-          className={boxClassName(search.customer !== "", "w-52")}
+          className={boxClassName(search.customer !== "", "w-44")}
         />
         <datalist id="invoice-search-customers">
           {suggestions.customers.map((name) => (
@@ -157,7 +156,7 @@ export function InvoiceListSearchBar({
           onChange={(event) => setJob(event.target.value)}
           placeholder="Job name or number"
           autoComplete="off"
-          className={boxClassName(search.job !== "", "w-52")}
+          className={boxClassName(search.job !== "", "w-44")}
         />
         <datalist id="invoice-search-jobs">
           {suggestions.jobs.map((entry) => (
@@ -221,23 +220,6 @@ export function InvoiceListSearchBar({
           />
         </div>
       </div>
-
-      {hasInvoiceListSearch(search) ? (
-        <button
-          type="button"
-          onClick={() =>
-            setParams({
-              tab: "invoices",
-              ...Object.fromEntries(
-                INVOICE_LIST_SEARCH_KEYS.map((key) => [key, null]),
-              ),
-            })
-          }
-          className="rounded-lg btn-plain px-3 py-1.5 text-xs font-medium"
-        >
-          Clear filters
-        </button>
-      ) : null}
     </div>
   );
 }
