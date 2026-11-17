@@ -47,7 +47,7 @@ import {
   tableBodyClassName,
   tableCellBordersClassName,
   tableCellClassName,
-  tableClassName,
+  tableCompactClassName,
   tableFlushWrapperClassName,
   tableHeaderCellClassName,
 } from "@/lib/table-styles";
@@ -502,7 +502,7 @@ export function InvoicesListTab({
             </p>
           ) : (
             <div className={tableFlushWrapperClassName}>
-              <table className={tableClassName}>
+              <table className={tableCompactClassName}>
                 <thead>
                   <tr>
                     <th className={`${tableHeaderCellClassName} w-8 px-0 py-0`}>
@@ -630,24 +630,23 @@ export function InvoicesListTab({
                           {formatUsd(row.total)}
                         </td>
                         <td className={`${cell} whitespace-nowrap`}>
-                          {/* Price needed goes under the status, so the
-                              column is one badge wide. */}
-                          <div className="flex flex-col items-start gap-1">
+                          {/* An invoice waiting for a price is always
+                              open, so that one badge says both. */}
+                          {needsPrice ? (
+                            <span
+                              title={`Open. No price yet for: ${row.priceNeededItems.join(", ")}`}
+                            >
+                              <StatusBadge
+                                label="Price needed"
+                                variant="warning"
+                              />
+                            </span>
+                          ) : (
                             <StatusBadge
                               label={invoiceStatusLabel(row.status)}
                               variant={invoiceStatusVariant(row.status)}
                             />
-                            {needsPrice ? (
-                              <span
-                                title={`No price yet for: ${row.priceNeededItems.join(", ")}`}
-                              >
-                                <StatusBadge
-                                  label="Price needed"
-                                  variant="warning"
-                                />
-                              </span>
-                            ) : null}
-                          </div>
+                          )}
                         </td>
                         <td className={`${cell} whitespace-nowrap`}>
                           {row.signedTicket ? (
