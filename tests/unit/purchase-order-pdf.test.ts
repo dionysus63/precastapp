@@ -1,7 +1,6 @@
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { describe, expect, it } from "vitest";
 import {
-  PURCHASE_ORDER_PDF_DESIGNS,
   paginatePurchaseOrderRows,
   renderPurchaseOrderPdf,
   wrapPdfText,
@@ -176,35 +175,24 @@ describe("wrapPdfText", () => {
 });
 
 describe("renderPurchaseOrderPdf", () => {
-  it.each(PURCHASE_ORDER_PDF_DESIGNS)("draws the %s look on one page", async (design) => {
-    const bytes = await renderPurchaseOrderPdf(sampleData(6), {
-      design,
-      headerImagePng: null,
-    });
+  it("draws a short order on one letter page", async () => {
+    const bytes = await renderPurchaseOrderPdf(sampleData(6), { headerImagePng: null });
     const doc = await PDFDocument.load(bytes);
     expect(doc.getPageCount()).toBe(1);
     expect(doc.getPage(0).getSize()).toEqual({ width: 612, height: 792 });
   });
 
-  it.each(PURCHASE_ORDER_PDF_DESIGNS)(
-    "runs a long %s order on to more pages",
-    async (design) => {
-      const bytes = await renderPurchaseOrderPdf(sampleData(80), {
-        design,
-        headerImagePng: null,
-      });
-      expect((await PDFDocument.load(bytes)).getPageCount()).toBeGreaterThan(1);
-    },
-  );
+  it("runs a long order on to more pages", async () => {
+    const bytes = await renderPurchaseOrderPdf(sampleData(80), { headerImagePng: null });
+    expect((await PDFDocument.load(bytes)).getPageCount()).toBeGreaterThan(1);
+  });
 
   it("draws an empty order and text Helvetica cannot encode", async () => {
     const data = sampleData(0);
     data.notes = "Diameter ⌀ 48″, arrows → and emoji 🚚";
     data.vendor.name = "Vendör ✓";
-    for (const design of PURCHASE_ORDER_PDF_DESIGNS) {
-      const bytes = await renderPurchaseOrderPdf(data, { design, headerImagePng: null });
-      expect((await PDFDocument.load(bytes)).getPageCount()).toBe(1);
-    }
+    const bytes = await renderPurchaseOrderPdf(data, { headerImagePng: null });
+    expect((await PDFDocument.load(bytes)).getPageCount()).toBe(1);
   });
 });
 

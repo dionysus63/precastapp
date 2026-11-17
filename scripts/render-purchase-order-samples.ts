@@ -1,13 +1,12 @@
 /**
- * Renders the purchase order PDF with sample data, one file per look, so a
- * layout change can be looked at without a database.
+ * Renders the purchase order PDF with sample data, so a layout change can be
+ * looked at without a database.
  *
  * Run with: npx tsx scripts/render-purchase-order-samples.ts [outDir] [lineCount]
  */
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import {
-  PURCHASE_ORDER_PDF_DESIGNS,
   renderPurchaseOrderPdf,
   type PurchaseOrderPdfData,
   type PurchaseOrderPdfLine,
@@ -105,15 +104,10 @@ async function main() {
   const headerImagePng = await readFile(
     path.join(process.cwd(), "assets", "templates", "lip-header.png"),
   );
-  for (const design of PURCHASE_ORDER_PDF_DESIGNS) {
-    const bytes = await renderPurchaseOrderPdf(sampleData(lineCount), {
-      design,
-      headerImagePng,
-    });
-    const file = path.join(outDir, `purchase-order-${design}.pdf`);
-    await writeFile(file, bytes);
-    console.log(file);
-  }
+  const bytes = await renderPurchaseOrderPdf(sampleData(lineCount), { headerImagePng });
+  const file = path.join(outDir, "purchase-order-sample.pdf");
+  await writeFile(file, bytes);
+  console.log(file);
 }
 
 main().catch((error) => {

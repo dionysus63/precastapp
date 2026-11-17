@@ -7,12 +7,8 @@ import { formatUsd } from "@/lib/format";
 import {
   renderPurchaseOrderPdf,
   type PurchaseOrderPdfData,
-  type PurchaseOrderPdfDesign,
   type PurchaseOrderPdfParty,
 } from "@/lib/purchase-order-pdf";
-
-/** The look purchase orders print in (lib/purchase-order-pdf.ts has three). */
-export const PURCHASE_ORDER_PDF_DESIGN: PurchaseOrderPdfDesign = "house";
 
 export type PurchaseOrderVendorForPdf = {
   name: string;
@@ -100,7 +96,7 @@ function clean(value: string | null | undefined): string {
   return value?.trim() ?? "";
 }
 
-/** Most lines a party block holds under its name. */
+/** Most lines the vendor block holds under the name. */
 const PARTY_DETAIL_LINES = 4;
 
 export function vendorPartyForPdf(
@@ -194,7 +190,6 @@ export async function generatePurchaseOrderPdfBytes(
     loadHeaderImage(),
   ]);
   return renderPurchaseOrderPdf(buildPurchaseOrderPdfData(purchaseOrder, company), {
-    design: PURCHASE_ORDER_PDF_DESIGN,
     headerImagePng,
   });
 }
