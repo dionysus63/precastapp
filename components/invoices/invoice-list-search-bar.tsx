@@ -95,7 +95,7 @@ const acceptMoney = (value: string) => parseMoneyInput(value) != null;
 
 /**
  * The search boxes above the Invoices list: contractor, job, a range of
- * invoice dates and a range of totals. Every box that has something in it
+ * ship dates and a range of totals. Every box that has something in it
  * must match, on top of the status chip.
  */
 export function InvoiceListSearchBar({
@@ -171,11 +171,11 @@ export function InvoiceListSearchBar({
       </div>
 
       <div>
-        <span className={labelClassName}>Invoice date</span>
+        <span className={labelClassName}>Ship date</span>
         <div className="flex items-center gap-1.5 text-xs text-slate-500">
           <input
             type="date"
-            aria-label="Invoice date from"
+            aria-label="Ship date from"
             value={from}
             max={to || undefined}
             onChange={(event) => setFrom(event.target.value)}
@@ -184,7 +184,7 @@ export function InvoiceListSearchBar({
           to
           <input
             type="date"
-            aria-label="Invoice date to"
+            aria-label="Ship date to"
             value={to}
             min={from || undefined}
             onChange={(event) => setTo(event.target.value)}

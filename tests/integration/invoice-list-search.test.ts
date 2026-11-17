@@ -21,6 +21,7 @@ import {
 import {
   EMPTY_INVOICE_LIST_SEARCH,
   type InvoiceListSearch,
+  type InvoiceListSort,
 } from "@/lib/invoice-list-search";
 import { prisma } from "@/lib/prisma";
 
@@ -33,6 +34,9 @@ type Seed = {
   project: string;
   jobNumber?: string;
   status?: "SENT" | "PAID" | "VOID";
+  /** The ticket's ship date (a day, local midnight). Null = none set. */
+  shipDate: Date | null;
+  /** The day the invoice was made: not what the date range looks at. */
   invoiceDate: Date;
   total: number;
   /** Give the ticket a signed copy (and an older, replaced one). */
@@ -46,7 +50,8 @@ const seeds: Seed[] = [
     customer: `${tag} Acme Paving`,
     project: `${tag} Main Street Drainage`,
     jobNumber: `${tag}-J104`,
-    invoiceDate: new Date(2026, 10, 2, 9, 30),
+    shipDate: new Date(2026, 10, 2),
+    invoiceDate: new Date(2026, 10, 3, 9, 30),
     total: 1250,
     signed: true,
   },
@@ -57,8 +62,9 @@ const seeds: Seed[] = [
     project: `${tag} Harbor Road`,
     jobNumber: `${tag}-J105`,
     status: "PAID",
-    // Late in the evening of the last day of a range.
-    invoiceDate: new Date(2026, 10, 10, 22, 15),
+    shipDate: new Date(2026, 10, 10),
+    // Scanned in and invoiced the day after it shipped.
+    invoiceDate: new Date(2026, 10, 11, 22, 15),
     total: 480.5,
   },
   {
@@ -67,7 +73,8 @@ const seeds: Seed[] = [
     customer: `${tag} Bay Excavating`,
     project: `${tag} Main Street Drainage`,
     jobNumber: `${tag}-J104`,
-    invoiceDate: new Date(2026, 10, 11, 8, 0),
+    shipDate: new Date(2026, 10, 11),
+    invoiceDate: new Date(2026, 10, 12, 8, 0),
     total: 3000,
   },
   {
@@ -76,8 +83,19 @@ const seeds: Seed[] = [
     customer: `${tag} Bay Excavating`,
     project: `${tag} Counter sale`,
     status: "VOID",
-    invoiceDate: new Date(2026, 9, 20, 12, 0),
+    shipDate: new Date(2026, 9, 20),
+    invoiceDate: new Date(2026, 9, 21, 12, 0),
     total: 75,
+  },
+  {
+    // A ticket nobody gave a ship date.
+    suffix: "E",
+    sequence: 9805,
+    customer: `${tag} Cash Customer`,
+    project: `${tag} Counter pickup`,
+    shipDate: null,
+    invoiceDate: new Date(2026, 10, 5, 10, 0),
+    total: 2000,
   },
 ];
 
@@ -110,6 +128,7 @@ beforeAll(async () => {
         sequenceNumber: seed.sequence,
         customerName: seed.customer,
         projectName: seed.project,
+        deliveryDate: seed.shipDate,
         status: "DELIVERED",
       },
     });
@@ -178,13 +197,24 @@ describe("searching the invoices list", () => {
     expect(await numbers({ job: `${tag}-j105` })).toEqual(["B"]);
   });
 
-  it("includes both days of an invoice date range, to the end of the last day", async () => {
+  it("filters on the ship date, not the day the invoice was made, both days included", async () => {
     expect(await numbers({ from: "2026-11-02", to: "2026-11-10" })).toEqual([
       "A",
       "B",
     ]);
     expect(await numbers({ from: "2026-11-11" })).toEqual(["C"]);
     expect(await numbers({ to: "2026-11-01" })).toEqual(["D"]);
+  });
+
+  it("leaves a ticket without a ship date out of a date range only", async () => {
+    expect(await numbers({})).toEqual(["A", "B", "C", "D", "E"]);
+    // Invoiced on the 5th, but it has no ship date to fall inside the range.
+    expect(await numbers({ from: "2026-10-01", to: "2026-12-31" })).toEqual([
+      "A",
+      "B",
+      "C",
+      "D",
+    ]);
   });
 
   it("filters on the invoice total, both ends included", async () => {
@@ -204,6 +234,60 @@ describe("searching the invoices list", () => {
       search({ customer: `${tag} Bay` }),
     );
     expect(counts).toMatchObject({ ALL: 2, OPEN: 1, PAID: 0, VOID: 1 });
+  });
+});
+
+describe("sorting the invoices list by a column header", () => {
+  async function order(sort?: InvoiceListSort) {
+    const result = await listInvoicesForPage({
+      filter: "ALL",
+      search: search({}),
+      sort,
+      page: 1,
+    });
+    return result.invoices.map((row) => row.invoiceNumber.slice(-1)).join("");
+  }
+
+  it("opens with the invoice made last on top", async () => {
+    expect(await order()).toBe("EDCBA");
+    expect(await order(null)).toBe("EDCBA");
+  });
+
+  it("sorts by invoice number, both ways", async () => {
+    expect(await order({ column: "invoice", direction: "asc" })).toBe("ABCDE");
+    expect(await order({ column: "invoice", direction: "desc" })).toBe("EDCBA");
+  });
+
+  it("sorts by ship date, a ticket without one last either way", async () => {
+    expect(await order({ column: "ship", direction: "asc" })).toBe("DABCE");
+    expect(await order({ column: "ship", direction: "desc" })).toBe("CBADE");
+  });
+
+  it("sorts by contractor, then by job", async () => {
+    expect(await order({ column: "customer", direction: "asc" })).toBe("BADCE");
+    expect(await order({ column: "customer", direction: "desc" })).toBe(
+      "ECDAB",
+    );
+  });
+
+  it("sorts by job, then by contractor", async () => {
+    // Counter pickup (E), Counter sale (D), Harbor Road (B), then Main
+    // Street Drainage for Acme (A) and for Bay (C).
+    expect(await order({ column: "job", direction: "asc" })).toBe("EDBAC");
+    expect(await order({ column: "job", direction: "desc" })).toBe("CABDE");
+  });
+
+  it("keeps the search and the status chip while sorted", async () => {
+    const result = await listInvoicesForPage({
+      filter: "OPEN",
+      search: search({ job: "main street" }),
+      sort: { column: "ship", direction: "desc" },
+      page: 1,
+    });
+    expect(result.invoices.map((row) => row.invoiceNumber.slice(-1))).toEqual([
+      "C",
+      "A",
+    ]);
   });
 });
 
@@ -242,11 +326,11 @@ describe("selecting every invoice in a view", () => {
       throw new Error(result.error);
     }
     expect(result.invoices.map((invoice) => invoice.id).sort()).toEqual(
-      [ids.A!, ids.C!].sort(),
+      [ids.A!, ids.C!, ids.E!].sort(),
     );
     expect(
       result.invoices.map((invoice) => invoice.invoiceNumber).sort(),
-    ).toEqual([`${tag}-IA`, `${tag}-IC`]);
+    ).toEqual([`${tag}-IA`, `${tag}-IC`, `${tag}-IE`]);
   });
 });
 
@@ -256,6 +340,7 @@ describe("what the search boxes suggest", () => {
     expect(all.customers.filter((name) => name.startsWith(tag))).toEqual([
       `${tag} Acme Paving`,
       `${tag} Bay Excavating`,
+      `${tag} Cash Customer`,
     ]);
 
     const acme = await getInvoiceSearchSuggestions(`${tag} acme`);

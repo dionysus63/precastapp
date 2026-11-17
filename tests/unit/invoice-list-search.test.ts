@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildInvoiceListOrderBy,
   buildInvoiceListWhere,
   EMPTY_INVOICE_LIST_SEARCH,
   hasInvoiceListSearch,
   invoiceListSearchParams,
   MAX_SELECTED_INVOICES,
+  nextInvoiceListSort,
   parseInvoiceListSearch,
+  parseInvoiceListSort,
   parseInvoiceListView,
   parseMoneyInput,
   parseSelectedInvoiceIds,
@@ -85,8 +88,88 @@ describe("the invoice list search in the address", () => {
     expect(parseInvoiceListView({ status: "PAID", customer: "Acme" })).toEqual({
       filter: "PAID",
       search: { ...EMPTY_INVOICE_LIST_SEARCH, customer: "Acme" },
+      sort: null,
     });
     expect(parseInvoiceListView({ status: "nonsense" }).filter).toBe("ALL");
+    expect(parseInvoiceListView({ sort: "ship", dir: "desc" }).sort).toEqual({
+      column: "ship",
+      direction: "desc",
+    });
+  });
+});
+
+describe("the column the list is sorted by", () => {
+  it("reads the column and the direction out of the address", () => {
+    expect(parseInvoiceListSort("invoice", "desc")).toEqual({
+      column: "invoice",
+      direction: "desc",
+    });
+    expect(parseInvoiceListSort(["customer"], undefined)).toEqual({
+      column: "customer",
+      direction: "asc",
+    });
+    // Anything but "desc" reads as A to Z.
+    expect(parseInvoiceListSort("ship", "sideways")?.direction).toBe("asc");
+  });
+
+  it("reads no column, or one that cannot be sorted, as not sorted", () => {
+    expect(parseInvoiceListSort(undefined, "desc")).toBeNull();
+    expect(parseInvoiceListSort("", "")).toBeNull();
+    expect(parseInvoiceListSort("total", "asc")).toBeNull();
+  });
+
+  it("starts a new column A to Z and turns the same column round", () => {
+    expect(nextInvoiceListSort(null, "ship")).toEqual({
+      column: "ship",
+      direction: "asc",
+    });
+    const once = nextInvoiceListSort(null, "invoice");
+    const twice = nextInvoiceListSort(once, "invoice");
+    expect(twice).toEqual({ column: "invoice", direction: "desc" });
+    expect(nextInvoiceListSort(twice, "invoice").direction).toBe("asc");
+    expect(nextInvoiceListSort(twice, "customer")).toEqual({
+      column: "customer",
+      direction: "asc",
+    });
+  });
+
+  it("opens with the invoice made last on top", () => {
+    expect(buildInvoiceListOrderBy(null)[0]).toEqual({ createdAt: "desc" });
+  });
+
+  it("sorts invoice numbers by year and count, not letter by letter", () => {
+    expect(
+      buildInvoiceListOrderBy({ column: "invoice", direction: "desc" }),
+    ).toEqual([{ year: "desc" }, { sequenceNumber: "desc" }]);
+  });
+
+  it("keeps tickets without a ship date at the bottom either way", () => {
+    for (const direction of ["asc", "desc"] as const) {
+      expect(buildInvoiceListOrderBy({ column: "ship", direction })[0]).toEqual(
+        {
+          deliveryTicket: { deliveryDate: { sort: direction, nulls: "last" } },
+        },
+      );
+    }
+  });
+
+  it("sorts by job, then contractor", () => {
+    expect(parseInvoiceListSort("job", "desc")).toEqual({
+      column: "job",
+      direction: "desc",
+    });
+    expect(
+      buildInvoiceListOrderBy({ column: "job", direction: "desc" }).slice(0, 2),
+    ).toEqual([{ projectName: "desc" }, { customerName: "desc" }]);
+  });
+
+  it("sorts by contractor, then job", () => {
+    expect(
+      buildInvoiceListOrderBy({ column: "customer", direction: "asc" }).slice(
+        0,
+        2,
+      ),
+    ).toEqual([{ customerName: "asc" }, { projectName: "asc" }]);
   });
 });
 
@@ -131,16 +214,20 @@ describe("what the database is asked for", () => {
     });
   });
 
-  it("includes both ends of the invoice date range, in local time", () => {
+  it("filters on the ticket's ship date, both ends included, in local time", () => {
     const where = buildInvoiceListWhere("ALL", {
       ...EMPTY_INVOICE_LIST_SEARCH,
       from: "2026-11-01",
       to: "2026-11-14",
     });
     expect(where).toEqual({
-      invoiceDate: {
-        gte: new Date(2026, 10, 1),
-        lte: new Date(2026, 10, 14, 23, 59, 59, 999),
+      deliveryTicket: {
+        is: {
+          deliveryDate: {
+            gte: new Date(2026, 10, 1),
+            lte: new Date(2026, 10, 14, 23, 59, 59, 999),
+          },
+        },
       },
     });
   });
@@ -151,14 +238,18 @@ describe("what the database is asked for", () => {
         ...EMPTY_INVOICE_LIST_SEARCH,
         from: "2026-11-01",
       }),
-    ).toEqual({ invoiceDate: { gte: new Date(2026, 10, 1) } });
+    ).toEqual({
+      deliveryTicket: { is: { deliveryDate: { gte: new Date(2026, 10, 1) } } },
+    });
     expect(
       buildInvoiceListWhere("ALL", {
         ...EMPTY_INVOICE_LIST_SEARCH,
         to: "2026-11-14",
       }),
     ).toEqual({
-      invoiceDate: { lte: new Date(2026, 10, 14, 23, 59, 59, 999) },
+      deliveryTicket: {
+        is: { deliveryDate: { lte: new Date(2026, 10, 14, 23, 59, 59, 999) } },
+      },
     });
   });
 

@@ -11,10 +11,12 @@ import { Prisma } from "@/app/generated/prisma/client";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { requirePermission } from "@/lib/auth/session";
 import {
+  buildInvoiceListOrderBy,
   buildInvoiceListWhere,
   MAX_SELECTED_INVOICES,
   parseInvoiceListSearch,
   type InvoiceListSearch,
+  type InvoiceListSort,
 } from "@/lib/invoice-list-search";
 import {
   INVOICE_LIST_FILTERS,
@@ -549,6 +551,8 @@ function mapInvoiceListRow(
 export async function listInvoicesForPage(options: {
   filter: InvoiceListFilter;
   search?: InvoiceListSearch;
+  /** The column header that was clicked; left out, newest made first. */
+  sort?: InvoiceListSort;
   page: number;
 }) {
   await requirePermission(AppPermission.INVOICES_VIEW);
@@ -563,7 +567,7 @@ export async function listInvoicesForPage(options: {
   const invoices = await withDatabaseRetry((client) =>
     client.invoice.findMany({
       where,
-      orderBy: [{ createdAt: "desc" }],
+      orderBy: buildInvoiceListOrderBy(options.sort ?? null),
       skip: pageInfo.skip,
       take: pageInfo.take,
       include: INVOICE_LIST_INCLUDE,

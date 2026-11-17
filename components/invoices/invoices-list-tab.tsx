@@ -23,9 +23,12 @@ import { useStoredFlag } from "@/lib/hooks/use-stored-flag";
 import {
   hasInvoiceListSearch,
   MAX_SELECTED_INVOICES,
+  nextInvoiceListSort,
   selectedInvoicesFileName,
   selectedInvoicesPdfUrl,
   type InvoiceListSearch,
+  type InvoiceListSort,
+  type InvoiceListSortColumn,
 } from "@/lib/invoice-list-search";
 import {
   INVOICE_LIST_FILTERS,
@@ -84,7 +87,6 @@ function InvoiceBadges({ row }: { row: InvoiceListRow }) {
   );
 }
 
-
 const barButtonClassName =
   "rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -92,25 +94,80 @@ const barPrimaryButtonClassName =
   "rounded-lg btn-main px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50";
 
 /**
- * "List | paper", side by side from a 1024px window up. The list keeps 69.5rem
+ * "List | paper", side by side from a 1024px window up. The list keeps 60rem
  * (its columns without a sideways scroll) wherever the window has it; the
  * paper takes what is left, up to 38%, and never less than 22rem. On a
  * narrower window the paper stacks above the list.
  */
 const previewSplitClassName =
-  "grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_min(38%,max(22rem,calc(100%_-_70.25rem)))]";
+  "grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_min(38%,max(22rem,calc(100%_-_60.75rem)))]";
 
 /**
  * The list with the paper hidden: exactly as wide as it is beside the paper
  * (the whole width less the paper's column and the gap), so hiding the
  * preview moves nothing. Only where that is too narrow for the columns does
- * the list take the room the paper gave up, up to its 69.5rem.
+ * the list take the room the paper gave up, up to its 60rem.
  */
 const listAloneClassName =
-  "lg:w-[max(calc(100%_-_min(38%,max(22rem,calc(100%_-_70.25rem)))_-_0.75rem),min(100%,69.5rem))]";
+  "lg:w-[max(calc(100%_-_min(38%,max(22rem,calc(100%_-_60.75rem)))_-_0.75rem),min(100%,60rem))]";
 
 /** Remembered per computer: the preview pane beside the list is hidden. */
 const PREVIEW_HIDDEN_KEY = "precastapp:invoice-list-preview-hidden";
+
+/**
+ * A column header that sorts the list when clicked: A to Z (oldest first)
+ * the first time, the other way round the second. The arrow marks the column
+ * the list is sorted by.
+ */
+function SortHeader({
+  column,
+  sort,
+  onSort,
+  children,
+}: {
+  column: InvoiceListSortColumn;
+  sort: InvoiceListSort;
+  onSort: (column: InvoiceListSortColumn) => void;
+  children: React.ReactNode;
+}) {
+  const direction = sort?.column === column ? sort.direction : null;
+  return (
+    // The whole header cell is the target; the button inside is what the
+    // keyboard reaches, and its click comes up to the cell.
+    <th
+      scope="col"
+      aria-sort={
+        direction === "asc"
+          ? "ascending"
+          : direction === "desc"
+            ? "descending"
+            : "none"
+      }
+      onClick={() => onSort(column)}
+      title={
+        direction === "asc"
+          ? "Sorted A to Z, oldest first. Click to reverse."
+          : direction === "desc"
+            ? "Sorted Z to A, newest first. Click to reverse."
+            : "Click to sort by this column"
+      }
+      className={`${tableHeaderCellClassName} cursor-pointer select-none transition-colors hover:bg-slate-200 hover:text-slate-700`}
+    >
+      <button
+        type="button"
+        className="inline-flex cursor-pointer items-center gap-1 font-semibold uppercase tracking-wide"
+      >
+        {children}
+        <span
+          aria-hidden="true"
+          className={direction ? "text-slate-900" : "text-slate-400"}
+        >
+          {direction === "asc" ? "↑" : direction === "desc" ? "↓" : "↕"}
+        </span>
+      </button>
+    </th>
+  );
+}
 
 function stop(event: React.SyntheticEvent) {
   event.stopPropagation();
@@ -121,7 +178,7 @@ function stop(event: React.SyntheticEvent) {
  * delivered — there is no draft stage and nothing to finalize. "Price needed"
  * holds the ones with a line the app could not price.
  *
- * Above it: the status chips and the search boxes (contractor, job, invoice
+ * Above it: the status chips and the search boxes (contractor, job, ship
  * dates, totals). Beside it: the clicked invoice as it prints, or its signed
  * ticket. Tick boxes pick invoices to print or download as one PDF; the
  * ticks stay while paging and filtering.
@@ -131,6 +188,7 @@ export function InvoicesListTab({
   pageInfo,
   filter,
   search,
+  sort,
   filterCounts,
   suggestions,
   canManage,
@@ -139,11 +197,16 @@ export function InvoicesListTab({
   pageInfo: PageInfo;
   filter: InvoiceListFilter;
   search: InvoiceListSearch;
+  sort: InvoiceListSort;
   filterCounts: InvoiceFilterCounts;
   suggestions: InvoiceSearchSuggestions;
   canManage: boolean;
 }) {
   const { setParams } = useListQuery();
+  const sortBy = (column: InvoiceListSortColumn) => {
+    const next = nextInvoiceListSort(sort, column);
+    setParams({ tab: "invoices", sort: next.column, dir: next.direction });
+  };
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   // Local date, not UTC — an evening print should default to today.
@@ -468,12 +531,18 @@ export function InvoicesListTab({
                         />
                       </label>
                     </th>
-                    <th className={tableHeaderCellClassName}>Invoice · Date</th>
-                    <th className={tableHeaderCellClassName}>
-                      Contractor / job
-                    </th>
-                    <th className={tableHeaderCellClassName}>Price</th>
-                    <th className={tableHeaderCellClassName}>Tax</th>
+                    <SortHeader column="invoice" sort={sort} onSort={sortBy}>
+                      Invoice
+                    </SortHeader>
+                    <SortHeader column="ship" sort={sort} onSort={sortBy}>
+                      Ship date
+                    </SortHeader>
+                    <SortHeader column="customer" sort={sort} onSort={sortBy}>
+                      Contractor
+                    </SortHeader>
+                    <SortHeader column="job" sort={sort} onSort={sortBy}>
+                      Job
+                    </SortHeader>
                     <th className={tableHeaderCellClassName}>Total</th>
                     <th className={tableHeaderCellClassName}>Status</th>
                     <th className={tableHeaderCellClassName}>Signed ticket</th>
@@ -541,29 +610,19 @@ export function InvoicesListTab({
                           >
                             {row.invoiceNumber}
                           </Link>
-                          <span
-                            className="block font-normal text-slate-500"
-                            title="Invoice date"
-                          >
-                            {formatDate(row.invoiceDate)}
-                          </span>
                           <InvoiceBadges row={row} />
                         </td>
-                        <td className={`${cell} min-w-[10rem]`}>
+                        <td
+                          className={`${cell} whitespace-nowrap tabular-nums`}
+                          title={`Ship date of ticket ${row.ticketNumber}`}
+                        >
+                          {formatDate(row.deliveryDate)}
+                        </td>
+                        <td className={`${cell} min-w-[9rem]`}>
                           {row.customerName}
-                          <span className="block text-slate-500">
-                            {row.projectName}
-                          </span>
                         </td>
-                        <td
-                          className={`${cell} whitespace-nowrap tabular-nums`}
-                        >
-                          {formatUsd(row.price)}
-                        </td>
-                        <td
-                          className={`${cell} whitespace-nowrap tabular-nums`}
-                        >
-                          {formatUsd(row.salesTax)}
+                        <td className={`${cell} min-w-[9rem]`}>
+                          {row.projectName}
                         </td>
                         <td
                           className={`${cell} whitespace-nowrap font-medium tabular-nums`}
@@ -571,7 +630,9 @@ export function InvoicesListTab({
                           {formatUsd(row.total)}
                         </td>
                         <td className={`${cell} whitespace-nowrap`}>
-                          <div className="flex items-center gap-1">
+                          {/* Price needed goes under the status, so the
+                              column is one badge wide. */}
+                          <div className="flex flex-col items-start gap-1">
                             <StatusBadge
                               label={invoiceStatusLabel(row.status)}
                               variant={invoiceStatusVariant(row.status)}
@@ -621,25 +682,6 @@ export function InvoicesListTab({
                                 Edit
                               </Link>
                             ) : null}
-                            <a
-                              href={`/api/invoices/${row.id}/pdf`}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={stop}
-                              className={tableActionButtonClassName}
-                            >
-                              View PDF
-                            </a>
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                printPdfUrl(`/api/invoices/${row.id}/pdf`);
-                              }}
-                              className={tableActionButtonClassName}
-                            >
-                              Print
-                            </button>
                             {canManage && unpaid && !needsPrice ? (
                               <button
                                 type="button"
@@ -665,6 +707,16 @@ export function InvoicesListTab({
                                 Mark paid
                               </button>
                             ) : null}
+                            {canManage && unpaid ? null : (
+                              // Nothing to do on this row: an unseen button
+                              // keeps it as tall as the rows that have some.
+                              <span
+                                aria-hidden="true"
+                                className={`${tableActionButtonClassName} invisible w-0 border-x-0 px-0`}
+                              >
+                                &nbsp;
+                              </span>
+                            )}
                           </div>
                         </td>
                       </tr>

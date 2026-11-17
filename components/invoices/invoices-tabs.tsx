@@ -12,6 +12,7 @@ import { Tab, TabBar } from "@/components/ui/tabs";
 import {
   INVOICE_LIST_SEARCH_KEYS,
   type InvoiceListSearch,
+  type InvoiceListSort,
 } from "@/lib/invoice-list-search";
 import type {
   InvoiceFilterCounts,
@@ -31,6 +32,8 @@ type InvoicesTabsProps = {
   filter: InvoiceListFilter;
   /** The search boxes above the list: contractor, job, dates, totals. */
   search: InvoiceListSearch;
+  /** The column header the list is sorted by; null as the list opens. */
+  sort: InvoiceListSort;
   suggestions: InvoiceSearchSuggestions;
   canManage: boolean;
   /** Can file a scan: has both the invoice and the delivery permission. */
@@ -39,9 +42,9 @@ type InvoicesTabsProps = {
   scanIn: { view: ScanInView; viewing: string | null } | null;
 };
 
-/** Leaving for the other tab drops the list's search from the address. */
+/** Leaving for the other tab drops the list's search and order from the address. */
 const clearedSearch: Record<string, null> = Object.fromEntries(
-  INVOICE_LIST_SEARCH_KEYS.map((key) => [key, null]),
+  [...INVOICE_LIST_SEARCH_KEYS, "sort", "dir"].map((key) => [key, null]),
 );
 
 export function InvoicesTabs({
@@ -52,6 +55,7 @@ export function InvoicesTabs({
   tab,
   filter,
   search,
+  sort,
   suggestions,
   canManage,
   canFile,
@@ -119,6 +123,7 @@ export function InvoicesTabs({
           pageInfo={pageInfo}
           filter={filter}
           search={search}
+          sort={sort}
           filterCounts={filterCounts}
           suggestions={suggestions}
           canManage={canManage}

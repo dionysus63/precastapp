@@ -7,8 +7,8 @@ import {
 } from "@/lib/invoice-status";
 
 /**
- * The search boxes above the Invoices list: contractor, job, a range of
- * invoice dates and a range of totals. They live in the address
+ * The search boxes above the Invoices list: contractor, job, a range of ship
+ * dates and a range of totals. They live in the address
  * (`?customer=&job=&from=&to=&min=&max=`) next to the status chip
  * (`?status=`), so a filtered list can be paged, reloaded and linked.
  */
@@ -17,9 +17,9 @@ export type InvoiceListSearch = {
   customer: string;
   /** Part of the job's name or its job number. */
   job: string;
-  /** First invoice date shown, "yyyy-mm-dd". */
+  /** First ship date shown, "yyyy-mm-dd". */
   from: string;
-  /** Last invoice date shown, "yyyy-mm-dd". */
+  /** Last ship date shown, "yyyy-mm-dd". */
   to: string;
   /** Lowest invoice total shown, as typed ("1500", "1,500.00"). */
   min: string;
@@ -131,8 +131,9 @@ function statusWhere(filter: InvoiceListFilter): Prisma.InvoiceWhereInput {
  *
  * - Contractor and job match any part of the name, in any letter case; job
  *   also matches the job number.
- * - The dates are invoice dates and both ends are included (the "to" day runs
- *   to its last millisecond).
+ * - The dates are ship dates, the ticket's delivery date that the list shows
+ *   (the "Ship Date" printed on the ticket), and both ends are included. An
+ *   invoice whose ticket has no ship date is left out of a date range.
  * - The amounts are invoice totals (tax included), both ends included.
  */
 export function buildInvoiceListWhere(
@@ -177,7 +178,7 @@ export function buildInvoiceListWhere(
         999,
       );
     }
-    conditions.push({ invoiceDate: range });
+    conditions.push({ deliveryTicket: { is: { deliveryDate: range } } });
   }
 
   const min = search.min ? parseMoneyInput(search.min) : null;
@@ -199,13 +200,123 @@ export function buildInvoiceListWhere(
   return conditions.length === 1 ? conditions[0]! : { AND: conditions };
 }
 
-/** The whole view an address asks for: its status chip and its search. */
+/**
+ * The column headers that sort the list when clicked: the invoice number, the
+ * ship date, the contractor and the job. They live in the address too
+ * (`?sort=ship&dir=desc`), so a sorted list can be paged, filtered and linked.
+ */
+export const INVOICE_LIST_SORT_COLUMNS = [
+  "invoice",
+  "ship",
+  "customer",
+  "job",
+] as const;
+
+export type InvoiceListSortColumn = (typeof INVOICE_LIST_SORT_COLUMNS)[number];
+
+export type InvoiceListSortDirection = "asc" | "desc";
+
+/** Null is the list as it opens: the invoice made last comes first. */
+export type InvoiceListSort = {
+  column: InvoiceListSortColumn;
+  direction: InvoiceListSortDirection;
+} | null;
+
+/** Reads `?sort=&dir=`; an unknown column reads as not sorted. */
+export function parseInvoiceListSort(
+  sort: ParamValue,
+  dir: ParamValue,
+): InvoiceListSort {
+  const column = INVOICE_LIST_SORT_COLUMNS.find(
+    (candidate) => candidate === text(sort),
+  );
+  if (!column) {
+    return null;
+  }
+  return { column, direction: text(dir) === "desc" ? "desc" : "asc" };
+}
+
+/**
+ * What a click on a column header asks for: A to Z (oldest first) on a new
+ * column, the other way round on the column the list is sorted by already.
+ */
+export function nextInvoiceListSort(
+  current: InvoiceListSort,
+  column: InvoiceListSortColumn,
+): NonNullable<InvoiceListSort> {
+  return {
+    column,
+    direction:
+      current?.column === column && current.direction === "asc"
+        ? "desc"
+        : "asc",
+  };
+}
+
+/**
+ * The order the database is asked for.
+ *
+ * - Invoice: by number, read as the year and the count inside it, so I10000
+ *   comes after I9999.
+ * - Ship date: the ticket's delivery date; invoices whose ticket has no ship
+ *   date come last either way. A day's invoices run in number order.
+ * - Contractor: by contractor name, then job name, then invoice number.
+ * - Job: by job name, then contractor name, then invoice number.
+ *
+ * Every order ends on the invoice number, which no two invoices share, so
+ * paging never repeats or skips a row.
+ */
+export function buildInvoiceListOrderBy(
+  sort: InvoiceListSort,
+): Prisma.InvoiceOrderByWithRelationInput[] {
+  if (!sort) {
+    return [{ createdAt: "desc" }, { id: "desc" }];
+  }
+  const { direction } = sort;
+  switch (sort.column) {
+    case "invoice":
+      return [{ year: direction }, { sequenceNumber: direction }];
+    case "ship":
+      return [
+        {
+          deliveryTicket: {
+            deliveryDate: { sort: direction, nulls: "last" },
+          },
+        },
+        { year: direction },
+        { sequenceNumber: direction },
+      ];
+    case "customer":
+      return [
+        { customerName: direction },
+        { projectName: direction },
+        { year: "asc" },
+        { sequenceNumber: "asc" },
+      ];
+    case "job":
+      return [
+        { projectName: direction },
+        { customerName: direction },
+        { year: "asc" },
+        { sequenceNumber: "asc" },
+      ];
+  }
+}
+
+/** The whole view an address asks for: its status chip, search and order. */
 export function parseInvoiceListView(
-  params: Partial<Record<keyof InvoiceListSearch | "status", ParamValue>>,
-): { filter: InvoiceListFilter; search: InvoiceListSearch } {
+  params: Partial<
+    Record<keyof InvoiceListSearch | "status" | "sort" | "dir", ParamValue>
+  >,
+): {
+  filter: InvoiceListFilter;
+  search: InvoiceListSearch;
+  sort: InvoiceListSort;
+} {
   return {
     filter: parseInvoiceListFilter(text(params.status)),
     search: parseInvoiceListSearch(params),
+    sort: parseInvoiceListSort(params.sort, params.dir),
   };
 }
 
