@@ -83,17 +83,20 @@ export function QuoteLinesTable({
       ) : null}
 
       <table className="w-full table-fixed border-separate border-spacing-0 text-left text-xs xl:max-w-[1500px]">
+          {/* Shares sized so every one-word heading (SCHEDULED is the
+              longest) still fits when the table is at its narrowest beside
+              the ticket preview, about 900px; Item takes what is left. */}
           <colgroup>
-            <col style={{ width: "3.5%" }} />
-            <col style={{ width: "31%" }} />
+            <col style={{ width: "4%" }} />
+            <col style={{ width: "24.5%" }} />
+            <col style={{ width: "8.5%" }} />
+            <col style={{ width: "8%" }} />
+            <col style={{ width: "9%" }} />
             <col style={{ width: "7%" }} />
             <col style={{ width: "8%" }} />
-            <col style={{ width: "6.5%" }} />
-            <col style={{ width: "6.5%" }} />
-            <col style={{ width: "6.5%" }} />
-            <col style={{ width: "8%" }} />
-            <col style={{ width: "8%" }} />
-            <col style={{ width: "8.5%" }} />
+            <col style={{ width: "7.5%" }} />
+            <col style={{ width: "7.5%" }} />
+            <col style={{ width: "10%" }} />
             <col style={{ width: "6%" }} />
           </colgroup>
           <thead>
