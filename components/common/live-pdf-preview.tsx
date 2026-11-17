@@ -10,6 +10,13 @@ const DEFAULT_DEBOUNCE_MS = 600;
 /** Tallest the page is drawn: the pane scrolls past this, so width usually rules. */
 const MAX_PAGE_HEIGHT_VH = 1.6;
 const MIN_PAGE_HEIGHT_PX = 320;
+/**
+ * Zoom steps, as multiples of the size at which the page fits the pane. The
+ * first one is "fit"; past it the page scrolls inside the pane.
+ */
+export const PDF_ZOOM_STEPS = [1, 1.25, 1.5, 2, 2.5, 3] as const;
+/** Most pixels the page is drawn with, so a deep zoom stays quick to draw. */
+const MAX_CANVAS_PIXELS = 16_000_000;
 
 /**
  * Narrowest window (px) that shows the preview beside the inputs. It is the
@@ -95,7 +102,8 @@ export function isPreviewBesideInputs(): boolean {
   ).matches;
 }
 
-export type LivePdfPreviewResult = { pdfBase64: string };
+/** The PDF to show: base64 from a server action, or the bytes themselves. */
+export type LivePdfPreviewResult = { pdfBase64: string } | { pdfBytes: Uint8Array };
 
 type LivePdfPreviewProps = {
   /** Heading of the pane, e.g. "Ticket PDF". */
@@ -116,6 +124,11 @@ type LivePdfPreviewProps = {
   emptyNote: string;
   /** Shown while the first fill is on its way. */
   loadingNote?: string;
+  /**
+   * False for a PDF that is only shown, not filled from inputs (a vendor's
+   * quote): it loads at once and the "Updates as you type." note is left out.
+   */
+  live?: boolean;
   /** How long the inputs must pause before the PDF is filled again. */
   debounceMs?: number;
   /** Extra controls for the pane header (right side). */
@@ -148,7 +161,8 @@ export function LivePdfPreview({
   load,
   emptyNote,
   loadingNote = "Filling the PDF…",
-  debounceMs = DEFAULT_DEBOUNCE_MS,
+  live = true,
+  debounceMs = live ? DEFAULT_DEBOUNCE_MS : 0,
   actions = null,
 }: LivePdfPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -162,6 +176,9 @@ export function LivePdfPreview({
   );
   const [renderError, setRenderError] = useState<string | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
+  /** Index into PDF_ZOOM_STEPS; 0 is the page fitted to the pane. */
+  const [zoomIndex, setZoomIndex] = useState(0);
+  const zoom = PDF_ZOOM_STEPS[zoomIndex] ?? 1;
 
   const pending = requestKey != null && settledKey !== requestKey;
   const error = failure?.key === requestKey ? failure.message : null;
@@ -186,7 +203,10 @@ export function LivePdfPreview({
         }
         const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
         pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-        const bytes = decodeBase64(response.pdfBase64);
+        const bytes =
+          "pdfBytes" in response
+            ? response.pdfBytes
+            : decodeBase64(response.pdfBase64);
         // pdf.js takes ownership of the buffer it parses; keep our own copy
         // for the Open PDF button.
         const document = await pdfjs.getDocument({ data: bytes.slice() }).promise;
@@ -267,11 +287,15 @@ export function LivePdfPreview({
           MIN_PAGE_HEIGHT_PX,
           window.innerHeight * MAX_PAGE_HEIGHT_VH,
         );
-        const cssScale = Math.min(
-          containerWidth / base.width,
-          maxHeight / base.height,
+        const cssScale =
+          Math.min(containerWidth / base.width, maxHeight / base.height) * zoom;
+        // Sharp at the screen's own pixels, up to the pixel budget.
+        const pixelRatio = Math.min(
+          window.devicePixelRatio || 1,
+          Math.sqrt(
+            MAX_CANVAS_PIXELS / (base.width * cssScale * base.height * cssScale),
+          ),
         );
-        const pixelRatio = window.devicePixelRatio || 1;
         const viewport = page.getViewport({ scale: cssScale * pixelRatio });
         canvas!.width = Math.floor(viewport.width);
         canvas!.height = Math.floor(viewport.height);
@@ -312,7 +336,7 @@ export function LivePdfPreview({
       cancelled = true;
       renderTask?.cancel();
     };
-  }, [loaded, showPdf, shownPage, containerWidth]);
+  }, [loaded, showPdf, shownPage, containerWidth, zoom]);
 
   function openPdf() {
     if (!loaded) {
@@ -366,6 +390,43 @@ export function LivePdfPreview({
             </div>
           ) : null}
           {showPdf ? (
+            <div className="flex items-center gap-1" data-live-pdf-zoom={zoom}>
+              <button
+                type="button"
+                onClick={() => setZoomIndex((index) => Math.max(index - 1, 0))}
+                disabled={zoomIndex === 0}
+                title="Zoom out"
+                aria-label="Zoom out"
+                className="rounded btn-plain px-2 py-0.5 text-2xs font-semibold disabled:opacity-40"
+              >
+                −
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoomIndex(0)}
+                disabled={zoomIndex === 0}
+                title="Fit the page to the pane"
+                className="min-w-[3.25rem] rounded btn-plain px-2 py-0.5 text-2xs font-semibold tabular-nums"
+              >
+                {zoomIndex === 0 ? "Fit" : `${Math.round(zoom * 100)}%`}
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setZoomIndex((index) =>
+                    Math.min(index + 1, PDF_ZOOM_STEPS.length - 1),
+                  )
+                }
+                disabled={zoomIndex === PDF_ZOOM_STEPS.length - 1}
+                title="Zoom in"
+                aria-label="Zoom in"
+                className="rounded btn-plain px-2 py-0.5 text-2xs font-semibold disabled:opacity-40"
+              >
+                +
+              </button>
+            </div>
+          ) : null}
+          {showPdf ? (
             <button
               type="button"
               onClick={openPdf}
@@ -375,21 +436,33 @@ export function LivePdfPreview({
             </button>
           ) : null}
           {actions}
-          {requestKey != null ? (
+          {requestKey != null && (live || pending) ? (
             <span className="text-2xs text-slate-500">
-              {pending ? "Updating…" : "Updates as you type."}
+              {pending ? (live ? "Updating…" : "Loading…") : "Updates as you type."}
             </span>
           ) : null}
         </div>
       </div>
-      <div ref={containerRef} className="relative flex min-w-0 flex-1 justify-center">
-        <canvas
-          ref={canvasRef}
-          className={`block bg-white shadow-md ${showPdf ? "" : "hidden"} ${
-            pending ? "opacity-60" : ""
-          }`}
-          data-live-pdf-preview={showPdf ? (pending ? "updating" : "ready") : "empty"}
-        />
+      {/* The outer box is what the page is fitted to. It never scrolls, so a
+          scrollbar of the zoomed page cannot change the width being measured
+          (that feedback makes a pane flicker). */}
+      <div ref={containerRef} className="relative min-w-0 flex-1">
+        <div
+          className={
+            zoomIndex === 0
+              ? "flex justify-center"
+              : "max-h-[calc(100vh_-_var(--app-header-height)_-_11rem)] overflow-auto"
+          }
+          data-live-pdf-scroll
+        >
+          <canvas
+            ref={canvasRef}
+            className={`block max-w-none bg-white shadow-md ${showPdf ? "" : "hidden"} ${
+              pending ? "opacity-60" : ""
+            }`}
+            data-live-pdf-preview={showPdf ? (pending ? "updating" : "ready") : "empty"}
+          />
+        </div>
         {note ? (
           <p
             className={`text-xs ${

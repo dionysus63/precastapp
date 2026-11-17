@@ -7,9 +7,8 @@ import {
   previewBesideOnlyClassName,
   previewDrawerOnlyClassName,
 } from "@/components/common/live-pdf-preview";
-import { VendorQuotePreview } from "@/components/purchase-orders/vendor-quote-preview";
 import { Tab, TabBar } from "@/components/ui/tabs";
-import { isActionError } from "@/lib/action-result";
+import { isActionError, type ActionError } from "@/lib/action-result";
 import type { PurchaseOrderDraftPreviewInput } from "@/lib/purchase-order-draft-preview";
 
 export type PurchaseOrderPreviewView = "purchaseOrder" | "vendorQuote";
@@ -50,7 +49,32 @@ export function PurchaseOrderLivePreview({
     return result;
   }, []);
 
-  const hasQuote = Boolean(quoteFile) || Boolean(savedQuoteName);
+  // The vendor's quote in the same pane: the file just picked, or the one
+  // saved with the purchase order, read once per file.
+  const savedQuoteId = quoteFile ? null : input.purchaseOrderId;
+  const loadQuote = useCallback(async (): Promise<
+    { pdfBytes: Uint8Array } | ActionError
+  > => {
+    try {
+      if (quoteFile) {
+        return { pdfBytes: new Uint8Array(await quoteFile.arrayBuffer()) };
+      }
+      const response = await fetch(`/api/purchase-orders/${savedQuoteId}/vendor-quote`);
+      if (!response.ok) {
+        return { error: "Could not load the vendor quote." };
+      }
+      return { pdfBytes: new Uint8Array(await response.arrayBuffer()) };
+    } catch {
+      return { error: "Could not load the vendor quote." };
+    }
+  }, [quoteFile, savedQuoteId]);
+  const quoteKey = quoteFile
+    ? `file:${quoteFile.name}:${quoteFile.size}:${quoteFile.lastModified}`
+    : savedQuoteId && savedQuoteName
+      ? `saved:${savedQuoteId}`
+      : null;
+
+  const hasQuote = quoteKey != null;
   const shownView = hasQuote ? view : "purchaseOrder";
   // Nothing useful prints until the order has a vendor.
   const requestKey = input.vendorId ? JSON.stringify(input) : null;
@@ -76,7 +100,7 @@ export function PurchaseOrderLivePreview({
   return (
     <div className="space-y-2">
       {hasQuote ? (
-        <TabBar label="Preview" trailing={shownView === "vendorQuote" ? hideButton : null}>
+        <TabBar label="Preview">
           <Tab
             active={shownView === "purchaseOrder"}
             onClick={() => onViewChange("purchaseOrder")}
@@ -91,7 +115,8 @@ export function PurchaseOrderLivePreview({
           </Tab>
         </TabBar>
       ) : null}
-      {/* Kept on the page while the quote shows, so coming back is instant. */}
+      {/* Both stay on the page, so switching tabs is instant and each keeps
+          its page and zoom. */}
       <div className={shownView === "purchaseOrder" ? "" : "hidden"}>
         <LivePdfPreview
           title="Purchase order PDF"
@@ -103,13 +128,19 @@ export function PurchaseOrderLivePreview({
           actions={hideButton}
         />
       </div>
-      {shownView === "vendorQuote" ? (
-        <VendorQuotePreview
-          file={quoteFile}
-          purchaseOrderId={quoteFile ? undefined : (input.purchaseOrderId ?? undefined)}
-          fileName={savedQuoteName}
-          frameClassName="h-[calc(100vh_-_var(--app-header-height)_-_8.5rem)] min-h-[24rem]"
-        />
+      {hasQuote ? (
+        <div className={shownView === "vendorQuote" ? "" : "hidden"}>
+          <LivePdfPreview
+            title="Vendor quote"
+            subject={quoteFile?.name ?? savedQuoteName}
+            requestKey={quoteKey}
+            load={loadQuote}
+            live={false}
+            emptyNote="Drop a vendor quote PDF to see it here."
+            loadingNote="Opening the vendor quote…"
+            actions={hideButton}
+          />
+        </div>
       ) : null}
     </div>
   );

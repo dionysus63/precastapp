@@ -6,15 +6,12 @@ type VendorQuotePreviewProps = {
   file?: File | null;
   purchaseOrderId?: string;
   fileName?: string | null;
-  /** Height classes for the PDF frame; 640px tall when not given. */
-  frameClassName?: string;
 };
 
 export function VendorQuotePreview({
   file,
   purchaseOrderId,
   fileName,
-  frameClassName = "h-[640px]",
 }: VendorQuotePreviewProps) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
 
@@ -59,7 +56,7 @@ export function VendorQuotePreview({
       <iframe
         title={file?.name ?? fileName ?? "Vendor quote preview"}
         src={src}
-        className={`${frameClassName} w-full bg-white`}
+        className="h-[640px] w-full bg-white"
       />
     </div>
   );
