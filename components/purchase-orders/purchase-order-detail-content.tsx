@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/dashboard/status-badge";
 import { VendorQuotePreview } from "@/components/purchase-orders/vendor-quote-preview";
 import { purchaseOrderReceivePercent } from "@/lib/purchase-order-utils";
 import { formatUsd } from "@/lib/format";
+import { printPdfUrl } from "@/lib/print-pdf-url";
 import { formatCalendarDateShort } from "@/lib/date-only";
 
 import {
@@ -114,6 +115,21 @@ export function PurchaseOrderDetailContent({
       </div>
 
       <div className="flex flex-wrap gap-2">
+        <a
+          href={`/api/purchase-orders/${purchaseOrder.id}/pdf`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-lg btn-plain px-3 py-2 text-xs font-semibold"
+        >
+          View PDF
+        </a>
+        <button
+          type="button"
+          onClick={() => printPdfUrl(`/api/purchase-orders/${purchaseOrder.id}/pdf`)}
+          className="rounded-lg btn-plain px-3 py-2 text-xs font-semibold"
+        >
+          Print
+        </button>
         {canManage && purchaseOrder.status === "DRAFT" ? (
           <>
             <Link

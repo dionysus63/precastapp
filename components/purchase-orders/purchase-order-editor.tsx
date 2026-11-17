@@ -3,14 +3,31 @@
 import Link from "next/link";
 import { randomId } from "@/lib/random-id";
 import { localTodayInput } from "@/lib/date-only";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   createPurchaseOrder,
   updatePurchaseOrder,
 } from "@/app/purchase-orders/actions";
+import {
+  isPreviewBesideInputs,
+  portraitPreviewDrawerPaneClassName,
+  portraitPreviewSplitClassName,
+  previewDrawerOnlyClassName,
+} from "@/components/common/live-pdf-preview";
+import { BackButton } from "@/components/dashboard/back-button";
 import { FileUploadDropzone } from "@/components/files/file-upload-dropzone";
 import { SectionCard } from "@/components/dashboard/section-card";
-import { VendorQuotePreview } from "@/components/purchase-orders/vendor-quote-preview";
+import {
+  PurchaseOrderLivePreview,
+  type PurchaseOrderPreviewView,
+} from "@/components/purchase-orders/purchase-order-live-preview";
+import { formatUsd } from "@/lib/format";
+import { useStoredFlag } from "@/lib/hooks/use-stored-flag";
+import { standardPageWidthClassName } from "@/lib/page-width";
+import {
+  draftPurchaseOrderMoney,
+  type PurchaseOrderDraftPreviewInput,
+} from "@/lib/purchase-order-draft-preview";
 import { purchaseOrderCategoryFormOptions } from "@/lib/purchase-order-utils";
 import type { ReceivingCategory } from "@/app/generated/prisma/client";
 
@@ -18,6 +35,7 @@ import {
   tableBodyClassName,
   tableCellClassName,
   tableClassName,
+  tableComputedCellClassName,
   tableFlushWrapperClassName,
   tableHeaderCellClassName,
   tableInlineInputClassName,
@@ -43,6 +61,10 @@ type PurchaseOrderEditorProps = {
   mode: "create" | "edit";
   vendors: VendorOption[];
   purchaseOrderId?: string;
+  backHref: string;
+  backLabel: string;
+  /** Who is signed in: fills "Entered by" on a new purchase order. */
+  defaultEnteredBy?: string;
   initial?: {
     vendorId: string;
     category: string;
@@ -63,6 +85,12 @@ type PurchaseOrderEditorProps = {
   };
 };
 
+/** A typed quantity or price as a number; half-typed or empty counts as 0. */
+function typedAmount(value: string): number {
+  const parsed = Number(value);
+  return value.trim() && Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
 function createLine(): EditorLine {
   return {
     id: randomId(),
@@ -79,13 +107,65 @@ export function PurchaseOrderEditor({
   mode,
   vendors,
   purchaseOrderId,
+  backHref,
+  backLabel,
+  defaultEnteredBy = "",
   initial,
 }: PurchaseOrderEditorProps) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [vendorId, setVendorId] = useState(initial?.vendorId ?? "");
   const [category, setCategory] = useState(initial?.category ?? "");
+  const [orderDate, setOrderDate] = useState(
+    () => initial?.orderDate ?? localTodayInput(),
+  );
+  const [expectedDate, setExpectedDate] = useState(initial?.expectedDate ?? "");
+  const [enteredBy, setEnteredBy] = useState(
+    initial ? initial.enteredBy : defaultEnteredBy,
+  );
+  const [notes, setNotes] = useState(initial?.notes ?? "");
   const [quoteFiles, setQuoteFiles] = useState<File[]>([]);
+  // The live purchase order PDF beside the inputs; hiding it is remembered
+  // per PC.
+  const [previewHidden, setPreviewHidden] = useStoredFlag(
+    "precastapp:purchase-order-editor-preview-hidden",
+    false,
+  );
+  // On a window too narrow for both, the preview opens over the right side
+  // of the window when asked for, and closes again without being remembered.
+  const [previewDrawerOpen, setPreviewDrawerOpen] = useState(false);
+  const [previewView, setPreviewView] =
+    useState<PurchaseOrderPreviewView>("purchaseOrder");
+  useEffect(() => {
+    if (!previewDrawerOpen) {
+      return;
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setPreviewDrawerOpen(false);
+      }
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [previewDrawerOpen]);
+
+  function showPreview() {
+    setPreviewHidden(false);
+    setPreviewDrawerOpen(!isPreviewBesideInputs());
+  }
+
+  function hidePreview() {
+    if (isPreviewBesideInputs()) {
+      setPreviewHidden(true);
+    }
+    setPreviewDrawerOpen(false);
+  }
+
+  function handleQuoteFilesChange(files: File[]) {
+    setQuoteFiles(files);
+    // A quote just dropped in is there to be typed from: bring it up.
+    setPreviewView(files.length > 0 ? "vendorQuote" : "purchaseOrder");
+  }
   const [lines, setLines] = useState<EditorLine[]>(
     initial?.lines.length
       ? initial.lines.map((line) => ({
@@ -129,6 +209,25 @@ export function PurchaseOrderEditor({
       setCategory(vendor.defaultCategory);
     }
   }
+
+  // What prints, in the shape the preview is drawn from. Category and the
+  // vendor quote never reach the paper, so they are left out.
+  const previewInput: PurchaseOrderDraftPreviewInput = {
+    purchaseOrderId: purchaseOrderId ?? null,
+    vendorId: vendorId || null,
+    orderDate: orderDate || null,
+    expectedDate: expectedDate || null,
+    enteredBy: enteredBy.trim() || null,
+    notes: notes.trim() || null,
+    lines: lines.map((line) => ({
+      itemCode: line.itemCode.trim(),
+      description: line.description.trim(),
+      quantityOrdered: typedAmount(line.quantityOrdered),
+      unit: line.unit.trim(),
+      unitPrice: typedAmount(line.unitPrice),
+    })),
+  };
+  const money = draftPurchaseOrderMoney(previewInput.lines);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -181,30 +280,32 @@ export function PurchaseOrderEditor({
   const inputClass =
     "mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm";
 
-  const showPreview = quoteFiles.length > 0 || Boolean(initial?.vendorQuoteName);
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      <SectionCard title="Vendor quote PDF">
-        <FileUploadDropzone
-          files={quoteFiles}
-          onFilesChange={setQuoteFiles}
-          accept=".pdf,application/pdf"
-          multiple={false}
-          label="Drop vendor quote PDF here"
-          description="Attach the vendor's quote for accounts payable. Line items are entered manually beside the preview."
-        />
-        {initial?.vendorQuoteName && quoteFiles.length === 0 ? (
-          <p className="mt-2 text-xs text-slate-500">
-            Current file: {initial.vendorQuoteName}. Upload a new PDF to replace it.
-          </p>
+    // The page is full width for the preview; with the preview hidden the
+    // inputs go back to the standard column they were laid out for.
+    <form
+      onSubmit={handleSubmit}
+      className={`space-y-4 ${previewHidden ? standardPageWidthClassName : ""}`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <BackButton href={backHref} label={backLabel} />
+        {previewHidden || !previewDrawerOpen ? (
+          // Hidden by choice: offered at every width. Not hidden: only a
+          // narrow window needs it, where the preview waits to be opened.
+          <button
+            type="button"
+            onClick={showPreview}
+            className={`rounded-md btn-plain px-3 py-1.5 text-xs font-medium ${
+              previewHidden ? "" : previewDrawerOnlyClassName
+            }`}
+          >
+            Show purchase order preview
+          </button>
         ) : null}
-      </SectionCard>
+      </div>
 
-      <div
-        className={`grid gap-5 ${showPreview ? "xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]" : ""}`}
-      >
-        <div className="space-y-5">
+      <div className={previewHidden ? "" : portraitPreviewSplitClassName}>
+        <div className="min-w-0 space-y-4">
           <SectionCard title="Purchase order details">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
@@ -257,9 +358,8 @@ export function PurchaseOrderEditor({
                   name="orderDate"
                   type="date"
                   required
-                  defaultValue={
-                    initial?.orderDate ?? localTodayInput()
-                  }
+                  value={orderDate}
+                  onChange={(event) => setOrderDate(event.target.value)}
                   className={inputClass}
                 />
               </div>
@@ -271,7 +371,8 @@ export function PurchaseOrderEditor({
                   id="expectedDate"
                   name="expectedDate"
                   type="date"
-                  defaultValue={initial?.expectedDate ?? ""}
+                  value={expectedDate}
+                  onChange={(event) => setExpectedDate(event.target.value)}
                   className={inputClass}
                 />
               </div>
@@ -282,7 +383,8 @@ export function PurchaseOrderEditor({
                 <input
                   id="enteredBy"
                   name="enteredBy"
-                  defaultValue={initial?.enteredBy ?? ""}
+                  value={enteredBy}
+                  onChange={(event) => setEnteredBy(event.target.value)}
                   className={inputClass}
                 />
               </div>
@@ -294,7 +396,8 @@ export function PurchaseOrderEditor({
                   id="notes"
                   name="notes"
                   rows={2}
-                  defaultValue={initial?.notes ?? ""}
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
                   className={inputClass}
                 />
               </div>
@@ -311,11 +414,12 @@ export function PurchaseOrderEditor({
                     <th className={tableHeaderCellClassName}>Qty</th>
                     <th className={tableHeaderCellClassName}>Unit</th>
                     <th className={tableHeaderCellClassName}>Price</th>
+                    <th className={tableHeaderCellClassName}>Total</th>
                     <th className={tableHeaderCellClassName}></th>
                   </tr>
                 </thead>
                 <tbody className={tableBodyClassName}>
-                  {lines.map((line) => (
+                  {lines.map((line, index) => (
                     <tr key={line.id}>
                       <td className={tableCellClassName}>
                         <input
@@ -364,13 +468,17 @@ export function PurchaseOrderEditor({
                         <input
                           type="number"
                           min="0"
-                          step="0.01"
+                          // Stored to four decimals (pipe by the foot).
+                          step="0.0001"
                           value={line.unitPrice}
                           onChange={(event) =>
                             updateLine(line.id, { unitPrice: event.target.value })
                           }
                           className={`${tableInlineInputClassName} w-24 text-right tabular-nums`}
                         />
+                      </td>
+                      <td className={tableComputedCellClassName}>
+                        {formatUsd(money.lineTotals[index] ?? 0)}
                       </td>
                       <td className={tableCellClassName}>
                         <button
@@ -386,36 +494,49 @@ export function PurchaseOrderEditor({
                 </tbody>
               </table>
             </div>
-            <div className="border-t border-slate-100 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3">
               <button
                 type="button"
                 onClick={addLine}
-                className="text-xs font-medium text-slate-700 underline"
+                className="rounded-md btn-plain px-3 py-1.5 text-xs font-medium"
               >
                 Add line
               </button>
+              <p className="text-sm text-slate-600">
+                Total{" "}
+                <span
+                  className="ml-2 font-semibold tabular-nums text-slate-900"
+                  data-purchase-order-total
+                >
+                  {formatUsd(money.total)}
+                </span>
+              </p>
             </div>
           </SectionCard>
-        </div>
 
-        {showPreview ? (
-          <VendorQuotePreview
-            file={quoteFiles[0] ?? null}
-            purchaseOrderId={
-              quoteFiles.length === 0 ? purchaseOrderId : undefined
-            }
-            fileName={initial?.vendorQuoteName}
-          />
-        ) : null}
-      </div>
+          <SectionCard title="Vendor quote PDF">
+            <FileUploadDropzone
+              files={quoteFiles}
+              onFilesChange={handleQuoteFilesChange}
+              accept=".pdf,application/pdf"
+              multiple={false}
+              label="Drop vendor quote PDF here"
+              description="Attach the vendor's quote for accounts payable. It opens in the preview pane, so the lines can be typed from it."
+            />
+            {initial?.vendorQuoteName && quoteFiles.length === 0 ? (
+              <p className="mt-2 text-xs text-slate-500">
+                Current file: {initial.vendorQuoteName}. Upload a new PDF to replace it.
+              </p>
+            ) : null}
+          </SectionCard>
 
-      {error ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-          {error}
-        </p>
-      ) : null}
+          {error ? (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              {error}
+            </p>
+          ) : null}
 
-      <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2">
         <Link
           href={
             mode === "edit" && purchaseOrderId
@@ -437,6 +558,24 @@ export function PurchaseOrderEditor({
               ? "Create Purchase Order"
               : "Save Changes"}
         </button>
+          </div>
+        </div>
+
+        {previewHidden ? null : (
+          <div
+            className={portraitPreviewDrawerPaneClassName(previewDrawerOpen)}
+            data-preview-drawer={previewDrawerOpen ? "open" : "closed"}
+          >
+            <PurchaseOrderLivePreview
+              input={previewInput}
+              quoteFile={quoteFiles[0] ?? null}
+              savedQuoteName={initial?.vendorQuoteName ?? null}
+              view={previewView}
+              onViewChange={setPreviewView}
+              onHide={hidePreview}
+            />
+          </div>
+        )}
       </div>
     </form>
   );
