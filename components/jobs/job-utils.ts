@@ -36,32 +36,6 @@ export type JobRow = {
   lastActivity: string;
 };
 
-/** Actionable row on the job overview tab, linking to the tab that resolves it. */
-export type JobAttentionItem = {
-  key: string;
-  label: string;
-  tab: JobDetailTab;
-  tone: "warning" | "danger" | "info";
-};
-
-/** One row of the job overview's cross-record activity feed. */
-export type JobActivityItem = {
-  key: string;
-  typeLabel: string;
-  recordNumber: string;
-  href: string;
-  statusLabel: string;
-  statusVariant: JobStatusVariant;
-  updated: string;
-};
-
-export type JobOverviewData = {
-  attentionItems: JobAttentionItem[];
-  recentActivity: JobActivityItem[];
-  structuresTotal: number;
-  structuresShipped: number;
-};
-
 export type JobDetailTab =
   | "overview"
   | "bidding"
@@ -263,12 +237,6 @@ export type JobInvoiceableDelivery = {
   deliveryDate: string;
 };
 
-export type JobSummaryStat = {
-  label: string;
-  value: string;
-  detail: string;
-};
-
 export type JobRelationCounts = {
   quotes: number;
   bidders: number;
@@ -303,22 +271,18 @@ export type JobDetailView = {
   /** Display name of the user who created the job, or an em dash. */
   createdByName: string;
   updatedAt: string;
-  stats: JobSummaryStat[];
-  structureStatusBreakdown: { label: string; count: number }[];
   biddingSummary: JobBiddingSummary;
   counts: JobRelationCounts;
   deliverySite: JobDeliverySiteView;
 };
 
 /**
- * Where loads go and who to call on site, editable on the job page once the
- * job is awarded. Raw values (empty string = unset) so the inline editor can
- * prefill them; `projectAddressLines` / `jobContact` back its "use the
- * project address / job contact" shortcuts.
+ * Where loads go and who to call on site, editable in the job page's address
+ * box. Raw values (empty string = unset) so the inline editor can prefill
+ * them; `projectAddressLines` / `jobContact` back its "use the address from
+ * Edit Job / job contact" shortcuts.
  */
 export type JobDeliverySiteView = {
-  /** Show the Delivery Site card: awarded, past award, or already filled in. */
-  visible: boolean;
   deliveryAddress: string;
   siteContactName: string;
   siteContactPhone: string;

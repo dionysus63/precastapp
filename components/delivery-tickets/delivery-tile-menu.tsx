@@ -21,6 +21,11 @@ type DeliveryTileMenuProps = {
    * sized like the Print/Submittals pills in the loads tables.
    */
   appearance?: "icon" | "pill";
+  /**
+   * Words on the pill instead of the gear ("Change Date"), for tables whose
+   * row actions are all named.
+   */
+  label?: string;
 };
 
 const MENU_WIDTH = 224;
@@ -63,6 +68,7 @@ export function DeliveryTileMenu({
   ticketNumber,
   deliveryDateIso,
   appearance = "icon",
+  label,
 }: DeliveryTileMenuProps) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<MenuPosition | null>(null);
@@ -157,11 +163,11 @@ export function DeliveryTileMenu({
         ref={buttonRef}
         type="button"
         onClick={toggle}
-        aria-label={`Quick edit ${ticketNumber}`}
+        aria-label={`${label ?? "Quick edit"} ${ticketNumber}`}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        title="Quick edit"
+        title={label ? undefined : "Quick edit"}
         className={
           appearance === "pill"
             ? `btn-plain inline-flex items-center justify-center rounded-md px-2 py-1 transition-colors ${
@@ -172,7 +178,11 @@ export function DeliveryTileMenu({
               }`
         }
       >
-        <GearIcon />
+        {label ? (
+          <span className="text-2xs font-medium">{label}</span>
+        ) : (
+          <GearIcon />
+        )}
       </button>
       {open ? (
         <div
