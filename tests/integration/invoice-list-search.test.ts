@@ -270,6 +270,13 @@ describe("sorting the invoices list by a column header", () => {
     );
   });
 
+  it("sorts by job, then by contractor", async () => {
+    // Counter pickup (E), Counter sale (D), Harbor Road (B), then Main
+    // Street Drainage for Acme (A) and for Bay (C).
+    expect(await order({ column: "job", direction: "asc" })).toBe("EDBAC");
+    expect(await order({ column: "job", direction: "desc" })).toBe("CABDE");
+  });
+
   it("keeps the search and the status chip while sorted", async () => {
     const result = await listInvoicesForPage({
       filter: "OPEN",

@@ -94,22 +94,22 @@ const barPrimaryButtonClassName =
   "rounded-lg btn-main px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50";
 
 /**
- * "List | paper", side by side from a 1024px window up. The list keeps 69.5rem
+ * "List | paper", side by side from a 1024px window up. The list keeps 60rem
  * (its columns without a sideways scroll) wherever the window has it; the
  * paper takes what is left, up to 38%, and never less than 22rem. On a
  * narrower window the paper stacks above the list.
  */
 const previewSplitClassName =
-  "grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_min(38%,max(22rem,calc(100%_-_70.25rem)))]";
+  "grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_min(38%,max(22rem,calc(100%_-_60.75rem)))]";
 
 /**
  * The list with the paper hidden: exactly as wide as it is beside the paper
  * (the whole width less the paper's column and the gap), so hiding the
  * preview moves nothing. Only where that is too narrow for the columns does
- * the list take the room the paper gave up, up to its 69.5rem.
+ * the list take the room the paper gave up, up to its 60rem.
  */
 const listAloneClassName =
-  "lg:w-[max(calc(100%_-_min(38%,max(22rem,calc(100%_-_70.25rem)))_-_0.75rem),min(100%,69.5rem))]";
+  "lg:w-[max(calc(100%_-_min(38%,max(22rem,calc(100%_-_60.75rem)))_-_0.75rem),min(100%,60rem))]";
 
 /** Remembered per computer: the preview pane beside the list is hidden. */
 const PREVIEW_HIDDEN_KEY = "precastapp:invoice-list-preview-hidden";
@@ -538,10 +538,11 @@ export function InvoicesListTab({
                       Ship date
                     </SortHeader>
                     <SortHeader column="customer" sort={sort} onSort={sortBy}>
-                      Contractor / job
+                      Contractor
                     </SortHeader>
-                    <th className={tableHeaderCellClassName}>Price</th>
-                    <th className={tableHeaderCellClassName}>Tax</th>
+                    <SortHeader column="job" sort={sort} onSort={sortBy}>
+                      Job
+                    </SortHeader>
                     <th className={tableHeaderCellClassName}>Total</th>
                     <th className={tableHeaderCellClassName}>Status</th>
                     <th className={tableHeaderCellClassName}>Signed ticket</th>
@@ -617,21 +618,11 @@ export function InvoicesListTab({
                         >
                           {formatDate(row.deliveryDate)}
                         </td>
-                        <td className={`${cell} min-w-[10rem]`}>
+                        <td className={`${cell} min-w-[9rem]`}>
                           {row.customerName}
-                          <span className="block text-slate-500">
-                            {row.projectName}
-                          </span>
                         </td>
-                        <td
-                          className={`${cell} whitespace-nowrap tabular-nums`}
-                        >
-                          {formatUsd(row.price)}
-                        </td>
-                        <td
-                          className={`${cell} whitespace-nowrap tabular-nums`}
-                        >
-                          {formatUsd(row.salesTax)}
+                        <td className={`${cell} min-w-[9rem]`}>
+                          {row.projectName}
                         </td>
                         <td
                           className={`${cell} whitespace-nowrap font-medium tabular-nums`}
@@ -691,25 +682,6 @@ export function InvoicesListTab({
                                 Edit
                               </Link>
                             ) : null}
-                            <a
-                              href={`/api/invoices/${row.id}/pdf`}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={stop}
-                              className={tableActionButtonClassName}
-                            >
-                              View PDF
-                            </a>
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                printPdfUrl(`/api/invoices/${row.id}/pdf`);
-                              }}
-                              className={tableActionButtonClassName}
-                            >
-                              Print
-                            </button>
                             {canManage && unpaid && !needsPrice ? (
                               <button
                                 type="button"
@@ -735,6 +707,16 @@ export function InvoicesListTab({
                                 Mark paid
                               </button>
                             ) : null}
+                            {canManage && unpaid ? null : (
+                              // Nothing to do on this row: an unseen button
+                              // keeps it as tall as the rows that have some.
+                              <span
+                                aria-hidden="true"
+                                className={`${tableActionButtonClassName} invisible w-0 border-x-0 px-0`}
+                              >
+                                &nbsp;
+                              </span>
+                            )}
                           </div>
                         </td>
                       </tr>

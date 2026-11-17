@@ -153,6 +153,16 @@ describe("the column the list is sorted by", () => {
     }
   });
 
+  it("sorts by job, then contractor", () => {
+    expect(parseInvoiceListSort("job", "desc")).toEqual({
+      column: "job",
+      direction: "desc",
+    });
+    expect(
+      buildInvoiceListOrderBy({ column: "job", direction: "desc" }).slice(0, 2),
+    ).toEqual([{ projectName: "desc" }, { customerName: "desc" }]);
+  });
+
   it("sorts by contractor, then job", () => {
     expect(
       buildInvoiceListOrderBy({ column: "customer", direction: "asc" }).slice(

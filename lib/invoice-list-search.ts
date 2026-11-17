@@ -202,13 +202,14 @@ export function buildInvoiceListWhere(
 
 /**
  * The column headers that sort the list when clicked: the invoice number, the
- * ship date and the contractor. They live in the address too
+ * ship date, the contractor and the job. They live in the address too
  * (`?sort=ship&dir=desc`), so a sorted list can be paged, filtered and linked.
  */
 export const INVOICE_LIST_SORT_COLUMNS = [
   "invoice",
   "ship",
   "customer",
+  "job",
 ] as const;
 
 export type InvoiceListSortColumn = (typeof INVOICE_LIST_SORT_COLUMNS)[number];
@@ -260,6 +261,7 @@ export function nextInvoiceListSort(
  * - Ship date: the ticket's delivery date; invoices whose ticket has no ship
  *   date come last either way. A day's invoices run in number order.
  * - Contractor: by contractor name, then job name, then invoice number.
+ * - Job: by job name, then contractor name, then invoice number.
  *
  * Every order ends on the invoice number, which no two invoices share, so
  * paging never repeats or skips a row.
@@ -288,6 +290,13 @@ export function buildInvoiceListOrderBy(
       return [
         { customerName: direction },
         { projectName: direction },
+        { year: "asc" },
+        { sequenceNumber: "asc" },
+      ];
+    case "job":
+      return [
+        { projectName: direction },
+        { customerName: direction },
         { year: "asc" },
         { sequenceNumber: "asc" },
       ];
