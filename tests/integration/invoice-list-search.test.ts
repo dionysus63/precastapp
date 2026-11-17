@@ -20,6 +20,7 @@ import {
 } from "@/app/invoices/actions";
 import {
   EMPTY_INVOICE_LIST_SEARCH,
+  INVOICE_LIST_PAGE_SIZE,
   type InvoiceListSearch,
   type InvoiceListSort,
 } from "@/lib/invoice-list-search";
@@ -234,6 +235,20 @@ describe("searching the invoices list", () => {
       search({ customer: `${tag} Bay` }),
     );
     expect(counts).toMatchObject({ ALL: 2, OPEN: 1, PAID: 0, VOID: 1 });
+  });
+});
+
+describe("the invoices list as one scrolling list", () => {
+  it("shows every invoice of a view at once, not pages of 50", async () => {
+    const result = await listInvoicesForPage({
+      filter: "ALL",
+      search: search({}),
+      page: 1,
+    });
+    expect(result.pageInfo.pageSize).toBe(INVOICE_LIST_PAGE_SIZE);
+    expect(INVOICE_LIST_PAGE_SIZE).toBeGreaterThanOrEqual(1000);
+    expect(result.pageInfo.totalPages).toBe(1);
+    expect(result.invoices).toHaveLength(seeds.length);
   });
 });
 
