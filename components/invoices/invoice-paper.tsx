@@ -18,6 +18,19 @@ export const paperStyle = {
     "min(42rem, calc((100vh - var(--app-header-height) - 8.3125rem) * 0.7727))",
 } as const;
 
+/**
+ * "fit" keeps the whole page in view (above). "fill" lets the paper take the
+ * width of its pane, up to a little over the size it prints at, for a pane
+ * that scrolls by itself when the page is taller than the window.
+ */
+export type PaperSize = "fit" | "fill";
+
+const paperFillStyle = { maxWidth: "56rem" } as const;
+
+function paperSizeStyle(size: PaperSize) {
+  return size === "fill" ? paperFillStyle : paperStyle;
+}
+
 const stepButtonClassName =
   "rounded-lg btn-plain px-2 py-0.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -25,13 +38,15 @@ const stepButtonClassName =
 export function PaperNote({
   text,
   heading,
+  size = "fit",
 }: {
   text: string;
   heading?: string;
+  size?: PaperSize;
 }) {
   return (
     <div
-      style={paperStyle}
+      style={paperSizeStyle(size)}
       className="mx-auto grid aspect-[612/792] w-full place-items-center border border-slate-300 bg-white px-10 text-center text-sm text-slate-500 shadow"
     >
       <div>
@@ -93,7 +108,13 @@ type InvoicePage = { url: string; pageCount: number };
  * An invoice as it prints, one page at a time, drawn by the server from the
  * invoice as it is saved right now.
  */
-export function InvoicePaper({ invoiceId }: { invoiceId: string }) {
+export function InvoicePaper({
+  invoiceId,
+  size = "fit",
+}: {
+  invoiceId: string;
+  size?: PaperSize;
+}) {
   const [page, setPage] = useState(1);
   const [loaded, setLoaded] = useState<InvoicePage | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -138,13 +159,13 @@ export function InvoicePaper({ invoiceId }: { invoiceId: string }) {
   }, [invoiceId, page]);
 
   if (error) {
-    return <PaperNote text={error} />;
+    return <PaperNote text={error} size={size} />;
   }
   if (!loaded) {
-    return <PaperNote text="Drawing the invoice…" />;
+    return <PaperNote text="Drawing the invoice…" size={size} />;
   }
   return (
-    <div style={paperStyle} className="mx-auto w-full">
+    <div style={paperSizeStyle(size)} className="mx-auto w-full">
       <div className="border border-slate-300 bg-white shadow">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -171,17 +192,19 @@ export function SignedTicketPaper({
   fileId,
   pageCount,
   ticketNumber,
+  size = "fit",
 }: {
   fileId: string;
   pageCount: number;
   ticketNumber: string;
+  size?: PaperSize;
 }) {
   const [page, setPage] = useState(1);
   const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
   const shownPage = Math.min(Math.max(page, 1), Math.max(pageCount, 1));
 
   return (
-    <div style={paperStyle} className="mx-auto w-full">
+    <div style={paperSizeStyle(size)} className="mx-auto w-full">
       <div className="relative border border-slate-300 bg-white shadow">
         {state === "failed" ? (
           <div className="grid aspect-[612/792] place-items-center px-10 text-center text-sm text-slate-500">

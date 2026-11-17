@@ -45,6 +45,13 @@ export const INVOICE_LIST_SEARCH_KEYS = [
   "max",
 ] as const satisfies readonly (keyof InvoiceListSearch)[];
 
+/**
+ * The Invoices list shows every invoice in one scrolling list, not in pages
+ * of 50. This is only the ceiling that keeps one screen from loading without
+ * end: past it the list goes on to a second page.
+ */
+export const INVOICE_LIST_PAGE_SIZE = 1000;
+
 /** Most invoices one print or download may hold: all are filled in memory. */
 export const MAX_SELECTED_INVOICES = 200;
 

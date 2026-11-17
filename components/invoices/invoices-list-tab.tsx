@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { memo, useCallback, useState, useTransition } from "react";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { PaginationControls } from "@/components/common/pagination-controls";
 import { PdfDragChip } from "@/components/common/pdf-drag-chip";
@@ -22,6 +22,7 @@ import { formatUsd } from "@/lib/format";
 import { useStoredFlag } from "@/lib/hooks/use-stored-flag";
 import {
   hasInvoiceListSearch,
+  INVOICE_LIST_SEARCH_KEYS,
   MAX_SELECTED_INVOICES,
   nextInvoiceListSort,
   selectedInvoicesFileName,
@@ -47,7 +48,7 @@ import {
   tableBodyClassName,
   tableCellBordersClassName,
   tableCellClassName,
-  tableClassName,
+  tableCompactClassName,
   tableFlushWrapperClassName,
   tableHeaderCellClassName,
 } from "@/lib/table-styles";
@@ -94,22 +95,19 @@ const barPrimaryButtonClassName =
   "rounded-lg btn-main px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50";
 
 /**
- * "List | paper", side by side from a 1024px window up. The list keeps 60rem
- * (its columns without a sideways scroll) wherever the window has it; the
- * paper takes what is left, up to 38%, and never less than 22rem. On a
- * narrower window the paper stacks above the list.
+ * "List | paper", side by side from a 1024px window up. The list is as wide
+ * as its columns need (62rem) and no wider; the paper takes all the room that
+ * is left, and never less than 22rem. On a narrower window the paper stacks
+ * above the list.
  */
 const previewSplitClassName =
-  "grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_min(38%,max(22rem,calc(100%_-_60.75rem)))]";
+  "grid items-start gap-3 lg:grid-cols-[minmax(0,62rem)_minmax(22rem,1fr)]";
 
 /**
- * The list with the paper hidden: exactly as wide as it is beside the paper
- * (the whole width less the paper's column and the gap), so hiding the
- * preview moves nothing. Only where that is too narrow for the columns does
- * the list take the room the paper gave up, up to its 60rem.
+ * The list with the paper hidden: the same 62rem it has beside the paper, so
+ * hiding the preview moves nothing.
  */
-const listAloneClassName =
-  "lg:w-[max(calc(100%_-_min(38%,max(22rem,calc(100%_-_60.75rem)))_-_0.75rem),min(100%,60rem))]";
+const listAloneClassName = "lg:w-[min(100%,62rem)]";
 
 /** Remembered per computer: the preview pane beside the list is hidden. */
 const PREVIEW_HIDDEN_KEY = "precastapp:invoice-list-preview-hidden";
@@ -174,6 +172,175 @@ function stop(event: React.SyntheticEvent) {
 }
 
 /**
+ * One invoice in the list. Kept apart and remembered (memo), so a click or a
+ * tick redraws the one or two rows it changes and not the whole list, which
+ * holds every invoice there is.
+ */
+const InvoiceRow = memo(function InvoiceRow({
+  row,
+  isTicked,
+  inPreview,
+  showPreview,
+  canManage,
+  pending,
+  onShow,
+  onTick,
+  onMarkPaid,
+}: {
+  row: InvoiceListRow;
+  isTicked: boolean;
+  /** This row's invoice is the one in the preview pane. */
+  inPreview: boolean;
+  showPreview: boolean;
+  canManage: boolean;
+  /** A Mark paid is on its way: the buttons wait. */
+  pending: boolean;
+  onShow: (row: InvoiceListRow, side: InvoicePreviewSide) => void;
+  onTick: (row: InvoiceListRow, on: boolean) => void;
+  onMarkPaid: (row: InvoiceListRow) => void;
+}) {
+  const unpaid = isUnpaidInvoiceStatus(row.status);
+  const needsPrice = row.priceNeededItems.length > 0;
+  const shade = inPreview ? "bg-sky-50" : "";
+  const cell = `${tableCellClassName} ${shade}`;
+  return (
+    <tr
+      tabIndex={showPreview ? 0 : undefined}
+      aria-selected={showPreview ? inPreview : undefined}
+      onClick={showPreview ? () => onShow(row, "invoice") : undefined}
+      onKeyDown={
+        showPreview
+          ? (event) => {
+              if (
+                event.target === event.currentTarget &&
+                (event.key === "Enter" || event.key === " ")
+              ) {
+                event.preventDefault();
+                onShow(row, "invoice");
+              }
+            }
+          : undefined
+      }
+      className={`align-top outline-none hover:bg-slate-50/60 focus-visible:bg-sky-50/60 ${
+        showPreview ? "cursor-pointer" : ""
+      }`}
+    >
+      <td
+        onClick={stop}
+        className={`${tableCellBordersClassName} ${shade} w-8 p-0 ${
+          inPreview ? "shadow-[inset_3px_0_0_#0284c7]" : ""
+        }`}
+      >
+        <label className="flex cursor-pointer items-center justify-center px-2 py-2">
+          <input
+            type="checkbox"
+            aria-label={`Select invoice ${row.invoiceNumber}`}
+            checked={isTicked}
+            onChange={(event) => onTick(row, event.target.checked)}
+            className="h-4 w-4 cursor-pointer accent-slate-900"
+          />
+        </label>
+      </td>
+      <td className={`${cell} whitespace-nowrap font-medium`}>
+        <Link
+          href={`/invoices/${row.id}`}
+          onClick={stop}
+          className="text-slate-900 hover:text-slate-700"
+        >
+          {row.invoiceNumber}
+        </Link>
+        <InvoiceBadges row={row} />
+      </td>
+      <td
+        className={`${cell} whitespace-nowrap tabular-nums`}
+        title={`Ship date of ticket ${row.ticketNumber}`}
+      >
+        {formatDate(row.deliveryDate)}
+      </td>
+      <td className={`${cell} min-w-[9rem]`}>{row.customerName}</td>
+      <td className={`${cell} min-w-[9rem]`}>{row.projectName}</td>
+      <td className={`${cell} whitespace-nowrap font-medium tabular-nums`}>
+        {formatUsd(row.total)}
+      </td>
+      <td className={`${cell} whitespace-nowrap`}>
+        {/* An invoice waiting for a price is always
+            open, so that one badge says both. */}
+        {needsPrice ? (
+          <span
+            title={`Open. No price yet for: ${row.priceNeededItems.join(", ")}`}
+          >
+            <StatusBadge label="Price needed" variant="warning" />
+          </span>
+        ) : (
+          <StatusBadge
+            label={invoiceStatusLabel(row.status)}
+            variant={invoiceStatusVariant(row.status)}
+          />
+        )}
+      </td>
+      <td className={`${cell} whitespace-nowrap`}>
+        {row.signedTicket ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onShow(row, "signed");
+            }}
+            title={`Show the signed copy of ticket ${row.ticketNumber} beside the list`}
+            className="rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-2xs font-semibold text-emerald-900 hover:bg-emerald-100"
+          >
+            Signed Ticket
+          </button>
+        ) : (
+          <span
+            title={`No signed copy of ticket ${row.ticketNumber} has been scanned in`}
+            className="text-2xs font-semibold tracking-wide text-slate-400"
+          >
+            NOT AVAILABLE
+          </span>
+        )}
+      </td>
+      <td className={`${cell} whitespace-nowrap`}>
+        <div className="flex gap-1.5">
+          {canManage && unpaid ? (
+            <Link
+              href={`/invoices/${row.id}/edit`}
+              onClick={stop}
+              className={tableActionButtonClassName}
+            >
+              Edit
+            </Link>
+          ) : null}
+          {canManage && unpaid && !needsPrice ? (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={(event) => {
+                event.stopPropagation();
+                onMarkPaid(row);
+              }}
+              className={tableActionPositiveButtonClassName}
+            >
+              Mark paid
+            </button>
+          ) : null}
+          {canManage && unpaid ? null : (
+            // Nothing to do on this row: an unseen button
+            // keeps it as tall as the rows that have some.
+            <span
+              aria-hidden="true"
+              className={`${tableActionButtonClassName} invisible w-0 border-x-0 px-0`}
+            >
+              &nbsp;
+            </span>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+});
+
+/**
  * The one Invoices list. An invoice is here the moment its ticket is marked
  * delivered — there is no draft stage and nothing to finalize. "Price needed"
  * holds the ones with a line the app could not price.
@@ -181,7 +348,7 @@ function stop(event: React.SyntheticEvent) {
  * Above it: the status chips and the search boxes (contractor, job, ship
  * dates, totals). Beside it: the clicked invoice as it prints, or its signed
  * ticket. Tick boxes pick invoices to print or download as one PDF; the
- * ticks stay while paging and filtering.
+ * ticks stay while filtering. The list is one scrolling list of every invoice.
  */
 export function InvoicesListTab({
   invoices,
@@ -233,13 +400,31 @@ export function InvoicesListTab({
   );
   const previewRow = showPreview ? (invoices[previewAt] ?? null) : null;
 
-  function showRow(row: InvoiceListRow, nextSide: InvoicePreviewSide) {
-    setPreviewId(row.id);
-    setSide(nextSide);
-    if (previewHidden) {
+  // The three below go to every row: they keep one identity (useCallback) so
+  // a row is only drawn again when something of its own changes.
+  const showRow = useCallback(
+    (row: InvoiceListRow, nextSide: InvoicePreviewSide) => {
+      setPreviewId(row.id);
+      setSide(nextSide);
+      // Asking for a paper brings the pane back if it was hidden.
       setPreviewHidden(false);
-    }
-  }
+    },
+    [setPreviewHidden],
+  );
+
+  const markPaid = useCallback((row: InvoiceListRow) => {
+    startTransition(async () => {
+      const result = await markInvoicePaid(row.id);
+      if (result.error) {
+        setMessage(result.error);
+        return;
+      }
+      reloadAfterAction({
+        type: "success",
+        text: `Invoice ${row.invoiceNumber} marked paid.`,
+      });
+    });
+  }, []);
 
   function stepPreview(delta: number) {
     const next = invoices[previewAt + delta];
@@ -264,7 +449,7 @@ export function InvoicesListTab({
     pageInfo.total <= MAX_SELECTED_INVOICES &&
     tickedCount < pageInfo.total;
 
-  function setRowTicked(row: InvoiceListRow, on: boolean) {
+  const setRowTicked = useCallback((row: InvoiceListRow, on: boolean) => {
     setTicked((current) => {
       const next = new Map(current);
       if (on) {
@@ -274,7 +459,7 @@ export function InvoicesListTab({
       }
       return next;
     });
-  }
+  }, []);
 
   function setPageTicked(on: boolean) {
     setTicked((current) => {
@@ -351,14 +536,14 @@ export function InvoicesListTab({
       ? "Tick invoices to print or download them together."
       : `${tickedCount.toLocaleString()} selected${
           tickedElsewhere > 0
-            ? ` (${tickedElsewhere.toLocaleString()} not on this page)`
+            ? ` (${tickedElsewhere.toLocaleString()} not shown here)`
             : ""
         }${tooMany ? `. At most ${MAX_SELECTED_INVOICES} at a time.` : ""}`;
 
   return (
-    // The paper sits to the right of everything else, from the tabs down, so
-    // a whole page fits the window. The list is on the left and stays where
-    // it is when the preview is hidden.
+    // The paper sits to the right of everything else, from the tabs down,
+    // and takes the room the list does not need. The list is on the left and
+    // stays where it is when the preview is hidden.
     <div className={showPreview ? previewSplitClassName : listAloneClassName}>
       <div className="min-w-0 space-y-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -385,6 +570,23 @@ export function InvoicesListTab({
               {chip.label} ({filterCounts[chip.value].toLocaleString()})
             </button>
           ))}
+          {searching ? (
+            <button
+              type="button"
+              onClick={() =>
+                setParams({
+                  tab: "invoices",
+                  ...Object.fromEntries(
+                    INVOICE_LIST_SEARCH_KEYS.map((key) => [key, null]),
+                  ),
+                })
+              }
+              title="Empty the search boxes below"
+              className="rounded-lg btn-plain px-3 py-1.5 text-xs font-medium"
+            >
+              Clear filters
+            </button>
+          ) : null}
           <div className="ml-auto flex flex-wrap items-center gap-2 text-xs text-slate-600">
             <label htmlFor="print-day" className="font-medium">
               Made on
@@ -502,7 +704,7 @@ export function InvoicesListTab({
             </p>
           ) : (
             <div className={tableFlushWrapperClassName}>
-              <table className={tableClassName}>
+              <table className={tableCompactClassName}>
                 <thead>
                   <tr>
                     <th className={`${tableHeaderCellClassName} w-8 px-0 py-0`}>
@@ -510,13 +712,13 @@ export function InvoicesListTab({
                         className="flex cursor-pointer items-center justify-center px-2 py-1.5"
                         title={
                           allOnPageTicked
-                            ? "Untick every invoice on this page"
-                            : "Tick every invoice on this page"
+                            ? "Untick every invoice in the list"
+                            : "Tick every invoice in the list"
                         }
                       >
                         <input
                           type="checkbox"
-                          aria-label="Select every invoice on this page"
+                          aria-label="Select every invoice in the list"
                           checked={allOnPageTicked}
                           ref={(element) => {
                             if (element) {
@@ -550,190 +752,40 @@ export function InvoicesListTab({
                   </tr>
                 </thead>
                 <tbody className={tableBodyClassName}>
-                  {invoices.map((row) => {
-                    const unpaid = isUnpaidInvoiceStatus(row.status);
-                    const needsPrice = row.priceNeededItems.length > 0;
-                    const isTicked = ticked.has(row.id);
-                    const inPreview = previewRow?.id === row.id;
-                    const shade = inPreview ? "bg-sky-50" : "";
-                    const cell = `${tableCellClassName} ${shade}`;
-                    return (
-                      <tr
-                        key={row.id}
-                        tabIndex={showPreview ? 0 : undefined}
-                        aria-selected={showPreview ? inPreview : undefined}
-                        onClick={
-                          showPreview
-                            ? () => showRow(row, "invoice")
-                            : undefined
-                        }
-                        onKeyDown={
-                          showPreview
-                            ? (event) => {
-                                if (
-                                  event.target === event.currentTarget &&
-                                  (event.key === "Enter" || event.key === " ")
-                                ) {
-                                  event.preventDefault();
-                                  showRow(row, "invoice");
-                                }
-                              }
-                            : undefined
-                        }
-                        className={`align-top outline-none hover:bg-slate-50/60 focus-visible:bg-sky-50/60 ${
-                          showPreview ? "cursor-pointer" : ""
-                        }`}
-                      >
-                        <td
-                          onClick={stop}
-                          className={`${tableCellBordersClassName} ${shade} w-8 p-0 ${
-                            inPreview ? "shadow-[inset_3px_0_0_#0284c7]" : ""
-                          }`}
-                        >
-                          <label className="flex cursor-pointer items-center justify-center px-2 py-2">
-                            <input
-                              type="checkbox"
-                              aria-label={`Select invoice ${row.invoiceNumber}`}
-                              checked={isTicked}
-                              onChange={(event) =>
-                                setRowTicked(row, event.target.checked)
-                              }
-                              className="h-4 w-4 cursor-pointer accent-slate-900"
-                            />
-                          </label>
-                        </td>
-                        <td className={`${cell} whitespace-nowrap font-medium`}>
-                          <Link
-                            href={`/invoices/${row.id}`}
-                            onClick={stop}
-                            className="text-slate-900 hover:text-slate-700"
-                          >
-                            {row.invoiceNumber}
-                          </Link>
-                          <InvoiceBadges row={row} />
-                        </td>
-                        <td
-                          className={`${cell} whitespace-nowrap tabular-nums`}
-                          title={`Ship date of ticket ${row.ticketNumber}`}
-                        >
-                          {formatDate(row.deliveryDate)}
-                        </td>
-                        <td className={`${cell} min-w-[9rem]`}>
-                          {row.customerName}
-                        </td>
-                        <td className={`${cell} min-w-[9rem]`}>
-                          {row.projectName}
-                        </td>
-                        <td
-                          className={`${cell} whitespace-nowrap font-medium tabular-nums`}
-                        >
-                          {formatUsd(row.total)}
-                        </td>
-                        <td className={`${cell} whitespace-nowrap`}>
-                          {/* Price needed goes under the status, so the
-                              column is one badge wide. */}
-                          <div className="flex flex-col items-start gap-1">
-                            <StatusBadge
-                              label={invoiceStatusLabel(row.status)}
-                              variant={invoiceStatusVariant(row.status)}
-                            />
-                            {needsPrice ? (
-                              <span
-                                title={`No price yet for: ${row.priceNeededItems.join(", ")}`}
-                              >
-                                <StatusBadge
-                                  label="Price needed"
-                                  variant="warning"
-                                />
-                              </span>
-                            ) : null}
-                          </div>
-                        </td>
-                        <td className={`${cell} whitespace-nowrap`}>
-                          {row.signedTicket ? (
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                showRow(row, "signed");
-                              }}
-                              title={`Show the signed copy of ticket ${row.ticketNumber} beside the list`}
-                              className="rounded border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-2xs font-semibold text-emerald-900 hover:bg-emerald-100"
-                            >
-                              Signed Ticket
-                            </button>
-                          ) : (
-                            <span
-                              title={`No signed copy of ticket ${row.ticketNumber} has been scanned in`}
-                              className="text-2xs font-semibold tracking-wide text-slate-400"
-                            >
-                              NOT AVAILABLE
-                            </span>
-                          )}
-                        </td>
-                        <td className={`${cell} whitespace-nowrap`}>
-                          <div className="flex gap-1.5">
-                            {canManage && unpaid ? (
-                              <Link
-                                href={`/invoices/${row.id}/edit`}
-                                onClick={stop}
-                                className={tableActionButtonClassName}
-                              >
-                                Edit
-                              </Link>
-                            ) : null}
-                            {canManage && unpaid && !needsPrice ? (
-                              <button
-                                type="button"
-                                disabled={pending}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  startTransition(async () => {
-                                    const result = await markInvoicePaid(
-                                      row.id,
-                                    );
-                                    if (result.error) {
-                                      setMessage(result.error);
-                                      return;
-                                    }
-                                    reloadAfterAction({
-                                      type: "success",
-                                      text: `Invoice ${row.invoiceNumber} marked paid.`,
-                                    });
-                                  });
-                                }}
-                                className={tableActionPositiveButtonClassName}
-                              >
-                                Mark paid
-                              </button>
-                            ) : null}
-                            {canManage && unpaid ? null : (
-                              // Nothing to do on this row: an unseen button
-                              // keeps it as tall as the rows that have some.
-                              <span
-                                aria-hidden="true"
-                                className={`${tableActionButtonClassName} invisible w-0 border-x-0 px-0`}
-                              >
-                                &nbsp;
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {invoices.map((row) => (
+                    <InvoiceRow
+                      key={row.id}
+                      row={row}
+                      isTicked={ticked.has(row.id)}
+                      inPreview={previewRow?.id === row.id}
+                      showPreview={showPreview}
+                      canManage={canManage}
+                      pending={pending}
+                      onShow={showRow}
+                      onTick={setRowTicked}
+                      onMarkPaid={markPaid}
+                    />
+                  ))}
                 </tbody>
               </table>
             </div>
           )}
-          <PaginationControls
-            page={pageInfo.page}
-            totalPages={pageInfo.totalPages}
-            fromIndex={pageInfo.fromIndex}
-            toIndex={pageInfo.toIndex}
-            total={pageInfo.total}
-            noun="invoice"
-          />
+          {pageInfo.totalPages > 1 ? (
+            // Only past the list's ceiling (INVOICE_LIST_PAGE_SIZE).
+            <PaginationControls
+              page={pageInfo.page}
+              totalPages={pageInfo.totalPages}
+              fromIndex={pageInfo.fromIndex}
+              toIndex={pageInfo.toIndex}
+              total={pageInfo.total}
+              noun="invoice"
+            />
+          ) : pageInfo.total > 0 ? (
+            <p className="border-t border-slate-100 px-4 py-2 text-xs text-slate-600">
+              {pageInfo.total.toLocaleString()}{" "}
+              {pageInfo.total === 1 ? "invoice" : "invoices"}
+            </p>
+          ) : null}
         </section>
       </div>
 

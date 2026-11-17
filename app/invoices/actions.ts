@@ -13,6 +13,7 @@ import { requirePermission } from "@/lib/auth/session";
 import {
   buildInvoiceListOrderBy,
   buildInvoiceListWhere,
+  INVOICE_LIST_PAGE_SIZE,
   MAX_SELECTED_INVOICES,
   parseInvoiceListSearch,
   type InvoiceListSearch,
@@ -562,7 +563,11 @@ export async function listInvoicesForPage(options: {
   const total = await withDatabaseRetry((client) =>
     client.invoice.count({ where }),
   );
-  const pageInfo = buildPageInfo(total, options.page);
+  const pageInfo = buildPageInfo(
+    total,
+    options.page,
+    INVOICE_LIST_PAGE_SIZE,
+  );
 
   const invoices = await withDatabaseRetry((client) =>
     client.invoice.findMany({
