@@ -48,13 +48,16 @@ export default async function PurchaseOrderDetailPage({
   });
 
   return (
-    <DashboardShell
-      title={view.poNumber}
-      subtitle={`${view.vendorName} · ${view.categoryLabel}`}
-    >
-      <BackButton href="/purchase-orders" label="Back to Purchase Orders" />
-
-      <PurchaseOrderDetailContent purchaseOrder={view} canManage={canManage} />
+    <DashboardShell title={view.poNumber} width="full">
+      {/* Full width: the purchase order and the vendor's quote sit beside
+          the order's details. The pane's height counts on this Back button
+          row and its gap (portraitPreviewViewPaneClassName). */}
+      <div className="space-y-4">
+        <div>
+          <BackButton href="/purchase-orders" label="Back to Purchase Orders" />
+        </div>
+        <PurchaseOrderDetailContent purchaseOrder={view} canManage={canManage} />
+      </div>
     </DashboardShell>
   );
 }

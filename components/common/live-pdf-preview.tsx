@@ -83,6 +83,29 @@ const previewBesideInputsClassName =
 export const portraitPreviewPaneClassName = `${previewBesideInputsClassName} max-[1600px]:w-full max-[1600px]:max-w-3xl`;
 
 /**
+ * "PDF | details" for a screen that only shows a saved document (a purchase
+ * order's page). The same reckoning as `portraitPreviewSplitClassName`, with
+ * two numbers changed: what sits beside the PDF is a few short tables, so it
+ * is left 44rem instead of 57rem and the PDF stays readable on a 1600px
+ * window; and the page is fitted into the shorter pane below (9.625rem is
+ * that pane's 5.625rem plus the pane's own heading, padding and border).
+ */
+export const portraitPreviewViewSplitClassName =
+  "grid items-start gap-5 max-[1600px]:max-w-7xl min-[1600px]:[--preview-room:calc(100vw_-_17.5rem)] min-[1600px]:grid-cols-[min(calc(var(--preview-room)_*_0.4),calc((100vh_-_var(--app-header-height)_-_9.625rem)_*_0.773_+_1.625rem),max(24rem,calc(var(--preview-room)_-_44rem_*_var(--text-scale)_-_1.25rem)))_minmax(0,1fr)]";
+
+/**
+ * The same column on a screen that only shows a saved document (a purchase
+ * order's page), with a Back button row above the split and little beside
+ * the PDF. There the whole pane has to be on screen without scrolling the
+ * page, so it is shorter by what sits above and below it at rest: the
+ * page's padding (2 x 1.25rem) and the Back button row (2.125rem and the
+ * 1rem gap under it). When a long list beside it does scroll the page, it
+ * parks where it was, one padding below the app header.
+ */
+export const portraitPreviewViewPaneClassName =
+  "min-w-0 min-[1600px]:order-first min-[1600px]:sticky min-[1600px]:top-[calc(var(--app-header-height)_+_1.25rem)] min-[1600px]:max-h-[calc(100vh_-_var(--app-header-height)_-_5.625rem)] min-[1600px]:overflow-y-auto max-[1600px]:w-full max-[1600px]:max-w-3xl";
+
+/**
  * The preview column that, on a narrow window, stays out of the page until
  * asked for and then opens over the right side of the window, below the app
  * header, as wide as a readable page (the 17rem keeps the sidebar and a

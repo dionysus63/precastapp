@@ -10,10 +10,16 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { navigateAfterAction, reloadAfterAction } from "@/lib/reload-after-action";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
-import { VendorQuotePreview } from "@/components/purchase-orders/vendor-quote-preview";
-import { purchaseOrderReceivePercent } from "@/lib/purchase-order-utils";
+import {
+  portraitPreviewViewPaneClassName,
+  portraitPreviewViewSplitClassName,
+} from "@/components/common/live-pdf-preview";
+import { PurchaseOrderDocuments } from "@/components/purchase-orders/purchase-order-documents";
+import {
+  purchaseOrderPdfFileName,
+  purchaseOrderReceivePercent,
+} from "@/lib/purchase-order-utils";
 import { formatUsd } from "@/lib/format";
-import { printPdfUrl } from "@/lib/print-pdf-url";
 import { formatCalendarDateShort } from "@/lib/date-only";
 
 import {
@@ -22,7 +28,17 @@ import {
   tableClassName,
   tableFlushWrapperClassName,
   tableHeaderCellClassName,
+  tableHeaderCellStaticClassName,
 } from "@/lib/table-styles";
+
+/** A value in the Order grid; the labels are ordinary table header cells. */
+const orderValueCellClassName = `${tableCellClassName} align-top font-medium text-slate-900`;
+
+/** A dash where the order has nothing for a box. */
+function orEmpty(value: string | null | undefined) {
+  const text = value?.trim();
+  return text ? text : <span className="font-normal text-slate-500">—</span>;
+}
 type PurchaseOrderDetailContentProps = {
   purchaseOrder: {
     id: string;
@@ -126,231 +142,257 @@ export function PurchaseOrderDetailContent({
   );
 
   return (
-    <div className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-2xs uppercase tracking-wide text-slate-500">Status</p>
-          <div className="mt-2">
-            <StatusBadge
-              label={purchaseOrder.statusLabel}
-              variant={purchaseOrder.statusVariant}
-            />
-          </div>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-2xs uppercase tracking-wide text-slate-500">Vendor</p>
-          <p className="mt-2 text-sm font-semibold text-slate-900">
-            {purchaseOrder.vendorName}
-          </p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-2xs uppercase tracking-wide text-slate-500">Order date</p>
-          <p className="mt-2 text-sm font-semibold text-slate-900">
-            {purchaseOrder.orderDateLabel}
-          </p>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-2xs uppercase tracking-wide text-slate-500">Total</p>
-          <p className="mt-2 text-sm font-semibold text-slate-900">
-            {formatUsd(purchaseOrder.total)}
-          </p>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <a
-          href={`/api/purchase-orders/${purchaseOrder.id}/pdf`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-lg btn-plain px-3 py-2 text-xs font-semibold"
-        >
-          View PDF
-        </a>
-        <button
-          type="button"
-          onClick={() => printPdfUrl(`/api/purchase-orders/${purchaseOrder.id}/pdf`)}
-          className="rounded-lg btn-plain px-3 py-2 text-xs font-semibold"
-        >
-          Print
-        </button>
-        {canManage && purchaseOrder.status === "DRAFT" ? (
-          <>
+    // The PDFs on the left, the order beside them: the same split as the
+    // screen that creates a purchase order. On a narrow window the PDFs
+    // come below the order.
+    <div className={portraitPreviewViewSplitClassName}>
+      <div className="min-w-0 max-w-4xl space-y-4">
+        <div className="flex flex-wrap gap-2">
+          {canManage && purchaseOrder.status === "DRAFT" ? (
+            <>
+              <Link
+                href={`/purchase-orders/${purchaseOrder.id}/edit`}
+                className="rounded-lg btn-plain px-3 py-2 text-xs font-semibold"
+              >
+                Edit
+              </Link>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => runStatus("ISSUED")}
+                className="rounded-lg btn-main px-3 py-2 text-xs font-semibold disabled:opacity-60"
+              >
+                Issue PO
+              </button>
+            </>
+          ) : null}
+          {canManage &&
+          purchaseOrder.category &&
+          (purchaseOrder.status === "ISSUED" ||
+            purchaseOrder.status === "PARTIALLY_RECEIVED") ? (
             <Link
-              href={`/purchase-orders/${purchaseOrder.id}/edit`}
-              className="rounded-lg btn-plain px-3 py-2 text-xs font-semibold"
+              href={`/receiving/receive?category=${purchaseOrder.category}&po=${purchaseOrder.id}`}
+              className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"
             >
-              Edit
+              Receive delivery
             </Link>
+          ) : null}
+          {canManage &&
+          purchaseOrder.status !== "CANCELLED" &&
+          purchaseOrder.status !== "RECEIVED" ? (
             <button
               type="button"
               disabled={pending}
-              onClick={() => runStatus("ISSUED")}
-              className="rounded-lg btn-main px-3 py-2 text-xs font-semibold disabled:opacity-60"
+              onClick={() => runStatus("CANCELLED")}
+              className="rounded-lg btn-plain px-3 py-2 text-xs font-semibold disabled:opacity-60"
             >
-              Issue PO
+              Cancel order
             </button>
-          </>
-        ) : null}
-        {canManage &&
-        purchaseOrder.category &&
-        (purchaseOrder.status === "ISSUED" ||
-          purchaseOrder.status === "PARTIALLY_RECEIVED") ? (
-          <Link
-            href={`/receiving/receive?category=${purchaseOrder.category}&po=${purchaseOrder.id}`}
-            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"
-          >
-            Receive delivery
-          </Link>
-        ) : null}
-        {canManage &&
-        purchaseOrder.status !== "CANCELLED" &&
-        purchaseOrder.status !== "RECEIVED" ? (
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => runStatus("CANCELLED")}
-            className="rounded-lg btn-plain px-3 py-2 text-xs font-semibold disabled:opacity-60"
-          >
-            Cancel
-          </button>
-        ) : null}
-        {canDelete ? (
-          <button
-            type="button"
-            disabled={pending}
-            onClick={confirmDelete}
-            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-800 hover:bg-red-100 disabled:opacity-60"
-          >
-            Delete
-          </button>
-        ) : null}
-      </div>
+          ) : null}
+          {canDelete ? (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={confirmDelete}
+              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-800 hover:bg-red-100 disabled:opacity-60"
+            >
+              Delete
+            </button>
+          ) : null}
+        </div>
 
-      {purchaseOrder.quoteOnly ? (
-        <SectionCard title="Ordered from the vendor's quote" noPadding>
-          <div className={tableFlushWrapperClassName}>
-            <table className={tableClassName}>
-              <thead>
-                <tr>
-                  <th className={tableHeaderCellClassName}>Quote number</th>
-                  <th className={tableHeaderCellClassName}>Quote date</th>
-                  <th className={tableHeaderCellClassName}>Total</th>
-                </tr>
-              </thead>
+        {/* One grid for everything about the order: two rows of labelled
+            boxes, six across, Status last. */}
+        <SectionCard title="Order" noPadding>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[40rem] table-fixed border-separate border-spacing-0 text-left text-sm">
               <tbody className={tableBodyClassName}>
-                <tr className="text-slate-800">
-                  <td className={`${tableCellClassName} font-medium`}>
-                    {purchaseOrder.quoteNumber ?? "—"}
+                <tr>
+                  <th scope="col" className={tableHeaderCellStaticClassName}>Vendor</th>
+                  <th scope="col" className={tableHeaderCellStaticClassName}>Attention</th>
+                  <th scope="col" className={tableHeaderCellStaticClassName}>Category</th>
+                  <th scope="col" className={tableHeaderCellStaticClassName}>Tax</th>
+                  <th scope="col" className={tableHeaderCellStaticClassName}>Entered by</th>
+                  <th scope="col" className={tableHeaderCellStaticClassName}>Status</th>
+                </tr>
+                <tr>
+                  <td className={`${orderValueCellClassName} font-semibold`}>
+                    {purchaseOrder.vendorName}
                   </td>
-                  <td className={tableCellClassName}>
-                    {purchaseOrder.quoteDateLabel ?? "—"}
+                  <td className={orderValueCellClassName}>
+                    {orEmpty(purchaseOrder.attention)}
                   </td>
-                  <td className={tableCellClassName}>{formatUsd(purchaseOrder.total)}</td>
+                  <td className={orderValueCellClassName}>
+                    {purchaseOrder.categoryLabel}
+                  </td>
+                  <td className={orderValueCellClassName}>
+                    {purchaseOrder.taxable ? "Taxable" : "Non-taxable"}
+                  </td>
+                  <td className={orderValueCellClassName}>
+                    {orEmpty(purchaseOrder.enteredBy)}
+                  </td>
+                  <td className={orderValueCellClassName}>
+                    <StatusBadge
+                      label={purchaseOrder.statusLabel}
+                      variant={purchaseOrder.statusVariant}
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="col" className={tableHeaderCellStaticClassName}>Order date</th>
+                  <th scope="col" className={tableHeaderCellStaticClassName}>
+                    Expected delivery
+                  </th>
+                  {purchaseOrder.quoteOnly ? (
+                    <>
+                      <th scope="col" className={tableHeaderCellStaticClassName}>
+                        Quote number
+                      </th>
+                      <th scope="col" className={tableHeaderCellStaticClassName}>
+                        Quote date
+                      </th>
+                    </>
+                  ) : (
+                    <th scope="col" colSpan={2} className={tableHeaderCellStaticClassName}>
+                      Received
+                    </th>
+                  )}
+                  <th scope="col" colSpan={2} className={tableHeaderCellStaticClassName}>
+                    Total
+                  </th>
+                </tr>
+                <tr>
+                  <td className={orderValueCellClassName}>
+                    {purchaseOrder.orderDateLabel}
+                  </td>
+                  <td className={orderValueCellClassName}>
+                    {orEmpty(purchaseOrder.expectedDateLabel)}
+                  </td>
+                  {purchaseOrder.quoteOnly ? (
+                    <>
+                      <td className={orderValueCellClassName}>
+                        {orEmpty(purchaseOrder.quoteNumber)}
+                      </td>
+                      <td className={orderValueCellClassName}>
+                        {orEmpty(purchaseOrder.quoteDateLabel)}
+                      </td>
+                    </>
+                  ) : (
+                    <td colSpan={2} className={`${orderValueCellClassName} tabular-nums`}>
+                      {receivedTotal} of {orderedTotal}
+                    </td>
+                  )}
+                  <td
+                    colSpan={2}
+                    className={`${orderValueCellClassName} text-base font-semibold tabular-nums`}
+                  >
+                    {formatUsd(purchaseOrder.total)}
+                  </td>
                 </tr>
               </tbody>
             </table>
           </div>
-          <div className="border-t border-slate-100 px-4 py-3 text-xs text-slate-600">
-            All items on the quote, at the quantities and prices quoted. No items are
-            listed on this purchase order.
-          </div>
         </SectionCard>
-      ) : (
-      <SectionCard title="Line items" noPadding>
-        <div className={tableFlushWrapperClassName}>
-          <table className={tableClassName}>
-            <thead>
-              <tr>
-                <th className={tableHeaderCellClassName}>Item</th>
-                <th className={tableHeaderCellClassName}>Description</th>
-                <th className={tableHeaderCellClassName}>Ordered</th>
-                <th className={tableHeaderCellClassName}>Received</th>
-                <th className={tableHeaderCellClassName}>Progress</th>
-                <th className={tableHeaderCellClassName}>Unit price</th>
-                <th className={tableHeaderCellClassName}>Total</th>
-              </tr>
-            </thead>
-            <tbody className={tableBodyClassName}>
-              {purchaseOrder.lines.map((line) => {
-                const percent = purchaseOrderReceivePercent(
-                  line.quantityOrdered,
-                  line.quantityReceived,
-                );
-                return (
-                  <tr key={line.id} className="text-slate-800">
-                    <td className={`${tableCellClassName} font-medium`}>{line.itemCode}</td>
-                    <td className={tableCellClassName}>{line.description ?? "—"}</td>
-                    <td className={tableCellClassName}>
-                      {line.quantityOrdered} {line.unit}
-                    </td>
-                    <td className={tableCellClassName}>
-                      {line.quantityReceived} {line.unit}
-                      {line.overReceived ? (
-                        <StatusBadge label="Over" variant="warning" />
-                      ) : null}
-                    </td>
-                    <td className={tableCellClassName}>
-                      <div className="flex min-w-[120px] items-center gap-2">
-                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
-                          <div
-                            className="h-full rounded-full bg-emerald-500"
-                            style={{ width: `${percent}%` }}
-                          />
-                        </div>
-                        <span className="text-2xs text-slate-500">{percent}%</span>
-                      </div>
-                    </td>
-                    <td className={tableCellClassName}>{formatUsd(line.unitPrice)}</td>
-                    <td className={tableCellClassName}>{formatUsd(line.total)}</td>
+
+        {purchaseOrder.quoteOnly ? null : (
+          <SectionCard title="Line items" noPadding>
+            <div className={tableFlushWrapperClassName}>
+              <table className={tableClassName}>
+                <thead>
+                  <tr>
+                    <th className={tableHeaderCellClassName}>Item</th>
+                    <th className={tableHeaderCellClassName}>Description</th>
+                    <th className={tableHeaderCellClassName}>Ordered</th>
+                    <th className={tableHeaderCellClassName}>Received</th>
+                    <th className={tableHeaderCellClassName}>Progress</th>
+                    <th className={tableHeaderCellClassName}>Unit price</th>
+                    <th className={tableHeaderCellClassName}>Total</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <div className="border-t border-slate-100 px-4 py-3 text-xs text-slate-600">
-          Overall received: {receivedTotal} / {orderedTotal}
-        </div>
-      </SectionCard>
-      )}
+                </thead>
+                <tbody className={tableBodyClassName}>
+                  {purchaseOrder.lines.map((line) => {
+                    const percent = purchaseOrderReceivePercent(
+                      line.quantityOrdered,
+                      line.quantityReceived,
+                    );
+                    return (
+                      <tr key={line.id} className="text-slate-800">
+                        <td className={`${tableCellClassName} font-medium`}>
+                          {line.itemCode}
+                        </td>
+                        <td className={tableCellClassName}>{line.description ?? "—"}</td>
+                        <td className={`${tableCellClassName} whitespace-nowrap`}>
+                          {line.quantityOrdered} {line.unit}
+                        </td>
+                        <td className={`${tableCellClassName} whitespace-nowrap`}>
+                          {line.quantityReceived} {line.unit}
+                          {line.overReceived ? (
+                            <StatusBadge label="Over" variant="warning" />
+                          ) : null}
+                        </td>
+                        <td className={tableCellClassName}>
+                          <div className="flex min-w-[6rem] items-center gap-2">
+                            <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                              <div
+                                className="h-full rounded-full bg-emerald-500"
+                                style={{ width: `${percent}%` }}
+                              />
+                            </div>
+                            <span className="text-2xs text-slate-500">{percent}%</span>
+                          </div>
+                        </td>
+                        <td className={`${tableCellClassName} whitespace-nowrap`}>
+                          {formatUsd(line.unitPrice)}
+                        </td>
+                        <td className={`${tableCellClassName} whitespace-nowrap`}>
+                          {formatUsd(line.total)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </SectionCard>
+        )}
 
-      {purchaseOrder.hasVendorQuote ? (
-        <SectionCard title="Vendor quote">
-          <VendorQuotePreview
-            purchaseOrderId={purchaseOrder.id}
-            fileName={purchaseOrder.vendorQuoteName}
-          />
-        </SectionCard>
-      ) : null}
+        {purchaseOrder.notes ? (
+          <SectionCard title="Notes">
+            <p className="whitespace-pre-line text-sm text-slate-700">
+              {purchaseOrder.notes}
+            </p>
+          </SectionCard>
+        ) : null}
 
-      {purchaseOrder.notes ? (
-        <SectionCard title="Notes">
-          <p className="text-sm text-slate-700">{purchaseOrder.notes}</p>
-        </SectionCard>
-      ) : null}
+        {purchaseOrder.receipts.length > 0 ? (
+          <SectionCard title="Linked receiving entries">
+            <ul className="space-y-2 text-xs text-slate-700">
+              {purchaseOrder.receipts.map((receipt) => (
+                <li key={receipt.id}>
+                  {formatCalendarDateShort(receipt.receiptDate)}
+                  {receipt.enteredBy ? ` · ${receipt.enteredBy}` : ""}
+                </li>
+              ))}
+            </ul>
+          </SectionCard>
+        ) : null}
+      </div>
 
-      {purchaseOrder.receipts.length > 0 ? (
-        <SectionCard title="Linked receiving entries">
-          <ul className="space-y-2 text-xs text-slate-700">
-            {purchaseOrder.receipts.map((receipt) => (
-              <li key={receipt.id}>
-                {formatCalendarDateShort(receipt.receiptDate)}
-                {receipt.enteredBy ? ` · ${receipt.enteredBy}` : ""}
-              </li>
-            ))}
-          </ul>
-        </SectionCard>
-      ) : null}
-
-      <p className="text-xs text-slate-500">
-        Category: {purchaseOrder.categoryLabel}
-        {purchaseOrder.attention ? ` · Attn: ${purchaseOrder.attention}` : ""}
-        {purchaseOrder.taxable ? " · Taxable" : " · Non-taxable"}
-        {purchaseOrder.enteredBy ? ` · Entered by ${purchaseOrder.enteredBy}` : ""}
-        {purchaseOrder.expectedDateLabel
-          ? ` · Expected ${purchaseOrder.expectedDateLabel}`
-          : ""}
-      </p>
+      <div className={portraitPreviewViewPaneClassName}>
+        <PurchaseOrderDocuments
+          purchaseOrderId={purchaseOrder.id}
+          poNumber={purchaseOrder.poNumber}
+          pdfFileName={purchaseOrderPdfFileName(
+            purchaseOrder.poNumber,
+            purchaseOrder.vendorName,
+          )}
+          vendorQuoteName={
+            purchaseOrder.hasVendorQuote
+              ? (purchaseOrder.vendorQuoteName ?? "vendor-quote.pdf")
+              : null
+          }
+        />
+      </div>
     </div>
   );
 }

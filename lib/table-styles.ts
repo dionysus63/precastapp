@@ -34,6 +34,13 @@ const tableHeaderCellBaseClassName = `sticky top-0 z-10 ${tableHeaderCellLookCla
 
 export const tableHeaderCellClassName = `${tableHeaderCellBaseClassName} whitespace-nowrap`;
 
+/**
+ * Header cell that stays where it is: for a small grid of labelled values
+ * with more than one row of labels, where a sticky label row would slide
+ * over the values above it.
+ */
+export const tableHeaderCellStaticClassName = `${tableHeaderCellLookClassName} whitespace-nowrap`;
+
 /** Header cell whose label wraps instead of widening the column. */
 export const tableHeaderCellWrapClassName = tableHeaderCellBaseClassName;
 
