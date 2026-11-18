@@ -53,6 +53,12 @@ export default async function EditPurchaseOrderPage({
           enteredBy: purchaseOrder.enteredBy ?? "",
           updatedAt: purchaseOrder.updatedAt.toISOString(),
           vendorQuoteName: purchaseOrder.vendorQuoteName,
+          quoteOnly: purchaseOrder.quoteOnly,
+          quoteNumber: purchaseOrder.quoteNumber,
+          quoteDate: purchaseOrder.quoteDate
+            ? toCalendarDateInput(purchaseOrder.quoteDate)
+            : "",
+          quoteTotal: purchaseOrder.total.toNumber(),
           lines: purchaseOrder.lines.map((line) => ({
             productId: line.productId,
             itemCode: line.itemCode,

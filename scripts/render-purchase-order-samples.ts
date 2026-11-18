@@ -3,6 +3,7 @@
  * looked at without a database.
  *
  * Run with: npx tsx scripts/render-purchase-order-samples.ts [outDir] [lineCount]
+ * A lineCount of "quote" renders an order placed against the vendor's quote.
  */
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
@@ -65,6 +66,15 @@ const SAMPLE_LINES: PurchaseOrderPdfLine[] = [
   },
 ];
 
+function quoteOnlySampleData(): PurchaseOrderPdfData {
+  return {
+    ...sampleData(0),
+    quote: { number: "Q122819", date: "11/17/2026" },
+    total: "$30,318.00",
+    notes: "Job tag: STOCK. Ship via ODFL, call 24 hours before delivery.",
+  };
+}
+
 function sampleData(lineCount: number): PurchaseOrderPdfData {
   const lines = Array.from(
     { length: lineCount },
@@ -99,13 +109,20 @@ function sampleData(lineCount: number): PurchaseOrderPdfData {
 
 async function main() {
   const outDir = path.resolve(process.argv[2] ?? "purchase-order-samples");
+  const quoteOnly = process.argv[3] === "quote";
   const lineCount = Number(process.argv[3] ?? SAMPLE_LINES.length);
   await mkdir(outDir, { recursive: true });
   const headerImagePng = await readFile(
     path.join(process.cwd(), "assets", "templates", "lip-header.png"),
   );
-  const bytes = await renderPurchaseOrderPdf(sampleData(lineCount), { headerImagePng });
-  const file = path.join(outDir, "purchase-order-sample.pdf");
+  const bytes = await renderPurchaseOrderPdf(
+    quoteOnly ? quoteOnlySampleData() : sampleData(lineCount),
+    { headerImagePng },
+  );
+  const file = path.join(
+    outDir,
+    quoteOnly ? "purchase-order-quote-only-sample.pdf" : "purchase-order-sample.pdf",
+  );
   await writeFile(file, bytes);
   console.log(file);
 }

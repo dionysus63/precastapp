@@ -42,6 +42,9 @@ function purchaseOrder(lineCount: number): PurchaseOrderForPdf {
     expectedDate: new Date(Date.UTC(2026, 11, 8)),
     enteredBy: "Nick",
     notes: "Call 24 hours before delivery.",
+    quoteOnly: false,
+    quoteNumber: null,
+    quoteDate: null,
     vendor,
     lines: Array.from({ length: lineCount }, (_, index) => ({
       itemCode: `ITEM-${index + 1}`,
@@ -85,6 +88,47 @@ describe("buildPurchaseOrderPdfData", () => {
     const po = purchaseOrder(1);
     po.expectedDate = null;
     expect(buildPurchaseOrderPdfData(po, company).expectedDate).toBe("");
+  });
+});
+
+describe("a quote only purchase order", () => {
+  function quoteOnlyOrder(): PurchaseOrderForPdf {
+    return {
+      ...purchaseOrder(0),
+      quoteOnly: true,
+      quoteNumber: " Q122819 ",
+      quoteDate: new Date(Date.UTC(2026, 10, 17)),
+      total: "30318.00",
+    };
+  }
+
+  it("prints the quote's number and date in place of lines", () => {
+    const data = buildPurchaseOrderPdfData(quoteOnlyOrder(), company);
+    expect(data.quote).toEqual({ number: "Q122819", date: "11/17/2026" });
+    expect(data.lines).toEqual([]);
+    expect(data.total).toBe("$30,318.00");
+  });
+
+  it("leaves a missing number or date blank", () => {
+    const po = quoteOnlyOrder();
+    po.quoteNumber = null;
+    po.quoteDate = null;
+    expect(buildPurchaseOrderPdfData(po, company).quote).toEqual({
+      number: "",
+      date: "",
+    });
+  });
+
+  it("is not set on an order with lines", () => {
+    expect(sampleData(2).quote).toBeNull();
+  });
+
+  it("draws on one page", async () => {
+    const bytes = await renderPurchaseOrderPdf(
+      buildPurchaseOrderPdfData(quoteOnlyOrder(), company),
+      { headerImagePng: null },
+    );
+    expect((await PDFDocument.load(bytes)).getPageCount()).toBe(1);
   });
 });
 
@@ -215,6 +259,21 @@ describe("purchase order draft preview input", () => {
     expect(draft.expectedDate).toBeNull();
     expect(draft.lines).toHaveLength(2);
     expect(draft.lines[1]).toMatchObject({ quantityOrdered: 0, unitPrice: 0 });
+  });
+
+  it("reads the quote of a quote only order, half typed or not", () => {
+    const draft = parsePurchaseOrderDraftPreviewInput({
+      vendorId: "v1",
+      lines: [],
+      quote: { number: " Q122819 ", date: "2026-11-17", total: 30318 },
+    });
+    expect(draft.quote).toEqual({ number: "Q122819", date: "2026-11-17", total: 30318 });
+    expect(
+      parsePurchaseOrderDraftPreviewInput({
+        quote: { number: 5, date: "11/17/2026", total: "abc" },
+      }).quote,
+    ).toEqual({ number: "", date: null, total: 0 });
+    expect(parsePurchaseOrderDraftPreviewInput({ quote: "yes" }).quote).toBeNull();
   });
 
   it("refuses anything that is not the editor's shape without throwing on junk", () => {

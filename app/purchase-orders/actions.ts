@@ -18,6 +18,7 @@ import {
   listOpenPurchaseOrders,
   updatePurchaseOrderRecord,
   type PurchaseOrderLineInput,
+  type PurchaseOrderQuoteInput,
   type SavePurchaseOrderInput,
 } from "@/lib/purchase-order-service";
 import {
@@ -76,6 +77,22 @@ function parseLinesFromFormData(formData: FormData): PurchaseOrderLineInput[] {
   return lines;
 }
 
+/** The quote a "quote only" purchase order is placed against. */
+function parseQuoteFromFormData(formData: FormData): PurchaseOrderQuoteInput {
+  const totalRaw = String(formData.get("quoteTotal") ?? "")
+    .replace(/[$,\s]/g, "")
+    .trim();
+  const total = totalRaw ? Number(totalRaw) : Number.NaN;
+  if (!Number.isFinite(total) || total <= 0) {
+    throw new Error("Enter the quote total.");
+  }
+  return {
+    number: String(formData.get("quoteNumber") ?? "").trim() || null,
+    date: parseDate(String(formData.get("quoteDate") ?? "")),
+    total,
+  };
+}
+
 function parseSaveInput(formData: FormData): SavePurchaseOrderInput {
   const vendorId = String(formData.get("vendorId") ?? "").trim();
   if (!vendorId) {
@@ -94,6 +111,9 @@ function parseSaveInput(formData: FormData): SavePurchaseOrderInput {
   }
 
   const expectedDate = parseDate(String(formData.get("expectedDate") ?? ""));
+  // The screen sends which way the order was entered; the other way's
+  // inputs are left out of the save.
+  const quoteOnly = String(formData.get("entryMode") ?? "") === "quote";
 
   return {
     vendorId,
@@ -103,7 +123,8 @@ function parseSaveInput(formData: FormData): SavePurchaseOrderInput {
     notes: String(formData.get("notes") ?? "").trim() || null,
     enteredBy: String(formData.get("enteredBy") ?? "").trim() || null,
     submissionKey: String(formData.get("submissionKey") ?? "").trim() || null,
-    lines: parseLinesFromFormData(formData),
+    lines: quoteOnly ? [] : parseLinesFromFormData(formData),
+    quote: quoteOnly ? parseQuoteFromFormData(formData) : null,
   };
 }
 

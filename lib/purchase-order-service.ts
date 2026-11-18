@@ -26,6 +26,16 @@ export type PurchaseOrderLineInput = {
   unitPrice: number;
 };
 
+/**
+ * The vendor's quote a "quote only" purchase order is placed against: the
+ * order is for everything on that quote, at the quote's total.
+ */
+export type PurchaseOrderQuoteInput = {
+  number?: string | null;
+  date?: Date | null;
+  total: number;
+};
+
 export type SavePurchaseOrderInput = {
   vendorId: string;
   category?: ReceivingCategory | null;
@@ -34,7 +44,10 @@ export type SavePurchaseOrderInput = {
   notes?: string | null;
   enteredBy?: string | null;
   submissionKey?: string | null;
+  /** Ignored when `quote` is given: a quote only order has no lines. */
   lines: PurchaseOrderLineInput[];
+  /** Set for a "quote only" purchase order. */
+  quote?: PurchaseOrderQuoteInput | null;
 };
 
 function toDecimal(value: number): PrismaNamespace.Decimal {
@@ -75,11 +88,46 @@ function validateLines(lines: PurchaseOrderLineInput[]): void {
   }
 }
 
+function validateQuote(quote: PurchaseOrderQuoteInput): void {
+  if (!quote.number?.trim() && !quote.date) {
+    throw new Error("Enter the vendor's quote number or the quote date.");
+  }
+  if (!Number.isFinite(quote.total) || quote.total <= 0) {
+    throw new Error("Enter the quote total.");
+  }
+}
+
+/**
+ * What a save stores for the order's content: typed lines and their sum, or
+ * for a quote only order no lines, the quote's reference and its total.
+ */
+function purchaseOrderContent(input: SavePurchaseOrderInput) {
+  if (input.quote) {
+    validateQuote(input.quote);
+    const total = toDecimal(input.quote.total).toDecimalPlaces(2);
+    return {
+      lines: [] as PurchaseOrderLineInput[],
+      totals: { subtotal: total, total },
+      quoteFields: {
+        quoteOnly: true,
+        quoteNumber: input.quote.number?.trim() || null,
+        quoteDate: input.quote.date ?? null,
+      },
+    };
+  }
+  validateLines(input.lines);
+  return {
+    lines: input.lines,
+    totals: computePurchaseOrderTotals(input.lines),
+    quoteFields: { quoteOnly: false, quoteNumber: null, quoteDate: null },
+  };
+}
+
 export async function createPurchaseOrderRecord(
   tx: Prisma.TransactionClient,
   input: SavePurchaseOrderInput,
 ): Promise<string> {
-  validateLines(input.lines);
+  const content = purchaseOrderContent(input);
 
   if (input.submissionKey) {
     const existing = await tx.purchaseOrder.findUnique({
@@ -106,7 +154,7 @@ export async function createPurchaseOrderRecord(
     tx,
     vendor.name,
   );
-  const totals = computePurchaseOrderTotals(input.lines);
+  const { totals } = content;
 
   const purchaseOrder = await tx.purchaseOrder.create({
     data: {
@@ -119,10 +167,11 @@ export async function createPurchaseOrderRecord(
       notes: input.notes ?? null,
       enteredBy: input.enteredBy ?? null,
       submissionKey: input.submissionKey ?? null,
+      ...content.quoteFields,
       subtotal: totals.subtotal,
       total: totals.total,
       lines: {
-        create: input.lines.map((line, index) => ({
+        create: content.lines.map((line, index) => ({
           lineNumber: index + 1,
           productId: line.productId?.trim() || null,
           itemCode: line.itemCode.trim(),
@@ -147,7 +196,7 @@ export async function updatePurchaseOrderRecord(
   input: SavePurchaseOrderInput,
   expectedUpdatedAt?: Date | null,
 ): Promise<void> {
-  validateLines(input.lines);
+  const content = purchaseOrderContent(input);
 
   const existing = await tx.purchaseOrder.findUnique({
     where: { id: purchaseOrderId },
@@ -198,7 +247,7 @@ export async function updatePurchaseOrderRecord(
     }
   }
 
-  const totals = computePurchaseOrderTotals(input.lines);
+  const { totals } = content;
 
   await tx.purchaseOrderLine.deleteMany({ where: { purchaseOrderId } });
   await tx.purchaseOrder.update({
@@ -216,10 +265,11 @@ export async function updatePurchaseOrderRecord(
       expectedDate: input.expectedDate ?? null,
       notes: input.notes ?? null,
       enteredBy: input.enteredBy ?? null,
+      ...content.quoteFields,
       subtotal: totals.subtotal,
       total: totals.total,
       lines: {
-        create: input.lines.map((line, index) => ({
+        create: content.lines.map((line, index) => ({
           lineNumber: index + 1,
           productId: line.productId?.trim() || null,
           itemCode: line.itemCode.trim(),

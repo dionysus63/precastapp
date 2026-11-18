@@ -35,6 +35,10 @@ type PurchaseOrderDetailContentProps = {
     enteredBy: string | null;
     hasVendorQuote: boolean;
     vendorQuoteName: string | null;
+    /** Ordered against the vendor's quote: no lines, the quote is named. */
+    quoteOnly: boolean;
+    quoteNumber: string | null;
+    quoteDateLabel: string | null;
     category: string | null;
     lines: Array<{
       id: string;
@@ -173,6 +177,36 @@ export function PurchaseOrderDetailContent({
         ) : null}
       </div>
 
+      {purchaseOrder.quoteOnly ? (
+        <SectionCard title="Ordered from the vendor's quote" noPadding>
+          <div className={tableFlushWrapperClassName}>
+            <table className={tableClassName}>
+              <thead>
+                <tr>
+                  <th className={tableHeaderCellClassName}>Quote number</th>
+                  <th className={tableHeaderCellClassName}>Quote date</th>
+                  <th className={tableHeaderCellClassName}>Total</th>
+                </tr>
+              </thead>
+              <tbody className={tableBodyClassName}>
+                <tr className="text-slate-800">
+                  <td className={`${tableCellClassName} font-medium`}>
+                    {purchaseOrder.quoteNumber ?? "—"}
+                  </td>
+                  <td className={tableCellClassName}>
+                    {purchaseOrder.quoteDateLabel ?? "—"}
+                  </td>
+                  <td className={tableCellClassName}>{formatUsd(purchaseOrder.total)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div className="border-t border-slate-100 px-4 py-3 text-xs text-slate-600">
+            All items on the quote, at the quantities and prices quoted. No items are
+            listed on this purchase order.
+          </div>
+        </SectionCard>
+      ) : (
       <SectionCard title="Line items" noPadding>
         <div className={tableFlushWrapperClassName}>
           <table className={tableClassName}>
@@ -229,6 +263,7 @@ export function PurchaseOrderDetailContent({
           Overall received: {receivedTotal} / {orderedTotal}
         </div>
       </SectionCard>
+      )}
 
       {purchaseOrder.hasVendorQuote ? (
         <SectionCard title="Vendor quote">

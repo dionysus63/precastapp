@@ -29,6 +29,7 @@ import {
   type PurchaseOrderDraftPreviewInput,
 } from "@/lib/purchase-order-draft-preview";
 import { purchaseOrderCategoryFormOptions } from "@/lib/purchase-order-utils";
+import { selectedFillClassName } from "@/lib/selected-styles";
 import type { ReceivingCategory } from "@/app/generated/prisma/client";
 
 import {
@@ -82,13 +83,39 @@ type PurchaseOrderEditorProps = {
       unitPrice: number;
     }>;
     vendorQuoteName?: string | null;
+    /** A "quote only" order: its quote reference, and its total. */
+    quoteOnly?: boolean;
+    quoteNumber?: string | null;
+    quoteDate?: string;
+    quoteTotal?: number;
   };
 };
+
+/** How the order's content is entered. */
+type EntryMode = "lines" | "quote";
+
+const ENTRY_MODES: Array<{ value: EntryMode; label: string; title: string }> = [
+  {
+    value: "lines",
+    label: "Line items",
+    title: "List each item with its quantity and price",
+  },
+  {
+    value: "quote",
+    label: "Quote only",
+    title: "Order everything on the vendor's quote: its number, date and total",
+  },
+];
 
 /** A typed quantity or price as a number; half-typed or empty counts as 0. */
 function typedAmount(value: string): number {
   const parsed = Number(value);
   return value.trim() && Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+/** A typed dollar total, which may carry "$" and thousands commas. */
+function typedMoney(value: string): number {
+  return typedAmount(value.replace(/[$,\s]/g, ""));
 }
 
 function createLine(): EditorLine {
@@ -124,6 +151,16 @@ export function PurchaseOrderEditor({
     initial ? initial.enteredBy : defaultEnteredBy,
   );
   const [notes, setNotes] = useState(initial?.notes ?? "");
+  // Both ways of entering the order keep what was typed while the other one
+  // is showing; only the one showing is saved.
+  const [entryMode, setEntryMode] = useState<EntryMode>(
+    initial?.quoteOnly ? "quote" : "lines",
+  );
+  const [quoteNumber, setQuoteNumber] = useState(initial?.quoteNumber ?? "");
+  const [quoteDate, setQuoteDate] = useState(initial?.quoteDate ?? "");
+  const [quoteTotal, setQuoteTotal] = useState(
+    initial?.quoteOnly && initial.quoteTotal ? initial.quoteTotal.toFixed(2) : "",
+  );
   const [quoteFiles, setQuoteFiles] = useState<File[]>([]);
   // The live purchase order PDF beside the inputs; hiding it is remembered
   // per PC.
@@ -226,6 +263,14 @@ export function PurchaseOrderEditor({
       unit: line.unit.trim(),
       unitPrice: typedAmount(line.unitPrice),
     })),
+    quote:
+      entryMode === "quote"
+        ? {
+            number: quoteNumber.trim(),
+            date: quoteDate || null,
+            total: typedMoney(quoteTotal),
+          }
+        : null,
   };
   const money = draftPurchaseOrderMoney(previewInput.lines);
 
@@ -243,8 +288,9 @@ export function PurchaseOrderEditor({
     if (quoteFiles[0]) {
       formData.set("vendorQuote", quoteFiles[0]);
     }
+    formData.set("entryMode", entryMode);
 
-    for (const line of lines) {
+    for (const line of entryMode === "lines" ? lines : []) {
       if (!line.itemCode.trim() && !line.quantityOrdered.trim()) {
         continue;
       }
@@ -404,7 +450,94 @@ export function PurchaseOrderEditor({
             </div>
           </SectionCard>
 
-          <SectionCard title="Line items" noPadding>
+          <SectionCard
+            title={entryMode === "quote" ? "Vendor quote" : "Line items"}
+            noPadding
+            action={
+              <div
+                role="group"
+                aria-label="How to enter the order"
+                className="flex overflow-hidden rounded-md border border-slate-300 text-xs font-semibold"
+              >
+                {ENTRY_MODES.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    title={option.title}
+                    aria-pressed={entryMode === option.value}
+                    onClick={() => setEntryMode(option.value)}
+                    className={`px-3 py-1 [&:not(:first-child)]:border-l [&:not(:first-child)]:border-slate-300 ${
+                      entryMode === option.value
+                        ? selectedFillClassName
+                        : "bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            }
+          >
+            {entryMode === "quote" ? (
+              <div className="space-y-3 p-4">
+                <p className="text-xs text-slate-500">
+                  The purchase order orders everything on the vendor&apos;s quote and
+                  names it by number, date and total. No items are listed.
+                </p>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <label
+                      htmlFor="quoteNumber"
+                      className="text-xs font-medium text-slate-700"
+                    >
+                      Quote number
+                    </label>
+                    <input
+                      id="quoteNumber"
+                      name="quoteNumber"
+                      value={quoteNumber}
+                      onChange={(event) => setQuoteNumber(event.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="quoteDate"
+                      className="text-xs font-medium text-slate-700"
+                    >
+                      Quote date
+                    </label>
+                    <input
+                      id="quoteDate"
+                      name="quoteDate"
+                      type="date"
+                      value={quoteDate}
+                      onChange={(event) => setQuoteDate(event.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="quoteTotal"
+                      className="text-xs font-medium text-slate-700"
+                    >
+                      Quote total *
+                    </label>
+                    <input
+                      id="quoteTotal"
+                      name="quoteTotal"
+                      inputMode="decimal"
+                      required
+                      placeholder="0.00"
+                      value={quoteTotal}
+                      onChange={(event) => setQuoteTotal(event.target.value)}
+                      className={`${inputClass} text-right tabular-nums`}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
             <div className={tableFlushWrapperClassName}>
               <table className={tableClassName}>
                 <thead>
@@ -512,6 +645,8 @@ export function PurchaseOrderEditor({
                 </span>
               </p>
             </div>
+              </>
+            )}
           </SectionCard>
 
           <SectionCard title="Vendor quote PDF">
@@ -521,7 +656,11 @@ export function PurchaseOrderEditor({
               accept=".pdf,application/pdf"
               multiple={false}
               label="Drop vendor quote PDF here"
-              description="Attach the vendor's quote for accounts payable. It opens in the preview pane, so the lines can be typed from it."
+              description={
+                entryMode === "quote"
+                  ? "Attach the vendor's quote for accounts payable. It opens in the preview pane, so its number, date and total can be typed from it."
+                  : "Attach the vendor's quote for accounts payable. It opens in the preview pane, so the lines can be typed from it."
+              }
             />
             {initial?.vendorQuoteName && quoteFiles.length === 0 ? (
               <p className="mt-2 text-xs text-slate-500">

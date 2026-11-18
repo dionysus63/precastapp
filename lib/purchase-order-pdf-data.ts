@@ -32,6 +32,13 @@ export type PurchaseOrderForPdf = {
   expectedDate: Date | null;
   enteredBy: string | null;
   notes: string | null;
+  /**
+   * A "quote only" order: placed against the vendor's quote, which the page
+   * names in place of lines. `total` is then the quote's total.
+   */
+  quoteOnly: boolean;
+  quoteNumber: string | null;
+  quoteDate: Date | null;
   vendor: PurchaseOrderVendorForPdf;
   lines: Array<{
     itemCode: string;
@@ -51,6 +58,9 @@ export const purchaseOrderForPdfSelect = {
   expectedDate: true,
   enteredBy: true,
   notes: true,
+  quoteOnly: true,
+  quoteNumber: true,
+  quoteDate: true,
   total: true,
   vendor: {
     select: {
@@ -152,6 +162,12 @@ export function buildPurchaseOrderPdfData(
     orderedBy: clean(purchaseOrder.enteredBy),
     vendor: vendorPartyForPdf(purchaseOrder.vendor),
     shipTo: shipToPartyForPdf(company),
+    quote: purchaseOrder.quoteOnly
+      ? {
+          number: clean(purchaseOrder.quoteNumber),
+          date: formatDateForPdf(purchaseOrder.quoteDate),
+        }
+      : null,
     lines: purchaseOrder.lines.map((line) => ({
       itemCode: clean(line.itemCode),
       description: clean(line.description),

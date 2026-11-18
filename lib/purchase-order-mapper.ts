@@ -26,6 +26,9 @@ type PoWithVendor = {
   enteredBy?: PurchaseOrder["enteredBy"];
   vendorQuotePath?: PurchaseOrder["vendorQuotePath"];
   vendorQuoteName?: PurchaseOrder["vendorQuoteName"];
+  quoteOnly?: PurchaseOrder["quoteOnly"];
+  quoteNumber?: PurchaseOrder["quoteNumber"];
+  quoteDate?: PurchaseOrder["quoteDate"];
   updatedAt?: PurchaseOrder["updatedAt"];
   linesFull?: PurchaseOrderLine[];
 };
@@ -93,6 +96,9 @@ export function mapPurchaseOrderDetail(po: PoWithVendor) {
     enteredBy: po.enteredBy ?? null,
     vendorQuoteName: po.vendorQuoteName ?? null,
     hasVendorQuote: Boolean(po.vendorQuotePath),
+    quoteOnly: po.quoteOnly ?? false,
+    quoteNumber: po.quoteNumber ?? null,
+    quoteDateLabel: po.quoteDate ? formatCalendarDateShort(po.quoteDate) : null,
     updatedAt: po.updatedAt?.toISOString() ?? new Date().toISOString(),
     lines,
     receipts: po.receipts ?? [],
