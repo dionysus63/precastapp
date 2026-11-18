@@ -1,6 +1,9 @@
 import type { PurchaseOrder, PurchaseOrderLine, Vendor } from "@/app/generated/prisma/client";
 import { formatCalendarDateShort } from "@/lib/date-only";
-import { purchaseOrderStatusLabels } from "@/lib/purchase-order-utils";
+import {
+  purchaseOrderJobLabel,
+  purchaseOrderStatusLabels,
+} from "@/lib/purchase-order-utils";
 import { formatReceivingCategoryLabel } from "@/lib/receiving-utils";
 import { purchaseOrderStatusVariant } from "@/lib/status-variants";
 
@@ -33,6 +36,12 @@ type PoWithVendor = {
   quoteDate?: PurchaseOrder["quoteDate"];
   updatedAt?: PurchaseOrder["updatedAt"];
   linesFull?: PurchaseOrderLine[];
+  internalNotes?: PurchaseOrder["internalNotes"];
+  jobName?: PurchaseOrder["jobName"];
+  /** The job on file the order is linked to, when it was loaded. */
+  job?: { id: string; jobNumber: string; projectName: string } | null;
+  /** The contractors the order is for, when they were loaded, in order. */
+  contractors?: Array<{ customer: { id: string; name: string } }>;
 };
 
 export function mapPurchaseOrderListRow(po: PoWithVendor) {
@@ -68,6 +77,12 @@ export function mapPurchaseOrderListRow(po: PoWithVendor) {
     total: po.total.toNumber(),
     /** Who created it: the "Entered by" name on the order. */
     enteredBy: po.enteredBy?.trim() || null,
+    /** The contractors (customers) the purchase is for. */
+    contractors: (po.contractors ?? []).map((entry) => entry.customer),
+    /** The job on file the purchase is for, or null (see jobLabel). */
+    jobId: po.job?.id ?? null,
+    /** The job as shown: the job on file as it is named now, or the typed name. */
+    jobLabel: po.job ? purchaseOrderJobLabel(po.job) : po.jobName?.trim() || null,
     receivedProgress:
       orderedTotal > 0 ? `${receivedTotal} / ${orderedTotal}` : "—",
   };
@@ -97,6 +112,7 @@ export function mapPurchaseOrderDetail(po: PoWithVendor) {
       ? formatCalendarDateShort(po.expectedDate)
       : null,
     notes: po.notes ?? null,
+    internalNotes: po.internalNotes?.trim() || null,
     enteredBy: po.enteredBy ?? null,
     attention: po.attention ?? null,
     vendorQuoteName: po.vendorQuoteName ?? null,

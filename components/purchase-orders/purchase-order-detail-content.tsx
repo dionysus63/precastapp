@@ -54,6 +54,11 @@ type PurchaseOrderDetailContentProps = {
     notes: string | null;
     enteredBy: string | null;
     attention: string | null;
+    /** For the office only: none of these four prints on the purchase order. */
+    internalNotes: string | null;
+    contractors: Array<{ id: string; name: string }>;
+    jobId: string | null;
+    jobLabel: string | null;
     hasVendorQuote: boolean;
     vendorQuoteName: string | null;
     taxable: boolean;
@@ -289,6 +294,46 @@ export function PurchaseOrderDetailContent({
                     {formatUsd(purchaseOrder.total)}
                   </td>
                 </tr>
+                <tr>
+                  <th scope="col" colSpan={3} className={tableHeaderCellStaticClassName}>
+                    Contractor
+                  </th>
+                  <th scope="col" colSpan={3} className={tableHeaderCellStaticClassName}>
+                    Job
+                  </th>
+                </tr>
+                <tr>
+                  <td colSpan={3} className={orderValueCellClassName}>
+                    {purchaseOrder.contractors.length > 0 ? (
+                      <ul className="space-y-0.5">
+                        {purchaseOrder.contractors.map((contractor) => (
+                          <li key={contractor.id}>
+                            <Link
+                              href={`/customers/${contractor.id}`}
+                              className="underline decoration-slate-300 underline-offset-2 hover:decoration-slate-600"
+                            >
+                              {contractor.name}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      orEmpty(null)
+                    )}
+                  </td>
+                  <td colSpan={3} className={orderValueCellClassName}>
+                    {purchaseOrder.jobId && purchaseOrder.jobLabel ? (
+                      <Link
+                        href={`/jobs/${purchaseOrder.jobId}`}
+                        className="underline decoration-slate-300 underline-offset-2 hover:decoration-slate-600"
+                      >
+                        {purchaseOrder.jobLabel}
+                      </Link>
+                    ) : (
+                      orEmpty(purchaseOrder.jobLabel)
+                    )}
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -360,6 +405,14 @@ export function PurchaseOrderDetailContent({
           <SectionCard title="Notes">
             <p className="whitespace-pre-line text-sm text-slate-700">
               {purchaseOrder.notes}
+            </p>
+          </SectionCard>
+        ) : null}
+
+        {purchaseOrder.internalNotes ? (
+          <SectionCard title="Internal notes" description="For the office. Not printed on the purchase order.">
+            <p className="whitespace-pre-line text-sm text-slate-700">
+              {purchaseOrder.internalNotes}
             </p>
           </SectionCard>
         ) : null}

@@ -6,8 +6,13 @@ import { localTodayInput } from "@/lib/date-only";
 import { useCallback, useEffect, useState, useTransition } from "react";
 import {
   createPurchaseOrder,
+  searchContractorsForPurchaseOrder,
+  searchJobsForPurchaseOrder,
   updatePurchaseOrder,
+  type PurchaseOrderContractorOption,
+  type PurchaseOrderJobOption,
 } from "@/app/purchase-orders/actions";
+import { FormTypeahead } from "@/components/common/form-typeahead";
 import {
   isPreviewBesideInputs,
   portraitPreviewDrawerPaneClassName,
@@ -92,6 +97,12 @@ type PurchaseOrderEditorProps = {
       unit: string;
       unitPrice: number;
     }>;
+    /** Notes for the office only; they never print. */
+    internalNotes?: string;
+    /** The contractors (customers) the purchase is for. */
+    contractors?: PurchaseOrderContractorOption[];
+    /** The job the purchase is for: on file (with its id) or typed (id null). */
+    job?: PurchaseOrderJobChoice | null;
     vendorQuoteName?: string | null;
     taxable?: boolean;
     /** A "quote only" order: its quote reference, and its total. */
@@ -101,6 +112,9 @@ type PurchaseOrderEditorProps = {
     quoteTotal?: number;
   };
 };
+
+/** The job box: a job on file, or a name typed in (no id). */
+export type PurchaseOrderJobChoice = { id: string | null; label: string };
 
 /** How the order's content is entered. */
 type EntryMode = "lines" | "quote";
@@ -169,6 +183,21 @@ export function PurchaseOrderEditor({
   // contact and can be changed for this order.
   const [attention, setAttention] = useState(initial?.attention ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
+  // For the office only: none of the next three prints on the purchase order.
+  const [internalNotes, setInternalNotes] = useState(initial?.internalNotes ?? "");
+  const [contractors, setContractors] = useState<PurchaseOrderContractorOption[]>(
+    initial?.contractors ?? [],
+  );
+  const [job, setJob] = useState<PurchaseOrderJobChoice | null>(initial?.job ?? null);
+  // The contractor list offers active customers that are not picked yet.
+  const searchContractors = useCallback(
+    (query: string) =>
+      searchContractorsForPurchaseOrder(
+        query,
+        contractors.map((contractor) => contractor.id),
+      ),
+    [contractors],
+  );
   const [taxable, setTaxable] = useState(initial?.taxable ?? false);
   // The vendor list can grow on this screen ("New vendor").
   const [vendorOptions, setVendorOptions] = useState(vendors);
@@ -337,6 +366,14 @@ export function PurchaseOrderEditor({
     }
     formData.set("entryMode", entryMode);
     formData.set("taxable", taxable ? "true" : "false");
+    // Sent even when empty, so the server knows the boxes were on screen.
+    formData.set("contractorsSent", "1");
+    for (const contractor of contractors) {
+      formData.append("contractorId", contractor.id);
+    }
+    formData.set("jobSent", "1");
+    formData.set("jobId", job?.id ?? "");
+    formData.set("jobName", job?.id ? "" : (job?.label ?? ""));
 
     for (const line of entryMode === "lines" ? lines : []) {
       if (!line.itemCode.trim() && !line.quantityOrdered.trim()) {
@@ -457,6 +494,84 @@ export function PurchaseOrderEditor({
                   </div>
                 </div>
                 <div className={fieldRowClass}>
+                  <div className="min-w-0 max-w-full">
+                    <label htmlFor="contractorBox" className={labelClass}>
+                      Contractor
+                    </label>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {contractors.map((contractor) => (
+                        <span
+                          key={contractor.id}
+                          className="mt-1 inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 pl-3 pr-1.5 text-xs font-medium text-slate-900"
+                        >
+                          {contractor.name}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setContractors((current) =>
+                                current.filter((entry) => entry.id !== contractor.id),
+                              )
+                            }
+                            aria-label={`Remove ${contractor.name}`}
+                            title={`Remove ${contractor.name}`}
+                            className="rounded px-1 text-sm leading-none text-slate-500 hover:bg-slate-200 hover:text-slate-900"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                      <div className="w-64 max-w-full">
+                        <FormTypeahead<PurchaseOrderContractorOption>
+                          inputId="contractorBox"
+                          selectedLabel=""
+                          placeholder={
+                            contractors.length > 0
+                              ? "Add another contractor…"
+                              : "Search contractors…"
+                          }
+                          searchItems={searchContractors}
+                          itemKey={(customer) => customer.id}
+                          itemLabel={(customer) => customer.name}
+                          emptyLabel="No active customer matches."
+                          onSelect={(customer) => {
+                            if (customer) {
+                              setContractors((current) =>
+                                current.some((entry) => entry.id === customer.id)
+                                  ? current
+                                  : [...current, customer],
+                              );
+                            }
+                          }}
+                          inputClassName={fieldClass}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="w-80 max-w-full">
+                    <label htmlFor="jobBox" className={labelClass}>
+                      Job
+                    </label>
+                    <FormTypeahead<PurchaseOrderJobOption>
+                      inputId="jobBox"
+                      selectedLabel={job?.label ?? ""}
+                      placeholder="Search open jobs, or type a name…"
+                      searchItems={searchJobsForPurchaseOrder}
+                      itemKey={(option) => option.id}
+                      itemLabel={(option) => option.label}
+                      emptyLabel="No open job matches."
+                      clearLabel={job ? "No job" : null}
+                      onSelect={(option) =>
+                        setJob(option ? { id: option.id, label: option.label } : null)
+                      }
+                      freeText={{
+                        label: (typed) => `Use "${typed}" as typed (not a job on file)`,
+                        onUse: (typed) => setJob({ id: null, label: typed }),
+                      }}
+                      inputClassName={fieldClass}
+                    />
+                  </div>
+                </div>
+                <div className={fieldRowClass}>
                   <div className="w-52 max-w-full">
                     <label htmlFor="category" className={labelClass}>
                       Category
@@ -536,6 +651,22 @@ export function PurchaseOrderEditor({
                     rows={2}
                     value={notes}
                     onChange={(event) => setNotes(event.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="max-w-2xl">
+                  <label htmlFor="internalNotes" className={labelClass}>
+                    Internal notes{" "}
+                    <span className="font-normal text-slate-500">
+                      (for the office, not on the PDF)
+                    </span>
+                  </label>
+                  <textarea
+                    id="internalNotes"
+                    name="internalNotes"
+                    rows={2}
+                    value={internalNotes}
+                    onChange={(event) => setInternalNotes(event.target.value)}
                     className={inputClass}
                   />
                 </div>

@@ -14,6 +14,7 @@ import {
 import {
   OPEN_PURCHASE_ORDER_STATUSES,
   canEditPurchaseOrder,
+  purchaseOrderJobLabel,
 } from "@/lib/purchase-order-utils";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
@@ -37,6 +38,9 @@ export type PurchaseOrderQuoteInput = {
   total: number;
 };
 
+/** The job a purchase is for: one on file, or a name typed in. */
+export type PurchaseOrderJobInput = { id: string } | { name: string };
+
 export type SavePurchaseOrderInput = {
   vendorId: string;
   category?: ReceivingCategory | null;
@@ -52,6 +56,21 @@ export type SavePurchaseOrderInput = {
   submissionKey?: string | null;
   /** Whether the purchase is taxable; printed, not worked out. */
   taxable?: boolean;
+  /**
+   * Notes for the office only, never printed. Left out: a new order has
+   * none, a saved one keeps what it has.
+   */
+  internalNotes?: string | null;
+  /**
+   * The contractors (customers) the purchase is for, in the order picked.
+   * Left out: a new order has none, a saved one keeps what it has.
+   */
+  contractorIds?: string[];
+  /**
+   * The job the purchase is for: a job on file, a name typed in, or null
+   * for none. Left out: a new order has none, a saved one keeps what it has.
+   */
+  job?: PurchaseOrderJobInput | null;
   /** Ignored when `quote` is given: a quote only order has no lines. */
   lines: PurchaseOrderLineInput[];
   /** Set for a "quote only" purchase order. */
@@ -131,6 +150,55 @@ function purchaseOrderContent(input: SavePurchaseOrderInput) {
   };
 }
 
+/**
+ * What a save stores for the contractors and the job, or nothing for each
+ * the caller left out. The names are kept beside the links (contractorNames,
+ * jobName) because the list sorts and searches by them.
+ */
+async function purchaseOrderLinkFields(
+  tx: Prisma.TransactionClient,
+  input: SavePurchaseOrderInput,
+) {
+  let contractors: { ids: string[]; names: string | null } | undefined;
+  if (input.contractorIds !== undefined) {
+    const ids = [...new Set(input.contractorIds.map((id) => id.trim()).filter(Boolean))];
+    const customers = ids.length
+      ? await tx.customer.findMany({
+          where: { id: { in: ids } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const nameById = new Map(customers.map((customer) => [customer.id, customer.name]));
+    if (ids.some((id) => !nameById.has(id))) {
+      throw new Error("A contractor on this purchase order was not found.");
+    }
+    contractors = {
+      ids,
+      names: ids.map((id) => nameById.get(id)!.trim()).join(", ") || null,
+    };
+  }
+
+  let job: { jobId: string | null; jobName: string | null } | undefined;
+  if (input.job === null) {
+    job = { jobId: null, jobName: null };
+  } else if (input.job !== undefined) {
+    if ("id" in input.job) {
+      const found = await tx.job.findUnique({
+        where: { id: input.job.id },
+        select: { id: true, jobNumber: true, projectName: true },
+      });
+      if (!found) {
+        throw new Error("The job on this purchase order was not found.");
+      }
+      job = { jobId: found.id, jobName: purchaseOrderJobLabel(found) };
+    } else {
+      job = { jobId: null, jobName: input.job.name.trim() || null };
+    }
+  }
+
+  return { contractors, job };
+}
+
 export async function createPurchaseOrderRecord(
   tx: Prisma.TransactionClient,
   input: SavePurchaseOrderInput,
@@ -158,6 +226,8 @@ export async function createPurchaseOrderRecord(
     throw new Error("Vendor is inactive.");
   }
 
+  const links = await purchaseOrderLinkFields(tx, input);
+
   const { sequenceNumber, poNumber } = await allocatePurchaseOrderNumber(
     tx,
     vendor.name,
@@ -180,6 +250,16 @@ export async function createPurchaseOrderRecord(
           : input.attention?.trim() || null,
       submissionKey: input.submissionKey ?? null,
       taxable: input.taxable ?? false,
+      internalNotes: input.internalNotes?.trim() || null,
+      jobId: links.job?.jobId ?? null,
+      jobName: links.job?.jobName ?? null,
+      contractorNames: links.contractors?.names ?? null,
+      contractors: {
+        create: (links.contractors?.ids ?? []).map((customerId, index) => ({
+          customerId,
+          sortOrder: index,
+        })),
+      },
       ...content.quoteFields,
       subtotal: totals.subtotal,
       total: totals.total,
@@ -261,8 +341,12 @@ export async function updatePurchaseOrderRecord(
   }
 
   const { totals } = content;
+  const links = await purchaseOrderLinkFields(tx, input);
 
   await tx.purchaseOrderLine.deleteMany({ where: { purchaseOrderId } });
+  if (links.contractors) {
+    await tx.purchaseOrderContractor.deleteMany({ where: { purchaseOrderId } });
+  }
   await tx.purchaseOrder.update({
     where: { id: purchaseOrderId },
     data: {
@@ -282,6 +366,21 @@ export async function updatePurchaseOrderRecord(
         ? {}
         : { attention: input.attention?.trim() || null }),
       taxable: input.taxable ?? false,
+      ...(input.internalNotes === undefined
+        ? {}
+        : { internalNotes: input.internalNotes?.trim() || null }),
+      ...(links.job ? { jobId: links.job.jobId, jobName: links.job.jobName } : {}),
+      ...(links.contractors
+        ? {
+            contractorNames: links.contractors.names,
+            contractors: {
+              create: links.contractors.ids.map((customerId, index) => ({
+                customerId,
+                sortOrder: index,
+              })),
+            },
+          }
+        : {}),
       ...content.quoteFields,
       subtotal: totals.subtotal,
       total: totals.total,

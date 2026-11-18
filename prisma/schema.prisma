@@ -358,6 +358,7 @@ model Customer {
   quotes              Quote[]
   deliveryTickets     DeliveryTicket[]
   invoices            Invoice[]
+  purchaseOrders      PurchaseOrderContractor[]
 
   // btree for the list's default name sort and status filter; trigram
   // index backs the ILIKE %term% name search (person-level search moved
@@ -461,6 +462,7 @@ model Job {
   favorites       JobFavorite[]
   planSheets      PlanSheet[]
   oneOffDrafts    OneOffDraft[]
+  purchaseOrders  PurchaseOrder[]
 
   @@unique([year, sequenceNumber])
   @@index([customerId])
@@ -1863,19 +1865,46 @@ model PurchaseOrder {
   subtotal        Decimal              @default(0) @db.Decimal(12, 2)
   total           Decimal              @default(0) @db.Decimal(12, 2)
   notes           String?
+  // Notes for the office only: never printed on the purchase order.
+  internalNotes   String?
+  // The job the purchase is for: a job on file (jobId), or a name typed in.
+  // jobName is what the list sorts and searches by: the typed name, or the
+  // linked job's number and project as they were when the order was saved.
+  jobId           String?
+  jobName         String?
+  // The contractors' names as they were when the order was saved, joined
+  // with ", " in the order picked: what the list sorts and searches by.
+  // The links themselves are the PurchaseOrderContractor rows.
+  contractorNames String?
   enteredBy       String?
   submissionKey   String?              @unique
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 
-  vendor   Vendor                 @relation(fields: [vendorId], references: [id], onDelete: Restrict)
-  lines    PurchaseOrderLine[]
-  receipts PurchaseReceiptEntry[]
+  vendor      Vendor                    @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  job         Job?                      @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  lines       PurchaseOrderLine[]
+  receipts    PurchaseReceiptEntry[]
+  contractors PurchaseOrderContractor[]
 
   @@index([vendorId])
+  @@index([jobId])
   @@index([status])
   @@index([category])
   @@index([orderDate])
+}
+
+/// A contractor (customer) a purchase order is for. One order can name several.
+model PurchaseOrderContractor {
+  purchaseOrderId String
+  customerId      String
+  sortOrder       Int    @default(0)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  customer      Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@id([purchaseOrderId, customerId])
+  @@index([customerId])
 }
 
 /// One line on a purchase order.

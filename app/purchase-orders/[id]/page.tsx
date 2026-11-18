@@ -25,6 +25,11 @@ export default async function PurchaseOrderDetailPage({
       include: {
         vendor: { select: { name: true } },
         lines: { orderBy: [{ sortOrder: "asc" }, { lineNumber: "asc" }] },
+        contractors: {
+          orderBy: { sortOrder: "asc" },
+          select: { customer: { select: { id: true, name: true } } },
+        },
+        job: { select: { id: true, jobNumber: true, projectName: true } },
         receipts: {
           orderBy: [{ receiptDate: "desc" }],
           select: {

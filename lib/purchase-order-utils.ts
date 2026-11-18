@@ -129,3 +129,12 @@ export function purchaseOrderCreatorNames(
     a.localeCompare(b, "en", { sensitivity: "base" }),
   );
 }
+
+/** How a job on file is named on a purchase order: "26-014 — Main St Drainage". */
+export function purchaseOrderJobLabel(job: {
+  jobNumber: string;
+  projectName: string;
+}): string {
+  const project = job.projectName.trim();
+  return project ? `${job.jobNumber} — ${project}` : job.jobNumber;
+}

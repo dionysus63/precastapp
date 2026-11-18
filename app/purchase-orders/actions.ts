@@ -21,6 +21,7 @@ import {
   deletePurchaseOrderRecord,
   listOpenPurchaseOrders,
   updatePurchaseOrderRecord,
+  type PurchaseOrderJobInput,
   type PurchaseOrderLineInput,
   type PurchaseOrderQuoteInput,
   type SavePurchaseOrderInput,
@@ -28,7 +29,9 @@ import {
 import {
   canEditPurchaseOrder,
   parsePurchaseOrderStatus,
+  purchaseOrderJobLabel,
 } from "@/lib/purchase-order-utils";
+import { OPEN_JOB_STATUSES } from "@/components/jobs/job-utils";
 import { parseReceivingCategory } from "@/lib/receiving-utils";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { assertUploadAllowed } from "@/lib/upload-validation";
@@ -98,6 +101,16 @@ function parseQuoteFromFormData(formData: FormData): PurchaseOrderQuoteInput {
   };
 }
 
+/** The job box: a job picked from the list wins over a typed name. */
+function parseJobFromFormData(formData: FormData): PurchaseOrderJobInput | null {
+  const jobId = String(formData.get("jobId") ?? "").trim();
+  if (jobId) {
+    return { id: jobId };
+  }
+  const jobName = String(formData.get("jobName") ?? "").trim();
+  return jobName ? { name: jobName } : null;
+}
+
 function parseSaveInput(formData: FormData): SavePurchaseOrderInput {
   const vendorId = String(formData.get("vendorId") ?? "").trim();
   if (!vendorId) {
@@ -133,6 +146,15 @@ function parseSaveInput(formData: FormData): SavePurchaseOrderInput {
       : undefined,
     submissionKey: String(formData.get("submissionKey") ?? "").trim() || null,
     taxable: String(formData.get("taxable") ?? "") === "true",
+    // The three boxes below come from the purchase order screen; a caller
+    // that does not send them leaves what is saved alone.
+    internalNotes: formData.has("internalNotes")
+      ? String(formData.get("internalNotes") ?? "").trim() || null
+      : undefined,
+    contractorIds: formData.has("contractorsSent")
+      ? formData.getAll("contractorId").map(String)
+      : undefined,
+    job: formData.has("jobSent") ? parseJobFromFormData(formData) : undefined,
     lines: quoteOnly ? [] : parseLinesFromFormData(formData),
     quote: quoteOnly ? parseQuoteFromFormData(formData) : null,
   };
@@ -390,4 +412,66 @@ export async function listVendorsForPurchaseOrderForm() {
       },
     }),
   );
+}
+
+export type PurchaseOrderContractorOption = { id: string; name: string };
+export type PurchaseOrderJobOption = { id: string; label: string };
+
+/**
+ * Active customers for the purchase order's Contractor box, by name. The
+ * ones already picked are left out.
+ */
+export async function searchContractorsForPurchaseOrder(
+  query: string,
+  excludeIds: string[] = [],
+): Promise<PurchaseOrderContractorOption[]> {
+  await requirePermission(AppPermission.INVENTORY_MANAGE);
+
+  const trimmed = query.trim();
+  return withDatabaseRetry((client) =>
+    client.customer.findMany({
+      where: {
+        status: "ACTIVE",
+        ...(excludeIds.length ? { id: { notIn: excludeIds } } : {}),
+        ...(trimmed
+          ? { name: { contains: trimmed, mode: "insensitive" as const } }
+          : {}),
+      },
+      orderBy: { name: "asc" },
+      take: 20,
+      select: { id: true, name: true },
+    }),
+  );
+}
+
+/**
+ * Jobs still open (not complete or closed) for the purchase order's Job
+ * box, newest first, by job number, project or contractor.
+ */
+export async function searchJobsForPurchaseOrder(
+  query: string,
+): Promise<PurchaseOrderJobOption[]> {
+  await requirePermission(AppPermission.INVENTORY_MANAGE);
+
+  const trimmed = query.trim();
+  const jobs = await withDatabaseRetry((client) =>
+    client.job.findMany({
+      where: {
+        status: { in: [...OPEN_JOB_STATUSES] },
+        ...(trimmed
+          ? {
+              OR: [
+                { jobNumber: { contains: trimmed, mode: "insensitive" as const } },
+                { projectName: { contains: trimmed, mode: "insensitive" as const } },
+                { customerName: { contains: trimmed, mode: "insensitive" as const } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: [{ year: "desc" }, { sequenceNumber: "desc" }],
+      take: 20,
+      select: { id: true, jobNumber: true, projectName: true },
+    }),
+  );
+  return jobs.map((job) => ({ id: job.id, label: purchaseOrderJobLabel(job) }));
 }
