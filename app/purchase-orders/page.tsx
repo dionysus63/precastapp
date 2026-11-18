@@ -24,11 +24,14 @@ import { parseReceivingCategory } from "@/lib/receiving-utils";
 import {
   tableBodyClassName,
   tableCellClassName,
-  tableClassName,
+  tableCompactClassName,
   tableFlushWrapperClassName,
   tableHeaderCellClassName,
   tableRowClassName,
 } from "@/lib/table-styles";
+
+/** A list cell: one line, so the columns sit close together. */
+const listCellClassName = `${tableCellClassName} whitespace-nowrap`;
 
 /** The search box and the dropdowns: white boxes, so they stand off the gray page. */
 const filterBoxClassName =
@@ -210,7 +213,8 @@ export default async function PurchaseOrdersPage({
           </p>
         ) : (
           <div className={tableFlushWrapperClassName}>
-            <table className={tableClassName}>
+            {/* Tight to the left: each column as wide as what is in it. */}
+            <table className={tableCompactClassName}>
               <thead>
                 <tr>
                   <th className={tableHeaderCellClassName}>PO #</th>
@@ -226,7 +230,7 @@ export default async function PurchaseOrdersPage({
               <tbody className={tableBodyClassName}>
                 {rows.map((row) => (
                   <tr key={row.id} className={tableRowClassName}>
-                    <td className={`${tableCellClassName} font-mono text-2xs font-medium`}>
+                    <td className={`${listCellClassName} font-mono text-2xs font-medium`}>
                       <Link
                         href={`/purchase-orders/${row.id}`}
                         className="text-slate-900 hover:text-slate-700"
@@ -234,22 +238,22 @@ export default async function PurchaseOrdersPage({
                         {row.poNumber}
                       </Link>
                     </td>
-                    <td className={tableCellClassName}>{row.vendorName}</td>
-                    <td className={tableCellClassName}>{row.orderDateLabel}</td>
-                    <td className={tableCellClassName}>
+                    <td className={listCellClassName}>{row.vendorName}</td>
+                    <td className={listCellClassName}>{row.orderDateLabel}</td>
+                    <td className={listCellClassName}>
                       {row.enteredBy ?? <span className="text-slate-500">—</span>}
                     </td>
-                    <td className={tableCellClassName}>
+                    <td className={listCellClassName}>
                       <StatusBadge label={row.categoryLabel} variant="neutral" />
                     </td>
-                    <td className={tableCellClassName}>
+                    <td className={listCellClassName}>
                       <StatusBadge
                         label={row.statusLabel}
                         variant={row.statusVariant}
                       />
                     </td>
-                    <td className={tableCellClassName}>{row.receivedProgress}</td>
-                    <td className={tableCellClassName}>{formatUsd(row.total)}</td>
+                    <td className={listCellClassName}>{row.receivedProgress}</td>
+                    <td className={listCellClassName}>{formatUsd(row.total)}</td>
                   </tr>
                 ))}
               </tbody>
