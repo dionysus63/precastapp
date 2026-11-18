@@ -1,18 +1,24 @@
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { PurchaseOrderEditor } from "@/components/purchase-orders/purchase-order-editor";
 import { listVendorsForPurchaseOrderForm } from "@/app/purchase-orders/actions";
+import { getCurrentUser } from "@/lib/auth/session";
 
-import { BackButton } from "@/components/dashboard/back-button";
 export default async function NewPurchaseOrderPage() {
-  const vendors = await listVendorsForPurchaseOrderForm();
+  const [vendors, user] = await Promise.all([
+    listVendorsForPurchaseOrderForm(),
+    getCurrentUser(),
+  ]);
 
   return (
-    <DashboardShell
-      title="New Purchase Order"
-    >
-      <BackButton href="/purchase-orders" label="Back to Purchase Orders" />
-
-      <PurchaseOrderEditor mode="create" vendors={vendors} />
+    // Full width: the live purchase order PDF sits beside the inputs.
+    <DashboardShell title="New Purchase Order" width="full">
+      <PurchaseOrderEditor
+        mode="create"
+        vendors={vendors}
+        backHref="/purchase-orders"
+        backLabel="Back to Purchase Orders"
+        defaultEnteredBy={user?.displayName ?? ""}
+      />
     </DashboardShell>
   );
 }

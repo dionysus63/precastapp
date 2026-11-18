@@ -6,7 +6,6 @@ import { canEditPurchaseOrder } from "@/lib/purchase-order-utils";
 import { toCalendarDateInput } from "@/lib/date-only";
 import { withDatabaseRetry } from "@/lib/prisma";
 
-import { BackButton } from "@/components/dashboard/back-button";
 export default async function EditPurchaseOrderPage({
   params,
 }: {
@@ -35,15 +34,14 @@ export default async function EditPurchaseOrderPage({
   }
 
   return (
-    <DashboardShell
-      title={`Edit ${purchaseOrder.poNumber}`}
-    >
-      <BackButton href={`/purchase-orders/${id}`} label="Back to PO" />
-
+    // Full width: the live purchase order PDF sits beside the inputs.
+    <DashboardShell title={`Edit ${purchaseOrder.poNumber}`} width="full">
       <PurchaseOrderEditor
         mode="edit"
         purchaseOrderId={id}
         vendors={vendors}
+        backHref={`/purchase-orders/${id}`}
+        backLabel="Back to PO"
         initial={{
           vendorId: purchaseOrder.vendorId,
           category: purchaseOrder.category ?? "",

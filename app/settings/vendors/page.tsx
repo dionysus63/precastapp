@@ -6,6 +6,8 @@ import {
   createVendorFormAction,
   updateVendorFormAction,
 } from "@/app/settings/vendors/actions";
+import { purchaseOrderPrefix } from "@/lib/purchase-order-number";
+import { vendorPartyForPdf } from "@/lib/purchase-order-pdf-data";
 import { purchaseOrderCategoryFormOptions } from "@/lib/purchase-order-utils";
 import { formatReceivingCategoryLabel } from "@/lib/receiving-utils";
 import { withDatabaseRetry } from "@/lib/prisma";
@@ -20,6 +22,17 @@ import {
   tableRowClassName,
 } from "@/lib/table-styles";
 import { BackButton } from "@/components/dashboard/back-button";
+/** Field names and labels of a vendor's address and contact, in form order. */
+const vendorContactFields = [
+  { name: "address", label: "Street address", wide: true },
+  { name: "city", label: "City", wide: false },
+  { name: "state", label: "State", wide: false },
+  { name: "zip", label: "ZIP", wide: false },
+  { name: "phone", label: "Phone", wide: false },
+  { name: "contactName", label: "Contact (Attn:)", wide: false },
+  { name: "email", label: "Email", wide: false },
+] as const;
+
 type VendorsPageProps = {
   searchParams: Promise<{ success?: string; error?: string }>;
 };
@@ -56,6 +69,8 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
               <thead>
                 <tr>
                   <th className={tableHeaderCellClassName}>Name</th>
+                  <th className={tableHeaderCellClassName}>PO letters</th>
+                  <th className={tableHeaderCellClassName}>Address and contact</th>
                   <th className={tableHeaderCellClassName}>Default category</th>
                   <th className={tableHeaderCellClassName}>POs</th>
                   <th className={tableHeaderCellClassName}>Status</th>
@@ -68,6 +83,18 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
                   <tr key={vendor.id} className={tableRowClassName}>
                     <td className={`${tableCellClassName} font-medium text-slate-900`}>
                       {vendor.name}
+                    </td>
+                    <td className={`${tableCellClassName} whitespace-nowrap tabular-nums text-slate-700`}>
+                      {purchaseOrderPrefix(vendor.name)}
+                    </td>
+                    <td className={`${tableCellClassName} text-slate-700`}>
+                      {vendorPartyForPdf(vendor).lines.length > 0
+                        ? vendorPartyForPdf(vendor).lines.map((line) => (
+                            <span key={line} className="block">
+                              {line}
+                            </span>
+                          ))
+                        : "—"}
                     </td>
                     <td className={`${tableCellClassName} text-slate-700`}>
                       {vendor.defaultCategory
@@ -108,6 +135,23 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
                               required
                               className={inputClass}
                             />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {vendorContactFields.map((field) => (
+                              <div
+                                key={field.name}
+                                className={field.wide ? "col-span-2" : ""}
+                              >
+                                <label className="text-2xs font-medium text-slate-600">
+                                  {field.label}
+                                </label>
+                                <input
+                                  name={field.name}
+                                  defaultValue={vendor[field.name] ?? ""}
+                                  className={inputClass}
+                                />
+                              </div>
+                            ))}
                           </div>
                           <div>
                             <label className="text-2xs font-medium text-slate-600">
@@ -217,6 +261,21 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
               className={inputClass}
             />
           </div>
+          {vendorContactFields.map((field) => (
+            <div key={field.name} className={field.wide ? "sm:col-span-2" : ""}>
+              <label
+                htmlFor={`new-vendor-${field.name}`}
+                className="text-xs font-medium text-slate-700"
+              >
+                {field.label}
+              </label>
+              <input
+                id={`new-vendor-${field.name}`}
+                name={field.name}
+                className={inputClass}
+              />
+            </div>
+          ))}
           <div className="sm:col-span-2">
             <label htmlFor="notes" className="text-xs font-medium text-slate-700">
               Notes

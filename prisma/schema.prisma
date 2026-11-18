@@ -1797,6 +1797,15 @@ model Vendor {
   name            String             @unique
   status          VendorStatus       @default(ACTIVE)
   defaultCategory ReceivingCategory?
+  /// Where purchase orders are addressed; printed on the purchase order PDF.
+  address         String?
+  city            String?
+  state           String?
+  zip             String?
+  phone           String?
+  email           String?
+  /// Who orders go to at the vendor ("Attn:" on the purchase order PDF).
+  contactName     String?
   notes           String?
   sortOrder       Int                @default(0)
   createdAt       DateTime           @default(now())
@@ -1808,7 +1817,18 @@ model Vendor {
   @@index([sortOrder])
 }
 
-/// Global sequence counter for purchase order numbers (year=0 row; PO10001+).
+/// Counter for purchase order numbers, one row per vendor prefix: the first
+/// two letters or digits of the vendor name ("HA" gives HA-0001, HA-0002...).
+/// Vendors that share a prefix share the row, so a number is never repeated.
+model PurchaseOrderPrefixSequence {
+  prefix     String   @id
+  lastNumber Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+/// No longer written: the global counter behind the old PO10001 style numbers
+/// (year=0 row). Purchase orders numbered that way keep their numbers.
 model PurchaseOrderSequence {
   id         String   @id @default(cuid())
   year       Int      @unique

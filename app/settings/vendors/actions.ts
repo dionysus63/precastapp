@@ -8,6 +8,21 @@ import { parseReceivingCategory } from "@/lib/receiving-utils";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { translatePrismaError } from "@/lib/server/action-errors";
 
+/** The address and contact fields, blank ones stored as empty (null). */
+function parseVendorContact(formData: FormData) {
+  const field = (name: string) =>
+    String(formData.get(name) ?? "").trim() || null;
+  return {
+    address: field("address"),
+    city: field("city"),
+    state: field("state"),
+    zip: field("zip"),
+    phone: field("phone"),
+    email: field("email"),
+    contactName: field("contactName"),
+  };
+}
+
 function revalidateVendorPaths() {
   revalidatePath("/settings/vendors");
   revalidatePath("/settings");
@@ -44,6 +59,7 @@ export async function createVendorFormAction(formData: FormData) {
       client.vendor.create({
         data: {
           name,
+          ...parseVendorContact(formData),
           notes,
           sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,
           defaultCategory: defaultCategory as ReceivingCategory | null,
@@ -98,6 +114,7 @@ export async function updateVendorFormAction(formData: FormData) {
         where: { id },
         data: {
           name,
+          ...parseVendorContact(formData),
           notes,
           status,
           sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,

@@ -5,7 +5,11 @@ import type {
   ReceivingCategory,
 } from "@/app/generated/prisma/client";
 import { Prisma as PrismaNamespace } from "@/app/generated/prisma/client";
-import { allocatePurchaseOrderNumber } from "@/lib/purchase-order-number";
+import {
+  allocatePurchaseOrderNumber,
+  purchaseOrderNumberPrefix,
+  purchaseOrderPrefix,
+} from "@/lib/purchase-order-number";
 import {
   OPEN_PURCHASE_ORDER_STATUSES,
   canEditPurchaseOrder,
@@ -89,7 +93,7 @@ export async function createPurchaseOrderRecord(
 
   const vendor = await tx.vendor.findUnique({
     where: { id: input.vendorId },
-    select: { id: true, status: true },
+    select: { id: true, name: true, status: true },
   });
   if (!vendor) {
     throw new Error("Vendor not found.");
@@ -98,7 +102,10 @@ export async function createPurchaseOrderRecord(
     throw new Error("Vendor is inactive.");
   }
 
-  const { sequenceNumber, poNumber } = await allocatePurchaseOrderNumber(tx);
+  const { sequenceNumber, poNumber } = await allocatePurchaseOrderNumber(
+    tx,
+    vendor.name,
+  );
   const totals = computePurchaseOrderTotals(input.lines);
 
   const purchaseOrder = await tx.purchaseOrder.create({
@@ -144,7 +151,13 @@ export async function updatePurchaseOrderRecord(
 
   const existing = await tx.purchaseOrder.findUnique({
     where: { id: purchaseOrderId },
-    select: { id: true, status: true, updatedAt: true },
+    select: {
+      id: true,
+      status: true,
+      updatedAt: true,
+      vendorId: true,
+      poNumber: true,
+    },
   });
   if (!existing) {
     throw new Error("Purchase order not found.");
@@ -161,12 +174,42 @@ export async function updatePurchaseOrderRecord(
     );
   }
 
+  // The number carries the vendor's letters, so a purchase order moved to a
+  // vendor with other letters takes the next number of that vendor. The old
+  // number is not given out again. Same vendor, or same letters: no change,
+  // and that includes the old PO10001 style numbers.
+  let renumbered: { sequenceNumber: number; poNumber: string } | null = null;
+  if (input.vendorId !== existing.vendorId) {
+    const vendor = await tx.vendor.findUnique({
+      where: { id: input.vendorId },
+      select: { name: true, status: true },
+    });
+    if (!vendor) {
+      throw new Error("Vendor not found.");
+    }
+    if (vendor.status !== "ACTIVE") {
+      throw new Error("Vendor is inactive.");
+    }
+    if (
+      purchaseOrderNumberPrefix(existing.poNumber) !==
+      purchaseOrderPrefix(vendor.name)
+    ) {
+      renumbered = await allocatePurchaseOrderNumber(tx, vendor.name);
+    }
+  }
+
   const totals = computePurchaseOrderTotals(input.lines);
 
   await tx.purchaseOrderLine.deleteMany({ where: { purchaseOrderId } });
   await tx.purchaseOrder.update({
     where: { id: purchaseOrderId },
     data: {
+      ...(renumbered
+        ? {
+            poNumber: renumbered.poNumber,
+            sequenceNumber: renumbered.sequenceNumber,
+          }
+        : {}),
       vendorId: input.vendorId,
       category: input.category ?? null,
       orderDate: input.orderDate,
