@@ -60,8 +60,26 @@ export function parsePurchaseOrderStatus(
   return null;
 }
 
+/**
+ * Whether what is ordered can still change: the vendor, the category, the
+ * line items or the quote. Not once a delivery was received (the received
+ * quantities sit on the lines) and not on a cancelled order. Everything else
+ * on a purchase order can be edited at any time.
+ */
 export function canEditPurchaseOrder(status: PurchaseOrderStatus): boolean {
   return status === "DRAFT" || status === "ISSUED";
+}
+
+/** Why what is ordered is locked, for the edit screen; null while it is not. */
+export function purchaseOrderContentLockReason(
+  status: PurchaseOrderStatus,
+): string | null {
+  if (canEditPurchaseOrder(status)) {
+    return null;
+  }
+  return status === "CANCELLED"
+    ? "This purchase order is cancelled, so its vendor, category and items stay as they are. Everything else can still be changed."
+    : "Deliveries were received against this purchase order, so its vendor, category and items stay as they are. Everything else can still be changed.";
 }
 
 export function formatPurchaseOrderProgress(
@@ -128,4 +146,13 @@ export function purchaseOrderCreatorNames(
   return [...byKey.values()].sort((a, b) =>
     a.localeCompare(b, "en", { sensitivity: "base" }),
   );
+}
+
+/** How a job on file is named on a purchase order: "26-014 — Main St Drainage". */
+export function purchaseOrderJobLabel(job: {
+  jobNumber: string;
+  projectName: string;
+}): string {
+  const project = job.projectName.trim();
+  return project ? `${job.jobNumber} — ${project}` : job.jobNumber;
 }

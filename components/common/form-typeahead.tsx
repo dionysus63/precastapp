@@ -17,6 +17,16 @@ type FormTypeaheadProps<T> = {
   inputClassName: string;
   /** When true, Enter selects the first match without submitting a parent form. */
   preventEnterSubmit?: boolean;
+  /**
+   * Lets what was typed be the answer itself (a job that is not on file):
+   * a last row in the list offers it, and Enter takes it when nothing
+   * matches.
+   */
+  freeText?: {
+    /** The row's wording for the typed text, e.g. `Use "Smith yard" as typed`. */
+    label: (query: string) => string;
+    onUse: (query: string) => void;
+  };
 };
 
 export function FormTypeahead<T>({
@@ -33,6 +43,7 @@ export function FormTypeahead<T>({
   disabled = false,
   inputClassName,
   preventEnterSubmit = true,
+  freeText,
 }: FormTypeaheadProps<T>) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -67,6 +78,13 @@ export function FormTypeahead<T>({
     closeDropdown();
   }
 
+  const typedText = query.trim();
+
+  function handleUseTyped() {
+    freeText?.onUse(typedText);
+    closeDropdown();
+  }
+
   function handleContainerBlur(event: React.FocusEvent<HTMLDivElement>) {
     if (!containerRef.current?.contains(event.relatedTarget as Node | null)) {
       closeDropdown();
@@ -82,6 +100,8 @@ export function FormTypeahead<T>({
       event.preventDefault();
       if (open && items.length > 0) {
         handleSelect(items[0]!);
+      } else if (open && freeText && typedText && !isSearching && hasLoaded) {
+        handleUseTyped();
       }
     }
   }
@@ -147,6 +167,17 @@ export function FormTypeahead<T>({
             <p className="px-3 py-1.5 text-slate-400">Searching…</p>
           ) : items.length === 0 ? (
             <p className="px-3 py-1.5 text-slate-500">{emptyLabel}</p>
+          ) : null}
+          {freeText && typedText ? (
+            <button
+              type="button"
+              role="option"
+              aria-selected={false}
+              onClick={handleUseTyped}
+              className="block w-full border-t border-slate-100 px-3 py-1.5 text-left font-medium text-slate-700 hover:bg-slate-50"
+            >
+              {freeText.label(typedText)}
+            </button>
           ) : null}
         </div>
       ) : null}

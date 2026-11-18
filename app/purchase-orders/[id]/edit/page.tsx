@@ -1,11 +1,14 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { PurchaseOrderEditor } from "@/components/purchase-orders/purchase-order-editor";
 import { listVendorsForPurchaseOrderForm } from "@/app/purchase-orders/actions";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/session";
-import { canEditPurchaseOrder } from "@/lib/purchase-order-utils";
+import {
+  purchaseOrderContentLockReason,
+  purchaseOrderJobLabel,
+} from "@/lib/purchase-order-utils";
 import { toCalendarDateInput } from "@/lib/date-only";
 import { withDatabaseRetry } from "@/lib/prisma";
 
@@ -22,6 +25,17 @@ export default async function EditPurchaseOrderPage({
         where: { id },
         include: {
           lines: { orderBy: [{ sortOrder: "asc" }, { lineNumber: "asc" }] },
+          contractors: {
+            orderBy: { sortOrder: "asc" },
+            select: { customer: { select: { id: true, name: true } } },
+          },
+          jobs: {
+            orderBy: { sortOrder: "asc" },
+            select: {
+              name: true,
+              job: { select: { id: true, jobNumber: true, projectName: true } },
+            },
+          },
         },
       }),
     ),
@@ -37,10 +51,6 @@ export default async function EditPurchaseOrderPage({
     notFound();
   }
 
-  if (!canEditPurchaseOrder(purchaseOrder.status)) {
-    redirect(`/purchase-orders/${id}`);
-  }
-
   return (
     // Full width: the live purchase order PDF sits beside the inputs.
     <DashboardShell title={`Edit ${purchaseOrder.poNumber}`} width="full">
@@ -51,6 +61,7 @@ export default async function EditPurchaseOrderPage({
         backHref={`/purchase-orders/${id}`}
         backLabel="Back to PO"
         canAddVendor={canAddVendor}
+        contentLockReason={purchaseOrderContentLockReason(purchaseOrder.status)}
         initial={{
           vendorId: purchaseOrder.vendorId,
           category: purchaseOrder.category ?? "",
@@ -61,6 +72,13 @@ export default async function EditPurchaseOrderPage({
           notes: purchaseOrder.notes ?? "",
           enteredBy: purchaseOrder.enteredBy ?? "",
           attention: purchaseOrder.attention ?? "",
+          internalNotes: purchaseOrder.internalNotes ?? "",
+          contractors: purchaseOrder.contractors.map((entry) => entry.customer),
+          jobs: purchaseOrder.jobs.map((entry) =>
+            entry.job
+              ? { id: entry.job.id, label: purchaseOrderJobLabel(entry.job) }
+              : { id: null, label: entry.name },
+          ),
           updatedAt: purchaseOrder.updatedAt.toISOString(),
           vendorQuoteName: purchaseOrder.vendorQuoteName,
           taxable: purchaseOrder.taxable,
