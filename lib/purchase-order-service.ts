@@ -9,6 +9,7 @@ import {
   allocatePurchaseOrderNumber,
   purchaseOrderNumberPrefix,
   purchaseOrderPrefix,
+  releasePurchaseOrderNumber,
 } from "@/lib/purchase-order-number";
 import {
   OPEN_PURCHASE_ORDER_STATUSES,
@@ -299,6 +300,57 @@ export async function updatePurchaseOrderRecord(
       },
     },
   });
+}
+
+/**
+ * Deletes a purchase order for good: the order and its lines. Refused once
+ * anything was received against it, because the receiving entries and the
+ * stock they added would be left pointing at nothing; such an order is
+ * cancelled instead. Returns what the caller needs to finish the job (the
+ * vendor quote on disk) and to tell the user what happened.
+ */
+export async function deletePurchaseOrderRecord(
+  tx: Prisma.TransactionClient,
+  purchaseOrderId: string,
+): Promise<{
+  poNumber: string;
+  vendorQuotePath: string | null;
+  numberReleased: boolean;
+}> {
+  const existing = await tx.purchaseOrder.findUnique({
+    where: { id: purchaseOrderId },
+    select: {
+      poNumber: true,
+      sequenceNumber: true,
+      vendorQuotePath: true,
+      _count: { select: { receipts: true } },
+      lines: { select: { quantityReceived: true } },
+    },
+  });
+  if (!existing) {
+    throw new Error("Purchase order not found.");
+  }
+  const received =
+    existing._count.receipts > 0 ||
+    existing.lines.some((line) => line.quantityReceived.greaterThan(0));
+  if (received) {
+    throw new Error(
+      `${existing.poNumber} has deliveries received against it and cannot be deleted. Cancel it instead.`,
+    );
+  }
+
+  // The lines go with it (onDelete: Cascade).
+  await tx.purchaseOrder.delete({ where: { id: purchaseOrderId } });
+  const numberReleased = await releasePurchaseOrderNumber(
+    tx,
+    existing.poNumber,
+    existing.sequenceNumber,
+  );
+  return {
+    poNumber: existing.poNumber,
+    vendorQuotePath: existing.vendorQuotePath,
+    numberReleased,
+  };
 }
 
 export async function refreshPurchaseOrderStatus(

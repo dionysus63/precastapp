@@ -78,6 +78,29 @@ export async function allocatePurchaseOrderNumber(
 }
 
 /**
+ * Gives a deleted purchase order's number back, when it was the newest one of
+ * its letters: the next order for those letters then takes it again instead
+ * of leaving a gap. An older number stays a gap (numbers after it are in
+ * use), and the old "PO10001" style numbers have no run to give back to.
+ * Returns whether the number was given back.
+ */
+export async function releasePurchaseOrderNumber(
+  tx: Prisma.TransactionClient,
+  poNumber: string,
+  sequenceNumber: number,
+): Promise<boolean> {
+  const prefix = purchaseOrderNumberPrefix(poNumber);
+  if (!prefix || formatPurchaseOrderNumber(prefix, sequenceNumber) !== poNumber) {
+    return false;
+  }
+  const released = await tx.purchaseOrderPrefixSequence.updateMany({
+    where: { prefix, lastNumber: sequenceNumber },
+    data: { lastNumber: sequenceNumber - 1 },
+  });
+  return released.count > 0;
+}
+
+/**
  * The number the next purchase order for this vendor would get, without
  * taking it. For showing on screen only: the real number is given out when
  * the purchase order is saved, and can be higher if someone else saved one

@@ -1,20 +1,24 @@
 "use server";
 
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, rmdir, unlink, writeFile } from "fs/promises";
+import path from "path";
 import { revalidatePath } from "next/cache";
 import {
   AppPermission,
   type PurchaseOrderStatus,
   type ReceivingCategory,
 } from "@/app/generated/prisma/client";
+import { hasPermission } from "@/lib/auth/permissions";
 import { requirePermission } from "@/lib/auth/session";
 import { parseCalendarDate } from "@/lib/date-only";
 import { sanitizeFileName, resolveUniqueFilePath } from "@/lib/file-upload-utils";
 import {
+  isVendorQuotePathInsideRoot,
   resolvePurchaseOrderDirectory,
 } from "@/lib/purchase-order-path";
 import {
   createPurchaseOrderRecord,
+  deletePurchaseOrderRecord,
   listOpenPurchaseOrders,
   updatePurchaseOrderRecord,
   type PurchaseOrderLineInput,
@@ -290,6 +294,47 @@ export async function updatePurchaseOrderStatus(
         error instanceof Error
           ? translatePrismaError(error).message
           : "Could not update status.",
+    };
+  }
+}
+
+/**
+ * Deletes a purchase order for good. The screen asks first. The vendor quote
+ * saved with it is removed from disk too, for a user who may manage files
+ * (FILES_MANAGE); for anyone else the file stays where it is.
+ */
+export async function deletePurchaseOrder(purchaseOrderId: string) {
+  const user = await requirePermission(AppPermission.INVENTORY_MANAGE);
+
+  try {
+    const deleted = await withDatabaseRetry((client) =>
+      client.$transaction((tx) => deletePurchaseOrderRecord(tx, purchaseOrderId)),
+    );
+
+    const quotePath = deleted.vendorQuotePath;
+    if (
+      quotePath &&
+      isVendorQuotePathInsideRoot(quotePath) &&
+      (await hasPermission(user, AppPermission.FILES_MANAGE))
+    ) {
+      // The order is gone either way; a file that will not go is left behind.
+      await unlink(quotePath).catch(() => {});
+      // Only an empty folder goes: rmdir refuses one that still holds files.
+      await rmdir(path.dirname(quotePath)).catch(() => {});
+    }
+
+    revalidatePurchaseOrderPaths(purchaseOrderId);
+    return {
+      success: true,
+      poNumber: deleted.poNumber,
+      numberReleased: deleted.numberReleased,
+    };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? translatePrismaError(error).message
+          : "Could not delete purchase order.",
     };
   }
 }
