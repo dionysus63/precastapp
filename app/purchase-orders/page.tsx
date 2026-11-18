@@ -145,7 +145,13 @@ export default async function PurchaseOrdersPage({
             orderBy: { sortOrder: "asc" },
             select: { customer: { select: { id: true, name: true } } },
           },
-          job: { select: { id: true, jobNumber: true, projectName: true } },
+          jobs: {
+            orderBy: { sortOrder: "asc" },
+            select: {
+              name: true,
+              job: { select: { id: true, jobNumber: true, projectName: true } },
+            },
+          },
         },
       }),
       client.vendor.findMany({
@@ -166,11 +172,10 @@ export default async function PurchaseOrdersPage({
         select: { id: true, name: true },
       }),
       // Every job named on an order, picked or typed, for the job dropdown.
-      client.purchaseOrder.findMany({
-        where: { OR: [{ jobId: { not: null } }, { jobName: { not: null } }] },
-        distinct: ["jobId", "jobName"],
+      client.purchaseOrderJob.findMany({
+        distinct: ["jobId", "name"],
         select: {
-          jobName: true,
+          name: true,
           job: { select: { id: true, jobNumber: true, projectName: true } },
         },
       }),
@@ -374,7 +379,11 @@ export default async function PurchaseOrdersPage({
                       )}
                     </td>
                     <td className={wrappingCellClassName}>
-                      {row.jobLabel ?? <span className="text-slate-500">—</span>}
+                      {row.jobs.length ? (
+                        row.jobs.map((job) => job.label).join(", ")
+                      ) : (
+                        <span className="text-slate-500">—</span>
+                      )}
                     </td>
                     <td className={listCellClassName}>
                       <StatusBadge label={row.categoryLabel} variant="neutral" />

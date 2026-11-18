@@ -57,8 +57,8 @@ type PurchaseOrderDetailContentProps = {
     /** For the office only: none of these four prints on the purchase order. */
     internalNotes: string | null;
     contractors: Array<{ id: string; name: string }>;
-    jobId: string | null;
-    jobLabel: string | null;
+    /** Each job the purchase is for: on file (with its id) or typed (id null). */
+    jobs: Array<{ id: string | null; label: string }>;
     hasVendorQuote: boolean;
     vendorQuoteName: string | null;
     taxable: boolean;
@@ -153,23 +153,25 @@ export function PurchaseOrderDetailContent({
     <div className={portraitPreviewViewSplitClassName}>
       <div className="min-w-0 max-w-4xl space-y-4">
         <div className="flex flex-wrap gap-2">
+          {/* Any purchase order can be edited. Once deliveries came in, or it
+              was cancelled, the edit screen keeps what was ordered as it is. */}
+          {canManage ? (
+            <Link
+              href={`/purchase-orders/${purchaseOrder.id}/edit`}
+              className="rounded-lg btn-plain px-3 py-2 text-xs font-semibold"
+            >
+              Edit
+            </Link>
+          ) : null}
           {canManage && purchaseOrder.status === "DRAFT" ? (
-            <>
-              <Link
-                href={`/purchase-orders/${purchaseOrder.id}/edit`}
-                className="rounded-lg btn-plain px-3 py-2 text-xs font-semibold"
-              >
-                Edit
-              </Link>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => runStatus("ISSUED")}
-                className="rounded-lg btn-main px-3 py-2 text-xs font-semibold disabled:opacity-60"
-              >
-                Issue PO
-              </button>
-            </>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => runStatus("ISSUED")}
+              className="rounded-lg btn-main px-3 py-2 text-xs font-semibold disabled:opacity-60"
+            >
+              Issue PO
+            </button>
           ) : null}
           {canManage &&
           purchaseOrder.category &&
@@ -322,15 +324,25 @@ export function PurchaseOrderDetailContent({
                     )}
                   </td>
                   <td colSpan={3} className={orderValueCellClassName}>
-                    {purchaseOrder.jobId && purchaseOrder.jobLabel ? (
-                      <Link
-                        href={`/jobs/${purchaseOrder.jobId}`}
-                        className="underline decoration-slate-300 underline-offset-2 hover:decoration-slate-600"
-                      >
-                        {purchaseOrder.jobLabel}
-                      </Link>
+                    {purchaseOrder.jobs.length > 0 ? (
+                      <ul className="space-y-0.5">
+                        {purchaseOrder.jobs.map((job) => (
+                          <li key={job.id ?? `typed:${job.label}`}>
+                            {job.id ? (
+                              <Link
+                                href={`/jobs/${job.id}`}
+                                className="underline decoration-slate-300 underline-offset-2 hover:decoration-slate-600"
+                              >
+                                {job.label}
+                              </Link>
+                            ) : (
+                              job.label
+                            )}
+                          </li>
+                        ))}
+                      </ul>
                     ) : (
-                      orEmpty(purchaseOrder.jobLabel)
+                      orEmpty(null)
                     )}
                   </td>
                 </tr>

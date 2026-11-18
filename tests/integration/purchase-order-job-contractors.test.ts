@@ -31,7 +31,11 @@ const base = () => ({ vendorId, orderDate, lines });
 const load = (id: string) =>
   prisma.purchaseOrder.findUniqueOrThrow({
     where: { id },
-    include: { contractors: { orderBy: { sortOrder: "asc" } } },
+    include: {
+      contractors: { orderBy: { sortOrder: "asc" } },
+      jobs: { orderBy: { sortOrder: "asc" }, select: { jobId: true, name: true } },
+      lines: { orderBy: { sortOrder: "asc" } },
+    },
   });
 
 beforeAll(async () => {
@@ -63,15 +67,15 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-describe("contractors, job and internal notes on a purchase order", () => {
+describe("contractors, jobs and internal notes on a purchase order", () => {
   it("saves none of them when they are left out", async () => {
     const id = await prisma.$transaction((tx) => createPurchaseOrderRecord(tx, base()));
     const saved = await load(id);
     expect(saved.contractors).toEqual([]);
+    expect(saved.jobs).toEqual([]);
     expect(saved).toMatchObject({
       contractorNames: null,
-      jobId: null,
-      jobName: null,
+      jobNames: null,
       internalNotes: null,
     });
   });
@@ -82,17 +86,40 @@ describe("contractors, job and internal notes on a purchase order", () => {
         ...base(),
         internalNotes: "Call before delivery",
         contractorIds: [betaId, alphaId, betaId],
-        job: { id: jobId },
+        jobs: [{ id: jobId }],
       }),
     );
     const saved = await load(id);
     expect(saved.contractors.map((entry) => entry.customerId)).toEqual([betaId, alphaId]);
     expect(saved.contractorNames).toBe(`${tag} Beta Excavating, ${tag} Alpha Paving`);
+    expect(saved.jobs).toEqual([{ jobId, name: jobLabel }]);
     expect(saved).toMatchObject({
-      jobId,
-      jobName: jobLabel,
+      jobNames: jobLabel,
       internalNotes: "Call before delivery",
     });
+  });
+
+  it("saves several jobs in the order picked, on file and typed, once each", async () => {
+    const id = await prisma.$transaction((tx) =>
+      createPurchaseOrderRecord(tx, {
+        ...base(),
+        jobs: [
+          { name: " Yard stock " },
+          { id: jobId },
+          { name: "yard STOCK" },
+          { id: jobId },
+          { name: "   " },
+          { name: "Bridge repair" },
+        ],
+      }),
+    );
+    const saved = await load(id);
+    expect(saved.jobs).toEqual([
+      { jobId: null, name: "Yard stock" },
+      { jobId, name: jobLabel },
+      { jobId: null, name: "Bridge repair" },
+    ]);
+    expect(saved.jobNames).toBe(`Yard stock, ${jobLabel}, Bridge repair`);
   });
 
   it("keeps them on an edit that does not send them, and changes them on one that does", async () => {
@@ -101,38 +128,43 @@ describe("contractors, job and internal notes on a purchase order", () => {
         ...base(),
         internalNotes: "First note",
         contractorIds: [alphaId],
-        job: { id: jobId },
+        jobs: [{ id: jobId }],
       }),
     );
 
     await prisma.$transaction((tx) => updatePurchaseOrderRecord(tx, id, base()));
     let saved = await load(id);
     expect(saved.contractors.map((entry) => entry.customerId)).toEqual([alphaId]);
-    expect(saved).toMatchObject({ jobId, internalNotes: "First note" });
+    expect(saved.jobs).toEqual([{ jobId, name: jobLabel }]);
+    expect(saved).toMatchObject({ internalNotes: "First note" });
 
     await prisma.$transaction((tx) =>
       updatePurchaseOrderRecord(tx, id, {
         ...base(),
         internalNotes: "",
         contractorIds: [betaId],
-        job: { name: "  Yard stock " },
+        jobs: [{ name: "  Yard stock " }, { id: jobId }],
       }),
     );
     saved = await load(id);
     expect(saved.contractors.map((entry) => entry.customerId)).toEqual([betaId]);
+    expect(saved.jobs).toEqual([
+      { jobId: null, name: "Yard stock" },
+      { jobId, name: jobLabel },
+    ]);
     expect(saved).toMatchObject({
       contractorNames: `${tag} Beta Excavating`,
-      jobId: null,
-      jobName: "Yard stock",
+      jobNames: `Yard stock, ${jobLabel}`,
       internalNotes: null,
     });
 
     await prisma.$transaction((tx) =>
-      updatePurchaseOrderRecord(tx, id, { ...base(), contractorIds: [], job: null }),
+      updatePurchaseOrderRecord(tx, id, { ...base(), contractorIds: [], jobs: [] }),
     );
     saved = await load(id);
     expect(saved.contractors).toEqual([]);
-    expect(saved).toMatchObject({ contractorNames: null, jobId: null, jobName: null });
+    expect(saved.jobs).toEqual([]);
+    expect(saved).toMatchObject({ contractorNames: null, jobNames: null });
   });
 
   it("refuses a contractor or a job that is not on file", async () => {
@@ -143,7 +175,7 @@ describe("contractors, job and internal notes on a purchase order", () => {
     ).rejects.toThrow(/contractor/i);
     await expect(
       prisma.$transaction((tx) =>
-        createPurchaseOrderRecord(tx, { ...base(), job: { id: "missing" } }),
+        createPurchaseOrderRecord(tx, { ...base(), jobs: [{ id: "missing" }] }),
       ),
     ).rejects.toThrow(/job/i);
   });
@@ -164,25 +196,29 @@ describe("contractors, job and internal notes on a purchase order", () => {
       createPurchaseOrderRecord(tx, {
         ...base(),
         contractorIds: [customer.id],
-        job: { id: job.id },
+        jobs: [{ id: job.id }],
       }),
     );
     await prisma.job.delete({ where: { id: job.id } });
     await prisma.customer.delete({ where: { id: customer.id } });
     const saved = await load(id);
     expect(saved.contractors).toEqual([]);
-    expect(saved.jobId).toBeNull();
-    // What was saved with the order still says who and what it was for.
+    // The job stays on the order as a name; what was saved still says who
+    // and what it was for.
+    expect(saved.jobs).toEqual([{ jobId: null, name: purchaseOrderJobLabel(job) }]);
     expect(saved.contractorNames).toBe(`${tag} Gone Inc`);
-    expect(saved.jobName).toBe(purchaseOrderJobLabel(job));
+    expect(saved.jobNames).toBe(purchaseOrderJobLabel(job));
   });
 
   it("is found by the list's contractor and job filters, and sorts by them", async () => {
     await prisma.purchaseOrder.deleteMany({ where: { vendorId } });
     const make = (extra: object) =>
       prisma.$transaction((tx) => createPurchaseOrderRecord(tx, { ...base(), ...extra }));
-    const withAlpha = await make({ contractorIds: [alphaId], job: { id: jobId } });
-    const withBeta = await make({ contractorIds: [betaId], job: { name: `${tag} yard` } });
+    const withAlpha = await make({ contractorIds: [alphaId], jobs: [{ id: jobId }] });
+    const withBeta = await make({
+      contractorIds: [betaId],
+      jobs: [{ name: `${tag} yard` }, { name: `${tag} second job` }],
+    });
     const bare = await make({});
 
     const find = async (params: Record<string, string>, sortColumn?: "contractor" | "job") => {
@@ -202,10 +238,81 @@ describe("contractors, job and internal notes on a purchase order", () => {
     expect(await find({ contractor: alphaId })).toEqual([withAlpha]);
     expect(await find({ job: `id:${jobId}` })).toEqual([withAlpha]);
     expect(await find({ job: `name:${tag.toLowerCase()} YARD` })).toEqual([withBeta]);
+    // The second job of an order finds it too.
+    expect(await find({ job: `name:${tag} second job` })).toEqual([withBeta]);
+    expect(await find({ q: `${tag} second` })).toEqual([withBeta]);
     expect(await find({ q: `${tag} beta` })).toEqual([withBeta]);
     expect(await find({ q: `${tag} main st` })).toEqual([withAlpha]);
     // Z to A, and the order with neither still comes last.
     expect(await find({}, "contractor")).toEqual([withBeta, withAlpha, bare]);
     expect((await find({}, "job")).at(-1)).toBe(bare);
+  });
+});
+
+describe("editing a purchase order after deliveries came in", () => {
+  it("changes the details and leaves the vendor, the lines and what was received alone", async () => {
+    const otherVendor = await prisma.vendor.create({
+      data: { name: `${prefix} ${tag} Other Vendor` },
+    });
+    const id = await prisma.$transaction((tx) => createPurchaseOrderRecord(tx, base()));
+    const before = await load(id);
+    await prisma.purchaseOrderLine.update({
+      where: { id: before.lines[0]!.id },
+      data: { quantityReceived: 1 },
+    });
+    await prisma.purchaseOrder.update({
+      where: { id },
+      data: { status: "PARTIALLY_RECEIVED" },
+    });
+
+    await prisma.$transaction((tx) =>
+      updatePurchaseOrderRecord(tx, id, {
+        vendorId: otherVendor.id,
+        category: "RCP",
+        orderDate,
+        expectedDate: new Date(Date.UTC(2099, 1, 1)),
+        notes: "New note",
+        internalNotes: "Office note",
+        contractorIds: [alphaId],
+        jobs: [{ id: jobId }, { name: "Yard stock" }],
+        // Not even read: what is ordered is locked.
+        lines: [{ itemCode: "OTHER", quantityOrdered: 0, unitPrice: -5 }],
+      }),
+    );
+
+    const saved = await load(id);
+    expect(saved).toMatchObject({
+      status: "PARTIALLY_RECEIVED",
+      vendorId,
+      category: null,
+      poNumber: before.poNumber,
+      notes: "New note",
+      internalNotes: "Office note",
+      contractorNames: `${tag} Alpha Paving`,
+      jobNames: `${jobLabel}, Yard stock`,
+    });
+    expect(saved.expectedDate?.toISOString()).toBe("2099-02-01T00:00:00.000Z");
+    expect(saved.total.toNumber()).toBe(before.total.toNumber());
+    expect(saved.lines).toHaveLength(1);
+    expect(saved.lines[0]).toMatchObject({ id: before.lines[0]!.id, itemCode: `${tag}-ITEM` });
+    expect(saved.lines[0]!.quantityReceived.toNumber()).toBe(1);
+
+    await prisma.purchaseOrder.delete({ where: { id } });
+    await prisma.vendor.delete({ where: { id: otherVendor.id } });
+  });
+
+  it("still changes what is ordered on an issued purchase order", async () => {
+    const id = await prisma.$transaction((tx) => createPurchaseOrderRecord(tx, base()));
+    await prisma.purchaseOrder.update({ where: { id }, data: { status: "ISSUED" } });
+    await prisma.$transaction((tx) =>
+      updatePurchaseOrderRecord(tx, id, {
+        ...base(),
+        lines: [{ itemCode: `${tag}-NEW`, quantityOrdered: 3, unitPrice: 5 }],
+      }),
+    );
+    const saved = await load(id);
+    expect(saved.status).toBe("ISSUED");
+    expect(saved.lines.map((line) => line.itemCode)).toEqual([`${tag}-NEW`]);
+    expect(saved.total.toNumber()).toBe(15);
   });
 });

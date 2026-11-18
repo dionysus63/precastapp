@@ -38,7 +38,7 @@ export type PurchaseOrderQuoteInput = {
   total: number;
 };
 
-/** The job a purchase is for: one on file, or a name typed in. */
+/** A job a purchase is for: one on file, or a name typed in. */
 export type PurchaseOrderJobInput = { id: string } | { name: string };
 
 export type SavePurchaseOrderInput = {
@@ -67,10 +67,11 @@ export type SavePurchaseOrderInput = {
    */
   contractorIds?: string[];
   /**
-   * The job the purchase is for: a job on file, a name typed in, or null
-   * for none. Left out: a new order has none, a saved one keeps what it has.
+   * The jobs the purchase is for, in the order picked: each a job on file
+   * or a name typed in. Left out: a new order has none, a saved one keeps
+   * what it has.
    */
-  job?: PurchaseOrderJobInput | null;
+  jobs?: PurchaseOrderJobInput[];
   /** Ignored when `quote` is given: a quote only order has no lines. */
   lines: PurchaseOrderLineInput[];
   /** Set for a "quote only" purchase order. */
@@ -151,9 +152,9 @@ function purchaseOrderContent(input: SavePurchaseOrderInput) {
 }
 
 /**
- * What a save stores for the contractors and the job, or nothing for each
+ * What a save stores for the contractors and the jobs, or nothing for each
  * the caller left out. The names are kept beside the links (contractorNames,
- * jobName) because the list sorts and searches by them.
+ * jobNames) because the list sorts and searches by them.
  */
 async function purchaseOrderLinkFields(
   tx: Prisma.TransactionClient,
@@ -178,25 +179,38 @@ async function purchaseOrderLinkFields(
     };
   }
 
-  let job: { jobId: string | null; jobName: string | null } | undefined;
-  if (input.job === null) {
-    job = { jobId: null, jobName: null };
-  } else if (input.job !== undefined) {
-    if ("id" in input.job) {
-      const found = await tx.job.findUnique({
-        where: { id: input.job.id },
-        select: { id: true, jobNumber: true, projectName: true },
-      });
-      if (!found) {
-        throw new Error("The job on this purchase order was not found.");
+  let jobs:
+    | { rows: Array<{ jobId: string | null; name: string }>; names: string | null }
+    | undefined;
+  if (input.jobs !== undefined) {
+    const ids = input.jobs.flatMap((job) => ("id" in job && job.id.trim() ? [job.id.trim()] : []));
+    const found = ids.length
+      ? await tx.job.findMany({
+          where: { id: { in: ids } },
+          select: { id: true, jobNumber: true, projectName: true },
+        })
+      : [];
+    const labelById = new Map(found.map((job) => [job.id, purchaseOrderJobLabel(job)]));
+    // Each job once: a job on file by its id, a typed name whatever its capitals.
+    const seen = new Set<string>();
+    const rows: Array<{ jobId: string | null; name: string }> = [];
+    for (const job of input.jobs) {
+      const jobId = "id" in job ? job.id.trim() : null;
+      const name = "id" in job ? labelById.get(job.id.trim()) : job.name.trim();
+      if (jobId && name === undefined) {
+        throw new Error("A job on this purchase order was not found.");
       }
-      job = { jobId: found.id, jobName: purchaseOrderJobLabel(found) };
-    } else {
-      job = { jobId: null, jobName: input.job.name.trim() || null };
+      const key = jobId ? `id:${jobId}` : `name:${name!.toLowerCase()}`;
+      if (!name || seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      rows.push({ jobId, name });
     }
+    jobs = { rows, names: rows.map((row) => row.name).join(", ") || null };
   }
 
-  return { contractors, job };
+  return { contractors, jobs };
 }
 
 export async function createPurchaseOrderRecord(
@@ -251,8 +265,13 @@ export async function createPurchaseOrderRecord(
       submissionKey: input.submissionKey ?? null,
       taxable: input.taxable ?? false,
       internalNotes: input.internalNotes?.trim() || null,
-      jobId: links.job?.jobId ?? null,
-      jobName: links.job?.jobName ?? null,
+      jobNames: links.jobs?.names ?? null,
+      jobs: {
+        create: (links.jobs?.rows ?? []).map((row, index) => ({
+          ...row,
+          sortOrder: index,
+        })),
+      },
       contractorNames: links.contractors?.names ?? null,
       contractors: {
         create: (links.contractors?.ids ?? []).map((customerId, index) => ({
@@ -289,8 +308,6 @@ export async function updatePurchaseOrderRecord(
   input: SavePurchaseOrderInput,
   expectedUpdatedAt?: Date | null,
 ): Promise<void> {
-  const content = purchaseOrderContent(input);
-
   const existing = await tx.purchaseOrder.findUnique({
     where: { id: purchaseOrderId },
     select: {
@@ -304,9 +321,6 @@ export async function updatePurchaseOrderRecord(
   if (!existing) {
     throw new Error("Purchase order not found.");
   }
-  if (!canEditPurchaseOrder(existing.status)) {
-    throw new Error("This purchase order can no longer be edited.");
-  }
   if (
     expectedUpdatedAt &&
     existing.updatedAt.getTime() !== expectedUpdatedAt.getTime()
@@ -315,6 +329,57 @@ export async function updatePurchaseOrderRecord(
       "This purchase order was changed by someone else. Refresh and try again.",
     );
   }
+
+  const links = await purchaseOrderLinkFields(tx, input);
+  if (links.contractors) {
+    await tx.purchaseOrderContractor.deleteMany({ where: { purchaseOrderId } });
+  }
+  if (links.jobs) {
+    await tx.purchaseOrderJob.deleteMany({ where: { purchaseOrderId } });
+  }
+  // What can change on any purchase order, whatever its status.
+  const details = {
+    orderDate: input.orderDate,
+    expectedDate: input.expectedDate ?? null,
+    notes: input.notes ?? null,
+    enteredBy: input.enteredBy ?? null,
+    ...(input.attention === undefined
+      ? {}
+      : { attention: input.attention?.trim() || null }),
+    taxable: input.taxable ?? false,
+    ...(input.internalNotes === undefined
+      ? {}
+      : { internalNotes: input.internalNotes?.trim() || null }),
+    ...(links.jobs
+      ? {
+          jobNames: links.jobs.names,
+          jobs: {
+            create: links.jobs.rows.map((row, index) => ({ ...row, sortOrder: index })),
+          },
+        }
+      : {}),
+    ...(links.contractors
+      ? {
+          contractorNames: links.contractors.names,
+          contractors: {
+            create: links.contractors.ids.map((customerId, index) => ({
+              customerId,
+              sortOrder: index,
+            })),
+          },
+        }
+      : {}),
+  } satisfies Prisma.PurchaseOrderUpdateInput;
+
+  // Once a delivery was received, or the order was cancelled, what is ordered
+  // stays: the received quantities sit on the lines, and the lines below are
+  // written afresh. Whatever the caller sent for them is left unread.
+  if (!canEditPurchaseOrder(existing.status)) {
+    await tx.purchaseOrder.update({ where: { id: purchaseOrderId }, data: details });
+    return;
+  }
+
+  const content = purchaseOrderContent(input);
 
   // The number carries the vendor's letters, so a purchase order moved to a
   // vendor with other letters takes the next number of that vendor. The old
@@ -341,12 +406,8 @@ export async function updatePurchaseOrderRecord(
   }
 
   const { totals } = content;
-  const links = await purchaseOrderLinkFields(tx, input);
 
   await tx.purchaseOrderLine.deleteMany({ where: { purchaseOrderId } });
-  if (links.contractors) {
-    await tx.purchaseOrderContractor.deleteMany({ where: { purchaseOrderId } });
-  }
   await tx.purchaseOrder.update({
     where: { id: purchaseOrderId },
     data: {
@@ -356,31 +417,9 @@ export async function updatePurchaseOrderRecord(
             sequenceNumber: renumbered.sequenceNumber,
           }
         : {}),
+      ...details,
       vendorId: input.vendorId,
       category: input.category ?? null,
-      orderDate: input.orderDate,
-      expectedDate: input.expectedDate ?? null,
-      notes: input.notes ?? null,
-      enteredBy: input.enteredBy ?? null,
-      ...(input.attention === undefined
-        ? {}
-        : { attention: input.attention?.trim() || null }),
-      taxable: input.taxable ?? false,
-      ...(input.internalNotes === undefined
-        ? {}
-        : { internalNotes: input.internalNotes?.trim() || null }),
-      ...(links.job ? { jobId: links.job.jobId, jobName: links.job.jobName } : {}),
-      ...(links.contractors
-        ? {
-            contractorNames: links.contractors.names,
-            contractors: {
-              create: links.contractors.ids.map((customerId, index) => ({
-                customerId,
-                sortOrder: index,
-              })),
-            },
-          }
-        : {}),
       ...content.quoteFields,
       subtotal: totals.subtotal,
       total: totals.total,

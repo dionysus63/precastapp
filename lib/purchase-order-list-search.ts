@@ -100,7 +100,7 @@ export function buildPurchaseOrderListOrderBy(
         ...NEWEST_FIRST,
       ];
     case "job":
-      return [{ jobName: { sort: direction, nulls: "last" } }, ...NEWEST_FIRST];
+      return [{ jobNames: { sort: direction, nulls: "last" } }, ...NEWEST_FIRST];
     case "total":
       return [{ total: direction }, ...NEWEST_FIRST];
   }
@@ -110,7 +110,10 @@ export function buildPurchaseOrderListOrderBy(
 // Filters
 // ---------------------------------------------------------------------------
 
-/** The job dropdown's value: a job on file (`id:<id>`) or a typed name (`name:<text>`). */
+/**
+ * A job as one word: a job on file (`id:<id>`) or a typed name (`name:<text>`).
+ * The list's job dropdown and the purchase order screen both send it.
+ */
 export type PurchaseOrderJobFilter = { id: string } | { name: string };
 
 export function parsePurchaseOrderJobFilter(
@@ -176,8 +179,12 @@ export function buildPurchaseOrderListWhere(
         { internalNotes: contains },
         { contractorNames: contains },
         { contractors: { some: { customer: { name: contains } } } },
-        { jobName: contains },
-        { job: { OR: [{ jobNumber: contains }, { projectName: contains }] } },
+        { jobNames: contains },
+        {
+          jobs: {
+            some: { job: { OR: [{ jobNumber: contains }, { projectName: contains }] } },
+          },
+        },
       ],
     });
   }
@@ -199,11 +206,14 @@ export function buildPurchaseOrderListWhere(
     and.push({ contractors: { some: { customerId: filters.contractorId } } });
   }
   if (filters.job) {
-    and.push(
-      "id" in filters.job
-        ? { jobId: filters.job.id }
-        : { jobId: null, jobName: { equals: filters.job.name, mode: "insensitive" } },
-    );
+    and.push({
+      jobs: {
+        some:
+          "id" in filters.job
+            ? { jobId: filters.job.id }
+            : { jobId: null, name: { equals: filters.job.name, mode: "insensitive" } },
+      },
+    });
   }
 
   return and.length ? { AND: and } : {};
@@ -216,7 +226,7 @@ export function buildPurchaseOrderListWhere(
  */
 export function purchaseOrderJobFilterOptions(
   rows: Array<{
-    jobName: string | null;
+    name: string | null;
     job: { id: string; jobNumber: string; projectName: string } | null;
   }>,
 ): Array<{ value: string; label: string }> {
@@ -227,7 +237,7 @@ export function purchaseOrderJobFilterOptions(
       byValue.set(value, { value, label: purchaseOrderJobLabel(row.job) });
       continue;
     }
-    const name = row.jobName?.trim();
+    const name = row.name?.trim();
     if (name && !byValue.has(`name:${name.toLowerCase()}`)) {
       byValue.set(`name:${name.toLowerCase()}`, {
         value: purchaseOrderJobFilterToken({ name }),

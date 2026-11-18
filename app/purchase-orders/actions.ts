@@ -31,6 +31,7 @@ import {
   parsePurchaseOrderStatus,
   purchaseOrderJobLabel,
 } from "@/lib/purchase-order-utils";
+import { parsePurchaseOrderJobFilter } from "@/lib/purchase-order-list-search";
 import { OPEN_JOB_STATUSES } from "@/components/jobs/job-utils";
 import { parseReceivingCategory } from "@/lib/receiving-utils";
 import { withDatabaseRetry } from "@/lib/prisma";
@@ -101,14 +102,15 @@ function parseQuoteFromFormData(formData: FormData): PurchaseOrderQuoteInput {
   };
 }
 
-/** The job box: a job picked from the list wins over a typed name. */
-function parseJobFromFormData(formData: FormData): PurchaseOrderJobInput | null {
-  const jobId = String(formData.get("jobId") ?? "").trim();
-  if (jobId) {
-    return { id: jobId };
-  }
-  const jobName = String(formData.get("jobName") ?? "").trim();
-  return jobName ? { name: jobName } : null;
+/**
+ * The Job box: every job picked or typed, in order, each sent as the token
+ * the list's job dropdown also uses (`id:<job id>` or `name:<typed name>`).
+ */
+function parseJobsFromFormData(formData: FormData): PurchaseOrderJobInput[] {
+  return formData
+    .getAll("job")
+    .map((token) => parsePurchaseOrderJobFilter(String(token)))
+    .filter((job) => job !== null);
 }
 
 function parseSaveInput(formData: FormData): SavePurchaseOrderInput {
@@ -154,7 +156,7 @@ function parseSaveInput(formData: FormData): SavePurchaseOrderInput {
     contractorIds: formData.has("contractorsSent")
       ? formData.getAll("contractorId").map(String)
       : undefined,
-    job: formData.has("jobSent") ? parseJobFromFormData(formData) : undefined,
+    jobs: formData.has("jobsSent") ? parseJobsFromFormData(formData) : undefined,
     lines: quoteOnly ? [] : parseLinesFromFormData(formData),
     quote: quoteOnly ? parseQuoteFromFormData(formData) : null,
   };
@@ -446,10 +448,12 @@ export async function searchContractorsForPurchaseOrder(
 
 /**
  * Jobs still open (not complete or closed) for the purchase order's Job
- * box, newest first, by job number, project or contractor.
+ * box, newest first, by job number, project or contractor. The ones already
+ * picked are left out.
  */
 export async function searchJobsForPurchaseOrder(
   query: string,
+  excludeIds: string[] = [],
 ): Promise<PurchaseOrderJobOption[]> {
   await requirePermission(AppPermission.INVENTORY_MANAGE);
 
@@ -458,6 +462,7 @@ export async function searchJobsForPurchaseOrder(
     client.job.findMany({
       where: {
         status: { in: [...OPEN_JOB_STATUSES] },
+        ...(excludeIds.length ? { id: { notIn: excludeIds } } : {}),
         ...(trimmed
           ? {
               OR: [

@@ -29,7 +29,13 @@ export default async function PurchaseOrderDetailPage({
           orderBy: { sortOrder: "asc" },
           select: { customer: { select: { id: true, name: true } } },
         },
-        job: { select: { id: true, jobNumber: true, projectName: true } },
+        jobs: {
+          orderBy: { sortOrder: "asc" },
+          select: {
+            name: true,
+            job: { select: { id: true, jobNumber: true, projectName: true } },
+          },
+        },
         receipts: {
           orderBy: [{ receiptDate: "desc" }],
           select: {

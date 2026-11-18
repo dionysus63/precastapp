@@ -9,7 +9,11 @@ import {
   purchaseOrderJobFilterOptions,
   purchaseOrderJobFilterToken,
 } from "@/lib/purchase-order-list-search";
-import { purchaseOrderJobLabel } from "@/lib/purchase-order-utils";
+import {
+  canEditPurchaseOrder,
+  purchaseOrderContentLockReason,
+  purchaseOrderJobLabel,
+} from "@/lib/purchase-order-utils";
 
 describe("the sorted column of the purchase orders list", () => {
   it("reads a known column and its direction", () => {
@@ -60,7 +64,7 @@ describe("the sorted column of the purchase orders list", () => {
       buildPurchaseOrderListOrderBy({ column: "contractor", direction: "desc" })[0],
     ).toEqual({ contractorNames: { sort: "desc", nulls: "last" } });
     expect(buildPurchaseOrderListOrderBy({ column: "job", direction: "asc" })[0]).toEqual({
-      jobName: { sort: "asc", nulls: "last" },
+      jobNames: { sort: "asc", nulls: "last" },
     });
   });
 
@@ -126,7 +130,10 @@ describe("the purchase orders list filters", () => {
       parsePurchaseOrderListFilters({ contractor: "c1", job: "id:j1" }),
     );
     expect(where).toEqual({
-      AND: [{ contractors: { some: { customerId: "c1" } } }, { jobId: "j1" }],
+      AND: [
+        { contractors: { some: { customerId: "c1" } } },
+        { jobs: { some: { jobId: "j1" } } },
+      ],
     });
   });
 
@@ -134,14 +141,20 @@ describe("the purchase orders list filters", () => {
     expect(
       buildPurchaseOrderListWhere(parsePurchaseOrderListFilters({ job: "name:Yard stock" })),
     ).toEqual({
-      AND: [{ jobId: null, jobName: { equals: "Yard stock", mode: "insensitive" } }],
+      AND: [
+        {
+          jobs: {
+            some: { jobId: null, name: { equals: "Yard stock", mode: "insensitive" } },
+          },
+        },
+      ],
     });
   });
 
   it("searches contractors, jobs and internal notes too", () => {
     const where = buildPurchaseOrderListWhere(parsePurchaseOrderListFilters({ q: "smith" }));
     const fields = JSON.stringify(where);
-    for (const field of ["poNumber", "internalNotes", "contractorNames", "jobName", "jobNumber", "projectName"]) {
+    for (const field of ["poNumber", "internalNotes", "contractorNames", "jobNames", "jobNumber", "projectName"]) {
       expect(fields).toContain(field);
     }
   });
@@ -152,12 +165,12 @@ describe("the jobs offered in the job dropdown", () => {
     const job = { id: "j1", jobNumber: "26-014", projectName: "Main St" };
     expect(
       purchaseOrderJobFilterOptions([
-        { jobName: "yard stock", job: null },
-        { jobName: "26-014 old label", job },
-        { jobName: "Yard Stock", job: null },
-        { jobName: null, job },
-        { jobName: "  ", job: null },
-        { jobName: "Bridge job", job: null },
+        { name: "yard stock", job: null },
+        { name: "26-014 old label", job },
+        { name: "Yard Stock", job: null },
+        { name: null, job },
+        { name: "  ", job: null },
+        { name: "Bridge job", job: null },
       ]),
     ).toEqual([
       { value: "id:j1", label: purchaseOrderJobLabel(job) },
@@ -176,5 +189,22 @@ describe("a job's label on a purchase order", () => {
       "Main St",
     );
     expect(purchaseOrderJobLabel({ jobNumber: "26-014", projectName: "  " })).toBe("26-014");
+  });
+});
+
+describe("what can still change on a purchase order", () => {
+  it("keeps what is ordered open while it is a draft or issued", () => {
+    for (const status of ["DRAFT", "ISSUED"] as const) {
+      expect(canEditPurchaseOrder(status)).toBe(true);
+      expect(purchaseOrderContentLockReason(status)).toBeNull();
+    }
+  });
+
+  it("locks what is ordered once deliveries came in or it was cancelled, and says why", () => {
+    for (const status of ["PARTIALLY_RECEIVED", "RECEIVED"] as const) {
+      expect(canEditPurchaseOrder(status)).toBe(false);
+      expect(purchaseOrderContentLockReason(status)).toMatch(/received/i);
+    }
+    expect(purchaseOrderContentLockReason("CANCELLED")).toMatch(/cancelled/i);
   });
 });

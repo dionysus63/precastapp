@@ -462,7 +462,7 @@ model Job {
   favorites       JobFavorite[]
   planSheets      PlanSheet[]
   oneOffDrafts    OneOffDraft[]
-  purchaseOrders  PurchaseOrder[]
+  purchaseOrders  PurchaseOrderJob[]
 
   @@unique([year, sequenceNumber])
   @@index([customerId])
@@ -1867,11 +1867,11 @@ model PurchaseOrder {
   notes           String?
   // Notes for the office only: never printed on the purchase order.
   internalNotes   String?
-  // The job the purchase is for: a job on file (jobId), or a name typed in.
-  // jobName is what the list sorts and searches by: the typed name, or the
-  // linked job's number and project as they were when the order was saved.
-  jobId           String?
-  jobName         String?
+  // The jobs' names as they were when the order was saved (a typed name, or
+  // a job on file's number and project), joined with ", " in the order
+  // picked: what the list sorts and searches by. The jobs themselves are the
+  // PurchaseOrderJob rows.
+  jobNames        String?
   // The contractors' names as they were when the order was saved, joined
   // with ", " in the order picked: what the list sorts and searches by.
   // The links themselves are the PurchaseOrderContractor rows.
@@ -1882,13 +1882,12 @@ model PurchaseOrder {
   updatedAt       DateTime             @updatedAt
 
   vendor      Vendor                    @relation(fields: [vendorId], references: [id], onDelete: Restrict)
-  job         Job?                      @relation(fields: [jobId], references: [id], onDelete: SetNull)
   lines       PurchaseOrderLine[]
   receipts    PurchaseReceiptEntry[]
   contractors PurchaseOrderContractor[]
+  jobs        PurchaseOrderJob[]
 
   @@index([vendorId])
-  @@index([jobId])
   @@index([status])
   @@index([category])
   @@index([orderDate])
@@ -1905,6 +1904,24 @@ model PurchaseOrderContractor {
 
   @@id([purchaseOrderId, customerId])
   @@index([customerId])
+}
+
+/// A job a purchase order is for. One order can name several, each a job on
+/// file (jobId) or a name typed in (jobId null).
+model PurchaseOrderJob {
+  id              String  @id @default(cuid())
+  purchaseOrderId String
+  jobId           String?
+  /// The typed name, or the job on file's number and project as they were
+  /// when the order was saved (what is left if that job is deleted).
+  name            String
+  sortOrder       Int     @default(0)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  job           Job?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@index([purchaseOrderId])
+  @@index([jobId])
 }
 
 /// One line on a purchase order.

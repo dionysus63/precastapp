@@ -35,6 +35,7 @@ import {
   draftPurchaseOrderMoney,
   type PurchaseOrderDraftPreviewInput,
 } from "@/lib/purchase-order-draft-preview";
+import { purchaseOrderJobFilterToken } from "@/lib/purchase-order-list-search";
 import { purchaseOrderCategoryFormOptions } from "@/lib/purchase-order-utils";
 import { selectedFillClassName } from "@/lib/selected-styles";
 import type { ReceivingCategory } from "@/app/generated/prisma/client";
@@ -80,6 +81,12 @@ type PurchaseOrderEditorProps = {
   defaultEnteredBy?: string;
   /** Whether the signed-in user may add vendors (as in Settings, Vendors). */
   canAddVendor?: boolean;
+  /**
+   * Set when what is ordered can no longer change (deliveries came in, or
+   * the order was cancelled): the sentence that says why. The vendor, the
+   * category and the items are then shown but cannot be changed.
+   */
+  contentLockReason?: string | null;
   initial?: {
     vendorId: string;
     category: string;
@@ -101,8 +108,8 @@ type PurchaseOrderEditorProps = {
     internalNotes?: string;
     /** The contractors (customers) the purchase is for. */
     contractors?: PurchaseOrderContractorOption[];
-    /** The job the purchase is for: on file (with its id) or typed (id null). */
-    job?: PurchaseOrderJobChoice | null;
+    /** The jobs the purchase is for: each on file (with its id) or typed (id null). */
+    jobs?: PurchaseOrderJobChoice[];
     vendorQuoteName?: string | null;
     taxable?: boolean;
     /** A "quote only" order: its quote reference, and its total. */
@@ -113,7 +120,7 @@ type PurchaseOrderEditorProps = {
   };
 };
 
-/** The job box: a job on file, or a name typed in (no id). */
+/** A job in the Job box: a job on file, or a name typed in (no id). */
 export type PurchaseOrderJobChoice = { id: string | null; label: string };
 
 /** How the order's content is entered. */
@@ -158,6 +165,24 @@ function createLine(): EditorLine {
   };
 }
 
+/** A picked contractor or job: its name in a box, with an × that takes it off. */
+function PickedChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <span className="mt-1 inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 py-1 pl-3 pr-1.5 text-xs font-medium text-slate-900">
+      {label}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove ${label}`}
+        title={`Remove ${label}`}
+        className="rounded px-1 text-sm leading-none text-slate-500 hover:bg-slate-200 hover:text-slate-900"
+      >
+        ×
+      </button>
+    </span>
+  );
+}
+
 export function PurchaseOrderEditor({
   mode,
   vendors,
@@ -166,8 +191,10 @@ export function PurchaseOrderEditor({
   backLabel,
   defaultEnteredBy = "",
   canAddVendor = false,
+  contentLockReason = null,
   initial,
 }: PurchaseOrderEditorProps) {
+  const contentLocked = Boolean(contentLockReason);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [vendorId, setVendorId] = useState(initial?.vendorId ?? "");
@@ -188,7 +215,28 @@ export function PurchaseOrderEditor({
   const [contractors, setContractors] = useState<PurchaseOrderContractorOption[]>(
     initial?.contractors ?? [],
   );
-  const [job, setJob] = useState<PurchaseOrderJobChoice | null>(initial?.job ?? null);
+  const [jobs, setJobs] = useState<PurchaseOrderJobChoice[]>(initial?.jobs ?? []);
+  // The job list offers open jobs that are not picked yet.
+  const searchJobs = useCallback(
+    (query: string) =>
+      searchJobsForPurchaseOrder(
+        query,
+        jobs.flatMap((job) => (job.id ? [job.id] : [])),
+      ),
+    [jobs],
+  );
+  /** Adds a job once: a job on file by its id, a typed name whatever its capitals. */
+  function addJob(next: PurchaseOrderJobChoice) {
+    setJobs((current) =>
+      current.some((job) =>
+        next.id
+          ? job.id === next.id
+          : !job.id && job.label.toLowerCase() === next.label.toLowerCase(),
+      )
+        ? current
+        : [...current, next],
+    );
+  }
   // The contractor list offers active customers that are not picked yet.
   const searchContractors = useCallback(
     (query: string) =>
@@ -371,9 +419,13 @@ export function PurchaseOrderEditor({
     for (const contractor of contractors) {
       formData.append("contractorId", contractor.id);
     }
-    formData.set("jobSent", "1");
-    formData.set("jobId", job?.id ?? "");
-    formData.set("jobName", job?.id ? "" : (job?.label ?? ""));
+    formData.set("jobsSent", "1");
+    for (const job of jobs) {
+      formData.append(
+        "job",
+        purchaseOrderJobFilterToken(job.id ? { id: job.id } : { name: job.label }),
+      );
+    }
 
     for (const line of entryMode === "lines" ? lines : []) {
       if (!line.itemCode.trim() && !line.quantityOrdered.trim()) {
@@ -409,7 +461,7 @@ export function PurchaseOrderEditor({
   }
 
   const inputClass =
-    "mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm";
+    "mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm disabled:bg-slate-100 disabled:text-slate-600";
   // One height for boxes that share a row: a list is otherwise a little
   // taller than a text box, which pushes its label out of line.
   const fieldClass = `${inputClass} h-9`;
@@ -450,6 +502,11 @@ export function PurchaseOrderEditor({
           <div className="min-w-0 max-w-4xl space-y-4">
             <SectionCard title="Purchase order details">
               <div className="space-y-3">
+                {contentLockReason ? (
+                  <p className="max-w-2xl rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    {contentLockReason}
+                  </p>
+                ) : null}
                 <div className={fieldRowClass}>
                   <div className="w-80 max-w-full">
                     <label htmlFor="vendorId" className={labelClass}>
@@ -458,6 +515,7 @@ export function PurchaseOrderEditor({
                     <select
                       id="vendorId"
                       required
+                      disabled={contentLocked}
                       value={vendorId}
                       onChange={(event) => handleVendorChange(event.target.value)}
                       className={fieldClass}
@@ -470,7 +528,7 @@ export function PurchaseOrderEditor({
                       ))}
                     </select>
                   </div>
-                  {canAddVendor ? (
+                  {canAddVendor && !contentLocked ? (
                     <button
                       type="button"
                       onClick={() => setAddingVendor(true)}
@@ -500,25 +558,15 @@ export function PurchaseOrderEditor({
                     </label>
                     <div className="flex flex-wrap items-center gap-2">
                       {contractors.map((contractor) => (
-                        <span
+                        <PickedChip
                           key={contractor.id}
-                          className="mt-1 inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 pl-3 pr-1.5 text-xs font-medium text-slate-900"
-                        >
-                          {contractor.name}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setContractors((current) =>
-                                current.filter((entry) => entry.id !== contractor.id),
-                              )
-                            }
-                            aria-label={`Remove ${contractor.name}`}
-                            title={`Remove ${contractor.name}`}
-                            className="rounded px-1 text-sm leading-none text-slate-500 hover:bg-slate-200 hover:text-slate-900"
-                          >
-                            ×
-                          </button>
-                        </span>
+                          label={contractor.name}
+                          onRemove={() =>
+                            setContractors((current) =>
+                              current.filter((entry) => entry.id !== contractor.id),
+                            )
+                          }
+                        />
                       ))}
                       <div className="w-64 max-w-full">
                         <FormTypeahead<PurchaseOrderContractorOption>
@@ -547,28 +595,46 @@ export function PurchaseOrderEditor({
                       </div>
                     </div>
                   </div>
-                  <div className="w-80 max-w-full">
+                  <div className="min-w-0 max-w-full">
                     <label htmlFor="jobBox" className={labelClass}>
                       Job
                     </label>
-                    <FormTypeahead<PurchaseOrderJobOption>
-                      inputId="jobBox"
-                      selectedLabel={job?.label ?? ""}
-                      placeholder="Search open jobs, or type a name…"
-                      searchItems={searchJobsForPurchaseOrder}
-                      itemKey={(option) => option.id}
-                      itemLabel={(option) => option.label}
-                      emptyLabel="No open job matches."
-                      clearLabel={job ? "No job" : null}
-                      onSelect={(option) =>
-                        setJob(option ? { id: option.id, label: option.label } : null)
-                      }
-                      freeText={{
-                        label: (typed) => `Use "${typed}" as typed (not a job on file)`,
-                        onUse: (typed) => setJob({ id: null, label: typed }),
-                      }}
-                      inputClassName={fieldClass}
-                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      {jobs.map((job) => (
+                        <PickedChip
+                          key={job.id ?? `typed:${job.label.toLowerCase()}`}
+                          label={job.label}
+                          onRemove={() =>
+                            setJobs((current) => current.filter((entry) => entry !== job))
+                          }
+                        />
+                      ))}
+                      <div className="w-80 max-w-full">
+                        <FormTypeahead<PurchaseOrderJobOption>
+                          inputId="jobBox"
+                          selectedLabel=""
+                          placeholder={
+                            jobs.length > 0
+                              ? "Add another job…"
+                              : "Search open jobs, or type a name…"
+                          }
+                          searchItems={searchJobs}
+                          itemKey={(option) => option.id}
+                          itemLabel={(option) => option.label}
+                          emptyLabel="No open job matches."
+                          onSelect={(option) => {
+                            if (option) {
+                              addJob({ id: option.id, label: option.label });
+                            }
+                          }}
+                          freeText={{
+                            label: (typed) => `Use "${typed}" as typed (not a job on file)`,
+                            onUse: (typed) => addJob({ id: null, label: typed }),
+                          }}
+                          inputClassName={fieldClass}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <div className={fieldRowClass}>
@@ -578,6 +644,7 @@ export function PurchaseOrderEditor({
                     </label>
                     <select
                       id="category"
+                      disabled={contentLocked}
                       value={category}
                       onChange={(event) => setCategory(event.target.value)}
                       className={fieldClass}
@@ -688,8 +755,9 @@ export function PurchaseOrderEditor({
                       type="button"
                       title={option.title}
                       aria-pressed={entryMode === option.value}
+                      disabled={contentLocked}
                       onClick={() => setEntryMode(option.value)}
-                      className={`px-3 py-1 [&:not(:first-child)]:border-l [&:not(:first-child)]:border-slate-300 ${
+                      className={`px-3 py-1 disabled:cursor-not-allowed [&:not(:first-child)]:border-l [&:not(:first-child)]:border-slate-300 ${
                         entryMode === option.value
                           ? selectedFillClassName
                           : "bg-white text-slate-700 hover:bg-slate-50"
@@ -701,6 +769,8 @@ export function PurchaseOrderEditor({
                 </div>
               }
             >
+              {/* Locked: shown as saved, every box in it switched off. */}
+              <fieldset disabled={contentLocked} className="min-w-0 disabled:opacity-70">
               {entryMode === "quote" ? (
                 <div className="space-y-3 p-4">
                   <p className="text-xs text-slate-500">
@@ -886,6 +956,7 @@ export function PurchaseOrderEditor({
                   </div>
                 </>
               )}
+              </fieldset>
             </SectionCard>
 
             <SectionCard title="Vendor quote PDF">
