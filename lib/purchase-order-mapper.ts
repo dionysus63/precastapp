@@ -66,6 +66,8 @@ export function mapPurchaseOrderListRow(po: PoWithVendor) {
     statusLabel: purchaseOrderStatusLabels[po.status],
     statusVariant: purchaseOrderStatusVariant(po.status),
     total: po.total.toNumber(),
+    /** Who created it: the "Entered by" name on the order. */
+    enteredBy: po.enteredBy?.trim() || null,
     receivedProgress:
       orderedTotal > 0 ? `${receivedTotal} / ${orderedTotal}` : "—",
   };

@@ -109,3 +109,23 @@ export function purchaseOrderPdfFileName(poNumber: string, vendorName: string): 
     .replace(/[. ]+$/, "");
   return `${name}.pdf`;
 }
+
+/**
+ * The names to offer in the list's "Created by" filter: every "Entered by"
+ * name on file once, sorted, whatever its capitals or stray spaces ("Nick",
+ * "nick " and "NICK" are one person; the first spelling met is shown).
+ */
+export function purchaseOrderCreatorNames(
+  enteredByValues: Array<string | null | undefined>,
+): string[] {
+  const byKey = new Map<string, string>();
+  for (const value of enteredByValues) {
+    const name = value?.trim();
+    if (name && !byKey.has(name.toLowerCase())) {
+      byKey.set(name.toLowerCase(), name);
+    }
+  }
+  return [...byKey.values()].sort((a, b) =>
+    a.localeCompare(b, "en", { sensitivity: "base" }),
+  );
+}
