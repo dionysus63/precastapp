@@ -9,6 +9,7 @@ import { JobStructureImportButton } from "@/components/jobs/job-structure-import
 import { JobCustomStructureImportButton } from "@/components/jobs/job-custom-structure-import-dialog";
 import { JobStructuresProductionTable } from "@/components/jobs/job-structures-production-table";
 import { JobFavoriteStar } from "@/components/jobs/job-favorite-star";
+import { JobContractNumberInline } from "@/components/jobs/job-contract-number-inline";
 import { QuotePoInline } from "@/components/quotes/quote-po-inline";
 import {
   JobCustomerEditor,
@@ -239,6 +240,12 @@ export function JobDetailContent({
               ) : (
                 <JobFieldEmpty />
               )}
+            </JobFieldRow>
+            <JobFieldRow label="NYSDOT Contract #:">
+              <JobContractNumberInline
+                jobId={detail.id}
+                contractNumber={detail.nysdotContractNumber}
+              />
             </JobFieldRow>
             <JobFieldRow label="Created By:">
               <JobFieldText value={detail.createdByName} />

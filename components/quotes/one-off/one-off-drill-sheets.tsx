@@ -720,6 +720,11 @@ export function OneOffDrillSheets({
                     rowCount={rows.length}
                     contractor={sheetHeader.contractor}
                     project={sheetHeader.project}
+                    jobId={
+                      jobChoice?.mode === "existing"
+                        ? (jobChoice.job?.id ?? null)
+                        : null
+                    }
                     openingCount={section.openingCount}
                   />
                 </div>

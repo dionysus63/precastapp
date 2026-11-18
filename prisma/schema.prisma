@@ -443,6 +443,9 @@ model Job {
   siteContactName  String?
   siteContactPhone String?
   siteContactEmail String?
+  /// NYSDOT PIN / contract number (e.g. D265123). Entered on the job page;
+  /// drill sheets print it in the Sheet PDF's "pin/project" blank.
+  nysdotContractNumber String?
   folderPath     String?
   notes          String?
   /// The user who created the job (New Job, Quick Build, Import Existing Job).

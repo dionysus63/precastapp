@@ -24,6 +24,7 @@ import {
 } from "@/lib/quotes/one-off-drill-sheets";
 import { fillRectSheetPdf } from "@/lib/rect-sheet-pdf-generate";
 import { returnActionError } from "@/lib/server/action-errors";
+import { sheetPinContractNumber } from "@/lib/sheet-pin-contract";
 
 export type OneOffSheetPreviewInput = {
   shape: OneOffShape;
@@ -33,6 +34,11 @@ export type OneOffSheetPreviewInput = {
   /** Printed in the sheet header. */
   contractor: string;
   project: string;
+  /**
+   * The job the rows belong to, when it already exists: its NYSDOT contract
+   * number prints on sheets that have a blank for it.
+   */
+  jobId?: string | null;
 };
 
 export type OneOffSheetPreviewResult = {
@@ -69,6 +75,16 @@ export async function renderOneOffSheetPreview(input: OneOffSheetPreviewInput) {
     const project = String(input.project ?? "");
     // Same format the saved sheet prints (mm-dd-yyyy).
     const today = formatSheetDate(new Date());
+    const jobId = typeof input.jobId === "string" ? input.jobId.trim() : "";
+    const job = jobId
+      ? await withDatabaseRetry((client) =>
+          client.job.findUnique({
+            where: { id: jobId },
+            select: { nysdotContractNumber: true },
+          }),
+        )
+      : null;
+    const pinContractNumber = sheetPinContractNumber({ job });
 
     const template = await withDatabaseRetry((client) =>
       client.structureTemplate.findUnique({
@@ -124,6 +140,7 @@ export async function renderOneOffSheetPreview(input: OneOffSheetPreviewInput) {
         useRiser: "",
         brickAdjustment: "",
         topSlabOpeningInches: template.topSlabOpeningInches ?? null,
+        pinContractNumber,
       };
       const built = await buildDrillSheetPdfFromDetail(
         { meta, result: computed.circularSheet },
@@ -153,6 +170,7 @@ export async function renderOneOffSheetPreview(input: OneOffSheetPreviewInput) {
       project,
       templateName: template.name,
       castingName: casting?.name ?? null,
+      pinContractNumber,
     };
     const built = await fillRectSheetPdf(
       meta,

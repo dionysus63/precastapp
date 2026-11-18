@@ -38,6 +38,11 @@ export type DrillSheetPreviewMeta = {
   brickAdjustment: string;
   /** Template's top slab clear opening (whole inches) — printed on the sheet. */
   topSlabOpeningInches: number | null;
+  /**
+   * The job's NYSDOT PIN / contract number. Printed only on sheets that have
+   * a blank for it; unset or blank on jobs that are not DOT work.
+   */
+  pinContractNumber?: string;
 };
 
 /** e.g. 4'-0", or 8'-0" OD when the mold is called by its outside diameter. */

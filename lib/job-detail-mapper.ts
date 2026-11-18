@@ -437,6 +437,7 @@ export function mapJobToDetailView(job: JobWithSummaryRelations): JobDetailView 
     folderPath: job.folderPath,
     poQuoteId: poQuote?.id ?? null,
     customerPO: poQuote?.customerPO ?? "",
+    nysdotContractNumber: job.nysdotContractNumber ?? "",
     notes: job.notes ?? "—",
     createdAt: formatDate(job.createdAt),
     createdByName: job.createdBy?.displayName ?? "—",
