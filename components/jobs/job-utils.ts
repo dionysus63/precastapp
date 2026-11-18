@@ -266,6 +266,8 @@ export type JobDetailView = {
   /** Quote carrying the customer's PO (won quote, else latest) — null when the job has no quotes. */
   poQuoteId: string | null;
   customerPO: string;
+  /** NYSDOT PIN / contract number; blank when the job is not a DOT job. */
+  nysdotContractNumber: string;
   notes: string;
   createdAt: string;
   /** Display name of the user who created the job, or an em dash. */

@@ -18,6 +18,11 @@ export type RectSheetPreviewMeta = {
   project: string;
   templateName: string;
   castingName: string | null;
+  /**
+   * The job's NYSDOT PIN / contract number. Printed only on Sheet PDFs that
+   * have a blank for it; unset or blank on jobs that are not DOT work.
+   */
+  pinContractNumber?: string;
 };
 
 type RectSheetPreviewProps = {

@@ -12,6 +12,7 @@ import {
   fillRectSheetTemplatePdf,
 } from "@/lib/rect-template-pdf";
 import { sheetPdfSlabLabel } from "@/lib/sheet-pdf";
+import { sheetPinContractNumber } from "@/lib/sheet-pin-contract";
 import { readSheetPdfBytes } from "@/lib/sheet-pdf-service";
 import type { RectStructureResult } from "@/lib/rect-structure";
 import { rectTemplateVariantKey } from "@/lib/structure-template-pdf-service";
@@ -49,6 +50,7 @@ export async function buildRectSheetPdfBytes(
     project: sheet.calc?.projectName ?? "",
     templateName: sheet.structureTemplate?.name ?? "",
     castingName: casting?.name ?? null,
+    pinContractNumber: sheetPinContractNumber(sheet),
   };
 
   return fillRectSheetPdf(meta, result, sheet.structureTemplate?.sheetPdf ?? null, {

@@ -414,6 +414,7 @@ export function OneOffEditSheets({
               rowCount={section.rows.length}
               contractor={data.job.customerName}
               project={data.job.projectName}
+              jobId={data.job.id}
               openingCount={section.openingCount}
               savedSheetId={activeRow?.id ?? null}
             />

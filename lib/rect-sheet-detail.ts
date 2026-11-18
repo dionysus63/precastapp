@@ -24,6 +24,9 @@ export const rectSheetDetailInclude = {
   openings: { orderBy: { openingNumber: "asc" } },
   sections: { orderBy: { sortOrder: "asc" } },
   castings: true,
+  // The job's NYSDOT contract number prints on the sheet (lib/sheet-pin-contract.ts).
+  job: { select: { nysdotContractNumber: true } },
+  quote: { select: { job: { select: { nysdotContractNumber: true } } } },
 } satisfies Prisma.JobStructureInclude;
 
 export type RectSheetWithDetail = Prisma.JobStructureGetPayload<{

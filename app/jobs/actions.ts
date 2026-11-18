@@ -20,6 +20,7 @@ import { launchWindowsFile, launchWindowsFolder as launchFolder } from "@/lib/wi
 import { assertPathUnderJobFolder } from "@/lib/job-path-security";
 import { AppPermission, JobStatus, Prisma } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
+import { NYSDOT_CONTRACT_NUMBER_MAX_LENGTH } from "@/lib/sheet-pin-contract";
 import { translatePrismaError, returnActionError } from "@/lib/server/action-errors";
 import {
   getEnum,
@@ -308,6 +309,44 @@ async function updateJobDeliverySiteOrThrow(
   revalidatePath(`/jobs/${jobId}`);
   // Tickets and their PDFs resolve the job's site on read.
   revalidatePath("/delivery-tickets");
+}
+
+/** Inline NYSDOT contract number edit from the job page; a blank value
+ * clears it. Errors come back as `{ error }`. */
+export async function updateJobNysdotContractNumberAction(
+  jobId: string,
+  contractNumber: string,
+) {
+  await requirePermission(AppPermission.JOBS_MANAGE);
+  return returnActionError(() =>
+    updateJobNysdotContractNumberOrThrow(jobId, contractNumber),
+  );
+}
+
+async function updateJobNysdotContractNumberOrThrow(
+  jobId: string,
+  contractNumber: string,
+) {
+  const nysdotContractNumber = optionalText(
+    String(contractNumber ?? ""),
+    "NYSDOT contract number",
+    NYSDOT_CONTRACT_NUMBER_MAX_LENGTH,
+  );
+
+  await prisma.job
+    .update({
+      where: { id: jobId },
+      data: { nysdotContractNumber },
+      select: { id: true },
+    })
+    .catch((error) => {
+      // Friendly message when the job was deleted meanwhile (P2025).
+      throw translatePrismaError(error);
+    });
+
+  revalidatePath(`/jobs/${jobId}`);
+  // Drill sheets print the job's number, read when the PDF is made.
+  revalidatePath("/drill-sheets");
 }
 
 const STRUCTURE_TYPES = [

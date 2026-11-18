@@ -61,6 +61,8 @@ type OneOffSheetPreviewProps = {
   /** Printed in the sheet header. */
   contractor: string;
   project: string;
+  /** The existing job the rows belong to, for its NYSDOT contract number. */
+  jobId?: string | null;
   /**
    * When the row is a drill sheet that is already saved, its id: the header
    * then carries a chip that drags that saved sheet's PDF out.
@@ -100,6 +102,7 @@ export function OneOffSheetPreview({
   rowCount,
   contractor,
   project,
+  jobId = null,
   savedSheetId = null,
 }: OneOffSheetPreviewProps) {
   const label = shape === "CIRCULAR" ? "Drill sheet" : "Rect sheet";
@@ -111,9 +114,9 @@ export function OneOffSheetPreview({
   const requestKey = useMemo(
     () =>
       row && sheetComputed
-        ? JSON.stringify({ shape, row, openingCount, contractor, project })
+        ? JSON.stringify({ shape, row, openingCount, contractor, project, jobId })
         : null,
-    [row, sheetComputed, shape, openingCount, contractor, project],
+    [row, sheetComputed, shape, openingCount, contractor, project, jobId],
   );
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -149,6 +152,7 @@ export function OneOffSheetPreview({
       openingCount: number;
       contractor: string;
       project: string;
+      jobId: string | null;
     };
     let cancelled = false;
     const timer = window.setTimeout(async () => {

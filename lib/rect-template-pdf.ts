@@ -46,6 +46,7 @@ import {
   RECT_WEIGHT_PIECE_LINES,
 } from "@/lib/rect-template-pdf-fields";
 import { toWinAnsiText } from "@/lib/pdf-text";
+import { PIN_CONTRACT_FIELD } from "@/lib/sheet-pin-contract";
 
 const LINE_WIDTH_PT = 0.8;
 const OPENING_LINE_WIDTH_PT = 1;
@@ -96,6 +97,8 @@ export function buildRectSheetFieldMap(
     // Header
     contractor: meta.contractor,
     project: meta.project,
+    // NYSDOT jobs only; drawings without the blank skip it.
+    [PIN_CONTRACT_FIELD]: meta.pinContractNumber ?? "",
     date: extras.date ?? "",
     catch_basin_name: meta.structureNumber,
     wall_thickness: wholeInches(result.wallThicknessFeet),
