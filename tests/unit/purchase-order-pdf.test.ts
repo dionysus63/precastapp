@@ -32,7 +32,6 @@ const vendor = {
   zip: "32810",
   phone: "(555) 010-0142",
   email: null,
-  contactName: "Inside Sales",
 };
 
 function purchaseOrder(lineCount: number): PurchaseOrderForPdf {
@@ -41,7 +40,12 @@ function purchaseOrder(lineCount: number): PurchaseOrderForPdf {
     orderDate: new Date(Date.UTC(2026, 10, 17)),
     expectedDate: new Date(Date.UTC(2026, 11, 8)),
     enteredBy: "Nick",
+    attention: "Inside Sales",
     notes: "Call 24 hours before delivery.",
+    taxable: false,
+    quoteOnly: false,
+    quoteNumber: null,
+    quoteDate: null,
     vendor,
     lines: Array.from({ length: lineCount }, (_, index) => ({
       itemCode: `ITEM-${index + 1}`,
@@ -81,6 +85,13 @@ describe("buildPurchaseOrderPdfData", () => {
     expect(line.quantity).toBe("2.5");
   });
 
+  it("says whether the purchase is taxable", () => {
+    const po = purchaseOrder(1);
+    expect(buildPurchaseOrderPdfData(po, company).tax).toBe("Non-taxable");
+    po.taxable = true;
+    expect(buildPurchaseOrderPdfData(po, company).tax).toBe("Taxable");
+  });
+
   it("leaves a missing expected date blank", () => {
     const po = purchaseOrder(1);
     po.expectedDate = null;
@@ -88,9 +99,50 @@ describe("buildPurchaseOrderPdfData", () => {
   });
 });
 
+describe("a quote only purchase order", () => {
+  function quoteOnlyOrder(): PurchaseOrderForPdf {
+    return {
+      ...purchaseOrder(0),
+      quoteOnly: true,
+      quoteNumber: " Q122819 ",
+      quoteDate: new Date(Date.UTC(2026, 10, 17)),
+      total: "30318.00",
+    };
+  }
+
+  it("prints the quote's number and date in place of lines", () => {
+    const data = buildPurchaseOrderPdfData(quoteOnlyOrder(), company);
+    expect(data.quote).toEqual({ number: "Q122819", date: "11/17/2026" });
+    expect(data.lines).toEqual([]);
+    expect(data.total).toBe("$30,318.00");
+  });
+
+  it("leaves a missing number or date blank", () => {
+    const po = quoteOnlyOrder();
+    po.quoteNumber = null;
+    po.quoteDate = null;
+    expect(buildPurchaseOrderPdfData(po, company).quote).toEqual({
+      number: "",
+      date: "",
+    });
+  });
+
+  it("is not set on an order with lines", () => {
+    expect(sampleData(2).quote).toBeNull();
+  });
+
+  it("draws on one page", async () => {
+    const bytes = await renderPurchaseOrderPdf(
+      buildPurchaseOrderPdfData(quoteOnlyOrder(), company),
+      { headerImagePng: null },
+    );
+    expect((await PDFDocument.load(bytes)).getPageCount()).toBe(1);
+  });
+});
+
 describe("vendorPartyForPdf", () => {
-  it("prints the address, contact and phone under the name", () => {
-    expect(vendorPartyForPdf(vendor)).toEqual({
+  it("prints the address, the order's attention and phone under the name", () => {
+    expect(vendorPartyForPdf(vendor, " Inside Sales ")).toEqual({
       name: "Halliday Products",
       lines: [
         "1234 Example Road",
@@ -102,24 +154,37 @@ describe("vendorPartyForPdf", () => {
   });
 
   it("puts phone and email on one line when everything is filled in", () => {
-    const party = vendorPartyForPdf({ ...vendor, email: "sales@example.com" });
+    const party = vendorPartyForPdf(
+      { ...vendor, email: "sales@example.com" },
+      "Inside Sales",
+    );
     expect(party.lines).toHaveLength(4);
     expect(party.lines[3]).toBe("(555) 010-0142   sales@example.com");
   });
 
   it("prints only the name for a vendor with nothing else on file", () => {
     expect(
-      vendorPartyForPdf({
-        name: "Halliday",
-        address: null,
-        city: null,
-        state: null,
-        zip: null,
-        phone: null,
-        email: null,
-        contactName: null,
-      }),
+      vendorPartyForPdf(
+        {
+          name: "Halliday",
+          address: null,
+          city: null,
+          state: null,
+          zip: null,
+          phone: null,
+          email: null,
+        },
+        null,
+      ),
     ).toEqual({ name: "Halliday", lines: [] });
+  });
+
+  it("leaves the Attn line out of an order with no attention", () => {
+    expect(vendorPartyForPdf(vendor, null).lines).toEqual([
+      "1234 Example Road",
+      "Orlando, FL 32810",
+      "(555) 010-0142",
+    ]);
   });
 });
 
@@ -215,6 +280,21 @@ describe("purchase order draft preview input", () => {
     expect(draft.expectedDate).toBeNull();
     expect(draft.lines).toHaveLength(2);
     expect(draft.lines[1]).toMatchObject({ quantityOrdered: 0, unitPrice: 0 });
+  });
+
+  it("reads the quote of a quote only order, half typed or not", () => {
+    const draft = parsePurchaseOrderDraftPreviewInput({
+      vendorId: "v1",
+      lines: [],
+      quote: { number: " Q122819 ", date: "2026-11-17", total: 30318 },
+    });
+    expect(draft.quote).toEqual({ number: "Q122819", date: "2026-11-17", total: 30318 });
+    expect(
+      parsePurchaseOrderDraftPreviewInput({
+        quote: { number: 5, date: "11/17/2026", total: "abc" },
+      }).quote,
+    ).toEqual({ number: "", date: null, total: 0 });
+    expect(parsePurchaseOrderDraftPreviewInput({ quote: "yes" }).quote).toBeNull();
   });
 
   it("refuses anything that is not the editor's shape without throwing on junk", () => {

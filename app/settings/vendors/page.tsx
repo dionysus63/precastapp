@@ -48,6 +48,8 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
 
   const inputClass =
     "mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm";
+  const labelClass = "text-xs font-medium text-slate-700";
+  const fieldRowClass = "flex flex-wrap items-end gap-x-4 gap-y-3";
 
   return (
     <SettingsShell
@@ -58,7 +60,19 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
         success={params.success ? "Vendor saved." : null}
       />
 
-      <SectionCard title="Vendors" noPadding>
+      <SectionCard
+        title="Vendors"
+        noPadding
+        action={
+          // The form is under the list, out of sight on a long one.
+          <a
+            href="#add-vendor"
+            className="rounded-md btn-plain px-3 py-1 text-xs font-semibold"
+          >
+            Add vendor
+          </a>
+        }
+      >
         {vendors.length === 0 ? (
           <p className="px-4 py-6 text-sm text-slate-500">
             No vendors yet. Add your pipe, casting, and one-off suppliers below.
@@ -88,8 +102,8 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
                       {purchaseOrderPrefix(vendor.name)}
                     </td>
                     <td className={`${tableCellClassName} text-slate-700`}>
-                      {vendorPartyForPdf(vendor).lines.length > 0
-                        ? vendorPartyForPdf(vendor).lines.map((line) => (
+                      {vendorPartyForPdf(vendor, vendor.contactName).lines.length > 0
+                        ? vendorPartyForPdf(vendor, vendor.contactName).lines.map((line) => (
                             <span key={line} className="block">
                               {line}
                             </span>
@@ -226,72 +240,114 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
         )}
       </SectionCard>
 
-      <SectionCard title="Add vendor">
-        <form action={createVendorFormAction} className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label htmlFor="name" className="text-xs font-medium text-slate-700">
-              Name *
-            </label>
-            <input id="name" name="name" required className={inputClass} />
-          </div>
-          <div>
-            <label
-              htmlFor="defaultCategory"
-              className="text-xs font-medium text-slate-700"
-            >
-              Default category
-            </label>
-            <select id="defaultCategory" name="defaultCategory" className={inputClass}>
-              {purchaseOrderCategoryFormOptions.map((option) => (
-                <option key={option.value || "one-off"} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="sortOrder" className="text-xs font-medium text-slate-700">
-              Sort order
-            </label>
-            <input
-              id="sortOrder"
-              name="sortOrder"
-              type="number"
-              defaultValue="0"
-              className={inputClass}
-            />
-          </div>
-          {vendorContactFields.map((field) => (
-            <div key={field.name} className={field.wide ? "sm:col-span-2" : ""}>
-              <label
-                htmlFor={`new-vendor-${field.name}`}
-                className="text-xs font-medium text-slate-700"
-              >
-                {field.label}
-              </label>
-              <input
-                id={`new-vendor-${field.name}`}
-                name={field.name}
-                className={inputClass}
-              />
+      {/* Everything at the left with the width of what goes in it, the address
+          right under the name: it prints on the purchase order. */}
+      <div id="add-vendor" className="scroll-mt-24">
+        <SectionCard title="Add vendor">
+          <form action={createVendorFormAction} className="space-y-3">
+            <div className={fieldRowClass}>
+              <div className="w-80 max-w-full">
+                <label htmlFor="name" className={labelClass}>
+                  Name *
+                </label>
+                <input id="name" name="name" required className={inputClass} />
+              </div>
             </div>
-          ))}
-          <div className="sm:col-span-2">
-            <label htmlFor="notes" className="text-xs font-medium text-slate-700">
-              Notes
-            </label>
-            <textarea id="notes" name="notes" rows={2} className={inputClass} />
-          </div>
-          <div className="sm:col-span-2 flex justify-end">
+            <div className={fieldRowClass}>
+              <div className="w-96 max-w-full">
+                <label htmlFor="new-vendor-address" className={labelClass}>
+                  Street address
+                </label>
+                <input id="new-vendor-address" name="address" className={inputClass} />
+              </div>
+              <div className="w-56 max-w-full">
+                <label htmlFor="new-vendor-city" className={labelClass}>
+                  City
+                </label>
+                <input id="new-vendor-city" name="city" className={inputClass} />
+              </div>
+              <div className="w-20">
+                <label htmlFor="new-vendor-state" className={labelClass}>
+                  State
+                </label>
+                <input id="new-vendor-state" name="state" className={inputClass} />
+              </div>
+              <div className="w-28">
+                <label htmlFor="new-vendor-zip" className={labelClass}>
+                  ZIP
+                </label>
+                <input id="new-vendor-zip" name="zip" className={inputClass} />
+              </div>
+            </div>
+            <div className={fieldRowClass}>
+              <div className="w-48 max-w-full">
+                <label htmlFor="new-vendor-phone" className={labelClass}>
+                  Phone
+                </label>
+                <input id="new-vendor-phone" name="phone" className={inputClass} />
+              </div>
+              <div className="w-56 max-w-full">
+                <label htmlFor="new-vendor-contactName" className={labelClass}>
+                  Contact (Attn:)
+                </label>
+                <input
+                  id="new-vendor-contactName"
+                  name="contactName"
+                  className={inputClass}
+                />
+              </div>
+              <div className="w-72 max-w-full">
+                <label htmlFor="new-vendor-email" className={labelClass}>
+                  Email
+                </label>
+                <input id="new-vendor-email" name="email" className={inputClass} />
+              </div>
+            </div>
+            <div className={fieldRowClass}>
+              <div className="w-56 max-w-full">
+                <label htmlFor="defaultCategory" className={labelClass}>
+                  Default category
+                </label>
+                <select
+                  id="defaultCategory"
+                  name="defaultCategory"
+                  className={inputClass}
+                >
+                  {purchaseOrderCategoryFormOptions.map((option) => (
+                    <option key={option.value || "one-off"} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="w-24">
+                <label htmlFor="sortOrder" className={labelClass}>
+                  Sort order
+                </label>
+                <input
+                  id="sortOrder"
+                  name="sortOrder"
+                  type="number"
+                  defaultValue="0"
+                  className={inputClass}
+                />
+              </div>
+            </div>
+            <div className="max-w-2xl">
+              <label htmlFor="notes" className={labelClass}>
+                Notes
+              </label>
+              <textarea id="notes" name="notes" rows={2} className={inputClass} />
+            </div>
             <button
               type="submit"
               className="rounded-lg btn-main px-4 py-2 text-xs font-semibold"
             >
               Add Vendor
             </button>
-          </div>
-        </form>
-      </SectionCard>
+          </form>
+        </SectionCard>
+      </div>
 
       <BackButton href="/settings" label="Back to Settings" />
     </SettingsShell>

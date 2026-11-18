@@ -11,6 +11,8 @@
  *   taken: the real one is given out on save.
  * - Half-typed lines are shown as far as they go instead of being refused,
  *   so the page fills in while typing. Saving still validates them.
+ * - A "quote only" order shows the vendor's quote reference and total as far
+ *   as they are typed, and none of the lines.
  */
 import type { Prisma, PrismaClient } from "@/app/generated/prisma/client";
 import { parseCalendarDate } from "@/lib/date-only";
@@ -35,6 +37,14 @@ export type PurchaseOrderDraftPreviewLine = {
   unitPrice: number;
 };
 
+/** The vendor's quote a "quote only" order is placed against, as typed. */
+export type PurchaseOrderDraftPreviewQuote = {
+  number: string;
+  /** yyyy-mm-dd, or null while empty. */
+  date: string | null;
+  total: number;
+};
+
 export type PurchaseOrderDraftPreviewInput = {
   /** The purchase order being edited; null while creating a new one. */
   purchaseOrderId: string | null;
@@ -43,8 +53,13 @@ export type PurchaseOrderDraftPreviewInput = {
   orderDate: string | null;
   expectedDate: string | null;
   enteredBy: string | null;
+  /** Who at the vendor the order is addressed to, as the box holds it. */
+  attention: string | null;
   notes: string | null;
+  taxable: boolean;
   lines: PurchaseOrderDraftPreviewLine[];
+  /** Set while the screen is on "Quote only"; the lines are then left out. */
+  quote: PurchaseOrderDraftPreviewQuote | null;
 };
 
 function text(value: unknown, maxLength = 500): string {
@@ -103,13 +118,28 @@ export function parsePurchaseOrderDraftPreviewInput(
       unitPrice: amount(line.unitPrice),
     });
   }
+  const rawQuote =
+    input.quote && typeof input.quote === "object"
+      ? (input.quote as Record<string, unknown>)
+      : null;
   return {
+    quote: rawQuote
+      ? {
+          number: text(rawQuote.number, 200).trim(),
+          date: /^\d{4}-\d{2}-\d{2}$/.test(text(rawQuote.date, 10))
+            ? text(rawQuote.date, 10)
+            : null,
+          total: amount(rawQuote.total),
+        }
+      : null,
     purchaseOrderId: textOrNull(input.purchaseOrderId, 100),
     vendorId: textOrNull(input.vendorId, 100),
     orderDate: textOrNull(input.orderDate, 10),
     expectedDate: textOrNull(input.expectedDate, 10),
     enteredBy: textOrNull(input.enteredBy, 200),
+    attention: textOrNull(input.attention, 200),
     notes: textOrNull(input.notes, 5000),
+    taxable: input.taxable === true,
     lines,
   };
 }
@@ -122,7 +152,6 @@ const BLANK_VENDOR: PurchaseOrderForPdf["vendor"] = {
   zip: null,
   phone: null,
   email: null,
-  contactName: null,
 };
 
 /**
@@ -156,7 +185,6 @@ export async function loadDraftPurchaseOrderForPdf(
             zip: true,
             phone: true,
             email: true,
-            contactName: true,
           },
         })
       : null,
@@ -184,15 +212,22 @@ export async function loadDraftPurchaseOrderForPdf(
     poNumber = await peekNextPurchaseOrderNumber(client, vendor.name);
   }
 
-  const money = draftPurchaseOrderMoney(draft.lines);
+  // Quote only: the quote stands in for the lines, at its own total.
+  const lines = draft.quote ? [] : draft.lines;
+  const money = draftPurchaseOrderMoney(lines);
   return {
+    taxable: draft.taxable,
+    quoteOnly: draft.quote != null,
+    quoteNumber: draft.quote?.number || null,
+    quoteDate: draft.quote?.date ? parseCalendarDate(draft.quote.date) : null,
     poNumber,
     orderDate: draft.orderDate ? parseCalendarDate(draft.orderDate) : null,
     expectedDate: draft.expectedDate ? parseCalendarDate(draft.expectedDate) : null,
     enteredBy: draft.enteredBy,
+    attention: draft.attention,
     notes: draft.notes,
     vendor: vendor ?? BLANK_VENDOR,
-    lines: draft.lines.map((line, index) => ({
+    lines: lines.map((line, index) => ({
       itemCode: line.itemCode,
       description: line.description || null,
       quantityOrdered: line.quantityOrdered,
@@ -200,6 +235,8 @@ export async function loadDraftPurchaseOrderForPdf(
       unitPrice: line.unitPrice,
       total: money.lineTotals[index]!,
     })),
-    total: money.total,
+    total: draft.quote
+      ? toDecimal(draft.quote.total).toDecimalPlaces(2)
+      : money.total,
   };
 }

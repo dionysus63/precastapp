@@ -14,7 +14,8 @@ import { toWinAnsiText } from "@/lib/pdf-text";
  * The purchase order PDF, drawn from scratch with pdf-lib (no template file):
  * a letter page, the company header artwork, who the order goes to, where it
  * ships, the lines and the total. Lines that do not fit run on to further
- * pages; the notes, total and signature line close the last page.
+ * pages; the notes and total close the last page. An order placed against
+ * the vendor's quote names that quote in place of the lines.
  *
  * The look is open: no boxes, thin rules, the logo's red as the one accent
  * and the purchase order number large at the top right.
@@ -40,8 +41,15 @@ export type PurchaseOrderPdfData = {
   orderDate: string;
   expectedDate: string;
   orderedBy: string;
+  /** "Taxable" or "Non-taxable"; the row is left out when empty. */
+  tax?: string;
   vendor: PurchaseOrderPdfParty;
   shipTo: PurchaseOrderPdfParty;
+  /**
+   * Set for an order placed against the vendor's quote: the page then shows
+   * one row naming the quote instead of `lines`. Either part may be empty.
+   */
+  quote?: { number: string; date: string } | null;
   lines: PurchaseOrderPdfLine[];
   total: string;
   notes: string;
@@ -75,24 +83,20 @@ type Fonts = { regular: PDFFont; bold: PDFFont; oblique: PDFFont };
 
 type Align = "left" | "right" | "center";
 
-type ColumnKey =
-  | "itemCode"
-  | "description"
-  | "quantity"
-  | "unit"
-  | "unitPrice"
-  | "amount";
-
 type Column = {
-  key: ColumnKey;
+  /** Which value of a row's record the column prints. */
+  key: string;
   label: string;
   x0: number;
   x1: number;
   align: Align;
+  /** Long text runs on to more lines instead of being cut. */
+  wraps?: boolean;
+  bold?: boolean;
 };
 
 type Row = {
-  cells: Record<ColumnKey, string[]>;
+  cells: Record<string, string[]>;
   height: number;
 };
 
@@ -252,15 +256,14 @@ type TableStyle = {
   inset: number;
 };
 
-function buildRows(data: PurchaseOrderPdfData, style: TableStyle): Row[] {
-  return data.lines.map((line) => {
-    const cells = {} as Record<ColumnKey, string[]>;
+function buildRows(records: Array<Record<string, string>>, style: TableStyle): Row[] {
+  return records.map((record) => {
+    const cells: Record<string, string[]> = {};
     let lineCount = 1;
     for (const column of style.columns) {
-      const raw = line[column.key];
-      const wraps = column.key === "description" || column.key === "itemCode";
+      const raw = record[column.key] ?? "";
       const width = column.x1 - column.x0 - style.inset * 2;
-      const lines = wraps
+      const lines = column.wraps
         ? wrapPdfText(raw, style.font, style.size, width)
         : [fitText(raw, style.font, style.size, width)];
       cells[column.key] = lines.length > 0 ? lines : [""];
@@ -312,11 +315,11 @@ function drawRowText(
   rowTop: number,
   style: TableStyle,
   color: RGB,
-  boldFont: PDFFont | null,
+  boldFont: PDFFont,
 ) {
   for (const column of style.columns) {
-    const lines = row.cells[column.key];
-    const font = boldFont && column.key === "amount" ? boldFont : style.font;
+    const lines = row.cells[column.key] ?? [];
+    const font = column.bold ? boldFont : style.font;
     lines.forEach((text, index) => {
       const y = rowTop - style.padTop - style.size * 0.78 - index * style.lineHeight;
       const x =
@@ -357,13 +360,38 @@ function drawPartyLines(
 // ---------------------------------------------------------------------------
 
 const COLUMNS: Column[] = [
-  { key: "itemCode", label: "ITEM", x0: LEFT, x1: 136.7, align: "left" },
-  { key: "description", label: "DESCRIPTION", x0: 136.7, x1: 356.7, align: "left" },
+  { key: "itemCode", label: "ITEM", x0: LEFT, x1: 136.7, align: "left", wraps: true },
+  {
+    key: "description",
+    label: "DESCRIPTION",
+    x0: 136.7,
+    x1: 356.7,
+    align: "left",
+    wraps: true,
+  },
   { key: "quantity", label: "QTY", x0: 356.7, x1: 398.7, align: "right" },
   { key: "unit", label: "UNIT", x0: 398.7, x1: 434.7, align: "left" },
   { key: "unitPrice", label: "UNIT PRICE", x0: 434.7, x1: 498.7, align: "right" },
-  { key: "amount", label: "AMOUNT", x0: 498.7, x1: RIGHT, align: "right" },
+  { key: "amount", label: "AMOUNT", x0: 498.7, x1: RIGHT, align: "right", bold: true },
 ];
+
+/** The one row of an order placed against the vendor's quote. */
+const QUOTE_COLUMNS: Column[] = [
+  { key: "number", label: "VENDOR QUOTE", x0: LEFT, x1: 166.7, align: "left", wraps: true },
+  { key: "date", label: "QUOTE DATE", x0: 166.7, x1: 246.7, align: "left" },
+  {
+    key: "description",
+    label: "DESCRIPTION",
+    x0: 246.7,
+    x1: 470.7,
+    align: "left",
+    wraps: true,
+  },
+  { key: "amount", label: "AMOUNT", x0: 470.7, x1: RIGHT, align: "right", bold: true },
+];
+
+const QUOTE_ORDER_TEXT =
+  "Order for all items on your quote, at the quantities and prices quoted.";
 
 function notesLinesFor(ctx: Ctx): string[] {
   return wrapPdfText(ctx.data.notes, ctx.fonts.regular, 9.5, 300);
@@ -371,8 +399,9 @@ function notesLinesFor(ctx: Ctx): string[] {
 
 function renderPages(ctx: Ctx) {
   const { doc, fonts, data } = ctx;
+  const columns = data.quote ? QUOTE_COLUMNS : COLUMNS;
   const style: TableStyle = {
-    columns: COLUMNS,
+    columns,
     font: fonts.regular,
     size: 9.5,
     lineHeight: 12,
@@ -382,11 +411,23 @@ function renderPages(ctx: Ctx) {
     inset: 0,
   };
   // A little air between neighbouring columns instead of an inset.
-  style.columns = COLUMNS.map((column) => ({
+  style.columns = columns.map((column) => ({
     ...column,
     x0: column.align === "left" && column.x0 > LEFT ? column.x0 + 8 : column.x0,
   }));
-  const rows = buildRows(data, style);
+  const rows = buildRows(
+    data.quote
+      ? [
+          {
+            number: data.quote.number,
+            date: data.quote.date,
+            description: QUOTE_ORDER_TEXT,
+            amount: data.total,
+          },
+        ]
+      : data.lines,
+    style,
+  );
 
   const notesLines = notesLinesFor(ctx);
   const firstRowsTop = 553;
@@ -439,11 +480,14 @@ function renderPages(ctx: Ctx) {
         lineHeight: 12,
         color: INK,
       });
-      const facts = [
+      const facts: Array<[string, string]> = [
         ["Order date", data.orderDate],
         ["Expected delivery", data.expectedDate],
         ["Ordered by", data.orderedBy],
-      ] as const;
+      ];
+      if (data.tax) {
+        facts.push(["Tax", data.tax]);
+      }
       drawText(page, "ORDER", 400, 648, label);
       facts.forEach(([name, value], index) => {
         const y = 633 - index * 15;
@@ -536,8 +580,12 @@ function cleanData(data: PurchaseOrderPdfData): PurchaseOrderPdfData {
     orderDate: text(data.orderDate),
     expectedDate: text(data.expectedDate),
     orderedBy: text(data.orderedBy),
+    tax: text(data.tax ?? ""),
     vendor: party(data.vendor),
     shipTo: party(data.shipTo),
+    quote: data.quote
+      ? { number: text(data.quote.number), date: text(data.quote.date) }
+      : null,
     lines: data.lines.map((line) => ({
       itemCode: text(line.itemCode),
       description: toWinAnsiText(line.description ?? ""),

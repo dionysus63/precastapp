@@ -2,8 +2,12 @@
 
 import Link from "next/link";
 import { useTransition } from "react";
-import { updatePurchaseOrderStatus } from "@/app/purchase-orders/actions";
-import { reloadAfterAction } from "@/lib/reload-after-action";
+import {
+  deletePurchaseOrder,
+  updatePurchaseOrderStatus,
+} from "@/app/purchase-orders/actions";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { navigateAfterAction, reloadAfterAction } from "@/lib/reload-after-action";
 import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { VendorQuotePreview } from "@/components/purchase-orders/vendor-quote-preview";
@@ -33,8 +37,14 @@ type PurchaseOrderDetailContentProps = {
     total: number;
     notes: string | null;
     enteredBy: string | null;
+    attention: string | null;
     hasVendorQuote: boolean;
     vendorQuoteName: string | null;
+    taxable: boolean;
+    /** Ordered against the vendor's quote: no lines, the quote is named. */
+    quoteOnly: boolean;
+    quoteNumber: string | null;
+    quoteDateLabel: string | null;
     category: string | null;
     lines: Array<{
       id: string;
@@ -61,6 +71,39 @@ export function PurchaseOrderDetailContent({
   canManage,
 }: PurchaseOrderDetailContentProps) {
   const [pending, startTransition] = useTransition();
+  const confirm = useConfirm();
+
+  // Nothing received against it yet: only then can it be deleted for good.
+  const canDelete =
+    canManage &&
+    purchaseOrder.receipts.length === 0 &&
+    purchaseOrder.lines.every((line) => line.quantityReceived === 0);
+
+  async function confirmDelete() {
+    const accepted = await confirm({
+      title: "Delete purchase order?",
+      message: `Delete ${purchaseOrder.poNumber} for ${purchaseOrder.vendorName} for good?\n\nThe order${
+        purchaseOrder.hasVendorQuote ? ", its lines and the attached vendor quote" : " and its lines"
+      } are removed. This cannot be undone. To keep it on file, use Cancel instead.`,
+      confirmLabel: "Delete purchase order",
+      cancelLabel: "Keep it",
+      variant: "danger",
+    });
+    if (!accepted) {
+      return;
+    }
+    startTransition(async () => {
+      const result = await deletePurchaseOrder(purchaseOrder.id);
+      if ("error" in result) {
+        alert(result.error);
+        return;
+      }
+      navigateAfterAction("/purchase-orders", {
+        type: "success",
+        text: `Purchase order ${result.poNumber} deleted.`,
+      });
+    });
+  }
 
   function runStatus(status: "ISSUED" | "CANCELLED") {
     startTransition(async () => {
@@ -171,8 +214,48 @@ export function PurchaseOrderDetailContent({
             Cancel
           </button>
         ) : null}
+        {canDelete ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={confirmDelete}
+            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-800 hover:bg-red-100 disabled:opacity-60"
+          >
+            Delete
+          </button>
+        ) : null}
       </div>
 
+      {purchaseOrder.quoteOnly ? (
+        <SectionCard title="Ordered from the vendor's quote" noPadding>
+          <div className={tableFlushWrapperClassName}>
+            <table className={tableClassName}>
+              <thead>
+                <tr>
+                  <th className={tableHeaderCellClassName}>Quote number</th>
+                  <th className={tableHeaderCellClassName}>Quote date</th>
+                  <th className={tableHeaderCellClassName}>Total</th>
+                </tr>
+              </thead>
+              <tbody className={tableBodyClassName}>
+                <tr className="text-slate-800">
+                  <td className={`${tableCellClassName} font-medium`}>
+                    {purchaseOrder.quoteNumber ?? "—"}
+                  </td>
+                  <td className={tableCellClassName}>
+                    {purchaseOrder.quoteDateLabel ?? "—"}
+                  </td>
+                  <td className={tableCellClassName}>{formatUsd(purchaseOrder.total)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div className="border-t border-slate-100 px-4 py-3 text-xs text-slate-600">
+            All items on the quote, at the quantities and prices quoted. No items are
+            listed on this purchase order.
+          </div>
+        </SectionCard>
+      ) : (
       <SectionCard title="Line items" noPadding>
         <div className={tableFlushWrapperClassName}>
           <table className={tableClassName}>
@@ -229,6 +312,7 @@ export function PurchaseOrderDetailContent({
           Overall received: {receivedTotal} / {orderedTotal}
         </div>
       </SectionCard>
+      )}
 
       {purchaseOrder.hasVendorQuote ? (
         <SectionCard title="Vendor quote">
@@ -260,6 +344,8 @@ export function PurchaseOrderDetailContent({
 
       <p className="text-xs text-slate-500">
         Category: {purchaseOrder.categoryLabel}
+        {purchaseOrder.attention ? ` · Attn: ${purchaseOrder.attention}` : ""}
+        {purchaseOrder.taxable ? " · Taxable" : " · Non-taxable"}
         {purchaseOrder.enteredBy ? ` · Entered by ${purchaseOrder.enteredBy}` : ""}
         {purchaseOrder.expectedDateLabel
           ? ` · Expected ${purchaseOrder.expectedDateLabel}`

@@ -18,7 +18,6 @@ export type PurchaseOrderVendorForPdf = {
   zip: string | null;
   phone: string | null;
   email: string | null;
-  contactName: string | null;
 };
 
 /**
@@ -31,7 +30,18 @@ export type PurchaseOrderForPdf = {
   orderDate: Date | null;
   expectedDate: Date | null;
   enteredBy: string | null;
+  /** Who at the vendor the order is addressed to: "Attn:" in the Vendor block. */
+  attention: string | null;
   notes: string | null;
+  /** Whether the purchase is taxable; the page says which. */
+  taxable: boolean;
+  /**
+   * A "quote only" order: placed against the vendor's quote, which the page
+   * names in place of lines. `total` is then the quote's total.
+   */
+  quoteOnly: boolean;
+  quoteNumber: string | null;
+  quoteDate: Date | null;
   vendor: PurchaseOrderVendorForPdf;
   lines: Array<{
     itemCode: string;
@@ -50,7 +60,12 @@ export const purchaseOrderForPdfSelect = {
   orderDate: true,
   expectedDate: true,
   enteredBy: true,
+  attention: true,
   notes: true,
+  taxable: true,
+  quoteOnly: true,
+  quoteNumber: true,
+  quoteDate: true,
   total: true,
   vendor: {
     select: {
@@ -61,7 +76,6 @@ export const purchaseOrderForPdfSelect = {
       zip: true,
       phone: true,
       email: true,
-      contactName: true,
     },
   },
   lines: {
@@ -101,12 +115,14 @@ const PARTY_DETAIL_LINES = 4;
 
 export function vendorPartyForPdf(
   vendor: PurchaseOrderVendorForPdf,
+  /** The order's own "Attention", not the vendor's contact on file. */
+  attention: string | null,
 ): PurchaseOrderPdfParty {
   const cityState = [clean(vendor.city), clean(vendor.state)]
     .filter(Boolean)
     .join(", ");
   const cityLine = [cityState, clean(vendor.zip)].filter(Boolean).join(" ");
-  const contact = clean(vendor.contactName);
+  const contact = clean(attention);
   const lines = [
     clean(vendor.address),
     cityLine,
@@ -150,8 +166,15 @@ export function buildPurchaseOrderPdfData(
     orderDate: formatDateForPdf(purchaseOrder.orderDate),
     expectedDate: formatDateForPdf(purchaseOrder.expectedDate),
     orderedBy: clean(purchaseOrder.enteredBy),
-    vendor: vendorPartyForPdf(purchaseOrder.vendor),
+    tax: purchaseOrder.taxable ? "Taxable" : "Non-taxable",
+    vendor: vendorPartyForPdf(purchaseOrder.vendor, purchaseOrder.attention),
     shipTo: shipToPartyForPdf(company),
+    quote: purchaseOrder.quoteOnly
+      ? {
+          number: clean(purchaseOrder.quoteNumber),
+          date: formatDateForPdf(purchaseOrder.quoteDate),
+        }
+      : null,
     lines: purchaseOrder.lines.map((line) => ({
       itemCode: clean(line.itemCode),
       description: clean(line.description),

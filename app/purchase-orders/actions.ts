@@ -1,23 +1,28 @@
 "use server";
 
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, rmdir, unlink, writeFile } from "fs/promises";
+import path from "path";
 import { revalidatePath } from "next/cache";
 import {
   AppPermission,
   type PurchaseOrderStatus,
   type ReceivingCategory,
 } from "@/app/generated/prisma/client";
+import { hasPermission } from "@/lib/auth/permissions";
 import { requirePermission } from "@/lib/auth/session";
 import { parseCalendarDate } from "@/lib/date-only";
 import { sanitizeFileName, resolveUniqueFilePath } from "@/lib/file-upload-utils";
 import {
+  isVendorQuotePathInsideRoot,
   resolvePurchaseOrderDirectory,
 } from "@/lib/purchase-order-path";
 import {
   createPurchaseOrderRecord,
+  deletePurchaseOrderRecord,
   listOpenPurchaseOrders,
   updatePurchaseOrderRecord,
   type PurchaseOrderLineInput,
+  type PurchaseOrderQuoteInput,
   type SavePurchaseOrderInput,
 } from "@/lib/purchase-order-service";
 import {
@@ -60,7 +65,8 @@ function parseLinesFromFormData(formData: FormData): PurchaseOrderLineInput[] {
     if (!Number.isFinite(quantityOrdered) || quantityOrdered <= 0) {
       throw new Error(`Line ${index + 1}: quantity must be greater than zero.`);
     }
-    const unitPrice = Number(unitPrices[index] ?? "0");
+    // The price box shows thousands commas ("1,185.00").
+    const unitPrice = Number((unitPrices[index] ?? "0").replace(/[$,\s]/g, "") || "0");
     if (!Number.isFinite(unitPrice) || unitPrice < 0) {
       throw new Error(`Line ${index + 1}: unit price cannot be negative.`);
     }
@@ -74,6 +80,22 @@ function parseLinesFromFormData(formData: FormData): PurchaseOrderLineInput[] {
     });
   }
   return lines;
+}
+
+/** The quote a "quote only" purchase order is placed against. */
+function parseQuoteFromFormData(formData: FormData): PurchaseOrderQuoteInput {
+  const totalRaw = String(formData.get("quoteTotal") ?? "")
+    .replace(/[$,\s]/g, "")
+    .trim();
+  const total = totalRaw ? Number(totalRaw) : Number.NaN;
+  if (!Number.isFinite(total) || total <= 0) {
+    throw new Error("Enter the quote total.");
+  }
+  return {
+    number: String(formData.get("quoteNumber") ?? "").trim() || null,
+    date: parseDate(String(formData.get("quoteDate") ?? "")),
+    total,
+  };
 }
 
 function parseSaveInput(formData: FormData): SavePurchaseOrderInput {
@@ -94,6 +116,9 @@ function parseSaveInput(formData: FormData): SavePurchaseOrderInput {
   }
 
   const expectedDate = parseDate(String(formData.get("expectedDate") ?? ""));
+  // The screen sends which way the order was entered; the other way's
+  // inputs are left out of the save.
+  const quoteOnly = String(formData.get("entryMode") ?? "") === "quote";
 
   return {
     vendorId,
@@ -102,8 +127,14 @@ function parseSaveInput(formData: FormData): SavePurchaseOrderInput {
     expectedDate,
     notes: String(formData.get("notes") ?? "").trim() || null,
     enteredBy: String(formData.get("enteredBy") ?? "").trim() || null,
+    // A screen that does not send the box leaves the attention alone.
+    attention: formData.has("attention")
+      ? String(formData.get("attention") ?? "").trim() || null
+      : undefined,
     submissionKey: String(formData.get("submissionKey") ?? "").trim() || null,
-    lines: parseLinesFromFormData(formData),
+    taxable: String(formData.get("taxable") ?? "") === "true",
+    lines: quoteOnly ? [] : parseLinesFromFormData(formData),
+    quote: quoteOnly ? parseQuoteFromFormData(formData) : null,
   };
 }
 
@@ -267,6 +298,47 @@ export async function updatePurchaseOrderStatus(
   }
 }
 
+/**
+ * Deletes a purchase order for good. The screen asks first. The vendor quote
+ * saved with it is removed from disk too, for a user who may manage files
+ * (FILES_MANAGE); for anyone else the file stays where it is.
+ */
+export async function deletePurchaseOrder(purchaseOrderId: string) {
+  const user = await requirePermission(AppPermission.INVENTORY_MANAGE);
+
+  try {
+    const deleted = await withDatabaseRetry((client) =>
+      client.$transaction((tx) => deletePurchaseOrderRecord(tx, purchaseOrderId)),
+    );
+
+    const quotePath = deleted.vendorQuotePath;
+    if (
+      quotePath &&
+      isVendorQuotePathInsideRoot(quotePath) &&
+      (await hasPermission(user, AppPermission.FILES_MANAGE))
+    ) {
+      // The order is gone either way; a file that will not go is left behind.
+      await unlink(quotePath).catch(() => {});
+      // Only an empty folder goes: rmdir refuses one that still holds files.
+      await rmdir(path.dirname(quotePath)).catch(() => {});
+    }
+
+    revalidatePurchaseOrderPaths(purchaseOrderId);
+    return {
+      success: true,
+      poNumber: deleted.poNumber,
+      numberReleased: deleted.numberReleased,
+    };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? translatePrismaError(error).message
+          : "Could not delete purchase order.",
+    };
+  }
+}
+
 export async function listOpenPurchaseOrdersForReceiving(
   category?: ReceivingCategory | null,
 ) {
@@ -314,6 +386,7 @@ export async function listVendorsForPurchaseOrderForm() {
         id: true,
         name: true,
         defaultCategory: true,
+        contactName: true,
       },
     }),
   );
