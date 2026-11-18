@@ -95,3 +95,17 @@ export function getRemainingPoLineQuantity(
       : quantityReceived.toNumber();
   return Math.max(0, Math.ceil(ordered - received));
 }
+
+/**
+ * The name a purchase order's PDF is saved under ("Purchase Order HA-0001 -
+ * Halliday Products.pdf"). Characters Windows does not allow in a file name
+ * become a space, so the name also works for a file dragged out of the app.
+ */
+export function purchaseOrderPdfFileName(poNumber: string, vendorName: string): string {
+  const name = `Purchase Order ${poNumber} - ${vendorName}`
+    .replace(/[<>:"/\\|?*]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[. ]+$/, "");
+  return `${name}.pdf`;
+}
