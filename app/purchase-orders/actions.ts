@@ -123,6 +123,7 @@ function parseSaveInput(formData: FormData): SavePurchaseOrderInput {
     notes: String(formData.get("notes") ?? "").trim() || null,
     enteredBy: String(formData.get("enteredBy") ?? "").trim() || null,
     submissionKey: String(formData.get("submissionKey") ?? "").trim() || null,
+    taxable: String(formData.get("taxable") ?? "") === "true",
     lines: quoteOnly ? [] : parseLinesFromFormData(formData),
     quote: quoteOnly ? parseQuoteFromFormData(formData) : null,
   };

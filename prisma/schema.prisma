@@ -1854,6 +1854,9 @@ model PurchaseOrder {
   quoteOnly       Boolean              @default(false)
   quoteNumber     String?
   quoteDate       DateTime?            @db.Date
+  // Whether the purchase is taxable. Printed on the purchase order; no tax
+  // is worked out from it.
+  taxable         Boolean              @default(false)
   subtotal        Decimal              @default(0) @db.Decimal(12, 2)
   total           Decimal              @default(0) @db.Decimal(12, 2)
   notes           String?

@@ -85,6 +85,7 @@ function sampleData(lineCount: number): PurchaseOrderPdfData {
     orderDate: "11/17/2026",
     expectedDate: "12/8/2026",
     orderedBy: "Nick",
+    tax: "Non-taxable",
     vendor: {
       name: "Halliday Products",
       lines: [

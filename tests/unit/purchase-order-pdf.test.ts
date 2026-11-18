@@ -42,6 +42,7 @@ function purchaseOrder(lineCount: number): PurchaseOrderForPdf {
     expectedDate: new Date(Date.UTC(2026, 11, 8)),
     enteredBy: "Nick",
     notes: "Call 24 hours before delivery.",
+    taxable: false,
     quoteOnly: false,
     quoteNumber: null,
     quoteDate: null,
@@ -82,6 +83,13 @@ describe("buildPurchaseOrderPdfData", () => {
     const line = buildPurchaseOrderPdfData(po, company).lines[0]!;
     expect(line.unitPrice).toBe("$0.1275");
     expect(line.quantity).toBe("2.5");
+  });
+
+  it("says whether the purchase is taxable", () => {
+    const po = purchaseOrder(1);
+    expect(buildPurchaseOrderPdfData(po, company).tax).toBe("Non-taxable");
+    po.taxable = true;
+    expect(buildPurchaseOrderPdfData(po, company).tax).toBe("Taxable");
   });
 
   it("leaves a missing expected date blank", () => {

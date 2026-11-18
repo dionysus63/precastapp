@@ -107,6 +107,19 @@ describe("a purchase order placed against the vendor's quote", () => {
     expect(asLines.lines).toHaveLength(1);
   });
 
+  it("saves whether the purchase is taxable, non-taxable unless said", async () => {
+    const lines = [{ itemCode: `${tag}-TAX`, quantityOrdered: 1, unitPrice: 10 }];
+    const id = await prisma.$transaction((tx) =>
+      createPurchaseOrderRecord(tx, { vendorId, orderDate, lines }),
+    );
+    const read = () => prisma.purchaseOrder.findUniqueOrThrow({ where: { id } });
+    expect((await read()).taxable).toBe(false);
+    await prisma.$transaction((tx) =>
+      updatePurchaseOrderRecord(tx, id, { vendorId, orderDate, lines, taxable: true }),
+    );
+    expect((await read()).taxable).toBe(true);
+  });
+
   it("previews with the quote in place of the lines", async () => {
     const draft = await loadDraftPurchaseOrderForPdf(prisma, {
       purchaseOrderId: null,
@@ -115,12 +128,14 @@ describe("a purchase order placed against the vendor's quote", () => {
       expectedDate: null,
       enteredBy: null,
       notes: null,
+      taxable: true,
       lines: [
         { itemCode: "A", description: "", quantityOrdered: 2, unit: "EA", unitPrice: 5 },
       ],
       quote: { number: "Q122819", date: "2098-12-20", total: 30318 },
     });
     expect(draft.quoteOnly).toBe(true);
+    expect(draft.taxable).toBe(true);
     expect(draft.quoteNumber).toBe("Q122819");
     expect(draft.quoteDate?.toISOString().slice(0, 10)).toBe("2098-12-20");
     expect(draft.lines).toEqual([]);

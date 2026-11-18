@@ -44,6 +44,8 @@ export type SavePurchaseOrderInput = {
   notes?: string | null;
   enteredBy?: string | null;
   submissionKey?: string | null;
+  /** Whether the purchase is taxable; printed, not worked out. */
+  taxable?: boolean;
   /** Ignored when `quote` is given: a quote only order has no lines. */
   lines: PurchaseOrderLineInput[];
   /** Set for a "quote only" purchase order. */
@@ -167,6 +169,7 @@ export async function createPurchaseOrderRecord(
       notes: input.notes ?? null,
       enteredBy: input.enteredBy ?? null,
       submissionKey: input.submissionKey ?? null,
+      taxable: input.taxable ?? false,
       ...content.quoteFields,
       subtotal: totals.subtotal,
       total: totals.total,
@@ -265,6 +268,7 @@ export async function updatePurchaseOrderRecord(
       expectedDate: input.expectedDate ?? null,
       notes: input.notes ?? null,
       enteredBy: input.enteredBy ?? null,
+      taxable: input.taxable ?? false,
       ...content.quoteFields,
       subtotal: totals.subtotal,
       total: totals.total,

@@ -35,6 +35,7 @@ type PurchaseOrderDetailContentProps = {
     enteredBy: string | null;
     hasVendorQuote: boolean;
     vendorQuoteName: string | null;
+    taxable: boolean;
     /** Ordered against the vendor's quote: no lines, the quote is named. */
     quoteOnly: boolean;
     quoteNumber: string | null;
@@ -295,6 +296,7 @@ export function PurchaseOrderDetailContent({
 
       <p className="text-xs text-slate-500">
         Category: {purchaseOrder.categoryLabel}
+        {purchaseOrder.taxable ? " · Taxable" : " · Non-taxable"}
         {purchaseOrder.enteredBy ? ` · Entered by ${purchaseOrder.enteredBy}` : ""}
         {purchaseOrder.expectedDateLabel
           ? ` · Expected ${purchaseOrder.expectedDateLabel}`

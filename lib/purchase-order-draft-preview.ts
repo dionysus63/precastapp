@@ -54,6 +54,7 @@ export type PurchaseOrderDraftPreviewInput = {
   expectedDate: string | null;
   enteredBy: string | null;
   notes: string | null;
+  taxable: boolean;
   lines: PurchaseOrderDraftPreviewLine[];
   /** Set while the screen is on "Quote only"; the lines are then left out. */
   quote: PurchaseOrderDraftPreviewQuote | null;
@@ -135,6 +136,7 @@ export function parsePurchaseOrderDraftPreviewInput(
     expectedDate: textOrNull(input.expectedDate, 10),
     enteredBy: textOrNull(input.enteredBy, 200),
     notes: textOrNull(input.notes, 5000),
+    taxable: input.taxable === true,
     lines,
   };
 }
@@ -213,6 +215,7 @@ export async function loadDraftPurchaseOrderForPdf(
   const lines = draft.quote ? [] : draft.lines;
   const money = draftPurchaseOrderMoney(lines);
   return {
+    taxable: draft.taxable,
     quoteOnly: draft.quote != null,
     quoteNumber: draft.quote?.number || null,
     quoteDate: draft.quote?.date ? parseCalendarDate(draft.quote.date) : null,

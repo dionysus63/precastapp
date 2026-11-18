@@ -32,6 +32,8 @@ export type PurchaseOrderForPdf = {
   expectedDate: Date | null;
   enteredBy: string | null;
   notes: string | null;
+  /** Whether the purchase is taxable; the page says which. */
+  taxable: boolean;
   /**
    * A "quote only" order: placed against the vendor's quote, which the page
    * names in place of lines. `total` is then the quote's total.
@@ -58,6 +60,7 @@ export const purchaseOrderForPdfSelect = {
   expectedDate: true,
   enteredBy: true,
   notes: true,
+  taxable: true,
   quoteOnly: true,
   quoteNumber: true,
   quoteDate: true,
@@ -160,6 +163,7 @@ export function buildPurchaseOrderPdfData(
     orderDate: formatDateForPdf(purchaseOrder.orderDate),
     expectedDate: formatDateForPdf(purchaseOrder.expectedDate),
     orderedBy: clean(purchaseOrder.enteredBy),
+    tax: purchaseOrder.taxable ? "Taxable" : "Non-taxable",
     vendor: vendorPartyForPdf(purchaseOrder.vendor),
     shipTo: shipToPartyForPdf(company),
     quote: purchaseOrder.quoteOnly

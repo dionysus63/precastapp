@@ -41,6 +41,8 @@ export type PurchaseOrderPdfData = {
   orderDate: string;
   expectedDate: string;
   orderedBy: string;
+  /** "Taxable" or "Non-taxable"; the row is left out when empty. */
+  tax?: string;
   vendor: PurchaseOrderPdfParty;
   shipTo: PurchaseOrderPdfParty;
   /**
@@ -478,11 +480,14 @@ function renderPages(ctx: Ctx) {
         lineHeight: 12,
         color: INK,
       });
-      const facts = [
+      const facts: Array<[string, string]> = [
         ["Order date", data.orderDate],
         ["Expected delivery", data.expectedDate],
         ["Ordered by", data.orderedBy],
-      ] as const;
+      ];
+      if (data.tax) {
+        facts.push(["Tax", data.tax]);
+      }
       drawText(page, "ORDER", 400, 648, label);
       facts.forEach(([name, value], index) => {
         const y = 633 - index * 15;
@@ -575,6 +580,7 @@ function cleanData(data: PurchaseOrderPdfData): PurchaseOrderPdfData {
     orderDate: text(data.orderDate),
     expectedDate: text(data.expectedDate),
     orderedBy: text(data.orderedBy),
+    tax: text(data.tax ?? ""),
     vendor: party(data.vendor),
     shipTo: party(data.shipTo),
     quote: data.quote
