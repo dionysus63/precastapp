@@ -1854,6 +1854,9 @@ model PurchaseOrder {
   quoteOnly       Boolean              @default(false)
   quoteNumber     String?
   quoteDate       DateTime?            @db.Date
+  // Who at the vendor the order is addressed to: "Attn:" on the purchase
+  // order. A new order starts with the vendor's contact.
+  attention       String?
   // Whether the purchase is taxable. Printed on the purchase order; no tax
   // is worked out from it.
   taxable         Boolean              @default(false)

@@ -32,7 +32,6 @@ const vendor = {
   zip: "32810",
   phone: "(555) 010-0142",
   email: null,
-  contactName: "Inside Sales",
 };
 
 function purchaseOrder(lineCount: number): PurchaseOrderForPdf {
@@ -41,6 +40,7 @@ function purchaseOrder(lineCount: number): PurchaseOrderForPdf {
     orderDate: new Date(Date.UTC(2026, 10, 17)),
     expectedDate: new Date(Date.UTC(2026, 11, 8)),
     enteredBy: "Nick",
+    attention: "Inside Sales",
     notes: "Call 24 hours before delivery.",
     taxable: false,
     quoteOnly: false,
@@ -141,8 +141,8 @@ describe("a quote only purchase order", () => {
 });
 
 describe("vendorPartyForPdf", () => {
-  it("prints the address, contact and phone under the name", () => {
-    expect(vendorPartyForPdf(vendor)).toEqual({
+  it("prints the address, the order's attention and phone under the name", () => {
+    expect(vendorPartyForPdf(vendor, " Inside Sales ")).toEqual({
       name: "Halliday Products",
       lines: [
         "1234 Example Road",
@@ -154,24 +154,37 @@ describe("vendorPartyForPdf", () => {
   });
 
   it("puts phone and email on one line when everything is filled in", () => {
-    const party = vendorPartyForPdf({ ...vendor, email: "sales@example.com" });
+    const party = vendorPartyForPdf(
+      { ...vendor, email: "sales@example.com" },
+      "Inside Sales",
+    );
     expect(party.lines).toHaveLength(4);
     expect(party.lines[3]).toBe("(555) 010-0142   sales@example.com");
   });
 
   it("prints only the name for a vendor with nothing else on file", () => {
     expect(
-      vendorPartyForPdf({
-        name: "Halliday",
-        address: null,
-        city: null,
-        state: null,
-        zip: null,
-        phone: null,
-        email: null,
-        contactName: null,
-      }),
+      vendorPartyForPdf(
+        {
+          name: "Halliday",
+          address: null,
+          city: null,
+          state: null,
+          zip: null,
+          phone: null,
+          email: null,
+        },
+        null,
+      ),
     ).toEqual({ name: "Halliday", lines: [] });
+  });
+
+  it("leaves the Attn line out of an order with no attention", () => {
+    expect(vendorPartyForPdf(vendor, null).lines).toEqual([
+      "1234 Example Road",
+      "Orlando, FL 32810",
+      "(555) 010-0142",
+    ]);
   });
 });
 

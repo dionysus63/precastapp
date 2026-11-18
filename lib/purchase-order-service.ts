@@ -43,6 +43,11 @@ export type SavePurchaseOrderInput = {
   expectedDate?: Date | null;
   notes?: string | null;
   enteredBy?: string | null;
+  /**
+   * Who at the vendor the order is addressed to. Left out: a new order takes
+   * the vendor's contact, a saved one keeps what it has.
+   */
+  attention?: string | null;
   submissionKey?: string | null;
   /** Whether the purchase is taxable; printed, not worked out. */
   taxable?: boolean;
@@ -143,7 +148,7 @@ export async function createPurchaseOrderRecord(
 
   const vendor = await tx.vendor.findUnique({
     where: { id: input.vendorId },
-    select: { id: true, name: true, status: true },
+    select: { id: true, name: true, status: true, contactName: true },
   });
   if (!vendor) {
     throw new Error("Vendor not found.");
@@ -168,6 +173,10 @@ export async function createPurchaseOrderRecord(
       expectedDate: input.expectedDate ?? null,
       notes: input.notes ?? null,
       enteredBy: input.enteredBy ?? null,
+      attention:
+        input.attention === undefined
+          ? vendor.contactName?.trim() || null
+          : input.attention?.trim() || null,
       submissionKey: input.submissionKey ?? null,
       taxable: input.taxable ?? false,
       ...content.quoteFields,
@@ -268,6 +277,9 @@ export async function updatePurchaseOrderRecord(
       expectedDate: input.expectedDate ?? null,
       notes: input.notes ?? null,
       enteredBy: input.enteredBy ?? null,
+      ...(input.attention === undefined
+        ? {}
+        : { attention: input.attention?.trim() || null }),
       taxable: input.taxable ?? false,
       ...content.quoteFields,
       subtotal: totals.subtotal,

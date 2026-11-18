@@ -23,6 +23,7 @@ import {
   type PurchaseOrderPreviewView,
 } from "@/components/purchase-orders/purchase-order-live-preview";
 import { formatUsd } from "@/lib/format";
+import { formatMoneyText, parseMoneyText } from "@/lib/money-input";
 import { useStoredFlag } from "@/lib/hooks/use-stored-flag";
 import { standardPageWidthClassName } from "@/lib/page-width";
 import {
@@ -50,6 +51,8 @@ type VendorOption = {
   id: string;
   name: string;
   defaultCategory: ReceivingCategory | null;
+  /** The vendor's contact on file: a new order's "Attention". */
+  contactName: string | null;
 };
 
 type EditorLine = {
@@ -79,6 +82,7 @@ type PurchaseOrderEditorProps = {
     expectedDate: string;
     notes: string;
     enteredBy: string;
+    attention?: string;
     updatedAt: string;
     lines: Array<{
       productId: string | null;
@@ -114,16 +118,19 @@ const ENTRY_MODES: Array<{ value: EntryMode; label: string; title: string }> = [
   },
 ];
 
-/** A typed quantity or price as a number; half-typed or empty counts as 0. */
+/** A typed quantity as a number; half-typed or empty counts as 0. */
 function typedAmount(value: string): number {
   const parsed = Number(value);
   return value.trim() && Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
-/** A typed dollar total, which may carry "$" and thousands commas. */
+/** A typed price or total, which may carry "$" and thousands commas. */
 function typedMoney(value: string): number {
-  return typedAmount(value.replace(/[$,\s]/g, ""));
+  return parseMoneyText(value) ?? 0;
 }
+
+/** Unit prices are stored to four decimals (pipe by the foot). */
+const UNIT_PRICE_DECIMALS = 4;
 
 function createLine(): EditorLine {
   return {
@@ -158,6 +165,9 @@ export function PurchaseOrderEditor({
   const [enteredBy, setEnteredBy] = useState(
     initial ? initial.enteredBy : defaultEnteredBy,
   );
+  // Who at the vendor the order is addressed to. It starts as the vendor's
+  // contact and can be changed for this order.
+  const [attention, setAttention] = useState(initial?.attention ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [taxable, setTaxable] = useState(initial?.taxable ?? false);
   // The vendor list can grow on this screen ("New vendor").
@@ -172,7 +182,9 @@ export function PurchaseOrderEditor({
   const [quoteNumber, setQuoteNumber] = useState(initial?.quoteNumber ?? "");
   const [quoteDate, setQuoteDate] = useState(initial?.quoteDate ?? "");
   const [quoteTotal, setQuoteTotal] = useState(
-    initial?.quoteOnly && initial.quoteTotal ? initial.quoteTotal.toFixed(2) : "",
+    initial?.quoteOnly && initial.quoteTotal
+      ? formatMoneyText(String(initial.quoteTotal))
+      : "",
   );
   const [quoteFiles, setQuoteFiles] = useState<File[]>([]);
   // The live purchase order PDF beside the inputs; hiding it is remembered
@@ -225,7 +237,7 @@ export function PurchaseOrderEditor({
           description: line.description ?? "",
           quantityOrdered: String(line.quantityOrdered),
           unit: line.unit,
-          unitPrice: String(line.unitPrice),
+          unitPrice: formatMoneyText(String(line.unitPrice), UNIT_PRICE_DECIMALS),
         }))
       : [createLine()],
   );
@@ -247,9 +259,22 @@ export function PurchaseOrderEditor({
     );
   }
 
+  /**
+   * The Attention box follows the vendor: empty, or still the last vendor's
+   * contact, it takes the new vendor's. A name typed for this order stays.
+   */
+  function followVendorContact(nextVendor: VendorOption | undefined) {
+    const previous =
+      vendorOptions.find((entry) => entry.id === vendorId)?.contactName?.trim() ?? "";
+    if (!attention.trim() || attention.trim() === previous) {
+      setAttention(nextVendor?.contactName?.trim() ?? "");
+    }
+  }
+
   function handleVendorChange(nextVendorId: string) {
-    setVendorId(nextVendorId);
     const vendor = vendorOptions.find((entry) => entry.id === nextVendorId);
+    followVendorContact(vendor);
+    setVendorId(nextVendorId);
     if (vendor?.defaultCategory && !category) {
       setCategory(vendor.defaultCategory);
     }
@@ -259,6 +284,7 @@ export function PurchaseOrderEditor({
     setVendorOptions((current) =>
       [...current, vendor].sort((a, b) => a.name.localeCompare(b.name)),
     );
+    followVendorContact(vendor);
     setVendorId(vendor.id);
     if (vendor.defaultCategory && !category) {
       setCategory(vendor.defaultCategory);
@@ -274,6 +300,7 @@ export function PurchaseOrderEditor({
     orderDate: orderDate || null,
     expectedDate: expectedDate || null,
     enteredBy: enteredBy.trim() || null,
+    attention: attention.trim() || null,
     notes: notes.trim() || null,
     taxable,
     lines: lines.map((line) => ({
@@ -281,7 +308,7 @@ export function PurchaseOrderEditor({
       description: line.description.trim(),
       quantityOrdered: typedAmount(line.quantityOrdered),
       unit: line.unit.trim(),
-      unitPrice: typedAmount(line.unitPrice),
+      unitPrice: typedMoney(line.unitPrice),
     })),
     quote:
       entryMode === "quote"
@@ -346,6 +373,9 @@ export function PurchaseOrderEditor({
 
   const inputClass =
     "mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm";
+  // One height for boxes that share a row: a list is otherwise a little
+  // taller than a text box, which pushes its label out of line.
+  const fieldClass = `${inputClass} h-9`;
   const labelClass = "text-xs font-medium text-slate-700";
   // Every field has the width of what goes in it and sits at the left: a
   // date is not as wide as a vendor name, and nothing stretches with the
@@ -393,7 +423,7 @@ export function PurchaseOrderEditor({
                       required
                       value={vendorId}
                       onChange={(event) => handleVendorChange(event.target.value)}
-                      className={inputClass}
+                      className={fieldClass}
                     >
                       <option value="">Select vendor…</option>
                       {vendorOptions.map((vendor) => (
@@ -407,12 +437,27 @@ export function PurchaseOrderEditor({
                     <button
                       type="button"
                       onClick={() => setAddingVendor(true)}
-                      className="rounded-lg btn-plain px-3 py-2 text-xs font-semibold"
+                      className="h-9 rounded-lg btn-plain px-3 text-xs font-semibold"
                     >
                       New vendor
                     </button>
                   ) : null}
                   <div className="w-56 max-w-full">
+                    <label htmlFor="attention" className={labelClass}>
+                      Attention
+                    </label>
+                    <input
+                      id="attention"
+                      name="attention"
+                      value={attention}
+                      onChange={(event) => setAttention(event.target.value)}
+                      title="Who at the vendor the order is for. Prints as Attn: under the vendor's address."
+                      className={fieldClass}
+                    />
+                  </div>
+                </div>
+                <div className={fieldRowClass}>
+                  <div className="w-52 max-w-full">
                     <label htmlFor="category" className={labelClass}>
                       Category
                     </label>
@@ -420,7 +465,7 @@ export function PurchaseOrderEditor({
                       id="category"
                       value={category}
                       onChange={(event) => setCategory(event.target.value)}
-                      className={inputClass}
+                      className={fieldClass}
                     >
                       {purchaseOrderCategoryFormOptions.map((option) => (
                         <option key={option.value || "one-off"} value={option.value}>
@@ -429,8 +474,6 @@ export function PurchaseOrderEditor({
                       ))}
                     </select>
                   </div>
-                </div>
-                <div className={fieldRowClass}>
                   <div className="w-40">
                     <label htmlFor="orderDate" className={labelClass}>
                       Order date *
@@ -442,7 +485,7 @@ export function PurchaseOrderEditor({
                       required
                       value={orderDate}
                       onChange={(event) => setOrderDate(event.target.value)}
-                      className={inputClass}
+                      className={fieldClass}
                     />
                   </div>
                   <div className="w-40">
@@ -455,10 +498,10 @@ export function PurchaseOrderEditor({
                       type="date"
                       value={expectedDate}
                       onChange={(event) => setExpectedDate(event.target.value)}
-                      className={inputClass}
+                      className={fieldClass}
                     />
                   </div>
-                  <div className="w-48 max-w-full">
+                  <div className="w-40 max-w-full">
                     <label htmlFor="enteredBy" className={labelClass}>
                       Entered by
                     </label>
@@ -467,7 +510,7 @@ export function PurchaseOrderEditor({
                       name="enteredBy"
                       value={enteredBy}
                       onChange={(event) => setEnteredBy(event.target.value)}
-                      className={inputClass}
+                      className={fieldClass}
                     />
                   </div>
                   <label
@@ -543,7 +586,7 @@ export function PurchaseOrderEditor({
                         name="quoteNumber"
                         value={quoteNumber}
                         onChange={(event) => setQuoteNumber(event.target.value)}
-                        className={inputClass}
+                        className={fieldClass}
                       />
                     </div>
                     <div className="w-40">
@@ -556,7 +599,7 @@ export function PurchaseOrderEditor({
                         type="date"
                         value={quoteDate}
                         onChange={(event) => setQuoteDate(event.target.value)}
-                        className={inputClass}
+                        className={fieldClass}
                       />
                     </div>
                     <div className="w-40">
@@ -571,7 +614,9 @@ export function PurchaseOrderEditor({
                         placeholder="0.00"
                         value={quoteTotal}
                         onChange={(event) => setQuoteTotal(event.target.value)}
-                        className={`${inputClass} text-right tabular-nums`}
+                        // Leaving the box tidies it: "30318" reads "30,318.00".
+                        onBlur={() => setQuoteTotal((typed) => formatMoneyText(typed))}
+                        className={`${fieldClass} text-right tabular-nums`}
                       />
                     </div>
                   </div>
@@ -654,13 +699,19 @@ export function PurchaseOrderEditor({
                             </td>
                             <td className={tableGridCellClassName}>
                               <input
-                                type="number"
-                                min="0"
-                                // Stored to four decimals (pipe by the foot).
-                                step="0.0001"
+                                // Text, so it can show "1,185.00" once left.
+                                inputMode="decimal"
                                 value={line.unitPrice}
                                 onChange={(event) =>
                                   updateLine(line.id, { unitPrice: event.target.value })
+                                }
+                                onBlur={() =>
+                                  updateLine(line.id, {
+                                    unitPrice: formatMoneyText(
+                                      line.unitPrice,
+                                      UNIT_PRICE_DECIMALS,
+                                    ),
+                                  })
                                 }
                                 aria-label={`Line ${index + 1} price`}
                                 className={tableNumericCellInputClassName}

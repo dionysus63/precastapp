@@ -33,6 +33,7 @@ type PurchaseOrderDetailContentProps = {
     total: number;
     notes: string | null;
     enteredBy: string | null;
+    attention: string | null;
     hasVendorQuote: boolean;
     vendorQuoteName: string | null;
     taxable: boolean;
@@ -296,6 +297,7 @@ export function PurchaseOrderDetailContent({
 
       <p className="text-xs text-slate-500">
         Category: {purchaseOrder.categoryLabel}
+        {purchaseOrder.attention ? ` · Attn: ${purchaseOrder.attention}` : ""}
         {purchaseOrder.taxable ? " · Taxable" : " · Non-taxable"}
         {purchaseOrder.enteredBy ? ` · Entered by ${purchaseOrder.enteredBy}` : ""}
         {purchaseOrder.expectedDateLabel

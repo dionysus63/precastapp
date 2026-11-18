@@ -80,6 +80,7 @@ export type CreatedVendor = {
   id: string;
   name: string;
   defaultCategory: ReceivingCategory | null;
+  contactName: string | null;
 };
 
 /**
@@ -121,7 +122,7 @@ export async function createVendorInPlace(
           ...parseVendorContact(formData),
           defaultCategory: defaultCategory as ReceivingCategory | null,
         },
-        select: { id: true, name: true, defaultCategory: true },
+        select: { id: true, name: true, defaultCategory: true, contactName: true },
       });
     });
     revalidateVendorPaths();

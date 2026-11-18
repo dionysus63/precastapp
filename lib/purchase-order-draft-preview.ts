@@ -53,6 +53,8 @@ export type PurchaseOrderDraftPreviewInput = {
   orderDate: string | null;
   expectedDate: string | null;
   enteredBy: string | null;
+  /** Who at the vendor the order is addressed to, as the box holds it. */
+  attention: string | null;
   notes: string | null;
   taxable: boolean;
   lines: PurchaseOrderDraftPreviewLine[];
@@ -135,6 +137,7 @@ export function parsePurchaseOrderDraftPreviewInput(
     orderDate: textOrNull(input.orderDate, 10),
     expectedDate: textOrNull(input.expectedDate, 10),
     enteredBy: textOrNull(input.enteredBy, 200),
+    attention: textOrNull(input.attention, 200),
     notes: textOrNull(input.notes, 5000),
     taxable: input.taxable === true,
     lines,
@@ -149,7 +152,6 @@ const BLANK_VENDOR: PurchaseOrderForPdf["vendor"] = {
   zip: null,
   phone: null,
   email: null,
-  contactName: null,
 };
 
 /**
@@ -183,7 +185,6 @@ export async function loadDraftPurchaseOrderForPdf(
             zip: true,
             phone: true,
             email: true,
-            contactName: true,
           },
         })
       : null,
@@ -223,6 +224,7 @@ export async function loadDraftPurchaseOrderForPdf(
     orderDate: draft.orderDate ? parseCalendarDate(draft.orderDate) : null,
     expectedDate: draft.expectedDate ? parseCalendarDate(draft.expectedDate) : null,
     enteredBy: draft.enteredBy,
+    attention: draft.attention,
     notes: draft.notes,
     vendor: vendor ?? BLANK_VENDOR,
     lines: lines.map((line, index) => ({

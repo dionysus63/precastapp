@@ -15,7 +15,9 @@ const tag = `QUOTEONLY-${Date.now()}`;
 let vendorId: string;
 
 beforeAll(async () => {
-  const vendor = await prisma.vendor.create({ data: { name: `${tag} Vendor` } });
+  const vendor = await prisma.vendor.create({
+    data: { name: `${tag} Vendor`, contactName: " Inside Sales " },
+  });
   vendorId = vendor.id;
 });
 
@@ -120,6 +122,33 @@ describe("a purchase order placed against the vendor's quote", () => {
     expect((await read()).taxable).toBe(true);
   });
 
+  it("addresses the order to the vendor's contact unless told otherwise", async () => {
+    const lines = [{ itemCode: `${tag}-ATTN`, quantityOrdered: 1, unitPrice: 10 }];
+    const read = (id: string) =>
+      prisma.purchaseOrder.findUniqueOrThrow({ where: { id } });
+    const save = (attention?: string | null) =>
+      prisma.$transaction((tx) =>
+        createPurchaseOrderRecord(tx, { vendorId, orderDate, lines, attention }),
+      );
+    const id = await save();
+    expect((await read(id)).attention).toBe("Inside Sales");
+    expect((await read(await save(" Dana "))).attention).toBe("Dana");
+    // The box cleared on purpose: no Attn line, not the vendor's contact.
+    expect((await read(await save(""))).attention).toBeNull();
+
+    const update = (attention?: string | null) =>
+      prisma.$transaction((tx) =>
+        updatePurchaseOrderRecord(tx, id, { vendorId, orderDate, lines, attention }),
+      );
+    await update("Pat");
+    expect((await read(id)).attention).toBe("Pat");
+    // A save that does not send the box leaves it alone.
+    await update();
+    expect((await read(id)).attention).toBe("Pat");
+    await update(null);
+    expect((await read(id)).attention).toBeNull();
+  });
+
   it("previews with the quote in place of the lines", async () => {
     const draft = await loadDraftPurchaseOrderForPdf(prisma, {
       purchaseOrderId: null,
@@ -127,6 +156,7 @@ describe("a purchase order placed against the vendor's quote", () => {
       orderDate: "2099-01-01",
       expectedDate: null,
       enteredBy: null,
+      attention: "Dana",
       notes: null,
       taxable: true,
       lines: [
@@ -136,6 +166,7 @@ describe("a purchase order placed against the vendor's quote", () => {
     });
     expect(draft.quoteOnly).toBe(true);
     expect(draft.taxable).toBe(true);
+    expect(draft.attention).toBe("Dana");
     expect(draft.quoteNumber).toBe("Q122819");
     expect(draft.quoteDate?.toISOString().slice(0, 10)).toBe("2098-12-20");
     expect(draft.lines).toEqual([]);

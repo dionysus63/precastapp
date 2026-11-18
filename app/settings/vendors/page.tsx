@@ -88,8 +88,8 @@ export default async function VendorsPage({ searchParams }: VendorsPageProps) {
                       {purchaseOrderPrefix(vendor.name)}
                     </td>
                     <td className={`${tableCellClassName} text-slate-700`}>
-                      {vendorPartyForPdf(vendor).lines.length > 0
-                        ? vendorPartyForPdf(vendor).lines.map((line) => (
+                      {vendorPartyForPdf(vendor, vendor.contactName).lines.length > 0
+                        ? vendorPartyForPdf(vendor, vendor.contactName).lines.map((line) => (
                             <span key={line} className="block">
                               {line}
                             </span>

@@ -24,6 +24,7 @@ type PoWithVendor = {
   expectedDate?: PurchaseOrder["expectedDate"];
   notes?: PurchaseOrder["notes"];
   enteredBy?: PurchaseOrder["enteredBy"];
+  attention?: PurchaseOrder["attention"];
   vendorQuotePath?: PurchaseOrder["vendorQuotePath"];
   vendorQuoteName?: PurchaseOrder["vendorQuoteName"];
   taxable?: PurchaseOrder["taxable"];
@@ -95,6 +96,7 @@ export function mapPurchaseOrderDetail(po: PoWithVendor) {
       : null,
     notes: po.notes ?? null,
     enteredBy: po.enteredBy ?? null,
+    attention: po.attention ?? null,
     vendorQuoteName: po.vendorQuoteName ?? null,
     hasVendorQuote: Boolean(po.vendorQuotePath),
     taxable: po.taxable ?? false,

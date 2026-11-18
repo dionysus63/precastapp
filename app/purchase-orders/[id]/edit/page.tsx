@@ -60,6 +60,7 @@ export default async function EditPurchaseOrderPage({
             : "",
           notes: purchaseOrder.notes ?? "",
           enteredBy: purchaseOrder.enteredBy ?? "",
+          attention: purchaseOrder.attention ?? "",
           updatedAt: purchaseOrder.updatedAt.toISOString(),
           vendorQuoteName: purchaseOrder.vendorQuoteName,
           taxable: purchaseOrder.taxable,

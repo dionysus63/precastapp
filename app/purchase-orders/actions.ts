@@ -61,7 +61,8 @@ function parseLinesFromFormData(formData: FormData): PurchaseOrderLineInput[] {
     if (!Number.isFinite(quantityOrdered) || quantityOrdered <= 0) {
       throw new Error(`Line ${index + 1}: quantity must be greater than zero.`);
     }
-    const unitPrice = Number(unitPrices[index] ?? "0");
+    // The price box shows thousands commas ("1,185.00").
+    const unitPrice = Number((unitPrices[index] ?? "0").replace(/[$,\s]/g, "") || "0");
     if (!Number.isFinite(unitPrice) || unitPrice < 0) {
       throw new Error(`Line ${index + 1}: unit price cannot be negative.`);
     }
@@ -122,6 +123,10 @@ function parseSaveInput(formData: FormData): SavePurchaseOrderInput {
     expectedDate,
     notes: String(formData.get("notes") ?? "").trim() || null,
     enteredBy: String(formData.get("enteredBy") ?? "").trim() || null,
+    // A screen that does not send the box leaves the attention alone.
+    attention: formData.has("attention")
+      ? String(formData.get("attention") ?? "").trim() || null
+      : undefined,
     submissionKey: String(formData.get("submissionKey") ?? "").trim() || null,
     taxable: String(formData.get("taxable") ?? "") === "true",
     lines: quoteOnly ? [] : parseLinesFromFormData(formData),
@@ -336,6 +341,7 @@ export async function listVendorsForPurchaseOrderForm() {
         id: true,
         name: true,
         defaultCategory: true,
+        contactName: true,
       },
     }),
   );

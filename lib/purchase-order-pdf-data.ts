@@ -18,7 +18,6 @@ export type PurchaseOrderVendorForPdf = {
   zip: string | null;
   phone: string | null;
   email: string | null;
-  contactName: string | null;
 };
 
 /**
@@ -31,6 +30,8 @@ export type PurchaseOrderForPdf = {
   orderDate: Date | null;
   expectedDate: Date | null;
   enteredBy: string | null;
+  /** Who at the vendor the order is addressed to: "Attn:" in the Vendor block. */
+  attention: string | null;
   notes: string | null;
   /** Whether the purchase is taxable; the page says which. */
   taxable: boolean;
@@ -59,6 +60,7 @@ export const purchaseOrderForPdfSelect = {
   orderDate: true,
   expectedDate: true,
   enteredBy: true,
+  attention: true,
   notes: true,
   taxable: true,
   quoteOnly: true,
@@ -74,7 +76,6 @@ export const purchaseOrderForPdfSelect = {
       zip: true,
       phone: true,
       email: true,
-      contactName: true,
     },
   },
   lines: {
@@ -114,12 +115,14 @@ const PARTY_DETAIL_LINES = 4;
 
 export function vendorPartyForPdf(
   vendor: PurchaseOrderVendorForPdf,
+  /** The order's own "Attention", not the vendor's contact on file. */
+  attention: string | null,
 ): PurchaseOrderPdfParty {
   const cityState = [clean(vendor.city), clean(vendor.state)]
     .filter(Boolean)
     .join(", ");
   const cityLine = [cityState, clean(vendor.zip)].filter(Boolean).join(" ");
-  const contact = clean(vendor.contactName);
+  const contact = clean(attention);
   const lines = [
     clean(vendor.address),
     cityLine,
@@ -164,7 +167,7 @@ export function buildPurchaseOrderPdfData(
     expectedDate: formatDateForPdf(purchaseOrder.expectedDate),
     orderedBy: clean(purchaseOrder.enteredBy),
     tax: purchaseOrder.taxable ? "Taxable" : "Non-taxable",
-    vendor: vendorPartyForPdf(purchaseOrder.vendor),
+    vendor: vendorPartyForPdf(purchaseOrder.vendor, purchaseOrder.attention),
     shipTo: shipToPartyForPdf(company),
     quote: purchaseOrder.quoteOnly
       ? {
