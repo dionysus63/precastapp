@@ -378,25 +378,65 @@ function resolveOpenings(
 }
 
 /** Pipe centered vertically in the block-out: opening center = invert + pipe/2. */
-function computeVerticalGeometry(
+/**
+ * Vertical extent of the block-out: centered on the pipe, except that it can
+ * never start below the floor. A block-out that would (a small sump under a
+ * big pipe, e.g. the sump set by an 18" pipe with a 24" pipe at the same
+ * invert) sits ON the floor and keeps its full catalog height, so the pipe
+ * rides low in the hole.
+ */
+function openingVerticalExtent(
   opening: ComputedRectOpening,
   floorElevation: number | null,
-): ComputedRectOpening {
+): { bottomFeet: number; topFeet: number; raisedFeet: number } | null {
   if (opening.invertElevation == null || opening.openingHeightInches == null) {
-    return opening;
+    return null;
   }
   const pipeSize = opening.pipeSizeInches ?? 0;
   const center = opening.invertElevation + inchesToFeet(pipeSize / 2);
   const half = inchesToFeet(opening.openingHeightInches / 2);
-  const bottomOfOpeningFeet = round4(center - half);
-  const topOfOpeningFeet = round4(center + half);
+  const centeredBottom = round4(center - half);
+  if (floorElevation != null && centeredBottom < floorElevation - EPSILON) {
+    return {
+      bottomFeet: floorElevation,
+      topFeet: round4(
+        floorElevation + inchesToFeet(opening.openingHeightInches),
+      ),
+      raisedFeet: round4(floorElevation - centeredBottom),
+    };
+  }
+  return {
+    bottomFeet: centeredBottom,
+    topFeet: round4(center + half),
+    raisedFeet: 0,
+  };
+}
+
+function computeVerticalGeometry(
+  opening: ComputedRectOpening,
+  floorElevation: number | null,
+  index: number,
+  warnings: string[],
+): ComputedRectOpening {
+  const extent = openingVerticalExtent(opening, floorElevation);
+  if (!extent) {
+    return opening;
+  }
+  // Under half an inch is rounding in the elevations, not worth a note.
+  const raisedInches = Math.round(extent.raisedFeet * 12);
+  if (raisedInches >= 1) {
+    const label = opening.label?.trim() || String.fromCharCode(65 + index);
+    warnings.push(
+      `Opening ${label} sits on the floor — centered on the pipe, its ${opening.openingWidthInches ?? "?"}"x${opening.openingHeightInches}" block-out would start ${raisedInches}" below it.`,
+    );
+  }
   return {
     ...opening,
-    bottomOfOpeningFeet,
-    topOfOpeningFeet,
+    bottomOfOpeningFeet: extent.bottomFeet,
+    topOfOpeningFeet: extent.topFeet,
     floorToOpeningBottomInches:
       floorElevation != null
-        ? Math.round((bottomOfOpeningFeet - floorElevation) * 12)
+        ? Math.round((extent.bottomFeet - floorElevation) * 12)
         : null,
   };
 }
@@ -820,29 +860,26 @@ export function computeRectStructure(
   // must reach at least the top of the highest opening. Grow the walls by
   // consuming brick (all the way to 0, warning below the minimum); when even
   // that is short, deepen the sump so the wall still lands on a 6" increment.
+  // An opening that would start below the floor sits on it instead, which
+  // lifts its top by the same amount (see openingVerticalExtent).
+  const preliminaryFloor =
+    lowInvertElevation != null ? round4(lowInvertElevation - sumpFeet) : null;
   let maxOpeningTopFeet: number | null = null;
   for (const opening of openings) {
-    if (
-      opening.invertElevation == null ||
-      opening.openingHeightInches == null
-    ) {
+    const extent = openingVerticalExtent(opening, preliminaryFloor);
+    if (!extent) {
       continue;
     }
-    const center =
-      opening.invertElevation +
-      inchesToFeet((opening.pipeSizeInches ?? 0) / 2);
-    const top = round4(center + inchesToFeet(opening.openingHeightInches / 2));
-    if (maxOpeningTopFeet == null || top > maxOpeningTopFeet) {
-      maxOpeningTopFeet = top;
+    if (maxOpeningTopFeet == null || extent.topFeet > maxOpeningTopFeet) {
+      maxOpeningTopFeet = extent.topFeet;
     }
   }
 
   if (
     maxOpeningTopFeet != null &&
-    lowInvertElevation != null &&
+    preliminaryFloor != null &&
     rawAvailableFeet != null
   ) {
-    const preliminaryFloor = round4(lowInvertElevation - sumpFeet);
     const requiredWallFeet = round4(maxOpeningTopFeet - preliminaryFloor);
     if (requiredWallFeet > wallHeightFeet + EPSILON) {
       const minBrickFeet = inchesToFeet(template.minimumBrickInches);
@@ -880,8 +917,8 @@ export function computeRectStructure(
   const floorElevation =
     lowInvertElevation != null ? round4(lowInvertElevation - sumpFeet) : null;
 
-  openings = openings.map((opening) =>
-    computeVerticalGeometry(opening, floorElevation),
+  openings = openings.map((opening, index) =>
+    computeVerticalGeometry(opening, floorElevation, index, warnings),
   );
   openings = openings.map((opening) =>
     computeHorizontalGeometry(
