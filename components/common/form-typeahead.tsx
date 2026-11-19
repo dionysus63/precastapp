@@ -51,6 +51,7 @@ export function FormTypeahead<T>({
   const [hasLoaded, setHasLoaded] = useState(false);
   const [isSearching, startSearchTransition] = useTransition();
   const containerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) {
@@ -67,6 +68,15 @@ export function FormTypeahead<T>({
 
     return () => clearTimeout(handle);
   }, [open, query, searchItems, startSearchTransition]);
+
+  // A search box near the bottom of the window opens its list below the
+  // fold. Bring the whole list into view, and again when results change its
+  // height. "nearest" moves nothing when the list is already on screen.
+  useEffect(() => {
+    if (open) {
+      listRef.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [open, items, isSearching]);
 
   function closeDropdown() {
     setOpen(false);
@@ -136,6 +146,7 @@ export function FormTypeahead<T>({
       />
       {open ? (
         <div
+          ref={listRef}
           id={`${inputId ?? "typeahead"}-listbox`}
           role="listbox"
           className="absolute left-0 right-0 z-30 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 text-xs shadow-lg"
