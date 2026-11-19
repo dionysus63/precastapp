@@ -1,6 +1,7 @@
 import { loadMoldSheetSettings } from "@/lib/mold-sheet-settings-load";
 import { notFound } from "next/navigation";
 import { requireAuthForPath } from "@/lib/auth/session";
+import { KeptPreviewZooms } from "@/components/common/kept-preview-zooms";
 import { DrillSheetPreviewContent } from "@/components/drill-sheets/drill-sheet-preview-content";
 import {
   buildDrillSheetDetail,
@@ -17,7 +18,7 @@ export default async function DrillSheetPreviewPage({
 }: DrillSheetPreviewPageProps) {
   const { id } = await params;
   // Outside DashboardShell, so the route's permission is checked here.
-  await requireAuthForPath(`/drill-sheets/${id}/preview`);
+  const user = await requireAuthForPath(`/drill-sheets/${id}/preview`);
 
   const sheet = await prisma.jobStructure.findUnique({
     where: { id },
@@ -34,11 +35,13 @@ export default async function DrillSheetPreviewPage({
   }
 
   return (
-    <DrillSheetPreviewContent
-      drillSheetId={sheet.id}
-      manholeNumber={detail.meta.manholeNumber}
-      templateName={detail.meta.templateName}
-      projectName={detail.meta.project}
-    />
+    <KeptPreviewZooms userId={user.id}>
+      <DrillSheetPreviewContent
+        drillSheetId={sheet.id}
+        manholeNumber={detail.meta.manholeNumber}
+        templateName={detail.meta.templateName}
+        projectName={detail.meta.project}
+      />
+    </KeptPreviewZooms>
   );
 }

@@ -13,6 +13,8 @@ import {
   DeliveryTicketPdfCanvasPreview,
   getDeliveryTicketPreviewPrintUrl,
 } from "@/components/delivery-tickets/delivery-ticket-pdf-canvas-preview";
+import { PaperZoomBar, paperColumnStyle } from "@/components/common/pdf-page-canvas";
+import { usePreviewZoom } from "@/components/common/pdf-zoom-buttons";
 import { printPdfUrl } from "@/lib/print-pdf-url";
 
 const COPY_COUNT = 3;
@@ -85,6 +87,7 @@ export function DeliveryTicketPreviewContent({
     invoiceId: string | null;
   } | null>(null);
 
+  const zoom = usePreviewZoom("ticket-preview");
   const handleSheetCountChange = useCallback((count: number) => {
     setSheetCount(count);
     setPreviewSheet((current) => Math.min(current, Math.max(count, 1)));
@@ -370,7 +373,12 @@ export function DeliveryTicketPreviewContent({
         ) : null}
       </div>
 
-      <main className="mx-auto w-full max-w-[8.5in] px-4 py-6 print:max-w-none print:p-0">
+      <main
+        className="mx-auto w-full max-w-[8.5in] px-4 py-6 print:max-w-none print:p-0"
+        // Zoomed in, the paper's column grows with it.
+        style={paperColumnStyle(zoom.zoom)}
+      >
+        <PaperZoomBar zoom={zoom} />
         <div className="mb-3 flex flex-wrap items-center justify-center gap-2 print:hidden">
           {Array.from({ length: COPY_COUNT }, (_, index) => {
             const copyNumber = index + 1;
@@ -419,6 +427,7 @@ export function DeliveryTicketPreviewContent({
           ticketId={ticketId}
           activeCopy={previewCopy}
           activeSheet={previewSheet}
+          zoom={zoom.zoom}
           onSheetCountChange={handleSheetCountChange}
         />
 

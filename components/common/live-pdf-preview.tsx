@@ -3,6 +3,12 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { isActionError, type ActionError } from "@/lib/action-result";
+import {
+  KeepZoomButton,
+  PdfZoomButtons,
+  usePreviewZoom,
+} from "@/components/common/pdf-zoom-buttons";
+import type { PreviewZoomScreen } from "@/lib/preview-zoom";
 import { selectedClassName } from "@/lib/selected-styles";
 
 /** Wait this long after the last change before filling the PDF again. */
@@ -15,11 +21,6 @@ const MAX_PAGE_HEIGHT_VH = 1.6;
 const MIN_PAGE_HEIGHT_PX = 320;
 /** Smallest height the page is fitted into, however short the window is. */
 const MIN_PAGE_ROOM_PX = 160;
-/**
- * Zoom steps, as multiples of the size at which the page fits the pane. The
- * first one is "fit"; past it the page scrolls inside the pane.
- */
-export const PDF_ZOOM_STEPS = [1, 1.25, 1.5, 2, 2.5, 3] as const;
 /** Most pixels the page is drawn with, so a deep zoom stays quick to draw. */
 const MAX_CANVAS_PIXELS = 16_000_000;
 
@@ -163,6 +164,12 @@ type LivePdfPreviewProps = {
   debounceMs?: number;
   /** Extra controls for the pane header (right side). */
   actions?: ReactNode;
+  /**
+   * The screen this preview is on, for one whose zoom can be kept: it then
+   * opens at the zoom the user's account keeps for that screen, and shows
+   * "Keep zoom" beside the zoom buttons.
+   */
+  zoomScreen?: PreviewZoomScreen | null;
 };
 
 type LoadedPreview = {
@@ -231,6 +238,7 @@ export function LivePdfPreview({
   live = true,
   debounceMs = live ? DEFAULT_DEBOUNCE_MS : 0,
   actions = null,
+  zoomScreen = null,
 }: LivePdfPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -247,9 +255,9 @@ export function LivePdfPreview({
   const [containerWidth, setContainerWidth] = useState(0);
   /** Height the page must fit in (see measurePageRoom); null: no limit. */
   const [pageRoom, setPageRoom] = useState<number | null>(null);
-  /** Index into PDF_ZOOM_STEPS; 0 is the page fitted to the pane. */
-  const [zoomIndex, setZoomIndex] = useState(0);
-  const zoom = PDF_ZOOM_STEPS[zoomIndex] ?? 1;
+  /** `zoomIndex` 0 is the page fitted to the pane. */
+  const zoomState = usePreviewZoom(zoomScreen);
+  const { zoomIndex, setZoomIndex, zoom } = zoomState;
 
   const pending = requestKey != null && settledKey !== requestKey;
   const error = failure?.key === requestKey ? failure.message : null;
@@ -491,42 +499,9 @@ export function LivePdfPreview({
             </div>
           ) : null}
           {showPdf ? (
-            <div className="flex items-center gap-1" data-live-pdf-zoom={zoom}>
-              <button
-                type="button"
-                onClick={() => setZoomIndex((index) => Math.max(index - 1, 0))}
-                disabled={zoomIndex === 0}
-                title="Zoom out"
-                aria-label="Zoom out"
-                className="rounded btn-plain px-2 py-0.5 text-2xs font-semibold disabled:opacity-40"
-              >
-                −
-              </button>
-              <button
-                type="button"
-                onClick={() => setZoomIndex(0)}
-                disabled={zoomIndex === 0}
-                title="Fit the page to the pane"
-                className="min-w-[3.25rem] rounded btn-plain px-2 py-0.5 text-2xs font-semibold tabular-nums"
-              >
-                {zoomIndex === 0 ? "Fit" : `${Math.round(zoom * 100)}%`}
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setZoomIndex((index) =>
-                    Math.min(index + 1, PDF_ZOOM_STEPS.length - 1),
-                  )
-                }
-                disabled={zoomIndex === PDF_ZOOM_STEPS.length - 1}
-                title="Zoom in"
-                aria-label="Zoom in"
-                className="rounded btn-plain px-2 py-0.5 text-2xs font-semibold disabled:opacity-40"
-              >
-                +
-              </button>
-            </div>
+            <PdfZoomButtons zoomIndex={zoomIndex} onZoomIndex={setZoomIndex} />
           ) : null}
+          {showPdf ? <KeepZoomButton zoom={zoomState} /> : null}
           {showPdf ? (
             <button
               type="button"

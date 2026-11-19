@@ -116,7 +116,7 @@ export function PurchaseOrderLivePreview({
         </TabBar>
       ) : null}
       {/* Both stay on the page, so switching tabs is instant and each keeps
-          its page and zoom. */}
+          its page and zoom (both open at the zoom the user's account keeps). */}
       <div className={shownView === "purchaseOrder" ? "" : "hidden"}>
         <LivePdfPreview
           title="Purchase order PDF"
@@ -125,6 +125,7 @@ export function PurchaseOrderLivePreview({
           load={load}
           emptyNote="Pick a vendor to see the purchase order here."
           loadingNote="Drawing the purchase order…"
+          zoomScreen="purchase-orders"
           actions={hideButton}
         />
       </div>
@@ -138,6 +139,7 @@ export function PurchaseOrderLivePreview({
             live={false}
             emptyNote="Drop a vendor quote PDF to see it here."
             loadingNote="Opening the vendor quote…"
+            zoomScreen="purchase-orders"
             actions={hideButton}
           />
         </div>

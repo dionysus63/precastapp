@@ -2288,6 +2288,7 @@ model User {
   sessions      Session[]
   auditLogs     AuditLog[]
   jobFavorites  JobFavorite[]
+  previewZooms  UserPreviewZoom[]
   quotesCreated Quote[]         @relation("QuoteCreatedBy")
   jobsCreated   Job[]           @relation("JobCreatedBy")
 }
@@ -2304,6 +2305,23 @@ model JobFavorite {
   @@unique([userId, jobId])
   @@index([userId])
   @@index([jobId])
+}
+
+/// The zoom a user chose to keep for the PDF previews of one screen ("Keep
+/// zoom" beside the zoom buttons). No row: that screen opens fitted.
+model UserPreviewZoom {
+  id          String   @id @default(cuid())
+  userId      String
+  /// Which screen: a key of PREVIEW_ZOOM_SCREENS in lib/preview-zoom.ts.
+  screen      String
+  /// Percent of the fitted size: 100, 125, 150, 200, 250 or 300.
+  zoomPercent Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, screen])
 }
 
 model Session {

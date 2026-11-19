@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireAuthForPath } from "@/lib/auth/session";
+import { KeptPreviewZooms } from "@/components/common/kept-preview-zooms";
 import { QuotePreviewContent } from "@/components/quotes/quote-preview-content";
 import { canEditQuote } from "@/lib/quotes/edit-rules";
 import { canSendQuote } from "@/lib/quotes/send-rules";
@@ -13,7 +14,7 @@ type QuotePreviewPageProps = {
 export default async function QuotePreviewPage({ params }: QuotePreviewPageProps) {
   const { id } = await params;
   // Outside DashboardShell, so the route's permission is checked here.
-  await requireAuthForPath(`/quotes/${id}/preview`);
+  const user = await requireAuthForPath(`/quotes/${id}/preview`);
 
   const quote = await withDatabaseRetry((prisma) =>
     prisma.quote.findUnique({
@@ -53,14 +54,16 @@ export default async function QuotePreviewPage({ params }: QuotePreviewPageProps
   const status = quote.status as QuoteStatus;
 
   return (
-    <QuotePreviewContent
-      quoteId={quote.id}
-      quoteNumber={quote.quoteNumber}
-      canEdit={canEditQuote(status, supersededBy)}
-      canSend={canSendQuote(status, supersededBy)}
-      contactEmail={quote.contactEmail?.trim() ?? ""}
-      contactName={quote.contactName?.trim() ?? ""}
-      projectName={quote.projectName}
-    />
+    <KeptPreviewZooms userId={user.id}>
+      <QuotePreviewContent
+        quoteId={quote.id}
+        quoteNumber={quote.quoteNumber}
+        canEdit={canEditQuote(status, supersededBy)}
+        canSend={canSendQuote(status, supersededBy)}
+        contactEmail={quote.contactEmail?.trim() ?? ""}
+        contactName={quote.contactName?.trim() ?? ""}
+        projectName={quote.projectName}
+      />
+    </KeptPreviewZooms>
   );
 }

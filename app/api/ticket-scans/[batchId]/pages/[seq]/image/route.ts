@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { fileRouteErrorResponse } from "@/lib/http-responses";
+import { parsePdfZoomParam } from "@/lib/preview-zoom";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { parseScanPages } from "@/lib/ticket-scan/batch-state";
 import { renderPdfPageImage } from "@/lib/ticket-scan/reader";
@@ -15,7 +16,7 @@ type RouteContext = {
  * One page of the scan being worked on, as a picture for the Scan In
  * preview, turned upright the way the page's row says.
  */
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
   try {
     await requirePermission(AppPermission.INVOICES_VIEW);
     const { batchId, seq: seqRaw } = await context.params;
@@ -44,6 +45,8 @@ export async function GET(_request: Request, context: RouteContext) {
     const bytes = await readScanSource(batchId, page.sourceId);
     const image = await renderPdfPageImage(bytes, page.sourcePage, {
       rotation: page.rotation,
+      // A zoomed preview asks for a picture sharp enough for its size.
+      zoom: parsePdfZoomParam(new URL(request.url).searchParams.get("zoom")),
     });
     return new NextResponse(new Uint8Array(image.bytes), {
       status: 200,
