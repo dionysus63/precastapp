@@ -19,7 +19,6 @@ import type {
   InvoiceListFilter,
 } from "@/lib/invoice-status";
 import type { PageInfo } from "@/lib/list-params";
-import type { PdfZoom } from "@/lib/preview-zoom";
 import type { ScanInView } from "@/lib/ticket-scan/view-types";
 
 type InvoicesTabsProps = {
@@ -41,8 +40,6 @@ type InvoicesTabsProps = {
   canFile: boolean;
   /** What the Scan In tab shows; null while the list is open. */
   scanIn: { view: ScanInView; viewing: string | null } | null;
-  /** The zoom this user's account keeps for the preview beside the list. */
-  keptPreviewZoom: PdfZoom;
 };
 
 /** Leaving for the other tab drops the list's search and order from the address. */
@@ -63,7 +60,6 @@ export function InvoicesTabs({
   canManage,
   canFile,
   scanIn,
-  keptPreviewZoom,
 }: InvoicesTabsProps) {
   const { setParams } = useListQuery();
   // Filing a scan makes invoices without loading the page again: Scan In
@@ -131,7 +127,6 @@ export function InvoicesTabs({
           filterCounts={filterCounts}
           suggestions={suggestions}
           canManage={canManage}
-          keptPreviewZoom={keptPreviewZoom}
         />
       )}
     </div>

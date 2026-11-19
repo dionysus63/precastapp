@@ -3,8 +3,12 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { isActionError, type ActionError } from "@/lib/action-result";
-import { PdfZoomButtons } from "@/components/common/pdf-zoom-buttons";
-import { PDF_ZOOM_STEPS } from "@/lib/preview-zoom";
+import {
+  KeepZoomButton,
+  PdfZoomButtons,
+  usePreviewZoom,
+} from "@/components/common/pdf-zoom-buttons";
+import type { PreviewZoomScreen } from "@/lib/preview-zoom";
 import { selectedClassName } from "@/lib/selected-styles";
 
 /** Wait this long after the last change before filling the PDF again. */
@@ -160,6 +164,12 @@ type LivePdfPreviewProps = {
   debounceMs?: number;
   /** Extra controls for the pane header (right side). */
   actions?: ReactNode;
+  /**
+   * The screen this preview is on, for one whose zoom can be kept: it then
+   * opens at the zoom the user's account keeps for that screen, and shows
+   * "Keep zoom" beside the zoom buttons.
+   */
+  zoomScreen?: PreviewZoomScreen | null;
 };
 
 type LoadedPreview = {
@@ -228,6 +238,7 @@ export function LivePdfPreview({
   live = true,
   debounceMs = live ? DEFAULT_DEBOUNCE_MS : 0,
   actions = null,
+  zoomScreen = null,
 }: LivePdfPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -244,9 +255,9 @@ export function LivePdfPreview({
   const [containerWidth, setContainerWidth] = useState(0);
   /** Height the page must fit in (see measurePageRoom); null: no limit. */
   const [pageRoom, setPageRoom] = useState<number | null>(null);
-  /** Index into PDF_ZOOM_STEPS; 0 is the page fitted to the pane. */
-  const [zoomIndex, setZoomIndex] = useState(0);
-  const zoom = PDF_ZOOM_STEPS[zoomIndex] ?? 1;
+  /** `zoomIndex` 0 is the page fitted to the pane. */
+  const zoomState = usePreviewZoom(zoomScreen);
+  const { zoomIndex, setZoomIndex, zoom } = zoomState;
 
   const pending = requestKey != null && settledKey !== requestKey;
   const error = failure?.key === requestKey ? failure.message : null;
@@ -490,6 +501,7 @@ export function LivePdfPreview({
           {showPdf ? (
             <PdfZoomButtons zoomIndex={zoomIndex} onZoomIndex={setZoomIndex} />
           ) : null}
+          {showPdf ? <KeepZoomButton zoom={zoomState} /> : null}
           {showPdf ? (
             <button
               type="button"

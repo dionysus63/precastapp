@@ -5,7 +5,7 @@ import { PdfDragChip } from "@/components/common/pdf-drag-chip";
 import {
   KeepZoomButton,
   PdfZoomButtons,
-  type KeptPreviewZoom,
+  type PreviewZoomState,
 } from "@/components/common/pdf-zoom-buttons";
 import {
   InvoicePaper,
@@ -39,7 +39,7 @@ export function InvoiceListPreview({
   onNext,
   hasPrevious,
   hasNext,
-  zoom: keptZoom,
+  zoom: zoomState,
 }: {
   row: InvoiceListRow | null;
   side: InvoicePreviewSide;
@@ -50,9 +50,9 @@ export function InvoiceListPreview({
   hasPrevious: boolean;
   hasNext: boolean;
   /** The pane's zoom, and the one the user's account keeps for this screen. */
-  zoom: KeptPreviewZoom;
+  zoom: PreviewZoomState;
 }) {
-  const zoom = keptZoom.zoom;
+  const zoom = zoomState.zoom;
   const signed = row?.signedTicket ?? null;
   const showSigned = side === "signed";
   const invoicePdfUrl = row ? `/api/invoices/${row.id}/pdf` : null;
@@ -160,11 +160,11 @@ export function InvoiceListPreview({
           ) : null}
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <PdfZoomButtons
-              zoomIndex={keptZoom.zoomIndex}
-              onZoomIndex={keptZoom.setZoomIndex}
+              zoomIndex={zoomState.zoomIndex}
+              onZoomIndex={zoomState.setZoomIndex}
               buttonClassName={paneButtonClassName}
             />
-            <KeepZoomButton kept={keptZoom} className={paneButtonClassName} />
+            <KeepZoomButton zoom={zoomState} className={paneButtonClassName} />
           </div>
         </div>
       ) : null}

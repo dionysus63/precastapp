@@ -5,7 +5,7 @@ import { memo, useCallback, useState, useTransition } from "react";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { PaginationControls } from "@/components/common/pagination-controls";
 import { PdfDragChip } from "@/components/common/pdf-drag-chip";
-import { useKeptPreviewZoom } from "@/components/common/pdf-zoom-buttons";
+import { usePreviewZoom } from "@/components/common/pdf-zoom-buttons";
 import { useListQuery } from "@/components/common/use-list-query";
 import {
   listInvoiceSelectionForView,
@@ -41,7 +41,6 @@ import {
   type InvoiceListFilter,
 } from "@/lib/invoice-status";
 import type { PageInfo } from "@/lib/list-params";
-import type { PdfZoom } from "@/lib/preview-zoom";
 import { printPdfUrl } from "@/lib/print-pdf-url";
 import { reloadAfterAction } from "@/lib/reload-after-action";
 import {
@@ -361,7 +360,6 @@ export function InvoicesListTab({
   filterCounts,
   suggestions,
   canManage,
-  keptPreviewZoom,
 }: {
   invoices: InvoiceListRow[];
   pageInfo: PageInfo;
@@ -371,12 +369,10 @@ export function InvoicesListTab({
   filterCounts: InvoiceFilterCounts;
   suggestions: InvoiceSearchSuggestions;
   canManage: boolean;
-  /** The zoom this user's account keeps for the preview beside the list. */
-  keptPreviewZoom: PdfZoom;
 }) {
   const { setParams } = useListQuery();
   // Held here, not in the pane: hiding and showing the preview keeps it.
-  const previewZoom = useKeptPreviewZoom("invoice-list", keptPreviewZoom);
+  const previewZoom = usePreviewZoom("invoice-list");
   const sortBy = (column: InvoiceListSortColumn) => {
     const next = nextInvoiceListSort(sort, column);
     setParams({ tab: "invoices", sort: next.column, dir: next.direction });

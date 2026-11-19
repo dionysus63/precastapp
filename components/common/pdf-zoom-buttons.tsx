@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { toast } from "sonner";
 import { savePreviewZoom } from "@/app/settings/users/actions";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -10,6 +17,7 @@ import {
   PREVIEW_ZOOM_SCREENS,
   pdfZoomIndex,
   pdfZoomLabel,
+  type KeptPreviewZooms,
   type PdfZoom,
   type PreviewZoomScreen,
 } from "@/lib/preview-zoom";
@@ -69,71 +77,140 @@ export function PdfZoomButtons({
   );
 }
 
+type KeptZoomsContextValue = {
+  kept: KeptPreviewZooms;
+  setKept: (screen: PreviewZoomScreen, zoom: PdfZoom) => void;
+};
+
+const KeptZoomsContext = createContext<KeptZoomsContextValue>({
+  kept: {},
+  setKept: () => undefined,
+});
+
 /**
- * The zoom of one screen's previews: where the − / + buttons stand now, and
- * the zoom this user's account keeps for the screen (what it opens at).
+ * Hands every preview on the page the zooms the signed-in user's account
+ * keeps (read by the server as the page was drawn), and what "Keep zoom"
+ * saved since, so two previews of one screen agree without a reload.
  */
-export type KeptPreviewZoom = {
-  screen: PreviewZoomScreen;
+export function PreviewZoomProvider({
+  kept,
+  children,
+}: {
+  kept: KeptPreviewZooms;
+  children: ReactNode;
+}) {
+  const serverKey = JSON.stringify(kept);
+  // Kept in this window since the server's answer above; a newer answer
+  // from the server (the page drawn again) wins.
+  const [saved, setSaved] = useState<{ since: string; kept: KeptPreviewZooms }>(
+    { since: serverKey, kept: {} },
+  );
+  const setKept = useCallback(
+    (screen: PreviewZoomScreen, zoom: PdfZoom) =>
+      setSaved((current) => ({
+        since: serverKey,
+        kept: {
+          ...(current.since === serverKey ? current.kept : {}),
+          [screen]: zoom,
+        },
+      })),
+    [serverKey],
+  );
+  const value = useMemo<KeptZoomsContextValue>(
+    () => ({
+      kept: {
+        ...(JSON.parse(serverKey) as KeptPreviewZooms),
+        ...(saved.since === serverKey ? saved.kept : {}),
+      },
+      setKept,
+    }),
+    [serverKey, saved, setKept],
+  );
+  return (
+    <KeptZoomsContext.Provider value={value}>
+      {children}
+    </KeptZoomsContext.Provider>
+  );
+}
+
+/** Where a preview's zoom stands, and the zoom its screen keeps. */
+export type PreviewZoomState = {
+  /** The screen whose kept zoom this is; null: a preview that keeps none. */
+  screen: PreviewZoomScreen | null;
   zoomIndex: number;
   setZoomIndex: (index: number) => void;
   zoom: PdfZoom;
-  /** The zoom the screen opens at for this account. */
+  /** The zoom the screen opens at for this user's account. */
   keptZoom: PdfZoom;
   /** Called once the account's zoom has been saved. */
   onKept: (zoom: PdfZoom) => void;
 };
 
 /**
- * Zoom state for a screen whose previews open at the zoom the signed-in user
- * chose to keep. `keptZoom` is what the server read for this account as the
- * page was drawn.
+ * Zoom state of one preview. With a `screen`, it opens at the zoom the
+ * signed-in user's account keeps for that screen, and jumps to a newly kept
+ * zoom (so every preview on the screen shows what "Keep zoom" just saved).
  */
-export function useKeptPreviewZoom(
-  screen: PreviewZoomScreen,
-  keptZoom: PdfZoom,
-): KeptPreviewZoom {
-  const [kept, setKept] = useState<PdfZoom>(keptZoom);
+export function usePreviewZoom(
+  screen: PreviewZoomScreen | null = null,
+): PreviewZoomState {
+  const { kept, setKept } = useContext(KeptZoomsContext);
+  const keptZoom: PdfZoom = (screen ? kept[screen] : undefined) ?? 1;
   const [zoomIndex, setZoomIndex] = useState(() => pdfZoomIndex(keptZoom));
-  const onKept = useCallback((zoom: PdfZoom) => setKept(zoom), []);
+  const [seenKept, setSeenKept] = useState(keptZoom);
+  if (seenKept !== keptZoom) {
+    setSeenKept(keptZoom);
+    setZoomIndex(pdfZoomIndex(keptZoom));
+  }
+  const onKept = useCallback(
+    (zoom: PdfZoom) => {
+      if (screen) {
+        setKept(screen, zoom);
+      }
+    },
+    [screen, setKept],
+  );
   return {
     screen,
     zoomIndex,
     setZoomIndex,
     zoom: PDF_ZOOM_STEPS[zoomIndex] ?? 1,
-    keptZoom: kept,
+    keptZoom,
     onKept,
   };
+}
+
+function opensAt(zoom: PdfZoom): string {
+  return zoom === 1 ? "fitted to the pane" : `at ${pdfZoomLabel(zoom)}`;
 }
 
 /**
  * "Keep zoom", beside the zoom buttons: after a yes on the confirm popup,
  * every preview on this screen opens at the zoom showing now, for the
  * signed-in user's account (on any computer). Off while the zoom showing is
- * the one already kept.
+ * the one already kept. Draws nothing for a preview that keeps no zoom.
  */
 export function KeepZoomButton({
-  kept,
+  zoom: state,
   className = defaultButtonClassName,
 }: {
-  kept: KeptPreviewZoom;
+  zoom: PreviewZoomState;
   className?: string;
 }) {
   const confirm = useConfirm();
   const [saving, setSaving] = useState(false);
-  const { screen, zoom, keptZoom, onKept } = kept;
-  const screenName = PREVIEW_ZOOM_SCREENS[screen];
+  const { screen, zoom, keptZoom, onKept } = state;
+  if (!screen) {
+    return null;
+  }
+  const where = PREVIEW_ZOOM_SCREENS[screen];
   const isKept = zoom === keptZoom;
-  const label = pdfZoomLabel(zoom);
-  const opensAt = zoom === 1 ? "fitted to the pane" : `at ${label}`;
 
-  async function keep() {
+  async function keep(screen: PreviewZoomScreen) {
     const confirmed = await confirm({
       title: "Keep this zoom?",
-      message: `Every preview on the ${screenName} screen will open ${opensAt} for your account, on any computer.\n\nRight now it opens ${
-        keptZoom === 1 ? "fitted to the pane" : `at ${pdfZoomLabel(keptZoom)}`
-      }. You can change it again the same way.`,
-      confirmLabel: zoom === 1 ? "Keep Fit" : `Keep ${label}`,
+      message: `Every preview on ${where} will open ${opensAt(zoom)} for your account, on any computer.\n\nRight now it opens ${opensAt(keptZoom)}. You can change it again the same way.`,
+      confirmLabel: `Keep ${pdfZoomLabel(zoom)}`,
     });
     if (!confirmed) {
       return;
@@ -146,7 +223,7 @@ export function KeepZoomButton({
         return;
       }
       onKept(zoom);
-      toast.success(`${screenName} previews now open ${opensAt}.`);
+      toast.success(`Previews on ${where} now open ${opensAt(zoom)}.`);
     } catch (caught) {
       toast.error(describeActionFailure(caught, "The zoom could not be saved."));
     } finally {
@@ -157,13 +234,13 @@ export function KeepZoomButton({
   return (
     <button
       type="button"
-      onClick={() => void keep()}
+      onClick={() => void keep(screen)}
       disabled={isKept || saving}
       data-keep-zoom={isKept ? "kept" : "changed"}
       title={
         isKept
-          ? `Previews on this screen already open ${opensAt} for your account`
-          : `Open every preview on this screen ${opensAt}, for your account`
+          ? `Previews on ${where} already open ${opensAt(zoom)} for your account`
+          : `Open every preview on ${where} ${opensAt(zoom)}, for your account`
       }
       className={`${className} disabled:cursor-not-allowed disabled:opacity-40`}
     >

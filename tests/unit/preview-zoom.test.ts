@@ -57,6 +57,9 @@ describe("the zoom a user keeps for a screen", () => {
 
   it("only takes the screens that are listed", () => {
     expect(isPreviewZoomScreen("invoice-list")).toBe(true);
+    expect(isPreviewZoomScreen("ticket-editor")).toBe(true);
+    expect(isPreviewZoomScreen("purchase-orders")).toBe(true);
+    expect(isPreviewZoomScreen("quick-build")).toBe(true);
     expect(isPreviewZoomScreen("toString")).toBe(false);
     expect(isPreviewZoomScreen("somewhere-else")).toBe(false);
     expect(isPreviewZoomScreen(3)).toBe(false);

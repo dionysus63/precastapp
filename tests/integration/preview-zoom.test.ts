@@ -17,7 +17,7 @@ vi.mock("next/headers", () => ({
 import { savePreviewZoom } from "@/app/settings/users/actions";
 import { isActionError } from "@/lib/action-result";
 import { prisma } from "@/lib/prisma";
-import { loadKeptPreviewZoom } from "@/lib/server/preview-zoom";
+import { loadKeptPreviewZooms } from "@/lib/server/preview-zoom";
 
 // "Keep zoom" beside a preview's zoom buttons: the zoom is kept per account
 // and per screen, so it follows the user to any computer and no one else.
@@ -47,25 +47,44 @@ afterAll(async () => {
 });
 
 describe("keeping a preview zoom", () => {
-  it("opens fitted for a user who never kept one", async () => {
-    expect(await loadKeptPreviewZoom(firstUser, "invoice-list")).toBe(1);
-    expect(await loadKeptPreviewZoom(null, "invoice-list")).toBe(1);
+  it("opens every screen fitted for a user who never kept a zoom", async () => {
+    expect(await loadKeptPreviewZooms(firstUser)).toEqual({});
+    expect(await loadKeptPreviewZooms(null)).toEqual({});
   });
 
   it("keeps the zoom for the signed-in user only", async () => {
     signedIn.id = firstUser;
     expect(await savePreviewZoom("invoice-list", 1.5)).toEqual({ ok: true });
-    expect(await loadKeptPreviewZoom(firstUser, "invoice-list")).toBe(1.5);
-    expect(await loadKeptPreviewZoom(secondUser, "invoice-list")).toBe(1);
+    expect(await loadKeptPreviewZooms(firstUser)).toEqual({
+      "invoice-list": 1.5,
+    });
+    expect(await loadKeptPreviewZooms(secondUser)).toEqual({});
   });
 
-  it("replaces the kept zoom instead of adding a second one", async () => {
+  it("keeps a zoom of its own for each screen", async () => {
+    signedIn.id = firstUser;
+    await savePreviewZoom("purchase-orders", 2);
+    await savePreviewZoom("quick-build", 1.25);
+    expect(await loadKeptPreviewZooms(firstUser)).toEqual({
+      "invoice-list": 1.5,
+      "purchase-orders": 2,
+      "quick-build": 1.25,
+    });
+  });
+
+  it("replaces the kept zoom instead of adding a second one, and Fit clears it", async () => {
     signedIn.id = firstUser;
     await savePreviewZoom("invoice-list", 2.5);
+    expect((await loadKeptPreviewZooms(firstUser))["invoice-list"]).toBe(2.5);
     await savePreviewZoom("invoice-list", 1);
-    expect(await loadKeptPreviewZoom(firstUser, "invoice-list")).toBe(1);
+    expect(await loadKeptPreviewZooms(firstUser)).toEqual({
+      "purchase-orders": 2,
+      "quick-build": 1.25,
+    });
     expect(
-      await prisma.userPreviewZoom.count({ where: { userId: firstUser } }),
+      await prisma.userPreviewZoom.count({
+        where: { userId: firstUser, screen: "invoice-list" },
+      }),
     ).toBe(1);
   });
 
@@ -80,7 +99,7 @@ describe("keeping a preview zoom", () => {
 
   it("goes with the user when the account is removed", async () => {
     signedIn.id = secondUser;
-    await savePreviewZoom("invoice-list", 2);
+    await savePreviewZoom("ticket-editor", 2);
     await prisma.user.delete({ where: { id: secondUser } });
     expect(
       await prisma.userPreviewZoom.count({ where: { userId: secondUser } }),

@@ -33,10 +33,14 @@ export function pdfZoomLabel(zoom: number): string {
 
 /**
  * The screens whose previews can keep a zoom, by the key their rows are
- * stored under, with the name the confirm popup calls each one.
+ * stored under. Each keeps its own zoom. The text is how the confirm popup
+ * names the screen, after "Every preview on ...".
  */
 export const PREVIEW_ZOOM_SCREENS = {
-  "invoice-list": "Invoices",
+  "invoice-list": "the Invoices screen",
+  "ticket-editor": "the new and edit ticket screens",
+  "purchase-orders": "the purchase order screens",
+  "quick-build": "the Quick Build screens",
 } as const;
 
 export type PreviewZoomScreen = keyof typeof PREVIEW_ZOOM_SCREENS;
@@ -44,6 +48,9 @@ export type PreviewZoomScreen = keyof typeof PREVIEW_ZOOM_SCREENS;
 export function isPreviewZoomScreen(value: unknown): value is PreviewZoomScreen {
   return typeof value === "string" && Object.hasOwn(PREVIEW_ZOOM_SCREENS, value);
 }
+
+/** The zoom one user keeps for each screen; a screen left out opens fitted. */
+export type KeptPreviewZooms = Partial<Record<PreviewZoomScreen, PdfZoom>>;
 
 /** A zoom as it is stored: percent of the fitted size (100, 125 ... 300). */
 export function pdfZoomToPercent(zoom: PdfZoom): number {

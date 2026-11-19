@@ -84,6 +84,7 @@ export function TicketLivePreview({
       load={loadTicketPreview}
       emptyNote="Pick a job to see the ticket here."
       loadingNote="Filling the ticket…"
+      zoomScreen="ticket-editor"
       actions={
         <button
           type="button"
