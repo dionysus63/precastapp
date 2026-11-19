@@ -38,9 +38,13 @@ export function pdfZoomLabel(zoom: number): string {
  */
 export const PREVIEW_ZOOM_SCREENS = {
   "invoice-list": "the Invoices screen",
+  "scan-in": "the Scan In screen",
   "ticket-editor": "the new and edit ticket screens",
   "purchase-orders": "the purchase order screens",
   "quick-build": "the Quick Build screens",
+  "quote-preview": "the quote preview screen",
+  "drill-sheet-preview": "the drill sheet preview screen",
+  "ticket-preview": "the ticket preview screens",
 } as const;
 
 export type PreviewZoomScreen = keyof typeof PREVIEW_ZOOM_SCREENS;

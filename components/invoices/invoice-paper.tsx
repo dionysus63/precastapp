@@ -32,7 +32,10 @@ const paperFillStyle = { maxWidth: "56rem" } as const;
  * Width of the paper. Zoomed in, it is that many times the width it has
  * fitted, and the pane around it scrolls both ways.
  */
-function paperSizeStyle(size: PaperSize, zoom: PdfZoom = 1): CSSProperties {
+export function paperSizeStyle(
+  size: PaperSize,
+  zoom: PdfZoom = 1,
+): CSSProperties {
   const fitted = size === "fill" ? paperFillStyle : paperStyle;
   if (zoom === 1) {
     return fitted;
@@ -43,9 +46,12 @@ function paperSizeStyle(size: PaperSize, zoom: PdfZoom = 1): CSSProperties {
   };
 }
 
-/** `?zoom=` for a page picture, so it is drawn as sharp as it is shown. */
-function zoomQuery(zoom: PdfZoom): string {
-  return zoom === 1 ? "" : `?zoom=${zoom}`;
+/**
+ * A page picture's address with `zoom=` added, so the server draws it as
+ * sharp as it is shown.
+ */
+export function pictureUrlAtZoom(url: string, zoom: PdfZoom): string {
+  return zoom === 1 ? url : `${url}${url.includes("?") ? "&" : "?"}zoom=${zoom}`;
 }
 
 const stepButtonClassName =
@@ -150,7 +156,7 @@ export function InvoicePaper({
         // A zoomed page asks for a sharper picture; the one on screen stays
         // (stretched) until it arrives.
         const response = await fetch(
-          `/api/invoices/${invoiceId}/pages/${page}/image${zoomQuery(zoom)}`,
+          pictureUrlAtZoom(`/api/invoices/${invoiceId}/pages/${page}/image`, zoom),
         );
         if (!response.ok) {
           throw new Error((await response.text()).slice(0, 200));
@@ -250,7 +256,10 @@ export function SignedTicketPaper({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             key={shownPage}
-            src={`/api/signed-tickets/${fileId}/pages/${shownPage}/image${zoomQuery(zoom)}`}
+            src={pictureUrlAtZoom(
+              `/api/signed-tickets/${fileId}/pages/${shownPage}/image`,
+              zoom,
+            )}
             alt={`Signed ticket ${ticketNumber}, page ${shownPage}`}
             data-signed-ticket-paper={state}
             onLoad={() => setState("ready")}

@@ -60,6 +60,10 @@ describe("the zoom a user keeps for a screen", () => {
     expect(isPreviewZoomScreen("ticket-editor")).toBe(true);
     expect(isPreviewZoomScreen("purchase-orders")).toBe(true);
     expect(isPreviewZoomScreen("quick-build")).toBe(true);
+    expect(isPreviewZoomScreen("scan-in")).toBe(true);
+    expect(isPreviewZoomScreen("quote-preview")).toBe(true);
+    expect(isPreviewZoomScreen("drill-sheet-preview")).toBe(true);
+    expect(isPreviewZoomScreen("ticket-preview")).toBe(true);
     expect(isPreviewZoomScreen("toString")).toBe(false);
     expect(isPreviewZoomScreen("somewhere-else")).toBe(false);
     expect(isPreviewZoomScreen(3)).toBe(false);
