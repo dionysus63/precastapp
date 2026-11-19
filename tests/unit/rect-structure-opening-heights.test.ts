@@ -24,6 +24,14 @@ const OPENING_SIZES = [
     pipeWallThicknessInches: 2,
     pricePerOpening: null,
   },
+  {
+    pipeMaterial: "RCP",
+    pipeSizeInches: 24,
+    openingWidthInches: 36,
+    openingHeightInches: 36,
+    pipeWallThicknessInches: 3,
+    pricePerOpening: null,
+  },
 ];
 
 function opening(overrides: Partial<RectOpeningInput> = {}): RectOpeningInput {
@@ -228,5 +236,137 @@ describe("computeRectStructure opening-height guard", () => {
       0,
     );
     expect(sectionsSum).toBeCloseTo(result.wallHeightFeet, 4);
+  });
+});
+
+describe("computeRectStructure openings never start below the floor", () => {
+  // DS-S4 from Nick's Quick Build (2026-11-19): three pipes at the same
+  // invert. The 18" pipe is first, so it sets the 5" sump; the two 24" pipes
+  // need 6" under the invert for a centered 36" block-out. They printed as
+  // 36"x37" in a 36" wall: 1" of it was below the floor.
+  function dsS4(overrides: Partial<RectStructureInput> = {}): RectStructureInput {
+    const base = input();
+    return {
+      ...base,
+      rimElevation: 14.97,
+      castingHeightFeet: 0.5,
+      insideLengthFeet: 5,
+      insideWidthFeet: 4,
+      template: {
+        ...base.template,
+        topSlabThicknessInches: 10,
+        minimumBrickInches: 3,
+      },
+      openings: [
+        opening({ label: "A", wall: "LEFT", invertElevation: 10.75 }),
+        opening({
+          label: "B",
+          wall: "RIGHT",
+          pipeSizeInches: 24,
+          invertElevation: 10.75,
+        }),
+        opening({
+          label: "C",
+          wall: "UP",
+          pipeSizeInches: 24,
+          invertElevation: 10.75,
+        }),
+      ],
+      ...overrides,
+    };
+  }
+
+  it("keeps a 36\" opening at 36\" in a 36\" wall", () => {
+    const result = computeRectStructure(dsS4());
+
+    expect(result.sumpFeet).toBeCloseTo(0.4167, 4);
+    expect(result.floorElevation).toBeCloseTo(10.3333, 4);
+    expect(result.wallHeightFeet).toBe(3);
+    expect(result.brickFeet).toBeCloseTo(0.3, 2);
+
+    const [a, b, c] = result.openings;
+    // A's 28" block-out starts exactly at the floor: untouched.
+    expect(a.openingHeightInches).toBe(28);
+    expect(a.floorToOpeningBottomInches).toBe(0);
+    expect(a.extendsToTop).toBe(false);
+
+    for (const big of [b, c]) {
+      expect(big.openingWidthInches).toBe(36);
+      expect(big.openingHeightInches).toBe(36);
+      expect(big.bottomOfOpeningFeet).toBeCloseTo(10.3333, 4);
+      expect(big.topOfOpeningFeet).toBeCloseTo(13.3333, 4);
+      expect(big.floorToOpeningBottomInches).toBe(0);
+      expect(big.extendsToTop).toBe(true);
+    }
+    expect(result.warnings.some((warning) => warning.includes('x37"'))).toBe(
+      false,
+    );
+    expect(
+      result.warnings.filter((warning) =>
+        warning.includes("sits on the floor"),
+      ),
+    ).toHaveLength(2);
+    expect(
+      result.warnings.some((warning) =>
+        warning.includes(
+          'Opening B runs to the top of the walls (36"x36" open-top block-out)',
+        ),
+      ),
+    ).toBe(true);
+    expect(result.pipeErrors).toHaveLength(0);
+  });
+
+  it("raises the walls for an opening lifted onto the floor", () => {
+    // No sump under an 18" pipe: centered on the pipe, the 28" block-out
+    // would start 5" below the floor and top out 23" above it, which a 2'
+    // wall covers. Sitting on the floor it tops out at 28", so the walls
+    // have to go to 2.5' (raw available 2.6').
+    const base = input();
+    const result = computeRectStructure({
+      ...base,
+      rimElevation: 166.35,
+      template: {
+        ...base.template,
+        sumpMode: "FIXED",
+        sumpFixedInches: 0,
+      },
+      openings: [opening({ invertElevation: 163.0 })],
+    });
+
+    expect(result.floorElevation).toBeCloseTo(163.0, 4);
+    expect(result.wallHeightFeet).toBe(2.5);
+    expect(
+      result.warnings.some((warning) => warning.includes("Walls raised to 2.50'")),
+    ).toBe(true);
+    expect(
+      result.warnings.some((warning) =>
+        warning.includes('would start 5" below it'),
+      ),
+    ).toBe(true);
+
+    const only = result.openings[0];
+    expect(only.bottomOfOpeningFeet).toBeCloseTo(163.0, 4);
+    expect(only.floorToOpeningBottomInches).toBe(0);
+    // 2" of wall would be left over the 28" block-out, so it runs to the
+    // wall top: 30" measured from the floor, never from below it.
+    expect(only.extendsToTop).toBe(true);
+    expect(only.openingHeightInches).toBe(30);
+    expect(only.topOfOpeningFeet).toBeCloseTo(165.5, 4);
+  });
+
+  it("says nothing when the opening starts at or above the floor", () => {
+    const result = computeRectStructure(
+      dsS4({
+        openings: [
+          opening({ label: "A", wall: "LEFT", invertElevation: 10.75 }),
+        ],
+      }),
+    );
+    expect(
+      result.warnings.some((warning) =>
+        warning.includes("sits on the floor"),
+      ),
+    ).toBe(false);
+    expect(result.openings[0].floorToOpeningBottomInches).toBe(0);
   });
 });
