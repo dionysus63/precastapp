@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import type { PdfZoom } from "@/lib/preview-zoom";
 
 /**
  * The sheets of paper drawn in the preview panes of the Invoices screens
@@ -27,8 +28,24 @@ export type PaperSize = "fit" | "fill";
 
 const paperFillStyle = { maxWidth: "56rem" } as const;
 
-function paperSizeStyle(size: PaperSize) {
-  return size === "fill" ? paperFillStyle : paperStyle;
+/**
+ * Width of the paper. Zoomed in, it is that many times the width it has
+ * fitted, and the pane around it scrolls both ways.
+ */
+function paperSizeStyle(size: PaperSize, zoom: PdfZoom = 1): CSSProperties {
+  const fitted = size === "fill" ? paperFillStyle : paperStyle;
+  if (zoom === 1) {
+    return fitted;
+  }
+  return {
+    width: `calc(min(100%, ${fitted.maxWidth}) * ${zoom})`,
+    maxWidth: "none",
+  };
+}
+
+/** `?zoom=` for a page picture, so it is drawn as sharp as it is shown. */
+function zoomQuery(zoom: PdfZoom): string {
+  return zoom === 1 ? "" : `?zoom=${zoom}`;
 }
 
 const stepButtonClassName =
@@ -39,14 +56,16 @@ export function PaperNote({
   text,
   heading,
   size = "fit",
+  zoom = 1,
 }: {
   text: string;
   heading?: string;
   size?: PaperSize;
+  zoom?: PdfZoom;
 }) {
   return (
     <div
-      style={paperSizeStyle(size)}
+      style={paperSizeStyle(size, zoom)}
       className="mx-auto grid aspect-[612/792] w-full place-items-center border border-slate-300 bg-white px-10 text-center text-sm text-slate-500 shadow"
     >
       <div>
@@ -76,7 +95,8 @@ function PageStepper({
     return null;
   }
   return (
-    <div className="mt-2 flex items-center justify-center gap-2 text-xs text-slate-600">
+    // Stays in view when a zoomed page is scrolled sideways.
+    <div className="sticky left-0 mt-2 flex items-center justify-center gap-2 text-xs text-slate-600">
       <button
         type="button"
         disabled={page <= 1}
@@ -111,9 +131,12 @@ type InvoicePage = { url: string; pageCount: number };
 export function InvoicePaper({
   invoiceId,
   size = "fit",
+  zoom = 1,
 }: {
   invoiceId: string;
   size?: PaperSize;
+  /** How far the paper is zoomed in; 1 is fitted. */
+  zoom?: PdfZoom;
 }) {
   const [page, setPage] = useState(1);
   const [loaded, setLoaded] = useState<InvoicePage | null>(null);
@@ -124,8 +147,10 @@ export function InvoicePaper({
     let objectUrl: string | null = null;
     void (async () => {
       try {
+        // A zoomed page asks for a sharper picture; the one on screen stays
+        // (stretched) until it arrives.
         const response = await fetch(
-          `/api/invoices/${invoiceId}/pages/${page}/image`,
+          `/api/invoices/${invoiceId}/pages/${page}/image${zoomQuery(zoom)}`,
         );
         if (!response.ok) {
           throw new Error((await response.text()).slice(0, 200));
@@ -156,17 +181,20 @@ export function InvoicePaper({
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [invoiceId, page]);
+  }, [invoiceId, page, zoom]);
 
   if (error) {
-    return <PaperNote text={error} size={size} />;
+    return <PaperNote text={error} size={size} zoom={zoom} />;
   }
   if (!loaded) {
-    return <PaperNote text="Drawing the invoice…" size={size} />;
+    return <PaperNote text="Drawing the invoice…" size={size} zoom={zoom} />;
   }
   return (
-    <div style={paperSizeStyle(size)} className="mx-auto w-full">
-      <div className="border border-slate-300 bg-white shadow">
+    <div>
+      <div
+        style={paperSizeStyle(size, zoom)}
+        className="mx-auto w-full border border-slate-300 bg-white shadow"
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={loaded.url}
@@ -193,19 +221,25 @@ export function SignedTicketPaper({
   pageCount,
   ticketNumber,
   size = "fit",
+  zoom = 1,
 }: {
   fileId: string;
   pageCount: number;
   ticketNumber: string;
   size?: PaperSize;
+  /** How far the paper is zoomed in; 1 is fitted. */
+  zoom?: PdfZoom;
 }) {
   const [page, setPage] = useState(1);
   const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
   const shownPage = Math.min(Math.max(page, 1), Math.max(pageCount, 1));
 
   return (
-    <div style={paperSizeStyle(size)} className="mx-auto w-full">
-      <div className="relative border border-slate-300 bg-white shadow">
+    <div>
+      <div
+        style={paperSizeStyle(size, zoom)}
+        className="relative mx-auto w-full border border-slate-300 bg-white shadow"
+      >
         {state === "failed" ? (
           <div className="grid aspect-[612/792] place-items-center px-10 text-center text-sm text-slate-500">
             The signed ticket&apos;s picture could not be loaded.
@@ -216,7 +250,7 @@ export function SignedTicketPaper({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             key={shownPage}
-            src={`/api/signed-tickets/${fileId}/pages/${shownPage}/image`}
+            src={`/api/signed-tickets/${fileId}/pages/${shownPage}/image${zoomQuery(zoom)}`}
             alt={`Signed ticket ${ticketNumber}, page ${shownPage}`}
             data-signed-ticket-paper={state}
             onLoad={() => setState("ready")}

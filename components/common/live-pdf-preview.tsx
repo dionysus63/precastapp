@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { isActionError, type ActionError } from "@/lib/action-result";
+import { PdfZoomButtons } from "@/components/common/pdf-zoom-buttons";
+import { PDF_ZOOM_STEPS } from "@/lib/preview-zoom";
 import { selectedClassName } from "@/lib/selected-styles";
 
 /** Wait this long after the last change before filling the PDF again. */
@@ -15,11 +17,6 @@ const MAX_PAGE_HEIGHT_VH = 1.6;
 const MIN_PAGE_HEIGHT_PX = 320;
 /** Smallest height the page is fitted into, however short the window is. */
 const MIN_PAGE_ROOM_PX = 160;
-/**
- * Zoom steps, as multiples of the size at which the page fits the pane. The
- * first one is "fit"; past it the page scrolls inside the pane.
- */
-export const PDF_ZOOM_STEPS = [1, 1.25, 1.5, 2, 2.5, 3] as const;
 /** Most pixels the page is drawn with, so a deep zoom stays quick to draw. */
 const MAX_CANVAS_PIXELS = 16_000_000;
 
@@ -491,41 +488,7 @@ export function LivePdfPreview({
             </div>
           ) : null}
           {showPdf ? (
-            <div className="flex items-center gap-1" data-live-pdf-zoom={zoom}>
-              <button
-                type="button"
-                onClick={() => setZoomIndex((index) => Math.max(index - 1, 0))}
-                disabled={zoomIndex === 0}
-                title="Zoom out"
-                aria-label="Zoom out"
-                className="rounded btn-plain px-2 py-0.5 text-2xs font-semibold disabled:opacity-40"
-              >
-                −
-              </button>
-              <button
-                type="button"
-                onClick={() => setZoomIndex(0)}
-                disabled={zoomIndex === 0}
-                title="Fit the page to the pane"
-                className="min-w-[3.25rem] rounded btn-plain px-2 py-0.5 text-2xs font-semibold tabular-nums"
-              >
-                {zoomIndex === 0 ? "Fit" : `${Math.round(zoom * 100)}%`}
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setZoomIndex((index) =>
-                    Math.min(index + 1, PDF_ZOOM_STEPS.length - 1),
-                  )
-                }
-                disabled={zoomIndex === PDF_ZOOM_STEPS.length - 1}
-                title="Zoom in"
-                aria-label="Zoom in"
-                className="rounded btn-plain px-2 py-0.5 text-2xs font-semibold disabled:opacity-40"
-              >
-                +
-              </button>
-            </div>
+            <PdfZoomButtons zoomIndex={zoomIndex} onZoomIndex={setZoomIndex} />
           ) : null}
           {showPdf ? (
             <button

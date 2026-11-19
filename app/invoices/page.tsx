@@ -22,6 +22,8 @@ import {
   type RawSearchParams,
 } from "@/lib/list-params";
 import { withDatabaseRetry } from "@/lib/prisma";
+import type { PdfZoom } from "@/lib/preview-zoom";
+import { loadKeptPreviewZoom } from "@/lib/server/preview-zoom";
 import { loadScanInView } from "@/lib/ticket-scan/view";
 import type { ScanInView } from "@/lib/ticket-scan/view-types";
 
@@ -105,6 +107,7 @@ export default async function InvoicesPage({
     [];
   let pageInfo = buildPageInfo(0, 1);
   let scanIn: { view: ScanInView; viewing: string | null } | null = null;
+  let keptPreviewZoom: PdfZoom = 1;
 
   if (tab === "scan") {
     const view = await withDatabaseRetry((client) =>
@@ -113,7 +116,8 @@ export default async function InvoicesPage({
     // An address naming a scan that is gone just shows Scan In.
     scanIn = { view, viewing: view.filed?.id ?? null };
   } else {
-    const [listResult, searchCounts, searchSuggestions] = await Promise.all([
+    const [listResult, searchCounts, searchSuggestions, keptZoom] =
+      await Promise.all([
       listInvoicesForPage({
         filter,
         search,
@@ -123,7 +127,10 @@ export default async function InvoicesPage({
       // With a search on, the chips count inside it.
       searching ? getInvoiceFilterCounts(search) : Promise.resolve(allCounts),
       getInvoiceSearchSuggestions(search.customer),
+      // The zoom this user kept for the preview beside the list.
+      loadKeptPreviewZoom(user?.id, "invoice-list"),
     ]);
+    keptPreviewZoom = keptZoom;
     invoices = listResult.invoices;
     pageInfo = listResult.pageInfo;
     filterCounts = searchCounts;
@@ -149,6 +156,7 @@ export default async function InvoicesPage({
         canManage={canManage}
         canFile={canFile}
         scanIn={scanIn}
+        keptPreviewZoom={keptPreviewZoom}
       />
     </DashboardShell>
   );

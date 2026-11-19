@@ -3,6 +3,11 @@
 import type { InvoiceListRow } from "@/app/invoices/actions";
 import { PdfDragChip } from "@/components/common/pdf-drag-chip";
 import {
+  KeepZoomButton,
+  PdfZoomButtons,
+  type KeptPreviewZoom,
+} from "@/components/common/pdf-zoom-buttons";
+import {
   InvoicePaper,
   PaperNote,
   SignedTicketPaper,
@@ -22,7 +27,9 @@ function signedTicketViewUrl(fileId: string): string {
 /**
  * The paper beside the Invoices list: the invoice of the row that was
  * clicked, as it prints, or the signed copy of its delivery ticket. A ticket
- * with no signed copy scanned in shows NOT AVAILABLE.
+ * with no signed copy scanned in shows NOT AVAILABLE. The zoom buttons make
+ * the paper larger than its pane (it then scrolls both ways), and "Keep zoom"
+ * makes the zoom showing the one this screen opens at for the user's account.
  */
 export function InvoiceListPreview({
   row,
@@ -32,6 +39,7 @@ export function InvoiceListPreview({
   onNext,
   hasPrevious,
   hasNext,
+  zoom: keptZoom,
 }: {
   row: InvoiceListRow | null;
   side: InvoicePreviewSide;
@@ -41,7 +49,10 @@ export function InvoiceListPreview({
   onNext: () => void;
   hasPrevious: boolean;
   hasNext: boolean;
+  /** The pane's zoom, and the one the user's account keeps for this screen. */
+  zoom: KeptPreviewZoom;
 }) {
+  const zoom = keptZoom.zoom;
   const signed = row?.signedTicket ?? null;
   const showSigned = side === "signed";
   const invoicePdfUrl = row ? `/api/invoices/${row.id}/pdf` : null;
@@ -147,10 +158,21 @@ export function InvoiceListPreview({
               className={paneButtonClassName}
             />
           ) : null}
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <PdfZoomButtons
+              zoomIndex={keptZoom.zoomIndex}
+              onZoomIndex={keptZoom.setZoomIndex}
+              buttonClassName={paneButtonClassName}
+            />
+            <KeepZoomButton kept={keptZoom} className={paneButtonClassName} />
+          </div>
         </div>
       ) : null}
 
-      <div className="min-h-0 overflow-y-auto bg-slate-100 p-3">
+      <div
+        className="min-h-0 overflow-auto bg-slate-100 p-3"
+        data-invoice-preview-scroll
+      >
         {!row ? (
           <PaperNote
             text="Click an invoice in the list to see it here."
@@ -164,6 +186,7 @@ export function InvoiceListPreview({
               pageCount={signed.pageCount}
               ticketNumber={row.ticketNumber}
               size="fill"
+              zoom={zoom}
             />
           ) : (
             <PaperNote
@@ -178,6 +201,7 @@ export function InvoiceListPreview({
             key={`${row.id}:${row.status}:${row.total}`}
             invoiceId={row.id}
             size="fill"
+            zoom={zoom}
           />
         )}
       </div>

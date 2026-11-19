@@ -18,6 +18,11 @@ import { writeAuditLog } from "@/lib/auth/audit";
 import { hashPassword, validatePasswordStrength, verifyPassword } from "@/lib/auth/password";
 import { requireAuth, requirePermission } from "@/lib/auth/session";
 import { isJobsDefaultTab } from "@/lib/jobs-default-tab";
+import {
+  isPdfZoom,
+  isPreviewZoomScreen,
+  pdfZoomToPercent,
+} from "@/lib/preview-zoom";
 import { isTextSize } from "@/lib/text-size";
 import { prisma } from "@/lib/prisma";
 import {
@@ -364,6 +369,31 @@ export async function updateMyTextSize(
   } catch (error) {
     return { error: translatePrismaError(error).message };
   }
+}
+
+/**
+ * "Keep zoom" beside a preview's zoom buttons: the signed-in user's previews
+ * on that screen open at this zoom from now on, on any computer. Personal,
+ * so it only needs a signed-in user. Nothing is revalidated: the screen
+ * already shows the zoom, and reads the kept one the next time it is opened.
+ */
+export async function savePreviewZoom(
+  screen: string,
+  zoom: number,
+): Promise<{ ok: true } | ActionError> {
+  const user = await requireAuth();
+  return returnActionError(async () => {
+    if (!isPreviewZoomScreen(screen) || !isPdfZoom(zoom)) {
+      throw new Error("That zoom can't be kept.");
+    }
+    const zoomPercent = pdfZoomToPercent(zoom);
+    await prisma.userPreviewZoom.upsert({
+      where: { userId_screen: { userId: user.id, screen } },
+      create: { userId: user.id, screen, zoomPercent },
+      update: { zoomPercent },
+    });
+    return { ok: true as const };
+  });
 }
 
 /** Unambiguous alphabet (no 0/O, 1/I/L) for read-aloud temp passwords. */
