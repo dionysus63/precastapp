@@ -158,6 +158,14 @@ export type DrillSheetResult = {
 };
 
 const EPSILON = 1e-6;
+/**
+ * Slack for comparing heights that were added up from rounded parts. Every
+ * length is kept to 4 decimals of a foot, so one in twelfths is a hair off
+ * (1" = 0.0833', not 0.08333…) and a sum of a few can sit 0.0001' or so
+ * under the exact value. Anything within 0.0005' (0.006") of a limit counts
+ * as meeting it, so brick of exactly the minimum is not "short".
+ */
+export const FEET_ROUNDING_SLACK = 5e-4;
 const SIX_INCHES_FEET = 0.5;
 
 /**
@@ -266,10 +274,14 @@ export function computeWallHeightFeet(
 ): { wallHeightFeet: number; brickFeet: number } {
   const minBrickFeet = inchesToFeet(minimumBrickInches);
   let wallHeightFeet =
-    Math.floor(rawAvailableFeet / SIX_INCHES_FEET + EPSILON) * SIX_INCHES_FEET;
+    Math.floor((rawAvailableFeet + FEET_ROUNDING_SLACK) / SIX_INCHES_FEET) *
+    SIX_INCHES_FEET;
   let brickFeet = round4(rawAvailableFeet - wallHeightFeet);
 
-  if (brickFeet < minBrickFeet - EPSILON && wallHeightFeet >= SIX_INCHES_FEET) {
+  if (
+    brickFeet < minBrickFeet - FEET_ROUNDING_SLACK &&
+    wallHeightFeet >= SIX_INCHES_FEET
+  ) {
     wallHeightFeet = round4(wallHeightFeet - SIX_INCHES_FEET);
     brickFeet = round4(rawAvailableFeet - wallHeightFeet);
   }
@@ -331,7 +343,7 @@ export function applyWallHeightAdjust(
   return {
     wallHeightFeet,
     brickFeet: Math.max(leftoverFeet, 0),
-    shortByFeet: leftoverFeet < -EPSILON ? -leftoverFeet : 0,
+    shortByFeet: leftoverFeet < -FEET_ROUNDING_SLACK ? -leftoverFeet : 0,
   };
 }
 
@@ -1391,7 +1403,7 @@ export function computeDrillSheet(input: DrillSheetInput): DrillSheetResult {
 
   // A wall raised by hand is short on brick on purpose; say nothing then.
   if (
-    heights.brickFeet < minBrickFeet - EPSILON &&
+    heights.brickFeet < minBrickFeet - FEET_ROUNDING_SLACK &&
     wallHeightAdjustInches <= 0
   ) {
     warnings.push(

@@ -18,6 +18,7 @@
 //     billed height.
 
 import {
+  FEET_ROUNDING_SLACK,
   applyWallHeightAdjust,
   computeWallHeightFeet,
   normalizeWallHeightAdjustInches,
@@ -826,7 +827,7 @@ export function computeRectStructure(
         ) * 0.5,
       );
       brickFeet = round4(Math.max(0, rawAvailableFeet - wallHeightFeet));
-      if (brickFeet + EPSILON < brickTargetFeet) {
+      if (brickFeet + FEET_ROUNDING_SLACK < brickTargetFeet) {
         warnings.push(
           `Only ${Math.round(brickFeet * 12)}" of brick fits below the casting — the ${input.brickTargetInches}" target does not.`,
         );
@@ -891,7 +892,7 @@ export function computeRectStructure(
         brickFeet = round4(Math.max(0, rawAvailableFeet - requiredRounded));
         warnings.push(
           `Walls raised to ${requiredRounded.toFixed(2)}' so the highest opening stays out of the brick${
-            brickFeet < minBrickFeet - EPSILON
+            brickFeet < minBrickFeet - FEET_ROUNDING_SLACK
               ? ` — brick (${Math.round(brickFeet * 12)}") is below the ${template.minimumBrickInches}" minimum`
               : ""
           }.`,
