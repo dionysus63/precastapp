@@ -1247,8 +1247,10 @@ function drawSteps(
 
   // Dimension from the closer inside corner to the centerline of the steps:
   // as near the top of the wall as it fits, then down to the first clear
-  // spot.
+  // spot. Its extension line down to the steps is drawn last, once it is
+  // known which rung it meets.
   let dimensionDrawn = endA == null;
+  let dimensionH: number | null = null;
   if (endA != null && steps.offsetInches != null) {
     const text = inchesText(steps.offsetInches);
     const size = STEP_DIM_FONT_SIZE_PT;
@@ -1260,41 +1262,44 @@ function drawSteps(
       let textX: number;
       let textY: number;
       let lineLength: number;
-      let dimRect: PageRect;
       if (flap.verticalWall) {
-        // Line runs across the page, value above it.
+        // Line runs across the page. The value sits above it, centered. A
+        // dimension too short to hold its value starts it at the corner and
+        // puts it on the top-of-wall side, clear of the extension line that
+        // runs the other way, down to the steps.
         lineLength = Math.abs(p1.x - p0.x);
-        textX =
-          lineLength >= textWidth + 4
-            ? (p0.x + p1.x) / 2 - textWidth / 2
-            : p1.x > p0.x
-              ? p0.x + 2
-              : p0.x - 2 - textWidth;
-        textY = p0.y + 4;
-        const x0 = Math.min(p0.x, p1.x, textX);
-        const x1 = Math.max(p0.x, p1.x, textX + textWidth);
-        dimRect = {
-          x: x0,
-          y: p0.y - ARROW_HALF_WIDTH_PT,
-          width: x1 - x0,
-          height: textY + capHeight - (p0.y - ARROW_HALF_WIDTH_PT),
-        };
-      } else {
-        // Line runs up the page, value beside it on the floor side.
-        lineLength = Math.abs(p1.y - p0.y);
+        const fits = lineLength >= textWidth + 4;
+        textX = fits
+          ? (p0.x + p1.x) / 2 - textWidth / 2
+          : p1.x > p0.x
+            ? p0.x + 2
+            : p0.x - 2 - textWidth;
         textY =
-          lineLength >= capHeight + 4
-            ? (p0.y + p1.y) / 2 - capHeight / 2
-            : p1.y > p0.y
-              ? p0.y + 2
-              : p0.y - 2 - capHeight;
-        textX = flap.wall === "RIGHT" ? p0.x - 4 - textWidth : p0.x + 4;
-        const x0 = Math.min(p0.x - ARROW_HALF_WIDTH_PT, textX);
-        const x1 = Math.max(p0.x + ARROW_HALF_WIDTH_PT, textX + textWidth);
-        const y0 = Math.min(p0.y, p1.y, textY);
-        const y1 = Math.max(p0.y, p1.y, textY + capHeight);
-        dimRect = { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
+          fits || flap.wall === "UP" ? p0.y + 4 : p0.y - 4 - capHeight;
+      } else {
+        // Line runs up the page, value beside it on the floor side; a
+        // dimension too short for its value puts it on the top-of-wall side.
+        lineLength = Math.abs(p1.y - p0.y);
+        const fits = lineLength >= capHeight + 4;
+        textY = fits
+          ? (p0.y + p1.y) / 2 - capHeight / 2
+          : p1.y > p0.y
+            ? p0.y + 2
+            : p0.y - 2 - capHeight;
+        const floorSide = flap.wall === "RIGHT" ? -1 : 1;
+        const side = fits ? floorSide : -floorSide;
+        textX = side > 0 ? p0.x + 4 : p0.x - 4 - textWidth;
       }
+      const lineHalf = ARROW_HALF_WIDTH_PT;
+      const x0 = Math.min(p0.x, p1.x, textX) - (flap.verticalWall ? 0 : lineHalf);
+      const x1 =
+        Math.max(p0.x, p1.x, textX + textWidth) +
+        (flap.verticalWall ? 0 : lineHalf);
+      const y0 = Math.min(p0.y, p1.y, textY) - (flap.verticalWall ? lineHalf : 0);
+      const y1 =
+        Math.max(p0.y, p1.y, textY + capHeight) +
+        (flap.verticalWall ? lineHalf : 0);
+      const dimRect: PageRect = { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
       if (!inside(dimRect) || !clear(dimRect, 2) || crossesJoint(dimRect, 2)) {
         continue;
       }
@@ -1303,20 +1308,6 @@ function drawSteps(
         drawArrowhead(page, p0.x, p0.y, p1.x, p1.y);
         drawArrowhead(page, p1.x, p1.y, p0.x, p0.y);
       }
-      // Tick marking the centerline of the steps. It reaches away from the
-      // value so a value wider than the dimension does not sit on it.
-      const tickFrom = flap.verticalWall
-        ? { x: p1.x, y: p1.y - 8 }
-        : { x: flap.wall === "RIGHT" ? p1.x + 8 : p1.x - 8, y: p1.y };
-      const tickTo = flap.verticalWall
-        ? { x: p1.x, y: p1.y + 2 }
-        : { x: flap.wall === "RIGHT" ? p1.x - 2 : p1.x + 2, y: p1.y };
-      page.drawLine({
-        start: tickFrom,
-        end: tickTo,
-        thickness: 0.5,
-        color: BLACK,
-      });
       page.drawText(text, {
         x: textX,
         y: textY,
@@ -1325,24 +1316,18 @@ function drawSteps(
         color: BLACK,
       });
       // The rungs stay out of the whole band the dimension sits in.
-      const tickRect: PageRect = {
-        x: Math.min(tickFrom.x, tickTo.x) - 1,
-        y: Math.min(tickFrom.y, tickTo.y) - 1,
-        width: Math.abs(tickTo.x - tickFrom.x) + 2,
-        height: Math.abs(tickTo.y - tickFrom.y) + 2,
-      };
       const dimRange = plan.upRange(dimRect);
-      const tickRange = plan.upRange(tickRect);
       own.push(
         dimRect,
         plan.rect(
           centerA - halfWidth,
           centerA + halfWidth,
-          Math.min(dimRange.lo, tickRange.lo),
-          Math.max(dimRange.hi, tickRange.hi),
+          dimRange.lo - 4,
+          dimRange.hi,
         ),
       );
       dimensionDrawn = true;
+      dimensionH = h;
       break;
     }
   }
@@ -1381,6 +1366,8 @@ function drawSteps(
   // first) so the label costs no rung; anywhere up the column; then just
   // beside the column, for steps that share their centerline with an
   // opening's dimension.
+  /** Top of a label drawn in the column, in points up the wall. */
+  let labelTopH: number | null = null;
   const rungBounds = [0, ...rungHs, upLen];
   const gapCenters = rungBounds
     .slice(0, -1)
@@ -1467,11 +1454,15 @@ function drawSteps(
           range.hi + 2,
         ),
       );
+      if (shift === 0) {
+        labelTopH = range.hi;
+      }
       break labelLoop;
     }
   }
 
   // Rungs: one is left out wherever something else already is.
+  const drawnRungHs: number[] = [];
   for (const h of rungHs) {
     if (jointHs.some((jointH) => Math.abs(jointH - h) < 4)) {
       continue;
@@ -1493,6 +1484,45 @@ function drawSteps(
       thickness: STEP_RUNG_THICKNESS_PT,
       color: BLACK,
     });
+    drawnRungHs.push(h);
+  }
+
+  // Extension line on the centerline of the steps, from the dimension down
+  // the wall to just short of the first thing of the steps it meets (the
+  // top rung, or the label), so the dimension points at the steps on every
+  // wall. It stops early rather than run through anything else.
+  if (dimensionH != null) {
+    const lineH = dimensionH;
+    const below = [
+      ...drawnRungHs.map((h) => h + STEP_RUNG_THICKNESS_PT / 2),
+      ...(labelTopH != null ? [labelTopH] : []),
+    ].filter((h) => h < lineH - 4);
+    let endH =
+      below.length > 0
+        ? Math.max(...below) + 2
+        : lineH - 8;
+    const extensionRect = (toH: number) =>
+      plan.rect(centerA - 0.4, centerA + 0.4, toH, lineH - 3);
+    const blocked = (toH: number) => {
+      const rect = extensionRect(toH);
+      return (
+        blockers.some((other) => rectsOverlap(rect, other, 1.5)) ||
+        leaders.some((seg) =>
+          segmentIntersectsRect(seg.x1, seg.y1, seg.x2, seg.y2, rect, 2),
+        )
+      );
+    };
+    while (endH < lineH - 6 && blocked(endH)) {
+      endH += 2;
+    }
+    endH = Math.min(endH, lineH - 4);
+    page.drawLine({
+      start: toPage(centerA, lineH + 2),
+      end: toPage(centerA, endH),
+      thickness: 0.5,
+      color: BLACK,
+    });
+    own.push(plan.rect(centerA - 1.5, centerA + 1.5, endH, lineH + 2));
   }
   return own;
 }
@@ -1878,6 +1908,9 @@ function drawOpeningsOnFlaps(
         result,
         [
           ...obstacles,
+          // Callout text and badges: on a long box their column reaches
+          // over the Right wall.
+          ...placedBlocks,
           // The chain line and the reach of its inch labels (a little
           // less than the zone other text is kept out of, so steps in
           // the middle of a short wall keep their label).
