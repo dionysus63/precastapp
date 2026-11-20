@@ -21,6 +21,7 @@ import {
 } from "@/lib/quotes/one-off-drill-sheets";
 import { normalizeWallHeightAdjustInches } from "@/lib/drill-sheet";
 import { RECT_WALLS, type RectWall } from "@/lib/rect-structure";
+import { normalizeRectStepsPosition } from "@/lib/rect-steps";
 
 export type OneOffJobDetails = {
   id: string;
@@ -199,6 +200,11 @@ export function parseOneOffRow(
   );
   if (wallHeightAdjustInches !== 0) {
     row.wallHeightAdjustInches = wallHeightAdjustInches;
+  }
+  // Drafts saved before steps existed have none.
+  const stepsPosition = normalizeRectStepsPosition(value.stepsPosition);
+  if (stepsPosition) {
+    row.stepsPosition = stepsPosition;
   }
   if (typeof value.insideLengthFeet === "string") {
     row.insideLengthFeet = value.insideLengthFeet;

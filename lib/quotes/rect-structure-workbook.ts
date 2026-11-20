@@ -27,6 +27,10 @@ import {
   formatFeetInchesShort,
   normalizeWallHeightAdjustInches,
 } from "@/lib/drill-sheet";
+import {
+  normalizeRectStepsPosition,
+  type RectStepsPosition,
+} from "@/lib/rect-steps";
 
 export type RectQuoteDetailLevel = "QUOTE" | "FULL";
 
@@ -68,6 +72,8 @@ export type RectQuoteStructureConfig = {
   topSlabOpeningLengthInches?: number | null;
   topSlabOpeningWidthInches?: number | null;
   topSlabOpeningSide?: RectWall | null;
+  /** Where the steps go (Quick Build); unset = no steps. */
+  stepsPosition?: RectStepsPosition;
   detailLevel: RectQuoteDetailLevel;
   openings: RectQuoteOpening[];
   /**
@@ -123,6 +129,8 @@ export type RectWorkbookRow = {
   topSlabOpeningLengthInches: string;
   topSlabOpeningWidthInches: string;
   topSlabOpeningSide: RectWall;
+  /** Where the steps go (Quick Build); unset or blank = no steps. */
+  stepsPosition?: RectStepsPosition | "";
   /** Quote-only mode pipe list (material + size + count). */
   penetrations: RectWorkbookPenetration[];
   openings: RectWorkbookOpeningRow[];
@@ -572,6 +580,7 @@ export function computeRectWorkbookRowDetail(
       topSlabOpeningLengthInches: template.topSlabOpeningLengthInches,
       topSlabOpeningWidthInches: template.topSlabOpeningWidthInches,
       topSlabOpeningSide: template.topSlabOpeningSide,
+      stepsOffsetInches: template.stepsOffsetInches,
     },
     openingSizes: options.openingSizes,
     openings: calcOpenings.map((opening) => ({
@@ -598,6 +607,7 @@ export function computeRectWorkbookRowDetail(
           side: workingRow.topSlabOpeningSide,
         }
       : null,
+    stepsPosition: workingRow.stepsPosition || null,
   };
 
   const result = computeRectStructure(input);
@@ -720,6 +730,7 @@ function buildRectQuoteConfig(
     topSlabOpeningSide: result.topSlabOpeningFromTemplate
       ? null
       : (result.topSlabOpening?.side ?? null),
+    ...(result.steps ? { stepsPosition: result.steps.position } : {}),
     detailLevel,
     openings,
     wallHeightFeet: result.wallHeightFeet,
@@ -855,6 +866,7 @@ export function rectLineItemToWorkbookRow(
         ? String(config.topSlabOpeningWidthInches)
         : "",
     topSlabOpeningSide: config.topSlabOpeningSide ?? "UP",
+    ...(config.stepsPosition ? { stepsPosition: config.stepsPosition } : {}),
     openings: config.openings.length
       ? config.openings.map((opening) => ({
           id: createRowId(),
@@ -1062,6 +1074,9 @@ export function parseRectStructureConfigJson(
         ? data.topSlabOpeningWidthInches
         : null,
     topSlabOpeningSide: normalizeWall(data.topSlabOpeningSide),
+    ...(normalizeRectStepsPosition(data.stepsPosition)
+      ? { stepsPosition: normalizeRectStepsPosition(data.stepsPosition)! }
+      : {}),
     detailLevel: data.detailLevel === "FULL" ? "FULL" : "QUOTE",
     openings,
     wallHeightFeet:

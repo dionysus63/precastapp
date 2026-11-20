@@ -166,6 +166,60 @@ export function planOpeningRect(
 }
 
 /**
+ * Plan-view rectangle for the steps, as fractions of the INSIDE plan
+ * rectangle: a band of `depthFraction` reaching into the box from the inside
+ * face of their wall, at their true place along it. Null when the structure
+ * has no steps or they cannot be placed.
+ */
+export function planStepsRect(
+  result: RectStructureResult,
+  depthFraction = 0.08,
+): FractionRect | null {
+  const steps = result.steps;
+  if (
+    !steps ||
+    steps.centerInches == null ||
+    result.insideLengthFeet == null ||
+    result.insideWidthFeet == null
+  ) {
+    return null;
+  }
+  const runInches =
+    (steps.wall === "UP" || steps.wall === "DOWN"
+      ? result.insideLengthFeet
+      : result.insideWidthFeet) * 12;
+  if (runInches <= EPSILON) {
+    return null;
+  }
+  const start = clamp01((steps.centerInches - steps.widthInches / 2) / runInches);
+  const end = clamp01((steps.centerInches + steps.widthInches / 2) / runInches);
+  const length = end - start;
+  // Same wall directions as planOpeningRect.
+  switch (steps.wall) {
+    case "UP":
+      return { x: start, y: 0, width: length, height: depthFraction };
+    case "DOWN":
+      return {
+        x: 1 - end,
+        y: 1 - depthFraction,
+        width: length,
+        height: depthFraction,
+      };
+    case "RIGHT":
+      return {
+        x: 1 - depthFraction,
+        y: start,
+        width: depthFraction,
+        height: length,
+      };
+    case "LEFT":
+      return { x: 0, y: 1 - end, width: depthFraction, height: length };
+    default:
+      return null;
+  }
+}
+
+/**
  * Top-slab opening rectangle as fractions of the slab outline (which is
  * flush with the outside walls). The opening touches the inside face of the
  * chosen wall side; the other axis is centered.

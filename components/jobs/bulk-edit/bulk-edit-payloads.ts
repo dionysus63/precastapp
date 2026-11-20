@@ -60,6 +60,7 @@ export function rectPayloadFromValues(values: RectSheetFormValues): unknown {
     topSlabOpeningLengthInches: values.topSlabOpeningLengthInches,
     topSlabOpeningWidthInches: values.topSlabOpeningWidthInches,
     topSlabOpeningSide: values.topSlabOpeningSide,
+    stepsPosition: values.stepsPosition || null,
     sectionHeightsFeet: values.sections.map((section) => section.heightFeet),
     jointKeys: values.sections.slice(0, -1).map((section) => section.topKey),
     openings: values.openings.map((opening) => ({

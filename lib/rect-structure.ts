@@ -26,6 +26,12 @@ import {
   type SumpMode,
 } from "@/lib/drill-sheet";
 import { RECT_OPENING_ROWS } from "@/lib/rect-template-pdf-fields";
+import {
+  RECT_STEPS_POSITION_LABELS,
+  RECT_STEP_WIDTH_INCHES,
+  rectStepsPlacement,
+  type RectStepsPosition,
+} from "@/lib/rect-steps";
 
 /** Rows in the printed sheet's INVERT/DIA/TYPE openings table (A-E). */
 export const RECT_OPENING_TABLE_ROWS = RECT_OPENING_ROWS.length;
@@ -84,6 +90,11 @@ export type RectTemplateConfig = {
   topSlabOpeningLengthInches?: number | null;
   topSlabOpeningWidthInches?: number | null;
   topSlabOpeningSide?: RectWall | null;
+  /**
+   * Inside corner to the middle of off-center steps, inches. Blank means
+   * the template has no steps distance yet.
+   */
+  stepsOffsetInches?: number | null;
 };
 
 /**
@@ -158,6 +169,25 @@ export type RectStructureInput = {
   /** Key toggle for the joint above section i (length = sections - 1). */
   jointKeys: boolean[];
   topSlabOpening: RectTopSlabOpening | null;
+  /** Where the steps go; blank or missing = no steps. */
+  stepsPosition?: RectStepsPosition | null;
+};
+
+/** Steps as the sheet draws them. */
+export type ComputedRectSteps = {
+  position: RectStepsPosition;
+  wall: RectWall;
+  /**
+   * Middle of the steps along the wall, inches from its LEFT inside face
+   * (the way opening edges are measured). Null when it cannot be placed:
+   * the wall has no size, or off-center steps have no template distance.
+   */
+  centerInches: number | null;
+  /** Inside corner to the middle of the steps; null in the middle of a wall. */
+  offsetInches: number | null;
+  widthInches: number;
+  /** Letters of the same-wall openings the steps cross. */
+  crossesOpenings: string[];
 };
 
 export type ComputedRectOpening = RectOpeningInput & {
@@ -240,6 +270,8 @@ export type RectStructureResult = {
   topSlabOpening: RectTopSlabOpening | null;
   /** True when `topSlabOpening` came from the template default. */
   topSlabOpeningFromTemplate: boolean;
+  /** Steps on the sheet; null or missing = none. */
+  steps?: ComputedRectSteps | null;
   weights: RectPickWeights;
   wallPrice: number;
   /** Top slab component price (0 when the sheet has no top slab). */
@@ -748,6 +780,109 @@ export function resolveTopSlabOpening(
 }
 
 /**
+ * Places the steps on their wall and checks them against the pipe openings
+ * on it. Steps run the full height of the wall, so any opening they share a
+ * stretch of wall with is a real conflict: it gets a warning and the sheet
+ * leaves the rungs out at the opening.
+ */
+function computeRectSteps(
+  position: RectStepsPosition | null | undefined,
+  template: RectTemplateConfig,
+  insideLengthFeet: number | null,
+  insideWidthFeet: number | null,
+  openings: ComputedRectOpening[],
+  warnings: string[],
+): { steps: ComputedRectSteps | null; errorMessage: string | null } {
+  if (!position) {
+    return { steps: null, errorMessage: null };
+  }
+  const { wall, along } = rectStepsPlacement(position);
+  const offsetSetting =
+    template.stepsOffsetInches != null && template.stepsOffsetInches > 0
+      ? template.stepsOffsetInches
+      : null;
+  if (along !== "MIDDLE" && offsetSetting == null) {
+    // The pick is kept (so a save does not lose it); with no distance there
+    // is no place to draw it.
+    return {
+      steps: {
+        position,
+        wall,
+        centerInches: null,
+        offsetInches: null,
+        widthInches: RECT_STEP_WIDTH_INCHES,
+        crossesOpenings: [],
+      },
+      errorMessage: `Steps at ${RECT_STEPS_POSITION_LABELS[position]} need the "Steps From Corner" distance. Set it on the template.`,
+    };
+  }
+  const offsetInches = along === "MIDDLE" ? null : offsetSetting;
+  const runInches =
+    insideLengthFeet != null && insideWidthFeet != null
+      ? wallInsideRunFeet(wall, insideLengthFeet, insideWidthFeet) * 12
+      : null;
+  let centerInches: number | null = null;
+  if (runInches != null && runInches > EPSILON) {
+    centerInches =
+      along === "MIDDLE"
+        ? runInches / 2
+        : along === "START"
+          ? (offsetInches ?? 0)
+          : runInches - (offsetInches ?? 0);
+    centerInches = round2(centerInches);
+  }
+
+  const crossesOpenings: string[] = [];
+  if (centerInches != null && runInches != null) {
+    const left = centerInches - RECT_STEP_WIDTH_INCHES / 2;
+    const right = centerInches + RECT_STEP_WIDTH_INCHES / 2;
+    if (
+      offsetInches != null &&
+      (left < -EPSILON || right > runInches + EPSILON || offsetInches > runInches / 2)
+    ) {
+      warnings.push(
+        `Steps ${offsetInches}" from the corner do not fit the ${RECT_WALL_LABELS[wall]} wall (${Math.round(runInches)}" inside).`,
+      );
+    }
+    openings.forEach((opening, index) => {
+      if (
+        opening.wall !== wall ||
+        opening.leftEdgeInches == null ||
+        opening.rightEdgeInches == null
+      ) {
+        return;
+      }
+      if (
+        left < opening.rightEdgeInches - EPSILON &&
+        opening.leftEdgeInches < right - EPSILON
+      ) {
+        crossesOpenings.push(
+          opening.label?.trim() || String.fromCharCode(65 + index),
+        );
+      }
+    });
+    if (crossesOpenings.length > 0) {
+      warnings.push(
+        `Steps on the ${RECT_WALL_LABELS[wall]} wall cross opening${crossesOpenings.length > 1 ? "s" : ""} ${crossesOpenings.join(", ")}. The rungs are left out at the opening.`,
+      );
+    }
+  }
+
+  return {
+    steps: {
+      position,
+      wall,
+      centerInches,
+      offsetInches,
+      widthInches: RECT_STEP_WIDTH_INCHES,
+      crossesOpenings,
+    },
+    errorMessage: null,
+  };
+}
+
+
+/**
  * Computes a full rectangular structure sheet from rim/invert inputs and
  * manual section splits.
  */
@@ -1192,6 +1327,18 @@ export function computeRectStructure(
     warnings,
   );
 
+  const stepsResult = computeRectSteps(
+    input.stepsPosition,
+    template,
+    insideLength,
+    insideWidth,
+    openings,
+    warnings,
+  );
+  if (stepsResult.errorMessage && !errorMessage) {
+    errorMessage = stepsResult.errorMessage;
+  }
+
   if (invertToTopFeet != null && invertToTopFeet <= 0) {
     errorMessage =
       "The lowest invert is at or above the rim elevation. Check the elevations.";
@@ -1245,6 +1392,7 @@ export function computeRectStructure(
     openings,
     topSlabOpening,
     topSlabOpeningFromTemplate: resolvedTopSlab.fromTemplate,
+    steps: stepsResult.steps,
     weights: {
       sections: sections.map((section) => section.pickWeightLbs),
       baseSlabLbs,
