@@ -569,6 +569,23 @@ enum RectWall {
   LEFT
 }
 
+/// Where the steps go on a rectangular structure: three spots per wall,
+/// named by the plan view as printed (lib/rect-steps.ts).
+enum RectStepsPosition {
+  UP_LEFT
+  UP_MIDDLE
+  UP_RIGHT
+  RIGHT_TOP
+  RIGHT_MIDDLE
+  RIGHT_BOTTOM
+  DOWN_LEFT
+  DOWN_MIDDLE
+  DOWN_RIGHT
+  LEFT_TOP
+  LEFT_MIDDLE
+  LEFT_BOTTOM
+}
+
 /// Horizontal placement of a rectangular wall opening along its wall.
 /// FROM_LEFT / FROM_RIGHT dimension the opening centerline from that inside
 /// face; TOUCH_LEFT / TOUCH_RIGHT draw the opening touching that wall end.
@@ -606,6 +623,9 @@ model StructureTemplate {
   rectTopSlabOpeningLengthInches Decimal?             @db.Decimal(6, 2)
   rectTopSlabOpeningWidthInches  Decimal?             @db.Decimal(6, 2)
   rectTopSlabOpeningSide         RectWall?
+  /// Rectangular templates: inside corner to the middle of off-center steps,
+  /// in inches. Structures pick the spot; this sets how far from the corner.
+  rectStepsOffsetInches          Decimal?             @db.Decimal(6, 2)
   /// Rectangular templates: minimum billed height in feet (e.g. 4' minimum
   /// wall pricing even when the structure is only 2' tall). Wall/slab prices
   /// live in RectTemplatePriceListEntry, per price list.
@@ -1111,6 +1131,8 @@ model JobStructureDimension {
   topSlabOpeningWidthInches  Decimal?  @db.Decimal(6, 2)
   /// Wall whose inside edge the top-slab opening touches.
   topSlabOpeningSide         RectWall?
+  /// Rectangular sheets: where the steps go; null = no steps.
+  stepsPosition              RectStepsPosition?
   notes             String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

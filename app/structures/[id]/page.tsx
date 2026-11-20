@@ -123,6 +123,7 @@ export default async function EditStructureTemplatePage({
       template.rectTopSlabOpeningWidthInches,
     ),
     rectTopSlabOpeningSide: template.rectTopSlabOpeningSide ?? "UP",
+    rectStepsOffsetInches: decimalToString(template.rectStepsOffsetInches),
     rectTopSlabPrice: rectPriceEntry ? String(rectPriceEntry.topSlabPrice) : "",
     rectBaseSlabPrice: rectPriceEntry
       ? String(rectPriceEntry.baseSlabPrice)

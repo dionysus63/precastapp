@@ -7,6 +7,10 @@ import {
   type RectStructureResult,
   type RectWall,
 } from "@/lib/rect-structure";
+import {
+  normalizeRectStepsPosition,
+  type RectStepsPosition,
+} from "@/lib/rect-steps";
 import type { RectQuoteStructureConfig } from "@/lib/quotes/rect-structure-workbook";
 import { normalizeWallHeightAdjustInches } from "@/lib/drill-sheet";
 import { decimal, parseNum } from "@/lib/drill-sheet-persistence";
@@ -54,6 +58,8 @@ export type RectSheetPayload = {
   topSlabOpeningLengthInches: string;
   topSlabOpeningWidthInches: string;
   topSlabOpeningSide: RectWall | "";
+  /** Where the steps go; blank or missing = no steps. */
+  stepsPosition?: RectStepsPosition | "" | null;
   sectionHeightsFeet: string[];
   jointKeys: boolean[];
   openings: RectOpeningPayload[];
@@ -164,6 +170,7 @@ export function parseRectSheetPayloadData(parsed: unknown): RectSheetPayload {
       data.topSlabOpeningWidthInches ?? "",
     ).trim(),
     topSlabOpeningSide: parseWall(data.topSlabOpeningSide),
+    stepsPosition: normalizeRectStepsPosition(data.stepsPosition),
     sectionHeightsFeet: sectionHeightsRaw.map((value) => String(value ?? "")),
     jointKeys: jointKeysRaw.map((value) => value === true),
     openings,
@@ -264,6 +271,10 @@ export async function loadAndComputeRectSheet(
           ? Number(template.rectTopSlabOpeningWidthInches)
           : null,
       topSlabOpeningSide: template.rectTopSlabOpeningSide ?? null,
+      stepsOffsetInches:
+        template.rectStepsOffsetInches != null
+          ? Number(template.rectStepsOffsetInches)
+          : null,
     },
     openingSizes: openingSizes.map((entry) => ({
       pipeMaterial: entry.pipeMaterial,
@@ -299,6 +310,7 @@ export async function loadAndComputeRectSheet(
           side: payload.topSlabOpeningSide || null,
         }
       : null,
+    stepsPosition: payload.stepsPosition || null,
   };
 
   const result = computeRectStructure(input);
@@ -349,6 +361,7 @@ export function buildRectCalcData(
     wallHeightFeet: decimal(result.wallHeightFeet),
     brickFeet: decimal(result.brickFeet),
     wallHeightAdjustInches: result.wallHeightAdjustInches ?? 0,
+    hasSteps: result.steps != null,
     hasKey: result.sections.some((section) => section.hasBottomKey),
     totalHeightFeet: decimal(result.totalHeightFeet),
     insideLengthFeet: decimal(result.insideLengthFeet),
@@ -421,6 +434,7 @@ export function buildRectDimensionData(result: RectStructureResult) {
     topSlabOpeningSide: result.topSlabOpeningFromTemplate
       ? null
       : (result.topSlabOpening?.side ?? null),
+    stepsPosition: result.steps?.position ?? null,
   };
 }
 
@@ -523,6 +537,7 @@ export async function createRectJobStructureFromQuoteConfig(
         ? String(config.topSlabOpeningWidthInches)
         : "",
     topSlabOpeningSide: config.topSlabOpeningSide ?? "",
+    stepsPosition: config.stepsPosition ?? null,
     // Splits are decided in the sheet editor; award creates a single pour.
     sectionHeightsFeet: [],
     jointKeys: [],

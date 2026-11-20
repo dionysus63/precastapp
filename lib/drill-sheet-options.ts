@@ -245,6 +245,10 @@ export async function loadRectSheetFormOptions(
             ? Number(template.rectTopSlabOpeningWidthInches)
             : null,
         topSlabOpeningSide: template.rectTopSlabOpeningSide ?? null,
+        stepsOffsetInches:
+          template.rectStepsOffsetInches != null
+            ? Number(template.rectStepsOffsetInches)
+            : null,
         topSlabPrice: price?.topSlabPrice ?? 0,
         baseSlabPrice: price?.baseSlabPrice ?? 0,
         priceMissing: !price,

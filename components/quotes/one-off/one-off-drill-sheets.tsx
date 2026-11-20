@@ -870,7 +870,7 @@ export function OneOffDrillSheets({
               : duplicateNumbers.size > 0
                 ? "Fix the structure numbers marked in red."
                 : readyCount < totalRows
-                  ? `${totalRows - readyCount} row${totalRows - readyCount === 1 ? "" : "s"} still need rim and inverts (see Status).`
+                  ? `${totalRows - readyCount} row${totalRows - readyCount === 1 ? " is" : "s are"} not ready yet (see Status).`
                   : jobChoice?.mode === "new"
                     ? "A new job is created along with the sheets."
                     : "Every row is ready."}

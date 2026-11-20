@@ -30,6 +30,12 @@ import {
   type RectWall,
 } from "@/lib/rect-structure";
 import {
+  RECT_STEPS_POSITION_OPTIONS,
+  normalizeRectStepsPosition,
+  rectStepsPlacement,
+  type RectStepsPosition,
+} from "@/lib/rect-steps";
+import {
   tableBodyClassName,
   tableCellClassName,
   tableClassName,
@@ -55,6 +61,8 @@ export type RectSheetTemplateOption = {
   topSlabOpeningLengthInches?: number | null;
   topSlabOpeningWidthInches?: number | null;
   topSlabOpeningSide?: RectWall | null;
+  /** Inside corner to the middle of off-center steps; blank = not set. */
+  stepsOffsetInches?: number | null;
   /** No price entry on any list — prices are 0 until settings are filled in. */
   priceMissing?: boolean;
   /** Prices came from the default list, not the requested one. */
@@ -128,6 +136,8 @@ export type RectSheetFormValues = {
   topSlabOpeningLengthInches: string;
   topSlabOpeningWidthInches: string;
   topSlabOpeningSide: RectWall;
+  /** Where the steps go; blank or missing = no steps. */
+  stepsPosition?: RectStepsPosition | "";
   maxPickWeightLbs: string;
   sections: RectSectionField[];
   openings: RectOpeningField[];
@@ -241,6 +251,9 @@ export function RectSheetForm({
   const [topSlabOpeningSide, setTopSlabOpeningSide] = useState<RectWall>(
     defaultValues?.topSlabOpeningSide ?? "UP",
   );
+  const [stepsPosition, setStepsPosition] = useState<RectStepsPosition | "">(
+    defaultValues?.stepsPosition ?? "",
+  );
   const [maxPickWeightLbs, setMaxPickWeightLbs] = useState(
     defaultValues?.maxPickWeightLbs ?? "",
   );
@@ -313,6 +326,7 @@ export function RectSheetForm({
         topSlabOpeningLengthInches: template.topSlabOpeningLengthInches,
         topSlabOpeningWidthInches: template.topSlabOpeningWidthInches,
         topSlabOpeningSide: template.topSlabOpeningSide,
+        stepsOffsetInches: template.stepsOffsetInches,
       },
       openingSizes,
       openings: openings.map((opening) => ({
@@ -337,6 +351,7 @@ export function RectSheetForm({
             side: topSlabOpeningSide,
           }
         : null,
+      stepsPosition: stepsPosition || null,
     };
     return computeRectStructure(input);
   }, [
@@ -355,6 +370,7 @@ export function RectSheetForm({
     topSlabOpeningLengthInches,
     topSlabOpeningWidthInches,
     topSlabOpeningSide,
+    stepsPosition,
   ]);
 
   const payloadJson = useMemo(
@@ -378,6 +394,7 @@ export function RectSheetForm({
         topSlabOpeningLengthInches,
         topSlabOpeningWidthInches,
         topSlabOpeningSide,
+        stepsPosition: stepsPosition || null,
         sectionHeightsFeet: sections.map((section) => section.heightFeet),
         jointKeys: sections.slice(0, -1).map((section) => section.topKey),
         openings: openings.map((opening) => ({
@@ -411,6 +428,7 @@ export function RectSheetForm({
       topSlabOpeningLengthInches,
       topSlabOpeningWidthInches,
       topSlabOpeningSide,
+      stepsPosition,
       sections,
       openings,
     ],
@@ -702,6 +720,42 @@ export function RectSheetForm({
                   </label>
                 </div>
               ) : null}
+            </div>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+              <div>
+                <label
+                  htmlFor="rect-sheet-steps"
+                  className="block text-xs font-medium text-slate-700"
+                >
+                  Steps
+                </label>
+                <select
+                  id="rect-sheet-steps"
+                  value={stepsPosition}
+                  onChange={(e) =>
+                    setStepsPosition(
+                      normalizeRectStepsPosition(e.target.value) ?? "",
+                    )
+                  }
+                  className={structureInputClassName}
+                >
+                  <option value="">No steps</option>
+                  {RECT_STEPS_POSITION_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                {stepsPosition &&
+                rectStepsPlacement(stepsPosition).along !== "MIDDLE" ? (
+                  <p className="mt-1 text-2xs text-slate-500">
+                    {template?.stepsOffsetInches
+                      ? `${template.stepsOffsetInches}" from the corner to the middle of the steps (set on the template).`
+                      : "This template has no Steps From Corner distance yet. Set it on the template."}
+                  </p>
+                ) : null}
+              </div>
             </div>
 
             {hasTopSlab ? (

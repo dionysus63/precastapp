@@ -7,6 +7,7 @@
 // rows the quote's structure workbooks use, so wall heights, warnings and the
 // saved drill sheets come from the exact same calculators.
 
+import type { RectStepsPosition } from "@/lib/rect-steps";
 import type {
   DrillSheetCastingOption,
   DrillSheetTemplateOption,
@@ -117,6 +118,8 @@ export type OneOffRow = {
    * (6" a click). Unset or 0 = the calculated wall height.
    */
   wallHeightAdjustInches?: number;
+  /** Rect only: where the steps go; unset or blank = no steps. */
+  stepsPosition?: RectStepsPosition | "";
   /**
    * Rect only: the sheet's own inside size when editing an existing sheet.
    * Unset on new rows, which take the template's first preset size.
@@ -656,6 +659,7 @@ export function computeRectOneOffRow(
     topSlabOpeningLengthInches: "",
     topSlabOpeningWidthInches: "",
     topSlabOpeningSide: "UP",
+    stepsPosition: row.stepsPosition ?? "",
     penetrations: [],
     openings,
     qty: "1",
@@ -853,6 +857,7 @@ export function rectRowFromSheet(
       ...widenFromSavedWidth(opening, openingSizes),
     })),
     wallHeightAdjustInches: values.wallHeightAdjustInches ?? 0,
+    ...(values.stepsPosition ? { stepsPosition: values.stepsPosition } : {}),
     insideLengthFeet: values.insideLengthFeet,
     insideWidthFeet: values.insideWidthFeet,
   };
@@ -899,6 +904,7 @@ export function isRowChanged(row: OneOffRow, loaded: OneOffRow): boolean {
     row.diameterFeet !== loaded.diameterFeet ||
     row.castingProductId !== loaded.castingProductId ||
     (row.wallHeightAdjustInches ?? 0) !== (loaded.wallHeightAdjustInches ?? 0) ||
+    (row.stepsPosition ?? "") !== (loaded.stepsPosition ?? "") ||
     !sameNumberText(row.rimElevation, loaded.rimElevation) ||
     row.openings.some((cell, index) => {
       const before = loaded.openings[index];
@@ -1043,6 +1049,7 @@ export function mergeRectRow(
       date: values.date || today,
       rimElevation: row.rimElevation.trim(),
       wallHeightAdjustInches: row.wallHeightAdjustInches ?? 0,
+      stepsPosition: row.stepsPosition ?? "",
       insideLengthFeet: row.insideLengthFeet ?? values.insideLengthFeet,
       insideWidthFeet: row.insideWidthFeet ?? values.insideWidthFeet,
       openings,

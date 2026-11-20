@@ -11,6 +11,11 @@ import {
 import { formatWallHeightAdjust } from "@/lib/drill-sheet";
 import { RECT_WALL_LABELS, RECT_WALLS, type RectWall } from "@/lib/rect-structure";
 import {
+  RECT_STEPS_POSITION_LABELS,
+  RECT_STEPS_POSITION_OPTIONS,
+  normalizeRectStepsPosition,
+} from "@/lib/rect-steps";
+import {
   ONE_OFF_MAX_OPENINGS,
   ONE_OFF_MAX_ROWS,
   ONE_OFF_OPENING_SPECIALS,
@@ -490,6 +495,18 @@ export function OneOffGrid({
     onRowsChange(
       rows.map((row, index) =>
         index === rowIndex ? column.set(row, value) : row,
+      ),
+    );
+  }
+
+  /** Picks where the steps go on one structure; blank takes them off. */
+  function setSteps(rowIndex: number, value: string) {
+    onActiveRowChange?.(rows[rowIndex].id);
+    onRowsChange(
+      rows.map((row, index) =>
+        index === rowIndex
+          ? { ...row, stepsPosition: normalizeRectStepsPosition(value) ?? "" }
+          : row,
       ),
     );
   }
@@ -1064,6 +1081,56 @@ export function OneOffGrid({
                 );
               })}
             </tr>
+            {isCircular ? null : (
+              <tr>
+                <th scope="row" className={`${labelCellClassName} h-11`}>
+                  Steps
+                </th>
+                {rows.map((row, rowIndex) => {
+                  const steps = normalizeRectStepsPosition(row.stepsPosition);
+                  const label = steps ? RECT_STEPS_POSITION_LABELS[steps] : "";
+                  return (
+                    <td
+                      key={row.id}
+                      onClick={() => onActiveRowChange?.(row.id)}
+                      className={`${structureCellClass(rowIndex)} relative focus-within:ring-2 focus-within:ring-inset focus-within:ring-sky-500`}
+                    >
+                      {/* Native dropdowns can't wrap, so the two-line label
+                          sits under a transparent select, like Template. */}
+                      <div className="flex h-11 items-start gap-0.5 px-1 py-1">
+                        <span
+                          className={`line-clamp-2 min-w-0 flex-1 break-words text-2xs leading-[1.25] ${steps ? "text-slate-900" : "text-slate-400"}`}
+                        >
+                          {label || "None"}
+                        </span>
+                        <span aria-hidden="true" className="mt-0.5 text-4xs text-slate-400">
+                          ▼
+                        </span>
+                      </div>
+                      <select
+                        value={steps ?? ""}
+                        aria-label={`Steps on structure ${rowIndex + 1}`}
+                        title={
+                          label
+                            ? `Steps: ${label}`
+                            : "Where the steps go on this structure"
+                        }
+                        style={{ opacity: 0 }}
+                        onChange={(event) => setSteps(rowIndex, event.target.value)}
+                        className="absolute inset-0 h-full w-full cursor-pointer focus:outline-none"
+                      >
+                        <option value="">None</option>
+                        {RECT_STEPS_POSITION_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  );
+                })}
+              </tr>
+            )}
             <tr>
               <th scope="row" className={`${labelCellClassName} h-8`}>
                 Status

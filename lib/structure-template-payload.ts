@@ -44,6 +44,8 @@ export type TemplatePayload = {
   rectTopSlabOpeningLengthInches: number | null;
   rectTopSlabOpeningWidthInches: number | null;
   rectTopSlabOpeningSide: RectWall | null;
+  /** Rectangular only: inside corner to the middle of off-center steps. */
+  rectStepsOffsetInches: number | null;
   rectTopSlabPrice: number | null;
   rectBaseSlabPrice: number | null;
   /** The Sheet PDF the template's drill sheets print on. */
@@ -255,6 +257,7 @@ export function parseTemplateData(data: Record<string, unknown>): TemplatePayloa
         ? optionalNonNegativeNumber(data.rectMinPricingHeightFeet)
         : null,
     ...parseRectTopSlabOpening(data, shape),
+    rectStepsOffsetInches: parseRectStepsOffset(data, shape),
     rectTopSlabPrice:
       shape === "RECTANGULAR"
         ? optionalNonNegativeNumber(data.rectTopSlabPrice)
@@ -411,6 +414,18 @@ function parseRectTopSlabOpening(
   };
 }
 
+/** Rect template steps distance: blank or zero clears it. */
+function parseRectStepsOffset(
+  data: Record<string, unknown>,
+  shape: StructureShape,
+): number | null {
+  if (shape !== "RECTANGULAR") {
+    return null;
+  }
+  const value = optionalNonNegativeNumber(data.rectStepsOffsetInches);
+  return value != null && value > 0 ? value : null;
+}
+
 export function buildNestedCreate(payload: TemplatePayload) {
   return {
     name: payload.name,
@@ -445,6 +460,10 @@ export function buildNestedCreate(payload: TemplatePayload) {
         ? null
         : decimal(payload.rectTopSlabOpeningWidthInches),
     rectTopSlabOpeningSide: payload.rectTopSlabOpeningSide,
+    rectStepsOffsetInches:
+      payload.rectStepsOffsetInches === null
+        ? null
+        : decimal(payload.rectStepsOffsetInches),
     sheetPdfId: payload.sheetPdfId,
     status: payload.status,
     notes: payload.notes,
