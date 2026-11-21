@@ -9,6 +9,11 @@ import {
   type KeyboardEvent,
 } from "react";
 import { formatWallHeightAdjust } from "@/lib/drill-sheet";
+import {
+  RECT_MOVE_DIRECTION_LABELS,
+  isRectMoveDirection,
+  rectMoveDirections,
+} from "@/lib/rect-opening-move";
 import { RECT_WALL_LABELS, RECT_WALLS, type RectWall } from "@/lib/rect-structure";
 import {
   RECT_STEPS_POSITION_LABELS,
@@ -27,6 +32,9 @@ import {
   resizeRowOpenings,
   setOpeningPipeType,
   setOpeningSpecial,
+  setOpeningWall,
+  specialMoves,
+  specialWidens,
   sizesForPipeType,
   standardRectOpeningWidth,
   stepRowWallHeight,
@@ -86,6 +94,8 @@ type GridColumn = {
   allowBlank?: boolean;
   /** Greyed out for structures the field doesn't apply to. */
   disabled?: (row: OneOffRow) => boolean;
+  /** Dropdowns only: hover text for a greyed-out cell. */
+  disabledTitle?: string;
   /** Starts a new group (each opening's fields) with a heading row. */
   groupStart?: boolean;
   groupLabel?: string;
@@ -167,10 +177,20 @@ export function OneOffGrid({
   const tableRef = useRef<HTMLTableElement>(null);
   const isCircular = shape === "CIRCULAR";
 
-  // Which inlets have Widen picked on any structure ("010" = inlet B only):
+  // Which inlets have Widen (or Widen + Move) picked on any structure ("010" = inlet B only):
   // the Width row for an inlet is only there once it's needed.
   const widenedInlets = Array.from({ length: openingCount }, (_, index) =>
-    rows.some((row) => row.openings[index]?.special === "WIDEN") ? "1" : "0",
+    rows.some((row) => specialWidens(row.openings[index]?.special)) ? "1" : "0",
+  ).join("");
+  // Likewise for Move: its direction and inches rows.
+  const movedInlets = Array.from({ length: openingCount }, (_, index) =>
+    rows.some((row) => specialMoves(row.openings[index]?.special)) ? "1" : "0",
+  ).join("");
+
+  // "Widen + Move" is too long for the narrow cell on one line, so an inlet's
+  // Special row goes to two lines once some structure has picked it.
+  const widenMoveInlets = Array.from({ length: openingCount }, (_, index) =>
+    rows.some((row) => row.openings[index]?.special === "WIDEN_MOVE") ? "1" : "0",
   ).join("");
 
   const columns = useMemo<GridColumn[]>(() => {
@@ -359,7 +379,7 @@ export function OneOffGrid({
             })),
           set: (row, value) =>
             RECT_WALLS.includes(value as RectWall)
-              ? setOpening(row, index, { wall: value as RectWall })
+              ? setOpeningWall(row, index, value as RectWall)
               : row,
         });
         // Special changes to this opening; each one brings its own inputs
@@ -369,6 +389,7 @@ export function OneOffGrid({
           header: `Special ${letter}`,
           kind: "select",
           allowBlank: true,
+          wrap: widenMoveInlets[index] === "1",
           get: (row) => row.openings[index]?.special ?? "",
           options: () => [
             { value: "", label: "—" },
@@ -398,10 +419,10 @@ export function OneOffGrid({
             decimals: 0,
             get: (row) => row.openings[index]?.widenInches ?? "",
             set: (row, value) =>
-              row.openings[index]?.special === "WIDEN"
+              specialWidens(row.openings[index]?.special)
                 ? setOpening(row, index, { widenInches: value })
                 : row,
-            disabled: (row) => row.openings[index]?.special !== "WIDEN",
+            disabled: (row) => !specialWidens(row.openings[index]?.special),
             placeholderFor: (row) => {
               const standard = standardWidth(row);
               return standard != null ? String(standard) : "";
@@ -414,6 +435,48 @@ export function OneOffGrid({
             },
           });
         }
+        if (movedInlets[index] === "1") {
+          const isMoved = (row: OneOffRow) =>
+            specialMoves(row.openings[index]?.special);
+          result.push(
+            {
+              // Which way, as the sheet is read: Left or Right on the Up and
+              // Down walls, Up or Down on the Left and Right walls.
+              key: `movedir-${index}`,
+              header: `Move ${letter}`,
+              kind: "select",
+              get: (row) => row.openings[index]?.moveDirection ?? "",
+              options: (row) =>
+                rectMoveDirections(row.openings[index]?.wall ?? "UP").map(
+                  (direction) => ({
+                    value: direction,
+                    label: RECT_MOVE_DIRECTION_LABELS[direction],
+                  }),
+                ),
+              set: (row, value) =>
+                isMoved(row) &&
+                isRectMoveDirection(value) &&
+                rectMoveDirections(row.openings[index].wall).includes(value)
+                  ? setOpening(row, index, { moveDirection: value })
+                  : row,
+              disabled: (row) => !isMoved(row),
+              disabledTitle: `Pick Move or Widen + Move under Special ${letter} first`,
+            },
+            {
+              key: `moveby-${index}`,
+              header: `Inches ${letter}`,
+              kind: "text",
+              numeric: true,
+              decimals: 0,
+              get: (row) => row.openings[index]?.moveInches ?? "",
+              set: (row, value) =>
+                isMoved(row) ? setOpening(row, index, { moveInches: value }) : row,
+              disabled: (row) => !isMoved(row),
+              titleFor: () =>
+                "How far to move the opening off the middle of the wall, in whole inches.",
+            },
+          );
+        }
       }
     }
 
@@ -425,10 +488,12 @@ export function OneOffGrid({
     pipeChoices,
     rectOptions,
     widenedInlets,
+    movedInlets,
+    widenMoveInlets,
   ]);
 
-  // Picking a special that needs a number (Widen) drops the cursor into it
-  // once its row has been drawn.
+  // Picking a special drops the cursor into its first cell (Widen's width,
+  // Move's direction) once its row has been drawn.
   const pendingFocus = useRef<{ rowIndex: number; key: string } | null>(null);
   useEffect(() => {
     const pending = pendingFocus.current;
@@ -440,12 +505,14 @@ export function OneOffGrid({
     if (colIndex < 0) {
       return;
     }
-    const el = tableRef.current?.querySelector<HTMLInputElement>(
-      `[data-grid-row="${pending.rowIndex}"][data-grid-col="${colIndex}"]`,
-    );
+    const el = tableRef.current?.querySelector<
+      HTMLInputElement | HTMLSelectElement
+    >(`[data-grid-row="${pending.rowIndex}"][data-grid-col="${colIndex}"]`);
     if (el && !el.disabled) {
       el.focus();
-      el.select();
+      if (el instanceof HTMLInputElement) {
+        el.select();
+      }
     }
   });
 
@@ -486,10 +553,19 @@ export function OneOffGrid({
   }
 
   function patchCell(rowIndex: number, column: GridColumn, value: string) {
-    if (column.key.startsWith("special-") && value === "WIDEN") {
+    if (
+      column.key.startsWith("special-") &&
+      (value === "WIDEN" || value === "WIDEN_MOVE")
+    ) {
       pendingFocus.current = {
         rowIndex,
         key: column.key.replace("special-", "widen-"),
+      };
+    }
+    if (column.key.startsWith("special-") && value === "MOVE") {
+      pendingFocus.current = {
+        rowIndex,
+        key: column.key.replace("special-", "movedir-"),
       };
     }
     onRowsChange(
@@ -831,7 +907,10 @@ export function OneOffGrid({
 
                       if (column.kind === "select") {
                         const listed = column.options?.(row) ?? [];
-                        const missing = value === "" && !column.allowBlank;
+                        const selectDisabled = column.disabled?.(row) ?? false;
+                        // A greyed-out cell shows nothing, like a text cell.
+                        const missing =
+                          value === "" && !column.allowBlank && !selectDisabled;
                         // A saved sheet can hold a value no longer offered.
                         const options =
                           value === "" ||
@@ -851,16 +930,18 @@ export function OneOffGrid({
                         const currentLabel =
                           options.find((option) => option.value === value)?.label ??
                           "";
-                        const selectDisabled = column.disabled?.(row) ?? false;
+                        // Keyed so the dropdown keeps the cursor when its cell
+                        // switches between one line and two.
                         const select = (
                           <select
+                            key="select"
                             value={value}
                             disabled={selectDisabled}
                             data-grid-row={rowIndex}
                             data-grid-col={colIndex}
                             title={
                               selectDisabled
-                                ? "Set by the template"
+                                ? (column.disabledTitle ?? "Set by the template")
                                 : currentLabel || undefined
                             }
                             style={column.wrap ? { opacity: 0 } : undefined}
@@ -877,6 +958,9 @@ export function OneOffGrid({
                             }
                           >
                             {missing ? <option value="">— pick —</option> : null}
+                            {selectDisabled && value === "" ? (
+                              <option value="" />
+                            ) : null}
                             {options.map((option) => (
                               <option key={option.value} value={option.value}>
                                 {option.label}
@@ -895,7 +979,10 @@ export function OneOffGrid({
                               onFocusCapture={pick}
                               onClick={pick}
                             >
-                              <div className="flex h-11 items-start gap-0.5 px-1 py-1">
+                              <div
+                                key="label"
+                                className="flex h-11 items-start gap-0.5 px-1 py-1"
+                              >
                                 <span
                                   className={`line-clamp-2 min-w-0 flex-1 break-words text-2xs leading-[1.25] ${missing ? "text-amber-800" : "text-slate-900"}`}
                                 >
