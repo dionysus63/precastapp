@@ -21,6 +21,7 @@ import {
 } from "@/lib/quotes/one-off-drill-sheets";
 import { normalizeWallHeightAdjustInches } from "@/lib/drill-sheet";
 import { RECT_WALLS, type RectWall } from "@/lib/rect-structure";
+import { isRectMoveDirection } from "@/lib/rect-opening-move";
 import { normalizeRectStepsPosition } from "@/lib/rect-steps";
 
 export type OneOffJobDetails = {
@@ -191,6 +192,12 @@ export function parseOneOffRow(
         // Drafts saved before specials existed have none.
         special: isOpeningSpecial(cell.special) ? cell.special : "",
         widenInches: isOpeningSpecial(cell.special) ? str(cell.widenInches) : "",
+        // Drafts saved before Move existed have none.
+        moveDirection:
+          cell.special === "MOVE" && isRectMoveDirection(cell.moveDirection)
+            ? cell.moveDirection
+            : "",
+        moveInches: cell.special === "MOVE" ? str(cell.moveInches) : "",
       };
     }),
   };

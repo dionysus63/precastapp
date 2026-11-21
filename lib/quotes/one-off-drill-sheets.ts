@@ -7,6 +7,12 @@
 // rows the quote's structure workbooks use, so wall heights, warnings and the
 // saved drill sheets come from the exact same calculators.
 
+import {
+  rectMoveDirections,
+  rectMoveFromPlacement,
+  rectMovePlacement,
+  type RectMoveDirection,
+} from "@/lib/rect-opening-move";
 import type { RectStepsPosition } from "@/lib/rect-steps";
 import type {
   DrillSheetCastingOption,
@@ -25,7 +31,10 @@ import {
 import type { DrillSheetFormValues } from "@/lib/drill-sheet-detail";
 import {
   RECT_WALLS,
+  RECT_WALL_LABELS,
   lookupRectOpeningSize,
+  wallInsideRunFeet,
+  type RectOpeningPlacement,
   type RectStructureResult,
   type RectWall,
 } from "@/lib/rect-structure";
@@ -67,6 +76,7 @@ export type OneOffRectOptions = {
  */
 export const ONE_OFF_OPENING_SPECIALS = [
   { value: "WIDEN", label: "Widen" },
+  { value: "MOVE", label: "Move" },
 ] as const;
 
 export type OneOffOpeningSpecial =
@@ -97,6 +107,14 @@ export type OneOffOpeningCell = {
   special: OneOffOpeningSpecial;
   /** Widen: the opening's full width in inches (whole numbers only). */
   widenInches: string;
+  /**
+   * Move: which way the opening goes off the center of its wall, as the
+   * sheet is read (Left / Right on the Up and Down walls, Up / Down on the
+   * Left and Right walls). Blank until one is picked.
+   */
+  moveDirection: RectMoveDirection | "";
+  /** Move: how far off center, in inches (the cell rounds to whole inches). */
+  moveInches: string;
 };
 
 export type OneOffRow = {
@@ -184,6 +202,8 @@ export function createOpeningCell(
     wall: RECT_DEFAULT_WALLS[index % RECT_DEFAULT_WALLS.length],
     special: "",
     widenInches: "",
+    moveDirection: "",
+    moveInches: "",
   };
 }
 
@@ -204,6 +224,35 @@ export function setOpeningSpecial(
             ...cell,
             special,
             widenInches: special === "WIDEN" ? cell.widenInches : "",
+            moveDirection: special === "MOVE" ? cell.moveDirection : "",
+            moveInches: special === "MOVE" ? cell.moveInches : "",
+          }
+        : cell,
+    ),
+  };
+}
+
+/**
+ * Puts an inlet on another wall. A Move direction that the new wall does not
+ * have (Left on a side wall) is cleared, so it has to be picked again.
+ */
+export function setOpeningWall(
+  row: OneOffRow,
+  index: number,
+  wall: RectWall,
+): OneOffRow {
+  return {
+    ...row,
+    openings: row.openings.map((cell, cellIndex) =>
+      cellIndex === index
+        ? {
+            ...cell,
+            wall,
+            moveDirection:
+              cell.moveDirection !== "" &&
+              rectMoveDirections(wall).includes(cell.moveDirection)
+                ? cell.moveDirection
+                : "",
           }
         : cell,
     ),
@@ -225,20 +274,100 @@ export function standardRectOpeningWidth(
 }
 
 type RectOpeningSpecialResult =
-  | { widthOverrideInches: string }
+  | {
+      widthOverrideInches: string;
+      placement: RectOpeningPlacement;
+      offsetInches: string;
+    }
   | { error: string };
+
+/** A whole-looking number without a trailing ".0": 6, 16.5. */
+function inchesLabel(value: number): string {
+  return String(Number(value.toFixed(2)));
+}
+
+/**
+ * Where a Move puts an inlet along its wall, or why it can't be used yet.
+ * The distance is from the middle of the wall to the middle of the opening.
+ * An opening may move until it meets the end of the wall, no further.
+ */
+function rectOpeningMove(
+  cell: OneOffOpeningCell,
+  letter: string,
+  openingWidthInches: number | null,
+  wallRunInches: number | null,
+):
+  | { placement: RectOpeningPlacement; offsetInches: string }
+  | { error: string } {
+  if (
+    cell.moveDirection === "" ||
+    !rectMoveDirections(cell.wall).includes(cell.moveDirection)
+  ) {
+    return { error: `Pick which way to move inlet ${letter}` };
+  }
+  const typed = cell.moveInches.trim();
+  if (typed === "") {
+    return { error: `Enter how many inches to move inlet ${letter}` };
+  }
+  const inches = Number(typed);
+  if (!Number.isFinite(inches) || inches <= 0) {
+    return { error: `Move ${letter}: enter the inches as a number above 0` };
+  }
+  if (wallRunInches == null || !(wallRunInches > 0)) {
+    // No size yet: the calculation says so itself.
+    return { placement: "CENTERED", offsetInches: "" };
+  }
+  if (openingWidthInches != null) {
+    const room = Math.round((wallRunInches - openingWidthInches) * 50) / 100;
+    if (room <= 0) {
+      return {
+        error: `Move ${letter}: the opening already fills the ${RECT_WALL_LABELS[cell.wall]} wall`,
+      };
+    }
+    if (inches > room + 1e-6) {
+      return {
+        error: `Move ${letter}: ${inchesLabel(room)}" is the most it can move before the end of the wall`,
+      };
+    }
+  }
+  const moved = rectMovePlacement(
+    cell.wall,
+    cell.moveDirection,
+    inches,
+    wallRunInches,
+  );
+  if (!moved) {
+    return { placement: "CENTERED", offsetInches: "" };
+  }
+  return {
+    placement: moved.placement,
+    offsetInches: String(moved.offsetInches),
+  };
+}
 
 /**
  * What an inlet's special does to its rect opening, or why it can't be used
  * yet. Widen sets the opening's full width; the height stays the catalog's.
+ * Move slides the opening along its wall, away from the middle.
  */
 function rectOpeningSpecial(
   cell: OneOffOpeningCell,
   letter: string,
   standardWidthInches: number | null,
+  wallRunInches: number | null,
 ): RectOpeningSpecialResult {
+  const centered = { placement: "CENTERED" as const, offsetInches: "" };
+  if (cell.special === "MOVE") {
+    const moved = rectOpeningMove(
+      cell,
+      letter,
+      standardWidthInches,
+      wallRunInches,
+    );
+    return "error" in moved ? moved : { widthOverrideInches: "", ...moved };
+  }
   if (cell.special !== "WIDEN") {
-    return { widthOverrideInches: "" };
+    return { widthOverrideInches: "", ...centered };
   }
   const typed = cell.widenInches.trim();
   if (typed === "") {
@@ -253,7 +382,22 @@ function rectOpeningSpecial(
       error: `Widen ${letter}: enter more than the standard ${standardWidthInches}" width`,
     };
   }
-  return { widthOverrideInches: String(width) };
+  return { widthOverrideInches: String(width), ...centered };
+}
+
+/** Inside length of the wall an inlet sits in, in inches; null without a size. */
+function wallRunInchesFor(
+  wall: RectWall,
+  insideLengthFeet: string,
+  insideWidthFeet: string,
+): number | null {
+  const length = parseNum(insideLengthFeet);
+  const width = parseNum(insideWidthFeet);
+  if (length == null || width == null) {
+    return null;
+  }
+  const run = wallInsideRunFeet(wall, length, width) * 12;
+  return run > 0 ? run : null;
 }
 
 export type OneOffPipe = { pipeType: string; pipeSize: string };
@@ -620,6 +764,12 @@ export function computeRectOneOffRow(
   if (missingPipe) {
     return notReady(missingPipe);
   }
+  const preset = template.presetSizes[0];
+  const insideLengthFeet =
+    row.insideLengthFeet ?? (preset ? String(preset.insideLengthFeet) : "");
+  const insideWidthFeet =
+    row.insideWidthFeet ?? (preset ? String(preset.insideWidthFeet) : "");
+
   const openings = [];
   for (const { cell, index, pipe } of filled) {
     const letter = openingLetter(index);
@@ -627,6 +777,7 @@ export function computeRectOneOffRow(
       cell,
       letter,
       standardRectOpeningWidth(options.openingSizes, pipe),
+      wallRunInchesFor(cell.wall, insideLengthFeet, insideWidthFeet),
     );
     if ("error" in special) {
       return notReady(special.error);
@@ -638,18 +789,17 @@ export function computeRectOneOffRow(
       pipeSizeInches: pipe.pipeSize,
       invertElevation: cell.invert,
       widthOverrideInches: special.widthOverrideInches,
+      placement: special.placement,
+      offsetInches: special.offsetInches,
     });
   }
 
-  const preset = template.presetSizes[0];
   const workbookRow: RectWorkbookRow = {
     id: row.id,
     structureNumber: row.structureNumber,
     templateId: row.templateId,
-    insideLengthFeet:
-      row.insideLengthFeet ?? (preset ? String(preset.insideLengthFeet) : ""),
-    insideWidthFeet:
-      row.insideWidthFeet ?? (preset ? String(preset.insideWidthFeet) : ""),
+    insideLengthFeet,
+    insideWidthFeet,
     castingProductId: row.castingProductId,
     rimElevation: row.rimElevation,
     lowInvertElevation: "",
@@ -762,8 +912,8 @@ export function findDuplicateStructureNumbers(numbers: string[]): string[] {
 //
 // An existing sheet is loaded into a grid row (the row id is the structure
 // id), edited, then merged back over the sheet's saved form values. Anything
-// the grid doesn't show (inspection, steps, section splits, opening
-// placements) is kept as it was.
+// the grid doesn't show (inspection, section splits, an opening held against
+// a wall end) is kept as it was.
 
 /** The row's pipe type and default size: the first opening that names one. */
 function firstPipe(
@@ -835,6 +985,43 @@ function widenFromSavedWidth(
   return { special: "WIDEN", widenInches: String(saved) };
 }
 
+/**
+ * The Special a saved rect opening shows in the grid. Widened wins when an
+ * opening is both wider than standard and off center (the dropdown holds one
+ * choice); its place along the wall is then kept as saved. An opening placed
+ * some other way (against a wall end) shows no special and is kept too.
+ */
+function specialFromSavedOpening(
+  opening: RectSheetFormValues["openings"][number],
+  wall: RectWall,
+  openingSizes: OneOffRectOptions["openingSizes"],
+  wallRunInches: number | null,
+): Pick<
+  OneOffOpeningCell,
+  "special" | "widenInches" | "moveDirection" | "moveInches"
+> {
+  const widened = widenFromSavedWidth(opening, openingSizes);
+  const none = { moveDirection: "" as const, moveInches: "" };
+  if (widened.special === "WIDEN" || wallRunInches == null) {
+    return { ...widened, ...none };
+  }
+  const moved = rectMoveFromPlacement(
+    wall,
+    opening.placement,
+    parseNum(opening.offsetInches),
+    wallRunInches,
+  );
+  if (!moved) {
+    return { ...widened, ...none };
+  }
+  return {
+    special: "MOVE",
+    widenInches: "",
+    moveDirection: moved.direction,
+    moveInches: inchesLabel(moved.inches),
+  };
+}
+
 export function rectRowFromSheet(
   structureId: string,
   values: RectSheetFormValues,
@@ -848,14 +1035,24 @@ export function rectRowFromSheet(
     castingProductId: values.castingProductId,
     ...firstPipe(values.openings),
     rimElevation: values.rimElevation,
-    openings: values.openings.map((opening, index) => ({
-      ...createOpeningCell(index),
-      invert: opening.invertElevation,
-      pipeType: opening.pipeMaterial.trim(),
-      pipeSize: opening.pipeSizeInches.trim(),
-      wall: isRectWall(opening.wall) ? opening.wall : createOpeningCell(index).wall,
-      ...widenFromSavedWidth(opening, openingSizes),
-    })),
+    openings: values.openings.map((opening, index) => {
+      const wall = isRectWall(opening.wall)
+        ? opening.wall
+        : createOpeningCell(index).wall;
+      return {
+        ...createOpeningCell(index),
+        invert: opening.invertElevation,
+        pipeType: opening.pipeMaterial.trim(),
+        pipeSize: opening.pipeSizeInches.trim(),
+        wall,
+        ...specialFromSavedOpening(
+          opening,
+          wall,
+          openingSizes,
+          wallRunInchesFor(wall, values.insideLengthFeet, values.insideWidthFeet),
+        ),
+      };
+    }),
     wallHeightAdjustInches: values.wallHeightAdjustInches ?? 0,
     ...(values.stepsPosition ? { stepsPosition: values.stepsPosition } : {}),
     insideLengthFeet: values.insideLengthFeet,
@@ -916,7 +1113,9 @@ export function isRowChanged(row: OneOffRow, loaded: OneOffRow): boolean {
             !sameNumberText(cell.angle, before?.angle ?? "") ||
             cell.wall !== before?.wall ||
             cell.special !== (before?.special ?? "") ||
-            !sameNumberText(cell.widenInches, before?.widenInches ?? "")))
+            !sameNumberText(cell.widenInches, before?.widenInches ?? "") ||
+            cell.moveDirection !== (before?.moveDirection ?? "") ||
+            !sameNumberText(cell.moveInches, before?.moveInches ?? "")))
       );
     })
   );
@@ -1005,6 +1204,9 @@ export function mergeRectRow(
   }
   const templateChanged = row.templateId !== loaded.templateId;
 
+  const insideLengthFeet = row.insideLengthFeet ?? values.insideLengthFeet;
+  const insideWidthFeet = row.insideWidthFeet ?? values.insideWidthFeet;
+
   const openings = row.openings.flatMap((cell, index) => {
     if (cell.invert.trim() === "") {
       return [];
@@ -1012,16 +1214,38 @@ export function mergeRectRow(
     const saved = values.openings[index];
     const base = saved ?? createRectOpeningRow(openingLetter(index));
     const pipe = openingPipe(row, cell);
+    // Move sets where the opening sits along its wall. Taking a Move off
+    // puts the opening back in the middle; an opening the grid never showed
+    // as moved (one against a wall end, say) keeps the place it was saved at.
+    const moved =
+      cell.special === "MOVE" && cell.moveDirection !== ""
+        ? rectMovePlacement(
+            cell.wall,
+            cell.moveDirection,
+            Number(cell.moveInches.trim()),
+            wallRunInchesFor(cell.wall, insideLengthFeet, insideWidthFeet) ?? 0,
+          )
+        : null;
+    const wasMoved = loaded.openings[index]?.special === "MOVE";
+    const placement: Pick<
+      RectSheetFormValues["openings"][number],
+      "placement" | "offsetInches"
+    > = moved
+      ? { placement: moved.placement, offsetInches: String(moved.offsetInches) }
+      : cell.special === "MOVE" || wasMoved
+        ? { placement: "CENTERED", offsetInches: "" }
+        : { placement: base.placement, offsetInches: base.offsetInches };
     return [
       {
         ...base,
         wall: cell.wall,
         pipeMaterial: pipe.pipeType,
         pipeSizeInches: pipe.pipeSize,
-        // The grid's Special cell is the opening's width: Widen sets it,
-        // anything else leaves the catalog width for the pipe.
+        // The grid's Special cell is also the opening's width: Widen sets
+        // it, anything else leaves the catalog width for the pipe.
         widthOverrideInches:
           cell.special === "WIDEN" ? cell.widenInches.trim() : "",
+        ...placement,
         invertElevation: cell.invert.trim(),
       },
     ];
@@ -1050,8 +1274,8 @@ export function mergeRectRow(
       rimElevation: row.rimElevation.trim(),
       wallHeightAdjustInches: row.wallHeightAdjustInches ?? 0,
       stepsPosition: row.stepsPosition ?? "",
-      insideLengthFeet: row.insideLengthFeet ?? values.insideLengthFeet,
-      insideWidthFeet: row.insideWidthFeet ?? values.insideWidthFeet,
+      insideLengthFeet,
+      insideWidthFeet,
       openings,
     },
   };
