@@ -33,6 +33,8 @@ import {
   setOpeningPipeType,
   setOpeningSpecial,
   setOpeningWall,
+  specialMoves,
+  specialWidens,
   sizesForPipeType,
   standardRectOpeningWidth,
   stepRowWallHeight,
@@ -175,14 +177,20 @@ export function OneOffGrid({
   const tableRef = useRef<HTMLTableElement>(null);
   const isCircular = shape === "CIRCULAR";
 
-  // Which inlets have Widen picked on any structure ("010" = inlet B only):
+  // Which inlets have Widen (or Widen + Move) picked on any structure ("010" = inlet B only):
   // the Width row for an inlet is only there once it's needed.
   const widenedInlets = Array.from({ length: openingCount }, (_, index) =>
-    rows.some((row) => row.openings[index]?.special === "WIDEN") ? "1" : "0",
+    rows.some((row) => specialWidens(row.openings[index]?.special)) ? "1" : "0",
   ).join("");
   // Likewise for Move: its direction and inches rows.
   const movedInlets = Array.from({ length: openingCount }, (_, index) =>
-    rows.some((row) => row.openings[index]?.special === "MOVE") ? "1" : "0",
+    rows.some((row) => specialMoves(row.openings[index]?.special)) ? "1" : "0",
+  ).join("");
+
+  // "Widen + Move" is too long for the narrow cell on one line, so an inlet's
+  // Special row goes to two lines once some structure has picked it.
+  const widenMoveInlets = Array.from({ length: openingCount }, (_, index) =>
+    rows.some((row) => row.openings[index]?.special === "WIDEN_MOVE") ? "1" : "0",
   ).join("");
 
   const columns = useMemo<GridColumn[]>(() => {
@@ -381,6 +389,7 @@ export function OneOffGrid({
           header: `Special ${letter}`,
           kind: "select",
           allowBlank: true,
+          wrap: widenMoveInlets[index] === "1",
           get: (row) => row.openings[index]?.special ?? "",
           options: () => [
             { value: "", label: "—" },
@@ -410,10 +419,10 @@ export function OneOffGrid({
             decimals: 0,
             get: (row) => row.openings[index]?.widenInches ?? "",
             set: (row, value) =>
-              row.openings[index]?.special === "WIDEN"
+              specialWidens(row.openings[index]?.special)
                 ? setOpening(row, index, { widenInches: value })
                 : row,
-            disabled: (row) => row.openings[index]?.special !== "WIDEN",
+            disabled: (row) => !specialWidens(row.openings[index]?.special),
             placeholderFor: (row) => {
               const standard = standardWidth(row);
               return standard != null ? String(standard) : "";
@@ -428,7 +437,7 @@ export function OneOffGrid({
         }
         if (movedInlets[index] === "1") {
           const isMoved = (row: OneOffRow) =>
-            row.openings[index]?.special === "MOVE";
+            specialMoves(row.openings[index]?.special);
           result.push(
             {
               // Which way, as the sheet is read: Left or Right on the Up and
@@ -451,7 +460,7 @@ export function OneOffGrid({
                   ? setOpening(row, index, { moveDirection: value })
                   : row,
               disabled: (row) => !isMoved(row),
-              disabledTitle: `Pick Move under Special ${letter} first`,
+              disabledTitle: `Pick Move or Widen + Move under Special ${letter} first`,
             },
             {
               key: `moveby-${index}`,
@@ -480,6 +489,7 @@ export function OneOffGrid({
     rectOptions,
     widenedInlets,
     movedInlets,
+    widenMoveInlets,
   ]);
 
   // Picking a special drops the cursor into its first cell (Widen's width,
@@ -543,7 +553,10 @@ export function OneOffGrid({
   }
 
   function patchCell(rowIndex: number, column: GridColumn, value: string) {
-    if (column.key.startsWith("special-") && value === "WIDEN") {
+    if (
+      column.key.startsWith("special-") &&
+      (value === "WIDEN" || value === "WIDEN_MOVE")
+    ) {
       pendingFocus.current = {
         rowIndex,
         key: column.key.replace("special-", "widen-"),
@@ -917,8 +930,11 @@ export function OneOffGrid({
                         const currentLabel =
                           options.find((option) => option.value === value)?.label ??
                           "";
+                        // Keyed so the dropdown keeps the cursor when its cell
+                        // switches between one line and two.
                         const select = (
                           <select
+                            key="select"
                             value={value}
                             disabled={selectDisabled}
                             data-grid-row={rowIndex}
@@ -963,7 +979,10 @@ export function OneOffGrid({
                               onFocusCapture={pick}
                               onClick={pick}
                             >
-                              <div className="flex h-11 items-start gap-0.5 px-1 py-1">
+                              <div
+                                key="label"
+                                className="flex h-11 items-start gap-0.5 px-1 py-1"
+                              >
                                 <span
                                   className={`line-clamp-2 min-w-0 flex-1 break-words text-2xs leading-[1.25] ${missing ? "text-amber-800" : "text-slate-900"}`}
                                 >

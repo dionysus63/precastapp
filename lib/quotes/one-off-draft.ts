@@ -14,6 +14,7 @@ import {
   createEmptySetup,
   createOpeningCell,
   isOpeningSpecial,
+  specialMoves,
   type OneOffRow,
   type OneOffSection,
   type OneOffSetup,
@@ -182,6 +183,8 @@ export function parseOneOffRow(
       if (!isRecord(cell)) {
         return createOpeningCell(index);
       }
+      const moves =
+        isOpeningSpecial(cell.special) && specialMoves(cell.special);
       return {
         invert: str(cell.invert),
         // Drafts saved before inlets had their own pipe fall back to the row's.
@@ -194,10 +197,10 @@ export function parseOneOffRow(
         widenInches: isOpeningSpecial(cell.special) ? str(cell.widenInches) : "",
         // Drafts saved before Move existed have none.
         moveDirection:
-          cell.special === "MOVE" && isRectMoveDirection(cell.moveDirection)
+          moves && isRectMoveDirection(cell.moveDirection)
             ? cell.moveDirection
             : "",
-        moveInches: cell.special === "MOVE" ? str(cell.moveInches) : "",
+        moveInches: moves ? str(cell.moveInches) : "",
       };
     }),
   };

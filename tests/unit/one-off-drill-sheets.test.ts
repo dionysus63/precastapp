@@ -981,3 +981,193 @@ describe("Quick Build rect opening Move", () => {
     });
   });
 });
+
+describe("Quick Build rect opening Widen + Move", () => {
+  function rectRow() {
+    const [row] = buildRowsFromSetup(
+      {
+        ...createEmptySetup("RECTANGULAR"),
+        templateId: "tpl-cb",
+        castingProductId: "cast-grate",
+        pipeType: "RCP",
+        pipeSize: "15",
+        quantity: "1",
+      },
+      2,
+    );
+    row.rimElevation = "100";
+    row.openings[0].invert = "95";
+    row.openings[1].invert = "95.5";
+    return row;
+  }
+
+  function both(
+    patch: {
+      widenInches?: string;
+      moveDirection?: "LEFT" | "RIGHT" | "UP" | "DOWN" | "";
+      moveInches?: string;
+    },
+    from = rectRow(),
+  ) {
+    const row = setOpeningSpecial(from, 0, "WIDEN_MOVE");
+    return {
+      ...row,
+      openings: row.openings.map((cell, cellIndex) =>
+        cellIndex === 0 ? { ...cell, ...patch } : cell,
+      ),
+    };
+  }
+
+  it("widens the opening and moves it", () => {
+    // Up wall, 48" long: a 30" opening 6" left of the middle.
+    const result = computeRectOneOffRow(
+      both({ widenInches: "30", moveDirection: "LEFT", moveInches: "6" }),
+      rectOptions,
+    );
+    expect(result.ready).toBe(true);
+    expect(result.rectSheet?.openings[0]).toMatchObject({
+      placement: "FROM_LEFT",
+      offsetInches: 18,
+      leftEdgeInches: 3,
+      rightEdgeInches: 33,
+    });
+    const parsed = parseRectStructureConfigJson(
+      JSON.parse(JSON.stringify(result.config)),
+    );
+    expect(parsed?.openings[0]).toMatchObject({
+      widthOverrideInches: 30,
+      placement: "FROM_LEFT",
+      offsetInches: 18,
+    });
+  });
+
+  it("asks for the width first, then the direction and inches", () => {
+    expect(computeRectOneOffRow(both({}), rectOptions)).toMatchObject({
+      ready: false,
+      status: "Enter the Widen width for inlet A",
+    });
+    expect(
+      computeRectOneOffRow(both({ widenInches: "24" }), rectOptions),
+    ).toMatchObject({
+      ready: false,
+      status: 'Widen A: enter more than the standard 24" width',
+    });
+    expect(
+      computeRectOneOffRow(both({ widenInches: "30" }), rectOptions),
+    ).toMatchObject({
+      ready: false,
+      status: "Pick which way to move inlet A",
+    });
+    expect(
+      computeRectOneOffRow(
+        both({ widenInches: "30", moveDirection: "LEFT" }),
+        rectOptions,
+      ),
+    ).toMatchObject({
+      ready: false,
+      status: "Enter how many inches to move inlet A",
+    });
+  });
+
+  it("counts the room to move from the wider opening", () => {
+    // 48" wall, 30" opening: 9" each way, where the standard 24" had 12".
+    expect(
+      computeRectOneOffRow(
+        both({ widenInches: "30", moveDirection: "RIGHT", moveInches: "9" }),
+        rectOptions,
+      ).ready,
+    ).toBe(true);
+    expect(
+      computeRectOneOffRow(
+        both({ widenInches: "30", moveDirection: "RIGHT", moveInches: "10" }),
+        rectOptions,
+      ),
+    ).toMatchObject({
+      ready: false,
+      status: 'Move A: 9" is the most it can move before the end of the wall',
+    });
+    expect(
+      computeRectOneOffRow(
+        both({ widenInches: "48", moveDirection: "RIGHT", moveInches: "1" }),
+        rectOptions,
+      ),
+    ).toMatchObject({
+      ready: false,
+      status: "Move A: the opening already fills the Up wall",
+    });
+  });
+
+  it("keeps what carries over when the special changes", () => {
+    const row = both({ widenInches: "30", moveDirection: "LEFT", moveInches: "6" });
+    expect(setOpeningSpecial(row, 0, "WIDEN").openings[0]).toMatchObject({
+      special: "WIDEN",
+      widenInches: "30",
+      moveDirection: "",
+      moveInches: "",
+    });
+    expect(setOpeningSpecial(row, 0, "MOVE").openings[0]).toMatchObject({
+      special: "MOVE",
+      widenInches: "",
+      moveDirection: "LEFT",
+      moveInches: "6",
+    });
+    const moveOnly = setOpeningSpecial(row, 0, "MOVE");
+    expect(setOpeningSpecial(moveOnly, 0, "WIDEN_MOVE").openings[0]).toMatchObject({
+      special: "WIDEN_MOVE",
+      widenInches: "",
+      moveDirection: "LEFT",
+      moveInches: "6",
+    });
+  });
+
+  it("shows a saved wide, off-center opening as Widen + Move and saves it back", () => {
+    const saved: RectSheetFormValues = {
+      ...rectSheetValues(),
+      openings: [
+        {
+          ...rectSheetValues().openings[0],
+          wall: "UP",
+          widthOverrideInches: "30",
+          placement: "FROM_RIGHT",
+          offsetInches: "19",
+        },
+      ],
+    };
+    const loaded = rectRowFromSheet("js-7", saved, rectOptions.openingSizes);
+    expect(loaded.openings[0]).toMatchObject({
+      special: "WIDEN_MOVE",
+      widenInches: "30",
+      moveDirection: "RIGHT",
+      moveInches: "5",
+    });
+    expect(isRowChanged(loaded, loaded)).toBe(false);
+    const same = mergeRectRow(saved, loaded, loaded, rectOptions.templates, "2026-11-20");
+    if ("error" in same) throw new Error(same.error);
+    expect(same.values.openings[0]).toMatchObject({
+      widthOverrideInches: "30",
+      placement: "FROM_RIGHT",
+      offsetInches: "19",
+    });
+
+    // Down to plain Widen: the width stays, the opening goes back to the middle.
+    const widenOnly = setOpeningSpecial(loaded, 0, "WIDEN");
+    expect(isRowChanged(widenOnly, loaded)).toBe(true);
+    const centered = mergeRectRow(saved, widenOnly, loaded, rectOptions.templates, "2026-11-20");
+    if ("error" in centered) throw new Error(centered.error);
+    expect(centered.values.openings[0]).toMatchObject({
+      widthOverrideInches: "30",
+      placement: "CENTERED",
+      offsetInches: "",
+    });
+
+    // Down to plain Move: the place stays, the width goes back to the catalog's.
+    const moveOnly = setOpeningSpecial(loaded, 0, "MOVE");
+    const narrow = mergeRectRow(saved, moveOnly, loaded, rectOptions.templates, "2026-11-20");
+    if ("error" in narrow) throw new Error(narrow.error);
+    expect(narrow.values.openings[0]).toMatchObject({
+      widthOverrideInches: "",
+      placement: "FROM_RIGHT",
+      offsetInches: "19",
+    });
+  });
+});

@@ -77,6 +77,7 @@ export type OneOffRectOptions = {
 export const ONE_OFF_OPENING_SPECIALS = [
   { value: "WIDEN", label: "Widen" },
   { value: "MOVE", label: "Move" },
+  { value: "WIDEN_MOVE", label: "Widen + Move" },
 ] as const;
 
 export type OneOffOpeningSpecial =
@@ -88,6 +89,16 @@ export function isOpeningSpecial(value: unknown): value is OneOffOpeningSpecial 
     value === "" ||
     ONE_OFF_OPENING_SPECIALS.some((special) => special.value === value)
   );
+}
+
+/** True for the specials that set the opening's width (Widen, Widen + Move). */
+export function specialWidens(special: OneOffOpeningSpecial | undefined): boolean {
+  return special === "WIDEN" || special === "WIDEN_MOVE";
+}
+
+/** True for the specials that move the opening off center (Move, Widen + Move). */
+export function specialMoves(special: OneOffOpeningSpecial | undefined): boolean {
+  return special === "MOVE" || special === "WIDEN_MOVE";
 }
 
 /**
@@ -223,9 +234,9 @@ export function setOpeningSpecial(
         ? {
             ...cell,
             special,
-            widenInches: special === "WIDEN" ? cell.widenInches : "",
-            moveDirection: special === "MOVE" ? cell.moveDirection : "",
-            moveInches: special === "MOVE" ? cell.moveInches : "",
+            widenInches: specialWidens(special) ? cell.widenInches : "",
+            moveDirection: specialMoves(special) ? cell.moveDirection : "",
+            moveInches: specialMoves(special) ? cell.moveInches : "",
           }
         : cell,
     ),
@@ -345,30 +356,12 @@ function rectOpeningMove(
   };
 }
 
-/**
- * What an inlet's special does to its rect opening, or why it can't be used
- * yet. Widen sets the opening's full width; the height stays the catalog's.
- * Move slides the opening along its wall, away from the middle.
- */
-function rectOpeningSpecial(
+/** The width a Widen sets, or why it can't be used yet. */
+function rectOpeningWiden(
   cell: OneOffOpeningCell,
   letter: string,
   standardWidthInches: number | null,
-  wallRunInches: number | null,
-): RectOpeningSpecialResult {
-  const centered = { placement: "CENTERED" as const, offsetInches: "" };
-  if (cell.special === "MOVE") {
-    const moved = rectOpeningMove(
-      cell,
-      letter,
-      standardWidthInches,
-      wallRunInches,
-    );
-    return "error" in moved ? moved : { widthOverrideInches: "", ...moved };
-  }
-  if (cell.special !== "WIDEN") {
-    return { widthOverrideInches: "", ...centered };
-  }
+): { widthInches: number } | { error: string } {
   const typed = cell.widenInches.trim();
   if (typed === "") {
     return { error: `Enter the Widen width for inlet ${letter}` };
@@ -382,7 +375,36 @@ function rectOpeningSpecial(
       error: `Widen ${letter}: enter more than the standard ${standardWidthInches}" width`,
     };
   }
-  return { widthOverrideInches: String(width), ...centered };
+  return { widthInches: width };
+}
+
+/**
+ * What an inlet's special does to its rect opening, or why it can't be used
+ * yet. Widen sets the opening's full width; the height stays the catalog's.
+ * Move slides the opening along its wall, away from the middle. Widen + Move
+ * does both, and the room to move is what the wider opening leaves.
+ */
+function rectOpeningSpecial(
+  cell: OneOffOpeningCell,
+  letter: string,
+  standardWidthInches: number | null,
+  wallRunInches: number | null,
+): RectOpeningSpecialResult {
+  let widthOverrideInches = "";
+  let openingWidthInches = standardWidthInches;
+  if (specialWidens(cell.special)) {
+    const widened = rectOpeningWiden(cell, letter, standardWidthInches);
+    if ("error" in widened) {
+      return widened;
+    }
+    widthOverrideInches = String(widened.widthInches);
+    openingWidthInches = widened.widthInches;
+  }
+  if (!specialMoves(cell.special)) {
+    return { widthOverrideInches, placement: "CENTERED", offsetInches: "" };
+  }
+  const moved = rectOpeningMove(cell, letter, openingWidthInches, wallRunInches);
+  return "error" in moved ? moved : { widthOverrideInches, ...moved };
 }
 
 /** Inside length of the wall an inlet sits in, in inches; null without a size. */
@@ -986,10 +1008,11 @@ function widenFromSavedWidth(
 }
 
 /**
- * The Special a saved rect opening shows in the grid. Widened wins when an
- * opening is both wider than standard and off center (the dropdown holds one
- * choice); its place along the wall is then kept as saved. An opening placed
- * some other way (against a wall end) shows no special and is kept too.
+ * The Special a saved rect opening shows in the grid: Widen when it is wider
+ * than standard, Move when it sits off center, Widen + Move when both. An
+ * opening placed some other way (against a wall end, or hanging past one,
+ * which only the sheet form allows) shows no Move and keeps the place it was
+ * saved at.
  */
 function specialFromSavedOpening(
   opening: RectSheetFormValues["openings"][number],
@@ -1001,22 +1024,32 @@ function specialFromSavedOpening(
   "special" | "widenInches" | "moveDirection" | "moveInches"
 > {
   const widened = widenFromSavedWidth(opening, openingSizes);
-  const none = { moveDirection: "" as const, moveInches: "" };
-  if (widened.special === "WIDEN" || wallRunInches == null) {
-    return { ...widened, ...none };
-  }
-  const moved = rectMoveFromPlacement(
-    wall,
-    opening.placement,
-    parseNum(opening.offsetInches),
-    wallRunInches,
-  );
-  if (!moved) {
-    return { ...widened, ...none };
+  const moved =
+    wallRunInches == null
+      ? null
+      : rectMoveFromPlacement(
+          wall,
+          opening.placement,
+          parseNum(opening.offsetInches),
+          wallRunInches,
+        );
+  const widthInches =
+    parseNum(opening.widthOverrideInches) ??
+    standardRectOpeningWidth(openingSizes, {
+      pipeType: opening.pipeMaterial.trim(),
+      pipeSize: opening.pipeSizeInches.trim(),
+    });
+  const fits =
+    moved != null &&
+    wallRunInches != null &&
+    (widthInches == null ||
+      moved.inches <= (wallRunInches - widthInches) / 2 + 0.005);
+  if (!moved || !fits) {
+    return { ...widened, moveDirection: "", moveInches: "" };
   }
   return {
-    special: "MOVE",
-    widenInches: "",
+    special: widened.special === "WIDEN" ? "WIDEN_MOVE" : "MOVE",
+    widenInches: widened.widenInches,
     moveDirection: moved.direction,
     moveInches: inchesLabel(moved.inches),
   };
@@ -1218,7 +1251,7 @@ export function mergeRectRow(
     // puts the opening back in the middle; an opening the grid never showed
     // as moved (one against a wall end, say) keeps the place it was saved at.
     const moved =
-      cell.special === "MOVE" && cell.moveDirection !== ""
+      specialMoves(cell.special) && cell.moveDirection !== ""
         ? rectMovePlacement(
             cell.wall,
             cell.moveDirection,
@@ -1226,13 +1259,13 @@ export function mergeRectRow(
             wallRunInchesFor(cell.wall, insideLengthFeet, insideWidthFeet) ?? 0,
           )
         : null;
-    const wasMoved = loaded.openings[index]?.special === "MOVE";
+    const wasMoved = specialMoves(loaded.openings[index]?.special);
     const placement: Pick<
       RectSheetFormValues["openings"][number],
       "placement" | "offsetInches"
     > = moved
       ? { placement: moved.placement, offsetInches: String(moved.offsetInches) }
-      : cell.special === "MOVE" || wasMoved
+      : specialMoves(cell.special) || wasMoved
         ? { placement: "CENTERED", offsetInches: "" }
         : { placement: base.placement, offsetInches: base.offsetInches };
     return [
@@ -1241,10 +1274,11 @@ export function mergeRectRow(
         wall: cell.wall,
         pipeMaterial: pipe.pipeType,
         pipeSizeInches: pipe.pipeSize,
-        // The grid's Special cell is also the opening's width: Widen sets
-        // it, anything else leaves the catalog width for the pipe.
-        widthOverrideInches:
-          cell.special === "WIDEN" ? cell.widenInches.trim() : "",
+        // The grid's Special cell is also the opening's width: Widen (with
+        // or without Move) sets it, anything else leaves the catalog width.
+        widthOverrideInches: specialWidens(cell.special)
+          ? cell.widenInches.trim()
+          : "",
         ...placement,
         invertElevation: cell.invert.trim(),
       },

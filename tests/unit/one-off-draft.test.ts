@@ -168,6 +168,15 @@ describe("one-off draft state", () => {
       moveDirection: "",
       moveInches: "",
     });
+    // Widen + Move keeps both sets of inputs.
+    raw.circular.rows[1].openings[1].special = "WIDEN_MOVE";
+    raw.circular.rows[1].openings[1].widenInches = "30";
+    expect(parseOneOffDraftState(raw)!.circular.rows![1].openings[1]).toMatchObject({
+      special: "WIDEN_MOVE",
+      widenInches: "30",
+      moveDirection: "UP",
+      moveInches: "6",
+    });
     // Drafts saved before Move existed simply have none.
     delete raw.circular.rows[1].openings[1].moveDirection;
     delete raw.circular.rows[1].openings[1].moveInches;
