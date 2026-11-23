@@ -13,9 +13,36 @@ export type QuickBuildQuery = {
   edit?: string | null;
   /** Only these sheets, comma-separated ids, in edit mode. */
   sheets?: string | null;
-  /** Job tab only: "edit" shows the job's saved sheets instead of new rows. */
-  view?: "edit" | null;
+  /**
+   * Job tab only: "edit" shows the job's saved sheets, "new" the grid for
+   * new rows. With neither, the tab picks (see `jobQuickBuildView`).
+   */
+  view?: JobQuickBuildView | null;
 };
+
+/** The two views of a job's Quick Build tab. */
+export type JobQuickBuildView = "new" | "edit";
+
+/**
+ * Which view a job's Quick Build tab opens on. An explicit `view` wins, and
+ * a draft is always reopened in the grid for new rows. With neither, a job
+ * that already has saved sheets opens on them; a job with none opens on new
+ * rows.
+ */
+export function jobQuickBuildView(input: {
+  view?: string | null;
+  draft?: string | null;
+  sheetCount: number;
+}): JobQuickBuildView {
+  const view = input.view?.trim();
+  if (view === "edit" || view === "new") {
+    return view;
+  }
+  if (input.draft?.trim()) {
+    return "new";
+  }
+  return input.sheetCount > 0 ? "edit" : "new";
+}
 
 function withQuery(base: string, query: Record<string, string | null | undefined>) {
   const params = new URLSearchParams();
@@ -65,7 +92,9 @@ export const quickBuildPageLinks: QuickBuildLinks = {
 export function jobQuickBuildLinks(jobId: string): QuickBuildLinks {
   const base = `/jobs/${jobId}?tab=quick-build`;
   return {
-    start: base,
+    // Says "new" outright: the bare tab opens on the saved sheets once the
+    // job has some.
+    start: withQuery(base, { view: "new" }),
     draft: (draftId) => withQuery(base, { draft: draftId }),
     edit: (_jobId, sheetIds) =>
       withQuery(base, {
@@ -73,6 +102,17 @@ export function jobQuickBuildLinks(jobId: string): QuickBuildLinks {
         sheets: sheetIds?.length ? sheetIds.join(",") : null,
       }),
   };
+}
+
+/**
+ * The New Quote page, filled from a job's saved Quick Build sheets (the
+ * structures, then their castings). `sheetIds` narrows it to those sheets.
+ */
+export function quoteFromSheetsHref(jobId: string, sheetIds?: string[]): string {
+  return withQuery("/quotes/new", {
+    jobId,
+    fromSheets: sheetIds?.length ? sheetIds.join(",") : "all",
+  });
 }
 
 /** The links for a mount point. */

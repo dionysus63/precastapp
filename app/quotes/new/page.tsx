@@ -13,21 +13,31 @@ import {
 } from "@/lib/app-settings";
 import { toLocalDayInput } from "@/lib/date-only";
 import { listProductTaxonomy } from "@/lib/product-taxonomy.server";
+import { AppPermission } from "@/app/generated/prisma/client";
+import { hasPermission } from "@/lib/auth/permissions";
 import { requireAuth } from "@/lib/auth/session";
 import { withDatabaseRetry } from "@/lib/prisma";
+import { jobQuickBuildLinks } from "@/lib/quotes/quick-build-links";
+import { quoteFromSheetsNotes } from "@/lib/quotes/quote-from-sheets";
+import { loadQuoteLinesFromJobSheets } from "@/lib/quotes/quote-from-sheets-load";
 
 type NewQuotePageProps = {
   searchParams: Promise<{
     jobId?: string;
     customerId?: string;
     bidderId?: string;
+    /**
+     * Start from the job's saved Quick Build sheets: "all", or the ids of
+     * the sheets to take, comma-separated (see quoteFromSheetsHref).
+     */
+    fromSheets?: string;
   }>;
 };
 
 export default async function NewQuotePage({
   searchParams,
 }: NewQuotePageProps) {
-  const { jobId, customerId, bidderId } = await searchParams;
+  const { jobId, customerId, bidderId, fromSheets } = await searchParams;
   const user = await requireAuth();
   const appSettings = await getAppSettings();
   const defaultExpiration = defaultQuoteExpirationDate(
@@ -67,13 +77,40 @@ export default async function NewQuotePage({
     ? mapCustomerToQuoteFormOption(initialCustomerRow)
     : null;
 
-  // Arriving from a job's Quotes or Bidding tab, the back button returns
-  // there instead of to the global quotes list.
+  // Job page → Quick Build → Create Quote: the saved structures and their
+  // castings are already on the form, priced from the list the form opens on.
+  const sheetIds =
+    fromSheets && fromSheets !== "all"
+      ? fromSheets
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean)
+      : [];
+  const sheetLines =
+    fromSheets &&
+    initialJob &&
+    (await hasPermission(user, AppPermission.QUOTES_MANAGE))
+      ? await loadQuoteLinesFromJobSheets(
+          initialJob.id,
+          sheetIds.length > 0 ? sheetIds : null,
+          priceLists.find((list) => list.isDefault)?.id ??
+            priceLists[0]?.id ??
+            null,
+        )
+      : null;
+
+  // Arriving from a job's Quick Build, Quotes or Bidding tab, the back button
+  // returns there instead of to the global quotes list.
   const backTarget = initialJob
-    ? {
-        href: `/jobs/${initialJob.id}?tab=${bidderId ? "bidding" : "quotes"}`,
-        label: `Back to Job ${initialJob.jobNumber}`,
-      }
+    ? sheetLines
+      ? {
+          href: jobQuickBuildLinks(initialJob.id).edit(initialJob.id, sheetIds),
+          label: `Back to Job ${initialJob.jobNumber}`,
+        }
+      : {
+          href: `/jobs/${initialJob.id}?tab=${bidderId ? "bidding" : "quotes"}`,
+          label: `Back to Job ${initialJob.jobNumber}`,
+        }
     : { href: "/quotes", label: "Back to Quotes" };
 
   return (
@@ -88,6 +125,12 @@ export default async function NewQuotePage({
           initialJob={initialJob}
           initialCustomerId={customerId}
           initialJobBidderId={bidderId}
+          initialLineItems={sheetLines?.lineItems}
+          initialLinesNote={
+            sheetLines && initialJob
+              ? quoteFromSheetsNotes(sheetLines, initialJob.jobNumber)
+              : null
+          }
           serviceOptions={serviceOptions}
           priceLists={priceLists}
           ringBuilderConfig={appSettings.ringBuilderConfig}

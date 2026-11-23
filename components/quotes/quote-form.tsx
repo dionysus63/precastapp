@@ -142,6 +142,13 @@ type QuoteFormProps = {
   taxonomy?: ProductTaxonomyCategory[];
   quoteId?: string;
   initialValues?: QuoteFormInitialValues;
+  /**
+   * A new quote that starts with lines already on it (a job's Quick Build
+   * sheets → Create Quote). They are unsaved, so the form starts dirty.
+   */
+  initialLineItems?: EditableQuoteLineItem[];
+  /** What to say above those lines: where they came from, what to check. */
+  initialLinesNote?: { info: string; warnings: string[] } | null;
   /** ISO updatedAt of the quote when the edit page loaded it — rejects
    * stale saves (optimistic concurrency). */
   expectedUpdatedAt?: string;
@@ -172,6 +179,8 @@ export function QuoteForm({
   taxonomy = [],
   quoteId,
   initialValues,
+  initialLineItems,
+  initialLinesNote = null,
   expectedUpdatedAt,
   quoteDefaults,
   backHref,
@@ -212,13 +221,15 @@ export function QuoteForm({
   const initialTerms = paymentTermOptions[0] ?? "";
 
   const [isPending, startTransition] = useTransition();
-  const [isDirty, setIsDirty] = useState(false);
+  const [isDirty, setIsDirty] = useState(
+    () => !initialValues && Boolean(initialLineItems?.length),
+  );
   useUnsavedChangesWarning(isDirty);
   // Back-pill guard: client-side navigation skips beforeunload, so the pill
   // opens this dialog instead when there are unsaved changes.
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [lineItems, setLineItems] = useState<EditableQuoteLineItem[]>(
-    initialValues?.lineItems ?? [],
+    initialValues?.lineItems ?? initialLineItems ?? [],
   );
   const [planSheetId, setPlanSheetId] = useState<string | null>(null);
   const [customerLocked, setCustomerLocked] = useState(
@@ -1087,6 +1098,22 @@ export function QuoteForm({
           }`}
         >
           {flashMessage.text}
+        </div>
+      ) : null}
+
+      {initialLinesNote ? (
+        <div className="mb-4 space-y-2" data-quote-lines-note>
+          <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-800">
+            {initialLinesNote.info}
+          </div>
+          {initialLinesNote.warnings.map((warning) => (
+            <div
+              key={warning}
+              className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900"
+            >
+              {warning}
+            </div>
+          ))}
         </div>
       ) : null}
 
