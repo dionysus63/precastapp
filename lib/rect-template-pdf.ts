@@ -326,6 +326,8 @@ function buildFlaps(exploded: MarkerRect, center: MarkerRect): Flap[] {
 const CALLOUT_FONT_SIZE_PT = 13;
 const CALLOUT_LINE_GAP_PT = 15.5;
 const CALLOUT_LOCATION_FONT_SIZE_PT = 8.5;
+/** Clear space between two location lines under one callout. */
+const CALLOUT_LOCATION_LINE_GAP_PT = 1.5;
 const BADGE_RADIUS_PT = 8.5;
 const BADGE_FONT_SIZE_PT = 11.5;
 /** Vertical room one callout block occupies in its quadrant. */
@@ -785,12 +787,13 @@ function baseOffsetText(opening: ComputedRectOpening): string | null {
   return inches <= 0 ? "@ Bottom" : `@ +${inches}"`;
 }
 
-function locationText(opening: ComputedRectOpening): string | null {
+/** The small lines under a callout that say where along the wall it sits. */
+function locationLines(opening: ComputedRectOpening): string[] {
   if (opening.placement === "TOUCH_LEFT") {
-    return "TO LEFT END";
+    return ["TO LEFT END"];
   }
   if (opening.placement === "TOUCH_RIGHT") {
-    return "TO RIGHT END";
+    return ["TO RIGHT END"];
   }
   if (
     (opening.placement === "FROM_LEFT" || opening.placement === "FROM_RIGHT") &&
@@ -798,16 +801,19 @@ function locationText(opening: ComputedRectOpening): string | null {
   ) {
     // Only printed when the dimension line itself found no room. Worded by
     // the side of the page the opening is measured from, so it agrees with
-    // where the knockout is drawn.
+    // where the knockout is drawn. The offset runs to the opening's
+    // centerline (`computeHorizontalGeometry`), and without the drawn dimension
+    // nothing else on the sheet says so; it goes on a line of its own to
+    // keep the block narrow enough that its leader clears the words.
     const side =
       opening.wall != null
         ? rectPlacementPageSide(opening.wall, opening.placement)
         : opening.placement === "FROM_LEFT"
           ? "LEFT"
           : "RIGHT";
-    return `${opening.offsetInches}" FROM ${side}`;
+    return [`${opening.offsetInches}" FROM ${side}`, "TO CENTERLINE"];
   }
-  return null;
+  return [];
 }
 
 // ---------------------------------------------------------------------------
@@ -921,8 +927,15 @@ type CalloutLayout = {
   letter: string;
   sizeText: string;
   offsetText: string | null;
-  location: string | null;
+  location: string[];
   blockHalfWidth: number;
+  /**
+   * Half the widest line, the small location lines included. A leader that
+   * leaves the block sideways starts outside this: it leaves at about the
+   * height of the location lines, and a leader ending against `22" FROM
+   * RIGHT` reads as a dash in front of the number.
+   */
+  sideHalfWidth: number;
   /** Badge center's drop below the block's top edge. */
   badgeDrop: number;
 };
@@ -940,11 +953,15 @@ function calloutLayout(
       ? `${opening.openingWidthInches}"x${opening.openingHeightInches}"`
       : letter;
   const offsetText = baseOffsetText(opening);
-  const location = placementDimensioned ? null : locationText(opening);
+  const location = placementDimensioned ? [] : locationLines(opening);
   const textDrop =
     CALLOUT_FONT_SIZE_PT +
     (offsetText ? CALLOUT_LINE_GAP_PT : 0) +
-    (location ? 3 + CALLOUT_LOCATION_FONT_SIZE_PT : 0);
+    (location.length > 0
+      ? 3 +
+        location.length * CALLOUT_LOCATION_FONT_SIZE_PT +
+        (location.length - 1) * CALLOUT_LOCATION_LINE_GAP_PT
+      : 0);
   const blockHalfWidth =
     Math.max(
       font.widthOfTextAtSize(sizeText, CALLOUT_FONT_SIZE_PT),
@@ -956,6 +973,13 @@ function calloutLayout(
     offsetText,
     location,
     blockHalfWidth,
+    sideHalfWidth: Math.max(
+      blockHalfWidth,
+      ...location.map(
+        (line) =>
+          font.widthOfTextAtSize(line, CALLOUT_LOCATION_FONT_SIZE_PT) / 2,
+      ),
+    ),
     badgeDrop: textDrop + 6 + BADGE_RADIUS_PT,
   };
 }
@@ -998,8 +1022,8 @@ function leaderSegmentFor(
   } else {
     startX =
       centerX < blockCx
-        ? blockCx - layout.blockHalfWidth - LEADER_BLOCK_GAP_PT
-        : blockCx + layout.blockHalfWidth + LEADER_BLOCK_GAP_PT;
+        ? blockCx - layout.sideHalfWidth - LEADER_BLOCK_GAP_PT
+        : blockCx + layout.sideHalfWidth + LEADER_BLOCK_GAP_PT;
     startY = blockCyMid;
   }
 
@@ -2425,10 +2449,10 @@ function drawCalloutBlock(
     cursorY -= CALLOUT_LINE_GAP_PT - CALLOUT_FONT_SIZE_PT;
     drawCentered(offsetText, CALLOUT_FONT_SIZE_PT);
   }
-  if (location) {
-    cursorY -= 3;
-    drawCentered(location, CALLOUT_LOCATION_FONT_SIZE_PT);
-  }
+  location.forEach((line, lineIndex) => {
+    cursorY -= lineIndex === 0 ? 3 : CALLOUT_LOCATION_LINE_GAP_PT;
+    drawCentered(line, CALLOUT_LOCATION_FONT_SIZE_PT);
+  });
 
   const badgeCy = cursorY - 6 - BADGE_RADIUS_PT;
   page.drawCircle({

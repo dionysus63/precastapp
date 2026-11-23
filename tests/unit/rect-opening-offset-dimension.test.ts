@@ -132,6 +132,7 @@ describe("the dimension to an off-center opening", () => {
         for (const side of ["LEFT", "RIGHT", "TOP", "BOTTOM"]) {
           expect(count(drawn, `17" FROM ${side}`)).toBe(0);
         }
+        expect(count(drawn, "TO CENTERLINE")).toBe(0);
       });
     }
   }
@@ -200,7 +201,22 @@ describe("the dimension to an off-center opening", () => {
         const drawn = await sheetText(cramped(wall, placement));
         expect(count(drawn, '17"')).toBe(0);
         expect(count(drawn, `17" FROM ${side}`)).toBe(1);
+        // The words stand in for a dimension drawn to the centerline, so
+        // they have to say what the number runs to.
+        expect(count(drawn, "TO CENTERLINE")).toBe(1);
       }
+    });
+
+    it("does not say centerline for an opening held against a wall end", async () => {
+      const drawn = await sheetText(
+        input({
+          rimElevation: 101,
+          template: { ...TEMPLATE, sumpFixedInches: 0 },
+          openings: [opening({ placement: "TOUCH_LEFT" })],
+        }),
+      );
+      expect(count(drawn, "TO LEFT END")).toBe(1);
+      expect(count(drawn, "TO CENTERLINE")).toBe(0);
     });
   });
 });
