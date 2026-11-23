@@ -165,17 +165,14 @@ const structureStatusLabels: Record<string, string> = Object.fromEntries(
 
 /** Drill-sheet status chip for rectangular structure lines. */
 function rectStructureStatus(
-  line: { structureConfigJson?: unknown; jobStructureId?: string | null },
-  drillSheetStructureIds: Set<string>,
+  line: { structureConfigJson?: unknown },
+  hasDrillSheet: boolean,
 ) {
   const config = parseRectStructureConfigJson(line.structureConfigJson);
   if (!config) {
     return null;
   }
-  if (
-    line.jobStructureId != null &&
-    drillSheetStructureIds.has(line.jobStructureId)
-  ) {
+  if (hasDrillSheet) {
     return "created" as const;
   }
   return config.detailLevel === "FULL"
@@ -411,6 +408,13 @@ export function mapQuoteToRow(quote: QuoteListRecord): QuoteRow {
 export function mapQuoteToDetailView(
   quote: QuoteDetailRecord,
   siblingQuotes?: QuoteDetailSiblingSummary[],
+  /**
+   * Drill sheets already saved on the quote's job that no quote has yet, by
+   * structure number in lower case. A structure line with that number
+   * takes the sheet over when the quote is won, so it shows as having its
+   * drill sheet instead of asking for one to be created.
+   */
+  jobSheetIdsByNumber?: Map<string, string>,
 ): QuoteDetailView {
   const status = quote.status as QuoteStatus;
   const taxRateNumber = Number.parseFloat(quote.taxRate.toString());
@@ -447,6 +451,18 @@ export function mapQuoteToDetailView(
       .filter((structure) => structure.structureTemplateId)
       .map((structure) => structure.id),
   );
+  /** The drill sheet a structure line has, or will take over; else null. */
+  const drillSheetIdFor = (line: {
+    jobStructureId?: string | null;
+    itemCode: string;
+  }): string | null => {
+    if (line.jobStructureId) {
+      return drillSheetStructureIds.has(line.jobStructureId)
+        ? line.jobStructureId
+        : null;
+    }
+    return jobSheetIdsByNumber?.get(line.itemCode.trim().toLowerCase()) ?? null;
+  };
 
   return {
     id: quote.id,
@@ -514,11 +530,10 @@ export function mapQuoteToDetailView(
         line.lineType === "CONFIGURABLE_STRUCTURE"
           ? (getStructureDrillSheetStatus(
               parseStructureConfigJson(line.structureConfigJson),
-              line.jobStructureId != null &&
-                drillSheetStructureIds.has(line.jobStructureId),
-            ) ?? rectStructureStatus(line, drillSheetStructureIds))
+              drillSheetIdFor(line) != null,
+            ) ?? rectStructureStatus(line, drillSheetIdFor(line) != null))
           : null,
-      jobStructureId: line.jobStructureId ?? null,
+      jobStructureId: line.jobStructureId ?? drillSheetIdFor(line),
       costBreakdown:
         line.lineType === "CUSTOM_STRUCTURE"
           ? parseCustomStructureConfigJson(line.structureConfigJson)
@@ -530,10 +545,7 @@ export function mapQuoteToDetailView(
       if (line.lineType !== "CONFIGURABLE_STRUCTURE") {
         return false;
       }
-      if (
-        line.jobStructureId &&
-        drillSheetStructureIds.has(line.jobStructureId)
-      ) {
+      if (drillSheetIdFor(line)) {
         return false;
       }
       const config = parseStructureConfigJson(line.structureConfigJson);

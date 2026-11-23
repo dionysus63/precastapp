@@ -93,9 +93,34 @@ export default async function QuoteDetailPage({
     ),
   ]);
 
+  // Drill sheets built on the job before this quote (Quick Build): a line
+  // with the same structure number takes that sheet over when the quote is
+  // won, so it is not offered as a sheet still to create.
+  const jobSheets = quote.jobId
+    ? await withDatabaseRetry((prisma) =>
+        prisma.jobStructure.findMany({
+          where: {
+            jobId: quote.jobId,
+            quoteId: null,
+            structureNumber: { not: null },
+            structureTemplateId: { not: null },
+            calc: { isNot: null },
+            quoteLineItems: { none: {} },
+          },
+          select: { id: true, structureNumber: true },
+        }),
+      )
+    : [];
+
   const detail = mapQuoteToDetailView(
     { ...quote, revisionFamily },
     siblingQuotes,
+    new Map(
+      jobSheets.map((sheet) => [
+        (sheet.structureNumber ?? "").trim().toLowerCase(),
+        sheet.id,
+      ]),
+    ),
   );
 
   // Same contractor-facing name the emailed attachment uses.
