@@ -10,9 +10,6 @@ vi.mock("@/lib/auth/session", () => ({
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
-vi.mock("next/navigation", () => ({
-  redirect: vi.fn(),
-}));
 vi.mock("server-only", () => ({}));
 
 import { savePipeOpeningSizes } from "@/app/structures/pipe-openings/actions";
@@ -127,7 +124,7 @@ describe("round opening catalog save", () => {
 
     // Rename the material and switch No Boot off: the boot row keeps its id.
     const renamed = `${tag} PVC SDR35`;
-    await savePipeOpeningSizes(
+    const result = await savePipeOpeningSizes(
       form([
         ...keep,
         {
@@ -142,6 +139,9 @@ describe("round opening catalog save", () => {
         },
       ]),
     );
+
+    // The page shows this once the save went through.
+    expect(result).toEqual({ success: "Round Structure Openings saved." });
 
     const after = await prisma.pipeOpeningSize.findMany({
       where: { pipeMaterial: { startsWith: tag } },
@@ -166,6 +166,28 @@ describe("round opening catalog save", () => {
     // Rows outside this test survive the save.
     expect(await prisma.pipeOpeningSize.count()).toBe(keep.length + 1);
   });
+
+  it("reports a refused save as an error, not as saved", async () => {
+    const keep = await existingPipePayload();
+    const line = {
+      pipeMaterial: `${tag} DUPLICATE`,
+      pipeSizeInches: "10",
+      hasBoot: false,
+      holeDiameterInches: "16",
+      pipeWallThicknessInches: "0.3",
+      bootModel: null,
+      pricePerBoot: null,
+    };
+    const result = await savePipeOpeningSizes(form([...keep, line, line]));
+    expect(result).toEqual({
+      error: expect.stringContaining("Duplicate entry"),
+    });
+    expect(
+      await prisma.pipeOpeningSize.count({
+        where: { pipeMaterial: line.pipeMaterial },
+      }),
+    ).toBe(0);
+  });
 });
 
 describe("rect opening catalog save", () => {
@@ -187,9 +209,11 @@ describe("rect opening catalog save", () => {
     });
 
     const renamed = `${tag} RCP Class III`;
-    await saveRectOpeningSizes(
+    const result = await saveRectOpeningSizes(
       form([...keep, { ...line, id: saved.id, pipeMaterial: renamed }]),
     );
+    // The page shows this once the save went through.
+    expect(result).toEqual({ success: "Rect Structure Openings saved." });
     const after = await prisma.rectOpeningSize.findMany({
       where: { pipeMaterial: { startsWith: tag } },
       include: { priceEntries: true },

@@ -2,6 +2,7 @@
 
 import { isActionError, type ActionError } from "@/lib/action-result";
 import { randomId } from "@/lib/random-id";
+import { reloadAfterAction } from "@/lib/reload-after-action";
 import { useMemo, useState } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import {
@@ -30,8 +31,11 @@ import {
 export type PipeOpeningRow = PipeOpeningCatalogRow;
 
 type PipeOpeningSizesFormProps = {
-  /** Returns `{ error }` on failure (shown above the buttons). */
-  action: (formData: FormData) => Promise<void | ActionError>;
+  /**
+   * Returns `{ error }` on failure (shown above the buttons), `{ success }`
+   * once saved (shown as a toast on the reloaded page).
+   */
+  action: (formData: FormData) => Promise<{ success: string } | ActionError>;
   defaultRows: PipeOpeningRow[];
   /** Price/Boot reads and writes this list's entries; blank = no entry. */
   priceListId: string;
@@ -133,7 +137,11 @@ export function PipeOpeningSizesForm({
         const result = await action(formData);
         if (isActionError(result)) {
           setSaveError(result.error);
+          return;
         }
+        // Reload so the page shows what was stored (sizes sorted, new rows
+        // with their ids) and says so.
+        reloadAfterAction({ type: "success", text: result.success });
       }}
       className="space-y-4"
     >
