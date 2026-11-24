@@ -407,37 +407,18 @@ export function JobDeliveriesSection({
           >
             Schedule Loads
           </Link>
-          <details className="relative">
-            <summary className="flex cursor-pointer list-none items-center gap-1 rounded-lg btn-main px-3 py-1.5 text-2xs font-semibold [&::-webkit-details-marker]:hidden">
-              New Ticket
-              <svg
-                viewBox="0 0 16 16"
-                className="h-3 w-3 text-white/70"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M4 6l4 4 4-4" />
-              </svg>
-            </summary>
-            <div className="absolute right-0 z-20 mt-1 flex w-44 flex-col gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
-              <Link
-                href={`/delivery-tickets/new?jobId=${jobId}`}
-                className="rounded-lg px-3 py-1.5 text-left text-2xs font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Delivery Ticket
-              </Link>
-              <Link
-                href={`/delivery-tickets/new?jobId=${jobId}&fulfillment=pickup`}
-                className="rounded-lg px-3 py-1.5 text-left text-2xs font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Pickup Ticket
-              </Link>
-            </div>
-          </details>
+          <Link
+            href={`/delivery-tickets/new?jobId=${jobId}`}
+            className="inline-flex items-center justify-center rounded-lg btn-main px-3 py-1.5 text-2xs font-semibold transition-colors"
+          >
+            New Delivery Ticket
+          </Link>
+          <Link
+            href={`/delivery-tickets/new?jobId=${jobId}&fulfillment=pickup`}
+            className="inline-flex items-center justify-center rounded-lg btn-main px-3 py-1.5 text-2xs font-semibold transition-colors"
+          >
+            New Pickup Ticket
+          </Link>
         </div>
       }
       noPadding
