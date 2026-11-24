@@ -193,8 +193,20 @@ export const ONE_OFF_DEFAULT_OPENING_COUNT = 2;
 export const ONE_OFF_MAX_OPENINGS = 8;
 export const ONE_OFF_MAX_ROWS = 200;
 
-/** Rect openings default to distinct walls in this order. */
-const RECT_DEFAULT_WALLS: RectWall[] = ["UP", "DOWN", "LEFT", "RIGHT"];
+/**
+ * Rect openings default to distinct walls in this order: inlet A on the Down
+ * wall, B on the Up wall, then Left and Right.
+ */
+const RECT_DEFAULT_WALLS: RectWall[] = ["DOWN", "UP", "LEFT", "RIGHT"];
+
+/**
+ * The angle a new inlet starts with. Inlet A is the one the others are
+ * measured from, so it starts typed in as 0; the rest start blank. Only
+ * circular sheets read the angle.
+ */
+function defaultOpeningAngle(index: number): string {
+  return index === 0 ? "0" : "";
+}
 
 export function openingLetter(index: number): string {
   return String.fromCharCode(65 + index);
@@ -209,7 +221,7 @@ export function createOpeningCell(
     invert: "",
     pipeType,
     pipeSize,
-    angle: "",
+    angle: defaultOpeningAngle(index),
     wall: RECT_DEFAULT_WALLS[index % RECT_DEFAULT_WALLS.length],
     special: "",
     widenInches: "",
