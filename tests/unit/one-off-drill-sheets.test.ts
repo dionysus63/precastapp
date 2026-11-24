@@ -232,6 +232,29 @@ describe("one-off setup", () => {
     expect(nextFreeStructureNumber("MH-", [])).toBe(1);
   });
 
+  it("starts inlet A's angle typed in as 0 and leaves the others blank", () => {
+    const [row] = buildRowsFromSetup(filledSetup({ quantity: "1" }), 3);
+    expect(row.openings.map((cell) => cell.angle)).toEqual(["0", "", ""]);
+    // An inlet column added later starts blank, and A keeps what was typed.
+    row.openings[0].angle = "45";
+    const [wider] = resizeRowOpenings([row], 4);
+    expect(wider.openings.map((cell) => cell.angle)).toEqual(["45", "", "", ""]);
+  });
+
+  it("starts rect inlets on the Down, Up, Left and Right walls in turn", () => {
+    const [row] = buildRowsFromSetup(
+      { ...createEmptySetup("RECTANGULAR"), quantity: "1" },
+      5,
+    );
+    expect(row.openings.map((cell) => cell.wall)).toEqual([
+      "DOWN",
+      "UP",
+      "LEFT",
+      "RIGHT",
+      "DOWN",
+    ]);
+  });
+
   it("pads and trims opening columns", () => {
     const rows = buildRowsFromSetup(filledSetup({ quantity: "1" }), 2);
     rows[0].openings[0].invert = "90";
@@ -336,7 +359,8 @@ describe("one-off row calculation", () => {
       },
       2,
     );
-    expect(row.openings.map((cell) => cell.wall)).toEqual(["UP", "DOWN"]);
+    // Inlet A starts on the Down wall and B on the Up wall.
+    expect(row.openings.map((cell) => cell.wall)).toEqual(["DOWN", "UP"]);
     row.rimElevation = "100";
     row.openings[0].invert = "95";
     row.openings[1].invert = "95.5";
@@ -348,7 +372,7 @@ describe("one-off row calculation", () => {
     );
     expect(parsed?.detailLevel).toBe("FULL");
     expect(parsed?.insideLengthFeet).toBe(4);
-    expect(parsed?.openings.map((opening) => opening.wall)).toEqual(["UP", "DOWN"]);
+    expect(parsed?.openings.map((opening) => opening.wall)).toEqual(["DOWN", "UP"]);
   });
 
   it("asks for the missing pick instead of calculating", () => {
@@ -750,6 +774,9 @@ describe("Quick Build rect opening Move", () => {
     row.rimElevation = "100";
     row.openings[0].invert = "95";
     row.openings[1].invert = "95.5";
+    // These tests read the sheet from the Up wall, whatever a new row starts at.
+    row.openings[0].wall = "UP";
+    row.openings[1].wall = "DOWN";
     return row;
   }
 
@@ -998,6 +1025,9 @@ describe("Quick Build rect opening Widen + Move", () => {
     row.rimElevation = "100";
     row.openings[0].invert = "95";
     row.openings[1].invert = "95.5";
+    // These tests read the sheet from the Up wall, whatever a new row starts at.
+    row.openings[0].wall = "UP";
+    row.openings[1].wall = "DOWN";
     return row;
   }
 

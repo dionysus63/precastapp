@@ -100,12 +100,14 @@ describe("one-off draft state", () => {
     expect(parsed!.circular.rows).toHaveLength(1);
     const row = parsed!.circular.rows![0];
     expect(row.openings).toHaveLength(ONE_OFF_MAX_OPENINGS);
+    // A stored cell keeps its blank angle; only the wall it can't read falls
+    // back to a new inlet A's (Down).
     expect(row.openings[0]).toEqual({
       invert: "",
       pipeType: "",
       pipeSize: "",
       angle: "",
-      wall: "UP",
+      wall: "DOWN",
       special: "",
       widenInches: "",
       moveDirection: "",
