@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireAuthForPath } from "@/lib/auth/session";
+import { KeptPreviewZooms } from "@/components/common/kept-preview-zooms";
 import { DeliveryTicketPreviewContent } from "@/components/delivery-tickets/delivery-ticket-preview-content";
 import { getAppSettings } from "@/lib/app-settings";
 import { withDatabaseRetry } from "@/lib/prisma";
@@ -23,7 +24,7 @@ export default async function DeliveryTicketPreviewPage({
 }: DeliveryTicketPreviewPageProps) {
   const { id } = await params;
   // Outside DashboardShell, so the route's permission is checked here.
-  await requireAuthForPath(`/delivery-tickets/${id}/preview`);
+  const user = await requireAuthForPath(`/delivery-tickets/${id}/preview`);
   const { from } = await searchParams;
   const origin = from ? PREVIEW_ORIGINS[from] : undefined;
 
@@ -65,17 +66,19 @@ export default async function DeliveryTicketPreviewPage({
     : undefined;
 
   return (
-    <DeliveryTicketPreviewContent
-      ticketId={ticket.id}
-      ticketNumber={ticket.ticketNumber ?? "DRAFT"}
-      backHref={origin?.href}
-      backLabel={origin?.label}
-      editHref={editHref}
-      completeOnPrint={completeOnPrint}
-      payNow={ticket.paymentMethod === "PAY_NOW"}
-      paymentReceivedDefault={ticket.paymentReceived}
-      existingInvoice={ticket.invoice}
-      directPrintPrinter={settings.ticketPrinterName}
-    />
+    <KeptPreviewZooms userId={user.id}>
+      <DeliveryTicketPreviewContent
+        ticketId={ticket.id}
+        ticketNumber={ticket.ticketNumber ?? "DRAFT"}
+        backHref={origin?.href}
+        backLabel={origin?.label}
+        editHref={editHref}
+        completeOnPrint={completeOnPrint}
+        payNow={ticket.paymentMethod === "PAY_NOW"}
+        paymentReceivedDefault={ticket.paymentReceived}
+        existingInvoice={ticket.invoice}
+        directPrintPrinter={settings.ticketPrinterName}
+      />
+    </KeptPreviewZooms>
   );
 }

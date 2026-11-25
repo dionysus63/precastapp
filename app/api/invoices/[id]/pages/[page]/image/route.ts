@@ -4,6 +4,7 @@ import { requirePermission } from "@/lib/auth/session";
 import { fileRouteErrorResponse } from "@/lib/http-responses";
 import { INVOICE_PDF_INCLUDE } from "@/lib/invoice-pdf-data";
 import { generateInvoicePdfBytes } from "@/lib/invoice-pdf-fill";
+import { parsePdfZoomParam } from "@/lib/preview-zoom";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { renderPdfPageImage } from "@/lib/ticket-scan/reader";
 
@@ -13,10 +14,11 @@ type RouteContext = {
 
 /**
  * One page of an invoice as a picture: the "Invoice" side of the Signed
- * Ticket / Invoice switch on Scan In. `X-Page-Count` says how many pages the
- * invoice has.
+ * Ticket / Invoice switch on Scan In and beside the Invoices list.
+ * `X-Page-Count` says how many pages the invoice has. `?zoom=` (a preview
+ * zoom step) asks for a picture sharp enough to be shown that much larger.
  */
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
   try {
     await requirePermission(AppPermission.INVOICES_VIEW);
     const { id, page: pageRaw } = await context.params;
@@ -36,7 +38,9 @@ export async function GET(_request: Request, context: RouteContext) {
     }
 
     const pdfBytes = await generateInvoicePdfBytes(invoice);
-    const image = await renderPdfPageImage(pdfBytes, pageNumber);
+    const image = await renderPdfPageImage(pdfBytes, pageNumber, {
+      zoom: parsePdfZoomParam(new URL(request.url).searchParams.get("zoom")),
+    });
     return new NextResponse(new Uint8Array(image.bytes), {
       status: 200,
       headers: {

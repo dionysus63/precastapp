@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { fileRouteErrorResponse } from "@/lib/http-responses";
+import { parsePdfZoomParam } from "@/lib/preview-zoom";
 import { renderPdfPageImage } from "@/lib/ticket-scan/reader";
 import {
   loadSignedTicketFile,
@@ -10,8 +11,12 @@ type RouteContext = {
   params: Promise<{ id: string; page: string }>;
 };
 
-/** One page of a filed signed ticket as a picture, for the Scan In preview. */
-export async function GET(_request: Request, context: RouteContext) {
+/**
+ * One page of a filed signed ticket as a picture, for the Scan In preview
+ * and beside the Invoices list. `?zoom=` (a preview zoom step) asks for a
+ * picture sharp enough to be shown that much larger.
+ */
+export async function GET(request: Request, context: RouteContext) {
   try {
     await requireSignedTicketViewer();
     const { id, page: pageRaw } = await context.params;
@@ -26,7 +31,9 @@ export async function GET(_request: Request, context: RouteContext) {
     if (pageNumber > file.pageCount) {
       return new NextResponse("Page not found.", { status: 404 });
     }
-    const image = await renderPdfPageImage(file.bytes, pageNumber);
+    const image = await renderPdfPageImage(file.bytes, pageNumber, {
+      zoom: parsePdfZoomParam(new URL(request.url).searchParams.get("zoom")),
+    });
     return new NextResponse(new Uint8Array(image.bytes), {
       status: 200,
       headers: {

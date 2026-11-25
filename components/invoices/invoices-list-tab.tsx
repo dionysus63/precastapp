@@ -5,6 +5,7 @@ import { memo, useCallback, useState, useTransition } from "react";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { PaginationControls } from "@/components/common/pagination-controls";
 import { PdfDragChip } from "@/components/common/pdf-drag-chip";
+import { usePreviewZoom } from "@/components/common/pdf-zoom-buttons";
 import { useListQuery } from "@/components/common/use-list-query";
 import {
   listInvoiceSelectionForView,
@@ -370,6 +371,8 @@ export function InvoicesListTab({
   canManage: boolean;
 }) {
   const { setParams } = useListQuery();
+  // Held here, not in the pane: hiding and showing the preview keeps it.
+  const previewZoom = usePreviewZoom("invoice-list");
   const sortBy = (column: InvoiceListSortColumn) => {
     const next = nextInvoiceListSort(sort, column);
     setParams({ tab: "invoices", sort: next.column, dir: next.direction });
@@ -799,6 +802,7 @@ export function InvoicesListTab({
             onNext={() => stepPreview(1)}
             hasPrevious={previewAt > 0}
             hasNext={previewAt < invoices.length - 1}
+            zoom={previewZoom}
           />
         </div>
       ) : null}

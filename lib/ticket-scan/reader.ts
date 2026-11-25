@@ -1,6 +1,7 @@
 import { readFile } from "fs/promises";
 import path from "path";
 import { PDFDocument } from "pdf-lib";
+import { pictureDpiForZoom, type PdfZoom } from "@/lib/preview-zoom";
 import { parseTicketScanCode } from "@/lib/ticket-scan-code";
 import {
   normalizeScanRotation,
@@ -395,12 +396,14 @@ export type PdfPageImage = {
 
 /**
  * One page of any PDF as a JPEG for the screen (a scanned page, a filed
- * signed ticket, an invoice), turned upright by `rotation`.
+ * signed ticket, an invoice), turned upright by `rotation`. `zoom` is how
+ * far the preview showing it is zoomed in: the picture is drawn with that
+ * many more pixels, so it stays sharp.
  */
 export async function renderPdfPageImage(
   pdfBytes: Uint8Array,
   pageNumber: number,
-  options: { rotation?: ScanRotation; dpi?: number } = {},
+  options: { rotation?: ScanRotation; dpi?: number; zoom?: PdfZoom } = {},
 ): Promise<PdfPageImage> {
   const document = await openPdf(pdfBytes);
   try {
@@ -411,7 +414,7 @@ export async function renderPdfPageImage(
     const rendered = await renderPage(
       document,
       pageNumber,
-      options.dpi ?? PREVIEW_DPI,
+      pictureDpiForZoom(options.dpi ?? PREVIEW_DPI, options.zoom ?? 1),
       options.rotation ?? 0,
     );
     const bytes = await rendered.canvas.encode("jpeg", PREVIEW_JPEG_QUALITY);

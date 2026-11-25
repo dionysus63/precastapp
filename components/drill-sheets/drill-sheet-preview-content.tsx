@@ -8,6 +8,8 @@ import {
   getDrillSheetPreviewPrintUrl,
   type DrillSheetPdfPreviewInfo,
 } from "@/components/drill-sheets/drill-sheet-pdf-canvas-preview";
+import { PaperZoomBar, paperColumnStyle } from "@/components/common/pdf-page-canvas";
+import { usePreviewZoom } from "@/components/common/pdf-zoom-buttons";
 import { printPdfUrl } from "@/lib/print-pdf-url";
 
 import { BackButton } from "@/components/dashboard/back-button";
@@ -43,6 +45,7 @@ export function DrillSheetPreviewContent({
     | null
   >(null);
 
+  const zoom = usePreviewZoom("drill-sheet-preview");
   const handleSheetCountChange = useCallback((count: number) => {
     setSheetCount(count);
     setPreviewSheet((current) => Math.min(current, Math.max(count, 1)));
@@ -128,7 +131,11 @@ export function DrillSheetPreviewContent({
       </div>
 
       <div className="min-h-screen bg-neutral-200 py-4 print:bg-white print:py-0">
-        <div className="mx-auto w-full max-w-[8.5in] px-4 print:max-w-none print:px-0">
+        <div
+          className="mx-auto w-full max-w-[8.5in] px-4 print:max-w-none print:px-0"
+          // Zoomed in, the paper's column grows with it.
+          style={paperColumnStyle(zoom.zoom)}
+        >
           <header className="mb-3 print:hidden">
             <h1 className="text-xl font-bold text-neutral-900">
               Drill Sheet {manholeNumber ? `— ${manholeNumber}` : ""}
@@ -162,9 +169,12 @@ export function DrillSheetPreviewContent({
             </div>
           ) : null}
 
+          <PaperZoomBar zoom={zoom} align="start" />
+
           <DrillSheetPdfCanvasPreview
             drillSheetId={drillSheetId}
             activeSheet={previewSheet}
+            zoom={zoom.zoom}
             onSheetCountChange={handleSheetCountChange}
             onPreviewInfoChange={setPreviewInfo}
           />
