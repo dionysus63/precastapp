@@ -28,6 +28,7 @@ import { GalleyBreakdownBanner } from "@/components/quotes/galley-breakdown";
 import type { QuoteDetailView } from "@/components/quotes/quote-utils";
 import type { GalleyBreakdownView } from "@/lib/galley-utils";
 import { isCategoryLineItem } from "@/lib/quotes/constants";
+import { showsDeliveryAmount } from "@/lib/quotes/delivery-charge";
 
 import {
   tableBodyClassName,
@@ -156,7 +157,9 @@ export function QuoteDetailContent({
   const summaryRows: Array<[string, string]> = [
     ["Subtotal", quote.summary.subtotal],
     ["Discount", quote.summary.discount],
-    ["Delivery", quote.summary.delivery],
+    ...(showsDeliveryAmount(quote.summary.delivery)
+      ? ([["Delivery", quote.summary.delivery]] as Array<[string, string]>)
+      : []),
     ["Taxable Amount", quote.summary.taxableAmount],
     ["Sales Tax", quote.summary.salesTax],
   ];

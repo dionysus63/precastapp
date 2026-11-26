@@ -5,6 +5,7 @@ import { SummaryCard } from "@/components/dashboard/summary-card";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { InvoiceDetailActions } from "@/components/invoices/invoice-detail-actions";
 import type { InvoiceDetailView } from "@/lib/invoice-mapper";
+import { showsDeliveryAmount } from "@/lib/quotes/delivery-charge";
 
 import {
   tableBodyClassName,
@@ -204,7 +205,12 @@ export function InvoiceDetailContent({
                 ["Delivery", invoice.deliveryAmount],
                 ["Sales Tax", invoice.salesTax],
                 ["Total", invoice.total],
-              ].map(([label, value]) => (
+              ]
+                .filter(
+                  ([label, value]) =>
+                    label !== "Delivery" || showsDeliveryAmount(value),
+                )
+                .map(([label, value]) => (
                 <div
                   key={label}
                   className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2 last:border-b-0"
