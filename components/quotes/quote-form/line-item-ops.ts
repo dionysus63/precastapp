@@ -14,6 +14,11 @@ import {
   createLineId,
   renumberLineItems,
 } from "@/components/quotes/quote-form/quote-form-utils";
+import {
+  PICKUP_NOTE_TEXT,
+  type QuoteDiscountBasis,
+} from "@/lib/pricing/line-discount";
+import { richTextToPlainText } from "@/lib/rich-text";
 
 /*
  * Pure list operations behind the quote form's line-item handlers. Each takes
@@ -38,6 +43,38 @@ export function applyLineFieldChange(
       : { ...line, discountPercent: text, discountTyped: true };
   }
   return { ...line, [field]: value };
+}
+
+function isPickupNoteLine(line: EditableQuoteLineItem): boolean {
+  return (
+    line.type === "NOTE" &&
+    richTextToPlainText(line.description).trim().toLowerCase() ===
+      PICKUP_NOTE_TEXT.toLowerCase()
+  );
+}
+
+/**
+ * A quote priced for pickup says so in a note line at the top; switching back
+ * to delivered takes that note off again. A note the estimator reworded is
+ * theirs and stays.
+ */
+export function applyPickupNote(
+  current: EditableQuoteLineItem[],
+  basis: QuoteDiscountBasis,
+): EditableQuoteLineItem[] {
+  const hasNote = current.some(isPickupNoteLine);
+  if (basis === "PICKUP") {
+    if (hasNote) {
+      return current;
+    }
+    return renumberLineItems([
+      { ...createBlankLine("NOTE", 1), description: PICKUP_NOTE_TEXT },
+      ...current,
+    ]);
+  }
+  return hasNote
+    ? renumberLineItems(current.filter((line) => !isPickupNoteLine(line)))
+    : current;
 }
 
 /** Empty category / note / page-break row appended by the toolbar buttons. */

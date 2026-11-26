@@ -63,6 +63,7 @@ import type {
 } from "@/lib/pipe-quote-utils";
 import {
   applyLineFieldChange,
+  applyPickupNote,
   applyPipeUnitPrices,
   createBlankLine,
   moveLineByStep,
@@ -83,7 +84,11 @@ import {
 import { useQuoteDeliveryPricing } from "@/components/quotes/quote-form/use-quote-delivery-pricing";
 import { useQuoteDiscounts } from "@/components/quotes/quote-form/use-quote-discounts";
 import { QuoteDiscountBar } from "@/components/quotes/quote-form/quote-discount-bar";
-import type { QuoteDiscountPricing } from "@/lib/pricing/line-discount";
+import {
+  fobAfterDiscountBasisChange,
+  fobForDiscountBasis,
+  type QuoteDiscountPricing,
+} from "@/lib/pricing/line-discount";
 import { useCustomStructureBuilder } from "@/components/quotes/quote-form/use-custom-structure-builder";
 import { useCustomStructureLineEditor } from "@/components/quotes/quote-form/use-custom-structure-line-editor";
 import { QuoteFormLeaveDialog } from "@/components/quotes/quote-form/quote-form-leave-dialog";
@@ -410,9 +415,12 @@ export function QuoteForm({
   const [termsAndConditions, setTermsAndConditions] = useState(
     initialValues?.termsAndConditions || initialTerms,
   );
+  // F.O.B. follows Delivered / Picked Up: "Our Yard" for pickup, otherwise the
+  // price list's own wording or "Jobsite".
+  const priceListFob = (listId: string) =>
+    priceLists.find((list) => list.id === listId)?.fobDefault ?? null;
   const fobDefaultForPriceList = (listId: string) =>
-    priceLists.find((list) => list.id === listId)?.fobDefault?.trim() ||
-    "Factory";
+    fobForDiscountBasis(discountBasis, priceListFob(listId));
   const [priceListId, setPriceListId] = useState(
     () =>
       initialValues?.priceListId ||
@@ -1179,6 +1187,15 @@ export function QuoteForm({
                 discountBasis={discountBasis}
                 onDiscountBasisChange={(basis) => {
                   changeDiscountBasis(basis);
+                  // Pickup says so on the quote: its F.O.B. and a note line.
+                  setLineItems((current) => applyPickupNote(current, basis));
+                  setFob((current) =>
+                    fobAfterDiscountBasisChange(
+                      current,
+                      basis,
+                      priceListFob(priceListId),
+                    ),
+                  );
                   setIsDirty(true);
                 }}
                 showDiscount={showDiscount}

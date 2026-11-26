@@ -96,7 +96,7 @@ export function QuoteNotesTermsSection({
               type="text"
               value={fob}
               onChange={(event) => onFobChange(event.target.value)}
-              placeholder="Factory"
+              placeholder="Jobsite"
               className={quoteInputClassName}
             />
           </div>

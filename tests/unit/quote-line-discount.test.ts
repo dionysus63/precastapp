@@ -5,11 +5,17 @@ import {
   getLineNetUnitPrice,
   type EditableQuoteLineItem,
 } from "@/components/quotes/quote-utils";
-import { applyLineFieldChange } from "@/components/quotes/quote-form/line-item-ops";
+import {
+  applyLineFieldChange,
+  applyPickupNote,
+} from "@/components/quotes/quote-form/line-item-ops";
 import { buildQuoteLineItemsInput } from "@/components/quotes/quote-form/quote-form-utils";
 import { emptyDiscountRateTable } from "@/lib/pricing/discount-groups";
 import {
+  PICKUP_NOTE_TEXT,
   createDiscountRuleLookup,
+  fobAfterDiscountBasisChange,
+  fobForDiscountBasis,
   formatDiscountPercentLabel,
   netUnitPrice,
   normalizeDiscountPercent,
@@ -249,5 +255,78 @@ describe("what the server stores for a line", () => {
     expect(resolved.discountPercent).toBeNull();
     expect(resolved.discountTyped).toBe(false);
     expect(resolved.description).toBe("Drainage");
+  });
+});
+
+describe("F.O.B. follows Delivered / Picked Up", () => {
+  it("starts a delivered quote at Jobsite and a pickup quote at Our Yard", () => {
+    expect(fobForDiscountBasis("DELIVERED")).toBe("Jobsite");
+    expect(fobForDiscountBasis("PICKUP")).toBe("Our Yard");
+  });
+
+  it("lets a price list name its own delivered F.O.B.", () => {
+    expect(fobForDiscountBasis("DELIVERED", " Delivered to site ")).toBe(
+      "Delivered to site",
+    );
+    expect(fobForDiscountBasis("DELIVERED", "  ")).toBe("Jobsite");
+    expect(fobForDiscountBasis("PICKUP", "Delivered to site")).toBe("Our Yard");
+  });
+
+  it("switches a standard wording with the basis, both ways", () => {
+    expect(fobAfterDiscountBasisChange("Jobsite", "PICKUP")).toBe("Our Yard");
+    expect(fobAfterDiscountBasisChange("Our Yard", "DELIVERED")).toBe("Jobsite");
+    expect(fobAfterDiscountBasisChange("", "PICKUP")).toBe("Our Yard");
+    // Older quotes started at "Factory".
+    expect(fobAfterDiscountBasisChange("Factory", "PICKUP")).toBe("Our Yard");
+    expect(fobAfterDiscountBasisChange("factory ", "DELIVERED")).toBe("Jobsite");
+    expect(
+      fobAfterDiscountBasisChange("Delivered to site", "PICKUP", "Delivered to site"),
+    ).toBe("Our Yard");
+    expect(
+      fobAfterDiscountBasisChange("Our Yard", "DELIVERED", "Delivered to site"),
+    ).toBe("Delivered to site");
+  });
+
+  it("leaves an F.O.B. the estimator typed alone", () => {
+    expect(fobAfterDiscountBasisChange("Rail siding, Yaphank", "PICKUP")).toBe(
+      "Rail siding, Yaphank",
+    );
+  });
+});
+
+describe("the pickup note line", () => {
+  it("is added as the first line when the quote switches to Picked Up", () => {
+    const next = applyPickupNote([line({}), line({ id: "line-2" })], "PICKUP");
+    expect(next).toHaveLength(3);
+    expect(next[0]).toMatchObject({
+      type: "NOTE",
+      description: PICKUP_NOTE_TEXT,
+      lineNumber: 1,
+    });
+    expect(next.map((entry) => entry.lineNumber)).toEqual([1, 2, 3]);
+    expect(next[1].id).toBe("line-1");
+  });
+
+  it("is not added twice", () => {
+    const once = applyPickupNote([line({})], "PICKUP");
+    expect(applyPickupNote(once, "PICKUP")).toBe(once);
+  });
+
+  it("comes off again when the quote switches back to Delivered", () => {
+    const withNote = applyPickupNote([line({})], "PICKUP");
+    const back = applyPickupNote(withNote, "DELIVERED");
+    expect(back).toHaveLength(1);
+    expect(back[0]).toMatchObject({ id: "line-1", lineNumber: 1 });
+  });
+
+  it("keeps a note the estimator reworded, and their other notes", () => {
+    const reworded = line({
+      id: "note-1",
+      type: "NOTE",
+      description: "Price is for material picked up at our Brookhaven yard",
+    });
+    const other = line({ id: "note-2", type: "NOTE", description: "Castings by others" });
+    const lines = [reworded, other, line({})];
+    expect(applyPickupNote(lines, "DELIVERED")).toBe(lines);
   });
 });

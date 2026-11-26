@@ -24,6 +24,47 @@ export const QUOTE_DISCOUNT_BASIS_LABELS: Record<QuoteDiscountBasis, string> = {
   PICKUP: "Picked Up",
 };
 
+/** F.O.B. of a quote priced delivered, unless its price list names another. */
+export const DELIVERED_FOB = "Jobsite";
+/** F.O.B. of a quote priced for pickup. */
+export const PICKUP_FOB = "Our Yard";
+/** The note line a quote priced for pickup carries. */
+export const PICKUP_NOTE_TEXT = "Price is for material picked up";
+
+/**
+ * The F.O.B. a quote starts with: "Our Yard" when priced for pickup,
+ * otherwise the price list's own wording, or "Jobsite" when it has none.
+ */
+export function fobForDiscountBasis(
+  basis: QuoteDiscountBasis,
+  priceListFob?: string | null,
+): string {
+  return basis === "PICKUP" ? PICKUP_FOB : priceListFob?.trim() || DELIVERED_FOB;
+}
+
+/**
+ * The F.O.B. after the quote switches between delivered and picked up. A
+ * standard wording (or a blank) follows the switch; anything the estimator
+ * typed themselves is left alone.
+ */
+export function fobAfterDiscountBasisChange(
+  currentFob: string,
+  nextBasis: QuoteDiscountBasis,
+  priceListFob?: string | null,
+): string {
+  const standard = [
+    "",
+    // What quotes started with before F.O.B. followed the basis.
+    "factory",
+    DELIVERED_FOB,
+    PICKUP_FOB,
+    priceListFob ?? "",
+  ].map((wording) => wording.trim().toLowerCase());
+  return standard.includes(currentFob.trim().toLowerCase())
+    ? fobForDiscountBasis(nextBasis, priceListFob)
+    : currentFob;
+}
+
 export function isQuoteDiscountBasis(value: unknown): value is QuoteDiscountBasis {
   return (
     typeof value === "string" &&

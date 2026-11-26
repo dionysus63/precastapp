@@ -91,12 +91,13 @@ export function PriceListSettingsForm({ priceList }: PriceListSettingsFormProps)
           id="price-list-fob"
           name="fobDefault"
           defaultValue={priceList.fobDefault}
-          placeholder="Factory"
+          placeholder="Jobsite"
           className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
         />
         <p className="mt-1 text-2xs text-slate-500">
-          New quotes on this list start with this F.O.B. (blank = Factory).
-          Editable per quote.
+          New delivered quotes on this list start with this F.O.B. (blank =
+          Jobsite). A quote priced for pickup says Our Yard. Editable per
+          quote.
         </p>
       </div>
       <label className="flex items-center gap-2 text-xs">
