@@ -18,13 +18,20 @@ export function showsDeliveryAmount(
   amount: number | string | { toString(): string } | null | undefined,
   chargeEnabled: boolean = DELIVERY_CHARGE_ENABLED,
 ): boolean {
-  if (chargeEnabled) {
-    return true;
-  }
+  return chargeEnabled || isNonZeroAmount(amount);
+}
+
+/**
+ * Whether an amount is anything other than zero. Amounts reach the screens as
+ * numbers, Decimals or formatted "$1,300.00"; one that cannot be read counts
+ * as present, so nothing real is hidden by mistake.
+ */
+export function isNonZeroAmount(
+  amount: number | string | { toString(): string } | null | undefined,
+): boolean {
   if (amount == null) {
     return false;
   }
-  // Amounts reach the screens as numbers, Decimals or formatted "$1,300.00".
   const value = Number(String(amount).replace(/[$,\s]/g, ""));
   return Number.isFinite(value) ? value !== 0 : true;
 }

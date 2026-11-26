@@ -323,6 +323,8 @@ export async function reviseQuoteInTransaction(
       fob: source.fob,
       leadTime: source.leadTime,
       deliveryNotes: source.deliveryNotes,
+      discountBasis: source.discountBasis,
+      showDiscount: source.showDiscount,
       lineItems: {
         create: source.lineItems.map((line, index) =>
           mapLineItemForCreate(line, lineTotals[index], {

@@ -47,7 +47,7 @@ export default async function NewQuotePage({
   // Catalogs are no longer preloaded; the form fetches customers, jobs, and
   // products on demand. Only the small shared reference data plus any
   // entities named in the query string are resolved here.
-  const [{ serviceOptions, ringSlabProducts, pipeProducts, priceLists }, initialJobRow, taxonomy] =
+  const [{ serviceOptions, ringSlabProducts, pipeProducts, priceLists, discountPricing }, initialJobRow, taxonomy] =
     await Promise.all([
       loadQuoteFormSharedData(appSettings.ringBuilderConfig),
       jobId
@@ -133,6 +133,7 @@ export default async function NewQuotePage({
           }
           serviceOptions={serviceOptions}
           priceLists={priceLists}
+          discountPricing={discountPricing}
           ringBuilderConfig={appSettings.ringBuilderConfig}
           ringSlabProducts={ringSlabProducts}
           pipeProducts={pipeProducts}

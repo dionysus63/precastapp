@@ -62,6 +62,7 @@ import type {
   PipeUnitPriceEntry,
 } from "@/lib/pipe-quote-utils";
 import {
+  applyLineFieldChange,
   applyPipeUnitPrices,
   createBlankLine,
   moveLineByStep,
@@ -80,6 +81,9 @@ import {
   type FlashMessage,
 } from "@/components/quotes/quote-form/quote-form-utils";
 import { useQuoteDeliveryPricing } from "@/components/quotes/quote-form/use-quote-delivery-pricing";
+import { useQuoteDiscounts } from "@/components/quotes/quote-form/use-quote-discounts";
+import { QuoteDiscountBar } from "@/components/quotes/quote-form/quote-discount-bar";
+import type { QuoteDiscountPricing } from "@/lib/pricing/line-discount";
 import { useCustomStructureBuilder } from "@/components/quotes/quote-form/use-custom-structure-builder";
 import { useCustomStructureLineEditor } from "@/components/quotes/quote-form/use-custom-structure-line-editor";
 import { QuoteFormLeaveDialog } from "@/components/quotes/quote-form/quote-form-leave-dialog";
@@ -140,6 +144,8 @@ type QuoteFormProps = {
   ringSlabProducts?: QuoteFormProductOption[];
   pipeProducts?: QuotePipeProductOption[];
   taxonomy?: ProductTaxonomyCategory[];
+  /** The standard discount of each product group and its products. */
+  discountPricing?: QuoteDiscountPricing;
   quoteId?: string;
   initialValues?: QuoteFormInitialValues;
   /**
@@ -177,6 +183,7 @@ export function QuoteForm({
   ringSlabProducts = [],
   pipeProducts = [],
   taxonomy = [],
+  discountPricing,
   quoteId,
   initialValues,
   initialLineItems,
@@ -228,9 +235,25 @@ export function QuoteForm({
   // Back-pill guard: client-side navigation skips beforeunload, so the pill
   // opens this dialog instead when there are unsaved changes.
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
-  const [lineItems, setLineItems] = useState<EditableQuoteLineItem[]>(
+  const [storedLineItems, setLineItems] = useState<EditableQuoteLineItem[]>(
     initialValues?.lineItems ?? initialLineItems ?? [],
   );
+  // The same lines with each one's standard discount filled in; everything
+  // below reads these.
+  const {
+    lineItems,
+    discountBasis,
+    changeDiscountBasis,
+    showDiscount,
+    setShowDiscount,
+    hasDiscountedLine,
+  } = useQuoteDiscounts({
+    storedLineItems,
+    setLineItems,
+    pricing: discountPricing,
+    initialBasis: initialValues?.discountBasis,
+    initialShowDiscount: initialValues?.showDiscount,
+  });
   const [planSheetId, setPlanSheetId] = useState<string | null>(null);
   const [customerLocked, setCustomerLocked] = useState(
     Boolean(initialValues?.customerId || initialCustomerId || initialJobBidderId),
@@ -615,6 +638,8 @@ export function QuoteForm({
       fob: fob.trim() || null,
       leadTime: leadTime.trim() || null,
       deliveryNotes: deliveryNotes.trim() || null,
+      discountBasis,
+      showDiscount,
       expectedUpdatedAt,
       planSheetId,
       lineItems: buildQuoteLineItemsInput(lineItems),
@@ -1004,7 +1029,7 @@ export function QuoteForm({
     (id: string, field: keyof EditableQuoteLineItem, value: string | boolean) => {
       setLineItems((current) =>
         current.map((line) =>
-          line.id === id ? { ...line, [field]: value } : line,
+          line.id === id ? applyLineFieldChange(line, field, value) : line,
         ),
       );
     },
@@ -1149,6 +1174,18 @@ export function QuoteForm({
             onAddCategoryLine={addCategoryLine}
             onAddNoteLine={addNoteLine}
             onAddPageBreakLine={addPageBreakLine}
+            discountBar={
+              <QuoteDiscountBar
+                discountBasis={discountBasis}
+                onDiscountBasisChange={(basis) => {
+                  changeDiscountBasis(basis);
+                  setIsDirty(true);
+                }}
+                showDiscount={showDiscount}
+                onShowDiscountChange={setShowDiscount}
+                hasDiscountedLine={hasDiscountedLine}
+              />
+            }
             lineItems={lineItems}
             onUpdateLine={updateLineItem}
             onRemoveLine={removeLineItem}

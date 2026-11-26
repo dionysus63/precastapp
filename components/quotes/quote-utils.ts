@@ -4,6 +4,10 @@ import {
 } from "@/lib/quotes/money-rules";
 import { formatUsd, formatWeightLb, formatYards } from "@/lib/format";
 import { isNonBillableLineItem } from "@/lib/quotes/constants";
+import {
+  netUnitPrice,
+  normalizeDiscountPercent,
+} from "@/lib/pricing/line-discount";
 
 export * from "@/lib/quotes/types";
 export * from "@/lib/quotes/constants";
@@ -50,6 +54,26 @@ export function pickDefaultCustomerContact(
   );
 }
 
+/** A line's discount in percent; 0 for none. */
+export function getLineDiscountPercent(
+  line: import("@/lib/quotes/types").EditableQuoteLineItem,
+): number {
+  if (isNonBillableLineItem(line.type)) {
+    return 0;
+  }
+  return normalizeDiscountPercent(line.discountPercent);
+}
+
+/** What a line bills at each: its list price less its discount. */
+export function getLineNetUnitPrice(
+  line: import("@/lib/quotes/types").EditableQuoteLineItem,
+): number {
+  return netUnitPrice(
+    parseQuoteNumber(line.unitPrice),
+    getLineDiscountPercent(line),
+  );
+}
+
 export function getLineItemTotal(
   line: import("@/lib/quotes/types").EditableQuoteLineItem,
 ): number {
@@ -58,7 +82,7 @@ export function getLineItemTotal(
   }
   return computeLineItemTotal(
     parseQuoteNumber(line.qty),
-    parseQuoteNumber(line.unitPrice),
+    getLineNetUnitPrice(line),
   );
 }
 
@@ -72,7 +96,7 @@ export function calculateQuoteTotals(
       itemCode: line.item,
       description: line.description,
       quantity: parseQuoteNumber(line.qty),
-      unitPrice: parseQuoteNumber(line.unitPrice),
+      unitPrice: getLineNetUnitPrice(line),
       taxable: line.taxable,
       weight: line.weight.trim() ? parseQuoteNumber(line.weight) : null,
       yards: line.yards.trim() ? parseQuoteNumber(line.yards) : null,

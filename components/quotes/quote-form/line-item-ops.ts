@@ -21,6 +21,25 @@ import {
  * setLineItems((current) => ...).
  */
 
+/**
+ * One cell of a line edited in the table. A discount typed on the line is
+ * the line's own from then on; clearing the box hands the line back to the
+ * standard discount of its product group.
+ */
+export function applyLineFieldChange(
+  line: EditableQuoteLineItem,
+  field: keyof EditableQuoteLineItem,
+  value: string | boolean,
+): EditableQuoteLineItem {
+  if (field === "discountPercent") {
+    const text = String(value).trim();
+    return text === ""
+      ? { ...line, discountPercent: undefined, discountTyped: false }
+      : { ...line, discountPercent: text, discountTyped: true };
+  }
+  return { ...line, [field]: value };
+}
+
 /** Empty category / note / page-break row appended by the toolbar buttons. */
 export function createBlankLine(
   type: "CATEGORY" | "NOTE" | "PAGE_BREAK",
