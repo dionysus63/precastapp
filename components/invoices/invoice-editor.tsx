@@ -24,8 +24,25 @@ import {
 } from "@/lib/table-styles";
 import { BackButton } from "@/components/dashboard/back-button";
 
+/** A saved line as the editor receives it. */
+type InitialInvoiceLine = InvoiceLineInput & {
+  /** The list price and discount the saved price was worked out from. */
+  listPrice?: number | null;
+  discountPercent?: number | null;
+};
+
 type EditorLine = InvoiceLineInput & {
   clientKey: string;
+  /**
+   * The saved price with the list price and discount behind it. Shown under
+   * the price box while the price is still that one; a price typed over is
+   * the price, and the invoice prints it with no discount.
+   */
+  savedDiscount: {
+    unitPrice: number;
+    listPrice: number;
+    discountPercent: number;
+  } | null;
   /**
    * Still waiting for a price: the price box is empty and the invoice prints
    * PRICE NEEDED. Typing any price, 0 included, clears it.
@@ -46,7 +63,7 @@ type InvoiceEditorProps = {
   projectName: string;
   initialTaxRate: number;
   initialDiscount: number;
-  initialLines: InvoiceLineInput[];
+  initialLines: InitialInvoiceLine[];
 };
 
 /** The price box of a line that still needs a price: always outlined. */
@@ -100,11 +117,15 @@ export function InvoiceEditor({
   initialLines,
 }: InvoiceEditorProps) {
   const [lines, setLines] = useState<EditorLine[]>(
-    initialLines.map((line) => ({
+    initialLines.map(({ listPrice, discountPercent, ...line }) => ({
       ...line,
       clientKey: line.id ?? newClientKey(),
       needsPrice: line.needsPrice === true,
       canNeedPrice: line.needsPrice === true,
+      savedDiscount:
+        listPrice != null && discountPercent != null && discountPercent > 0
+          ? { unitPrice: line.unitPrice, listPrice, discountPercent }
+          : null,
     })),
   );
   const [deletedLineIds, setDeletedLineIds] = useState<string[]>([]);
@@ -175,6 +196,7 @@ export function InvoiceEditor({
         // A line added by hand is priced by hand: $0 here means no charge.
         needsPrice: false,
         canNeedPrice: false,
+        savedDiscount: null,
         taxable: true,
       },
     ]);
@@ -422,6 +444,12 @@ export function InvoiceEditor({
                     {line.needsPrice ? (
                       <span className="mt-1 block text-3xs font-semibold text-amber-800">
                         Price needed
+                      </span>
+                    ) : line.savedDiscount &&
+                      line.savedDiscount.unitPrice === line.unitPrice ? (
+                      <span className="mt-1 block whitespace-nowrap text-3xs text-slate-500">
+                        List {formatMoney(line.savedDiscount.listPrice)} less{" "}
+                        {line.savedDiscount.discountPercent}%
                       </span>
                     ) : null}
                   </td>

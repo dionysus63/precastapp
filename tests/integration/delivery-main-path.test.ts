@@ -22,6 +22,8 @@ import {
   convertDeliveryTicketToInvoice,
   InvoiceAlreadyExistsError,
 } from "@/lib/invoicing-service";
+import { netUnitPrice } from "@/lib/pricing/line-discount";
+import { loadDiscountRateTable } from "@/lib/pricing/pricing-data";
 import { prisma } from "@/lib/prisma";
 
 const tag = `MAINPATH-${Date.now()}`;
@@ -424,9 +426,18 @@ describe("delivering a walk-in ticket with no quote", () => {
     });
   }
 
-  it("bills price-list prices at the default tax rate and auto-creates a PAID pay-now invoice", async () => {
+  /** A counter sale is picked up: list price less the pickup discount of the
+   * product's group (the test products are stock precast). */
+  async function counterPrice(listPrice: number) {
+    const percent = (await loadDiscountRateTable(prisma)).STOCK_PRECAST
+      .pickupPercent;
+    return { percent, net: netUnitPrice(listPrice, percent) };
+  }
+
+  it("bills price-list prices less the pickup discount at the default tax rate and auto-creates a PAID pay-now invoice", async () => {
     const settings = await getAppSettings();
     const defaultTaxRate = Number(settings.defaultTaxRate);
+    const counter = await counterPrice(TRACKED_LIST_PRICE);
     const stockBefore = await stockOf(trackedId);
 
     const ticket = await walkInTicket("1", [
@@ -444,10 +455,18 @@ describe("delivering a walk-in ticket with no quote", () => {
     expect(invoice.status).toBe("PAID");
     expect(invoice.quoteId).toBeNull();
     expect(invoice.lineItems).toHaveLength(1);
-    expect(Number(invoice.lineItems[0]!.unitPrice)).toBe(TRACKED_LIST_PRICE);
-    expect(invoice.lineItems[0]!.taxable).toBe(true);
+    const line = invoice.lineItems[0]!;
+    expect(Number(line.unitPrice)).toBe(counter.net);
+    if (counter.percent > 0) {
+      expect(Number(line.listPrice)).toBe(TRACKED_LIST_PRICE);
+      expect(Number(line.discountPercent)).toBe(counter.percent);
+    } else {
+      expect(line.listPrice).toBeNull();
+      expect(line.discountPercent).toBeNull();
+    }
+    expect(line.taxable).toBe(true);
 
-    const subtotal = TRACKED_LIST_PRICE * 2;
+    const subtotal = Math.round(counter.net * 2 * 100) / 100;
     expect(Number(invoice.taxRate)).toBe(defaultTaxRate);
     expect(Number(invoice.subtotal)).toBe(subtotal);
     expect(Number(invoice.salesTax)).toBeCloseTo(
@@ -461,6 +480,7 @@ describe("delivering a walk-in ticket with no quote", () => {
   });
 
   it("keeps a paid counter sale open with PRICE NEEDED when a line has no price", async () => {
+    const counter = await counterPrice(TRACKED_LIST_PRICE);
     const ticket = await walkInTicket("2", [
       { productId: trackedId, code: "TRACKED", quantity: 1 },
       { productId: unpricedId, code: "UNPRICED", quantity: 1 },
@@ -484,12 +504,12 @@ describe("delivering a walk-in ticket with no quote", () => {
     });
     const [priced, unpriced] = invoice.lineItems;
     expect(priced).toMatchObject({ needsPrice: false });
-    expect(Number(priced!.unitPrice)).toBe(TRACKED_LIST_PRICE);
+    expect(Number(priced!.unitPrice)).toBe(counter.net);
     expect(unpriced).toMatchObject({ needsPrice: true });
     expect(Number(unpriced!.unitPrice)).toBe(0);
     expect(Number(unpriced!.total)).toBe(0);
     // The totals carry the priced line only.
-    expect(Number(invoice.subtotal)).toBe(TRACKED_LIST_PRICE);
+    expect(Number(invoice.subtotal)).toBe(counter.net);
 
     // And it cannot be marked paid until the price is typed.
     const paid = await markInvoicePaid(invoice.id);

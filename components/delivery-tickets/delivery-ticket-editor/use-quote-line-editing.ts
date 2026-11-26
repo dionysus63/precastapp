@@ -26,7 +26,6 @@ type QuoteLineEditingOptions = {
   setSelectedLineIds: Dispatch<SetStateAction<Set<string>>>;
   linesByKey: Map<string, EditorLine>;
   getAvailableQty: (line: QuoteLineFulfillment) => number;
-  isPickup: boolean;
   markDirty: () => void;
 };
 
@@ -41,7 +40,6 @@ export function useQuoteLineEditing({
   setSelectedLineIds,
   linesByKey,
   getAvailableQty,
-  isPickup,
   markDirty,
 }: QuoteLineEditingOptions) {
   function toggleLine(meta: QuoteLineFulfillment, checked: boolean) {
@@ -66,7 +64,7 @@ export function useQuoteLineEditing({
         }
         return [
           ...current,
-          mapFulfillmentToLine(meta, getAvailableQty(meta), isPickup),
+          mapFulfillmentToLine(meta, getAvailableQty(meta)),
         ];
       });
     } else {
@@ -109,7 +107,7 @@ export function useQuoteLineEditing({
       return [
         ...current,
         {
-          ...mapFulfillmentToLine(meta, meta.remainingQty, isPickup),
+          ...mapFulfillmentToLine(meta, meta.remainingQty),
           quantity: value,
         },
       ];

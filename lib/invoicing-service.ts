@@ -13,6 +13,18 @@ import {
   removeTrailingRingHeightSuffix,
 } from "@/lib/delivery-ticket-pdf-data";
 import { computeMoneyTotals } from "@/lib/money";
+import {
+  createDiscountRuleLookup,
+  isQuoteDiscountBasis,
+  type DiscountRuleLookup,
+  type QuoteDiscountBasis,
+} from "@/lib/pricing/line-discount";
+import {
+  catalogLoadPrice,
+  loadBasisForFulfillment,
+  quoteLineLoadPrice,
+} from "@/lib/pricing/load-price";
+import { loadDiscountPricingForProducts } from "@/lib/pricing/pricing-data";
 import { computeDeliveryAmount } from "@/lib/quotes/money-rules";
 import { richTextToPlainText } from "@/lib/rich-text";
 
@@ -112,8 +124,76 @@ export function ringPieceUnitPrice(
   return vfUnitPrice.mul(heightFeet);
 }
 
-async function resolveUnitPrice(
-  client: PrismaClient | Prisma.TransactionClient,
+type ResolvedLinePrice = {
+  /** The price billed per unit. */
+  unitPrice: Prisma.Decimal;
+  /** Price before the discount; null when the line bills with none. */
+  listPrice: Prisma.Decimal | null;
+  discountPercent: Prisma.Decimal | null;
+  taxable: boolean;
+  /** False when the app has no price for the line at all. */
+  resolved: boolean;
+};
+
+function sameCents(left: Prisma.Decimal, right: Prisma.Decimal): boolean {
+  return left.toDecimalPlaces(2).equals(right.toDecimalPlaces(2));
+}
+
+function decimalOrNull(value: number | null): Prisma.Decimal | null {
+  return value != null ? new Prisma.Decimal(value) : null;
+}
+
+/**
+ * What a quote line bills per unit on a load that leaves the given way
+ * (lib/pricing/load-price.ts). A ring SKU on a per-VF ring line bills its
+ * height times the per-foot price, list price and billed price alike.
+ */
+function quoteLinePriceForLoad(
+  quoteLine: QuoteLinePricing,
+  ticketProductId: string | null,
+  lookups: UnitPriceLookups,
+): Pick<ResolvedLinePrice, "unitPrice" | "listPrice" | "discountPercent"> {
+  const price = quoteLineLoadPrice(
+    {
+      productId: quoteLine.productId,
+      galleyFamilyCode: quoteLine.galleyFamilyCode,
+      isDrainRing: quoteLine.isDrainRing,
+      unitPrice: Number(quoteLine.unitPrice),
+      listPrice: quoteLine.listPrice != null ? Number(quoteLine.listPrice) : null,
+      discountPercent:
+        quoteLine.discountPercent != null
+          ? Number(quoteLine.discountPercent)
+          : null,
+      discountTyped: quoteLine.discountTyped,
+    },
+    quoteLine.quoteBasis,
+    lookups.loadBasis,
+    lookups.standardDiscount,
+  );
+  // The quoted price is passed through untouched; only a repriced load goes
+  // through the arithmetic.
+  let unitPrice = price.repriced
+    ? new Prisma.Decimal(price.unitPrice)
+    : quoteLine.unitPrice;
+  let listPrice = decimalOrNull(price.listPrice);
+  if (quoteLine.isDrainRing && ticketProductId) {
+    const height = lookups.productHeights.get(ticketProductId);
+    unitPrice = ringPieceUnitPrice(unitPrice, height);
+    listPrice = listPrice ? ringPieceUnitPrice(listPrice, height) : null;
+  }
+  return {
+    unitPrice,
+    listPrice,
+    discountPercent: decimalOrNull(price.discountPercent),
+  };
+}
+
+/**
+ * The price of one ticket line, in order: a price typed on the ticket line,
+ * the quote line (by how the load left), the price list (less the standard
+ * discount for how the load left).
+ */
+function resolveUnitPrice(
   ticketLine: {
     lineType: string;
     productId: string | null;
@@ -122,91 +202,77 @@ async function resolveUnitPrice(
     /** Price agreed at ticket time (items added outside the quote). */
     unitPrice?: Prisma.Decimal | null;
   },
-  quoteId: string | null,
-  priceListId: string | null,
-  preloaded?: UnitPriceLookups,
-): Promise<{ unitPrice: Prisma.Decimal; taxable: boolean; resolved: boolean }> {
+  lookups: UnitPriceLookups,
+): ResolvedLinePrice {
+  const quoteLine = ticketLine.quoteLineItemId
+    ? lookups.quoteLines.get(ticketLine.quoteLineItemId)
+    : undefined;
+  const priceListItem = ticketLine.productId
+    ? lookups.priceListItems.get(ticketLine.productId)
+    : undefined;
+  const fromPriceList =
+    priceListItem && ticketLine.productId
+      ? catalogLoadPrice(
+          Number(priceListItem.unitPrice),
+          ticketLine.productId,
+          lookups.loadBasis,
+          lookups.standardDiscount,
+        )
+      : null;
+
   // A price entered on the ticket line itself wins: it's the number the
-  // customer agreed to when the item was added mid-job (or the pickup price
-  // on a quoted line). Only the price is overridden — a quoted line keeps
-  // the quote's taxability.
+  // customer agreed to when the item was added mid-job (or a pickup price
+  // typed on a quoted line). Only the price is overridden — a quoted line
+  // keeps the quote's taxability. The list price and discount are printed
+  // beside it only when the typed price is exactly what they work out to.
   if (ticketLine.unitPrice != null) {
-    let taxable = true;
-    if (ticketLine.quoteLineItemId) {
-      const quoteLine =
-        preloaded?.quoteLines.get(ticketLine.quoteLineItemId) ??
-        (preloaded
-          ? null
-          : await client.quoteLineItem.findUnique({
-              where: { id: ticketLine.quoteLineItemId },
-              select: { taxable: true },
-            }));
-      taxable = quoteLine?.taxable ?? true;
-    }
-    return { unitPrice: ticketLine.unitPrice, taxable, resolved: true };
+    const typed = ticketLine.unitPrice;
+    const standard = quoteLine
+      ? quoteLinePriceForLoad(quoteLine, ticketLine.productId, lookups)
+      : fromPriceList
+        ? {
+            unitPrice: new Prisma.Decimal(fromPriceList.unitPrice),
+            listPrice: decimalOrNull(fromPriceList.listPrice),
+            discountPercent: decimalOrNull(fromPriceList.discountPercent),
+          }
+        : null;
+    const matches = standard != null && sameCents(standard.unitPrice, typed);
+    return {
+      unitPrice: typed,
+      listPrice: matches ? standard.listPrice : null,
+      discountPercent: matches ? standard.discountPercent : null,
+      taxable: quoteLine?.taxable ?? true,
+      resolved: true,
+    };
   }
 
-  if (ticketLine.quoteLineItemId) {
-    const quoteLine = preloaded?.quoteLines.get(ticketLine.quoteLineItemId);
-    if (quoteLine) {
-      return {
-        unitPrice:
-          quoteLine.isDrainRing && ticketLine.productId
-            ? ringPieceUnitPrice(
-                quoteLine.unitPrice,
-                preloaded?.productHeights.get(ticketLine.productId),
-              )
-            : quoteLine.unitPrice,
-        taxable: quoteLine.taxable,
-        resolved: true,
-      };
-    }
-    if (!preloaded) {
-      const fetched = await client.quoteLineItem.findUnique({
-        where: { id: ticketLine.quoteLineItemId },
-        select: { unitPrice: true, taxable: true, isDrainRing: true },
-      });
-      if (fetched) {
-        let unitPrice = fetched.unitPrice;
-        if (fetched.isDrainRing && ticketLine.productId) {
-          const product = await client.product.findUnique({
-            where: { id: ticketLine.productId },
-            select: { heightFeet: true },
-          });
-          unitPrice = ringPieceUnitPrice(unitPrice, product?.heightFeet);
-        }
-        return {
-          unitPrice,
-          taxable: fetched.taxable,
-          resolved: true,
-        };
-      }
-    }
+  if (quoteLine) {
+    return {
+      ...quoteLinePriceForLoad(quoteLine, ticketLine.productId, lookups),
+      taxable: quoteLine.taxable,
+      resolved: true,
+    };
   }
 
-  if (ticketLine.productId && priceListId) {
-    const priceListItem = preloaded?.priceListItems.get(ticketLine.productId);
-    if (priceListItem) {
-      return { unitPrice: priceListItem.unitPrice, taxable: true, resolved: true };
-    }
-    if (!preloaded) {
-      const fetched = await client.priceListItem.findUnique({
-        where: {
-          priceListId_productId: {
-            priceListId,
-            productId: ticketLine.productId,
-          },
-        },
-      });
-      if (fetched) {
-        return { unitPrice: fetched.unitPrice, taxable: true, resolved: true };
-      }
-    }
+  if (fromPriceList) {
+    return {
+      unitPrice: new Prisma.Decimal(fromPriceList.unitPrice),
+      listPrice: decimalOrNull(fromPriceList.listPrice),
+      discountPercent: decimalOrNull(fromPriceList.discountPercent),
+      taxable: true,
+      resolved: true,
+    };
   }
 
   // No quote line or price-list entry. Signal unresolved so the caller can
   // mark the line PRICE NEEDED instead of silently billing $0.
-  return { unitPrice: new Prisma.Decimal(0), taxable: true, resolved: false };
+  return {
+    unitPrice: new Prisma.Decimal(0),
+    listPrice: null,
+    discountPercent: null,
+    taxable: true,
+    resolved: false,
+  };
 }
 
 type CastingSetCharge = {
@@ -362,14 +428,29 @@ async function resolveCastingPartialSetCharges(
   return { pieceLineIds, charges };
 }
 
+/** The pricing part of a quote line a ticket line points at. */
+type QuoteLinePricing = {
+  unitPrice: Prisma.Decimal;
+  listPrice: Prisma.Decimal | null;
+  discountPercent: Prisma.Decimal | null;
+  discountTyped: boolean;
+  taxable: boolean;
+  isDrainRing: boolean;
+  productId: string | null;
+  galleyFamilyCode: string | null;
+  /** How the line's quote was priced: delivered or picked up. */
+  quoteBasis: QuoteDiscountBasis;
+};
+
 type UnitPriceLookups = {
-  quoteLines: Map<
-    string,
-    { unitPrice: Prisma.Decimal; taxable: boolean; isDrainRing: boolean }
-  >;
+  quoteLines: Map<string, QuoteLinePricing>;
   priceListItems: Map<string, { unitPrice: Prisma.Decimal }>;
   /** Ring heights for per-piece pricing against per-VF drain-ring lines. */
   productHeights: Map<string, Prisma.Decimal | null>;
+  /** How this ticket's load left. */
+  loadBasis: QuoteDiscountBasis;
+  /** The standard discount of a line's group, delivered or picked up. */
+  standardDiscount: DiscountRuleLookup;
 };
 
 async function preloadUnitPriceLookups(
@@ -379,6 +460,7 @@ async function preloadUnitPriceLookups(
     quoteLineItemId: string | null;
   }>,
   priceListId: string | null,
+  loadBasis: QuoteDiscountBasis,
 ): Promise<UnitPriceLookups> {
   const quoteLineItemIds = [
     ...new Set(
@@ -402,7 +484,18 @@ async function preloadUnitPriceLookups(
     quoteLineItemIds.length > 0
       ? await client.quoteLineItem.findMany({
           where: { id: { in: quoteLineItemIds } },
-          select: { id: true, unitPrice: true, taxable: true, isDrainRing: true },
+          select: {
+            id: true,
+            unitPrice: true,
+            listPrice: true,
+            discountPercent: true,
+            discountTyped: true,
+            taxable: true,
+            isDrainRing: true,
+            productId: true,
+            galleyFamilyCode: true,
+            quote: { select: { discountBasis: true } },
+          },
         })
       : [];
   const priceListItems =
@@ -423,14 +516,36 @@ async function preloadUnitPriceLookups(
         })
       : [];
 
+  // The group of every product a line can be priced by: the ticket line's
+  // own product and the product of its quote line.
+  const discountPricing = await loadDiscountPricingForProducts(
+    [
+      ...productIds,
+      ...quoteLines
+        .map((line) => line.productId)
+        .filter((id): id is string => Boolean(id)),
+    ],
+    client,
+  );
+
   return {
+    loadBasis,
+    standardDiscount: createDiscountRuleLookup(discountPricing),
     quoteLines: new Map(
       quoteLines.map((line) => [
         line.id,
         {
           unitPrice: line.unitPrice,
+          listPrice: line.listPrice,
+          discountPercent: line.discountPercent,
+          discountTyped: line.discountTyped,
           taxable: line.taxable,
           isDrainRing: line.isDrainRing,
+          productId: line.productId,
+          galleyFamilyCode: line.galleyFamilyCode,
+          quoteBasis: isQuoteDiscountBasis(line.quote.discountBasis)
+            ? line.quote.discountBasis
+            : "DELIVERED",
         },
       ]),
     ),
@@ -659,31 +774,28 @@ export async function convertDeliveryTicketToInvoice(
       customerId = matched?.id ?? null;
     }
 
+    const isPickupTicket = ticket.fulfillmentMethod === "PICKUP";
     const priceLookups = await preloadUnitPriceLookups(
       tx,
       current.lineItems,
       resolvedPriceListId,
+      loadBasisForFulfillment(ticket.fulfillmentMethod),
     );
 
     const resolvedLines: Array<{
       line: (typeof current.lineItems)[number];
       unitPrice: Prisma.Decimal;
+      listPrice: Prisma.Decimal | null;
+      discountPercent: Prisma.Decimal | null;
       taxable: boolean;
       description: string | null;
       /** Nothing to bill this line at yet — prints PRICE NEEDED. */
       needsPrice: boolean;
     }> = [];
 
-    const isPickupTicket = ticket.fulfillmentMethod === "PICKUP";
-
     for (const line of current.lineItems) {
-      const { unitPrice, taxable, resolved } = await resolveUnitPrice(
-        tx,
-        line,
-        ticket.quoteId,
-        resolvedPriceListId,
-        priceLookups,
-      );
+      const { unitPrice, listPrice, discountPercent, taxable, resolved } =
+        resolveUnitPrice(line, priceLookups);
 
       // No price anywhere, or a $0 one nobody typed on the ticket: the
       // invoice is still made and the line waits for a price.
@@ -698,10 +810,11 @@ export async function convertDeliveryTicketToInvoice(
           ) || null
         : null;
 
-      // Pickup repricing: when a customer-pickup ticket bills a quote line at
-      // an overridden price, say so on the invoice instead of leaving a
+      // A quoted line billed at another price than the quote says (a pickup
+      // of a quote priced delivered, the other way round, or a price typed
+      // on a pickup ticket): say so on the invoice instead of leaving a
       // silent mismatch against the quote.
-      if (isPickupTicket && line.unitPrice != null && line.quoteLineItemId) {
+      if (line.quoteLineItemId) {
         const quoteRef = priceLookups.quoteLines.get(line.quoteLineItemId);
         const quotedEach = quoteRef
           ? quoteRef.isDrainRing && line.productId
@@ -712,15 +825,18 @@ export async function convertDeliveryTicketToInvoice(
             : quoteRef.unitPrice
           : null;
         if (quotedEach != null && !unitPrice.equals(quotedEach)) {
+          const suffix = isPickupTicket ? "(pickup price)" : "(delivered price)";
           cleanDescription = cleanDescription
-            ? `${cleanDescription} (pickup price)`
-            : "(pickup price)";
+            ? `${cleanDescription} ${suffix}`
+            : suffix;
         }
       }
 
       resolvedLines.push({
         line,
         unitPrice,
+        listPrice,
+        discountPercent,
         taxable,
         description: cleanDescription,
         needsPrice,
@@ -767,6 +883,8 @@ export async function convertDeliveryTicketToInvoice(
         }
         if (billedStructureIds.has(structureId)) {
           entry.unitPrice = new Prisma.Decimal(0);
+          entry.listPrice = null;
+          entry.discountPercent = null;
           entry.needsPrice = false;
           entry.description = entry.description
             ? `${entry.description} (included)`
@@ -788,6 +906,8 @@ export async function convertDeliveryTicketToInvoice(
     for (const entry of resolvedLines) {
       if (castingSets.pieceLineIds.has(entry.line.id)) {
         entry.unitPrice = new Prisma.Decimal(0);
+        entry.listPrice = null;
+        entry.discountPercent = null;
         entry.needsPrice = false;
         entry.description = entry.description
           ? `${entry.description} (partial set)`
@@ -811,29 +931,44 @@ export async function convertDeliveryTicketToInvoice(
         quantity: entry.line.quantity,
         unit: entry.line.unit,
         unitPrice: entry.unitPrice,
+        listPrice: entry.listPrice,
+        discountPercent: entry.discountPercent,
         needsPrice: entry.needsPrice,
         taxable: entry.taxable,
         sortOrder: entry.line.sortOrder,
       },
       ...castingSets.charges
         .filter((charge) => charge.anchorTicketLineId === entry.line.id)
-        .map((charge) => ({
-          lineNumber: (extraLineNumber += 1),
-          lineType: entry.line.lineType,
-          quoteLineItemId: charge.quoteLineItemId,
-          deliveryTicketLineItemId: null,
-          productId: charge.productId,
-          itemCode: charge.itemCode,
-          description: charge.description as string | null,
-          quantity: new Prisma.Decimal(charge.sets),
-          unit: "EA",
-          unitPrice: charge.unitPrice,
-          // The set's price lives on the quote line; a blank ($0) one waits
-          // for a price like any other line.
-          needsPrice: charge.unitPrice.isZero(),
-          taxable: charge.taxable,
-          sortOrder: entry.line.sortOrder,
-        })),
+        .map((charge) => {
+          // The set bills like its quote line would on this load.
+          const setLine = priceLookups.quoteLines.get(charge.quoteLineItemId);
+          const setPrice = setLine
+            ? quoteLinePriceForLoad(setLine, null, priceLookups)
+            : {
+                unitPrice: charge.unitPrice,
+                listPrice: null,
+                discountPercent: null,
+              };
+          return {
+            lineNumber: (extraLineNumber += 1),
+            lineType: entry.line.lineType,
+            quoteLineItemId: charge.quoteLineItemId,
+            deliveryTicketLineItemId: null,
+            productId: charge.productId,
+            itemCode: charge.itemCode,
+            description: charge.description as string | null,
+            quantity: new Prisma.Decimal(charge.sets),
+            unit: "EA",
+            unitPrice: setPrice.unitPrice,
+            listPrice: setPrice.listPrice,
+            discountPercent: setPrice.discountPercent,
+            // The set's price lives on the quote line; a blank ($0) one waits
+            // for a price like any other line.
+            needsPrice: setPrice.unitPrice.isZero(),
+            taxable: charge.taxable,
+            sortOrder: entry.line.sortOrder,
+          };
+        }),
     ]);
 
     // Authoritative Decimal totals with shared cent-rounding (matches quotes).

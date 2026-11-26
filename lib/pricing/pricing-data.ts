@@ -2,6 +2,7 @@ import type { Prisma } from "@/app/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   DISCOUNT_GROUP_KEYS,
+  discountGroupForProduct,
   emptyDiscountRateTable,
   hasAnyDiscount,
   type DiscountGroupKey,
@@ -77,6 +78,38 @@ export async function loadQuoteDiscountPricing(
       select: { id: true },
     });
     productIdsByGroup[group] = products.map((product) => product.id);
+  }
+  return { rates, productIdsByGroup };
+}
+
+/**
+ * The standard discounts and the group of each of the given products: what
+ * tickets and invoices need to price a load, without listing every product.
+ */
+export async function loadDiscountPricingForProducts(
+  productIds: string[],
+  client: DbClient = prisma,
+): Promise<QuoteDiscountPricing> {
+  const rates = await loadDiscountRateTable(client);
+  const productIdsByGroup: QuoteDiscountPricing["productIdsByGroup"] = {};
+  const ids = [...new Set(productIds)];
+  if (ids.length === 0) {
+    return { rates, productIdsByGroup };
+  }
+  const products = await client.product.findMany({
+    where: { id: { in: ids } },
+    select: {
+      id: true,
+      productType: true,
+      castingSupplier: { select: { origin: true } },
+    },
+  });
+  for (const product of products) {
+    const group = discountGroupForProduct({
+      productType: product.productType,
+      castingOrigin: product.castingSupplier?.origin ?? null,
+    });
+    (productIdsByGroup[group] ??= []).push(product.id);
   }
   return { rates, productIdsByGroup };
 }

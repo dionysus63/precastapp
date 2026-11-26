@@ -56,6 +56,14 @@ export default async function EditInvoicePage({ params }: PageProps) {
           unitPrice: Number(line.unitPrice),
           needsPrice: line.needsPrice,
           taxable: line.taxable,
+          listPrice:
+            line.listPrice != null && Number(line.discountPercent ?? 0) > 0
+              ? Number(line.listPrice)
+              : null,
+          discountPercent:
+            line.listPrice != null && Number(line.discountPercent ?? 0) > 0
+              ? Number(line.discountPercent)
+              : null,
         }))}
       />
     </DashboardShell>

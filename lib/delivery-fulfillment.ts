@@ -25,6 +25,13 @@ import { promoteJobStatus } from "@/lib/job-status-workflow";
 import { isDeliveryServiceLine } from "@/lib/quotes/money-rules";
 import { richTextToPlainText } from "@/lib/rich-text";
 import {
+  createDiscountRuleLookup,
+  isQuoteDiscountBasis,
+  type QuoteDiscountBasis,
+} from "@/lib/pricing/line-discount";
+import { quoteLineLoadPrice } from "@/lib/pricing/load-price";
+import { loadDiscountPricingForProducts } from "@/lib/pricing/pricing-data";
+import {
   formatAdsPipeJointTypeLabel,
   normalizeAdsPipeJointType,
   type AdsPipeJointType,
@@ -141,9 +148,13 @@ export type QuoteLineFulfillment = {
   structurePieceOptions: StructurePieceOption[];
   /** Quote line unit price (per `unit`), as agreed on the quote. */
   quotedUnitPrice: number;
-  /** Pickup (FOB yard) price from the quote's price list for product lines;
-   * null when the list has no pickup price for the product. */
-  pickupUnitPrice: number | null;
+  /**
+   * What a unit bills at on a load that leaves this way, when no price is
+   * typed on the ticket line: the quoted price, or the list price less the
+   * group's standard discount for that way (lib/pricing/load-price.ts).
+   * Per `unit`, like quotedUnitPrice.
+   */
+  loadUnitPrice: { DELIVERED: number; PICKUP: number };
   /** Delivery-charge SERVICE line ("Delivery — Zone 2") — freight, so it
    * stays off customer-pickup tickets. */
   isDeliveryService: boolean;
@@ -1115,29 +1126,19 @@ async function buildFulfillmentFromContext(
     ]),
   );
 
-  // Pickup (FOB yard) prices from the quote's price list, for repricing
-  // customer-pickup tickets. Product lines only; structures stay manual.
-  const pickupProductIds = [
-    ...new Set(
-      quote.lineItems
-        .map((line) => line.productId)
-        .filter((id): id is string => Boolean(id)),
-    ),
-  ];
-  const pickupPriceRows =
-    quote.priceListId && pickupProductIds.length > 0
-      ? await client.priceListItem.findMany({
-          where: {
-            priceListId: quote.priceListId,
-            productId: { in: pickupProductIds },
-            pickupPrice: { not: null },
-          },
-          select: { productId: true, pickupPrice: true },
-        })
-      : [];
-  const pickupPriceByProductId = new Map(
-    pickupPriceRows.map((row) => [row.productId, Number(row.pickupPrice)]),
+  // How each line bills by the way a load leaves: a line on its group's
+  // standard discount takes the delivered or the pickup discount; an awarded
+  // price, a structure or a service bills as quoted either way.
+  const discountPricing = await loadDiscountPricingForProducts(
+    quote.lineItems
+      .map((line) => line.productId)
+      .filter((id): id is string => Boolean(id)),
+    client,
   );
+  const standardDiscount = createDiscountRuleLookup(discountPricing);
+  const quoteBasis: QuoteDiscountBasis = isQuoteDiscountBasis(quote.discountBasis)
+    ? quote.discountBasis
+    : "DELIVERED";
 
   const result: QuoteLineFulfillment[] = [];
 
@@ -1147,9 +1148,30 @@ async function buildFulfillmentFromContext(
       continue;
     }
     const quotedUnitPrice = Number(line.unitPrice);
-    const pickupUnitPrice = line.productId
-      ? (pickupPriceByProductId.get(line.productId) ?? null)
-      : null;
+    const loadPriceLine = {
+      productId: line.productId,
+      galleyFamilyCode: line.galleyFamilyCode,
+      isDrainRing: isQuoteLineDrainRing(line),
+      unitPrice: quotedUnitPrice,
+      listPrice: line.listPrice != null ? Number(line.listPrice) : null,
+      discountPercent:
+        line.discountPercent != null ? Number(line.discountPercent) : null,
+      discountTyped: line.discountTyped,
+    };
+    const loadUnitPrice = {
+      DELIVERED: quoteLineLoadPrice(
+        loadPriceLine,
+        quoteBasis,
+        "DELIVERED",
+        standardDiscount,
+      ).unitPrice,
+      PICKUP: quoteLineLoadPrice(
+        loadPriceLine,
+        quoteBasis,
+        "PICKUP",
+        standardDiscount,
+      ).unitPrice,
+    };
     const isDeliveryService = isDeliveryServiceLine(
       line.lineType,
       line.itemCode,
@@ -1192,7 +1214,7 @@ async function buildFulfillmentFromContext(
         isSplitStructure: false,
         structurePieceOptions: [],
         quotedUnitPrice,
-        pickupUnitPrice,
+        loadUnitPrice,
         isDeliveryService,
         isGalleyFamilyTotal: true,
       });
@@ -1269,7 +1291,7 @@ async function buildFulfillmentFromContext(
         isSplitStructure: false,
         structurePieceOptions: [],
         quotedUnitPrice,
-        pickupUnitPrice,
+        loadUnitPrice,
         isDeliveryService,
       });
       continue;
@@ -1344,7 +1366,7 @@ async function buildFulfillmentFromContext(
         isSplitStructure: false,
         structurePieceOptions: [],
         quotedUnitPrice,
-        pickupUnitPrice,
+        loadUnitPrice,
         isDeliveryService,
       });
       continue;
@@ -1419,7 +1441,7 @@ async function buildFulfillmentFromContext(
         isSplitStructure: true,
         structurePieceOptions,
         quotedUnitPrice,
-        pickupUnitPrice,
+        loadUnitPrice,
         isDeliveryService,
       });
       continue;
@@ -1486,7 +1508,7 @@ async function buildFulfillmentFromContext(
         isSplitStructure: false,
         structurePieceOptions: [],
         quotedUnitPrice,
-        pickupUnitPrice,
+        loadUnitPrice,
         isDeliveryService,
       });
       continue;
@@ -1570,7 +1592,7 @@ async function buildFulfillmentFromContext(
       isSplitStructure: false,
       structurePieceOptions: [],
       quotedUnitPrice,
-      pickupUnitPrice,
+      loadUnitPrice,
       isDeliveryService,
     });
   }

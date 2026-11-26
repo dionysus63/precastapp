@@ -3,6 +3,7 @@ import {
   invoiceStatusVariant,
   isUnpaidInvoiceStatus,
 } from "@/lib/invoice-status";
+import { formatDiscountPercentLabel } from "@/lib/pricing/line-discount";
 
 export type InvoiceDetailView = {
   id: string;
@@ -35,11 +36,28 @@ export type InvoiceDetailView = {
     description: string;
     quantity: string;
     unit: string;
+    /** The billed price each. */
     unitPrice: string;
+    /** Price before the discount; the billed price when there is none. */
+    listPrice: string;
+    /** "10%"; blank with no discount. */
+    discount: string;
     total: string;
     needsPrice: boolean;
   }[];
+  /** A line carries a discount: the table shows List Price and Disc %. */
+  hasDiscountedLine: boolean;
 };
+
+/** "10%" for a line billed below its list price; blank otherwise. */
+function lineDiscountLabel(line: {
+  listPrice?: { toString(): string } | null;
+  discountPercent?: { toString(): string } | null;
+}): string {
+  return line.listPrice != null
+    ? formatDiscountPercentLabel(line.discountPercent?.toString())
+    : "";
+}
 
 function formatDate(value: Date | null): string {
   if (!value) return "—";
@@ -91,6 +109,8 @@ export function mapDbInvoiceToDetailView(invoice: {
     quantity: { toString(): string };
     unit: string;
     unitPrice: { toString(): string };
+    listPrice?: { toString(): string } | null;
+    discountPercent?: { toString(): string } | null;
     total: { toString(): string };
     needsPrice: boolean;
   }[];
@@ -123,6 +143,9 @@ export function mapDbInvoiceToDetailView(invoice: {
     salesTax: formatMoney(invoice.salesTax),
     total: formatMoney(invoice.total),
     taxRate: `${Number(invoice.taxRate).toFixed(2)}%`,
+    hasDiscountedLine: invoice.lineItems.some(
+      (line) => !line.needsPrice && lineDiscountLabel(line) !== "",
+    ),
     lineItems: invoice.lineItems.map((line) => ({
       id: line.id,
       lineNumber: line.lineNumber,
@@ -131,6 +154,12 @@ export function mapDbInvoiceToDetailView(invoice: {
       quantity: line.quantity.toString(),
       unit: line.unit,
       unitPrice: formatMoney(line.unitPrice),
+      listPrice: formatMoney(
+        lineDiscountLabel(line) && line.listPrice != null
+          ? line.listPrice
+          : line.unitPrice,
+      ),
+      discount: lineDiscountLabel(line),
       total: formatMoney(line.total),
       needsPrice: line.needsPrice,
     })),

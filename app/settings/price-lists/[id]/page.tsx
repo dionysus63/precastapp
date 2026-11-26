@@ -5,7 +5,6 @@ import { SectionCard } from "@/components/dashboard/section-card";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import {
   deletePriceListItemFormAction,
-  updatePriceListItemPickupPriceFormAction,
   upsertPriceListItemFormAction,
 } from "@/app/settings/actions";
 import { PriceListSettingsForm } from "@/components/settings/price-list-settings-form";
@@ -153,7 +152,7 @@ export default async function PriceListDetailPage({
             </div>
             <div>
               <label htmlFor="unitPrice" className="text-xs font-medium text-slate-700">
-                Unit price
+                List price
               </label>
               <input
                 id="unitPrice"
@@ -162,20 +161,6 @@ export default async function PriceListDetailPage({
                 min="0"
                 step="0.01"
                 required
-                className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
-              />
-            </div>
-            <div>
-              <label htmlFor="pickupPrice" className="text-xs font-medium text-slate-700">
-                Pickup price
-              </label>
-              <input
-                id="pickupPrice"
-                name="pickupPrice"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="Same as unit"
                 className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-xs"
               />
             </div>
@@ -223,7 +208,7 @@ export default async function PriceListDetailPage({
                               htmlFor={`unitPrice-${product.id}`}
                               className="sr-only"
                             >
-                              Unit price
+                              List price
                             </label>
                             <input
                               id={`unitPrice-${product.id}`}
@@ -261,8 +246,7 @@ export default async function PriceListDetailPage({
                 <thead>
                   <tr>
                     <th className={tableHeaderCellClassName}>Product</th>
-                    <th className={tableHeaderCellClassName}>Unit price</th>
-                    <th className={tableHeaderCellClassName}>Pickup price</th>
+                    <th className={tableHeaderCellClassName}>List price</th>
                     <th className={tableHeaderCellClassName}>Actions</th>
                   </tr>
                 </thead>
@@ -275,41 +259,6 @@ export default async function PriceListDetailPage({
                       </td>
                       <td className={tableCellClassName}>
                         ${Number(item.unitPrice).toFixed(2)}
-                      </td>
-                      <td className={tableCellClassName}>
-                        <form
-                          action={updatePriceListItemPickupPriceFormAction}
-                          className="flex items-center gap-2"
-                        >
-                          <input type="hidden" name="id" value={item.id} />
-                          <input type="hidden" name="priceListId" value={priceList.id} />
-                          <label
-                            htmlFor={`pickupPrice-${item.id}`}
-                            className="sr-only"
-                          >
-                            Pickup price
-                          </label>
-                          <input
-                            id={`pickupPrice-${item.id}`}
-                            name="pickupPrice"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            defaultValue={
-                              item.pickupPrice != null
-                                ? Number(item.pickupPrice).toFixed(2)
-                                : ""
-                            }
-                            placeholder="Same as unit"
-                            className="w-28 rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
-                          />
-                          <button
-                            type="submit"
-                            className="rounded-lg btn-plain px-3 py-1.5 text-xs font-medium"
-                          >
-                            Save
-                          </button>
-                        </form>
                       </td>
                       <td className={tableCellClassName}>
                         <ActionForm action={deletePriceListItemFormAction}>

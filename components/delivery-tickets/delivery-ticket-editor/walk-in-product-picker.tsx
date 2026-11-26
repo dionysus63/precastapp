@@ -15,7 +15,7 @@ type WalkInProductPickerProps = {
 };
 
 /** Walk-in "Products" card: search, category / group chips and the tap-to-
- * add product list (pickup prices, delivered price struck through). */
+ * add product list (pickup prices, list price struck through). */
 export function WalkInProductPicker({
   products,
   filter,
@@ -48,7 +48,7 @@ export function WalkInProductPicker({
   return (
     <SectionCard
       title="Products"
-      description="Tap a product to add it (tap again for another). Prices shown are pickup prices — a crossed-out number is the delivered price."
+      description="Tap a product to add it (tap again for another). Prices shown are pickup prices — a crossed-out number is the list price."
     >
       {products.length === 0 ? (
         <p className="text-xs text-slate-500">

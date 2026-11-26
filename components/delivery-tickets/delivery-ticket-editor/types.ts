@@ -11,8 +11,11 @@ export type ProductOption = {
   name: string;
   unit: string;
   weight: number | null;
+  /** List price on the ticket's price list. */
   unitPrice?: number | null;
-  /** FOB-yard price; null = pickup bills the delivered unitPrice. */
+  /** List price less the group's delivered discount. */
+  deliveredPrice?: number | null;
+  /** List price less the group's pickup discount. */
   pickupPrice?: number | null;
   /** Group memberships with in-group order (walk-in picker filters). */
   groupMemberships?: { groupId: string; sortOrder: number }[];
@@ -38,7 +41,9 @@ export type EditorLine = {
   quantity: string;
   unit: string;
   weightEach: string;
-  /** JOB-ticket extras only: the price agreed when the item was added. */
+  /** A price typed on the ticket: items added outside the quote, walk-in
+   * lines, and a quoted line billed at another price on a pickup. Blank on a
+   * quoted line = bill by the quote and how the load leaves. */
   unitPrice?: string;
   yardLocation: string;
 };

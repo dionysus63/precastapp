@@ -5,8 +5,9 @@
  *
  * Run with: npx tsx scripts/generate-invoice-templates.ts
  *
- * The item-table grid must match lib/quote-pdf-layout.ts exactly — invoice
- * line items are drawn by the quote line-item code (lib/invoice-pdf-line-items.ts).
+ * The item table's frame must match lib/quote-pdf-layout.ts exactly — invoice
+ * line items, and the table's column lines and names, are drawn by the quote
+ * line-item code (lib/invoice-pdf-line-items.ts).
  * AcroForm field names must match INVOICE_TEMPLATE_FIELD_NAMES in
  * lib/invoice-pdf-data.ts.
  */
@@ -47,9 +48,10 @@ const INFO_BOX = { top: 661.7, bottom: 583.1, dividerX: 312.7 };
 // the same envelope.
 const STRIP = { top: 568.4, labelBottom: 554.9, bottom: 539.9 };
 
-// Item table header band; verticals from lib/quote-pdf-layout.ts comments.
+// Item table header band. The column lines and column names are not part of
+// the template: they are drawn with the line items (drawInvoiceTableColumns),
+// because an invoice with a discounted line prints two more columns.
 const TABLE_HEADER = { top: 525.1, bottom: 507.1 };
-const TABLE_VERTICALS = [104.7, 148.7, 408.7, 486.7];
 
 // Bottom boxes (main template only), same envelope as the quote template.
 const BOTTOM_BOX = { top: 132.2, bottom: 60.2 };
@@ -301,18 +303,6 @@ async function drawSharedTop(ctx: Ctx, headerImageBytes: Uint8Array) {
 
   // Item table header band.
   drawBox(page, TABLE_LEFT_X, TABLE_HEADER.bottom, TABLE_RIGHT_X, TABLE_HEADER.top, { fill: true });
-  const columnEdges = [TABLE_LEFT_X, ...TABLE_VERTICALS, TABLE_RIGHT_X];
-  const headers = ["Item #", "Qty", "Description", "Unit Price", "Total"];
-  headers.forEach((header, index) => {
-    drawCenteredText(
-      page,
-      helvBold,
-      header,
-      (columnEdges[index]! + columnEdges[index + 1]!) / 2,
-      509.4,
-      8,
-    );
-  });
 
   void helv;
 }
@@ -321,9 +311,6 @@ function drawTableFrame(ctx: Ctx, tableBottomY: number) {
   const { page } = ctx;
   drawBox(page, TABLE_LEFT_X, tableBottomY, TABLE_RIGHT_X, TABLE_HEADER.top);
   drawLine(page, TABLE_LEFT_X, TABLE_HEADER.bottom, TABLE_RIGHT_X, TABLE_HEADER.bottom);
-  for (const x of TABLE_VERTICALS) {
-    drawLine(page, x, tableBottomY, x, TABLE_HEADER.top);
-  }
 }
 
 function drawMainBottom(ctx: Ctx) {
