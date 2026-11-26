@@ -4,6 +4,10 @@ import {
   type DrainRingStyle,
 } from "@/lib/drain-ring-utils";
 import { formatQuantity, formatUsd } from "@/lib/format";
+import {
+  formatDiscountPercentLabel,
+  normalizeDiscountPercent,
+} from "@/lib/pricing/line-discount";
 import type { QuoteLineItemRecord, QuoteRecord } from "@/lib/quote-mapper";
 import type { QuoteDrawLineItem } from "@/lib/quote-pdf-line-items";
 
@@ -160,14 +164,42 @@ export function mapQuoteLineItemsForPdf(
       };
     }
 
+    const discount = formatDiscountPercentLabel(
+      line.discountPercent?.toString(),
+    );
     return {
       item: line.itemCode.trim(),
       qty: formatQuantity(line.quantity),
       description: resolveLineDescription(line),
       unitPrice: formatMoneyForPdf(line.unitPrice),
       total: formatMoneyForPdf(line.total),
+      // Only the discount table prints these two.
+      listPrice:
+        discount && line.listPrice != null
+          ? formatMoneyForPdf(line.listPrice)
+          : formatMoneyForPdf(line.unitPrice),
+      discount,
     };
   });
+}
+
+const TEXT_ONLY_LINE_TYPES = new Set(["CATEGORY", "NOTE", "PAGE_BREAK"]);
+
+/**
+ * Whether the quote prints the List Price / Disc % / Net Price table: its
+ * "Show discounts" switch is on and at least one line carries a discount.
+ * Otherwise it prints the standard table with the billed price as Unit Price.
+ */
+export function quotePrintsDiscounts(quote: DbQuoteForPdf): boolean {
+  if (quote.showDiscount === false) {
+    return false;
+  }
+  return quote.lineItems.some(
+    (line) =>
+      !TEXT_ONLY_LINE_TYPES.has(line.lineType) &&
+      line.listPrice != null &&
+      normalizeDiscountPercent(line.discountPercent?.toString()) > 0,
+  );
 }
 
 export function buildQuoteFormData(
@@ -199,8 +231,11 @@ export function buildQuoteFormData(
 
   if (isLastPage) {
     data.Notes = blankOr(quote.customerNotes);
+    // No Freight / Delivery row: a delivery line, when a quote has one, is
+    // already a row of the table and part of the Subtotal.
     data.TOT_Subtotal = formatMoneyForPdf(subtotalAfterDiscount);
-    data.TOT_Freight = formatMoneyForPdf(quote.deliveryAmount);
+    // Printed as on the invoice: "8.625%".
+    data.TOT_TaxRate = `${parseAmount(quote.taxRate).toFixed(3)}%`;
     data.TOT_Sales = formatMoneyForPdf(quote.salesTax);
     data.TOT_TOTAL = formatMoneyForPdf(quote.total);
   }

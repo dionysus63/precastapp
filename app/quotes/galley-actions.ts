@@ -239,6 +239,9 @@ export async function applyGalleyBreakdown(
             quantity: new Prisma.Decimal(count),
             unit: template.unit || member.unit,
             unitPrice: template.unitPrice,
+            listPrice: template.listPrice,
+            discountPercent: template.discountPercent,
+            discountTyped: template.discountTyped,
             weight:
               member.weightLb != null
                 ? new Prisma.Decimal(member.weightLb)

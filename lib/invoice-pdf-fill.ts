@@ -85,7 +85,6 @@ export async function ensureInvoiceTemplateExists(): Promise<void> {
     { name: "Ticket Number", x: 320, y: 618, width: 240 },
     { name: "Delivery Address", x: 320, y: 602, width: 240 },
     { name: "Subtotal", x: 420, y: 118, width: 140 },
-    { name: "Delivery", x: 420, y: 104, width: 140 },
     { name: "Tax Rate", x: 420, y: 76, width: 140 },
     { name: "Sales Tax", x: 420, y: 62, width: 140 },
     { name: "Total", x: 420, y: 48, width: 140 },

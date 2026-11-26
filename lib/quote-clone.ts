@@ -134,6 +134,8 @@ export async function cloneQuoteForBidder(
       termsAndConditions: template.termsAndConditions,
       leadTime: template.leadTime,
       deliveryNotes: template.deliveryNotes,
+      discountBasis: template.discountBasis,
+      showDiscount: template.showDiscount,
       lineItems: {
         create: template.lineItems.map((line, index) =>
           mapLineItemForCreate(line, lineTotals[index]),

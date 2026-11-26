@@ -14,12 +14,97 @@ import {
   createLineId,
   renumberLineItems,
 } from "@/components/quotes/quote-form/quote-form-utils";
+import {
+  PICKUP_NOTE_TEXT,
+  type QuoteDiscountBasis,
+} from "@/lib/pricing/line-discount";
+import { richTextToPlainText } from "@/lib/rich-text";
 
 /*
  * Pure list operations behind the quote form's line-item handlers. Each takes
  * the current lines and returns the next list, so they slot straight into
  * setLineItems((current) => ...).
  */
+
+/**
+ * One cell of a line edited in the table. A discount typed on the line is
+ * the line's own from then on; clearing the box hands the line back to the
+ * standard discount of its product group.
+ */
+export function applyLineFieldChange(
+  line: EditableQuoteLineItem,
+  field: keyof EditableQuoteLineItem,
+  value: string | boolean,
+): EditableQuoteLineItem {
+  if (field === "discountPercent") {
+    const text = String(value).trim();
+    return text === ""
+      ? { ...line, discountPercent: undefined, discountTyped: false }
+      : { ...line, discountPercent: text, discountTyped: true };
+  }
+  return { ...line, [field]: value };
+}
+
+function isPickupNoteLine(line: EditableQuoteLineItem): boolean {
+  return (
+    line.type === "NOTE" &&
+    richTextToPlainText(line.description).trim().toLowerCase() ===
+      PICKUP_NOTE_TEXT.toLowerCase()
+  );
+}
+
+/**
+ * A quote priced for pickup says so in a note on its last line; switching
+ * back to delivered takes that note off again. A note the estimator reworded
+ * is theirs and stays.
+ */
+export function applyPickupNote(
+  current: EditableQuoteLineItem[],
+  basis: QuoteDiscountBasis,
+): EditableQuoteLineItem[] {
+  const hasNote = current.some(isPickupNoteLine);
+  if (basis === "PICKUP") {
+    if (hasNote) {
+      return current;
+    }
+    return renumberLineItems([
+      ...current,
+      { ...createBlankLine("NOTE", current.length + 1), description: PICKUP_NOTE_TEXT },
+    ]);
+  }
+  return hasNote
+    ? renumberLineItems(current.filter((line) => !isPickupNoteLine(line)))
+    : current;
+}
+
+/**
+ * Lines added after the pickup note go above it, so the note stays the last
+ * line of the quote. A note the estimator moved up by hand is no longer last
+ * and stays where they put it.
+ */
+export function keepPickupNoteLast(
+  previous: EditableQuoteLineItem[],
+  next: EditableQuoteLineItem[],
+): EditableQuoteLineItem[] {
+  const lastBefore = previous.at(-1);
+  if (
+    next === previous ||
+    next.length <= previous.length ||
+    !lastBefore ||
+    !isPickupNoteLine(lastBefore)
+  ) {
+    return next;
+  }
+  const noteIndex = next.findIndex((line) => line.id === lastBefore.id);
+  if (noteIndex === -1 || noteIndex === next.length - 1) {
+    return next;
+  }
+  return renumberLineItems([
+    ...next.slice(0, noteIndex),
+    ...next.slice(noteIndex + 1),
+    next[noteIndex],
+  ]);
+}
 
 /** Empty category / note / page-break row appended by the toolbar buttons. */
 export function createBlankLine(

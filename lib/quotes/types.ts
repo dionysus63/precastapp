@@ -87,7 +87,20 @@ export type EditableQuoteLineItem = {
   description: string;
   qty: string;
   unit: string;
+  /**
+   * The list price: what the line costs before its discount. The price
+   * billed is this less `discountPercent` (see getLineNetUnitPrice).
+   */
   unitPrice: string;
+  /**
+   * Percent off the list price, as typed ("10", "12.5", "" for none).
+   * Undefined means the line follows the standard discount of its product
+   * group; the form fills it in (see useQuoteDiscounts).
+   */
+  discountPercent?: string;
+  /** The discount was typed on this line; switching between delivered and
+   * picked up leaves it alone. */
+  discountTyped?: boolean;
   weight: string;
   yards: string;
   taxable: boolean;
@@ -134,6 +147,10 @@ export type QuoteFormInitialValues = {
   deliveryNotes: string;
   termsAndConditions: string;
   fob: string;
+  /** Which standard discount the lines take; delivered when absent. */
+  discountBasis?: "DELIVERED" | "PICKUP";
+  /** False prints the quote without the discount column. */
+  showDiscount?: boolean;
   lineItems: EditableQuoteLineItem[];
 };
 
@@ -269,7 +286,12 @@ export type QuoteDetailLineItem = {
   description: string;
   qty: string;
   unit: string;
+  /** The billed price each, after any discount. */
   unitPrice: string;
+  /** Price before the discount; null when the line has no discount. */
+  listPrice: string | null;
+  /** "10%"; null when the line has no discount. */
+  discount: string | null;
   weight: string;
   qtyOnHand: string;
   taxable: boolean;
@@ -344,6 +366,10 @@ export type QuoteDetailView = {
   leadTime: string;
   terms: string;
   fob: string;
+  /** "Delivered" or "Picked Up": the standard discounts the quote took. */
+  discountBasisLabel: string;
+  /** False: the printed quote leaves the discount columns out. */
+  showDiscount: boolean;
   lineItems: QuoteDetailLineItem[];
   drillSheetReadyCount: number;
   summary: {

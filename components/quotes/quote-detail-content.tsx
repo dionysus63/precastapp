@@ -28,7 +28,10 @@ import { GalleyBreakdownBanner } from "@/components/quotes/galley-breakdown";
 import type { QuoteDetailView } from "@/components/quotes/quote-utils";
 import type { GalleyBreakdownView } from "@/lib/galley-utils";
 import { isCategoryLineItem } from "@/lib/quotes/constants";
-import { showsDeliveryAmount } from "@/lib/quotes/delivery-charge";
+import {
+  isNonZeroAmount,
+  showsDeliveryAmount,
+} from "@/lib/quotes/delivery-charge";
 
 import {
   tableBodyClassName,
@@ -142,6 +145,11 @@ export function QuoteDetailContent({
   ).length;
   const showDrillSheetBar =
     quote.drillSheetReadyCount > 0 || drillSheetCreatedCount > 0;
+  // List Price and Disc % appear only when some line carries a discount.
+  const showDiscountColumns = quote.lineItems.some(
+    (line) => line.discount != null,
+  );
+  const lineColumnCount = showDiscountColumns ? 14 : 12;
 
   const contextLine = [
     quote.jobNumber !== "—" ? quote.jobNumber : null,
@@ -154,9 +162,13 @@ export function QuoteDetailContent({
     { label: "delivery notes", present: quote.deliveryNotes !== "—" },
   ].filter((badge) => badge.present);
 
+  // The whole-quote Discount amount is a leftover that is no longer entered
+  // (discounts sit on the lines), so its row shows only on a quote that has one.
   const summaryRows: Array<[string, string]> = [
     ["Subtotal", quote.summary.subtotal],
-    ["Discount", quote.summary.discount],
+    ...(isNonZeroAmount(quote.summary.discount)
+      ? ([["Discount", quote.summary.discount]] as Array<[string, string]>)
+      : []),
     ...(showsDeliveryAmount(quote.summary.delivery)
       ? ([["Delivery", quote.summary.delivery]] as Array<[string, string]>)
       : []),
@@ -495,7 +507,15 @@ export function QuoteDetailContent({
                 <th className={tableHeaderCellWrapClassName}>Description</th>
                 <th className={tableHeaderCellWrapClassName}>Qty</th>
                 <th className={tableHeaderCellWrapClassName}>Unit</th>
-                <th className={tableHeaderCellWrapClassName}>Unit Price</th>
+                {showDiscountColumns ? (
+                  <>
+                    <th className={tableHeaderCellWrapClassName}>List Price</th>
+                    <th className={tableHeaderCellWrapClassName}>Disc %</th>
+                  </>
+                ) : null}
+                <th className={tableHeaderCellWrapClassName}>
+                  {showDiscountColumns ? "Net Price" : "Unit Price"}
+                </th>
                 <th className={tableHeaderCellWrapClassName}>Weight</th>
                 <th className={tableHeaderCellWrapClassName}>Qty on Hand</th>
                 <th className={tableHeaderCellWrapClassName}>Taxable</th>
@@ -509,7 +529,7 @@ export function QuoteDetailContent({
               {quote.lineItems.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={12}
+                    colSpan={lineColumnCount}
                     className={`${tableCellBordersClassName} px-3 py-6 text-center text-slate-500`}
                   >
                     No line items on this quote.
@@ -525,7 +545,10 @@ export function QuoteDetailContent({
                       <td className={tableCellClassName}>
                         <StatusBadge label={line.typeLabel} variant="neutral" />
                       </td>
-                      <td className={tableCellBordersClassName} colSpan={10}>
+                      <td
+                        className={tableCellBordersClassName}
+                        colSpan={lineColumnCount - 2}
+                      >
                         <div className="flex items-center gap-2 px-2 py-1.5 text-2xs font-medium uppercase tracking-wide text-slate-400">
                           <span className="h-0 flex-1 border-t-2 border-dashed border-slate-300" />
                           New page on the printed quote
@@ -562,6 +585,12 @@ export function QuoteDetailContent({
                       <td className={`${tableCellClassName} text-slate-400`}>—</td>
                       <td className={`${tableCellClassName} text-slate-400`}>—</td>
                       <td className={`${tableCellClassName} text-slate-400`}>—</td>
+                      {showDiscountColumns ? (
+                        <>
+                          <td className={`${tableCellClassName} text-slate-400`}>—</td>
+                          <td className={`${tableCellClassName} text-slate-400`}>—</td>
+                        </>
+                      ) : null}
                     </tr>
                   ) : (
                     <tr key={line.id} className={tableRowClassName}>
@@ -596,6 +625,16 @@ export function QuoteDetailContent({
                       <td className={`${tableCellClassName} text-slate-600`}>
                         {line.unit}
                       </td>
+                      {showDiscountColumns ? (
+                        <>
+                          <td className={`${tableCellClassName} text-slate-600`}>
+                            {line.listPrice ?? line.unitPrice}
+                          </td>
+                          <td className={`${tableCellClassName} text-slate-600`}>
+                            {line.discount ?? ""}
+                          </td>
+                        </>
+                      ) : null}
                       <td className={`${tableCellClassName} text-slate-700`}>
                         {line.unitPrice}
                       </td>
@@ -634,6 +673,17 @@ export function QuoteDetailContent({
             <span className="font-medium text-slate-700">
               {quote.summary.totalYards}
             </span>
+            {showDiscountColumns ? (
+              <>
+                {" · "}Discounts for{" "}
+                <span className="font-medium text-slate-700">
+                  {quote.discountBasisLabel}
+                </span>
+                {quote.showDiscount
+                  ? null
+                  : " · The printed quote shows the net price only"}
+              </>
+            ) : null}
           </p>
           <dl className="w-64 max-w-full space-y-1 text-xs">
             {summaryRows.map(([label, value]) => (

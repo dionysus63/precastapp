@@ -3,36 +3,51 @@ import { rgb } from "pdf-lib";
 import { toWinAnsiText } from "@/lib/pdf-text";
 import { richTextToPlainText } from "@/lib/rich-text";
 import {
-  COL_DESC_WIDTH,
-  COL_DESC_X,
-  COL_ITEM_NUM_WIDTH,
-  COL_ITEM_NUM_X,
-  COL_QTY_WIDTH,
-  COL_QTY_X,
-  COL_TOTAL_WIDTH,
-  COL_TOTAL_X,
-  COL_UNIT_PRICE_WIDTH,
-  COL_UNIT_PRICE_X,
   CONT_TABLE_LAYOUT,
   MAIN_TABLE_LAYOUT,
   ROW_SEPARATOR_COLOR,
   ROW_SEPARATOR_GAP,
   ROW_SEPARATOR_THICKNESS,
+  STANDARD_TABLE_COLUMNS,
+  TABLE_BORDER_WIDTH,
+  TABLE_HEADER_FONT_SIZE,
+  TABLE_HEADER_TEXT_Y,
+  TABLE_HEADER_TOP_Y,
   TABLE_LEFT_X,
   TABLE_RIGHT_X,
   TEXT_COLOR,
+  type QuoteTableColumns,
   type QuoteTableLayout,
 } from "@/lib/quote-pdf-layout";
 
 const CELL_INSET = 4.5;
-const ITEM_NUM_TEXT_WIDTH = COL_ITEM_NUM_WIDTH - CELL_INSET * 2;
+
+/** Where a column's left-aligned text starts. */
+function textX(column: { x: number }): number {
+  return column.x + CELL_INSET;
+}
+
+/** Room for wrapped item numbers: the column less an inset on each side. */
+function itemTextWidth(columns: QuoteTableColumns): number {
+  return columns.item.width - CELL_INSET * 2;
+}
+
+/** Room for wrapped description lines: the column less its left inset. */
+function descriptionTextWidth(columns: QuoteTableColumns): number {
+  return columns.description.width - CELL_INSET;
+}
 
 export type QuoteDrawLineItem = {
   item: string;
   qty: string;
   description: string;
+  /** The billed price each: after the discount when the line has one. */
   unitPrice: string;
   total: string;
+  /** Price before the discount; printed only on the discount table. */
+  listPrice?: string;
+  /** "10%"; printed only on the discount table, blank with no discount. */
+  discount?: string;
   isCategoryLine?: boolean;
   /** Full-width plain-text row — no item/qty/price columns. */
   isNoteLine?: boolean;
@@ -141,10 +156,16 @@ function descriptionLinesFor(
   item: QuoteDrawLineItem,
   font: PDFFont,
   fontSize: number,
+  columns: QuoteTableColumns,
 ): string[] {
   return (
     item.descriptionLines ??
-    measureDescriptionLines(item.description, font, fontSize, COL_DESC_WIDTH)
+    measureDescriptionLines(
+      item.description,
+      font,
+      fontSize,
+      descriptionTextWidth(columns),
+    )
   );
 }
 
@@ -162,6 +183,7 @@ function measureSeparatorHeight(): number {
 function splitOversizedRows(
   items: QuoteDrawLineItem[],
   font: PDFFont,
+  columns: QuoteTableColumns,
 ): QuoteDrawLineItem[] {
   const layout = MAIN_TABLE_LAYOUT;
   const maxLines = Math.max(
@@ -173,10 +195,13 @@ function splitOversizedRows(
   );
 
   return items.flatMap((item) => {
-    if (item.isPageBreak || measureRowHeight(item, font, layout) <= availableHeight(layout)) {
+    if (
+      item.isPageBreak ||
+      measureRowHeight(item, font, layout, columns) <= availableHeight(layout)
+    ) {
       return [item];
     }
-    const lines = descriptionLinesFor(item, font, layout.fontSize);
+    const lines = descriptionLinesFor(item, font, layout.fontSize, columns);
     if (lines.length <= maxLines) {
       return [item];
     }
@@ -205,12 +230,18 @@ export function measureRowHeight(
   item: QuoteDrawLineItem,
   font: PDFFont,
   layout: QuoteTableLayout,
+  columns: QuoteTableColumns = STANDARD_TABLE_COLUMNS,
 ): number {
   if (item.isPageBreak) {
     return 0;
   }
   if (item.isCategoryLine || item.isNoteLine) {
-    const descLines = descriptionLinesFor(item, font, layout.fontSize);
+    const descLines = descriptionLinesFor(
+      item,
+      font,
+      layout.fontSize,
+      columns,
+    );
     const lineCount = Math.max(1, descLines.length);
     return (
       lineCount * layout.lineHeight +
@@ -219,12 +250,12 @@ export function measureRowHeight(
     );
   }
 
-  const descLines = descriptionLinesFor(item, font, layout.fontSize);
+  const descLines = descriptionLinesFor(item, font, layout.fontSize, columns);
   const itemLines = wrapText(
     item.item,
     font,
     layout.fontSize,
-    ITEM_NUM_TEXT_WIDTH,
+    itemTextWidth(columns),
   );
   const lineCount = Math.max(1, descLines.length, itemLines.length);
   return (
@@ -242,10 +273,12 @@ function suffixFitsMain(
   items: QuoteDrawLineItem[],
   startIndex: number,
   font: PDFFont,
+  columns: QuoteTableColumns,
 ): boolean {
   const slice = items.slice(startIndex);
   const height = slice.reduce(
-    (sum, item) => sum + measureRowHeight(item, font, MAIN_TABLE_LAYOUT),
+    (sum, item) =>
+      sum + measureRowHeight(item, font, MAIN_TABLE_LAYOUT, columns),
     0,
   );
   return height <= availableHeight(MAIN_TABLE_LAYOUT);
@@ -265,11 +298,12 @@ function suffixFitsMain(
 export function paginateQuoteLineItems(
   items: QuoteDrawLineItem[],
   font: PDFFont,
+  columns: QuoteTableColumns = STANDARD_TABLE_COLUMNS,
 ): QuoteLineItemPageSlice[] {
   // Split at forced breaks (markers consumed; empty segments from leading
   // or doubled breaks produce no blank pages).
   const segments: QuoteDrawLineItem[][] = [[]];
-  for (const item of splitOversizedRows(items, font)) {
+  for (const item of splitOversizedRows(items, font, columns)) {
     if (item.isPageBreak) {
       segments.push([]);
     } else {
@@ -297,6 +331,7 @@ export function paginateQuoteLineItems(
         segment[index],
         font,
         CONT_TABLE_LAYOUT,
+        columns,
       );
       if (group.length > 0 && usedHeight + rowHeight > maxHeight) {
         break;
@@ -327,7 +362,7 @@ export function paginateQuoteLineItems(
 
   let index = 0;
   for (;;) {
-    if (suffixFitsMain(items2, index, font)) {
+    if (suffixFitsMain(items2, index, font, columns)) {
       pages.push({ items: items2.slice(index), isLastPage: true });
       return pages;
     }
@@ -440,7 +475,9 @@ export function drawLineItemRow(
   item: QuoteDrawLineItem,
   topY: number,
   layout: QuoteTableLayout,
+  columns: QuoteTableColumns = STANDARD_TABLE_COLUMNS,
 ): number {
+  const descX = textX(columns.description);
   if (item.isPageBreak) {
     // Zero-height marker — pagination already ended the page before it.
     return topY;
@@ -450,7 +487,12 @@ export function drawLineItemRow(
     // Full-width text rows: categories emphasize their first line
     // (bold + underline); notes print as plain text.
     const emphasizeTitle = Boolean(item.isCategoryLine);
-    const descLines = descriptionLinesFor(item, font, layout.fontSize);
+    const descLines = descriptionLinesFor(
+      item,
+      font,
+      layout.fontSize,
+      columns,
+    );
     const lineCount = Math.max(1, descLines.length);
     const textHeight = lineCount * layout.lineHeight;
     const rowHeight = textHeight + layout.rowPadding + measureSeparatorHeight();
@@ -471,14 +513,14 @@ export function drawLineItemRow(
         page,
         isTitleLine ? boldFont : font,
         lineText,
-        COL_DESC_X,
+        descX,
         lineY,
         layout.fontSize,
       );
 
       if (isTitleLine && lineText.trim()) {
         const textWidth = boldFont.widthOfTextAtSize(lineText, layout.fontSize);
-        drawTextUnderline(page, COL_DESC_X, lineY, textWidth);
+        drawTextUnderline(page, descX, lineY, textWidth);
       }
     }
 
@@ -487,12 +529,12 @@ export function drawLineItemRow(
     return topY - rowHeight;
   }
 
-  const descLines = descriptionLinesFor(item, font, layout.fontSize);
+  const descLines = descriptionLinesFor(item, font, layout.fontSize, columns);
   const itemLines = wrapText(
     item.item,
     font,
     layout.fontSize,
-    ITEM_NUM_TEXT_WIDTH,
+    itemTextWidth(columns),
   );
   const lineCount = Math.max(1, descLines.length, itemLines.length);
   const textHeight = lineCount * layout.lineHeight;
@@ -504,7 +546,7 @@ export function drawLineItemRow(
       page,
       font,
       itemLines[index]!,
-      COL_ITEM_NUM_X,
+      textX(columns.item),
       firstLineY - index * layout.lineHeight,
       layout.fontSize,
     );
@@ -513,17 +555,40 @@ export function drawLineItemRow(
     page,
     font,
     item.qty,
-    COL_QTY_X,
-    COL_QTY_WIDTH,
+    columns.qty.x,
+    columns.qty.width,
     firstLineY,
     layout.fontSize,
   );
+  if (columns.listPrice) {
+    // A line with no discount shows its one price in both price columns.
+    drawRightAlignedInColumn(
+      page,
+      font,
+      item.listPrice || item.unitPrice,
+      columns.listPrice.x,
+      columns.listPrice.width,
+      firstLineY,
+      layout.fontSize,
+    );
+  }
+  if (columns.discount) {
+    drawCenteredInColumn(
+      page,
+      font,
+      item.discount ?? "",
+      columns.discount.x,
+      columns.discount.width,
+      firstLineY,
+      layout.fontSize,
+    );
+  }
   drawRightAlignedInColumn(
     page,
     font,
     item.unitPrice,
-    COL_UNIT_PRICE_X,
-    COL_UNIT_PRICE_WIDTH,
+    columns.unitPrice.x,
+    columns.unitPrice.width,
     firstLineY,
     layout.fontSize,
   );
@@ -531,8 +596,8 @@ export function drawLineItemRow(
     page,
     font,
     item.total,
-    COL_TOTAL_X,
-    COL_TOTAL_WIDTH,
+    columns.total.x,
+    columns.total.width,
     firstLineY,
     layout.fontSize,
   );
@@ -548,7 +613,7 @@ export function drawLineItemRow(
       page,
       font,
       descLines[index]!,
-      COL_DESC_X,
+      descX,
       firstLineY - index * layout.lineHeight,
       layout.fontSize,
     );
@@ -564,11 +629,68 @@ export function drawQuoteLineItemsOnPage(
   font: PDFFont,
   boldFont: PDFFont,
   slice: QuoteLineItemPageSlice,
+  columns: QuoteTableColumns = STANDARD_TABLE_COLUMNS,
 ): void {
   const layout = slice.isLastPage ? MAIN_TABLE_LAYOUT : CONT_TABLE_LAYOUT;
   let cursorY = layout.tableTopY;
 
   for (const item of slice.items) {
-    cursorY = drawLineItemRow(page, font, boldFont, item, cursorY, layout);
+    cursorY = drawLineItemRow(
+      page,
+      font,
+      boldFont,
+      item,
+      cursorY,
+      layout,
+      columns,
+    );
+  }
+}
+
+/**
+ * The column lines and column names of the quote's item table. The quote
+ * templates print only the frame and the gray band, so one pair of templates
+ * serves both the standard table and the discount table. (The invoice
+ * templates still print their own.)
+ */
+export function drawQuoteTableColumns(
+  page: PDFPage,
+  boldFont: PDFFont,
+  columns: QuoteTableColumns,
+  isLastPage: boolean,
+): void {
+  const layout = isLastPage ? MAIN_TABLE_LAYOUT : CONT_TABLE_LAYOUT;
+  const black = rgb(TEXT_COLOR.r, TEXT_COLOR.g, TEXT_COLOR.b);
+  const headed: Array<[string, { x: number; width: number } | undefined]> = [
+    ["Item #", columns.item],
+    ["Qty", columns.qty],
+    ["Description", columns.description],
+    ["List Price", columns.listPrice],
+    ["Disc %", columns.discount],
+    [columns.listPrice ? "Net Price" : "Unit Price", columns.unitPrice],
+    ["Total", columns.total],
+  ];
+
+  for (const [label, column] of headed) {
+    if (!column) {
+      continue;
+    }
+    if (column.x > TABLE_LEFT_X) {
+      page.drawLine({
+        start: { x: column.x, y: TABLE_HEADER_TOP_Y },
+        end: { x: column.x, y: layout.tableBottomY },
+        thickness: TABLE_BORDER_WIDTH,
+        color: black,
+      });
+    }
+    drawCenteredInColumn(
+      page,
+      boldFont,
+      label,
+      column.x,
+      column.width,
+      TABLE_HEADER_TEXT_Y,
+      TABLE_HEADER_FONT_SIZE,
+    );
   }
 }

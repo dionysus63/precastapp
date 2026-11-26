@@ -223,8 +223,8 @@ export function buildInvoiceFormData(
   };
 
   if (isLastPage) {
+    // No Delivery row: a delivery line is already in the table and Subtotal.
     data.Subtotal = formatMoneyForPdf(subtotalAfterDiscount);
-    data.Delivery = formatMoneyForPdf(invoice.deliveryAmount);
     data["Tax Rate"] = `${Number(invoice.taxRate).toFixed(3)}%`;
     data["Sales Tax"] = formatMoneyForPdf(invoice.salesTax);
     data.Total = formatMoneyForPdf(invoice.total);
@@ -256,7 +256,6 @@ export const INVOICE_TEMPLATE_FIELD_NAMES = [
   "Company Email",
   "Page",
   "Subtotal",
-  "Delivery",
   "Tax Rate",
   "Sales Tax",
   "Total",

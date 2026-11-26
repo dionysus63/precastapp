@@ -3,9 +3,11 @@ import { prisma } from "@/lib/prisma";
 import {
   DISCOUNT_GROUP_KEYS,
   emptyDiscountRateTable,
+  hasAnyDiscount,
   type DiscountGroupKey,
   type DiscountRateTable,
 } from "@/lib/pricing/discount-groups";
+import type { QuoteDiscountPricing } from "@/lib/pricing/line-discount";
 
 type DbClient = Prisma.TransactionClient | typeof prisma;
 
@@ -54,6 +56,29 @@ export function productWhereForDiscountGroup(
         ],
       };
   }
+}
+
+/**
+ * The standard discounts and which products they cover, for the quote form.
+ * Only groups that have a discount are looked up: a product in none of them
+ * gets no discount, whatever its group.
+ */
+export async function loadQuoteDiscountPricing(
+  client: DbClient = prisma,
+): Promise<QuoteDiscountPricing> {
+  const rates = await loadDiscountRateTable(client);
+  const productIdsByGroup: QuoteDiscountPricing["productIdsByGroup"] = {};
+  for (const group of DISCOUNT_GROUP_KEYS) {
+    if (!hasAnyDiscount(rates[group])) {
+      continue;
+    }
+    const products = await client.product.findMany({
+      where: productWhereForDiscountGroup(group),
+      select: { id: true },
+    });
+    productIdsByGroup[group] = products.map((product) => product.id);
+  }
+  return { rates, productIdsByGroup };
 }
 
 export type PricingProductRow = {

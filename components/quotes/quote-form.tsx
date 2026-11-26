@@ -10,6 +10,8 @@ import {
   useRef,
   useState,
   useTransition,
+  type Dispatch,
+  type SetStateAction,
 } from "react";
 import {
   createQuote,
@@ -62,6 +64,9 @@ import type {
   PipeUnitPriceEntry,
 } from "@/lib/pipe-quote-utils";
 import {
+  applyLineFieldChange,
+  applyPickupNote,
+  keepPickupNoteLast,
   applyPipeUnitPrices,
   createBlankLine,
   moveLineByStep,
@@ -80,6 +85,13 @@ import {
   type FlashMessage,
 } from "@/components/quotes/quote-form/quote-form-utils";
 import { useQuoteDeliveryPricing } from "@/components/quotes/quote-form/use-quote-delivery-pricing";
+import { useQuoteDiscounts } from "@/components/quotes/quote-form/use-quote-discounts";
+import { QuoteDiscountBar } from "@/components/quotes/quote-form/quote-discount-bar";
+import {
+  fobAfterDiscountBasisChange,
+  fobForDiscountBasis,
+  type QuoteDiscountPricing,
+} from "@/lib/pricing/line-discount";
 import { useCustomStructureBuilder } from "@/components/quotes/quote-form/use-custom-structure-builder";
 import { useCustomStructureLineEditor } from "@/components/quotes/quote-form/use-custom-structure-line-editor";
 import { QuoteFormLeaveDialog } from "@/components/quotes/quote-form/quote-form-leave-dialog";
@@ -140,6 +152,8 @@ type QuoteFormProps = {
   ringSlabProducts?: QuoteFormProductOption[];
   pipeProducts?: QuotePipeProductOption[];
   taxonomy?: ProductTaxonomyCategory[];
+  /** The standard discount of each product group and its products. */
+  discountPricing?: QuoteDiscountPricing;
   quoteId?: string;
   initialValues?: QuoteFormInitialValues;
   /**
@@ -177,6 +191,7 @@ export function QuoteForm({
   ringSlabProducts = [],
   pipeProducts = [],
   taxonomy = [],
+  discountPricing,
   quoteId,
   initialValues,
   initialLineItems,
@@ -228,9 +243,37 @@ export function QuoteForm({
   // Back-pill guard: client-side navigation skips beforeunload, so the pill
   // opens this dialog instead when there are unsaved changes.
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
-  const [lineItems, setLineItems] = useState<EditableQuoteLineItem[]>(
+  const [storedLineItems, setStoredLineItems] = useState<EditableQuoteLineItem[]>(
     initialValues?.lineItems ?? initialLineItems ?? [],
   );
+  // Every change to the lines goes through here, so a line added to a pickup
+  // quote lands above its "picked up" note.
+  const setLineItems = useCallback<Dispatch<SetStateAction<EditableQuoteLineItem[]>>>(
+    (update) =>
+      setStoredLineItems((current) =>
+        keepPickupNoteLast(
+          current,
+          typeof update === "function" ? update(current) : update,
+        ),
+      ),
+    [],
+  );
+  // The same lines with each one's standard discount filled in; everything
+  // below reads these.
+  const {
+    lineItems,
+    discountBasis,
+    changeDiscountBasis,
+    showDiscount,
+    setShowDiscount,
+    hasDiscountedLine,
+  } = useQuoteDiscounts({
+    storedLineItems,
+    setLineItems,
+    pricing: discountPricing,
+    initialBasis: initialValues?.discountBasis,
+    initialShowDiscount: initialValues?.showDiscount,
+  });
   const [planSheetId, setPlanSheetId] = useState<string | null>(null);
   const [customerLocked, setCustomerLocked] = useState(
     Boolean(initialValues?.customerId || initialCustomerId || initialJobBidderId),
@@ -322,7 +365,7 @@ export function QuoteForm({
       setPlanSheetId(payload.planSheetId);
     }
     clearWorkbookApplyPayload(quoteId);
-  }, [quoteId]);
+  }, [quoteId, setLineItems]);
 
   useEffect(() => {
     const snapshot = readWorkbookSession(quoteId)?.pendingFormState;
@@ -387,9 +430,12 @@ export function QuoteForm({
   const [termsAndConditions, setTermsAndConditions] = useState(
     initialValues?.termsAndConditions || initialTerms,
   );
+  // F.O.B. follows Delivered / Picked Up: "Our Yard" for pickup, otherwise the
+  // price list's own wording or "Jobsite".
+  const priceListFob = (listId: string) =>
+    priceLists.find((list) => list.id === listId)?.fobDefault ?? null;
   const fobDefaultForPriceList = (listId: string) =>
-    priceLists.find((list) => list.id === listId)?.fobDefault?.trim() ||
-    "Factory";
+    fobForDiscountBasis(discountBasis, priceListFob(listId));
   const [priceListId, setPriceListId] = useState(
     () =>
       initialValues?.priceListId ||
@@ -615,6 +661,8 @@ export function QuoteForm({
       fob: fob.trim() || null,
       leadTime: leadTime.trim() || null,
       deliveryNotes: deliveryNotes.trim() || null,
+      discountBasis,
+      showDiscount,
       expectedUpdatedAt,
       planSheetId,
       lineItems: buildQuoteLineItemsInput(lineItems),
@@ -1004,25 +1052,25 @@ export function QuoteForm({
     (id: string, field: keyof EditableQuoteLineItem, value: string | boolean) => {
       setLineItems((current) =>
         current.map((line) =>
-          line.id === id ? { ...line, [field]: value } : line,
+          line.id === id ? applyLineFieldChange(line, field, value) : line,
         ),
       );
     },
-    [],
+    [setLineItems],
   );
 
   const removeLineItem = useCallback((id: string) => {
     setLineItems((current) => renumberLineItems(current.filter((line) => line.id !== id)));
-  }, []);
+  }, [setLineItems]);
 
   const moveLineItem = useCallback((id: string, direction: "up" | "down") => {
     setLineItems((current) => moveLineByStep(current, id, direction));
-  }, []);
+  }, [setLineItems]);
 
   /** Drag-drop / jump-to-position: place the line at an exact index. */
   const moveLineItemToIndex = useCallback((id: string, targetIndex: number) => {
     setLineItems((current) => moveLineToIndex(current, id, targetIndex));
-  }, []);
+  }, [setLineItems]);
 
   function handleServiceOptionChange(item: string) {
     setSelectedServiceItem(item);
@@ -1149,6 +1197,27 @@ export function QuoteForm({
             onAddCategoryLine={addCategoryLine}
             onAddNoteLine={addNoteLine}
             onAddPageBreakLine={addPageBreakLine}
+            discountBar={
+              <QuoteDiscountBar
+                discountBasis={discountBasis}
+                onDiscountBasisChange={(basis) => {
+                  changeDiscountBasis(basis);
+                  // Pickup says so on the quote: its F.O.B. and a note line.
+                  setLineItems((current) => applyPickupNote(current, basis));
+                  setFob((current) =>
+                    fobAfterDiscountBasisChange(
+                      current,
+                      basis,
+                      priceListFob(priceListId),
+                    ),
+                  );
+                  setIsDirty(true);
+                }}
+                showDiscount={showDiscount}
+                onShowDiscountChange={setShowDiscount}
+                hasDiscountedLine={hasDiscountedLine}
+              />
+            }
             lineItems={lineItems}
             onUpdateLine={updateLineItem}
             onRemoveLine={removeLineItem}

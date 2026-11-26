@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { SectionCard } from "@/components/dashboard/section-card";
 import {
   QuoteLineItemsTable,
@@ -25,6 +26,7 @@ export function QuoteLineItemsSection({
   onAddCategoryLine,
   onAddNoteLine,
   onAddPageBreakLine,
+  discountBar,
   lineItems,
   onUpdateLine,
   onRemoveLine,
@@ -42,6 +44,8 @@ export function QuoteLineItemsSection({
   onAddCategoryLine: () => void;
   onAddNoteLine: () => void;
   onAddPageBreakLine: () => void;
+  /** Delivered or picked up, and whether the quote prints the discount. */
+  discountBar?: ReactNode;
 } & QuoteLineItemsTableProps) {
   return (
     <SectionCard
@@ -126,6 +130,8 @@ export function QuoteLineItemsSection({
         <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
           {activeHint}
         </p>
+
+        {discountBar}
 
         <QuoteLineItemsTable
           lineItems={lineItems}
