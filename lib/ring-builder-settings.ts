@@ -286,6 +286,80 @@ export function getRingDefaultPricePerFoot(
   return match.defaultPricePerFoot;
 }
 
+/** The row id of a ring on the Pricing screen: "10:DRAIN". */
+export function ringPriceRowId(diameterFeet: number, style: DrainRingStyle): string {
+  return mappingKey(diameterFeet, style);
+}
+
+/**
+ * The config with one ring's price per foot set on one price list; a null
+ * price takes it off the list, so the ring falls back to its standard price.
+ * A ring with no mapping yet gets one.
+ */
+export function setRingPriceForPriceList(
+  config: RingBuilderConfig,
+  diameterFeet: number,
+  style: DrainRingStyle,
+  priceListId: string,
+  pricePerFoot: number | null,
+): RingBuilderConfig {
+  const key = mappingKey(diameterFeet, style);
+  const withPrice = (mapping: RingSlabMapping): RingSlabMapping => {
+    const overrides = { ...mapping.pricePerFootByPriceList };
+    if (pricePerFoot == null) {
+      delete overrides[priceListId];
+    } else {
+      overrides[priceListId] = pricePerFoot;
+    }
+    return { ...mapping, pricePerFootByPriceList: overrides };
+  };
+  if (config.some((mapping) => mappingKey(mapping.diameterFeet, mapping.style) === key)) {
+    return config.map((mapping) =>
+      mappingKey(mapping.diameterFeet, mapping.style) === key
+        ? withPrice(mapping)
+        : mapping,
+    );
+  }
+  if (pricePerFoot == null) {
+    return config;
+  }
+  return [
+    ...config,
+    withPrice({
+      diameterFeet,
+      style,
+      otherSubcategories: [],
+      defaultPricePerFoot: 0,
+      pricePerFootByPriceList: {},
+    }),
+  ];
+}
+
+/**
+ * The config with every ring price of one price list copied onto another, as
+ * copying a price list copies its other prices. Rings the source list has no
+ * price for stay on their standard price.
+ */
+export function copyRingPricesBetweenPriceLists(
+  config: RingBuilderConfig,
+  sourcePriceListId: string,
+  targetPriceListId: string,
+): RingBuilderConfig {
+  return config.map((mapping) => {
+    const price = mapping.pricePerFootByPriceList[sourcePriceListId];
+    if (price === undefined) {
+      return mapping;
+    }
+    return {
+      ...mapping,
+      pricePerFootByPriceList: {
+        ...mapping.pricePerFootByPriceList,
+        [targetPriceListId]: price,
+      },
+    };
+  });
+}
+
 export type RingBuilderInstance = {
   diameterFeet: number;
   style: DrainRingStyle;

@@ -43,6 +43,7 @@ import {
   copyPriceListItems,
   resolvePriceListIsDefault,
 } from "@/lib/price-list-service";
+import { copyRingPrices } from "@/lib/pricing/structure-price-data";
 import {
   assertStructurePricingCompleteForDefault,
   copyStructurePriceEntries,
@@ -157,6 +158,7 @@ export async function createPriceList(formData: FormData) {
         if (copyFromPriceListId) {
           await copyPriceListItems(created.id, copyFromPriceListId, tx);
           await copyStructurePriceEntries(created.id, copyFromPriceListId, tx);
+          await copyRingPrices(created.id, copyFromPriceListId, tx);
         }
 
         if (isDefault) {
@@ -166,6 +168,8 @@ export async function createPriceList(formData: FormData) {
       }),
     );
 
+    // A copied list may have brought ring prices, which live in the settings row.
+    invalidateAppSettingsCache();
     revalidatePath("/settings/price-lists");
     return { success: true };
   } catch (error) {

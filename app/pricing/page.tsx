@@ -3,11 +3,13 @@ import { AppPermission } from "@/app/generated/prisma/client";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { DiscountRulesGrid } from "@/components/pricing/discount-rules-grid";
 import { PricingGrid } from "@/components/pricing/pricing-grid";
+import { StructurePricesGrid } from "@/components/pricing/structure-prices-grid";
 import { TabBar, TabLink } from "@/components/ui/tabs";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getCurrentUser } from "@/lib/auth/session";
 import { formatDateShort } from "@/lib/format";
 import { parseStringParam, type RawSearchParams } from "@/lib/list-params";
+import { getDefaultPriceList } from "@/lib/price-list-service";
 import { withDatabaseRetry } from "@/lib/prisma";
 import {
   DISCOUNT_GROUP_KEYS,
@@ -18,6 +20,12 @@ import {
   loadDiscountRateTable,
   loadPricingRows,
 } from "@/lib/pricing/pricing-data";
+import { loadStructurePriceTables } from "@/lib/pricing/structure-price-data";
+import { structurePriceTablePermission } from "@/lib/pricing/structure-price-permissions";
+import {
+  STRUCTURE_PRICE_TABLE_KEYS,
+  type StructurePriceTableKey,
+} from "@/lib/pricing/structure-price-tables";
 import { selectedClassName } from "@/lib/selected-styles";
 
 /** The price sheets, in the order the tabs show them. */
@@ -35,6 +43,7 @@ const PRICE_TABS: Array<{
   { slug: "other", label: "Other Products", group: "OTHER", priceLabel: "List Price" },
 ];
 
+const STRUCTURES_TAB = "structures";
 const DISCOUNTS_TAB = "discounts";
 
 function pricingHref(priceListId: string, tab: string): string {
@@ -76,27 +85,51 @@ export default async function PricingPage({
     priceLists.find((list) => list.id === listParam) ??
     priceLists.find((list) => list.isDefault) ??
     priceLists[0];
+  const showStructures = tabParam === STRUCTURES_TAB;
+  const showDiscounts = tabParam === DISCOUNTS_TAB;
+  /** The product price sheet on screen; null on the Structures and Discounts tabs. */
   const activeTab =
-    tabParam === DISCOUNTS_TAB
+    showStructures || showDiscounts
       ? null
       : (PRICE_TABS.find((tab) => tab.slug === tabParam) ?? PRICE_TABS[0]);
+  const currentTabSlug = activeTab?.slug ?? (showStructures ? STRUCTURES_TAB : DISCOUNTS_TAB);
 
   const user = await getCurrentUser();
-  const [canEditPrices, canEditDiscounts] = user
+  const [canEditPrices, canEditDiscounts, canEditStructures] = user
     ? await Promise.all([
         hasPermission(user, AppPermission.PRODUCTS_MANAGE),
         hasPermission(user, AppPermission.SETTINGS_MANAGE),
+        hasPermission(user, AppPermission.STRUCTURES_MANAGE),
       ])
-    : [false, false];
+    : [false, false, false];
+  const canEditStructureTable = Object.fromEntries(
+    STRUCTURE_PRICE_TABLE_KEYS.map((table) => [
+      table,
+      structurePriceTablePermission(table) === AppPermission.SETTINGS_MANAGE
+        ? canEditDiscounts
+        : canEditStructures,
+    ]),
+  ) as Record<StructurePriceTableKey, boolean>;
 
-  const { rates, counts, rows } = await withDatabaseRetry(async (prisma) => {
+  const { rates, counts, rows, structureTables, defaultPriceList } = await withDatabaseRetry(async (prisma) => {
     // Sequential on purpose: one connection, one query at a time.
     const loadedRates = await loadDiscountRateTable(prisma);
     const loadedCounts = await loadDiscountGroupCounts(priceList.id, prisma);
     const loadedRows = activeTab
       ? await loadPricingRows(activeTab.group, priceList.id, prisma)
       : [];
-    return { rates: loadedRates, counts: loadedCounts, rows: loadedRows };
+    const loadedStructureTables = showStructures
+      ? await loadStructurePriceTables(priceList.id, prisma)
+      : null;
+    // The list structure rows fall back on (the oldest, if none is flagged).
+    const loadedDefaultList = showStructures ? await getDefaultPriceList(prisma) : null;
+    return {
+      rates: loadedRates,
+      counts: loadedCounts,
+      rows: loadedRows,
+      structureTables: loadedStructureTables,
+      defaultPriceList: loadedDefaultList,
+    };
   });
 
   const productCounts = Object.fromEntries(
@@ -116,7 +149,7 @@ export default async function PricingPage({
               return (
                 <Link
                   key={list.id}
-                  href={pricingHref(list.id, activeTab?.slug ?? DISCOUNTS_TAB)}
+                  href={pricingHref(list.id, currentTabSlug)}
                   aria-current={active ? "true" : undefined}
                   className={`rounded-full border px-3 py-1 text-xs font-medium ${
                     active
@@ -154,7 +187,10 @@ export default async function PricingPage({
               {tab.label}
             </TabLink>
           ))}
-          <TabLink href={pricingHref(priceList.id, DISCOUNTS_TAB)} active={activeTab == null}>
+          <TabLink href={pricingHref(priceList.id, STRUCTURES_TAB)} active={showStructures}>
+            Structures
+          </TabLink>
+          <TabLink href={pricingHref(priceList.id, DISCOUNTS_TAB)} active={showDiscounts}>
             Discounts
           </TabLink>
         </TabBar>
@@ -168,6 +204,20 @@ export default async function PricingPage({
             rates={rates[activeTab.group]}
             priceLabel={activeTab.priceLabel}
             canEdit={canEditPrices}
+          />
+        ) : structureTables ? (
+          <StructurePricesGrid
+            // Fresh sheets per list: what was typed belongs to one list.
+            key={priceList.id}
+            priceListId={priceList.id}
+            fallbackListName={
+              defaultPriceList && defaultPriceList.id !== priceList.id
+                ? defaultPriceList.name
+                : null
+            }
+            tables={structureTables}
+            canEdit={canEditStructureTable}
+            ringRates={rates.STOCK_PRECAST}
           />
         ) : (
           <DiscountRulesGrid
