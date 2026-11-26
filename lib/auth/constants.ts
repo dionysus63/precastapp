@@ -191,6 +191,7 @@ const ROUTE_PERMISSION_RULES: Array<{
 }> = [
   { prefix: "/customers", permission: "CUSTOMERS_VIEW" },
   { prefix: "/products", permission: "PRODUCTS_VIEW" },
+  { prefix: "/pricing", permission: "PRODUCTS_VIEW" },
   { prefix: "/structures", permission: "STRUCTURES_VIEW" },
   { prefix: "/drill-sheets", permission: "STRUCTURES_VIEW" },
   { prefix: "/jobs", permission: "JOBS_VIEW" },

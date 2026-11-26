@@ -53,6 +53,11 @@ describe("canAccessPathWithPermissions", () => {
     );
   });
 
+  it("gates the Pricing screen on seeing products", () => {
+    expect(canAccessPathWithPermissions(["PRODUCTS_VIEW"], "/pricing")).toBe(true);
+    expect(canAccessPathWithPermissions(production, "/pricing")).toBe(false);
+  });
+
   it("READ_ONLY cannot reach management-only settings pages", () => {
     expect(canAccessPathWithPermissions(readOnly, "/settings/users")).toBe(
       false,

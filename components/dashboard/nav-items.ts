@@ -136,6 +136,13 @@ export const navItems: NavItem[] = [
     requiredPermission: "PRODUCTS_VIEW",
   },
   {
+    label: "Pricing",
+    href: "/pricing",
+    section: "catalog",
+    icon: "dollar",
+    requiredPermission: "PRODUCTS_VIEW",
+  },
+  {
     label: "Drill Sheet Templates",
     href: "/structures",
     section: "catalog",
