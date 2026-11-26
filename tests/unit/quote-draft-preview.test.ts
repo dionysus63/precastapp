@@ -152,10 +152,41 @@ describe("buildDraftQuoteForPdf", () => {
       "Project Address 2": "Job Town, NY 11701",
       Notes: "Castings by others.",
       TOT_Subtotal: "$7,425.14",
-      TOT_Freight: "$650.00",
       TOT_Sales: "$584.36",
       TOT_TOTAL: "$8,009.50",
     });
+    // The delivery line is a row of the table; the totals box has no row for it.
+    expect(data).not.toHaveProperty("TOT_Freight");
+  });
+
+  it("bills a discounted line at its net price and keeps list price and percent", () => {
+    const quote = buildDraftQuoteForPdf(
+      parseQuoteDraftPreviewInput({
+        customerName: "Sample Contractor",
+        projectName: "Sample Project",
+        taxRate: 0,
+        lines: [
+          {
+            lineType: "STOCK_PRODUCT",
+            itemCode: "R-1",
+            description: "Ring",
+            quantity: 2,
+            // A stale browser price: replaced by list price less 10%.
+            unitPrice: 1,
+            listPrice: 1000,
+            discountPercent: 10,
+            taxable: false,
+          },
+        ],
+      }),
+      null,
+    );
+    const [line] = quote.lineItems;
+    expect(line.unitPrice.toString()).toBe("900");
+    expect(line.listPrice?.toString()).toBe("1000");
+    expect(line.discountPercent?.toString()).toBe("10");
+    expect(quote.subtotal.toString()).toBe("1800");
+    expect(quote.showDiscount).toBe(true);
   });
 
   it("prints category, note and page break rows as the saved quote does", () => {

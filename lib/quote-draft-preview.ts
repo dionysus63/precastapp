@@ -22,6 +22,7 @@ import {
   isNonBillableLineItem,
   resolveQuoteLineQuantityForStorage,
 } from "@/lib/quotes/constants";
+import { resolveLineDiscount } from "@/lib/quotes/line-discount-input";
 import { computeDeliveryAmount } from "@/lib/quotes/money-rules";
 
 /** More lines than any real quote; keeps a bad request from filling pages. */
@@ -32,7 +33,12 @@ export type QuoteDraftPreviewLine = {
   itemCode: string;
   description: string;
   quantity: number;
+  /** The billed price; worked out again here when a list price comes along. */
   unitPrice: number;
+  /** Price before the discount, and the percent off it. */
+  listPrice?: number | null;
+  discountPercent?: number | null;
+  discountTyped?: boolean;
   taxable: boolean;
   isDrainRing: boolean;
   ringDiameterFeet: number | null;
@@ -59,6 +65,8 @@ export type QuoteDraftPreviewInput = {
   customerNotes: string | null;
   termsAndConditions: string | null;
   fob: string | null;
+  /** False prints the quote without the discount columns; shown when absent. */
+  showDiscount?: boolean;
   lines: QuoteDraftPreviewLine[];
 };
 
@@ -100,6 +108,9 @@ export function parseQuoteDraftPreviewInput(
       // A half-typed row (no quantity or price yet) still shows, as zero.
       quantity: Math.max(finiteNumber(line.quantity) ?? 0, 0),
       unitPrice: finiteNumber(line.unitPrice) ?? 0,
+      listPrice: finiteNumber(line.listPrice),
+      discountPercent: finiteNumber(line.discountPercent),
+      discountTyped: line.discountTyped === true,
       taxable: line.taxable === true,
       isDrainRing: line.isDrainRing === true,
       ringDiameterFeet: finiteNumber(line.ringDiameterFeet),
@@ -124,6 +135,7 @@ export function parseQuoteDraftPreviewInput(
     customerNotes: textOrNull(input.customerNotes, 20_000),
     termsAndConditions: textOrNull(input.termsAndConditions, 2000),
     fob: textOrNull(input.fob, 200),
+    showDiscount: input.showDiscount !== false,
     lines,
   };
 }
@@ -135,9 +147,18 @@ export type QuoteDraftSavedFields = {
 
 /** The quote as it would be saved right now, in the PDF fill's shape. */
 export function buildDraftQuoteForPdf(
-  input: QuoteDraftPreviewInput,
+  rawInput: QuoteDraftPreviewInput,
   saved: QuoteDraftSavedFields | null,
 ): DbQuoteForPdf {
+  // Each line's billed price from its list price and discount, as a save
+  // works it out.
+  const input = {
+    ...rawInput,
+    lines: rawInput.lines.map((line) => ({
+      ...line,
+      ...resolveLineDiscount(line),
+    })),
+  };
   const billableLines = input.lines.filter(
     (line) => !isNonBillableLineItem(line.lineType),
   );
@@ -205,6 +226,7 @@ export function buildDraftQuoteForPdf(
     fob: input.fob,
     leadTime: null,
     deliveryNotes: null,
+    showDiscount: input.showDiscount !== false,
     priceListId: null,
     sentAt: null,
     jobBidderId: null,
@@ -223,6 +245,13 @@ export function buildDraftQuoteForPdf(
       unit: "EA",
       // Stored (and so printed) rounded to cents.
       unitPrice: new Decimal(line.unitPrice).toDecimalPlaces(2),
+      listPrice:
+        line.listPrice != null
+          ? new Decimal(line.listPrice).toDecimalPlaces(2)
+          : null,
+      discountPercent:
+        line.discountPercent != null ? new Decimal(line.discountPercent) : null,
+      discountTyped: line.discountTyped,
       weight: null,
       yards: null,
       taxable: line.taxable,

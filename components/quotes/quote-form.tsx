@@ -1516,6 +1516,7 @@ export function QuoteForm({
           }}
           lineItems={lineItems}
           taxRatePercent={taxRatePercent}
+          showDiscount={showDiscount}
           onHide={() => setPreviewHidden(true)}
         />
       </div>

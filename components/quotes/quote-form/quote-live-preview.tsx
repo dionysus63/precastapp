@@ -31,6 +31,8 @@ type QuoteLivePreviewProps = {
   fields: QuoteLivePreviewFields;
   lineItems: EditableQuoteLineItem[];
   taxRatePercent: number;
+  /** The quote's "Show discounts on the printed quote" switch. */
+  showDiscount: boolean;
   onHide: () => void;
 };
 
@@ -52,6 +54,9 @@ function toPreviewLines(
     description: line.description,
     quantity: line.quantity,
     unitPrice: line.unitPrice,
+    listPrice: line.listPrice ?? null,
+    discountPercent: line.discountPercent ?? null,
+    discountTyped: line.discountTyped ?? false,
     taxable: line.taxable,
     isDrainRing: line.isDrainRing ?? false,
     ringDiameterFeet: line.ringDiameterFeet ?? null,
@@ -70,6 +75,7 @@ export function QuoteLivePreview({
   fields,
   lineItems,
   taxRatePercent,
+  showDiscount,
   onHide,
 }: QuoteLivePreviewProps) {
   // The line table keeps its array while header fields are typed in.
@@ -91,6 +97,7 @@ export function QuoteLivePreview({
     customerNotes: fields.customerNotes.trim() || null,
     termsAndConditions: fields.termsAndConditions.trim() || null,
     fob: fields.fob.trim() || null,
+    showDiscount,
     lines,
   };
 
