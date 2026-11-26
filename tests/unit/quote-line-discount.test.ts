@@ -8,6 +8,7 @@ import {
 import {
   applyLineFieldChange,
   applyPickupNote,
+  keepPickupNoteLast,
 } from "@/components/quotes/quote-form/line-item-ops";
 import { buildQuoteLineItemsInput } from "@/components/quotes/quote-form/quote-form-utils";
 import { emptyDiscountRateTable } from "@/lib/pricing/discount-groups";
@@ -295,16 +296,38 @@ describe("F.O.B. follows Delivered / Picked Up", () => {
 });
 
 describe("the pickup note line", () => {
-  it("is added as the first line when the quote switches to Picked Up", () => {
+  it("is added as the last line when the quote switches to Picked Up", () => {
     const next = applyPickupNote([line({}), line({ id: "line-2" })], "PICKUP");
     expect(next).toHaveLength(3);
-    expect(next[0]).toMatchObject({
+    expect(next[2]).toMatchObject({
       type: "NOTE",
       description: PICKUP_NOTE_TEXT,
-      lineNumber: 1,
+      lineNumber: 3,
     });
     expect(next.map((entry) => entry.lineNumber)).toEqual([1, 2, 3]);
-    expect(next[1].id).toBe("line-1");
+    expect(next[0].id).toBe("line-1");
+  });
+
+  it("stays last when a line is added after it", () => {
+    const before = applyPickupNote([line({})], "PICKUP");
+    const added = [...before, line({ id: "line-2", lineNumber: 3 })];
+    const next = keepPickupNoteLast(before, added);
+    expect(next.map((entry) => entry.id)).toEqual(["line-1", "line-2", before[1].id]);
+    expect(next.map((entry) => entry.lineNumber)).toEqual([1, 2, 3]);
+    expect(next[2].description).toBe(PICKUP_NOTE_TEXT);
+  });
+
+  it("stays where the estimator moved it", () => {
+    const withNote = applyPickupNote([line({}), line({ id: "line-2" })], "PICKUP");
+    const moved = [withNote[2], withNote[0], withNote[1]];
+    const added = [...moved, line({ id: "line-3" })];
+    expect(keepPickupNoteLast(moved, added)).toBe(added);
+  });
+
+  it("is left alone when a line is edited or removed", () => {
+    const before = applyPickupNote([line({}), line({ id: "line-2" })], "PICKUP");
+    const removed = before.filter((entry) => entry.id !== "line-2");
+    expect(keepPickupNoteLast(before, removed)).toBe(removed);
   });
 
   it("is not added twice", () => {

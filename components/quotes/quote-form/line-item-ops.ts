@@ -54,9 +54,9 @@ function isPickupNoteLine(line: EditableQuoteLineItem): boolean {
 }
 
 /**
- * A quote priced for pickup says so in a note line at the top; switching back
- * to delivered takes that note off again. A note the estimator reworded is
- * theirs and stays.
+ * A quote priced for pickup says so in a note on its last line; switching
+ * back to delivered takes that note off again. A note the estimator reworded
+ * is theirs and stays.
  */
 export function applyPickupNote(
   current: EditableQuoteLineItem[],
@@ -68,13 +68,42 @@ export function applyPickupNote(
       return current;
     }
     return renumberLineItems([
-      { ...createBlankLine("NOTE", 1), description: PICKUP_NOTE_TEXT },
       ...current,
+      { ...createBlankLine("NOTE", current.length + 1), description: PICKUP_NOTE_TEXT },
     ]);
   }
   return hasNote
     ? renumberLineItems(current.filter((line) => !isPickupNoteLine(line)))
     : current;
+}
+
+/**
+ * Lines added after the pickup note go above it, so the note stays the last
+ * line of the quote. A note the estimator moved up by hand is no longer last
+ * and stays where they put it.
+ */
+export function keepPickupNoteLast(
+  previous: EditableQuoteLineItem[],
+  next: EditableQuoteLineItem[],
+): EditableQuoteLineItem[] {
+  const lastBefore = previous.at(-1);
+  if (
+    next === previous ||
+    next.length <= previous.length ||
+    !lastBefore ||
+    !isPickupNoteLine(lastBefore)
+  ) {
+    return next;
+  }
+  const noteIndex = next.findIndex((line) => line.id === lastBefore.id);
+  if (noteIndex === -1 || noteIndex === next.length - 1) {
+    return next;
+  }
+  return renumberLineItems([
+    ...next.slice(0, noteIndex),
+    ...next.slice(noteIndex + 1),
+    next[noteIndex],
+  ]);
 }
 
 /** Empty category / note / page-break row appended by the toolbar buttons. */

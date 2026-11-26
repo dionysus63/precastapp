@@ -10,6 +10,8 @@ import {
   useRef,
   useState,
   useTransition,
+  type Dispatch,
+  type SetStateAction,
 } from "react";
 import {
   createQuote,
@@ -64,6 +66,7 @@ import type {
 import {
   applyLineFieldChange,
   applyPickupNote,
+  keepPickupNoteLast,
   applyPipeUnitPrices,
   createBlankLine,
   moveLineByStep,
@@ -240,8 +243,20 @@ export function QuoteForm({
   // Back-pill guard: client-side navigation skips beforeunload, so the pill
   // opens this dialog instead when there are unsaved changes.
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
-  const [storedLineItems, setLineItems] = useState<EditableQuoteLineItem[]>(
+  const [storedLineItems, setStoredLineItems] = useState<EditableQuoteLineItem[]>(
     initialValues?.lineItems ?? initialLineItems ?? [],
+  );
+  // Every change to the lines goes through here, so a line added to a pickup
+  // quote lands above its "picked up" note.
+  const setLineItems = useCallback<Dispatch<SetStateAction<EditableQuoteLineItem[]>>>(
+    (update) =>
+      setStoredLineItems((current) =>
+        keepPickupNoteLast(
+          current,
+          typeof update === "function" ? update(current) : update,
+        ),
+      ),
+    [],
   );
   // The same lines with each one's standard discount filled in; everything
   // below reads these.
@@ -350,7 +365,7 @@ export function QuoteForm({
       setPlanSheetId(payload.planSheetId);
     }
     clearWorkbookApplyPayload(quoteId);
-  }, [quoteId]);
+  }, [quoteId, setLineItems]);
 
   useEffect(() => {
     const snapshot = readWorkbookSession(quoteId)?.pendingFormState;
@@ -1041,21 +1056,21 @@ export function QuoteForm({
         ),
       );
     },
-    [],
+    [setLineItems],
   );
 
   const removeLineItem = useCallback((id: string) => {
     setLineItems((current) => renumberLineItems(current.filter((line) => line.id !== id)));
-  }, []);
+  }, [setLineItems]);
 
   const moveLineItem = useCallback((id: string, direction: "up" | "down") => {
     setLineItems((current) => moveLineByStep(current, id, direction));
-  }, []);
+  }, [setLineItems]);
 
   /** Drag-drop / jump-to-position: place the line at an exact index. */
   const moveLineItemToIndex = useCallback((id: string, targetIndex: number) => {
     setLineItems((current) => moveLineToIndex(current, id, targetIndex));
-  }, []);
+  }, [setLineItems]);
 
   function handleServiceOptionChange(item: string) {
     setSelectedServiceItem(item);
