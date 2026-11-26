@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { AppPermission, Prisma } from "@/app/generated/prisma/client";
+import { invalidateAppSettingsCache } from "@/lib/app-settings";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { requirePermission } from "@/lib/auth/session";
 import { withDatabaseRetry } from "@/lib/prisma";
@@ -12,6 +13,16 @@ import {
   parseDiscountPercentInput,
 } from "@/lib/pricing/discount-groups";
 import { parsePriceInput } from "@/lib/pricing/price-input";
+import {
+  saveStructurePriceRows,
+  type StructurePriceRowInput,
+} from "@/lib/pricing/structure-price-data";
+import { structurePriceTablePermission } from "@/lib/pricing/structure-price-permissions";
+import {
+  STRUCTURE_PRICE_TABLES,
+  isStructurePriceTableKey,
+  type StructurePriceRow,
+} from "@/lib/pricing/structure-price-tables";
 import { returnActionError } from "@/lib/server/action-errors";
 
 export type ListPriceEntry = {
@@ -191,5 +202,85 @@ export async function saveDiscountRule(
       deliveredPercent: formatDiscountPercent(deliveredPercent),
       pickupPercent: formatDiscountPercent(pickupPercent),
     };
+  });
+}
+
+export type SaveStructurePricesResult =
+  /** The saved rows as they now stand on the list. */
+  { rows: StructurePriceRow[] } | { error: string };
+
+/** A pasted block fills one sheet at most; well above any sheet's size. */
+const MAX_STRUCTURE_ROWS_PER_SAVE = 2000;
+
+/**
+ * Save rows typed or pasted on the Pricing screen's Structures tab. All of
+ * them land or none do. Each sheet takes the permission of the screen its
+ * numbers were always edited on.
+ */
+export async function saveStructurePrices(
+  priceListId: string,
+  table: string,
+  rows: StructurePriceRowInput[],
+): Promise<SaveStructurePricesResult> {
+  return returnActionError(async () => {
+    if (!isStructurePriceTableKey(table)) {
+      throw new Error("That price sheet does not exist.");
+    }
+    const user = await requirePermission(structurePriceTablePermission(table));
+
+    if (!priceListId) {
+      throw new Error("Pick a price list first.");
+    }
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return { rows: [] };
+    }
+    if (rows.length > MAX_STRUCTURE_ROWS_PER_SAVE) {
+      throw new Error("That is too many rows to save at once.");
+    }
+
+    const { priceListName, saved } = await withDatabaseRetry((client) =>
+      client.$transaction(async (tx) => {
+        const priceList = await tx.priceList.findUnique({
+          where: { id: priceListId },
+          select: { name: true },
+        });
+        if (!priceList) {
+          throw new Error("That price list no longer exists.");
+        }
+        return {
+          priceListName: priceList.name,
+          saved: await saveStructurePriceRows(priceListId, table, rows, tx),
+        };
+      }),
+    );
+    if (table === "rings") {
+      // Ring prices live in the settings row, which is cached.
+      invalidateAppSettingsCache();
+    }
+
+    const { title } = STRUCTURE_PRICE_TABLES[table];
+    await writeAuditLog({
+      userId: user.id,
+      action: "pricing.structure_prices_saved",
+      entityType: "PriceList",
+      entityId: priceListId,
+      summary: `${saved.length} ${title} price row${saved.length === 1 ? "" : "s"} saved on ${priceListName}`,
+      metadata: {
+        table,
+        rows: saved.slice(0, 200).map((row) => ({
+          id: row.id,
+          label: row.label,
+          values: row.values,
+        })),
+      },
+    });
+
+    // Screens that show these numbers. The Pricing screen itself keeps what
+    // was typed, so it is not refreshed under the person typing.
+    revalidatePath("/structures", "layout");
+    revalidatePath("/settings/diameters");
+    revalidatePath("/settings/rings");
+
+    return { rows: saved };
   });
 }
