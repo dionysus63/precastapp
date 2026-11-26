@@ -29,10 +29,11 @@ import { prisma } from "@/lib/prisma";
 
 const tag = `PICKUP-${Date.now()}`;
 
-// R10 ring: quoted at the delivered list price, cheaper picked up at the yard.
+// A quote made before discounts: every line is priced by hand, and a pickup
+// price is typed on the ticket. (Quotes priced with discounts are covered in
+// load-pricing.test.ts.)
 const RING_PRICE = 362;
 const RING_PICKUP_PRICE = 320;
-// Cover: on the list with no pickup price (bill the delivered price).
 const COVER_PRICE = 100;
 const FREIGHT_PER_LOAD = 450;
 
@@ -153,8 +154,8 @@ beforeAll(async () => {
       isDefault: false,
       items: {
         create: [
-          { productId: ringId, unitPrice: RING_PRICE, pickupPrice: RING_PICKUP_PRICE },
-          { productId: coverId, unitPrice: COVER_PRICE, pickupPrice: null },
+          { productId: ringId, unitPrice: RING_PRICE },
+          { productId: coverId, unitPrice: COVER_PRICE },
         ],
       },
     },
@@ -235,24 +236,26 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-describe("pickup prices on the quote's fulfillment lines", () => {
-  it("exposes the list's pickup price for product lines and flags freight", async () => {
+describe("load prices on the quote's fulfillment lines", () => {
+  it("keeps the quoted price both ways on a quote made before discounts", async () => {
+    // These lines carry no list price or discount: quoted before the
+    // discount rules, so nothing comes off for a pickup on its own. A pickup
+    // price can still be typed on the ticket (the tests below).
     const lines = await getQuoteLineFulfillment(prisma, quoteId);
     const byId = new Map(lines.map((line) => [line.quoteLineItemId, line]));
 
     expect(byId.get(ringLineId)).toMatchObject({
       quotedUnitPrice: RING_PRICE,
-      pickupUnitPrice: RING_PICKUP_PRICE,
+      loadUnitPrice: { DELIVERED: RING_PRICE, PICKUP: RING_PRICE },
       isDeliveryService: false,
     });
-    // No pickup price on the list: null means "bill the delivered price".
     expect(byId.get(coverLineId)).toMatchObject({
       quotedUnitPrice: COVER_PRICE,
-      pickupUnitPrice: null,
+      loadUnitPrice: { DELIVERED: COVER_PRICE, PICKUP: COVER_PRICE },
       isDeliveryService: false,
     });
     expect(byId.get(freightLineId)).toMatchObject({
-      pickupUnitPrice: null,
+      loadUnitPrice: { DELIVERED: FREIGHT_PER_LOAD, PICKUP: FREIGHT_PER_LOAD },
       isDeliveryService: true,
     });
   });

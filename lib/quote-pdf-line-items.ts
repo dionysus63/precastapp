@@ -653,11 +653,24 @@ export function drawQuoteLineItemsOnPage(
  * serves both the standard table and the discount table. (The invoice
  * templates still print their own.)
  */
+/** How a template draws its table: the invoice's lines are thinner. */
+export type QuoteTableColumnStyle = {
+  lineWidth: number;
+  /** Baseline of the column names inside the header band. */
+  headerTextY: number;
+};
+
+const QUOTE_TABLE_COLUMN_STYLE: QuoteTableColumnStyle = {
+  lineWidth: TABLE_BORDER_WIDTH,
+  headerTextY: TABLE_HEADER_TEXT_Y,
+};
+
 export function drawQuoteTableColumns(
   page: PDFPage,
   boldFont: PDFFont,
   columns: QuoteTableColumns,
   isLastPage: boolean,
+  style: QuoteTableColumnStyle = QUOTE_TABLE_COLUMN_STYLE,
 ): void {
   const layout = isLastPage ? MAIN_TABLE_LAYOUT : CONT_TABLE_LAYOUT;
   const black = rgb(TEXT_COLOR.r, TEXT_COLOR.g, TEXT_COLOR.b);
@@ -679,7 +692,7 @@ export function drawQuoteTableColumns(
       page.drawLine({
         start: { x: column.x, y: TABLE_HEADER_TOP_Y },
         end: { x: column.x, y: layout.tableBottomY },
-        thickness: TABLE_BORDER_WIDTH,
+        thickness: style.lineWidth,
         color: black,
       });
     }
@@ -689,7 +702,7 @@ export function drawQuoteTableColumns(
       label,
       column.x,
       column.width,
-      TABLE_HEADER_TEXT_Y,
+      style.headerTextY,
       TABLE_HEADER_FONT_SIZE,
     );
   }

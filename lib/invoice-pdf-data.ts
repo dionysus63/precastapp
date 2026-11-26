@@ -5,6 +5,10 @@ import {
 } from "@/lib/delivery-ticket-pdf-data";
 import { resolveTicketDeliveryAddressLines } from "@/lib/delivery-site";
 import { formatQuantity, formatUsd } from "@/lib/format";
+import {
+  formatDiscountPercentLabel,
+  normalizeDiscountPercent,
+} from "@/lib/pricing/line-discount";
 import type { InvoiceDrawLineItem } from "@/lib/invoice-pdf-line-items";
 
 export type InvoiceContentPage = {
@@ -38,7 +42,9 @@ export const INVOICE_PDF_INCLUDE = {
           zip: true,
         },
       },
-      quote: { select: { projectAddress: true, customerPO: true } },
+      quote: {
+        select: { projectAddress: true, customerPO: true, showDiscount: true },
+      },
     },
   },
 } as const satisfies Prisma.InvoiceInclude;
@@ -101,6 +107,31 @@ export function invoiceNeedsPrice(invoice: {
   return invoice.lineItems.some((line) => line.needsPrice);
 }
 
+/**
+ * Whether the invoice prints the List Price / Disc % / Net Price table: a
+ * line carries a discount, and the quote behind the ticket (when there is
+ * one) shows its discounts. Otherwise the standard table, with the billed
+ * price as Unit Price.
+ */
+export function invoicePrintsDiscounts(invoice: {
+  lineItems: Array<{
+    listPrice: { toString(): string } | null;
+    discountPercent: { toString(): string } | null;
+    needsPrice: boolean;
+  }>;
+  deliveryTicket?: { quote?: { showDiscount: boolean } | null } | null;
+}): boolean {
+  if (invoice.deliveryTicket?.quote?.showDiscount === false) {
+    return false;
+  }
+  return invoice.lineItems.some(
+    (line) =>
+      !line.needsPrice &&
+      line.listPrice != null &&
+      normalizeDiscountPercent(line.discountPercent?.toString()) > 0,
+  );
+}
+
 export function mapInvoiceLineItemsForPdf(
   lineItems: DbInvoiceForPdf["lineItems"],
 ): InvoiceDrawLineItem[] {
@@ -120,12 +151,22 @@ export function mapInvoiceLineItemsForPdf(
     );
     // A line waiting for a price prints its price cells blank — never
     // "$0.00", which would read as a decision that the item is free.
+    const discount = line.needsPrice
+      ? ""
+      : formatDiscountPercentLabel(line.discountPercent?.toString());
+    const unitPrice = line.needsPrice ? "" : formatMoneyForPdf(line.unitPrice);
     const item: InvoiceDrawLineItem = {
       item: line.itemCode.trim(),
       qty: formatQuantity(line.quantity),
       description,
-      unitPrice: line.needsPrice ? "" : formatMoneyForPdf(line.unitPrice),
+      unitPrice,
       total: line.needsPrice ? "" : formatMoneyForPdf(line.total),
+      // Only the discount table prints these two.
+      listPrice:
+        discount && line.listPrice != null
+          ? formatMoneyForPdf(line.listPrice)
+          : unitPrice,
+      discount,
     };
 
     const qtyNumber = Number.parseFloat(line.quantity.toString());
@@ -135,7 +176,9 @@ export function mapInvoiceLineItemsForPdf(
       Number.isFinite(qtyNumber) &&
       Number.isFinite(totalNumber)
         ? `${item.item}::${line.unit}::${description}::${
-            line.needsPrice ? "price-needed" : item.unitPrice
+            line.needsPrice
+              ? "price-needed"
+              : `${item.listPrice}::${discount}::${item.unitPrice}`
           }`
         : null;
 

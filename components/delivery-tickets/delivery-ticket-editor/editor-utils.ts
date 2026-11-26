@@ -102,16 +102,14 @@ export function generateLineKey(): string {
   return randomId();
 }
 
-/** The price a product bills at for the given fulfillment: pickup tickets
- * take the FOB-yard price when one exists, otherwise the delivered price. */
+/** The price a product from the price list bills at: its list price less
+ * the standard discount of its group for the way the load leaves. */
 export function productPriceFor(
   product: ProductOption,
   pickup: boolean,
 ): number | null {
-  if (pickup && product.pickupPrice != null) {
-    return product.pickupPrice;
-  }
-  return product.unitPrice ?? null;
+  const discounted = pickup ? product.pickupPrice : product.deliveredPrice;
+  return discounted ?? product.unitPrice ?? null;
 }
 
 export function mergeFulfillmentIntoLine(
@@ -137,7 +135,6 @@ export function mergeFulfillmentIntoLine(
 export function mapFulfillmentToLine(
   meta: QuoteLineFulfillment,
   availableQty: number = meta.remainingQty,
-  usePickupPrice = false,
 ): EditorLine {
   return {
     key: meta.quoteLineItemId,
@@ -150,12 +147,10 @@ export function mapFulfillmentToLine(
     quantity: meta.eligible && availableQty > 0 ? String(availableQty) : "0",
     unit: meta.unit,
     weightEach: meta.weightEach != null ? String(meta.weightEach) : "",
-    // Pickup tickets bill the price list's pickup price when one exists;
-    // the override lands in DeliveryTicketLineItem.unitPrice at save.
-    unitPrice:
-      usePickupPrice && meta.pickupUnitPrice != null
-        ? String(meta.pickupUnitPrice)
-        : undefined,
+    // No price on the line: invoicing bills it by the quote and by how the
+    // load leaves (meta.loadUnitPrice). A price typed on a pickup ticket
+    // lands in DeliveryTicketLineItem.unitPrice at save and wins.
+    unitPrice: undefined,
     yardLocation: "",
   };
 }

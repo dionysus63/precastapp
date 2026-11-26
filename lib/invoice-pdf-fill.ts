@@ -19,15 +19,23 @@ import {
   buildInvoiceFormData,
   formatCustomerAddress,
   invoiceNeedsPrice,
+  invoicePrintsDiscounts,
   mapInvoiceLineItemsForPdf,
   type DbInvoiceForPdf,
   type InvoiceContentPage,
 } from "@/lib/invoice-pdf-data";
 import {
+  INVOICE_TABLE_COLUMN_STYLE,
   drawInvoiceLineItemsOnPage,
+  drawInvoiceTableColumns,
   paginateInvoiceLineItems,
   type InvoiceLineItemPageSlice,
 } from "@/lib/invoice-pdf-line-items";
+import {
+  DISCOUNT_TABLE_COLUMNS,
+  STANDARD_TABLE_COLUMNS,
+  type QuoteTableColumns,
+} from "@/lib/quote-pdf-layout";
 
 export function getInvoiceTemplatePath(): string {
   return path.join(process.cwd(), "assets", "templates", "invoice-template.pdf");
@@ -184,6 +192,7 @@ async function buildInvoicePageBytes(
   formData: Record<string, string>,
   slice: InvoiceLineItemPageSlice,
   showPriceNeeded: boolean,
+  columns: QuoteTableColumns,
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.load(templateBytes);
   const font = await doc.embedFont(StandardFonts.Helvetica);
@@ -192,7 +201,15 @@ async function buildInvoicePageBytes(
   const page = doc.getPage(0);
   const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
 
-  drawInvoiceLineItemsOnPage(page, font, boldFont, slice);
+  // The templates print the table frame; its columns depend on the invoice.
+  drawInvoiceTableColumns(
+    page,
+    boldFont,
+    columns,
+    slice.isLastPage,
+    INVOICE_TABLE_COLUMN_STYLE,
+  );
+  drawInvoiceLineItemsOnPage(page, font, boldFont, slice, columns);
 
   if (showPriceNeeded) {
     drawPriceNeededWatermark(page, boldFont);
@@ -232,7 +249,10 @@ export async function generateInvoicePdfBytes(
 
   const measureDoc = await PDFDocument.load(templateBytes);
   const measureFont = await measureDoc.embedFont(StandardFonts.Helvetica);
-  const slices = paginateInvoiceLineItems(lineItems, measureFont);
+  const columns = invoicePrintsDiscounts(invoice)
+    ? DISCOUNT_TABLE_COLUMNS
+    : STANDARD_TABLE_COLUMNS;
+  const slices = paginateInvoiceLineItems(lineItems, measureFont, columns);
   const showPriceNeeded = invoiceNeedsPrice(invoice);
 
   const merged = await PDFDocument.create();
@@ -261,6 +281,7 @@ export async function generateInvoicePdfBytes(
       formData,
       slice,
       showPriceNeeded,
+      columns,
     );
     const pageDoc = await PDFDocument.load(pageBytes);
     const [copied] = await merged.copyPages(pageDoc, [0]);

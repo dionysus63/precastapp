@@ -64,7 +64,7 @@ function fulfillmentLine(
     isSplitStructure: false,
     structurePieceOptions: [],
     quotedUnitPrice: 0,
-    pickupUnitPrice: null,
+    loadUnitPrice: { DELIVERED: 0, PICKUP: 0 },
     isDeliveryService: false,
     ...overrides,
   };

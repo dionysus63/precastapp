@@ -463,7 +463,6 @@ export function DeliveryTicketEditor({
     setSelectedLineIds,
     linesByKey,
     getAvailableQty,
-    isPickup,
     markDirty,
   });
 
@@ -715,24 +714,6 @@ export function DeliveryTicketEditor({
         line.key === key ? { ...line, [field]: value } : line,
       ),
     );
-  }
-
-  /** Fill every quote-sourced line's override from the price list's pickup
-   * price. Composite lines (ring SKUs, casting pieces) stay manual. */
-  function applyPickupListPrices() {
-    setLines((current) =>
-      current.map((line) => {
-        if (!line.quoteLineItemId || isCompositeEditorKey(line.key)) {
-          return line;
-        }
-        const meta = fulfillmentById.get(line.quoteLineItemId);
-        if (!meta || meta.pickupUnitPrice == null) {
-          return line;
-        }
-        return { ...line, unitPrice: String(meta.pickupUnitPrice) };
-      }),
-    );
-    markDirty();
   }
 
   function removeLine(key: string) {
@@ -1118,7 +1099,6 @@ export function DeliveryTicketEditor({
               lines={lines}
               selectedLineIds={selectedLineIds}
               fulfillmentById={fulfillmentById}
-              onApplyPickupListPrices={applyPickupListPrices}
               updateLine={updateWalkInLine}
               markDirty={markDirty}
             />

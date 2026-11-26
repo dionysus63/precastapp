@@ -315,7 +315,9 @@ export async function updateInvoice(input: UpdateInvoiceInput) {
           where: { id: input.invoiceId },
           select: {
             status: true,
-            lineItems: { select: { id: true, needsPrice: true } },
+            lineItems: {
+              select: { id: true, needsPrice: true, unitPrice: true },
+            },
           },
         });
         if (!invoice || !isUnpaidInvoiceStatus(invoice.status)) {
@@ -326,6 +328,12 @@ export async function updateInvoice(input: UpdateInvoiceInput) {
           invoice.lineItems
             .filter((line) => line.needsPrice)
             .map((line) => line.id),
+        );
+
+        // A price typed over in the editor is the price: the list price and
+        // discount it was worked out from no longer describe it.
+        const storedPriceByLineId = new Map(
+          invoice.lineItems.map((line) => [line.id, line.unitPrice]),
         );
 
         if (input.deletedLineIds.length > 0) {
@@ -340,6 +348,12 @@ export async function updateInvoice(input: UpdateInvoiceInput) {
         for (let index = 0; index < input.lines.length; index += 1) {
           const line = input.lines[index]!;
           const total = computed.lineTotals[index]!;
+          const unitPrice = new Prisma.Decimal(line.unitPrice);
+          const storedPrice = line.id
+            ? storedPriceByLineId.get(line.id)
+            : undefined;
+          const priceTypedOver =
+            storedPrice != null && !storedPrice.equals(unitPrice);
           const data = {
             lineNumber: line.lineNumber,
             lineType: line.lineType,
@@ -347,7 +361,8 @@ export async function updateInvoice(input: UpdateInvoiceInput) {
             description: line.description.trim() || null,
             quantity: new Prisma.Decimal(line.quantity),
             unit: line.unit.trim() || "EA",
-            unitPrice: new Prisma.Decimal(line.unitPrice),
+            unitPrice,
+            ...(priceTypedOver ? { listPrice: null, discountPercent: null } : {}),
             // Still waiting for a price only while it stays at $0 and nobody
             // said "no charge" (an explicit false). Any price clears it.
             needsPrice:

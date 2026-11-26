@@ -157,7 +157,15 @@ export function InvoiceDetailContent({
                     <th className={tableHeaderCellClassName}>Description</th>
                     <th className={tableHeaderCellClassName}>Qty</th>
                     <th className={tableHeaderCellClassName}>Unit</th>
-                    <th className={tableHeaderCellClassName}>Unit Price</th>
+                    {invoice.hasDiscountedLine ? (
+                      <>
+                        <th className={tableHeaderCellClassName}>List Price</th>
+                        <th className={tableHeaderCellClassName}>Disc %</th>
+                      </>
+                    ) : null}
+                    <th className={tableHeaderCellClassName}>
+                      {invoice.hasDiscountedLine ? "Net Price" : "Unit Price"}
+                    </th>
                     <th className={tableHeaderCellClassName}>Total</th>
                   </tr>
                 </thead>
@@ -176,6 +184,16 @@ export function InvoiceDetailContent({
                       </td>
                       <td className={`${tableCellClassName} text-slate-600`}>{line.quantity}</td>
                       <td className={`${tableCellClassName} text-slate-600`}>{line.unit}</td>
+                      {invoice.hasDiscountedLine ? (
+                        <>
+                          <td className={`${tableCellClassName} text-slate-600`}>
+                            {line.needsPrice ? "" : line.listPrice}
+                          </td>
+                          <td className={`${tableCellClassName} text-slate-600`}>
+                            {line.needsPrice ? "" : line.discount}
+                          </td>
+                        </>
+                      ) : null}
                       <td className={`${tableCellClassName} text-slate-700`}>
                         {line.needsPrice ? (
                           <span className="rounded bg-amber-100 px-1.5 py-0.5 text-2xs font-semibold text-amber-900">

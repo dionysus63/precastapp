@@ -170,8 +170,7 @@ export async function copyPriceListItems(
   sourcePriceListId: string,
   client: DbClient = prisma,
 ): Promise<number> {
-  // The pickup price travels with the delivered price: without it, pickup
-  // tickets on the new list silently bill the full delivered price.
+  // The retired typed pickup price is copied too, so no old value is lost.
   const sourceItems = await client.priceListItem.findMany({
     where: { priceListId: sourcePriceListId },
     select: { productId: true, unitPrice: true, pickupPrice: true },
@@ -242,34 +241,6 @@ export async function getProductPricesForList(
   });
 
   return new Map(items.map((item) => [item.productId, item.unitPrice]));
-}
-
-/** Delivered + pickup price per product (pickupPrice null = no yard price). */
-export async function getProductPriceEntriesForList(
-  productIds: string[],
-  priceListId: string | null,
-  client: DbClient = prisma,
-): Promise<
-  Map<string, { unitPrice: Prisma.Decimal; pickupPrice: Prisma.Decimal | null }>
-> {
-  if (!priceListId || productIds.length === 0) {
-    return new Map();
-  }
-
-  const items = await client.priceListItem.findMany({
-    where: {
-      priceListId,
-      productId: { in: productIds },
-    },
-    select: { productId: true, unitPrice: true, pickupPrice: true },
-  });
-
-  return new Map(
-    items.map((item) => [
-      item.productId,
-      { unitPrice: item.unitPrice, pickupPrice: item.pickupPrice },
-    ]),
-  );
 }
 
 export async function loadPriceListOptionsForForms() {

@@ -20,25 +20,56 @@ type PickupPricingCardProps = {
   lines: EditorLine[];
   selectedLineIds: Set<string>;
   fulfillmentById: Map<string, QuoteLineFulfillment>;
-  onApplyPickupListPrices: () => void;
   updateLine: (key: string, field: keyof EditorLine, value: string) => void;
   markDirty: () => void;
 };
 
-/** JOB ticket on customer pickup: per-line pickup price overrides vs the
- * quoted price, with the running ticket total and savings note. */
+/**
+ * The per-unit prices of a quote line on this pickup: as quoted, and what a
+ * pickup bills (lib/pricing/load-price.ts). A ring SKU line prices by its
+ * height off the quote's per-foot price; other pieces of a line (casting
+ * parts, structure pieces) are billed with their set or structure.
+ */
+function pickupPricesFor(
+  line: EditorLine,
+  meta: QuoteLineFulfillment | undefined,
+): { quotedEach: number | null; pickupEach: number | null } {
+  if (!meta) {
+    return { quotedEach: null, pickupEach: null };
+  }
+  if (!isCompositeEditorKey(line.key)) {
+    return {
+      quotedEach: meta.quotedUnitPrice,
+      pickupEach: meta.loadUnitPrice.PICKUP,
+    };
+  }
+  const ring = meta.isDrainRing
+    ? meta.drainRingOptions.find((option) => option.productId === line.productId)
+    : undefined;
+  if (!ring) {
+    return { quotedEach: null, pickupEach: null };
+  }
+  const perRing = (perFoot: number) =>
+    Math.round(perFoot * ring.heightFeet * 100) / 100;
+  return {
+    quotedEach: perRing(meta.quotedUnitPrice),
+    pickupEach: perRing(meta.loadUnitPrice.PICKUP),
+  };
+}
+
+/** JOB ticket on customer pickup: what each line bills picked up against the
+ * quoted price, a box to type another price, and the running ticket total. */
 export function PickupPricingCard({
   lines,
   selectedLineIds,
   fulfillmentById,
-  onApplyPickupListPrices,
   updateLine,
   markDirty,
 }: PickupPricingCardProps) {
   return (
     <SectionCard
       title="Pickup pricing"
-      description="Customer pickup — the quote's delivery charges stay off this ticket. Lines bill at the pickup price entered here; leave a price blank to bill as quoted."
+      description="Customer pickup — the quote's delivery charges stay off this ticket. A line on its group's standard discount bills at the pickup discount; an awarded price stays as quoted. Type a price to bill a line at something else."
     >
       {(() => {
         const pricedLines = lines.filter(
@@ -56,23 +87,20 @@ export function PickupPricingCard({
         }
         const rows = pricedLines.map((line) => {
           const meta = fulfillmentMetaForEditorLine(line, fulfillmentById);
-          const composite = isCompositeEditorKey(line.key);
-          const quotedEach =
-            meta && !composite ? meta.quotedUnitPrice : null;
+          const { quotedEach, pickupEach } = pickupPricesFor(line, meta);
           const qty = Number(line.quantity) || 0;
           const overrideRaw = line.unitPrice?.trim() ?? "";
           const overrideEach =
             overrideRaw && Number.isFinite(Number(overrideRaw))
               ? Number(overrideRaw)
               : null;
-          const effectiveEach = overrideEach ?? quotedEach;
+          const effectiveEach = overrideEach ?? pickupEach;
           return {
             line,
             label: meta?.displayName ?? line.itemCode,
             itemCode: line.itemCode,
             quotedEach,
-            pickupListEach:
-              meta && !composite ? meta.pickupUnitPrice : null,
+            pickupEach,
             qty,
             effectiveEach,
           };
@@ -91,22 +119,8 @@ export function PickupPricingCard({
               : sum,
           0,
         );
-        const hasListPrices = rows.some(
-          (row) => row.pickupListEach != null,
-        );
         return (
           <>
-            {hasListPrices ? (
-              <div className="mb-3">
-                <button
-                  type="button"
-                  onClick={onApplyPickupListPrices}
-                  className="rounded-lg btn-plain px-3 py-1.5 text-xs font-semibold"
-                >
-                  Apply price-list pickup prices
-                </button>
-              </div>
-            ) : null}
             <div className="overflow-x-auto">
               <table className={tableClassName}>
                 <thead>
@@ -159,8 +173,8 @@ export function PickupPricingCard({
                           step="0.01"
                           value={row.line.unitPrice ?? ""}
                           placeholder={
-                            row.quotedEach != null
-                              ? row.quotedEach.toFixed(2)
+                            row.pickupEach != null
+                              ? row.pickupEach.toFixed(2)
                               : "as quoted"
                           }
                           onChange={(event) => {
@@ -190,8 +204,7 @@ export function PickupPricingCard({
                     >
                       {savings > 0.004 ? (
                         <span className="mr-3 font-normal text-emerald-700">
-                          {formatUsd(savings)} below quoted — invoice will
-                          note the pickup adjustment
+                          {formatUsd(savings)} below quoted
                         </span>
                       ) : null}
                       Ticket total

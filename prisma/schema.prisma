@@ -2076,7 +2076,13 @@ model InvoiceLineItem {
   description              String?
   quantity                 Decimal         @default(1) @db.Decimal(12, 4)
   unit                     String          @default("EA")
+  /// The price billed: list price less the discount.
   unitPrice                Decimal         @default(0) @db.Decimal(12, 2)
+  /// Price before the discount. Null = no discount on the line, and
+  /// unitPrice is the list price.
+  listPrice                Decimal?        @db.Decimal(12, 2)
+  /// Percent off listPrice. Null = none.
+  discountPercent          Decimal?        @db.Decimal(5, 2)
   /// The app had no price for this line when the invoice was made (nothing on
   /// the ticket line, the quote or the price list, or only a $0 one). It bills
   /// $0 and the invoice prints PRICE NEEDED until someone types a price.
@@ -2132,7 +2138,9 @@ model PriceListItem {
   priceListId String
   productId   String
   unitPrice   Decimal  @db.Decimal(12, 2)
-  /// Customer-pickup (FOB yard) price. Null = no pickup discount; bill unitPrice.
+  /// Retired: a pickup price typed per product. Pickup prices now come from
+  /// unitPrice and the pickup discount of the product's group (DiscountRule).
+  /// Nothing reads this column; the old values are kept.
   pickupPrice Decimal? @db.Decimal(12, 2)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

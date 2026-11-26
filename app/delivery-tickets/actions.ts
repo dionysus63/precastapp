@@ -34,7 +34,7 @@ import { generateSubmittalPackageForDeliveryTicket } from "@/lib/submittal-packa
 import { ensureInvoiceAfterDelivery } from "@/lib/invoicing-service";
 import {
   getDefaultPriceListId,
-  getProductPriceEntriesForList,
+  getProductPricesForList,
 } from "@/lib/price-list-service";
 import {
   enrichProductWithDerivedAssemblyValues,
@@ -42,6 +42,9 @@ import {
   loadDerivedAssemblyValues,
 } from "@/lib/casting-service";
 import { withDatabaseRetry } from "@/lib/prisma";
+import { discountGroupForProduct } from "@/lib/pricing/discount-groups";
+import { netUnitPrice } from "@/lib/pricing/line-discount";
+import { loadDiscountRateTable } from "@/lib/pricing/pricing-data";
 import { normalizeCustomLine } from "@/lib/delivery-ticket-custom-line";
 
 export type TicketProductOption = {
@@ -50,8 +53,11 @@ export type TicketProductOption = {
   name: string;
   unit: string;
   weight: number | null;
+  /** List price on the ticket's price list; null when it has none. */
   unitPrice: number | null;
-  /** FOB-yard price from the price list; null = same as unitPrice. */
+  /** List price less the group's delivered discount. */
+  deliveredPrice: number | null;
+  /** List price less the group's pickup discount. */
   pickupPrice: number | null;
   /** Group/sub-group memberships with their in-group display order. */
   groupMemberships: { groupId: string; sortOrder: number }[];
@@ -1247,6 +1253,8 @@ export async function listStockProductsForTicket(
         castingRole: true,
         castingSoldAsUnit: true,
         manufacturerCode: true,
+        productType: true,
+        castingSupplier: { select: { origin: true } },
         currentStockQuantity: true,
         trackInventory: true,
         categoryId: true,
@@ -1259,14 +1267,14 @@ export async function listStockProductsForTicket(
   );
 
   const priceMap = resolvedPriceListId
-    ? await getProductPriceEntriesForList(
+    ? await getProductPricesForList(
         products.map((product) => product.id),
         resolvedPriceListId,
       )
-    : new Map<
-        string,
-        { unitPrice: Prisma.Decimal; pickupPrice: Prisma.Decimal | null }
-      >();
+    : new Map<string, Prisma.Decimal>();
+  const discountRates = await withDatabaseRetry((client) =>
+    loadDiscountRateTable(client),
+  );
 
   const partsAssemblyIds = products
     .filter((product) => isPartsModeCastingAssembly(product))
@@ -1278,12 +1286,22 @@ export async function listStockProductsForTicket(
     : new Map();
 
   return products.map((product) => {
-    const priceEntry = priceMap.get(product.id);
     const enriched = enrichProductWithDerivedAssemblyValues(
       product,
-      priceEntry?.unitPrice,
+      priceMap.get(product.id),
       derivedMap.get(product.id),
     );
+    // One list price per product; what a load pays is that price less the
+    // standard discount of the product's group for the way it leaves.
+    const listPrice =
+      enriched.unitPrice != null ? Number(enriched.unitPrice.toString()) : null;
+    const rates =
+      discountRates[
+        discountGroupForProduct({
+          productType: product.productType,
+          castingOrigin: product.castingSupplier?.origin ?? null,
+        })
+      ];
     return {
       id: product.id,
       productCode: product.productCode,
@@ -1291,14 +1309,13 @@ export async function listStockProductsForTicket(
       unit: product.unit,
       weight:
         enriched.weight != null ? Number(enriched.weight.toString()) : null,
-      unitPrice:
-        enriched.unitPrice != null
-          ? Number(enriched.unitPrice.toString())
+      unitPrice: listPrice,
+      deliveredPrice:
+        listPrice != null
+          ? netUnitPrice(listPrice, rates.deliveredPercent)
           : null,
       pickupPrice:
-        priceEntry?.pickupPrice != null
-          ? Number(priceEntry.pickupPrice.toString())
-          : null,
+        listPrice != null ? netUnitPrice(listPrice, rates.pickupPercent) : null,
       groupMemberships: product.groupMemberships.map((member) => ({
         groupId: member.groupId,
         sortOrder: member.sortOrder,
