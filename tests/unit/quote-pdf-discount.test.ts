@@ -164,13 +164,14 @@ describe("quote lines for print", () => {
 });
 
 describe("quote totals box", () => {
-  it("fills Subtotal, Sales Tax and TOTAL and no Freight / Delivery row", () => {
+  it("fills Subtotal, Tax Rate, Sales Tax and TOTAL and no Freight / Delivery row", () => {
     const data = buildQuoteFormData(
       pdfQuote([pdfLine(1)]),
       { number: 1, count: 1 },
       true,
     );
     expect(data.TOT_Subtotal).toBe("$3,800.00");
+    expect(data.TOT_TaxRate).toBe("8.625%");
     expect(data.TOT_Sales).toBe("$327.75");
     expect(data.TOT_TOTAL).toBe("$4,127.75");
     expect(data).not.toHaveProperty("TOT_Freight");
@@ -179,7 +180,13 @@ describe("quote totals box", () => {
   it("has no Freight field left on the template", async () => {
     const fields = await listQuoteFormFields();
     expect(fields.main).toEqual(
-      expect.arrayContaining(["TOT_Subtotal", "TOT_Sales", "TOT_TOTAL", "Notes"]),
+      expect.arrayContaining([
+        "TOT_Subtotal",
+        "TOT_TaxRate",
+        "TOT_Sales",
+        "TOT_TOTAL",
+        "Notes",
+      ]),
     );
     expect(fields.main).not.toContain("TOT_Freight");
   });

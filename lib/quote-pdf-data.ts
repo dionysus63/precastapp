@@ -234,6 +234,8 @@ export function buildQuoteFormData(
     // No Freight / Delivery row: a delivery line, when a quote has one, is
     // already a row of the table and part of the Subtotal.
     data.TOT_Subtotal = formatMoneyForPdf(subtotalAfterDiscount);
+    // Printed as on the invoice: "8.625%".
+    data.TOT_TaxRate = `${parseAmount(quote.taxRate).toFixed(3)}%`;
     data.TOT_Sales = formatMoneyForPdf(quote.salesTax);
     data.TOT_TOTAL = formatMoneyForPdf(quote.total);
   }

@@ -13,9 +13,10 @@
  *    lines and column names are drawn with the line items
  *    (drawQuoteTableColumns in lib/quote-pdf-line-items.ts), because a quote
  *    that shows discounts has more columns than one that does not.
- *  - The totals box has three rows (Subtotal, Sales Tax, TOTAL). The
- *    "Freight / Delivery" row and its TOT_Freight field are gone: no delivery
- *    fee is charged.
+ *  - The second row of the totals box is "Tax Rate" where it was
+ *    "Freight / Delivery" (no delivery fee is charged), so the box reads
+ *    Subtotal, Tax Rate, Sales Tax, TOTAL like the invoice. The row's field
+ *    TOT_Freight is renamed TOT_TaxRate.
  *
  * The table frame must match lib/quote-pdf-layout.ts. Field names must match
  * buildQuoteFormData in lib/quote-pdf-data.ts.
@@ -28,6 +29,8 @@ import {
   PDFDocument,
   PDFName,
   PDFRef,
+  StandardFonts,
+  type PDFFont,
   type PDFForm,
 } from "pdf-lib";
 import { PDF_SAVE_OPTIONS } from "../lib/pdf-save-options";
@@ -50,9 +53,19 @@ const LOGO_IMAGE = "Im0";
 /** Bottom boxes of the totals page: Notes on the left, totals on the right. */
 const BOTTOM_BOX = { top: 132.2, bottom: 60.2 };
 const TOTALS_BOX = { left: 408, right: 564, dividerX: 495 };
-const TOTALS_ROW_HEIGHT = (BOTTOM_BOX.top - BOTTOM_BOX.bottom) / 3;
+/** Rows of the totals box, top to bottom, with the field each one fills. */
+const TOTALS_ROWS = [
+  { label: "Subtotal", field: "TOT_Subtotal" },
+  { label: "Tax Rate", field: "TOT_TaxRate" },
+  { label: "Sales Tax", field: "TOT_Sales" },
+  { label: "TOTAL", field: "TOT_TOTAL" },
+] as const;
+const TOTALS_ROW_HEIGHT =
+  (BOTTOM_BOX.top - BOTTOM_BOX.bottom) / TOTALS_ROWS.length;
 /** Value fields: centered in their row with 3pt of the cell showing around. */
 const TOTALS_FIELD = { left: 497, right: 561, height: TOTALS_ROW_HEIGHT - 6 };
+/** Row labels end here, 5pt left of the divider. */
+const TOTALS_LABEL_RIGHT_X = 490;
 
 /** A number the way a PDF drawing writes it: no float noise, no exponent. */
 function n(value: number): string {
@@ -104,26 +117,43 @@ function totalsRowBottom(index: number): number {
   return BOTTOM_BOX.top - (index + 1) * TOTALS_ROW_HEIGHT;
 }
 
+/**
+ * Width of text as the page drawing shows it: letter by letter, with none of
+ * the pair kerning pdf-lib adds when it measures a whole string.
+ */
+function plainTextWidth(font: PDFFont, text: string, size: number): number {
+  return [...text].reduce(
+    (width, letter) => width + font.widthOfTextAtSize(letter, size),
+    0,
+  );
+}
+
 /** Notes box, totals box, the signature line and its fine print. */
-function drawTotalsPageBottom(): string {
+function drawTotalsPageBottom(boldFont: PDFFont): string {
   const boxHeight = BOTTOM_BOX.top - BOTTOM_BOX.bottom;
   const totalsWidth = TOTALS_BOX.right - TOTALS_BOX.left;
   const valueWidth = TOTALS_BOX.right - TOTALS_BOX.dividerX;
-  // Labels sit a little under the middle of their row, right-aligned to the
-  // divider (x positions carried over from the original drawing).
-  const labelY = (index: number) => totalsRowBottom(index) + 9.11;
+  const lastRow = TOTALS_ROWS.length - 1;
+  // Labels sit a little under the middle of their row, right-aligned.
+  const label = (index: number, size: number, lift: number) => {
+    const text = TOTALS_ROWS[index].label;
+    const x = TOTALS_LABEL_RIGHT_X - plainTextWidth(boldFont, text, size);
+    return `${n(x)} ${n(totalsRowBottom(index) + lift)} Td\n(${text})Tj\n`;
+  };
   return [
     `48 ${n(BOTTOM_BOX.bottom)} 352 ${n(boxHeight)} re\nS\n`,
     `BT\n0 0 0 rg\n/${BOLD_FONT} 8.5 Tf\n53 118 Td\n(Notes:)Tj\nET\n`,
     `${n(TOTALS_BOX.left)} ${n(BOTTOM_BOX.bottom)} ${n(totalsWidth)} ${n(boxHeight)} re\nS\n`,
     verticalLine(TOTALS_BOX.dividerX, BOTTOM_BOX.top, boxHeight),
-    `BT\n456 ${n(labelY(0))} Td\n(Subtotal)Tj\nET\n`,
-    horizontalLine(TOTALS_BOX.left, totalsRowBottom(0), totalsWidth),
-    `BT\n450.781 ${n(labelY(1))} Td\n(Sales Tax)Tj\nET\n`,
-    horizontalLine(TOTALS_BOX.left, totalsRowBottom(1), totalsWidth),
+    // Every row but TOTAL: its label, then the rule under it.
+    ...TOTALS_ROWS.slice(0, lastRow).map(
+      (_row, index) =>
+        `BT\n${label(index, 8.5, 6.11)}ET\n` +
+        horizontalLine(TOTALS_BOX.left, totalsRowBottom(index), totalsWidth),
+    ),
     `0.851 0.851 0.851 rg\n${n(TOTALS_BOX.dividerX)} ${n(BOTTOM_BOX.bottom)} ${n(valueWidth)} ${n(TOTALS_ROW_HEIGHT)} re\nf*\n`,
     `${n(TOTALS_BOX.dividerX)} ${n(BOTTOM_BOX.bottom)} ${n(valueWidth)} ${n(TOTALS_ROW_HEIGHT)} re\nS\n`,
-    `BT\n0 0 0 rg\n/${BOLD_FONT} 9 Tf\n460.003 ${n(totalsRowBottom(2) + 8.94)} Td\n(TOTAL)Tj\nET\n`,
+    `BT\n0 0 0 rg\n/${BOLD_FONT} 9 Tf\n${label(lastRow, 9, 5.94)}ET\n`,
     "BT\n48 32.4 Td\n(Accepted By:)Tj\nET\n",
     horizontalLine(114, 32.7, 186),
     "BT\n312 32.4 Td\n(Title:)Tj\nET\n",
@@ -203,22 +233,28 @@ async function writeTemplate(
 }
 
 async function main() {
+  // Only to measure the labels: the templates' own bold font is Helvetica
+  // Bold under another name, and nothing is embedded in them here.
+  const measuring = await PDFDocument.create();
+  const boldFont = await measuring.embedFont(StandardFonts.HelveticaBold);
+
   await writeTemplate("quote-template.pdf", (doc) => {
     requireResources(doc, "quote-template.pdf", [BOLD_FONT, REGULAR_FONT]);
     replacePageDrawing(
       doc,
       drawSharedTop() +
         drawTableFrame(MAIN_TABLE_BOTTOM_Y) +
-        drawTotalsPageBottom(),
+        drawTotalsPageBottom(boldFont),
     );
     const form = doc.getForm();
+    // The original template's second row was Freight / Delivery.
     const freight = form.getFieldMaybe("TOT_Freight");
     if (freight) {
-      form.removeField(freight);
+      freight.acroField.setPartialName("TOT_TaxRate");
     }
-    placeTotalsField(form, "TOT_Subtotal", 0);
-    placeTotalsField(form, "TOT_Sales", 1);
-    placeTotalsField(form, "TOT_TOTAL", 2);
+    TOTALS_ROWS.forEach((row, index) => {
+      placeTotalsField(form, row.field, index);
+    });
   });
 
   await writeTemplate("quote-template-continuation.pdf", (doc) => {
