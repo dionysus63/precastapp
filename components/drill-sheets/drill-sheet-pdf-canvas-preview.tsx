@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import type { PDFDocumentProxy } from "pdfjs-dist";
-
-const PAGE_ASPECT_RATIO = 8.5 / 11;
+import { useCallback } from "react";
+import { PdfPageCanvas } from "@/components/common/pdf-page-canvas";
+import type { PdfZoom } from "@/lib/preview-zoom";
 
 export type DrillSheetPdfPreviewInfo = {
   source: "template" | "generated";
@@ -15,194 +14,47 @@ export type DrillSheetPdfPreviewInfo = {
 type DrillSheetPdfCanvasPreviewProps = {
   drillSheetId: string;
   activeSheet: number;
+  /** How far the paper is zoomed in; 1 is fitted. */
+  zoom?: PdfZoom;
   onSheetCountChange?: (count: number) => void;
   onPreviewInfoChange?: (info: DrillSheetPdfPreviewInfo) => void;
-};
-
-type LoadedPdf = {
-  document: PDFDocumentProxy;
 };
 
 export function DrillSheetPdfCanvasPreview({
   drillSheetId,
   activeSheet,
+  zoom,
   onSheetCountChange,
   onPreviewInfoChange,
 }: DrillSheetPdfCanvasPreviewProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const pdfRef = useRef<LoadedPdf | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isRendering, setIsRendering] = useState(true);
-  const [pdfLoadToken, setPdfLoadToken] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    let loadingTask: { destroy(): Promise<void> } | null = null;
-
-    async function loadPdf() {
-      setIsRendering(true);
-      setError(null);
-      pdfRef.current = null;
-
-      try {
-        const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-        pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-
-        const response = await fetch(
-          `/api/drill-sheets/${drillSheetId}/preview`,
-          { credentials: "same-origin" },
-        );
-        if (!response.ok) {
-          throw new Error(
-            (await response.text()) || "Could not load drill sheet PDF.",
-          );
-        }
-
-        const templateName = response.headers.get("X-Drill-Sheet-Template-Name");
-        onPreviewInfoChange?.({
-          source:
-            response.headers.get("X-Drill-Sheet-Pdf-Source") === "template"
-              ? "template"
-              : "generated",
-          computedVariant:
-            response.headers.get("X-Drill-Sheet-Computed-Variant") ?? "unknown",
-          templateVariant: response.headers.get("X-Drill-Sheet-Template-Variant"),
-          // Percent-encoded by the route (header values must be Latin-1).
-          templateName: templateName ? decodeURIComponent(templateName) : null,
-        });
-
-        const pdfBytes = await response.arrayBuffer();
-        const task = pdfjs.getDocument({ data: pdfBytes });
-        loadingTask = task;
-        const pdf = await task.promise;
-
-        if (cancelled) {
-          return;
-        }
-
-        pdfRef.current = { document: pdf };
-        onSheetCountChange?.(pdf.numPages);
-        setPdfLoadToken((current) => current + 1);
-      } catch (loadError) {
-        if (!cancelled) {
-          onSheetCountChange?.(1);
-          setError(
-            loadError instanceof Error
-              ? loadError.message
-              : "Failed to render PDF preview.",
-          );
-          setIsRendering(false);
-        }
-      }
-    }
-
-    void loadPdf();
-
-    return () => {
-      cancelled = true;
-      // Frees the parsed document and its worker thread.
-      void loadingTask?.destroy();
-      pdfRef.current = null;
-    };
-  }, [drillSheetId, onSheetCountChange, onPreviewInfoChange]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const container = containerRef.current;
-    const loadedPdf = pdfRef.current;
-    if (!canvas || !container || !loadedPdf) {
-      return;
-    }
-
-    let cancelled = false;
-    let renderTask: { cancel(): void } | null = null;
-
-    async function renderPage() {
-      setIsRendering(true);
-      setError(null);
-
-      const pdfDoc = loadedPdf?.document;
-      if (!pdfDoc) {
-        return;
-      }
-
-      try {
-        const sheetIndex = Math.min(Math.max(activeSheet, 1), pdfDoc.numPages);
-        const page = await pdfDoc.getPage(sheetIndex);
-
-        if (cancelled) {
-          return;
-        }
-
-        const baseViewport = page.getViewport({ scale: 1 });
-        const containerWidth = container!.clientWidth || baseViewport.width;
-        const scale = containerWidth / baseViewport.width;
-        const viewport = page.getViewport({ scale });
-
-        canvas!.width = viewport.width;
-        canvas!.height = viewport.height;
-
-        const context = canvas!.getContext("2d", { alpha: false });
-        if (!context) {
-          throw new Error("Could not initialize PDF canvas.");
-        }
-
-        context.fillStyle = "#ffffff";
-        context.fillRect(0, 0, canvas!.width, canvas!.height);
-
-        const render = page.render({
-          canvasContext: context,
-          viewport,
-          canvas: canvas!,
-          background: "#ffffff",
-        });
-        renderTask = render;
-        await render.promise;
-      } catch (renderError) {
-        if (!cancelled) {
-          setError(
-            renderError instanceof Error
-              ? renderError.message
-              : "Failed to render PDF preview.",
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setIsRendering(false);
-        }
-      }
-    }
-
-    void renderPage();
-
-    return () => {
-      cancelled = true;
-      renderTask?.cancel();
-    };
-  }, [activeSheet, pdfLoadToken]);
+  // The route says in its headers which drawing the sheet was printed on.
+  const handleResponse = useCallback(
+    (response: Response) => {
+      const templateName = response.headers.get("X-Drill-Sheet-Template-Name");
+      onPreviewInfoChange?.({
+        source:
+          response.headers.get("X-Drill-Sheet-Pdf-Source") === "template"
+            ? "template"
+            : "generated",
+        computedVariant:
+          response.headers.get("X-Drill-Sheet-Computed-Variant") ?? "unknown",
+        templateVariant: response.headers.get("X-Drill-Sheet-Template-Variant"),
+        // Percent-encoded by the route (header values must be Latin-1).
+        templateName: templateName ? decodeURIComponent(templateName) : null,
+      });
+    },
+    [onPreviewInfoChange],
+  );
 
   return (
-    <div
-      ref={containerRef}
-      className="relative w-full bg-white shadow-lg print:shadow-none"
-      style={{ aspectRatio: `${PAGE_ASPECT_RATIO}` }}
-    >
-      <canvas
-        ref={canvasRef}
-        className={`block w-full bg-white ${isRendering || error ? "hidden" : ""}`}
-      />
-      {isRendering ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-white text-sm text-neutral-500">
-          Rendering preview…
-        </div>
-      ) : null}
-      {error ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-white px-4 text-center text-sm text-red-700">
-          {error}
-        </div>
-      ) : null}
-    </div>
+    <PdfPageCanvas
+      url={getDrillSheetPreviewPrintUrl(drillSheetId)}
+      activeSheet={activeSheet}
+      zoom={zoom}
+      onSheetCountChange={onSheetCountChange}
+      onResponse={handleResponse}
+      loadErrorText="Could not load drill sheet PDF."
+    />
   );
 }
 

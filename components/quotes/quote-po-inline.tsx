@@ -12,9 +12,12 @@ import { reloadAfterAction } from "@/lib/reload-after-action";
 export function QuotePoInline({
   quoteId,
   customerPo,
+  showPrefix = true,
 }: {
   quoteId: string;
   customerPo: string;
+  /** False where a "PO Number:" label already sits beside it. */
+  showPrefix?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
@@ -37,7 +40,9 @@ export function QuotePoInline({
   if (!editing) {
     return (
       <span className="inline-flex items-baseline gap-1">
-        {customerPo ? <span>PO {customerPo}</span> : null}
+        {customerPo ? (
+          <span>{showPrefix ? `PO ${customerPo}` : customerPo}</span>
+        ) : null}
         <button
           type="button"
           onClick={() => {
@@ -54,7 +59,7 @@ export function QuotePoInline({
 
   return (
     <span className="inline-flex items-center gap-1">
-      <span className="text-slate-600">PO</span>
+      {showPrefix ? <span className="text-slate-600">PO</span> : null}
       <input
         type="text"
         autoFocus

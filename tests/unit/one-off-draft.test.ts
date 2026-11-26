@@ -40,6 +40,8 @@ function sampleState(): OneOffDraftState {
     wall: "LEFT",
     special: "WIDEN",
     widenInches: "36",
+    moveDirection: "",
+    moveInches: "",
   };
   return {
     version: 1,
@@ -98,14 +100,18 @@ describe("one-off draft state", () => {
     expect(parsed!.circular.rows).toHaveLength(1);
     const row = parsed!.circular.rows![0];
     expect(row.openings).toHaveLength(ONE_OFF_MAX_OPENINGS);
+    // A stored cell keeps its blank angle; only the wall it can't read falls
+    // back to a new inlet A's (Down).
     expect(row.openings[0]).toEqual({
       invert: "",
       pipeType: "",
       pipeSize: "",
       angle: "",
-      wall: "UP",
+      wall: "DOWN",
       special: "",
       widenInches: "",
+      moveDirection: "",
+      moveInches: "",
     });
     expect(parsed!.rect).toEqual(createEmptySection("RECTANGULAR"));
   });
@@ -130,6 +136,56 @@ describe("one-off draft state", () => {
     expect(parseOneOffDraftState(raw)!.circular.rows![1].openings[1]).toMatchObject({
       special: "",
       widenInches: "",
+    });
+  });
+
+  it("keeps an inlet's Move, and only with the Move special", () => {
+    const state = sampleState();
+    state.circular.rows![1].openings[1] = {
+      ...state.circular.rows![1].openings[1],
+      special: "MOVE",
+      widenInches: "",
+      moveDirection: "UP",
+      moveInches: "6",
+    };
+    const raw = JSON.parse(serializeOneOffDraftState(state));
+    expect(parseOneOffDraftState(raw)!.circular.rows![1].openings[1]).toMatchObject({
+      special: "MOVE",
+      moveDirection: "UP",
+      moveInches: "6",
+    });
+
+    // A direction the app doesn't know is dropped, to be picked again.
+    raw.circular.rows[1].openings[1].moveDirection = "SIDEWAYS";
+    expect(parseOneOffDraftState(raw)!.circular.rows![1].openings[1]).toMatchObject({
+      special: "MOVE",
+      moveDirection: "",
+      moveInches: "6",
+    });
+    // Move inputs never ride along under another special.
+    raw.circular.rows[1].openings[1].moveDirection = "UP";
+    raw.circular.rows[1].openings[1].special = "WIDEN";
+    expect(parseOneOffDraftState(raw)!.circular.rows![1].openings[1]).toMatchObject({
+      special: "WIDEN",
+      moveDirection: "",
+      moveInches: "",
+    });
+    // Widen + Move keeps both sets of inputs.
+    raw.circular.rows[1].openings[1].special = "WIDEN_MOVE";
+    raw.circular.rows[1].openings[1].widenInches = "30";
+    expect(parseOneOffDraftState(raw)!.circular.rows![1].openings[1]).toMatchObject({
+      special: "WIDEN_MOVE",
+      widenInches: "30",
+      moveDirection: "UP",
+      moveInches: "6",
+    });
+    // Drafts saved before Move existed simply have none.
+    delete raw.circular.rows[1].openings[1].moveDirection;
+    delete raw.circular.rows[1].openings[1].moveInches;
+    raw.circular.rows[1].openings[1].special = "";
+    expect(parseOneOffDraftState(raw)!.circular.rows![1].openings[1]).toMatchObject({
+      moveDirection: "",
+      moveInches: "",
     });
   });
 

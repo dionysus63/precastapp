@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { useFormStatus } from "react-dom";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
 /**
@@ -206,11 +207,20 @@ export function CatalogRemoveSizeButton({
   );
 }
 
+/**
+ * Error line and Cancel / Save Catalog buttons; goes inside the catalog's
+ * form. The button reads "Saving…" while the save runs; the "saved" message
+ * itself is a toast on the page the form reloads.
+ */
 export function CatalogSaveBar({ saveError }: { saveError: string | null }) {
+  const { pending } = useFormStatus();
   return (
     <>
       {saveError ? (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+        <p
+          role="alert"
+          className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700"
+        >
           {saveError}
         </p>
       ) : null}
@@ -224,9 +234,10 @@ export function CatalogSaveBar({ saveError }: { saveError: string | null }) {
         </Link>
         <button
           type="submit"
-          className="rounded-lg btn-main px-4 py-2 text-xs font-semibold"
+          disabled={pending}
+          className="rounded-lg btn-main px-4 py-2 text-xs font-semibold disabled:opacity-60"
         >
-          Save Catalog
+          {pending ? "Saving…" : "Save Catalog"}
         </button>
       </div>
     </>

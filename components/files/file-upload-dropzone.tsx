@@ -11,6 +11,8 @@ type FileUploadDropzoneProps = {
   label: string;
   description?: string;
   inputId?: string;
+  /** A shorter drop area, for a form where the upload is a side matter. */
+  compact?: boolean;
 };
 
 function mergeFiles(existing: File[], incoming: FileList | File[], multiple: boolean) {
@@ -43,6 +45,7 @@ export function FileUploadDropzone({
   label,
   description,
   inputId = "file-upload-input",
+  compact = false,
 }: FileUploadDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -110,7 +113,9 @@ export function FileUploadDropzone({
             handleFiles(event.dataTransfer.files);
           }
         }}
-        className={`flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors ${
+        className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 text-center transition-colors ${
+          compact ? "min-h-20 py-4" : "min-h-32 py-8"
+        } ${
           disabled
             ? "cursor-not-allowed border-slate-200 bg-slate-50 opacity-60"
             : isDragging

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useState, useTransition } from "react";
 import { generateQuotePdf } from "@/app/quotes/pdf-actions";
+import { PaperZoomBar, paperColumnStyle } from "@/components/common/pdf-page-canvas";
+import { usePreviewZoom } from "@/components/common/pdf-zoom-buttons";
 import {
   getQuotePreviewPrintUrl,
   QuotePdfCanvasPreview,
@@ -31,6 +33,7 @@ export function QuotePreviewContent({
   projectName,
 }: QuotePreviewContentProps) {
   const [previewSheet, setPreviewSheet] = useState(1);
+  const zoom = usePreviewZoom("quote-preview");
   const [sheetCount, setSheetCount] = useState(1);
   const [isPending, startTransition] = useTransition();
   const [pdfResult, setPdfResult] = useState<
@@ -121,7 +124,12 @@ export function QuotePreviewContent({
         ) : null}
       </div>
 
-      <main className="mx-auto w-full max-w-[8.5in] px-4 py-6 print:max-w-none print:p-0">
+      <main
+        className="mx-auto w-full max-w-[8.5in] px-4 py-6 print:max-w-none print:p-0"
+        // Zoomed in, the paper's column grows with it.
+        style={paperColumnStyle(zoom.zoom)}
+      >
+        <PaperZoomBar zoom={zoom} />
         {sheetCount > 1 ? (
           <div className="mb-3 flex flex-wrap items-center justify-center gap-2 print:hidden">
             {Array.from({ length: sheetCount }, (_, index) => {
@@ -148,6 +156,7 @@ export function QuotePreviewContent({
         <QuotePdfCanvasPreview
           quoteId={quoteId}
           activeSheet={previewSheet}
+          zoom={zoom.zoom}
           onSheetCountChange={handleSheetCountChange}
         />
 

@@ -11,8 +11,6 @@ import type {
 } from "@/app/generated/prisma/client";
 import {
   jobStatusLabels,
-  type JobActivityItem,
-  type JobAttentionItem,
   type JobBidderContactOption,
   type JobBidderRow,
   type JobBiddingSummary,
@@ -21,7 +19,6 @@ import {
   type JobDetailView,
   type JobInvoiceableDelivery,
   type JobMasterQuoteOption,
-  type JobOverviewData,
   type JobRelatedDelivery,
   type JobRelatedInvoice,
   type JobRelatedQuote,
@@ -29,9 +26,7 @@ import {
   type JobStatusVariant,
 } from "@/components/jobs/job-utils";
 import { quoteStatusLabels, type QuoteStatus } from "@/components/quotes/quote-utils";
-import { OPEN_STATUSES } from "@/lib/quotes/list-summary";
 import { formatDateShort, formatUsd, formatWeightLb } from "@/lib/format";
-import { addLocalDays } from "@/lib/date-only";
 import { formatPostalAddressLines } from "@/lib/delivery-site";
 import {
   invoiceStatusLabel,
@@ -42,9 +37,6 @@ import {
   deliveryTicketStatusLabels,
   type DeliveryTicketStatus,
 } from "@/components/delivery-tickets/delivery-ticket-utils";
-import {
-  structureStatusOptions,
-} from "@/components/structures/structure-utils";
 import { mapStructureForJobList } from "@/lib/job-structure-detail-mapper";
 
 type DeliveryTicketLineItemSummary = Pick<
@@ -68,15 +60,12 @@ export type JobWithSummaryRelations = Job & {
     jobStructures: number;
     invoices: number;
   };
-  quotes: Pick<Quote, "id" | "status" | "total" | "customerPO" | "updatedAt">[];
+  quotes: Pick<Quote, "id" | "status" | "customerPO" | "updatedAt">[];
   bidders: {
     isWinner: boolean;
     customer: { name: string };
     quotes: Pick<Quote, "sentAt">[];
   }[];
-  deliveryTickets: Pick<DeliveryTicket, "status">[];
-  jobStructures: Pick<JobStructure, "status">[];
-  invoices: Pick<Invoice, "total">[];
   /** The user who created the job; absent on jobs with no recorded creator. */
   createdBy?: { displayName: string } | null;
 };
@@ -126,32 +115,12 @@ function formatProjectAddress(job: Job): string {
   return parts.join(", ") || "—";
 }
 
-const PRE_AWARD_STATUSES = new Set<string>(["QUOTING", "DETAILING"]);
-
-function buildDeliverySiteView(
-  job: Job & { _count: { deliveryTickets: number } },
-  isAwarded: boolean,
-): JobDeliverySiteView {
+function buildDeliverySiteView(job: Job): JobDeliverySiteView {
   const deliveryAddress = job.deliveryAddress ?? "";
   const siteContactName = job.siteContactName ?? "";
   const siteContactPhone = job.siteContactPhone ?? "";
   const siteContactEmail = job.siteContactEmail ?? "";
-  const hasValues = Boolean(
-    deliveryAddress.trim() ||
-      siteContactName.trim() ||
-      siteContactPhone.trim() ||
-      siteContactEmail.trim(),
-  );
-  // Quoting/detailing jobs keep their pre-award page; the card appears once
-  // the job is ours (award, a later status, or loads already planned).
-  const visible =
-    isAwarded ||
-    !PRE_AWARD_STATUSES.has(job.status) ||
-    job._count.deliveryTickets > 0 ||
-    hasValues;
-
   return {
-    visible,
     deliveryAddress,
     siteContactName,
     siteContactPhone,
@@ -437,21 +406,6 @@ export function mapJobToDetailView(job: JobWithSummaryRelations): JobDetailView 
     })),
   );
 
-  const totalQuoted = job.quotes.reduce(
-    (sum, quote) => sum + Number.parseFloat(quote.total.toString() || "0"),
-    0,
-  );
-  const wonQuoted = job.quotes
-    .filter((quote) => quote.status === "WON")
-    .reduce(
-      (sum, quote) => sum + Number.parseFloat(quote.total.toString() || "0"),
-      0,
-    );
-  const invoicedTotal = job.invoices.reduce(
-    (sum, invoice) => sum + Number.parseFloat(invoice.total.toString() || "0"),
-    0,
-  );
-
   // The customer's PO lives on a quote (one source of truth — it flows to
   // ticket and invoice PDFs from there). The header chip edits the won
   // quote's PO, falling back to the latest quote before award.
@@ -463,49 +417,6 @@ export function mapJobToDetailView(job: JobWithSummaryRelations): JobDetailView 
       (left, right) => right.updatedAt.getTime() - left.updatedAt.getTime(),
     )[0] ??
     null;
-
-  const structureStatusBreakdown = structureStatusOptions
-    .map((option) => ({
-      label: option.label,
-      count: job.jobStructures.filter(
-        (structure) => structure.status === option.value,
-      ).length,
-    }))
-    .filter((entry) => entry.count > 0);
-
-  const shippedStructures = job.jobStructures.filter(
-    (structure) => structure.status === "SHIPPED",
-  ).length;
-
-  const stats: JobDetailView["stats"] = [
-    {
-      label: "Quotes",
-      value: String(job._count.quotes),
-      detail: `${formatUsd(totalQuoted)} quoted`,
-    },
-    {
-      label: "Won Value",
-      value: formatUsd(wonQuoted),
-      detail: `${job.quotes.filter((q) => q.status === "WON").length} won`,
-    },
-    {
-      label: "Structures",
-      value: String(job._count.jobStructures),
-      detail: `${shippedStructures} shipped`,
-    },
-    {
-      label: "Deliveries",
-      value: String(job._count.deliveryTickets),
-      detail: `${
-        job.deliveryTickets.filter((t) => t.status === "DELIVERED").length
-      } delivered`,
-    },
-    {
-      label: "Invoices",
-      value: String(job._count.invoices),
-      detail: `${formatUsd(invoicedTotal)} invoiced`,
-    },
-  ];
 
   return {
     id: job.id,
@@ -526,14 +437,13 @@ export function mapJobToDetailView(job: JobWithSummaryRelations): JobDetailView 
     folderPath: job.folderPath,
     poQuoteId: poQuote?.id ?? null,
     customerPO: poQuote?.customerPO ?? "",
+    nysdotContractNumber: job.nysdotContractNumber ?? "",
     notes: job.notes ?? "—",
     createdAt: formatDate(job.createdAt),
     createdByName: job.createdBy?.displayName ?? "—",
     updatedAt: formatDate(job.updatedAt),
-    stats,
-    structureStatusBreakdown,
     biddingSummary,
-    deliverySite: buildDeliverySiteView(job, biddingSummary.isAwarded),
+    deliverySite: buildDeliverySiteView(job),
     counts: {
       quotes: job._count.quotes,
       bidders: job._count.bidders,
@@ -541,184 +451,5 @@ export function mapJobToDetailView(job: JobWithSummaryRelations): JobDetailView 
       structures: job._count.jobStructures,
       invoices: job._count.invoices,
     },
-  };
-}
-
-const structureActivityStatusLabels: Record<string, string> =
-  Object.fromEntries(
-    structureStatusOptions.map((option) => [option.value, option.label]),
-  );
-
-function structureActivityVariant(status: string): JobStatusVariant {
-  switch (status) {
-    case "MADE":
-    case "SHIPPED":
-      return "success";
-    case "APPROVED":
-    case "IN_PRODUCTION":
-      return "info";
-    case "SUBMITTED":
-      return "warning";
-    default:
-      return "neutral";
-  }
-}
-
-export type JobOverviewRecords = {
-  quotes: Pick<Quote, "id" | "quoteNumber" | "status" | "bidDueDate" | "updatedAt">[];
-  deliveryTickets: (Pick<
-    DeliveryTicket,
-    "id" | "ticketNumber" | "status" | "updatedAt"
-  > & { invoice: { id: string } | null })[];
-  structures: Pick<
-    JobStructure,
-    "id" | "structureNumber" | "status" | "needsSubmittal" | "updatedAt"
-  >[];
-  invoices: Pick<Invoice, "id" | "invoiceNumber" | "status" | "updatedAt">[];
-};
-
-const IN_FLIGHT_TICKET_STATUSES = new Set(["SCHEDULED", "LOADING", "IN_TRANSIT"]);
-
-/** Attention items + activity feed for the job overview tab. */
-export function buildJobOverview(
-  jobId: string,
-  folderPath: string | null,
-  records: JobOverviewRecords,
-): JobOverviewData {
-  const { quotes, deliveryTickets, structures, invoices } = records;
-
-  const attentionItems: JobAttentionItem[] = [];
-  const plural = (count: number, noun: string) =>
-    `${count} ${noun}${count === 1 ? "" : "s"}`;
-
-  const needSubmittal = structures.filter(
-    (structure) =>
-      structure.needsSubmittal && structure.status === "NOT_SUBMITTED",
-  ).length;
-  if (needSubmittal > 0) {
-    attentionItems.push({
-      key: "submittals",
-      label: `${plural(needSubmittal, "structure")} need${needSubmittal === 1 ? "s" : ""} a submittal`,
-      tab: "production",
-      tone: "warning",
-    });
-  }
-
-  const weekEnd = addLocalDays(new Date(), 7);
-  const bidsDueSoon = quotes.filter(
-    (quote) =>
-      OPEN_STATUSES.includes(quote.status as QuoteStatus) &&
-      quote.bidDueDate != null &&
-      quote.bidDueDate <= weekEnd,
-  ).length;
-  if (bidsDueSoon > 0) {
-    attentionItems.push({
-      key: "bids-due",
-      label: `${plural(bidsDueSoon, "open quote")} with a bid due soon or overdue`,
-      tab: "quotes",
-      tone: "danger",
-    });
-  }
-
-  const awaitingCustomer = quotes.filter((q) => q.status === "SENT").length;
-  if (awaitingCustomer > 0) {
-    attentionItems.push({
-      key: "awaiting-customer",
-      label: `${plural(awaitingCustomer, "quote")} awaiting customer response`,
-      tab: "quotes",
-      tone: "info",
-    });
-  }
-
-  const uninvoiced = deliveryTickets.filter(
-    (t) => t.status === "DELIVERED" && !t.invoice,
-  ).length;
-  if (uninvoiced > 0) {
-    attentionItems.push({
-      key: "uninvoiced",
-      label: `${plural(uninvoiced, "delivered load")} not invoiced yet`,
-      tab: "invoices",
-      tone: "danger",
-    });
-  }
-
-  const inFlight = deliveryTickets.filter((t) =>
-    IN_FLIGHT_TICKET_STATUSES.has(t.status),
-  ).length;
-  if (inFlight > 0) {
-    attentionItems.push({
-      key: "deliveries-in-flight",
-      label: `${inFlight} ${inFlight === 1 ? "delivery" : "deliveries"} scheduled or on the road`,
-      tab: "deliveries",
-      tone: "info",
-    });
-  }
-
-  if (!folderPath) {
-    attentionItems.push({
-      key: "no-folder",
-      label: "Job folder hasn't been created yet",
-      tab: "files",
-      tone: "warning",
-    });
-  }
-
-  const activity: (JobActivityItem & { sortDate: Date })[] = [
-    ...quotes.map((quote) => ({
-      key: `quote-${quote.id}`,
-      typeLabel: "Quote",
-      recordNumber: quote.quoteNumber,
-      href: `/quotes/${quote.id}`,
-      statusLabel:
-        quoteStatusLabels[quote.status as QuoteStatus] ?? quote.status,
-      statusVariant: quoteStatusVariant(quote.status),
-      updated: formatDate(quote.updatedAt),
-      sortDate: quote.updatedAt,
-    })),
-    ...deliveryTickets.map((ticket) => ({
-      key: `ticket-${ticket.id}`,
-      typeLabel: "Delivery",
-      recordNumber: ticket.ticketNumber ?? "Planned",
-      href: `/delivery-tickets/${ticket.id}`,
-      statusLabel:
-        deliveryTicketStatusLabels[ticket.status as DeliveryTicketStatus] ??
-        ticket.status,
-      statusVariant: deliveryStatusVariant(ticket.status),
-      updated: formatDate(ticket.updatedAt),
-      sortDate: ticket.updatedAt,
-    })),
-    ...structures.map((structure) => ({
-      key: `structure-${structure.id}`,
-      typeLabel: "Structure",
-      recordNumber: structure.structureNumber ?? "—",
-      href: `/jobs/${jobId}?tab=production`,
-      statusLabel:
-        structureActivityStatusLabels[structure.status] ?? structure.status,
-      statusVariant: structureActivityVariant(structure.status),
-      updated: formatDate(structure.updatedAt),
-      sortDate: structure.updatedAt,
-    })),
-    ...invoices.map((invoice) => ({
-      key: `invoice-${invoice.id}`,
-      typeLabel: "Invoice",
-      recordNumber: invoice.invoiceNumber,
-      href: `/invoices/${invoice.id}`,
-      statusLabel: invoiceStatusLabel(invoice.status),
-      statusVariant: invoiceStatusVariant(invoice.status),
-      updated: formatDate(invoice.updatedAt),
-      sortDate: invoice.updatedAt,
-    })),
-  ];
-
-  const recentActivity = activity
-    .sort((a, b) => b.sortDate.getTime() - a.sortDate.getTime())
-    .slice(0, 6)
-    .map(({ sortDate: _sortDate, ...item }) => item);
-
-  return {
-    attentionItems,
-    recentActivity,
-    structuresTotal: structures.length,
-    structuresShipped: structures.filter((s) => s.status === "SHIPPED").length,
   };
 }

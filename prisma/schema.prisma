@@ -358,6 +358,7 @@ model Customer {
   quotes              Quote[]
   deliveryTickets     DeliveryTicket[]
   invoices            Invoice[]
+  purchaseOrders      PurchaseOrderContractor[]
 
   // btree for the list's default name sort and status filter; trigram
   // index backs the ILIKE %term% name search (person-level search moved
@@ -442,6 +443,9 @@ model Job {
   siteContactName  String?
   siteContactPhone String?
   siteContactEmail String?
+  /// NYSDOT PIN / contract number (e.g. D265123). Entered on the job page;
+  /// drill sheets print it in the Sheet PDF's "pin/project" blank.
+  nysdotContractNumber String?
   folderPath     String?
   notes          String?
   /// The user who created the job (New Job, Quick Build, Import Existing Job).
@@ -461,6 +465,7 @@ model Job {
   favorites       JobFavorite[]
   planSheets      PlanSheet[]
   oneOffDrafts    OneOffDraft[]
+  purchaseOrders  PurchaseOrderJob[]
 
   @@unique([year, sequenceNumber])
   @@index([customerId])
@@ -564,6 +569,23 @@ enum RectWall {
   LEFT
 }
 
+/// Where the steps go on a rectangular structure: three spots per wall,
+/// named by the plan view as printed (lib/rect-steps.ts).
+enum RectStepsPosition {
+  UP_LEFT
+  UP_MIDDLE
+  UP_RIGHT
+  RIGHT_TOP
+  RIGHT_MIDDLE
+  RIGHT_BOTTOM
+  DOWN_LEFT
+  DOWN_MIDDLE
+  DOWN_RIGHT
+  LEFT_TOP
+  LEFT_MIDDLE
+  LEFT_BOTTOM
+}
+
 /// Horizontal placement of a rectangular wall opening along its wall.
 /// FROM_LEFT / FROM_RIGHT dimension the opening centerline from that inside
 /// face; TOUCH_LEFT / TOUCH_RIGHT draw the opening touching that wall end.
@@ -601,6 +623,9 @@ model StructureTemplate {
   rectTopSlabOpeningLengthInches Decimal?             @db.Decimal(6, 2)
   rectTopSlabOpeningWidthInches  Decimal?             @db.Decimal(6, 2)
   rectTopSlabOpeningSide         RectWall?
+  /// Rectangular templates: inside corner to the middle of off-center steps,
+  /// in inches. Structures pick the spot; this sets how far from the corner.
+  rectStepsOffsetInches          Decimal?             @db.Decimal(6, 2)
   /// Rectangular templates: minimum billed height in feet (e.g. 4' minimum
   /// wall pricing even when the structure is only 2' tall). Wall/slab prices
   /// live in RectTemplatePriceListEntry, per price list.
@@ -1106,6 +1131,8 @@ model JobStructureDimension {
   topSlabOpeningWidthInches  Decimal?  @db.Decimal(6, 2)
   /// Wall whose inside edge the top-slab opening touches.
   topSlabOpeningSide         RectWall?
+  /// Rectangular sheets: where the steps go; null = no steps.
+  stepsPosition              RectStepsPosition?
   notes             String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -1215,6 +1242,12 @@ model Quote {
   fob                String?
   leadTime           String?
   deliveryNotes      String?
+  /// Which standard discount the quote's lines take: the delivered one or
+  /// the picked-up one (DiscountRule holds both per group).
+  discountBasis      QuoteDiscountBasis @default(DELIVERED)
+  /// Off = the printed quote shows the price after discount only, with no
+  /// discount column. A quote with no discounted line prints that way anyway.
+  showDiscount       Boolean     @default(true)
   sentAt             DateTime?
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
@@ -1297,7 +1330,18 @@ model QuoteLineItem {
   description    String?
   quantity       Decimal       @default(1) @db.Decimal(12, 4)
   unit           String        @default("EA")
+  /// The price billed: list price less the discount. Tickets and invoices
+  /// read this one.
   unitPrice      Decimal       @default(0) @db.Decimal(12, 2)
+  /// Price before the discount. Null = no discount on the line, and
+  /// unitPrice is the list price.
+  listPrice       Decimal?     @db.Decimal(12, 2)
+  /// Percent off listPrice. Null = none.
+  discountPercent Decimal?     @db.Decimal(5, 2)
+  /// True when the discount was typed on the quote instead of taken from the
+  /// group's standard discount; a typed discount stays when the quote
+  /// switches between delivered and picked up.
+  discountTyped   Boolean      @default(false)
   weight         Decimal?      @db.Decimal(12, 2)
   yards          Decimal?      @db.Decimal(12, 4)
   taxable        Boolean       @default(true)
@@ -1797,6 +1841,15 @@ model Vendor {
   name            String             @unique
   status          VendorStatus       @default(ACTIVE)
   defaultCategory ReceivingCategory?
+  /// Where purchase orders are addressed; printed on the purchase order PDF.
+  address         String?
+  city            String?
+  state           String?
+  zip             String?
+  phone           String?
+  email           String?
+  /// Who orders go to at the vendor ("Attn:" on the purchase order PDF).
+  contactName     String?
   notes           String?
   sortOrder       Int                @default(0)
   createdAt       DateTime           @default(now())
@@ -1808,7 +1861,18 @@ model Vendor {
   @@index([sortOrder])
 }
 
-/// Global sequence counter for purchase order numbers (year=0 row; PO10001+).
+/// Counter for purchase order numbers, one row per vendor prefix: the first
+/// two letters or digits of the vendor name ("HA" gives HA-0001, HA-0002...).
+/// Vendors that share a prefix share the row, so a number is never repeated.
+model PurchaseOrderPrefixSequence {
+  prefix     String   @id
+  lastNumber Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+/// No longer written: the global counter behind the old PO10001 style numbers
+/// (year=0 row). Purchase orders numbered that way keep their numbers.
 model PurchaseOrderSequence {
   id         String   @id @default(cuid())
   year       Int      @unique
@@ -1829,22 +1893,77 @@ model PurchaseOrder {
   expectedDate    DateTime?            @db.Date
   vendorQuotePath String?
   vendorQuoteName String?
+  // "Quote only": the order is placed against the vendor's quote instead of
+  // typed lines. It has no lines; `total` is the quote's total as typed.
+  quoteOnly       Boolean              @default(false)
+  quoteNumber     String?
+  quoteDate       DateTime?            @db.Date
+  // Who at the vendor the order is addressed to: "Attn:" on the purchase
+  // order. A new order starts with the vendor's contact.
+  attention       String?
+  // Whether the purchase is taxable. Printed on the purchase order; no tax
+  // is worked out from it.
+  taxable         Boolean              @default(false)
   subtotal        Decimal              @default(0) @db.Decimal(12, 2)
   total           Decimal              @default(0) @db.Decimal(12, 2)
   notes           String?
+  // Notes for the office only: never printed on the purchase order.
+  internalNotes   String?
+  // The jobs' names as they were when the order was saved (a typed name, or
+  // a job on file's number and project), joined with ", " in the order
+  // picked: what the list sorts and searches by. The jobs themselves are the
+  // PurchaseOrderJob rows.
+  jobNames        String?
+  // The contractors' names as they were when the order was saved, joined
+  // with ", " in the order picked: what the list sorts and searches by.
+  // The links themselves are the PurchaseOrderContractor rows.
+  contractorNames String?
   enteredBy       String?
   submissionKey   String?              @unique
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 
-  vendor   Vendor                 @relation(fields: [vendorId], references: [id], onDelete: Restrict)
-  lines    PurchaseOrderLine[]
-  receipts PurchaseReceiptEntry[]
+  vendor      Vendor                    @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  lines       PurchaseOrderLine[]
+  receipts    PurchaseReceiptEntry[]
+  contractors PurchaseOrderContractor[]
+  jobs        PurchaseOrderJob[]
 
   @@index([vendorId])
   @@index([status])
   @@index([category])
   @@index([orderDate])
+}
+
+/// A contractor (customer) a purchase order is for. One order can name several.
+model PurchaseOrderContractor {
+  purchaseOrderId String
+  customerId      String
+  sortOrder       Int    @default(0)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  customer      Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@id([purchaseOrderId, customerId])
+  @@index([customerId])
+}
+
+/// A job a purchase order is for. One order can name several, each a job on
+/// file (jobId) or a name typed in (jobId null).
+model PurchaseOrderJob {
+  id              String  @id @default(cuid())
+  purchaseOrderId String
+  jobId           String?
+  /// The typed name, or the job on file's number and project as they were
+  /// when the order was saved (what is left if that job is deleted).
+  name            String
+  sortOrder       Int     @default(0)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  job           Job?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@index([purchaseOrderId])
+  @@index([jobId])
 }
 
 /// One line on a purchase order.
@@ -2024,6 +2143,38 @@ model PriceListItem {
   @@unique([priceListId, productId])
   @@index([priceListId])
   @@index([productId])
+}
+
+/// The group a product's standard discount comes from. A product is never
+/// tagged with one: lib/pricing/discount-groups.ts works it out from the
+/// product type and, for castings, the supplier's origin.
+enum QuoteDiscountBasis {
+  DELIVERED
+  PICKUP
+}
+
+enum DiscountGroup {
+  STOCK_PRECAST
+  CASTING_IMPORTED
+  CASTING_DOMESTIC
+  ADS_PIPE
+  RCP_PIPE
+  /// Everything else: accessories, services, configurable products and
+  /// castings with no supplier set.
+  OTHER
+}
+
+/// The standard discount off list price for one group, as a percent
+/// (10 = 10%). One row per group; a missing row means no discount. The same
+/// for every price list: a price increase is a new list, not a new rule.
+model DiscountRule {
+  group            DiscountGroup @id
+  /// Off list price when the company delivers the load.
+  deliveredPercent Decimal       @default(0) @db.Decimal(5, 2)
+  /// Off list price when the customer picks the load up at the yard.
+  pickupPercent    Decimal       @default(0) @db.Decimal(5, 2)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 }
 
 /// Delivery pricing zone: either a radius ring measured from the yard, or a
@@ -2208,6 +2359,7 @@ model User {
   sessions      Session[]
   auditLogs     AuditLog[]
   jobFavorites  JobFavorite[]
+  previewZooms  UserPreviewZoom[]
   quotesCreated Quote[]         @relation("QuoteCreatedBy")
   jobsCreated   Job[]           @relation("JobCreatedBy")
 }
@@ -2224,6 +2376,23 @@ model JobFavorite {
   @@unique([userId, jobId])
   @@index([userId])
   @@index([jobId])
+}
+
+/// The zoom a user chose to keep for the PDF previews of one screen ("Keep
+/// zoom" beside the zoom buttons). No row: that screen opens fitted.
+model UserPreviewZoom {
+  id          String   @id @default(cuid())
+  userId      String
+  /// Which screen: a key of PREVIEW_ZOOM_SCREENS in lib/preview-zoom.ts.
+  screen      String
+  /// Percent of the fitted size: 100, 125, 150, 200, 250 or 300.
+  zoomPercent Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, screen])
 }
 
 model Session {

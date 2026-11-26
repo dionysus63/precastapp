@@ -17,6 +17,7 @@ import {
   resizeRowOpenings,
   setOpeningPipeType,
   setOpeningSpecial,
+  setOpeningWall,
   type OneOffCircularOptions,
   type OneOffRectOptions,
   type OneOffSetup,
@@ -231,6 +232,29 @@ describe("one-off setup", () => {
     expect(nextFreeStructureNumber("MH-", [])).toBe(1);
   });
 
+  it("starts inlet A's angle typed in as 0 and leaves the others blank", () => {
+    const [row] = buildRowsFromSetup(filledSetup({ quantity: "1" }), 3);
+    expect(row.openings.map((cell) => cell.angle)).toEqual(["0", "", ""]);
+    // An inlet column added later starts blank, and A keeps what was typed.
+    row.openings[0].angle = "45";
+    const [wider] = resizeRowOpenings([row], 4);
+    expect(wider.openings.map((cell) => cell.angle)).toEqual(["45", "", "", ""]);
+  });
+
+  it("starts rect inlets on the Down, Up, Left and Right walls in turn", () => {
+    const [row] = buildRowsFromSetup(
+      { ...createEmptySetup("RECTANGULAR"), quantity: "1" },
+      5,
+    );
+    expect(row.openings.map((cell) => cell.wall)).toEqual([
+      "DOWN",
+      "UP",
+      "LEFT",
+      "RIGHT",
+      "DOWN",
+    ]);
+  });
+
   it("pads and trims opening columns", () => {
     const rows = buildRowsFromSetup(filledSetup({ quantity: "1" }), 2);
     rows[0].openings[0].invert = "90";
@@ -335,7 +359,8 @@ describe("one-off row calculation", () => {
       },
       2,
     );
-    expect(row.openings.map((cell) => cell.wall)).toEqual(["UP", "DOWN"]);
+    // Inlet A starts on the Down wall and B on the Up wall.
+    expect(row.openings.map((cell) => cell.wall)).toEqual(["DOWN", "UP"]);
     row.rimElevation = "100";
     row.openings[0].invert = "95";
     row.openings[1].invert = "95.5";
@@ -347,7 +372,7 @@ describe("one-off row calculation", () => {
     );
     expect(parsed?.detailLevel).toBe("FULL");
     expect(parsed?.insideLengthFeet).toBe(4);
-    expect(parsed?.openings.map((opening) => opening.wall)).toEqual(["UP", "DOWN"]);
+    expect(parsed?.openings.map((opening) => opening.wall)).toEqual(["DOWN", "UP"]);
   });
 
   it("asks for the missing pick instead of calculating", () => {
@@ -727,5 +752,452 @@ describe("Quick Build rect opening specials", () => {
     const row = setOpeningSpecial(rectRow(), 1, "WIDEN");
     row.openings[1].invert = "";
     expect(computeRectOneOffRow(row, rectOptions).ready).toBe(true);
+  });
+});
+
+// Move slides an opening off the middle of its wall. The template here is
+// 4' x 3' inside, so the Up and Down walls are 48" long and the side walls
+// 36"; a 15" RCP takes a 24" opening.
+describe("Quick Build rect opening Move", () => {
+  function rectRow() {
+    const [row] = buildRowsFromSetup(
+      {
+        ...createEmptySetup("RECTANGULAR"),
+        templateId: "tpl-cb",
+        castingProductId: "cast-grate",
+        pipeType: "RCP",
+        pipeSize: "15",
+        quantity: "1",
+      },
+      2,
+    );
+    row.rimElevation = "100";
+    row.openings[0].invert = "95";
+    row.openings[1].invert = "95.5";
+    // These tests read the sheet from the Up wall, whatever a new row starts at.
+    row.openings[0].wall = "UP";
+    row.openings[1].wall = "DOWN";
+    return row;
+  }
+
+  function moved(
+    index: number,
+    patch: { moveDirection?: "LEFT" | "RIGHT" | "UP" | "DOWN" | ""; moveInches?: string },
+    from = rectRow(),
+  ) {
+    const row = setOpeningSpecial(from, index, "MOVE");
+    return {
+      ...row,
+      openings: row.openings.map((cell, cellIndex) =>
+        cellIndex === index ? { ...cell, ...patch } : cell,
+      ),
+    };
+  }
+
+  it("moves one opening and leaves the other in the middle", () => {
+    // Inlet A is on the Up wall.
+    const result = computeRectOneOffRow(
+      moved(0, { moveDirection: "LEFT", moveInches: "6" }),
+      rectOptions,
+    );
+    expect(result.ready).toBe(true);
+    expect(
+      result.rectSheet?.openings.map((opening) => [
+        opening.placement,
+        opening.offsetInches,
+        opening.leftEdgeInches,
+        opening.rightEdgeInches,
+      ]),
+    ).toEqual([
+      ["FROM_LEFT", 18, 6, 30],
+      ["CENTERED", null, 12, 36],
+    ]);
+    // The sheet that gets created carries the same place.
+    const parsed = parseRectStructureConfigJson(
+      JSON.parse(JSON.stringify(result.config)),
+    );
+    expect(parsed?.openings[0]).toMatchObject({
+      placement: "FROM_LEFT",
+      offsetInches: 18,
+    });
+    // The width stays the catalog's.
+    expect(parsed?.openings[0].widthOverrideInches ?? null).toBeNull();
+  });
+
+  it("asks for the direction, then the inches", () => {
+    expect(computeRectOneOffRow(moved(0, {}), rectOptions)).toMatchObject({
+      ready: false,
+      status: "Pick which way to move inlet A",
+    });
+    expect(
+      computeRectOneOffRow(moved(0, { moveDirection: "RIGHT" }), rectOptions),
+    ).toMatchObject({
+      ready: false,
+      status: "Enter how many inches to move inlet A",
+    });
+    for (const moveInches of ["0", "-3", "six"]) {
+      expect(
+        computeRectOneOffRow(
+          moved(0, { moveDirection: "RIGHT", moveInches }),
+          rectOptions,
+        ),
+      ).toMatchObject({
+        ready: false,
+        status: "Move A: enter the inches as a number above 0",
+      });
+    }
+  });
+
+  it("stops the opening at the end of the wall", () => {
+    // 48" wall, 24" opening: 12" each way.
+    const atEnd = computeRectOneOffRow(
+      moved(0, { moveDirection: "RIGHT", moveInches: "12" }),
+      rectOptions,
+    );
+    expect(atEnd.ready).toBe(true);
+    expect(atEnd.rectSheet?.openings[0]).toMatchObject({
+      leftEdgeInches: 24,
+      rightEdgeInches: 48,
+    });
+    expect(
+      computeRectOneOffRow(
+        moved(0, { moveDirection: "RIGHT", moveInches: "13" }),
+        rectOptions,
+      ),
+    ).toMatchObject({
+      ready: false,
+      status: 'Move A: 12" is the most it can move before the end of the wall',
+    });
+  });
+
+  it("offers up and down on a side wall, and drops a direction the new wall lacks", () => {
+    const onUp = moved(0, { moveDirection: "LEFT", moveInches: "4" });
+    const onLeft = setOpeningWall(onUp, 0, "LEFT");
+    expect(onLeft.openings[0]).toMatchObject({
+      wall: "LEFT",
+      special: "MOVE",
+      moveDirection: "",
+      moveInches: "4",
+    });
+    expect(computeRectOneOffRow(onLeft, rectOptions)).toMatchObject({
+      ready: false,
+      status: "Pick which way to move inlet A",
+    });
+    // Up to Down keeps Left: both walls have it.
+    expect(setOpeningWall(onUp, 0, "DOWN").openings[0].moveDirection).toBe("LEFT");
+
+    // The side walls are 36" long: 4" up from the middle is 14" from the top.
+    const up = computeRectOneOffRow(
+      moved(0, { moveDirection: "UP", moveInches: "4" }, setOpeningWall(rectRow(), 0, "RIGHT")),
+      rectOptions,
+    );
+    expect(up.ready).toBe(true);
+    expect(up.rectSheet?.openings[0]).toMatchObject({
+      placement: "FROM_LEFT",
+      offsetInches: 14,
+    });
+  });
+
+  it("clears the Move inputs when another special is picked", () => {
+    const row = moved(0, { moveDirection: "LEFT", moveInches: "6" });
+    expect(setOpeningSpecial(row, 0, "WIDEN").openings[0]).toMatchObject({
+      special: "WIDEN",
+      moveDirection: "",
+      moveInches: "",
+    });
+    expect(setOpeningSpecial(row, 0, "").openings[0]).toMatchObject({
+      special: "",
+      moveDirection: "",
+      moveInches: "",
+    });
+  });
+
+  it("shows a saved sheet's off-center opening as a Move and saves it back", () => {
+    // Down wall, 18" from its left face as seen from inside the box: on the
+    // sheet that is 6" right of the middle.
+    const saved: RectSheetFormValues = {
+      ...rectSheetValues(),
+      openings: [
+        {
+          ...rectSheetValues().openings[0],
+          wall: "DOWN",
+          placement: "FROM_LEFT",
+          offsetInches: "18",
+        },
+      ],
+    };
+    const loaded = rectRowFromSheet("js-4", saved, rectOptions.openingSizes);
+    expect(loaded.openings[0]).toMatchObject({
+      special: "MOVE",
+      moveDirection: "RIGHT",
+      moveInches: "6",
+    });
+    const preview = computeRectOneOffRow(loaded, rectOptions);
+    expect(preview.ready).toBe(true);
+    expect(preview.rectSheet?.openings[0]).toMatchObject({
+      placement: "FROM_LEFT",
+      offsetInches: 18,
+    });
+
+    // Unchanged, it merges back exactly as saved.
+    expect(isRowChanged(loaded, loaded)).toBe(false);
+    const same = mergeRectRow(saved, loaded, loaded, rectOptions.templates, "2026-11-20");
+    if ("error" in same) throw new Error(same.error);
+    expect(same.values.openings[0]).toMatchObject({
+      placement: "FROM_LEFT",
+      offsetInches: "18",
+    });
+
+    // A longer move, the other way.
+    const edited = {
+      ...loaded,
+      openings: [
+        { ...loaded.openings[0], moveDirection: "LEFT" as const, moveInches: "8" },
+      ],
+    };
+    expect(isRowChanged(edited, loaded)).toBe(true);
+    const merged = mergeRectRow(saved, edited, loaded, rectOptions.templates, "2026-11-20");
+    if ("error" in merged) throw new Error(merged.error);
+    expect(merged.values.openings[0]).toMatchObject({
+      wall: "DOWN",
+      placement: "FROM_RIGHT",
+      offsetInches: "16",
+      widthOverrideInches: "",
+    });
+
+    // Taking the Move off puts the opening back in the middle.
+    const cleared = setOpeningSpecial(loaded, 0, "");
+    expect(isRowChanged(cleared, loaded)).toBe(true);
+    const centered = mergeRectRow(saved, cleared, loaded, rectOptions.templates, "2026-11-20");
+    if ("error" in centered) throw new Error(centered.error);
+    expect(centered.values.openings[0]).toMatchObject({
+      placement: "CENTERED",
+      offsetInches: "",
+    });
+  });
+
+  it("adds a Move to a saved sheet's centered opening", () => {
+    const saved = rectSheetValues();
+    const loaded = rectRowFromSheet("js-5", saved, rectOptions.openingSizes);
+    expect(loaded.openings[0]).toMatchObject({ special: "", moveDirection: "" });
+    const edited = moved(0, { moveDirection: "RIGHT", moveInches: "5" }, loaded);
+    const merged = mergeRectRow(saved, edited, loaded, rectOptions.templates, "2026-11-20");
+    if ("error" in merged) throw new Error(merged.error);
+    expect(merged.values.openings[0]).toMatchObject({
+      placement: "FROM_RIGHT",
+      offsetInches: "19",
+    });
+  });
+
+  it("leaves an opening against a wall end where it was saved", () => {
+    const saved: RectSheetFormValues = {
+      ...rectSheetValues(),
+      openings: [{ ...rectSheetValues().openings[0], placement: "TOUCH_RIGHT" }],
+    };
+    const loaded = rectRowFromSheet("js-6", saved, rectOptions.openingSizes);
+    expect(loaded.openings[0]).toMatchObject({ special: "", moveDirection: "" });
+    const edited = {
+      ...loaded,
+      openings: [{ ...loaded.openings[0], invert: "95.25" }],
+    };
+    const merged = mergeRectRow(saved, edited, loaded, rectOptions.templates, "2026-11-20");
+    if ("error" in merged) throw new Error(merged.error);
+    expect(merged.values.openings[0]).toMatchObject({
+      placement: "TOUCH_RIGHT",
+      invertElevation: "95.25",
+    });
+  });
+});
+
+describe("Quick Build rect opening Widen + Move", () => {
+  function rectRow() {
+    const [row] = buildRowsFromSetup(
+      {
+        ...createEmptySetup("RECTANGULAR"),
+        templateId: "tpl-cb",
+        castingProductId: "cast-grate",
+        pipeType: "RCP",
+        pipeSize: "15",
+        quantity: "1",
+      },
+      2,
+    );
+    row.rimElevation = "100";
+    row.openings[0].invert = "95";
+    row.openings[1].invert = "95.5";
+    // These tests read the sheet from the Up wall, whatever a new row starts at.
+    row.openings[0].wall = "UP";
+    row.openings[1].wall = "DOWN";
+    return row;
+  }
+
+  function both(
+    patch: {
+      widenInches?: string;
+      moveDirection?: "LEFT" | "RIGHT" | "UP" | "DOWN" | "";
+      moveInches?: string;
+    },
+    from = rectRow(),
+  ) {
+    const row = setOpeningSpecial(from, 0, "WIDEN_MOVE");
+    return {
+      ...row,
+      openings: row.openings.map((cell, cellIndex) =>
+        cellIndex === 0 ? { ...cell, ...patch } : cell,
+      ),
+    };
+  }
+
+  it("widens the opening and moves it", () => {
+    // Up wall, 48" long: a 30" opening 6" left of the middle.
+    const result = computeRectOneOffRow(
+      both({ widenInches: "30", moveDirection: "LEFT", moveInches: "6" }),
+      rectOptions,
+    );
+    expect(result.ready).toBe(true);
+    expect(result.rectSheet?.openings[0]).toMatchObject({
+      placement: "FROM_LEFT",
+      offsetInches: 18,
+      leftEdgeInches: 3,
+      rightEdgeInches: 33,
+    });
+    const parsed = parseRectStructureConfigJson(
+      JSON.parse(JSON.stringify(result.config)),
+    );
+    expect(parsed?.openings[0]).toMatchObject({
+      widthOverrideInches: 30,
+      placement: "FROM_LEFT",
+      offsetInches: 18,
+    });
+  });
+
+  it("asks for the width first, then the direction and inches", () => {
+    expect(computeRectOneOffRow(both({}), rectOptions)).toMatchObject({
+      ready: false,
+      status: "Enter the Widen width for inlet A",
+    });
+    expect(
+      computeRectOneOffRow(both({ widenInches: "24" }), rectOptions),
+    ).toMatchObject({
+      ready: false,
+      status: 'Widen A: enter more than the standard 24" width',
+    });
+    expect(
+      computeRectOneOffRow(both({ widenInches: "30" }), rectOptions),
+    ).toMatchObject({
+      ready: false,
+      status: "Pick which way to move inlet A",
+    });
+    expect(
+      computeRectOneOffRow(
+        both({ widenInches: "30", moveDirection: "LEFT" }),
+        rectOptions,
+      ),
+    ).toMatchObject({
+      ready: false,
+      status: "Enter how many inches to move inlet A",
+    });
+  });
+
+  it("counts the room to move from the wider opening", () => {
+    // 48" wall, 30" opening: 9" each way, where the standard 24" had 12".
+    expect(
+      computeRectOneOffRow(
+        both({ widenInches: "30", moveDirection: "RIGHT", moveInches: "9" }),
+        rectOptions,
+      ).ready,
+    ).toBe(true);
+    expect(
+      computeRectOneOffRow(
+        both({ widenInches: "30", moveDirection: "RIGHT", moveInches: "10" }),
+        rectOptions,
+      ),
+    ).toMatchObject({
+      ready: false,
+      status: 'Move A: 9" is the most it can move before the end of the wall',
+    });
+    expect(
+      computeRectOneOffRow(
+        both({ widenInches: "48", moveDirection: "RIGHT", moveInches: "1" }),
+        rectOptions,
+      ),
+    ).toMatchObject({
+      ready: false,
+      status: "Move A: the opening already fills the Up wall",
+    });
+  });
+
+  it("keeps what carries over when the special changes", () => {
+    const row = both({ widenInches: "30", moveDirection: "LEFT", moveInches: "6" });
+    expect(setOpeningSpecial(row, 0, "WIDEN").openings[0]).toMatchObject({
+      special: "WIDEN",
+      widenInches: "30",
+      moveDirection: "",
+      moveInches: "",
+    });
+    expect(setOpeningSpecial(row, 0, "MOVE").openings[0]).toMatchObject({
+      special: "MOVE",
+      widenInches: "",
+      moveDirection: "LEFT",
+      moveInches: "6",
+    });
+    const moveOnly = setOpeningSpecial(row, 0, "MOVE");
+    expect(setOpeningSpecial(moveOnly, 0, "WIDEN_MOVE").openings[0]).toMatchObject({
+      special: "WIDEN_MOVE",
+      widenInches: "",
+      moveDirection: "LEFT",
+      moveInches: "6",
+    });
+  });
+
+  it("shows a saved wide, off-center opening as Widen + Move and saves it back", () => {
+    const saved: RectSheetFormValues = {
+      ...rectSheetValues(),
+      openings: [
+        {
+          ...rectSheetValues().openings[0],
+          wall: "UP",
+          widthOverrideInches: "30",
+          placement: "FROM_RIGHT",
+          offsetInches: "19",
+        },
+      ],
+    };
+    const loaded = rectRowFromSheet("js-7", saved, rectOptions.openingSizes);
+    expect(loaded.openings[0]).toMatchObject({
+      special: "WIDEN_MOVE",
+      widenInches: "30",
+      moveDirection: "RIGHT",
+      moveInches: "5",
+    });
+    expect(isRowChanged(loaded, loaded)).toBe(false);
+    const same = mergeRectRow(saved, loaded, loaded, rectOptions.templates, "2026-11-20");
+    if ("error" in same) throw new Error(same.error);
+    expect(same.values.openings[0]).toMatchObject({
+      widthOverrideInches: "30",
+      placement: "FROM_RIGHT",
+      offsetInches: "19",
+    });
+
+    // Down to plain Widen: the width stays, the opening goes back to the middle.
+    const widenOnly = setOpeningSpecial(loaded, 0, "WIDEN");
+    expect(isRowChanged(widenOnly, loaded)).toBe(true);
+    const centered = mergeRectRow(saved, widenOnly, loaded, rectOptions.templates, "2026-11-20");
+    if ("error" in centered) throw new Error(centered.error);
+    expect(centered.values.openings[0]).toMatchObject({
+      widthOverrideInches: "30",
+      placement: "CENTERED",
+      offsetInches: "",
+    });
+
+    // Down to plain Move: the place stays, the width goes back to the catalog's.
+    const moveOnly = setOpeningSpecial(loaded, 0, "MOVE");
+    const narrow = mergeRectRow(saved, moveOnly, loaded, rectOptions.templates, "2026-11-20");
+    if ("error" in narrow) throw new Error(narrow.error);
+    expect(narrow.values.openings[0]).toMatchObject({
+      widthOverrideInches: "",
+      placement: "FROM_RIGHT",
+      offsetInches: "19",
+    });
   });
 });

@@ -5,6 +5,11 @@ import {
   formatDrainRingStyleLabel,
   type DrainRingStyle,
 } from "@/lib/drain-ring-utils";
+import {
+  QUOTE_DISCOUNT_BASIS_LABELS,
+  formatDiscountPercentLabel,
+  isQuoteDiscountBasis,
+} from "@/lib/pricing/line-discount";
 import { canEditQuote } from "@/lib/quotes/edit-rules";
 import { OPEN_STATUSES } from "@/lib/quotes/list-summary";
 import { canSendQuote } from "@/lib/quotes/send-rules";
@@ -78,6 +83,10 @@ export type QuoteRecord = {
   fob: string | null;
   leadTime: string | null;
   deliveryNotes: string | null;
+  /** "DELIVERED" or "PICKUP": which standard discount the lines took. */
+  discountBasis?: string;
+  /** False prints the quote without the discount column. */
+  showDiscount?: boolean;
   priceListId: string | null;
   sentAt: Date | null;
   jobBidderId: string | null;
@@ -96,6 +105,10 @@ export type QuoteLineItemRecord = {
   quantity: { toString(): string };
   unit: string;
   unitPrice: { toString(): string };
+  /** Price before the discount; null when the line has none. */
+  listPrice?: { toString(): string } | null;
+  discountPercent?: { toString(): string } | null;
+  discountTyped?: boolean;
   weight: { toString(): string } | null;
   yards: { toString(): string } | null;
   taxable: boolean;
@@ -165,17 +178,14 @@ const structureStatusLabels: Record<string, string> = Object.fromEntries(
 
 /** Drill-sheet status chip for rectangular structure lines. */
 function rectStructureStatus(
-  line: { structureConfigJson?: unknown; jobStructureId?: string | null },
-  drillSheetStructureIds: Set<string>,
+  line: { structureConfigJson?: unknown },
+  hasDrillSheet: boolean,
 ) {
   const config = parseRectStructureConfigJson(line.structureConfigJson);
   if (!config) {
     return null;
   }
-  if (
-    line.jobStructureId != null &&
-    drillSheetStructureIds.has(line.jobStructureId)
-  ) {
+  if (hasDrillSheet) {
     return "created" as const;
   }
   return config.detailLevel === "FULL"
@@ -411,6 +421,13 @@ export function mapQuoteToRow(quote: QuoteListRecord): QuoteRow {
 export function mapQuoteToDetailView(
   quote: QuoteDetailRecord,
   siblingQuotes?: QuoteDetailSiblingSummary[],
+  /**
+   * Drill sheets already saved on the quote's job that no quote has yet, by
+   * structure number in lower case. A structure line with that number
+   * takes the sheet over when the quote is won, so it shows as having its
+   * drill sheet instead of asking for one to be created.
+   */
+  jobSheetIdsByNumber?: Map<string, string>,
 ): QuoteDetailView {
   const status = quote.status as QuoteStatus;
   const taxRateNumber = Number.parseFloat(quote.taxRate.toString());
@@ -447,6 +464,18 @@ export function mapQuoteToDetailView(
       .filter((structure) => structure.structureTemplateId)
       .map((structure) => structure.id),
   );
+  /** The drill sheet a structure line has, or will take over; else null. */
+  const drillSheetIdFor = (line: {
+    jobStructureId?: string | null;
+    itemCode: string;
+  }): string | null => {
+    if (line.jobStructureId) {
+      return drillSheetStructureIds.has(line.jobStructureId)
+        ? line.jobStructureId
+        : null;
+    }
+    return jobSheetIdsByNumber?.get(line.itemCode.trim().toLowerCase()) ?? null;
+  };
 
   return {
     id: quote.id,
@@ -491,6 +520,13 @@ export function mapQuoteToDetailView(
     leadTime: quote.leadTime?.trim() || "—",
     terms: quote.termsAndConditions?.trim() || "—",
     fob: quote.fob?.trim() || "Factory",
+    discountBasisLabel:
+      QUOTE_DISCOUNT_BASIS_LABELS[
+        isQuoteDiscountBasis(quote.discountBasis)
+          ? quote.discountBasis
+          : "DELIVERED"
+      ],
+    showDiscount: quote.showDiscount !== false,
     lineItems: quote.lineItems.map((line) => ({
       id: line.id,
       lineNumber: line.lineNumber,
@@ -501,6 +537,7 @@ export function mapQuoteToDetailView(
       qty: formatQuantity(line.quantity),
       unit: line.unit,
       unitPrice: formatUsd(line.unitPrice),
+      ...mapLineDiscountForDetail(line),
       weight: formatWeightLb(line.weight),
       qtyOnHand:
         line.product?.trackInventory &&
@@ -514,11 +551,10 @@ export function mapQuoteToDetailView(
         line.lineType === "CONFIGURABLE_STRUCTURE"
           ? (getStructureDrillSheetStatus(
               parseStructureConfigJson(line.structureConfigJson),
-              line.jobStructureId != null &&
-                drillSheetStructureIds.has(line.jobStructureId),
-            ) ?? rectStructureStatus(line, drillSheetStructureIds))
+              drillSheetIdFor(line) != null,
+            ) ?? rectStructureStatus(line, drillSheetIdFor(line) != null))
           : null,
-      jobStructureId: line.jobStructureId ?? null,
+      jobStructureId: line.jobStructureId ?? drillSheetIdFor(line),
       costBreakdown:
         line.lineType === "CUSTOM_STRUCTURE"
           ? parseCustomStructureConfigJson(line.structureConfigJson)
@@ -530,10 +566,7 @@ export function mapQuoteToDetailView(
       if (line.lineType !== "CONFIGURABLE_STRUCTURE") {
         return false;
       }
-      if (
-        line.jobStructureId &&
-        drillSheetStructureIds.has(line.jobStructureId)
-      ) {
+      if (drillSheetIdFor(line)) {
         return false;
       }
       const config = parseStructureConfigJson(line.structureConfigJson);
@@ -579,6 +612,17 @@ export function mapQuoteToDetailView(
   };
 }
 
+/** List price and discount for the quote page; both null with no discount. */
+function mapLineDiscountForDetail(
+  line: Pick<QuoteLineItemRecord, "listPrice" | "discountPercent">,
+): { listPrice: string | null; discount: string | null } {
+  const discount = formatDiscountPercentLabel(line.discountPercent?.toString());
+  if (!discount || line.listPrice == null) {
+    return { listPrice: null, discount: null };
+  }
+  return { listPrice: formatUsd(line.listPrice), discount };
+}
+
 export function mapQuoteToFormInitialValues(
   quote: QuoteDetailRecord,
 ): QuoteFormInitialValues {
@@ -614,6 +658,8 @@ export function mapQuoteToFormInitialValues(
     deliveryNotes: quote.deliveryNotes?.trim() ?? "",
     termsAndConditions: quote.termsAndConditions?.trim() ?? "",
     fob: quote.fob?.trim() ?? "",
+    discountBasis: quote.discountBasis === "PICKUP" ? "PICKUP" : "DELIVERED",
+    showDiscount: quote.showDiscount ?? true,
     lineItems: quote.lineItems.map((line) => ({
       id: line.id,
       lineNumber: line.lineNumber,
@@ -623,7 +669,16 @@ export function mapQuoteToFormInitialValues(
       description: line.description?.trim() ?? "",
       qty: toQuoteFormNumberValue(line.quantity),
       unit: line.unit,
-      unitPrice: toQuoteFormNumberValue(line.unitPrice),
+      // The form edits the list price; a line with no discount has none
+      // stored and its unit price is the list price.
+      unitPrice: toQuoteFormNumberValue(line.listPrice ?? line.unitPrice),
+      // Always set, so a saved line keeps the discount it was saved with
+      // instead of picking up today's standard discount.
+      discountPercent:
+        line.discountPercent != null
+          ? toQuoteFormNumberValue(line.discountPercent)
+          : "",
+      discountTyped: line.discountTyped ?? false,
       weight: line.weight ? toQuoteFormNumberValue(line.weight) : "",
       yards: line.yards ? toQuoteFormNumberValue(line.yards) : "",
       taxable: line.taxable,

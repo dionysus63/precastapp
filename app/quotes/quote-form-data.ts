@@ -9,6 +9,7 @@ import {
 import { requirePermission } from "@/lib/auth/session";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { getProductPricesForList } from "@/lib/price-list-service";
+import { loadQuoteDiscountPricing } from "@/lib/pricing/pricing-data";
 import { mapProductToQuoteFormOption } from "@/lib/quote-mapper";
 import {
   mergeRingBuilderConfigWithDefaults,
@@ -388,8 +389,14 @@ export async function loadQuoteFormSharedData(
     ringBuilderConfig,
   );
 
+  // The standard discount of each product group, for the Disc % column.
+  const discountPricing = await withDatabaseRetry((client) =>
+    loadQuoteDiscountPricing(client),
+  );
+
   return {
     ...pricedOptions,
     priceLists,
+    discountPricing,
   };
 }

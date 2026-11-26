@@ -3,7 +3,9 @@ import type { JobCustomStructureImportCandidate } from "@/app/quotes/job-sheet-i
 import {
   type EditableQuoteLineItem,
   type QuoteLineItemType,
+  getLineDiscountPercent,
   getLineItemTotal,
+  getLineNetUnitPrice,
   isCategoryLineItem,
   isNonBillableLineItem,
   parseQuoteNumber,
@@ -238,7 +240,7 @@ export function validateQuoteForm({
     }
 
     if (unitPrice < 0) {
-      return `Line ${line.lineNumber}: unit price cannot be negative.`;
+      return `Line ${line.lineNumber}: list price cannot be negative.`;
     }
   }
 
@@ -264,7 +266,12 @@ export function buildQuoteLineItemsInput(
       parseQuoteNumber(line.qty),
     ),
     unit: line.unit,
-    unitPrice: parseQuoteNumber(line.unitPrice),
+    // Billed price, list price and the discount between them. The server
+    // works the billed price out again from the other two.
+    unitPrice: getLineNetUnitPrice(line),
+    listPrice: parseQuoteNumber(line.unitPrice),
+    discountPercent: getLineDiscountPercent(line),
+    discountTyped: Boolean(line.discountTyped),
     weight: line.weight.trim()
       ? parseQuoteNumber(line.weight)
       : null,

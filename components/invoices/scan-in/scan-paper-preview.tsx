@@ -2,15 +2,22 @@
 
 import { useState } from "react";
 import {
+  KeepZoomButton,
+  PdfZoomButtons,
+  usePreviewZoom,
+} from "@/components/common/pdf-zoom-buttons";
+import {
   InvoicePaper,
   PaperNote,
-  paperStyle,
+  paperSizeStyle,
+  pictureUrlAtZoom,
 } from "@/components/invoices/invoice-paper";
 import {
   barButtonClassName,
   rowResult,
   scanCardClassName,
 } from "@/components/invoices/scan-in/scan-ui";
+import type { PdfZoom } from "@/lib/preview-zoom";
 import type { ScanInRow } from "@/lib/ticket-scan/view-types";
 import { selectedFillClassName } from "@/lib/selected-styles";
 
@@ -19,7 +26,10 @@ type Side = "ticket" | "invoice";
 /**
  * The paper beside the grid: the scanned page of the selected row, turned
  * upright, with a box around the code that was read. For a ticket that has
- * an invoice, the same pane can show the invoice instead.
+ * an invoice, the same pane can show the invoice instead. The zoom buttons
+ * make the paper larger than its pane (it then scrolls both ways), and "Keep
+ * zoom" makes the zoom showing the one Scan In opens at for the user's
+ * account.
  */
 export function ScanPaperPreview({
   row,
@@ -43,6 +53,9 @@ export function ScanPaperPreview({
   actions?: React.ReactNode;
 }) {
   const showInvoice = side === "invoice" && row?.invoice != null;
+  const zoomState = usePreviewZoom("scan-in");
+  const zoom = zoomState.zoom;
+  const hasPaper = row != null && (showInvoice || row.imageUrl != null);
 
   return (
     <section className={`${scanCardClassName} flex flex-col`}>
@@ -114,19 +127,44 @@ export function ScanPaperPreview({
         </div>
       </div>
 
-      {row && actions && !showInvoice ? (
+      {row && ((actions && !showInvoice) || hasPaper) ? (
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-1.5">
-          {actions}
+          {showInvoice ? null : actions}
+          {hasPaper ? (
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <PdfZoomButtons
+                zoomIndex={zoomState.zoomIndex}
+                onZoomIndex={zoomState.setZoomIndex}
+                buttonClassName={barButtonClassName}
+              />
+              <KeepZoomButton zoom={zoomState} className={barButtonClassName} />
+            </div>
+          ) : null}
         </div>
       ) : null}
 
-      <div className="bg-slate-100 p-3">
+      <div
+        className={
+          zoom === 1
+            ? "bg-slate-100 p-3"
+            : // Zoomed, the paper scrolls in a box no taller than the
+              // fitted page and its padding can be: the window's room
+              // (8.3125rem less 2 x 0.75rem), or the page at its widest
+              // (42rem wide, so 54.375rem tall, plus the padding).
+              "max-h-[min(calc(100vh_-_var(--app-header-height)_-_6.8125rem),55.875rem)] overflow-auto bg-slate-100 p-3"
+        }
+        data-scan-preview-scroll
+      >
         {!row ? (
           <PaperNote text="Click a row to see its page here." />
         ) : showInvoice ? (
-          <InvoicePaper key={row.invoice!.id} invoiceId={row.invoice!.id} />
+          <InvoicePaper
+            key={row.invoice!.id}
+            invoiceId={row.invoice!.id}
+            zoom={zoom}
+          />
         ) : row.imageUrl ? (
-          <TicketPaper key={row.imageUrl} row={row} />
+          <TicketPaper key={row.imageUrl} row={row} zoom={zoom} />
         ) : (
           <PaperNote
             text={
@@ -141,7 +179,7 @@ export function ScanPaperPreview({
   );
 }
 
-function TicketPaper({ row }: { row: ScanInRow }) {
+function TicketPaper({ row, zoom }: { row: ScanInRow; zoom: PdfZoom }) {
   const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
   const box = row.codeBox;
   // Keep the label inside the page when the code sits near the left edge.
@@ -149,7 +187,7 @@ function TicketPaper({ row }: { row: ScanInRow }) {
 
   return (
     <div
-      style={paperStyle}
+      style={paperSizeStyle("fit", zoom)}
       className="relative mx-auto w-full border border-slate-300 bg-white shadow"
     >
       {state === "failed" ? (
@@ -161,7 +199,7 @@ function TicketPaper({ row }: { row: ScanInRow }) {
            not something next/image should resize or cache. */
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={row.imageUrl!}
+          src={pictureUrlAtZoom(row.imageUrl!, zoom)}
           alt={`Scanned page ${row.pgLabel}${row.ticketNumber ? `, ticket ${row.ticketNumber}` : ""}`}
           onLoad={() => setState("ready")}
           onError={() => setState("failed")}

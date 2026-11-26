@@ -115,6 +115,7 @@ export function computeRectPreview(
       topSlabOpeningLengthInches: template.topSlabOpeningLengthInches,
       topSlabOpeningWidthInches: template.topSlabOpeningWidthInches,
       topSlabOpeningSide: template.topSlabOpeningSide,
+      stepsOffsetInches: template.stepsOffsetInches,
     },
     openingSizes: options.openingSizes,
     openings: values.openings.map((opening) => ({
@@ -139,6 +140,7 @@ export function computeRectPreview(
           side: values.topSlabOpeningSide || null,
         }
       : null,
+    stepsPosition: values.stepsPosition || null,
   };
 
   return computeRectStructure(input);

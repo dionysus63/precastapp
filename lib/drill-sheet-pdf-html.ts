@@ -69,6 +69,10 @@ function buildMetaPanel(meta: DrillSheetPreviewMeta) {
     ["Template", meta.templateName || "—"],
     ["Contractor", meta.contractor || "—"],
     ["Project", meta.project || "—"],
+    // Only on NYSDOT jobs; other sheets keep their header as it was.
+    ...(meta.pinContractNumber
+      ? [["PIN / Contract #", meta.pinContractNumber]]
+      : []),
     ["Date", meta.date || "—"],
     ["Casting", meta.castingName || "—"],
     [

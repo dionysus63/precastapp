@@ -14,6 +14,7 @@ import {
   createEmptySetup,
   createOpeningCell,
   isOpeningSpecial,
+  specialMoves,
   type OneOffRow,
   type OneOffSection,
   type OneOffSetup,
@@ -21,6 +22,8 @@ import {
 } from "@/lib/quotes/one-off-drill-sheets";
 import { normalizeWallHeightAdjustInches } from "@/lib/drill-sheet";
 import { RECT_WALLS, type RectWall } from "@/lib/rect-structure";
+import { isRectMoveDirection } from "@/lib/rect-opening-move";
+import { normalizeRectStepsPosition } from "@/lib/rect-steps";
 
 export type OneOffJobDetails = {
   id: string;
@@ -180,6 +183,8 @@ export function parseOneOffRow(
       if (!isRecord(cell)) {
         return createOpeningCell(index);
       }
+      const moves =
+        isOpeningSpecial(cell.special) && specialMoves(cell.special);
       return {
         invert: str(cell.invert),
         // Drafts saved before inlets had their own pipe fall back to the row's.
@@ -190,6 +195,12 @@ export function parseOneOffRow(
         // Drafts saved before specials existed have none.
         special: isOpeningSpecial(cell.special) ? cell.special : "",
         widenInches: isOpeningSpecial(cell.special) ? str(cell.widenInches) : "",
+        // Drafts saved before Move existed have none.
+        moveDirection:
+          moves && isRectMoveDirection(cell.moveDirection)
+            ? cell.moveDirection
+            : "",
+        moveInches: moves ? str(cell.moveInches) : "",
       };
     }),
   };
@@ -199,6 +210,11 @@ export function parseOneOffRow(
   );
   if (wallHeightAdjustInches !== 0) {
     row.wallHeightAdjustInches = wallHeightAdjustInches;
+  }
+  // Drafts saved before steps existed have none.
+  const stepsPosition = normalizeRectStepsPosition(value.stepsPosition);
+  if (stepsPosition) {
+    row.stepsPosition = stepsPosition;
   }
   if (typeof value.insideLengthFeet === "string") {
     row.insideLengthFeet = value.insideLengthFeet;

@@ -37,11 +37,44 @@ async function createDrillSheetsFromQuoteOrThrow(quoteId: string) {
   }
 
   let created = 0;
+  let linked = 0;
 
   for (const line of quote.lineItems) {
     // Already a real drill sheet — nothing to do.
     if (line.jobStructure?.structureTemplateId) {
       continue;
+    }
+
+    // The job may already have this structure's sheet: built in Quick Build
+    // before the quote, then put on the quote from there. Link that sheet
+    // (as winning the quote would) instead of making a second one.
+    const itemCode = line.itemCode.trim();
+    if (!line.jobStructure && quote.jobId && itemCode) {
+      const existing = await prisma.jobStructure.findFirst({
+        where: {
+          jobId: quote.jobId,
+          quoteId: null,
+          structureNumber: { equals: itemCode, mode: "insensitive" },
+          structureTemplateId: { not: null },
+          calc: { isNot: null },
+          quoteLineItems: { none: {} },
+        },
+        select: { id: true },
+      });
+      if (existing) {
+        await prisma.$transaction([
+          prisma.jobStructure.update({
+            where: { id: existing.id },
+            data: { quoteId: quote.id, quantity: line.quantity },
+          }),
+          prisma.quoteLineItem.update({
+            where: { id: line.id },
+            data: { jobStructureId: existing.id },
+          }),
+        ]);
+        linked += 1;
+        continue;
+      }
     }
 
     const config = parseStructureConfigJson(line.structureConfigJson);
@@ -88,7 +121,7 @@ async function createDrillSheetsFromQuoteOrThrow(quoteId: string) {
     revalidatePath(`/jobs/${quote.jobId}`);
   }
 
-  return { created };
+  return { created, linked };
 }
 
 export type CompleteRectDrillSheetsResult = {

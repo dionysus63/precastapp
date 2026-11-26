@@ -18,8 +18,10 @@ import {
 } from "@/app/delivery-tickets/actions";
 import { getQuoteFulfillmentWithOpenLoads } from "@/app/operations/actions";
 import {
-  portraitPreviewPaneClassName,
+  isPreviewBesideInputs,
+  portraitPreviewDrawerPaneClassName,
   portraitPreviewSplitClassName,
+  previewDrawerOnlyClassName,
 } from "@/components/common/live-pdf-preview";
 import { BackButton } from "@/components/dashboard/back-button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -143,6 +145,33 @@ export function DeliveryTicketEditor({
     "precastapp:ticket-editor-preview-hidden",
     false,
   );
+  // On a window too narrow for both, the preview opens over the right side
+  // of the window when asked for, and closes again without being remembered.
+  const [previewDrawerOpen, setPreviewDrawerOpen] = useState(false);
+  useEffect(() => {
+    if (!previewDrawerOpen) {
+      return;
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setPreviewDrawerOpen(false);
+      }
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [previewDrawerOpen]);
+
+  function showPreview() {
+    setPreviewHidden(false);
+    setPreviewDrawerOpen(!isPreviewBesideInputs());
+  }
+
+  function hidePreview() {
+    if (isPreviewBesideInputs()) {
+      setPreviewHidden(true);
+    }
+    setPreviewDrawerOpen(false);
+  }
 
   function markDirty() {
     setIsDirty(true);
@@ -951,11 +980,15 @@ export function DeliveryTicketEditor({
         ) : (
           <span />
         )}
-        {previewHidden ? (
+        {previewHidden || !previewDrawerOpen ? (
+          // Hidden by choice: offered at every width. Not hidden: only a
+          // narrow window needs it, where the preview waits to be opened.
           <button
             type="button"
-            onClick={() => setPreviewHidden(false)}
-            className="rounded-md btn-plain px-3 py-1.5 text-xs font-medium"
+            onClick={showPreview}
+            className={`rounded-md btn-plain px-3 py-1.5 text-xs font-medium ${
+              previewHidden ? "" : previewDrawerOnlyClassName
+            }`}
           >
             Show ticket preview
           </button>
@@ -1144,12 +1177,15 @@ export function DeliveryTicketEditor({
           ) : null}
         </div>
         {previewHidden ? null : (
-          <div className={portraitPreviewPaneClassName}>
+          <div
+            className={portraitPreviewDrawerPaneClassName(previewDrawerOpen)}
+            data-preview-drawer={previewDrawerOpen ? "open" : "closed"}
+          >
             <TicketLivePreview
               ticketId={mode === "edit" ? ticketId : undefined}
               ticketNumber={mode === "edit" ? ticketNumber : null}
               payload={buildPayload("DRAFT")}
-              onHide={() => setPreviewHidden(true)}
+              onHide={hidePreview}
             />
           </div>
         )}

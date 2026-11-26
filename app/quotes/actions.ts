@@ -49,6 +49,14 @@ import { linkPlanSheetToQuote } from "@/app/quotes/plan-sheet-actions";
 import { computeMoneyTotals } from "@/lib/money";
 import { computeDeliveryAmount } from "@/lib/quotes/money-rules";
 import { computeQuoteTotalsFromLines } from "@/lib/quote-copy";
+import {
+  isQuoteDiscountBasis,
+  type QuoteDiscountBasis,
+} from "@/lib/pricing/line-discount";
+import {
+  resolveLineDiscounts,
+  type LineDiscountResolved,
+} from "@/lib/quotes/line-discount-input";
 import { getAppSettings } from "@/lib/app-settings";
 import {
   isNonBillableLineItem,
@@ -77,6 +85,13 @@ export type CreateQuoteLineItemInput = {
   quantity: number;
   unit: string;
   unitPrice: number;
+  /** Price before the discount. When sent, the billed unitPrice is worked
+   * out on the server from this and discountPercent. */
+  listPrice?: number | null;
+  /** Percent off the list price. */
+  discountPercent?: number | null;
+  /** The discount was typed on the line, not taken from the group's rule. */
+  discountTyped?: boolean;
   weight: number | null;
   yards: number | null;
   taxable: boolean;
@@ -121,6 +136,10 @@ export type CreateQuoteInput = {
   fob: string | null;
   leadTime: string | null;
   deliveryNotes: string | null;
+  /** Which standard discount the lines took; delivered when absent. */
+  discountBasis?: QuoteDiscountBasis;
+  /** False prints the quote without the discount column; shown when absent. */
+  showDiscount?: boolean;
   /** ISO updatedAt from when the edit form loaded the quote. When provided,
    * updateQuote rejects the save if someone else changed the quote since
    * (optimistic concurrency — same pattern as delivery tickets). */
@@ -271,6 +290,20 @@ function toDecimal(value: number) {
   return new Prisma.Decimal(value);
 }
 
+function resolveDiscountBasis(value: unknown): QuoteDiscountBasis {
+  return isQuoteDiscountBasis(value) ? value : "DELIVERED";
+}
+
+/** The discount columns of a line whose billed price is already worked out. */
+function lineDiscountColumns(line: LineDiscountResolved) {
+  return {
+    listPrice: line.listPrice != null ? toDecimal(line.listPrice) : null,
+    discountPercent:
+      line.discountPercent != null ? toDecimal(line.discountPercent) : null,
+    discountTyped: line.discountTyped,
+  };
+}
+
 function isQuoteNumberConflict(error: unknown): boolean {
   return (
     error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -361,10 +394,15 @@ function quoteSaveRedirectPath(
 }
 
 export async function createQuote(
-  input: CreateQuoteInput,
+  rawInput: CreateQuoteInput,
   afterSave: QuoteSaveDestination = "detail",
 ): Promise<{ error: string } | never> {
   const actor = await requirePermission(AppPermission.QUOTES_MANAGE);
+  // Each line's billed price, from its list price and discount.
+  const input = {
+    ...rawInput,
+    lineItems: resolveLineDiscounts(rawInput.lineItems),
+  };
   try {
     validateCreateQuoteInput(input);
     // Creating a quote straight into WON skipped structure linking, job
@@ -481,6 +519,8 @@ export async function createQuote(
         fob: input.fob,
         leadTime: input.leadTime,
         deliveryNotes: input.deliveryNotes,
+        discountBasis: resolveDiscountBasis(input.discountBasis),
+        showDiscount: input.showDiscount ?? true,
         lineItems: {
           create: input.lineItems.map((line, index) => ({
             lineNumber: line.lineNumber,
@@ -493,6 +533,7 @@ export async function createQuote(
             ),
             unit: line.unit,
             unitPrice: toDecimal(line.unitPrice),
+            ...lineDiscountColumns(line),
             weight: toOptionalDecimal(line.weight),
             yards: toOptionalDecimal(line.yards),
             taxable: line.taxable,
@@ -569,10 +610,15 @@ export async function createQuote(
 
 export async function updateQuote(
   quoteId: string,
-  input: CreateQuoteInput,
+  rawInput: CreateQuoteInput,
   afterSave: QuoteSaveDestination = "detail",
 ): Promise<{ error: string } | never> {
   await requirePermission(AppPermission.QUOTES_MANAGE);
+  // Each line's billed price, from its list price and discount.
+  const input = {
+    ...rawInput,
+    lineItems: resolveLineDiscounts(rawInput.lineItems),
+  };
 
   if (!quoteId.trim()) {
     return { error: "Quote id is required." };
@@ -816,6 +862,8 @@ export async function updateQuote(
             fob: input.fob,
             leadTime: input.leadTime,
             deliveryNotes: input.deliveryNotes,
+            discountBasis: resolveDiscountBasis(input.discountBasis),
+            showDiscount: input.showDiscount ?? true,
             lineItems: {
               create: input.lineItems.map((line, index) => {
                 const prior = line.existingLineItemId
@@ -837,6 +885,7 @@ export async function updateQuote(
                   ),
                   unit: line.unit,
                   unitPrice: toDecimal(line.unitPrice),
+                  ...lineDiscountColumns(line),
                   weight: toOptionalDecimal(line.weight),
                   yards: toOptionalDecimal(line.yards),
                   taxable: line.taxable,

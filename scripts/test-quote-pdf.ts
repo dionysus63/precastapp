@@ -7,8 +7,12 @@ function makeLineItem(
   itemCode: string,
   description: string,
   quantity: number,
-  unitPrice: number,
+  listPrice: number,
+  discountPercent = 0,
 ) {
+  // unitPrice is the billed price: the list price less the discount.
+  const unitPrice =
+    Math.round(listPrice * (100 - discountPercent)) / 100;
   const total = quantity * unitPrice;
   return {
     id: `line-${lineNumber}`,
@@ -23,6 +27,11 @@ function makeLineItem(
     unit: "EA",
     unitPrice: { toString: () => String(unitPrice) },
     total: { toString: () => String(total) },
+    listPrice:
+      discountPercent > 0 ? { toString: () => String(listPrice) } : null,
+    discountPercent:
+      discountPercent > 0 ? { toString: () => String(discountPercent) } : null,
+    discountTyped: false,
     weight: null,
     yards: null,
     taxable: true,
@@ -113,10 +122,30 @@ const mockQuote: DbQuoteForPdf = {
   ],
 };
 
+/** The same quote with stock discounts, to see the discount table. */
+const mockDiscountQuote: DbQuoteForPdf = {
+  ...mockQuote,
+  showDiscount: true,
+  lineItems: mockQuote.lineItems.map((line, index) =>
+    makeLineItem(
+      line.lineNumber,
+      line.itemCode,
+      line.description,
+      Number(line.quantity.toString()),
+      Number(line.unitPrice.toString()),
+      index % 4 === 2 ? 0 : index % 4 === 3 ? 12.5 : 10,
+    ),
+  ),
+};
+
 async function main() {
-  const bytes = await generateQuotePdfBytes(mockQuote);
-  writeFileSync("test-quote.pdf", bytes);
+  writeFileSync("test-quote.pdf", await generateQuotePdfBytes(mockQuote));
   console.log("Wrote test-quote.pdf");
+  writeFileSync(
+    "test-quote-discount.pdf",
+    await generateQuotePdfBytes(mockDiscountQuote),
+  );
+  console.log("Wrote test-quote-discount.pdf");
 }
 
 main().catch((error) => {

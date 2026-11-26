@@ -31,7 +31,8 @@ import type { ScanInView } from "@/lib/ticket-scan/view-types";
  *
  * Addresses: /invoices opens Scan In for someone who can file and the list
  * for everyone else; ?tab=invoices is the list (its status chip, its search
- * boxes and its pages keep that in the address, see lib/invoice-list-search);
+ * boxes, its sorted column and its pages keep that in the address, see
+ * lib/invoice-list-search);
  * ?scan=<id> shows a scan that was filed.
  */
 export default async function InvoicesPage({
@@ -44,7 +45,7 @@ export default async function InvoicesPage({
   const scanParam = parseStringParam(params.scan);
   const statusParam = parseStringParam(params.status);
   const pageParam = parseStringParam(params.page);
-  const { filter, search } = parseInvoiceListView(params);
+  const { filter, search, sort } = parseInvoiceListView(params);
   const searching = hasInvoiceListSearch(search);
 
   // Old links to the Draft Review and Final tabs land on the list; old links
@@ -53,13 +54,21 @@ export default async function InvoicesPage({
     tabParam === "invoices" || tabParam === "drafts" || tabParam === "final";
   const asksForScan =
     tabParam === "scan" || tabParam === "reconcile" || scanParam !== "";
-  if (!asksForList && !asksForScan && (statusParam || pageParam || searching)) {
-    // A filter or a page number belongs to the list. Say so in the address,
-    // so clearing the filter does not jump over to Scan In.
+  if (
+    !asksForList &&
+    !asksForScan &&
+    (statusParam || pageParam || searching || sort)
+  ) {
+    // A filter, a sorted column or a page number belongs to the list. Say so
+    // in the address, so clearing the filter does not jump over to Scan In.
     const query = new URLSearchParams({
       tab: "invoices",
       ...invoiceListSearchParams(search),
     });
+    if (sort) {
+      query.set("sort", sort.column);
+      query.set("dir", sort.direction);
+    }
     if (statusParam) {
       query.set("status", statusParam);
     }
@@ -108,6 +117,7 @@ export default async function InvoicesPage({
       listInvoicesForPage({
         filter,
         search,
+        sort,
         page: parsePageParam(params.page),
       }),
       // With a search on, the chips count inside it.
@@ -134,6 +144,7 @@ export default async function InvoicesPage({
         tab={tab}
         filter={filter}
         search={search}
+        sort={sort}
         suggestions={suggestions}
         canManage={canManage}
         canFile={canFile}

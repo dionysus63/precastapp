@@ -10,6 +10,7 @@ import {
   sheetPdfDownloadName,
   type SheetPdfShape,
 } from "@/lib/sheet-pdf";
+import { PIN_CONTRACT_FIELD } from "@/lib/sheet-pin-contract";
 import {
   tableBodyClassName,
   tableCellClassName,
@@ -383,6 +384,8 @@ export function SheetPdfManager({
         {shownFields ? (
           <pre className="max-h-48 overflow-auto rounded bg-slate-50 p-2 text-2xs text-slate-600">
             {expectedFieldNames[shownFields].join("\n")}
+            {"\n\nOptional, filled when the drawing has it:\n"}
+            {`${PIN_CONTRACT_FIELD}  (the job's NYSDOT Contract #)`}
           </pre>
         ) : null}
       </div>

@@ -17,6 +17,7 @@ import {
   type RectWorkbookRow,
 } from "@/lib/quotes/rect-structure-workbook";
 import { formatPipeDescription } from "@/lib/drill-sheet";
+import { normalizeRectStepsPosition } from "@/lib/rect-steps";
 import type { RectOpeningPlacement, RectWall } from "@/lib/rect-structure";
 import type { PipeConnectionType } from "@/app/generated/prisma/client";
 
@@ -40,6 +41,8 @@ export type StoredSheetForImport = {
     insideDiameterFeet: DecimalLike | null;
     insideLengthFeet: DecimalLike | null;
     insideWidthFeet: DecimalLike | null;
+    /** Wall height moved by hand (Quick Build arrows); part of the price. */
+    wallHeightAdjustInches?: number | null;
   } | null;
   dimensions: {
     insideLength: DecimalLike | null;
@@ -50,6 +53,7 @@ export type StoredSheetForImport = {
     topSlabOpeningLengthInches: DecimalLike | null;
     topSlabOpeningWidthInches: DecimalLike | null;
     topSlabOpeningSide: string | null;
+    stepsPosition?: string | null;
   } | null;
   castings: { castingProductId: string | null }[];
   openings: {
@@ -128,9 +132,11 @@ export function mapRectSheetToWorkbookRow(
     ),
     topSlabOpeningSide: (sheet.dimensions?.topSlabOpeningSide ??
       "UP") as RectWall,
+    stepsPosition: normalizeRectStepsPosition(sheet.dimensions?.stepsPosition) ?? "",
     penetrations: [],
     openings: openings.length > 0 ? openings : [createRectOpeningRow("A")],
     qty: "1",
+    wallHeightAdjustInches: sheet.calc?.wallHeightAdjustInches ?? 0,
     wallHeightFeet: null,
     heaviestPickLbs: null,
     unitPrice: null,
@@ -179,6 +185,7 @@ export function mapCircularSheetToWorkbookRow(
     qty: "1",
     penetrations: [],
     openings: openings.length > 0 ? openings : [createDefaultOpening("A")],
+    wallHeightAdjustInches: sheet.calc?.wallHeightAdjustInches ?? 0,
     wallHeightFeet: null,
     unitPrice: null,
     status: "",

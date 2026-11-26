@@ -12,6 +12,7 @@ import {
   getTopOfBottomSlabElevation,
   type PipeConnectionType,
 } from "@/lib/drill-sheet";
+import { sheetPinContractNumber } from "@/lib/sheet-pin-contract";
 import {
   findMoldSheetSettings,
   type MoldSheetSettings,
@@ -32,6 +33,9 @@ export const drillSheetDetailInclude = {
   openings: { orderBy: { openingNumber: "asc" } },
   sections: { orderBy: { sortOrder: "asc" } },
   castings: true,
+  // The job's NYSDOT contract number prints on the sheet (lib/sheet-pin-contract.ts).
+  job: { select: { nysdotContractNumber: true } },
+  quote: { select: { job: { select: { nysdotContractNumber: true } } } },
 } satisfies Prisma.JobStructureInclude;
 
 export type DrillSheetWithDetail = Prisma.JobStructureGetPayload<{
@@ -267,6 +271,7 @@ export function buildDrillSheetDetail(
     useRiser: calc.useRiser ?? "",
     brickAdjustment: calc.brickAdjustment ?? "",
     topSlabOpeningInches: sheet.structureTemplate?.topSlabOpeningInches ?? null,
+    pinContractNumber: sheetPinContractNumber(sheet),
   };
 
   return { meta, result };

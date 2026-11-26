@@ -32,6 +32,9 @@ type LineItemSource = {
   quantity: Prisma.Decimal;
   unit: string;
   unitPrice: Prisma.Decimal;
+  listPrice?: Prisma.Decimal | null;
+  discountPercent?: Prisma.Decimal | null;
+  discountTyped?: boolean;
   weight: Prisma.Decimal | null;
   yards: Prisma.Decimal | null;
   taxable: boolean;
@@ -132,6 +135,10 @@ export function mapLineItemForCreate(
     quantity: toQuoteDecimal(line.quantity),
     unit: line.unit,
     unitPrice: toQuoteDecimal(line.unitPrice),
+    // The list price and discount travel with the billed price they made.
+    listPrice: line.listPrice ?? null,
+    discountPercent: line.discountPercent ?? null,
+    discountTyped: line.discountTyped ?? false,
     weight: toOptionalQuoteDecimal(line.weight),
     yards: toOptionalQuoteDecimal(line.yards),
     taxable: line.taxable,

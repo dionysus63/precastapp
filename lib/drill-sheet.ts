@@ -158,6 +158,14 @@ export type DrillSheetResult = {
 };
 
 const EPSILON = 1e-6;
+/**
+ * Slack for comparing heights that were added up from rounded parts. Every
+ * length is kept to 4 decimals of a foot, so one in twelfths is a hair off
+ * (1" = 0.0833', not 0.08333…) and a sum of a few can sit 0.0001' or so
+ * under the exact value. Anything within 0.0005' (0.006") of a limit counts
+ * as meeting it, so brick of exactly the minimum is not "short".
+ */
+export const FEET_ROUNDING_SLACK = 5e-4;
 const SIX_INCHES_FEET = 0.5;
 
 /**
@@ -266,10 +274,14 @@ export function computeWallHeightFeet(
 ): { wallHeightFeet: number; brickFeet: number } {
   const minBrickFeet = inchesToFeet(minimumBrickInches);
   let wallHeightFeet =
-    Math.floor(rawAvailableFeet / SIX_INCHES_FEET + EPSILON) * SIX_INCHES_FEET;
+    Math.floor((rawAvailableFeet + FEET_ROUNDING_SLACK) / SIX_INCHES_FEET) *
+    SIX_INCHES_FEET;
   let brickFeet = round4(rawAvailableFeet - wallHeightFeet);
 
-  if (brickFeet < minBrickFeet - EPSILON && wallHeightFeet >= SIX_INCHES_FEET) {
+  if (
+    brickFeet < minBrickFeet - FEET_ROUNDING_SLACK &&
+    wallHeightFeet >= SIX_INCHES_FEET
+  ) {
     wallHeightFeet = round4(wallHeightFeet - SIX_INCHES_FEET);
     brickFeet = round4(rawAvailableFeet - wallHeightFeet);
   }
@@ -331,7 +343,7 @@ export function applyWallHeightAdjust(
   return {
     wallHeightFeet,
     brickFeet: Math.max(leftoverFeet, 0),
-    shortByFeet: leftoverFeet < -EPSILON ? -leftoverFeet : 0,
+    shortByFeet: leftoverFeet < -FEET_ROUNDING_SLACK ? -leftoverFeet : 0,
   };
 }
 
@@ -655,13 +667,43 @@ function getTopSlabThicknessFeet(
   return round4(Math.max(full - effectiveKeyHeightFeet(diameter), 0));
 }
 
-function highestOpeningTop(openings: ComputedOpening[]): number | null {
+/**
+ * Where the shop drills a hole. The sheet gives the bottom of an opening in
+ * whole inches above the bottom of its section (`@ +2"`), and sections stack
+ * from the floor in 6" steps, so the drilled hole sits on a whole inch above
+ * the floor: up to half an inch off the pipe-centered elevation in
+ * `bottomOfOpeningFeet`. The clearance checks judge this span, so they agree
+ * with the number the sheet prints.
+ */
+export function drilledOpeningSpanFeet(
+  opening: Pick<
+    ComputedOpening,
+    "bottomOfOpeningFeet" | "holeDiameterInches" | "pipeSizeInches"
+  >,
+  floorElevation: number,
+): { lo: number; hi: number } | null {
+  if (opening.bottomOfOpeningFeet == null) {
+    return null;
+  }
+  // The same rounding as the printed rise (computeBaseTopToOpeningBottomInches).
+  const riseInches = Math.round(
+    (opening.bottomOfOpeningFeet - floorElevation) * 12,
+  );
+  const holeInches = opening.holeDiameterInches ?? opening.pipeSizeInches ?? 0;
+  const lo = floorElevation + inchesToFeet(riseInches);
+  return { lo, hi: lo + inchesToFeet(holeInches) };
+}
+
+/** Top of the highest hole as drilled (see drilledOpeningSpanFeet). */
+function highestOpeningTop(
+  openings: ComputedOpening[],
+  floorElevation: number,
+): number | null {
   let highest: number | null = null;
   for (const opening of openings) {
-    if (opening.topOfOpeningFeet != null) {
-      if (highest == null || opening.topOfOpeningFeet > highest) {
-        highest = opening.topOfOpeningFeet;
-      }
+    const span = drilledOpeningSpanFeet(opening, floorElevation);
+    if (span != null && (highest == null || span.hi > highest)) {
+      highest = span.hi;
     }
   }
   return highest;
@@ -683,9 +725,10 @@ function wallTopElevation(
 //   - mold max heights (per diameter, from Settings)
 //   - base pours in 6" increments; riser pours in 12" increments
 //     (6" riser increments only as a last resort)
-//   - booted openings: hole fixed (pipe centered), and its top/bottom must
-//     clear every joint zone by the template minimums (default 4"). A keyed
-//     joint's zone is one key height tall, from the outside joint plane up.
+//   - booted openings: hole fixed (pipe centered, then on the whole inch
+//     the sheet prints), and its top/bottom must clear every joint zone by
+//     the template minimums (default 4"). A keyed joint's zone is one key
+//     height tall, from the outside joint plane up.
 //   - no-boot openings: no clearance minimums, and the hole may slide around
 //     the pipe (pipe anywhere inside the hole) — but the hole must still fit
 //     within a single section, outside any key zone.
@@ -706,13 +749,16 @@ type SolverHole = {
   label: string;
   hasBoot: boolean;
   holeDiaFeet: number;
-  /** Fixed hole span (booted: pipe centered in the hole). */
+  /** Fixed hole span (booted: pipe centered in the hole, as drilled). */
   fixedSpan: { lo: number; hi: number } | null;
   /** Pipe OD span (no-boot: hole may slide around the pipe). */
   pipeSpan: { lo: number; hi: number } | null;
 };
 
-function buildSolverHoles(openings: ComputedOpening[]): SolverHole[] {
+function buildSolverHoles(
+  openings: ComputedOpening[],
+  floorElevation: number,
+): SolverHole[] {
   const holes: SolverHole[] = [];
   for (const opening of openings) {
     if (
@@ -726,15 +772,22 @@ function buildSolverHoles(openings: ComputedOpening[]): SolverHole[] {
     const wallFeet = inchesToFeet(opening.pipeWallThicknessInches ?? 0);
     const label = opening.label?.trim() || "?";
     if (opening.hasBoot) {
+      // The hole as drilled: on the whole inch the sheet prints, not at the
+      // exact pipe-centered elevation.
       const center = opening.invertElevation + idFeet / 2;
+      const fixedSpan = drilledOpeningSpanFeet(
+        {
+          ...opening,
+          bottomOfOpeningFeet:
+            opening.bottomOfOpeningFeet ?? round4(center - holeDiaFeet / 2),
+        },
+        floorElevation,
+      );
       holes.push({
         label,
         hasBoot: true,
         holeDiaFeet,
-        fixedSpan: {
-          lo: center - holeDiaFeet / 2,
-          hi: center + holeDiaFeet / 2,
-        },
+        fixedSpan,
         pipeSpan: null,
       });
     } else {
@@ -1050,7 +1103,7 @@ function solveSections(
     keyHeightFeet: diameter.keyHeightFeet,
     marginTopFeet: inchesToFeet(template.openingToJointMinTopInches),
     marginBottomFeet: inchesToFeet(template.openingToJointMinBottomInches),
-    holes: buildSolverHoles(openings),
+    holes: buildSolverHoles(openings, floorElevation),
   };
   const top = round4(floorElevation + wallHeightFeet);
 
@@ -1261,40 +1314,67 @@ export function computeDrillSheet(input: DrillSheetInput): DrillSheetResult {
     input.wallHeightAdjustInches,
   );
 
-  const computeHeights = (hasKey: boolean) => {
+  const spaceUnderCasting = (hasKey: boolean) => {
     const topSlabThicknessFeet = getTopSlabThicknessFeet(
       template,
       diameter,
       hasKey,
     );
-    if (invertToTopFeet == null) {
-      return {
-        hasKey,
-        topSlabThicknessFeet,
-        rawAvailableFeet: null as number | null,
-        wallHeightFeet: 0,
-        brickFeet: 0,
-        shortByFeet: 0,
-      };
+    const rawAvailableFeet =
+      invertToTopFeet == null
+        ? null
+        : round4(
+            invertToTopFeet -
+              castingHeightFeet -
+              topSlabThicknessFeet +
+              sumpFeet,
+          );
+    return { hasKey, topSlabThicknessFeet, rawAvailableFeet };
+  };
+
+  /**
+   * Wall and brick for one key choice: the automatic wall (6" steps, brick
+   * kept at the minimum), then the change made by hand. `raiseToFeet` is a
+   * taller automatic wall, taken out of the brick, for a pipe opening the
+   * usual wall would leave sticking out of the top.
+   */
+  const computeHeights = (hasKey: boolean, raiseToFeet: number | null = null) => {
+    const space = spaceUnderCasting(hasKey);
+    if (space.rawAvailableFeet == null) {
+      return { ...space, wallHeightFeet: 0, brickFeet: 0, shortByFeet: 0 };
     }
-    const rawAvailableFeet = round4(
-      invertToTopFeet -
-        castingHeightFeet -
-        topSlabThicknessFeet +
-        sumpFeet,
+    const usual = computeWallHeightFeet(
+      space.rawAvailableFeet,
+      template.minimumBrickInches,
     );
-    const { wallHeightFeet, brickFeet, shortByFeet } = applyWallHeightAdjust(
-      computeWallHeightFeet(rawAvailableFeet, template.minimumBrickInches),
-      rawAvailableFeet,
-      wallHeightAdjustInches,
-    );
+    const automatic =
+      raiseToFeet != null && raiseToFeet > usual.wallHeightFeet
+        ? {
+            wallHeightFeet: raiseToFeet,
+            brickFeet: round4(
+              Math.max(space.rawAvailableFeet - raiseToFeet, 0),
+            ),
+          }
+        : usual;
     return {
-      hasKey,
-      topSlabThicknessFeet,
-      rawAvailableFeet,
+      ...space,
+      ...applyWallHeightAdjust(
+        automatic,
+        space.rawAvailableFeet,
+        wallHeightAdjustInches,
+      ),
+    };
+  };
+
+  /** The same wall with another key choice; the brick takes the difference. */
+  const heightsAtWall = (hasKey: boolean, wallHeightFeet: number) => {
+    const space = spaceUnderCasting(hasKey);
+    const leftoverFeet = round4((space.rawAvailableFeet ?? 0) - wallHeightFeet);
+    return {
+      ...space,
       wallHeightFeet,
-      brickFeet,
-      shortByFeet,
+      brickFeet: Math.max(leftoverFeet, 0),
+      shortByFeet: leftoverFeet < -FEET_ROUNDING_SLACK ? -leftoverFeet : 0,
     };
   };
 
@@ -1315,25 +1395,74 @@ export function computeDrillSheet(input: DrillSheetInput): DrillSheetResult {
     computeOpeningGeometry(opening, sumpFeet, topOfBottomSlabFeet),
   );
 
-  const highestOpening = highestOpeningTop(openings);
+  // Judged where the hole is drilled (whole inches above the floor, as the
+  // sheet prints it), so a hole the sheet puts 4" under the wall top passes.
+  const highestOpening =
+    floorElevation != null ? highestOpeningTop(openings, floorElevation) : null;
   const minTopFt = inchesToFeet(template.openingToJointMinTopInches);
+
+  // Set when the automatic wall was raised into the brick for an opening.
+  let raisedForOpeningFeet: number | null = null;
 
   if (
     floorElevation != null &&
     highestOpening != null &&
     heights.rawAvailableFeet != null
   ) {
-    const wallTop = wallTopElevation(floorElevation, heights.wallHeightFeet);
-    if (wallTop - highestOpening < minTopFt - EPSILON) {
+    const clearsOpening = (wallHeightFeet: number) =>
+      wallTopElevation(floorElevation, wallHeightFeet) - highestOpening >=
+      minTopFt - EPSILON;
+
+    if (clearsOpening(heights.wallHeightFeet)) {
+      // A wall raised by hand that is too tall with the key in the top slab
+      // may fit once the key is dropped: same wall, thinner slab.
+      if (heights.shortByFeet > 0 && keyedMold) {
+        const withoutKey = heightsAtWall(false, heights.wallHeightFeet);
+        if (withoutKey.shortByFeet === 0) {
+          hasKey = false;
+          heights = withoutKey;
+        }
+      }
+    } else {
       // Remedy: drop the top-slab key (no-op on a keyless mold).
       hasKey = false;
       heights = computeHeights(false);
-      const wallTopNoKey = wallTopElevation(
-        floorElevation,
-        heights.wallHeightFeet,
-      );
-      if (wallTopNoKey - highestOpening < minTopFt - EPSILON) {
-        errorMessage = `Highest pipe opening top (${highestOpening.toFixed(2)}') is too close to the top of the wall (${wallTopNoKey.toFixed(2)}'). Minimum clearance is ${template.openingToJointMinTopInches}".`;
+      if (!clearsOpening(heights.wallHeightFeet)) {
+        // Still short. A hole cannot run out of the top of the wall, so the
+        // wall takes whatever brick it needs (down to none) to reach the
+        // first 6" step that clears the hole. A change made by hand then
+        // counts from that raised wall.
+        const neededWallFeet = round4(
+          Math.ceil(
+            (highestOpening + minTopFt - floorElevation) / SIX_INCHES_FEET -
+              EPSILON,
+          ) * SIX_INCHES_FEET,
+        );
+        const spaceFeet = heights.rawAvailableFeet ?? 0;
+        const fits = neededWallFeet <= spaceFeet + FEET_ROUNDING_SLACK;
+        if (fits) {
+          const usualWallFeet = computeWallHeightFeet(
+            spaceFeet,
+            template.minimumBrickInches,
+          ).wallHeightFeet;
+          heights = computeHeights(false, neededWallFeet);
+          if (
+            neededWallFeet > usualWallFeet &&
+            clearsOpening(heights.wallHeightFeet)
+          ) {
+            raisedForOpeningFeet = neededWallFeet;
+          }
+        }
+        if (!clearsOpening(heights.wallHeightFeet)) {
+          const wallTopNoKey = wallTopElevation(
+            floorElevation,
+            heights.wallHeightFeet,
+          );
+          errorMessage = `Highest pipe opening top (${highestOpening.toFixed(2)}') is too close to the top of the wall (${wallTopNoKey.toFixed(2)}'). Minimum clearance is ${template.openingToJointMinTopInches}".`;
+          if (!fits) {
+            errorMessage += ` The wall would have to be ${neededWallFeet.toFixed(2)}', ${formatInchesShort(neededWallFeet - spaceFeet)} more than fits under this rim even with no brick.`;
+          }
+        }
       }
     }
   }
@@ -1345,11 +1474,16 @@ export function computeDrillSheet(input: DrillSheetInput): DrillSheetResult {
     );
   }
 
-  // A wall raised by hand is short on brick on purpose; say nothing then.
-  if (
-    heights.brickFeet < minBrickFeet - EPSILON &&
-    wallHeightAdjustInches <= 0
-  ) {
+  const brickBelowMinimum =
+    heights.brickFeet < minBrickFeet - FEET_ROUNDING_SLACK;
+  if (raisedForOpeningFeet != null && wallHeightAdjustInches === 0) {
+    // The usual wall is the tallest that keeps the minimum brick, so a wall
+    // raised past it is always under the minimum: one note says both.
+    warnings.push(
+      `Wall raised to ${raisedForOpeningFeet.toFixed(2)}' so the highest pipe opening stays inside the wall. Brick (${formatInchesShort(heights.brickFeet)}) is below the ${template.minimumBrickInches}" minimum.`,
+    );
+  } else if (brickBelowMinimum && wallHeightAdjustInches <= 0) {
+    // A wall raised by hand is short on brick on purpose; say nothing then.
     warnings.push(
       `Brick (${heights.brickFeet.toFixed(2)}') is below the ${minBrickFeet.toFixed(2)}' minimum.`,
     );

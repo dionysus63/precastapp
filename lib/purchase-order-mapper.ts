@@ -1,6 +1,9 @@
 import type { PurchaseOrder, PurchaseOrderLine, Vendor } from "@/app/generated/prisma/client";
 import { formatCalendarDateShort } from "@/lib/date-only";
-import { purchaseOrderStatusLabels } from "@/lib/purchase-order-utils";
+import {
+  purchaseOrderJobLabel,
+  purchaseOrderStatusLabels,
+} from "@/lib/purchase-order-utils";
 import { formatReceivingCategoryLabel } from "@/lib/receiving-utils";
 import { purchaseOrderStatusVariant } from "@/lib/status-variants";
 
@@ -24,10 +27,26 @@ type PoWithVendor = {
   expectedDate?: PurchaseOrder["expectedDate"];
   notes?: PurchaseOrder["notes"];
   enteredBy?: PurchaseOrder["enteredBy"];
+  attention?: PurchaseOrder["attention"];
   vendorQuotePath?: PurchaseOrder["vendorQuotePath"];
   vendorQuoteName?: PurchaseOrder["vendorQuoteName"];
+  taxable?: PurchaseOrder["taxable"];
+  quoteOnly?: PurchaseOrder["quoteOnly"];
+  quoteNumber?: PurchaseOrder["quoteNumber"];
+  quoteDate?: PurchaseOrder["quoteDate"];
   updatedAt?: PurchaseOrder["updatedAt"];
   linesFull?: PurchaseOrderLine[];
+  internalNotes?: PurchaseOrder["internalNotes"];
+  /**
+   * The jobs the order is for, when they were loaded, in order: each a job
+   * on file, or (job null) a typed name.
+   */
+  jobs?: Array<{
+    name: string;
+    job: { id: string; jobNumber: string; projectName: string } | null;
+  }>;
+  /** The contractors the order is for, when they were loaded, in order. */
+  contractors?: Array<{ customer: { id: string; name: string } }>;
 };
 
 export function mapPurchaseOrderListRow(po: PoWithVendor) {
@@ -61,6 +80,18 @@ export function mapPurchaseOrderListRow(po: PoWithVendor) {
     statusLabel: purchaseOrderStatusLabels[po.status],
     statusVariant: purchaseOrderStatusVariant(po.status),
     total: po.total.toNumber(),
+    /** Who created it: the "Entered by" name on the order. */
+    enteredBy: po.enteredBy?.trim() || null,
+    /** The contractors (customers) the purchase is for. */
+    contractors: (po.contractors ?? []).map((entry) => entry.customer),
+    /**
+     * The jobs the purchase is for: a job on file (its id, and its number
+     * and project as they are now) or a typed name (id null).
+     */
+    jobs: (po.jobs ?? []).map((entry) => ({
+      id: entry.job?.id ?? null,
+      label: entry.job ? purchaseOrderJobLabel(entry.job) : entry.name,
+    })),
     receivedProgress:
       orderedTotal > 0 ? `${receivedTotal} / ${orderedTotal}` : "—",
   };
@@ -90,9 +121,15 @@ export function mapPurchaseOrderDetail(po: PoWithVendor) {
       ? formatCalendarDateShort(po.expectedDate)
       : null,
     notes: po.notes ?? null,
+    internalNotes: po.internalNotes?.trim() || null,
     enteredBy: po.enteredBy ?? null,
+    attention: po.attention ?? null,
     vendorQuoteName: po.vendorQuoteName ?? null,
     hasVendorQuote: Boolean(po.vendorQuotePath),
+    taxable: po.taxable ?? false,
+    quoteOnly: po.quoteOnly ?? false,
+    quoteNumber: po.quoteNumber ?? null,
+    quoteDateLabel: po.quoteDate ? formatCalendarDateShort(po.quoteDate) : null,
     updatedAt: po.updatedAt?.toISOString() ?? new Date().toISOString(),
     lines,
     receipts: po.receipts ?? [],

@@ -3,6 +3,11 @@
 import type { InvoiceListRow } from "@/app/invoices/actions";
 import { PdfDragChip } from "@/components/common/pdf-drag-chip";
 import {
+  KeepZoomButton,
+  PdfZoomButtons,
+  type PreviewZoomState,
+} from "@/components/common/pdf-zoom-buttons";
+import {
   InvoicePaper,
   PaperNote,
   SignedTicketPaper,
@@ -22,7 +27,9 @@ function signedTicketViewUrl(fileId: string): string {
 /**
  * The paper beside the Invoices list: the invoice of the row that was
  * clicked, as it prints, or the signed copy of its delivery ticket. A ticket
- * with no signed copy scanned in shows NOT AVAILABLE.
+ * with no signed copy scanned in shows NOT AVAILABLE. The zoom buttons make
+ * the paper larger than its pane (it then scrolls both ways), and "Keep zoom"
+ * makes the zoom showing the one this screen opens at for the user's account.
  */
 export function InvoiceListPreview({
   row,
@@ -32,6 +39,7 @@ export function InvoiceListPreview({
   onNext,
   hasPrevious,
   hasNext,
+  zoom: zoomState,
 }: {
   row: InvoiceListRow | null;
   side: InvoicePreviewSide;
@@ -41,7 +49,10 @@ export function InvoiceListPreview({
   onNext: () => void;
   hasPrevious: boolean;
   hasNext: boolean;
+  /** The pane's zoom, and the one the user's account keeps for this screen. */
+  zoom: PreviewZoomState;
 }) {
+  const zoom = zoomState.zoom;
   const signed = row?.signedTicket ?? null;
   const showSigned = side === "signed";
   const invoicePdfUrl = row ? `/api/invoices/${row.id}/pdf` : null;
@@ -56,7 +67,9 @@ export function InvoiceListPreview({
   return (
     <section
       aria-label="Invoice preview"
-      className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm"
+      // No taller than the window under the app header: the paper scrolls
+      // inside the pane, and its buttons stay in view.
+      className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm lg:max-h-[calc(100vh_-_82px_-_0.75rem)]"
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-slate-100 px-3 py-2">
         <p className="text-sm font-semibold text-slate-900">
@@ -145,12 +158,26 @@ export function InvoiceListPreview({
               className={paneButtonClassName}
             />
           ) : null}
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <PdfZoomButtons
+              zoomIndex={zoomState.zoomIndex}
+              onZoomIndex={zoomState.setZoomIndex}
+              buttonClassName={paneButtonClassName}
+            />
+            <KeepZoomButton zoom={zoomState} className={paneButtonClassName} />
+          </div>
         </div>
       ) : null}
 
-      <div className="bg-slate-100 p-3">
+      <div
+        className="min-h-0 overflow-auto bg-slate-100 p-3"
+        data-invoice-preview-scroll
+      >
         {!row ? (
-          <PaperNote text="Click an invoice in the list to see it here." />
+          <PaperNote
+            text="Click an invoice in the list to see it here."
+            size="fill"
+          />
         ) : showSigned ? (
           signed ? (
             <SignedTicketPaper
@@ -158,11 +185,14 @@ export function InvoiceListPreview({
               fileId={signed.fileId}
               pageCount={signed.pageCount}
               ticketNumber={row.ticketNumber}
+              size="fill"
+              zoom={zoom}
             />
           ) : (
             <PaperNote
               heading="NOT AVAILABLE"
               text={`No signed copy of ticket ${row.ticketNumber} has been scanned in.`}
+              size="fill"
             />
           )
         ) : (
@@ -170,6 +200,8 @@ export function InvoiceListPreview({
             // A payment, an edit or a void changes what prints.
             key={`${row.id}:${row.status}:${row.total}`}
             invoiceId={row.id}
+            size="fill"
+            zoom={zoom}
           />
         )}
       </div>

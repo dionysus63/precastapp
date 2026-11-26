@@ -45,6 +45,10 @@ import {
 import { printedSheetDiameter } from "@/lib/mold-sheet-settings";
 import { toWinAnsiText } from "@/lib/pdf-text";
 import {
+  PIN_CONTRACT_FIELD,
+  SHEET_OPTIONAL_FIELD_NAMES,
+} from "@/lib/sheet-pin-contract";
+import {
   type ComputedOpening,
   type DrillSheetResult,
   formatBootCell,
@@ -285,6 +289,8 @@ export function buildDrillSheetFieldMap(
   const map: Record<string, string> = {
     contractor: meta.contractor,
     project: meta.project,
+    // NYSDOT jobs only; drawings without the blank skip it.
+    [PIN_CONTRACT_FIELD]: meta.pinContractNumber ?? "",
     date: meta.date,
     manhole_no: meta.manholeNumber,
     casting: meta.castingName,
@@ -1672,17 +1678,22 @@ function makeBaselineAlignedProvider(
   };
 }
 
+/**
+ * `optionalNames` are fields the app fills when a drawing has them (the
+ * NYSDOT PIN / contract blank): matched when present, not missing when absent.
+ */
 export async function listTemplatePdfFields(
   bytes: Uint8Array,
   expectedNames: readonly string[] = DRILL_SHEET_TEMPLATE_FIELD_NAMES,
+  optionalNames: readonly string[] = SHEET_OPTIONAL_FIELD_NAMES,
 ): Promise<TemplatePdfFieldCoverage> {
   const doc = await PDFDocument.load(bytes);
   const pdfFields = doc.getForm().getFields().map((field) => field.getName());
-  const expected = new Set<string>(expectedNames);
+  const known = new Set<string>([...expectedNames, ...optionalNames]);
   const pdfFieldSet = new Set(pdfFields);
 
-  const matched = pdfFields.filter((name) => expected.has(name));
-  const unmatched = pdfFields.filter((name) => !expected.has(name));
+  const matched = pdfFields.filter((name) => known.has(name));
+  const unmatched = pdfFields.filter((name) => !known.has(name));
   const missingFromPdf = expectedNames.filter(
     (name) => !pdfFieldSet.has(name),
   );

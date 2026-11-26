@@ -70,7 +70,7 @@ export default async function EditQuotePage({ params }: EditQuotePageProps) {
   // data and the entities this quote already references are loaded so
   // selected values render without a lookup.
   const [
-    { serviceOptions, ringSlabProducts, pipeProducts, priceLists },
+    { serviceOptions, ringSlabProducts, pipeProducts, priceLists, discountPricing },
     initialCustomerRow,
     initialJobRow,
     taxonomy,
@@ -120,6 +120,7 @@ export default async function EditQuotePage({ params }: EditQuotePageProps) {
           }
           serviceOptions={serviceOptions}
           priceLists={priceLists}
+          discountPricing={discountPricing}
           ringBuilderConfig={appSettings.ringBuilderConfig}
           ringSlabProducts={ringSlabProducts}
           pipeProducts={pipeProducts}

@@ -14,11 +14,18 @@ import { PDF_SAVE_OPTIONS } from "@/lib/pdf-save-options";
 import {
   buildQuoteFormData,
   mapQuoteLineItemsForPdf,
+  quotePrintsDiscounts,
   type DbQuoteForPdf,
   type QuoteContentPage,
 } from "@/lib/quote-pdf-data";
 import {
+  DISCOUNT_TABLE_COLUMNS,
+  STANDARD_TABLE_COLUMNS,
+  type QuoteTableColumns,
+} from "@/lib/quote-pdf-layout";
+import {
   drawQuoteLineItemsOnPage,
+  drawQuoteTableColumns,
   paginateQuoteLineItems,
   type QuoteLineItemPageSlice,
 } from "@/lib/quote-pdf-line-items";
@@ -208,6 +215,7 @@ async function buildQuotePageBytes(
   templateBytes: Uint8Array,
   formData: Record<string, string>,
   slice: QuoteLineItemPageSlice,
+  columns: QuoteTableColumns,
 ): Promise<Uint8Array> {
   const doc = await PDFDocument.load(templateBytes);
   const font = await doc.embedFont(StandardFonts.Helvetica);
@@ -215,7 +223,9 @@ async function buildQuotePageBytes(
 
   const page = doc.getPage(0);
   const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
-  drawQuoteLineItemsOnPage(page, font, boldFont, slice);
+  // The templates print the table frame; its columns depend on the quote.
+  drawQuoteTableColumns(page, boldFont, columns, slice.isLastPage);
+  drawQuoteLineItemsOnPage(page, font, boldFont, slice, columns);
 
   return doc.save(PDF_SAVE_OPTIONS);
 }
@@ -229,10 +239,13 @@ export async function generateQuotePdfBytes(
   ]);
 
   const lineItems = mapQuoteLineItemsForPdf(quote.lineItems);
+  const columns = quotePrintsDiscounts(quote)
+    ? DISCOUNT_TABLE_COLUMNS
+    : STANDARD_TABLE_COLUMNS;
 
   const measureDoc = await PDFDocument.load(mainTemplateBytes);
   const measureFont = await measureDoc.embedFont(StandardFonts.Helvetica);
-  const slices = paginateQuoteLineItems(lineItems, measureFont);
+  const slices = paginateQuoteLineItems(lineItems, measureFont, columns);
   const pageCount = slices.length;
 
   const merged = await PDFDocument.create();
@@ -248,7 +261,12 @@ export async function generateQuotePdfBytes(
       ? mainTemplateBytes
       : contTemplateBytes;
 
-    const pageBytes = await buildQuotePageBytes(templateBytes, formData, slice);
+    const pageBytes = await buildQuotePageBytes(
+      templateBytes,
+      formData,
+      slice,
+      columns,
+    );
     const pageDoc = await PDFDocument.load(pageBytes);
     const [copiedPage] = await merged.copyPages(pageDoc, [0]);
     merged.addPage(copiedPage);

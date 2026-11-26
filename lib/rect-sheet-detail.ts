@@ -24,6 +24,9 @@ export const rectSheetDetailInclude = {
   openings: { orderBy: { openingNumber: "asc" } },
   sections: { orderBy: { sortOrder: "asc" } },
   castings: true,
+  // The job's NYSDOT contract number prints on the sheet (lib/sheet-pin-contract.ts).
+  job: { select: { nysdotContractNumber: true } },
+  quote: { select: { job: { select: { nysdotContractNumber: true } } } },
 } satisfies Prisma.JobStructureInclude;
 
 export type RectSheetWithDetail = Prisma.JobStructureGetPayload<{
@@ -121,6 +124,7 @@ export function buildRectSheetFormValues(
       dims?.topSlabOpeningWidthInches ?? null,
     ),
     topSlabOpeningSide: (dims?.topSlabOpeningSide ?? "UP") as RectWall,
+    stepsPosition: dims?.stepsPosition ?? "",
     maxPickWeightLbs: "",
     sections,
     openings,
@@ -272,6 +276,7 @@ export function buildRectSheetFormValuesFromQuoteConfig(
         ? String(config.topSlabOpeningWidthInches)
         : "",
     topSlabOpeningSide: (config.topSlabOpeningSide ?? "UP") as RectWall,
+    stepsPosition: config.stepsPosition ?? "",
     maxPickWeightLbs: "",
     sections: [],
     openings,
@@ -306,6 +311,7 @@ export function rectPayloadFromFormValues(
     topSlabOpeningLengthInches: values.topSlabOpeningLengthInches,
     topSlabOpeningWidthInches: values.topSlabOpeningWidthInches,
     topSlabOpeningSide: values.topSlabOpeningSide,
+    stepsPosition: values.stepsPosition || null,
     sectionHeightsFeet: values.sections.map((section) => section.heightFeet),
     jointKeys: values.sections
       .slice(0, -1)

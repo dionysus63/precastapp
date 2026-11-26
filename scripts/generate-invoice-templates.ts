@@ -58,9 +58,10 @@ const TOTALS_BOX = { left: 408, right: 564, dividerX: 495 };
 
 // No Discount row: discounts are rare and entered as line items; any stored
 // discount amount is already netted into the printed Subtotal.
+// No Delivery row: no delivery fee is charged, and a delivery line, when an
+// invoice has one, is already a row of the table and part of the Subtotal.
 const TOTALS_ROWS = [
   { label: "Subtotal", field: "Subtotal", bold: false },
-  { label: "Delivery", field: "Delivery", bold: false },
   { label: "Tax Rate", field: "Tax Rate", bold: false },
   { label: "Sales Tax", field: "Sales Tax", bold: false },
   { label: "TOTAL", field: "Total", bold: true },
@@ -347,7 +348,7 @@ function drawMainBottom(ctx: Ctx) {
     color: BLACK,
   });
 
-  // Totals box: six 12pt rows, labels left of the divider, values right.
+  // Totals box: equal rows, labels left of the divider, values right.
   drawBox(page, TOTALS_BOX.left, BOTTOM_BOX.bottom, TOTALS_BOX.right, BOTTOM_BOX.top);
   drawLine(page, TOTALS_BOX.dividerX, BOTTOM_BOX.bottom, TOTALS_BOX.dividerX, BOTTOM_BOX.top);
   const rowHeight = (BOTTOM_BOX.top - BOTTOM_BOX.bottom) / TOTALS_ROWS.length;

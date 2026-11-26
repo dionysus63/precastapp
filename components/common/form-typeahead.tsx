@@ -17,6 +17,16 @@ type FormTypeaheadProps<T> = {
   inputClassName: string;
   /** When true, Enter selects the first match without submitting a parent form. */
   preventEnterSubmit?: boolean;
+  /**
+   * Lets what was typed be the answer itself (a job that is not on file):
+   * a last row in the list offers it, and Enter takes it when nothing
+   * matches.
+   */
+  freeText?: {
+    /** The row's wording for the typed text, e.g. `Use "Smith yard" as typed`. */
+    label: (query: string) => string;
+    onUse: (query: string) => void;
+  };
 };
 
 export function FormTypeahead<T>({
@@ -33,6 +43,7 @@ export function FormTypeahead<T>({
   disabled = false,
   inputClassName,
   preventEnterSubmit = true,
+  freeText,
 }: FormTypeaheadProps<T>) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -40,6 +51,7 @@ export function FormTypeahead<T>({
   const [hasLoaded, setHasLoaded] = useState(false);
   const [isSearching, startSearchTransition] = useTransition();
   const containerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) {
@@ -57,6 +69,15 @@ export function FormTypeahead<T>({
     return () => clearTimeout(handle);
   }, [open, query, searchItems, startSearchTransition]);
 
+  // A search box near the bottom of the window opens its list below the
+  // fold. Bring the whole list into view, and again when results change its
+  // height. "nearest" moves nothing when the list is already on screen.
+  useEffect(() => {
+    if (open) {
+      listRef.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [open, items, isSearching]);
+
   function closeDropdown() {
     setOpen(false);
     setQuery("");
@@ -64,6 +85,13 @@ export function FormTypeahead<T>({
 
   function handleSelect(item: T | null) {
     onSelect(item);
+    closeDropdown();
+  }
+
+  const typedText = query.trim();
+
+  function handleUseTyped() {
+    freeText?.onUse(typedText);
     closeDropdown();
   }
 
@@ -82,6 +110,8 @@ export function FormTypeahead<T>({
       event.preventDefault();
       if (open && items.length > 0) {
         handleSelect(items[0]!);
+      } else if (open && freeText && typedText && !isSearching && hasLoaded) {
+        handleUseTyped();
       }
     }
   }
@@ -116,6 +146,7 @@ export function FormTypeahead<T>({
       />
       {open ? (
         <div
+          ref={listRef}
           id={`${inputId ?? "typeahead"}-listbox`}
           role="listbox"
           className="absolute left-0 right-0 z-30 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 text-xs shadow-lg"
@@ -147,6 +178,17 @@ export function FormTypeahead<T>({
             <p className="px-3 py-1.5 text-slate-400">Searching…</p>
           ) : items.length === 0 ? (
             <p className="px-3 py-1.5 text-slate-500">{emptyLabel}</p>
+          ) : null}
+          {freeText && typedText ? (
+            <button
+              type="button"
+              role="option"
+              aria-selected={false}
+              onClick={handleUseTyped}
+              className="block w-full border-t border-slate-100 px-3 py-1.5 text-left font-medium text-slate-700 hover:bg-slate-50"
+            >
+              {freeText.label(typedText)}
+            </button>
           ) : null}
         </div>
       ) : null}

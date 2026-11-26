@@ -60,8 +60,8 @@ export default async function JobDetailPage({
   const user = await getCurrentUser();
 
   // Lightweight always-on load: base job row, relation counts for the tab
-  // badges, and the skinny relation slices needed by the stats cards and
-  // overview summary. Full relations load per tab inside JobTabContent.
+  // badges, and the skinny relation slices the header needs (PO, bidding).
+  // Full relations load per tab inside JobTabContent.
   const [job, favoriteJobIds] = await Promise.all([
     withDatabaseRetry((prisma) =>
       prisma.job.findUnique({
@@ -80,7 +80,6 @@ export default async function JobDetailPage({
             select: {
               id: true,
               status: true,
-              total: true,
               customerPO: true,
               updatedAt: true,
             },
@@ -96,9 +95,6 @@ export default async function JobDetailPage({
               },
             },
           },
-          deliveryTickets: { select: { status: true } },
-          jobStructures: { select: { status: true } },
-          invoices: { select: { total: true } },
           createdBy: { select: { displayName: true } },
         },
       }),

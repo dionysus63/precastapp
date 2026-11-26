@@ -8,6 +8,7 @@ import {
   quoteInputClassName,
 } from "@/components/quotes/quote-utils";
 import type { ShippingHint } from "@/components/quotes/quote-form/quote-form-utils";
+import { DELIVERY_CHARGE_ENABLED } from "@/lib/quotes/delivery-charge";
 
 /**
  * "Notes and Terms" card. The delivery pricing panel is passed in as a slot
@@ -95,7 +96,7 @@ export function QuoteNotesTermsSection({
               type="text"
               value={fob}
               onChange={(event) => onFobChange(event.target.value)}
-              placeholder="Factory"
+              placeholder="Jobsite"
               className={quoteInputClassName}
             />
           </div>
@@ -190,6 +191,9 @@ export function QuoteDeliveryPricingPanel({
   hasDeliveryLine: boolean;
   onApplyDeliveryLine: () => void;
 }) {
+  if (!DELIVERY_CHARGE_ENABLED) {
+    return null;
+  }
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">

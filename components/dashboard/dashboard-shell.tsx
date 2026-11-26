@@ -15,6 +15,8 @@ import {
   getAccessibleHome,
 } from "@/lib/auth/permissions";
 import { SessionKeepAlive } from "./session-keep-alive";
+import { PreviewZoomProvider } from "@/components/common/pdf-zoom-buttons";
+import { loadKeptPreviewZooms } from "@/lib/server/preview-zoom";
 import { pageWidthClassName, type PageWidth } from "@/lib/page-width";
 import type { PermissionKey, UserRoleKey } from "@/lib/auth/constants";
 import {
@@ -68,6 +70,8 @@ export async function DashboardShell({
   };
   const logoUpdatedAt = await getCompanyLogoUpdatedAt(fullSettings.companyLogoPath);
   const logoUrl = logoUpdatedAt ? companyLogoApiUrl(logoUpdatedAt) : null;
+  // The zoom this user keeps for each screen's PDF previews ("Keep zoom").
+  const keptPreviewZooms = await loadKeptPreviewZooms(user.id);
 
   return (
     <div className="min-h-screen bg-page pl-60">
@@ -90,7 +94,9 @@ export async function DashboardShell({
         {permissions.includes(AppPermission.USERS_MANAGE) ? <BackupWarning /> : null}
         <main className="flex-1 px-5 py-5">
           <div data-page-width={width} className={pageWidthClassName(width)}>
-            {children}
+            <PreviewZoomProvider kept={keptPreviewZooms}>
+              {children}
+            </PreviewZoomProvider>
           </div>
         </main>
       </div>

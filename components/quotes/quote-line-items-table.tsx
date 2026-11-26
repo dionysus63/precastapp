@@ -14,7 +14,9 @@ import { StatusBadge } from "@/components/dashboard/status-badge";
 import {
   type EditableQuoteLineItem,
   formatQuoteCurrency,
+  getLineDiscountPercent,
   getLineItemTotal,
+  getLineNetUnitPrice,
   isCategoryLineItem,
 } from "@/components/quotes/quote-utils";
 import { hasCostBreakdown } from "@/lib/quotes/custom-structure";
@@ -39,10 +41,10 @@ const iconButtonClassName =
   "inline-flex h-6 w-6 items-center justify-center rounded text-xsm text-slate-500 hover:bg-slate-200/70 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-30";
 
 // Keyboard-navigable columns, in Tab/Enter order.
-// Description=0, Qty=1, Unit=2, Unit Price=3, Weight=4, Tax=5.
+// Description=0, Qty=1, Unit=2, List Price=3, Disc %=4, Weight=5, Tax=6.
 // Rows expose only the columns that are editable for them (category rows only
 // col 0; custom structures skip cols 0 and 3), so navigation skips the gaps.
-const NAV_COLUMN_COUNT = 6;
+const NAV_COLUMN_COUNT = 7;
 
 type CellKeyDownHandler = (
   event: KeyboardEvent<HTMLElement>,
@@ -137,6 +139,45 @@ function QuoteUnitPriceInput({
       onBlur={() => setFocused(false)}
       onChange={(event) => onChange(event.target.value)}
       className={tableNumericCellInputClassName}
+    />
+  );
+}
+
+/**
+ * Disc % cell. Blank follows the standard discount of the line's product
+ * group; anything typed is this line's own discount and is tinted so it can
+ * be told apart.
+ */
+function QuoteDiscountPercentInput({
+  line,
+  onChange,
+  rowIndex,
+  onCellKeyDown,
+}: {
+  line: EditableQuoteLineItem;
+  onChange: (value: string) => void;
+  rowIndex: number;
+  onCellKeyDown: CellKeyDownHandler;
+}) {
+  const typed = Boolean(line.discountTyped);
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={line.discountPercent ?? ""}
+      data-qli-row={rowIndex}
+      data-qli-col={4}
+      aria-label={`Discount percent for line ${line.lineNumber}`}
+      title={
+        typed
+          ? "Typed on this line. Clear the box to go back to the standard discount."
+          : "The standard discount. Type over it to give this line its own."
+      }
+      onKeyDown={(event) => onCellKeyDown(event, rowIndex, 4)}
+      onFocus={(event) => event.currentTarget.select()}
+      onChange={(event) => onChange(event.target.value)}
+      // The cell input is see-through by default; a typed discount is tinted.
+      className={`${tableNumericCellInputClassName} ${typed ? "!bg-amber-50" : ""}`}
     />
   );
 }
@@ -384,7 +425,7 @@ const QuoteLineItemRow = memo(function QuoteLineItemRow({
         <td className={tableCellClassName}>
           <StatusBadge label={line.typeLabel} variant="neutral" />
         </td>
-        <td className={`${tableCellBordersClassName} px-2`} colSpan={8}>
+        <td className={`${tableCellBordersClassName} px-2`} colSpan={10}>
           <div className="flex items-center gap-2 py-1.5 text-2xs font-medium uppercase tracking-wide text-slate-400">
             <span className="h-0 flex-1 border-t-2 border-dashed border-slate-300" />
             Everything below starts on a new page
@@ -421,7 +462,7 @@ const QuoteLineItemRow = memo(function QuoteLineItemRow({
         <td className={tableCellClassName}>
           <StatusBadge label={line.typeLabel} variant="neutral" />
         </td>
-        <td className={`${tableGridCellClassName} bg-slate-50/60`} colSpan={8}>
+        <td className={`${tableGridCellClassName} bg-slate-50/60`} colSpan={10}>
           <QuoteLineDescriptionTextarea
             value={line.description}
             onChange={(value) => onUpdateLine(line.id, "description", value)}
@@ -528,12 +569,25 @@ const QuoteLineItemRow = memo(function QuoteLineItemRow({
         </td>
       )}
       <td className={tableGridCellClassName}>
+        <QuoteDiscountPercentInput
+          line={line}
+          onChange={(value) => onUpdateLine(line.id, "discountPercent", value)}
+          rowIndex={rowIndex}
+          onCellKeyDown={onCellKeyDown}
+        />
+      </td>
+      <td className={`${tableComputedCellClassName} font-normal`}>
+        {getLineDiscountPercent(line) > 0
+          ? formatQuoteCurrency(getLineNetUnitPrice(line))
+          : ""}
+      </td>
+      <td className={tableGridCellClassName}>
         <input
           type="text"
           value={line.weight}
           data-qli-row={rowIndex}
-          data-qli-col={4}
-          onKeyDown={(event) => onCellKeyDown(event, rowIndex, 4)}
+          data-qli-col={5}
+          onKeyDown={(event) => onCellKeyDown(event, rowIndex, 5)}
           onChange={(event) =>
             onUpdateLine(line.id, "weight", event.target.value)
           }
@@ -545,8 +599,8 @@ const QuoteLineItemRow = memo(function QuoteLineItemRow({
         <select
           value={line.taxable ? "yes" : "no"}
           data-qli-row={rowIndex}
-          data-qli-col={5}
-          onKeyDown={(event) => onCellKeyDown(event, rowIndex, 5)}
+          data-qli-col={6}
+          onKeyDown={(event) => onCellKeyDown(event, rowIndex, 6)}
           onChange={(event) =>
             onUpdateLine(line.id, "taxable", event.target.value === "yes")
           }
@@ -814,7 +868,13 @@ export const QuoteLineItemsTable = memo(function QuoteLineItemsTable({
             </th>
             <th className={`${tableHeaderCellClassName} w-16`}>Unit</th>
             <th className={`${tableHeaderCellClassName} w-24 text-right`}>
-              Unit Price
+              List Price
+            </th>
+            <th className={`${tableHeaderCellClassName} w-16 text-right`}>
+              Disc %
+            </th>
+            <th className={`${tableHeaderCellClassName} w-24 text-right`}>
+              Net Price
             </th>
             <th className={`${tableHeaderCellClassName} w-20 text-right`}>
               Weight
@@ -830,7 +890,7 @@ export const QuoteLineItemsTable = memo(function QuoteLineItemsTable({
           {lineItems.length === 0 ? (
             <tr>
               <td
-                colSpan={12}
+                colSpan={14}
                 className={`${tableCellBordersClassName} px-3 py-6 text-center text-slate-500`}
               >
                 No line items yet. Use the buttons above to add items.

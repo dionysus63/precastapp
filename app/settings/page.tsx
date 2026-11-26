@@ -9,6 +9,7 @@ import {
   formatBackupMoment,
   getBackupHealth,
 } from "@/lib/backup-status";
+import { DELIVERY_CHARGE_ENABLED } from "@/lib/quotes/delivery-charge";
 
 const settingSections = [
   {
@@ -150,6 +151,10 @@ export default async function SettingsPage() {
             detail: describeBackupHealth(backup, now)?.headline ?? "See the warning above",
           };
   const visibleSections = settingSections.filter((section) => {
+    // Reachable by its address, like Shipping Rates, until delivery is charged.
+    if (section.href === "/settings/shipping-zones" && !DELIVERY_CHARGE_ENABLED) {
+      return false;
+    }
     if ("adminOnly" in section && section.adminOnly) {
       return canManageUsers;
     }

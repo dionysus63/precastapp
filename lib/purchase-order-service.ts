@@ -5,10 +5,16 @@ import type {
   ReceivingCategory,
 } from "@/app/generated/prisma/client";
 import { Prisma as PrismaNamespace } from "@/app/generated/prisma/client";
-import { allocatePurchaseOrderNumber } from "@/lib/purchase-order-number";
+import {
+  allocatePurchaseOrderNumber,
+  purchaseOrderNumberPrefix,
+  purchaseOrderPrefix,
+  releasePurchaseOrderNumber,
+} from "@/lib/purchase-order-number";
 import {
   OPEN_PURCHASE_ORDER_STATUSES,
   canEditPurchaseOrder,
+  purchaseOrderJobLabel,
 } from "@/lib/purchase-order-utils";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
@@ -22,6 +28,19 @@ export type PurchaseOrderLineInput = {
   unitPrice: number;
 };
 
+/**
+ * The vendor's quote a "quote only" purchase order is placed against: the
+ * order is for everything on that quote, at the quote's total.
+ */
+export type PurchaseOrderQuoteInput = {
+  number?: string | null;
+  date?: Date | null;
+  total: number;
+};
+
+/** A job a purchase is for: one on file, or a name typed in. */
+export type PurchaseOrderJobInput = { id: string } | { name: string };
+
 export type SavePurchaseOrderInput = {
   vendorId: string;
   category?: ReceivingCategory | null;
@@ -29,8 +48,34 @@ export type SavePurchaseOrderInput = {
   expectedDate?: Date | null;
   notes?: string | null;
   enteredBy?: string | null;
+  /**
+   * Who at the vendor the order is addressed to. Left out: a new order takes
+   * the vendor's contact, a saved one keeps what it has.
+   */
+  attention?: string | null;
   submissionKey?: string | null;
+  /** Whether the purchase is taxable; printed, not worked out. */
+  taxable?: boolean;
+  /**
+   * Notes for the office only, never printed. Left out: a new order has
+   * none, a saved one keeps what it has.
+   */
+  internalNotes?: string | null;
+  /**
+   * The contractors (customers) the purchase is for, in the order picked.
+   * Left out: a new order has none, a saved one keeps what it has.
+   */
+  contractorIds?: string[];
+  /**
+   * The jobs the purchase is for, in the order picked: each a job on file
+   * or a name typed in. Left out: a new order has none, a saved one keeps
+   * what it has.
+   */
+  jobs?: PurchaseOrderJobInput[];
+  /** Ignored when `quote` is given: a quote only order has no lines. */
   lines: PurchaseOrderLineInput[];
+  /** Set for a "quote only" purchase order. */
+  quote?: PurchaseOrderQuoteInput | null;
 };
 
 function toDecimal(value: number): PrismaNamespace.Decimal {
@@ -71,11 +116,108 @@ function validateLines(lines: PurchaseOrderLineInput[]): void {
   }
 }
 
+function validateQuote(quote: PurchaseOrderQuoteInput): void {
+  if (!quote.number?.trim() && !quote.date) {
+    throw new Error("Enter the vendor's quote number or the quote date.");
+  }
+  if (!Number.isFinite(quote.total) || quote.total <= 0) {
+    throw new Error("Enter the quote total.");
+  }
+}
+
+/**
+ * What a save stores for the order's content: typed lines and their sum, or
+ * for a quote only order no lines, the quote's reference and its total.
+ */
+function purchaseOrderContent(input: SavePurchaseOrderInput) {
+  if (input.quote) {
+    validateQuote(input.quote);
+    const total = toDecimal(input.quote.total).toDecimalPlaces(2);
+    return {
+      lines: [] as PurchaseOrderLineInput[],
+      totals: { subtotal: total, total },
+      quoteFields: {
+        quoteOnly: true,
+        quoteNumber: input.quote.number?.trim() || null,
+        quoteDate: input.quote.date ?? null,
+      },
+    };
+  }
+  validateLines(input.lines);
+  return {
+    lines: input.lines,
+    totals: computePurchaseOrderTotals(input.lines),
+    quoteFields: { quoteOnly: false, quoteNumber: null, quoteDate: null },
+  };
+}
+
+/**
+ * What a save stores for the contractors and the jobs, or nothing for each
+ * the caller left out. The names are kept beside the links (contractorNames,
+ * jobNames) because the list sorts and searches by them.
+ */
+async function purchaseOrderLinkFields(
+  tx: Prisma.TransactionClient,
+  input: SavePurchaseOrderInput,
+) {
+  let contractors: { ids: string[]; names: string | null } | undefined;
+  if (input.contractorIds !== undefined) {
+    const ids = [...new Set(input.contractorIds.map((id) => id.trim()).filter(Boolean))];
+    const customers = ids.length
+      ? await tx.customer.findMany({
+          where: { id: { in: ids } },
+          select: { id: true, name: true },
+        })
+      : [];
+    const nameById = new Map(customers.map((customer) => [customer.id, customer.name]));
+    if (ids.some((id) => !nameById.has(id))) {
+      throw new Error("A contractor on this purchase order was not found.");
+    }
+    contractors = {
+      ids,
+      names: ids.map((id) => nameById.get(id)!.trim()).join(", ") || null,
+    };
+  }
+
+  let jobs:
+    | { rows: Array<{ jobId: string | null; name: string }>; names: string | null }
+    | undefined;
+  if (input.jobs !== undefined) {
+    const ids = input.jobs.flatMap((job) => ("id" in job && job.id.trim() ? [job.id.trim()] : []));
+    const found = ids.length
+      ? await tx.job.findMany({
+          where: { id: { in: ids } },
+          select: { id: true, jobNumber: true, projectName: true },
+        })
+      : [];
+    const labelById = new Map(found.map((job) => [job.id, purchaseOrderJobLabel(job)]));
+    // Each job once: a job on file by its id, a typed name whatever its capitals.
+    const seen = new Set<string>();
+    const rows: Array<{ jobId: string | null; name: string }> = [];
+    for (const job of input.jobs) {
+      const jobId = "id" in job ? job.id.trim() : null;
+      const name = "id" in job ? labelById.get(job.id.trim()) : job.name.trim();
+      if (jobId && name === undefined) {
+        throw new Error("A job on this purchase order was not found.");
+      }
+      const key = jobId ? `id:${jobId}` : `name:${name!.toLowerCase()}`;
+      if (!name || seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      rows.push({ jobId, name });
+    }
+    jobs = { rows, names: rows.map((row) => row.name).join(", ") || null };
+  }
+
+  return { contractors, jobs };
+}
+
 export async function createPurchaseOrderRecord(
   tx: Prisma.TransactionClient,
   input: SavePurchaseOrderInput,
 ): Promise<string> {
-  validateLines(input.lines);
+  const content = purchaseOrderContent(input);
 
   if (input.submissionKey) {
     const existing = await tx.purchaseOrder.findUnique({
@@ -89,7 +231,7 @@ export async function createPurchaseOrderRecord(
 
   const vendor = await tx.vendor.findUnique({
     where: { id: input.vendorId },
-    select: { id: true, status: true },
+    select: { id: true, name: true, status: true, contactName: true },
   });
   if (!vendor) {
     throw new Error("Vendor not found.");
@@ -98,8 +240,13 @@ export async function createPurchaseOrderRecord(
     throw new Error("Vendor is inactive.");
   }
 
-  const { sequenceNumber, poNumber } = await allocatePurchaseOrderNumber(tx);
-  const totals = computePurchaseOrderTotals(input.lines);
+  const links = await purchaseOrderLinkFields(tx, input);
+
+  const { sequenceNumber, poNumber } = await allocatePurchaseOrderNumber(
+    tx,
+    vendor.name,
+  );
+  const { totals } = content;
 
   const purchaseOrder = await tx.purchaseOrder.create({
     data: {
@@ -111,11 +258,32 @@ export async function createPurchaseOrderRecord(
       expectedDate: input.expectedDate ?? null,
       notes: input.notes ?? null,
       enteredBy: input.enteredBy ?? null,
+      attention:
+        input.attention === undefined
+          ? vendor.contactName?.trim() || null
+          : input.attention?.trim() || null,
       submissionKey: input.submissionKey ?? null,
+      taxable: input.taxable ?? false,
+      internalNotes: input.internalNotes?.trim() || null,
+      jobNames: links.jobs?.names ?? null,
+      jobs: {
+        create: (links.jobs?.rows ?? []).map((row, index) => ({
+          ...row,
+          sortOrder: index,
+        })),
+      },
+      contractorNames: links.contractors?.names ?? null,
+      contractors: {
+        create: (links.contractors?.ids ?? []).map((customerId, index) => ({
+          customerId,
+          sortOrder: index,
+        })),
+      },
+      ...content.quoteFields,
       subtotal: totals.subtotal,
       total: totals.total,
       lines: {
-        create: input.lines.map((line, index) => ({
+        create: content.lines.map((line, index) => ({
           lineNumber: index + 1,
           productId: line.productId?.trim() || null,
           itemCode: line.itemCode.trim(),
@@ -140,17 +308,18 @@ export async function updatePurchaseOrderRecord(
   input: SavePurchaseOrderInput,
   expectedUpdatedAt?: Date | null,
 ): Promise<void> {
-  validateLines(input.lines);
-
   const existing = await tx.purchaseOrder.findUnique({
     where: { id: purchaseOrderId },
-    select: { id: true, status: true, updatedAt: true },
+    select: {
+      id: true,
+      status: true,
+      updatedAt: true,
+      vendorId: true,
+      poNumber: true,
+    },
   });
   if (!existing) {
     throw new Error("Purchase order not found.");
-  }
-  if (!canEditPurchaseOrder(existing.status)) {
-    throw new Error("This purchase order can no longer be edited.");
   }
   if (
     expectedUpdatedAt &&
@@ -161,22 +330,101 @@ export async function updatePurchaseOrderRecord(
     );
   }
 
-  const totals = computePurchaseOrderTotals(input.lines);
+  const links = await purchaseOrderLinkFields(tx, input);
+  if (links.contractors) {
+    await tx.purchaseOrderContractor.deleteMany({ where: { purchaseOrderId } });
+  }
+  if (links.jobs) {
+    await tx.purchaseOrderJob.deleteMany({ where: { purchaseOrderId } });
+  }
+  // What can change on any purchase order, whatever its status.
+  const details = {
+    orderDate: input.orderDate,
+    expectedDate: input.expectedDate ?? null,
+    notes: input.notes ?? null,
+    enteredBy: input.enteredBy ?? null,
+    ...(input.attention === undefined
+      ? {}
+      : { attention: input.attention?.trim() || null }),
+    taxable: input.taxable ?? false,
+    ...(input.internalNotes === undefined
+      ? {}
+      : { internalNotes: input.internalNotes?.trim() || null }),
+    ...(links.jobs
+      ? {
+          jobNames: links.jobs.names,
+          jobs: {
+            create: links.jobs.rows.map((row, index) => ({ ...row, sortOrder: index })),
+          },
+        }
+      : {}),
+    ...(links.contractors
+      ? {
+          contractorNames: links.contractors.names,
+          contractors: {
+            create: links.contractors.ids.map((customerId, index) => ({
+              customerId,
+              sortOrder: index,
+            })),
+          },
+        }
+      : {}),
+  } satisfies Prisma.PurchaseOrderUpdateInput;
+
+  // Once a delivery was received, or the order was cancelled, what is ordered
+  // stays: the received quantities sit on the lines, and the lines below are
+  // written afresh. Whatever the caller sent for them is left unread.
+  if (!canEditPurchaseOrder(existing.status)) {
+    await tx.purchaseOrder.update({ where: { id: purchaseOrderId }, data: details });
+    return;
+  }
+
+  const content = purchaseOrderContent(input);
+
+  // The number carries the vendor's letters, so a purchase order moved to a
+  // vendor with other letters takes the next number of that vendor. The old
+  // number is not given out again. Same vendor, or same letters: no change,
+  // and that includes the old PO10001 style numbers.
+  let renumbered: { sequenceNumber: number; poNumber: string } | null = null;
+  if (input.vendorId !== existing.vendorId) {
+    const vendor = await tx.vendor.findUnique({
+      where: { id: input.vendorId },
+      select: { name: true, status: true },
+    });
+    if (!vendor) {
+      throw new Error("Vendor not found.");
+    }
+    if (vendor.status !== "ACTIVE") {
+      throw new Error("Vendor is inactive.");
+    }
+    if (
+      purchaseOrderNumberPrefix(existing.poNumber) !==
+      purchaseOrderPrefix(vendor.name)
+    ) {
+      renumbered = await allocatePurchaseOrderNumber(tx, vendor.name);
+    }
+  }
+
+  const { totals } = content;
 
   await tx.purchaseOrderLine.deleteMany({ where: { purchaseOrderId } });
   await tx.purchaseOrder.update({
     where: { id: purchaseOrderId },
     data: {
+      ...(renumbered
+        ? {
+            poNumber: renumbered.poNumber,
+            sequenceNumber: renumbered.sequenceNumber,
+          }
+        : {}),
+      ...details,
       vendorId: input.vendorId,
       category: input.category ?? null,
-      orderDate: input.orderDate,
-      expectedDate: input.expectedDate ?? null,
-      notes: input.notes ?? null,
-      enteredBy: input.enteredBy ?? null,
+      ...content.quoteFields,
       subtotal: totals.subtotal,
       total: totals.total,
       lines: {
-        create: input.lines.map((line, index) => ({
+        create: content.lines.map((line, index) => ({
           lineNumber: index + 1,
           productId: line.productId?.trim() || null,
           itemCode: line.itemCode.trim(),
@@ -190,6 +438,57 @@ export async function updatePurchaseOrderRecord(
       },
     },
   });
+}
+
+/**
+ * Deletes a purchase order for good: the order and its lines. Refused once
+ * anything was received against it, because the receiving entries and the
+ * stock they added would be left pointing at nothing; such an order is
+ * cancelled instead. Returns what the caller needs to finish the job (the
+ * vendor quote on disk) and to tell the user what happened.
+ */
+export async function deletePurchaseOrderRecord(
+  tx: Prisma.TransactionClient,
+  purchaseOrderId: string,
+): Promise<{
+  poNumber: string;
+  vendorQuotePath: string | null;
+  numberReleased: boolean;
+}> {
+  const existing = await tx.purchaseOrder.findUnique({
+    where: { id: purchaseOrderId },
+    select: {
+      poNumber: true,
+      sequenceNumber: true,
+      vendorQuotePath: true,
+      _count: { select: { receipts: true } },
+      lines: { select: { quantityReceived: true } },
+    },
+  });
+  if (!existing) {
+    throw new Error("Purchase order not found.");
+  }
+  const received =
+    existing._count.receipts > 0 ||
+    existing.lines.some((line) => line.quantityReceived.greaterThan(0));
+  if (received) {
+    throw new Error(
+      `${existing.poNumber} has deliveries received against it and cannot be deleted. Cancel it instead.`,
+    );
+  }
+
+  // The lines go with it (onDelete: Cascade).
+  await tx.purchaseOrder.delete({ where: { id: purchaseOrderId } });
+  const numberReleased = await releasePurchaseOrderNumber(
+    tx,
+    existing.poNumber,
+    existing.sequenceNumber,
+  );
+  return {
+    poNumber: existing.poNumber,
+    vendorQuotePath: existing.vendorQuotePath,
+    numberReleased,
+  };
 }
 
 export async function refreshPurchaseOrderStatus(

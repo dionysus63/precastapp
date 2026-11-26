@@ -12,6 +12,7 @@ import {
   lookupShippingRateAtPoint,
   type ShippingLookupResult,
 } from "@/app/shipping/actions";
+import { DELIVERY_CHARGE_ENABLED } from "@/lib/quotes/delivery-charge";
 import type { AddressSuggestion } from "@/lib/shipping/geocode";
 import {
   type EditableQuoteLineItem,
@@ -89,6 +90,10 @@ export function useQuoteDeliveryPricing({
   }
 
   function runShippingLookup(address: string) {
+    // No delivery charge: there is no zone price to look up or note down.
+    if (!DELIVERY_CHARGE_ENABLED) {
+      return;
+    }
     const query = address.trim();
     if (!query) {
       lastShippingAddress.current = "";
@@ -115,6 +120,9 @@ export function useQuoteDeliveryPricing({
 
   function handleAddressSuggestionSelect(suggestion: AddressSuggestion) {
     setProjectAddress(suggestion.label);
+    if (!DELIVERY_CHARGE_ENABLED) {
+      return;
+    }
     // The suggestion carries its own coordinates, so skip the geocode that
     // would otherwise fire when focus leaves the field.
     lastShippingAddress.current = suggestion.label;

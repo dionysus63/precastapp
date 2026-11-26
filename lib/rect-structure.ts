@@ -18,6 +18,7 @@
 //     billed height.
 
 import {
+  FEET_ROUNDING_SLACK,
   applyWallHeightAdjust,
   computeWallHeightFeet,
   normalizeWallHeightAdjustInches,
@@ -25,6 +26,12 @@ import {
   type SumpMode,
 } from "@/lib/drill-sheet";
 import { RECT_OPENING_ROWS } from "@/lib/rect-template-pdf-fields";
+import {
+  RECT_STEPS_POSITION_LABELS,
+  RECT_STEP_WIDTH_INCHES,
+  rectStepsPlacement,
+  type RectStepsPosition,
+} from "@/lib/rect-steps";
 
 /** Rows in the printed sheet's INVERT/DIA/TYPE openings table (A-E). */
 export const RECT_OPENING_TABLE_ROWS = RECT_OPENING_ROWS.length;
@@ -83,6 +90,11 @@ export type RectTemplateConfig = {
   topSlabOpeningLengthInches?: number | null;
   topSlabOpeningWidthInches?: number | null;
   topSlabOpeningSide?: RectWall | null;
+  /**
+   * Inside corner to the middle of off-center steps, inches. Blank means
+   * the template has no steps distance yet.
+   */
+  stepsOffsetInches?: number | null;
 };
 
 /**
@@ -157,6 +169,25 @@ export type RectStructureInput = {
   /** Key toggle for the joint above section i (length = sections - 1). */
   jointKeys: boolean[];
   topSlabOpening: RectTopSlabOpening | null;
+  /** Where the steps go; blank or missing = no steps. */
+  stepsPosition?: RectStepsPosition | null;
+};
+
+/** Steps as the sheet draws them. */
+export type ComputedRectSteps = {
+  position: RectStepsPosition;
+  wall: RectWall;
+  /**
+   * Middle of the steps along the wall, inches from its LEFT inside face
+   * (the way opening edges are measured). Null when it cannot be placed:
+   * the wall has no size, or off-center steps have no template distance.
+   */
+  centerInches: number | null;
+  /** Inside corner to the middle of the steps; null in the middle of a wall. */
+  offsetInches: number | null;
+  widthInches: number;
+  /** Letters of the same-wall openings the steps cross. */
+  crossesOpenings: string[];
 };
 
 export type ComputedRectOpening = RectOpeningInput & {
@@ -239,6 +270,8 @@ export type RectStructureResult = {
   topSlabOpening: RectTopSlabOpening | null;
   /** True when `topSlabOpening` came from the template default. */
   topSlabOpeningFromTemplate: boolean;
+  /** Steps on the sheet; null or missing = none. */
+  steps?: ComputedRectSteps | null;
   weights: RectPickWeights;
   wallPrice: number;
   /** Top slab component price (0 when the sheet has no top slab). */
@@ -378,25 +411,65 @@ function resolveOpenings(
 }
 
 /** Pipe centered vertically in the block-out: opening center = invert + pipe/2. */
-function computeVerticalGeometry(
+/**
+ * Vertical extent of the block-out: centered on the pipe, except that it can
+ * never start below the floor. A block-out that would (a small sump under a
+ * big pipe, e.g. the sump set by an 18" pipe with a 24" pipe at the same
+ * invert) sits ON the floor and keeps its full catalog height, so the pipe
+ * rides low in the hole.
+ */
+function openingVerticalExtent(
   opening: ComputedRectOpening,
   floorElevation: number | null,
-): ComputedRectOpening {
+): { bottomFeet: number; topFeet: number; raisedFeet: number } | null {
   if (opening.invertElevation == null || opening.openingHeightInches == null) {
-    return opening;
+    return null;
   }
   const pipeSize = opening.pipeSizeInches ?? 0;
   const center = opening.invertElevation + inchesToFeet(pipeSize / 2);
   const half = inchesToFeet(opening.openingHeightInches / 2);
-  const bottomOfOpeningFeet = round4(center - half);
-  const topOfOpeningFeet = round4(center + half);
+  const centeredBottom = round4(center - half);
+  if (floorElevation != null && centeredBottom < floorElevation - EPSILON) {
+    return {
+      bottomFeet: floorElevation,
+      topFeet: round4(
+        floorElevation + inchesToFeet(opening.openingHeightInches),
+      ),
+      raisedFeet: round4(floorElevation - centeredBottom),
+    };
+  }
+  return {
+    bottomFeet: centeredBottom,
+    topFeet: round4(center + half),
+    raisedFeet: 0,
+  };
+}
+
+function computeVerticalGeometry(
+  opening: ComputedRectOpening,
+  floorElevation: number | null,
+  index: number,
+  warnings: string[],
+): ComputedRectOpening {
+  const extent = openingVerticalExtent(opening, floorElevation);
+  if (!extent) {
+    return opening;
+  }
+  // Under half an inch is rounding in the elevations, not worth a note.
+  const raisedInches = Math.round(extent.raisedFeet * 12);
+  if (raisedInches >= 1) {
+    const label = opening.label?.trim() || String.fromCharCode(65 + index);
+    warnings.push(
+      `Opening ${label} sits on the floor — centered on the pipe, its ${opening.openingWidthInches ?? "?"}"x${opening.openingHeightInches}" block-out would start ${raisedInches}" below it.`,
+    );
+  }
   return {
     ...opening,
-    bottomOfOpeningFeet,
-    topOfOpeningFeet,
+    bottomOfOpeningFeet: extent.bottomFeet,
+    topOfOpeningFeet: extent.topFeet,
     floorToOpeningBottomInches:
       floorElevation != null
-        ? Math.round((bottomOfOpeningFeet - floorElevation) * 12)
+        ? Math.round((extent.bottomFeet - floorElevation) * 12)
         : null,
   };
 }
@@ -707,6 +780,109 @@ export function resolveTopSlabOpening(
 }
 
 /**
+ * Places the steps on their wall and checks them against the pipe openings
+ * on it. Steps run the full height of the wall, so any opening they share a
+ * stretch of wall with is a real conflict: it gets a warning and the sheet
+ * leaves the rungs out at the opening.
+ */
+function computeRectSteps(
+  position: RectStepsPosition | null | undefined,
+  template: RectTemplateConfig,
+  insideLengthFeet: number | null,
+  insideWidthFeet: number | null,
+  openings: ComputedRectOpening[],
+  warnings: string[],
+): { steps: ComputedRectSteps | null; errorMessage: string | null } {
+  if (!position) {
+    return { steps: null, errorMessage: null };
+  }
+  const { wall, along } = rectStepsPlacement(position);
+  const offsetSetting =
+    template.stepsOffsetInches != null && template.stepsOffsetInches > 0
+      ? template.stepsOffsetInches
+      : null;
+  if (along !== "MIDDLE" && offsetSetting == null) {
+    // The pick is kept (so a save does not lose it); with no distance there
+    // is no place to draw it.
+    return {
+      steps: {
+        position,
+        wall,
+        centerInches: null,
+        offsetInches: null,
+        widthInches: RECT_STEP_WIDTH_INCHES,
+        crossesOpenings: [],
+      },
+      errorMessage: `Steps at ${RECT_STEPS_POSITION_LABELS[position]} need the "Steps From Corner" distance. Set it on the template.`,
+    };
+  }
+  const offsetInches = along === "MIDDLE" ? null : offsetSetting;
+  const runInches =
+    insideLengthFeet != null && insideWidthFeet != null
+      ? wallInsideRunFeet(wall, insideLengthFeet, insideWidthFeet) * 12
+      : null;
+  let centerInches: number | null = null;
+  if (runInches != null && runInches > EPSILON) {
+    centerInches =
+      along === "MIDDLE"
+        ? runInches / 2
+        : along === "START"
+          ? (offsetInches ?? 0)
+          : runInches - (offsetInches ?? 0);
+    centerInches = round2(centerInches);
+  }
+
+  const crossesOpenings: string[] = [];
+  if (centerInches != null && runInches != null) {
+    const left = centerInches - RECT_STEP_WIDTH_INCHES / 2;
+    const right = centerInches + RECT_STEP_WIDTH_INCHES / 2;
+    if (
+      offsetInches != null &&
+      (left < -EPSILON || right > runInches + EPSILON || offsetInches > runInches / 2)
+    ) {
+      warnings.push(
+        `Steps ${offsetInches}" from the corner do not fit the ${RECT_WALL_LABELS[wall]} wall (${Math.round(runInches)}" inside).`,
+      );
+    }
+    openings.forEach((opening, index) => {
+      if (
+        opening.wall !== wall ||
+        opening.leftEdgeInches == null ||
+        opening.rightEdgeInches == null
+      ) {
+        return;
+      }
+      if (
+        left < opening.rightEdgeInches - EPSILON &&
+        opening.leftEdgeInches < right - EPSILON
+      ) {
+        crossesOpenings.push(
+          opening.label?.trim() || String.fromCharCode(65 + index),
+        );
+      }
+    });
+    if (crossesOpenings.length > 0) {
+      warnings.push(
+        `Steps on the ${RECT_WALL_LABELS[wall]} wall cross opening${crossesOpenings.length > 1 ? "s" : ""} ${crossesOpenings.join(", ")}. The rungs are left out at the opening.`,
+      );
+    }
+  }
+
+  return {
+    steps: {
+      position,
+      wall,
+      centerInches,
+      offsetInches,
+      widthInches: RECT_STEP_WIDTH_INCHES,
+      crossesOpenings,
+    },
+    errorMessage: null,
+  };
+}
+
+
+/**
  * Computes a full rectangular structure sheet from rim/invert inputs and
  * manual section splits.
  */
@@ -786,7 +962,7 @@ export function computeRectStructure(
         ) * 0.5,
       );
       brickFeet = round4(Math.max(0, rawAvailableFeet - wallHeightFeet));
-      if (brickFeet + EPSILON < brickTargetFeet) {
+      if (brickFeet + FEET_ROUNDING_SLACK < brickTargetFeet) {
         warnings.push(
           `Only ${Math.round(brickFeet * 12)}" of brick fits below the casting — the ${input.brickTargetInches}" target does not.`,
         );
@@ -820,29 +996,26 @@ export function computeRectStructure(
   // must reach at least the top of the highest opening. Grow the walls by
   // consuming brick (all the way to 0, warning below the minimum); when even
   // that is short, deepen the sump so the wall still lands on a 6" increment.
+  // An opening that would start below the floor sits on it instead, which
+  // lifts its top by the same amount (see openingVerticalExtent).
+  const preliminaryFloor =
+    lowInvertElevation != null ? round4(lowInvertElevation - sumpFeet) : null;
   let maxOpeningTopFeet: number | null = null;
   for (const opening of openings) {
-    if (
-      opening.invertElevation == null ||
-      opening.openingHeightInches == null
-    ) {
+    const extent = openingVerticalExtent(opening, preliminaryFloor);
+    if (!extent) {
       continue;
     }
-    const center =
-      opening.invertElevation +
-      inchesToFeet((opening.pipeSizeInches ?? 0) / 2);
-    const top = round4(center + inchesToFeet(opening.openingHeightInches / 2));
-    if (maxOpeningTopFeet == null || top > maxOpeningTopFeet) {
-      maxOpeningTopFeet = top;
+    if (maxOpeningTopFeet == null || extent.topFeet > maxOpeningTopFeet) {
+      maxOpeningTopFeet = extent.topFeet;
     }
   }
 
   if (
     maxOpeningTopFeet != null &&
-    lowInvertElevation != null &&
+    preliminaryFloor != null &&
     rawAvailableFeet != null
   ) {
-    const preliminaryFloor = round4(lowInvertElevation - sumpFeet);
     const requiredWallFeet = round4(maxOpeningTopFeet - preliminaryFloor);
     if (requiredWallFeet > wallHeightFeet + EPSILON) {
       const minBrickFeet = inchesToFeet(template.minimumBrickInches);
@@ -854,7 +1027,7 @@ export function computeRectStructure(
         brickFeet = round4(Math.max(0, rawAvailableFeet - requiredRounded));
         warnings.push(
           `Walls raised to ${requiredRounded.toFixed(2)}' so the highest opening stays out of the brick${
-            brickFeet < minBrickFeet - EPSILON
+            brickFeet < minBrickFeet - FEET_ROUNDING_SLACK
               ? ` — brick (${Math.round(brickFeet * 12)}") is below the ${template.minimumBrickInches}" minimum`
               : ""
           }.`,
@@ -880,8 +1053,8 @@ export function computeRectStructure(
   const floorElevation =
     lowInvertElevation != null ? round4(lowInvertElevation - sumpFeet) : null;
 
-  openings = openings.map((opening) =>
-    computeVerticalGeometry(opening, floorElevation),
+  openings = openings.map((opening, index) =>
+    computeVerticalGeometry(opening, floorElevation, index, warnings),
   );
   openings = openings.map((opening) =>
     computeHorizontalGeometry(
@@ -1154,6 +1327,18 @@ export function computeRectStructure(
     warnings,
   );
 
+  const stepsResult = computeRectSteps(
+    input.stepsPosition,
+    template,
+    insideLength,
+    insideWidth,
+    openings,
+    warnings,
+  );
+  if (stepsResult.errorMessage && !errorMessage) {
+    errorMessage = stepsResult.errorMessage;
+  }
+
   if (invertToTopFeet != null && invertToTopFeet <= 0) {
     errorMessage =
       "The lowest invert is at or above the rim elevation. Check the elevations.";
@@ -1207,6 +1392,7 @@ export function computeRectStructure(
     openings,
     topSlabOpening,
     topSlabOpeningFromTemplate: resolvedTopSlab.fromTemplate,
+    steps: stepsResult.steps,
     weights: {
       sections: sections.map((section) => section.pickWeightLbs),
       baseSlabLbs,

@@ -8,6 +8,21 @@ import { parseReceivingCategory } from "@/lib/receiving-utils";
 import { withDatabaseRetry } from "@/lib/prisma";
 import { translatePrismaError } from "@/lib/server/action-errors";
 
+/** The address and contact fields, blank ones stored as empty (null). */
+function parseVendorContact(formData: FormData) {
+  const field = (name: string) =>
+    String(formData.get(name) ?? "").trim() || null;
+  return {
+    address: field("address"),
+    city: field("city"),
+    state: field("state"),
+    zip: field("zip"),
+    phone: field("phone"),
+    email: field("email"),
+    contactName: field("contactName"),
+  };
+}
+
 function revalidateVendorPaths() {
   revalidatePath("/settings/vendors");
   revalidatePath("/settings");
@@ -44,6 +59,7 @@ export async function createVendorFormAction(formData: FormData) {
       client.vendor.create({
         data: {
           name,
+          ...parseVendorContact(formData),
           notes,
           sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,
           defaultCategory: defaultCategory as ReceivingCategory | null,
@@ -58,6 +74,67 @@ export async function createVendorFormAction(formData: FormData) {
 
   revalidateVendorPaths();
   redirect("/settings/vendors?success=1");
+}
+
+export type CreatedVendor = {
+  id: string;
+  name: string;
+  defaultCategory: ReceivingCategory | null;
+  contactName: string | null;
+};
+
+/**
+ * Adds a vendor without leaving the screen that needs one (the purchase
+ * order editor): same fields and permission as the form above, but the new
+ * vendor comes back instead of a redirect to Settings.
+ */
+export async function createVendorInPlace(
+  formData: FormData,
+): Promise<{ vendor: CreatedVendor } | { error: string }> {
+  await requirePermission(AppPermission.SETTINGS_MANAGE);
+
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) {
+    return { error: "Vendor name is required." };
+  }
+  const categoryRaw = String(formData.get("defaultCategory") ?? "").trim();
+  const defaultCategory = categoryRaw ? parseReceivingCategory(categoryRaw) : null;
+  if (categoryRaw && !defaultCategory) {
+    return { error: "Invalid default category." };
+  }
+
+  try {
+    const vendor = await withDatabaseRetry(async (client) => {
+      const existing = await client.vendor.findFirst({
+        where: { name: { equals: name, mode: "insensitive" } },
+        select: { name: true, status: true },
+      });
+      if (existing) {
+        throw new Error(
+          existing.status === "ACTIVE"
+            ? `${existing.name} is already a vendor. Pick it from the list.`
+            : `${existing.name} is already a vendor, but switched off. Switch it back on in Settings, Vendors.`,
+        );
+      }
+      return client.vendor.create({
+        data: {
+          name,
+          ...parseVendorContact(formData),
+          defaultCategory: defaultCategory as ReceivingCategory | null,
+        },
+        select: { id: true, name: true, defaultCategory: true, contactName: true },
+      });
+    });
+    revalidateVendorPaths();
+    return { vendor };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? translatePrismaError(error).message
+          : "Could not create vendor.",
+    };
+  }
 }
 
 export async function updateVendorFormAction(formData: FormData) {
@@ -98,6 +175,7 @@ export async function updateVendorFormAction(formData: FormData) {
         where: { id },
         data: {
           name,
+          ...parseVendorContact(formData),
           notes,
           status,
           sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,

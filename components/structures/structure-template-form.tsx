@@ -75,6 +75,8 @@ export type StructureTemplateFormValue = {
   rectTopSlabOpeningLengthInches: string;
   rectTopSlabOpeningWidthInches: string;
   rectTopSlabOpeningSide: RectWall;
+  /** Rectangular only: inside corner to the middle of off-center steps. */
+  rectStepsOffsetInches: string;
   sheetPdfId: string;
   status: "ACTIVE" | "INACTIVE";
   notes: string;
@@ -194,6 +196,7 @@ const defaultFormValue: StructureTemplateFormValue = {
   rectTopSlabOpeningLengthInches: "",
   rectTopSlabOpeningWidthInches: "",
   rectTopSlabOpeningSide: "UP",
+  rectStepsOffsetInches: "",
   sheetPdfId: "",
   status: "ACTIVE",
   notes: "",
@@ -264,6 +267,9 @@ export function StructureTemplateForm({
     useState(initial.rectTopSlabOpeningWidthInches);
   const [rectTopSlabOpeningSide, setRectTopSlabOpeningSide] =
     useState<RectWall>(initial.rectTopSlabOpeningSide);
+  const [rectStepsOffsetInches, setRectStepsOffsetInches] = useState(
+    initial.rectStepsOffsetInches,
+  );
   const [sheetPdfId, setSheetPdfId] = useState(initial.sheetPdfId);
   const [status, setStatus] = useState(initial.status);
   const [notes, setNotes] = useState(initial.notes);
@@ -354,6 +360,7 @@ export function StructureTemplateForm({
       rectTopSlabOpeningLengthInches: rectTopSlabOpeningLengthInches || null,
       rectTopSlabOpeningWidthInches: rectTopSlabOpeningWidthInches || null,
       rectTopSlabOpeningSide,
+      rectStepsOffsetInches: rectStepsOffsetInches || null,
       sheetPdfId: selectedSheetPdfId || null,
       status,
       notes,
@@ -390,6 +397,7 @@ export function StructureTemplateForm({
     rectTopSlabOpeningLengthInches,
     rectTopSlabOpeningWidthInches,
     rectTopSlabOpeningSide,
+    rectStepsOffsetInches,
     selectedSheetPdfId,
     status,
     notes,
@@ -853,6 +861,37 @@ export function StructureTemplateForm({
           )}
         </div>
       </SectionCard>
+
+      {isRect ? (
+        <SectionCard
+          title="Steps"
+          description="Each structure picks where its steps go. This sets how far from the corner they sit when they are toward one end of a wall."
+        >
+          <div className="w-40">
+            <label
+              htmlFor="template-steps-from-corner"
+              className="block text-xs font-medium text-slate-700"
+            >
+              Steps From Corner (in)
+            </label>
+            <input
+              id="template-steps-from-corner"
+              type="number"
+              min="0"
+              step="0.5"
+              value={rectStepsOffsetInches}
+              onChange={(e) => setRectStepsOffsetInches(e.target.value)}
+              placeholder="12"
+              className={structureInputClassName}
+            />
+          </div>
+          <p className="mt-2 text-2xs text-slate-500">
+            Measured from the inside corner to the middle of the steps, and
+            printed on the drill sheet. Steps in the middle of a wall do not
+            use it.
+          </p>
+        </SectionCard>
+      ) : null}
 
       <SectionCard
         title="Sheet PDF"

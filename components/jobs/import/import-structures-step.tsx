@@ -599,7 +599,13 @@ export function ImportStructuresStep({
           </div>
         </section>
 
-        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        {/*
+          No overflow box around this table, on the section or on a wrapper:
+          the product search opens its list below the row, and a box that
+          clips or scrolls would cut the list off and scroll the table
+          instead. The fixed column widths keep the table inside the section.
+        */}
+        <section className="rounded-xl border border-slate-200 bg-white">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Castings and stock items</h3>
@@ -617,84 +623,82 @@ export function ImportStructuresStep({
             </button>
           </div>
           {productRows.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-50 text-left text-3xs font-bold uppercase tracking-wide text-slate-500">
-                    <th className="px-2 py-2">Product</th>
-                    <th className="px-2 py-2">Description</th>
-                    <th className="w-16 px-2 py-2">Qty</th>
-                    <th className="w-24 px-2 py-2">Unit price</th>
-                    <th className="w-8" />
+            <table className="w-full table-fixed border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50 text-left text-3xs font-bold uppercase tracking-wide text-slate-500">
+                  <th className="w-[45%] px-2 py-2">Product</th>
+                  <th className="px-2 py-2">Description</th>
+                  <th className="w-16 px-2 py-2">Qty</th>
+                  <th className="w-24 px-2 py-2">Unit price</th>
+                  <th className="w-8" />
+                </tr>
+              </thead>
+              <tbody>
+                {productRows.map((row) => (
+                  <tr key={row.key} className="border-t border-slate-100">
+                    <td className="px-2 py-1">
+                      <FormTypeahead<ImportProductOption>
+                        selectedLabel={row.productLabel}
+                        placeholder="Search code or name…"
+                        searchItems={searchProductsForJobImport}
+                        itemKey={(product) => product.id}
+                        itemLabel={(product) => product.label}
+                        onSelect={(product) =>
+                          patchRow(row.key, {
+                            productId: product?.id ?? null,
+                            productLabel: product?.label ?? "",
+                            unit: product?.unit ?? "EA",
+                            description: product ? product.description : row.description,
+                          })
+                        }
+                        inputClassName="block h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-900"
+                        preventEnterSubmit
+                      />
+                    </td>
+                    <td className="px-1 py-1">
+                      <input
+                        type="text"
+                        value={row.description}
+                        onChange={(event) => patchRow(row.key, { description: event.target.value })}
+                        aria-label="Description"
+                        className={cellClassName}
+                      />
+                    </td>
+                    <td className="px-1 py-1">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={row.quantity}
+                        onChange={(event) => patchRow(row.key, { quantity: event.target.value })}
+                        aria-label="Quantity"
+                        className={cellClassName}
+                      />
+                    </td>
+                    <td className="px-1 py-1">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={row.unitPrice}
+                        onChange={(event) => patchRow(row.key, { unitPrice: event.target.value })}
+                        placeholder="0.00"
+                        aria-label="Unit price"
+                        className={cellClassName}
+                      />
+                    </td>
+                    <td className="px-1 py-1">
+                      <button
+                        type="button"
+                        onClick={() => removeRow(row.key)}
+                        aria-label="Remove item"
+                        className="rounded px-1 text-slate-400 hover:text-red-600"
+                      >
+                        ✕
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {productRows.map((row) => (
-                    <tr key={row.key} className="border-t border-slate-100">
-                      <td className="min-w-[16rem] px-2 py-1">
-                        <FormTypeahead<ImportProductOption>
-                          selectedLabel={row.productLabel}
-                          placeholder="Search code or name…"
-                          searchItems={searchProductsForJobImport}
-                          itemKey={(product) => product.id}
-                          itemLabel={(product) => product.label}
-                          onSelect={(product) =>
-                            patchRow(row.key, {
-                              productId: product?.id ?? null,
-                              productLabel: product?.label ?? "",
-                              unit: product?.unit ?? "EA",
-                              description: product ? product.description : row.description,
-                            })
-                          }
-                          inputClassName="block h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-900"
-                          preventEnterSubmit
-                        />
-                      </td>
-                      <td className="min-w-[12rem] px-1 py-1">
-                        <input
-                          type="text"
-                          value={row.description}
-                          onChange={(event) => patchRow(row.key, { description: event.target.value })}
-                          aria-label="Description"
-                          className={cellClassName}
-                        />
-                      </td>
-                      <td className="px-1 py-1">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={row.quantity}
-                          onChange={(event) => patchRow(row.key, { quantity: event.target.value })}
-                          aria-label="Quantity"
-                          className={cellClassName}
-                        />
-                      </td>
-                      <td className="px-1 py-1">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={row.unitPrice}
-                          onChange={(event) => patchRow(row.key, { unitPrice: event.target.value })}
-                          placeholder="0.00"
-                          aria-label="Unit price"
-                          className={cellClassName}
-                        />
-                      </td>
-                      <td className="px-1 py-1">
-                        <button
-                          type="button"
-                          onClick={() => removeRow(row.key)}
-                          aria-label="Remove item"
-                          className="rounded px-1 text-slate-400 hover:text-red-600"
-                        >
-                          ✕
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           ) : (
             <p className="px-4 py-3 text-xs text-slate-500">None added.</p>
           )}

@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { Prisma, AppPermission } from "@/app/generated/prisma/client";
 import { requirePermission } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
@@ -85,7 +84,10 @@ function combinedMaterial(row: { pipeMaterial: string; pipeType: string }) {
     .toLowerCase();
 }
 
-/** Errors come back as `{ error }` (see returnActionError). */
+/**
+ * Errors come back as `{ error }` (see returnActionError); a save that went
+ * through comes back as `{ success }`, the message the page shows.
+ */
 export async function savePipeOpeningSizes(formData: FormData) {
   await requirePermission(AppPermission.STRUCTURES_MANAGE);
   return returnActionError(() => savePipeOpeningSizesOrThrow(formData));
@@ -195,7 +197,8 @@ async function savePipeOpeningSizesOrThrow(formData: FormData) {
 
   revalidatePath("/structures");
   revalidatePath("/structures/pipe-openings");
-  redirect(
-    `/structures/pipe-openings?priceList=${encodeURIComponent(priceListId)}`,
-  );
+  // No redirect: the form reloads the page itself and shows this as a toast
+  // (a redirect back to the same page doesn't refresh on the office LAN —
+  // see lib/reload-after-action).
+  return { success: "Round Structure Openings saved." };
 }

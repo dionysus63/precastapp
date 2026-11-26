@@ -41,9 +41,16 @@ export function CreateDrillSheetsButton({
                   createDrillSheetsFromQuote(quoteId),
                 );
                 setMessage(
-                  result.created > 0
-                    ? `${result.created} drill sheet${result.created === 1 ? "" : "s"} created`
-                    : "No new drill sheets to create",
+                  [
+                    result.created > 0
+                      ? `${result.created} drill sheet${result.created === 1 ? "" : "s"} created`
+                      : "",
+                    result.linked > 0
+                      ? `${result.linked} already on the job linked`
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join(", ") || "No new drill sheets to create",
                 );
                 reloadAfterAction();
               } catch (caught) {

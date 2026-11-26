@@ -25,8 +25,13 @@ import { createJob } from "@/app/jobs/actions";
 import {
   allocatePurchaseOrderNumber,
   formatPurchaseOrderNumber,
+  peekNextPurchaseOrderNumber,
+  purchaseOrderPrefix,
 } from "@/lib/purchase-order-number";
-import { createPurchaseOrderRecord } from "@/lib/purchase-order-service";
+import {
+  createPurchaseOrderRecord,
+  updatePurchaseOrderRecord,
+} from "@/lib/purchase-order-service";
 import { prisma } from "@/lib/prisma";
 
 const tag = `NUMBERING-${Date.now()}`;
@@ -112,20 +117,47 @@ describe("job number allocation", () => {
 });
 
 describe("purchase order number allocation", () => {
-  it("allocates sequential PO numbers from the global counter", async () => {
+  // A prefix no real vendor name gives (it would need two leading digits).
+  const prefixVendor = "90 Numbering Test";
+
+  afterAll(async () => {
+    await prisma.purchaseOrderPrefixSequence.deleteMany({
+      where: { prefix: { in: ["90", purchaseOrderPrefix(`${tag} Vendor`)] } },
+    });
+  });
+
+  it("allocates sequential numbers per vendor prefix", async () => {
     const first = await prisma.$transaction((tx) =>
-      allocatePurchaseOrderNumber(tx),
+      allocatePurchaseOrderNumber(tx, prefixVendor),
     );
     const second = await prisma.$transaction((tx) =>
-      allocatePurchaseOrderNumber(tx),
+      allocatePurchaseOrderNumber(tx, "9-0 Another Vendor"),
     );
 
-    expect(first.poNumber).toMatch(/^PO\d{5,}$/);
-    expect(first.poNumber).toBe(formatPurchaseOrderNumber(first.sequenceNumber));
+    expect(first.prefix).toBe("90");
+    expect(first.poNumber).toMatch(/^90-\d{4,}$/);
+    expect(first.poNumber).toBe(
+      formatPurchaseOrderNumber("90", first.sequenceNumber),
+    );
+    // Two vendors with the same first two characters share one run.
     expect(second.sequenceNumber).toBe(first.sequenceNumber + 1);
     expect(second.poNumber).toBe(
-      formatPurchaseOrderNumber(first.sequenceNumber + 1),
+      formatPurchaseOrderNumber("90", first.sequenceNumber + 1),
     );
+    expect(await peekNextPurchaseOrderNumber(prisma, prefixVendor)).toBe(
+      formatPurchaseOrderNumber("90", second.sequenceNumber + 1),
+    );
+  });
+
+  it("gives a number back when the save fails", async () => {
+    const before = await peekNextPurchaseOrderNumber(prisma, prefixVendor);
+    await expect(
+      prisma.$transaction(async (tx) => {
+        await allocatePurchaseOrderNumber(tx, prefixVendor);
+        throw new Error("save failed");
+      }),
+    ).rejects.toThrow("save failed");
+    expect(await peekNextPurchaseOrderNumber(prisma, prefixVendor)).toBe(before);
   });
 
   it("never hands out the same number to concurrent purchase orders", async () => {
@@ -152,11 +184,94 @@ describe("purchase order number allocation", () => {
       where: { id: { in: ids } },
       select: { poNumber: true, sequenceNumber: true },
     });
+    const prefix = purchaseOrderPrefix(`${tag} Vendor`);
     expect(orders).toHaveLength(4);
     expect(new Set(orders.map((order) => order.poNumber)).size).toBe(4);
     for (const order of orders) {
-      expect(order.poNumber).toBe(formatPurchaseOrderNumber(order.sequenceNumber));
+      expect(order.poNumber).toBe(
+        formatPurchaseOrderNumber(prefix, order.sequenceNumber),
+      );
     }
     expectConsecutive(orders.map((order) => order.sequenceNumber));
+  });
+
+  it("renumbers a purchase order only when it moves to a vendor with other letters", async () => {
+    const sameLetters = await prisma.vendor.create({
+      data: { name: `${tag} Vendor Two` },
+    });
+    const otherLetters = await prisma.vendor.create({
+      data: { name: `9.0 ${tag} Vendor` },
+    });
+    const lines = [{ itemCode: `${tag}-ITEM`, quantityOrdered: 1, unitPrice: 10 }];
+    const id = await prisma.$transaction((tx) =>
+      createPurchaseOrderRecord(tx, {
+        vendorId,
+        orderDate: new Date(2099, 0, 1),
+        lines,
+      }),
+    );
+    const created = await prisma.purchaseOrder.findUniqueOrThrow({ where: { id } });
+
+    try {
+      // Same vendor: the number stays.
+      await prisma.$transaction((tx) =>
+        updatePurchaseOrderRecord(tx, id, {
+          vendorId,
+          orderDate: new Date(2099, 0, 2),
+          lines,
+        }),
+      );
+      // Another vendor with the same two letters: the number stays.
+      await prisma.$transaction((tx) =>
+        updatePurchaseOrderRecord(tx, id, {
+          vendorId: sameLetters.id,
+          orderDate: new Date(2099, 0, 2),
+          lines,
+        }),
+      );
+      const kept = await prisma.purchaseOrder.findUniqueOrThrow({ where: { id } });
+      expect(kept.poNumber).toBe(created.poNumber);
+
+      // A vendor with other letters: the next number of that prefix.
+      const expected = await peekNextPurchaseOrderNumber(prisma, otherLetters.name);
+      await prisma.$transaction((tx) =>
+        updatePurchaseOrderRecord(tx, id, {
+          vendorId: otherLetters.id,
+          orderDate: new Date(2099, 0, 2),
+          lines,
+        }),
+      );
+      const moved = await prisma.purchaseOrder.findUniqueOrThrow({ where: { id } });
+      expect(expected).toMatch(/^90-\d{4,}$/);
+      expect(moved.poNumber).toBe(expected);
+    } finally {
+      await prisma.purchaseOrder.deleteMany({ where: { id } });
+      await prisma.vendor.deleteMany({
+        where: { id: { in: [sameLetters.id, otherLetters.id] } },
+      });
+    }
+  });
+
+  it("leaves an old style number alone while the vendor stays", async () => {
+    const lines = [{ itemCode: `${tag}-ITEM`, quantityOrdered: 1, unitPrice: 10 }];
+    const old = await prisma.purchaseOrder.create({
+      data: {
+        poNumber: `PO${String(Date.now()).slice(-8)}`,
+        sequenceNumber: 10001,
+        vendorId,
+        orderDate: new Date(2099, 0, 1),
+      },
+    });
+    await prisma.$transaction((tx) =>
+      updatePurchaseOrderRecord(tx, old.id, {
+        vendorId,
+        orderDate: new Date(2099, 0, 2),
+        lines,
+      }),
+    );
+    const after = await prisma.purchaseOrder.findUniqueOrThrow({
+      where: { id: old.id },
+    });
+    expect(after.poNumber).toBe(old.poNumber);
   });
 });

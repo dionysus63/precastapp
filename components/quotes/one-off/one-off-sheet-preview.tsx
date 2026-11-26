@@ -4,6 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { renderOneOffSheetPreview } from "@/app/quotes/one-off-preview-actions";
 import { PdfDragChip } from "@/components/common/pdf-drag-chip";
+import {
+  KeepZoomButton,
+  PdfZoomButtons,
+  usePreviewZoom,
+} from "@/components/common/pdf-zoom-buttons";
 import { isActionError } from "@/lib/action-result";
 import type {
   OneOffRow,
@@ -17,6 +22,8 @@ const PREVIEW_DEBOUNCE_MS = 600;
 /** Tallest the page is drawn: the pane scrolls past this, so width usually rules. */
 const MAX_PAGE_HEIGHT_VH = 1.6;
 const MIN_PAGE_HEIGHT_PX = 320;
+/** Most pixels the page is drawn with, so a deep zoom stays quick to draw. */
+const MAX_CANVAS_PIXELS = 16_000_000;
 
 /**
  * Grid columns for "sheet preview | entry grid". The preview sits on the
@@ -61,6 +68,8 @@ type OneOffSheetPreviewProps = {
   /** Printed in the sheet header. */
   contractor: string;
   project: string;
+  /** The existing job the rows belong to, for its NYSDOT contract number. */
+  jobId?: string | null;
   /**
    * When the row is a drill sheet that is already saved, its id: the header
    * then carries a chip that drags that saved sheet's PDF out.
@@ -100,6 +109,7 @@ export function OneOffSheetPreview({
   rowCount,
   contractor,
   project,
+  jobId = null,
   savedSheetId = null,
 }: OneOffSheetPreviewProps) {
   const label = shape === "CIRCULAR" ? "Drill sheet" : "Rect sheet";
@@ -111,9 +121,9 @@ export function OneOffSheetPreview({
   const requestKey = useMemo(
     () =>
       row && sheetComputed
-        ? JSON.stringify({ shape, row, openingCount, contractor, project })
+        ? JSON.stringify({ shape, row, openingCount, contractor, project, jobId })
         : null,
-    [row, sheetComputed, shape, openingCount, contractor, project],
+    [row, sheetComputed, shape, openingCount, contractor, project, jobId],
   );
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -130,6 +140,9 @@ export function OneOffSheetPreview({
   );
   const [renderError, setRenderError] = useState<string | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
+  /** Opens at the zoom the user's account keeps for Quick Build. */
+  const zoomState = usePreviewZoom("quick-build");
+  const { zoomIndex, setZoomIndex, zoom } = zoomState;
 
   const rowId = row?.id ?? null;
   const activePage = pageChoice?.rowId === rowId ? pageChoice.page : 1;
@@ -149,6 +162,7 @@ export function OneOffSheetPreview({
       openingCount: number;
       contractor: string;
       project: string;
+      jobId: string | null;
     };
     let cancelled = false;
     const timer = window.setTimeout(async () => {
@@ -245,11 +259,15 @@ export function OneOffSheetPreview({
           MIN_PAGE_HEIGHT_PX,
           window.innerHeight * MAX_PAGE_HEIGHT_VH,
         );
-        const cssScale = Math.min(
-          containerWidth / base.width,
-          maxHeight / base.height,
+        const cssScale =
+          Math.min(containerWidth / base.width, maxHeight / base.height) * zoom;
+        // Sharp at the screen's own pixels, up to the pixel budget.
+        const pixelRatio = Math.min(
+          window.devicePixelRatio || 1,
+          Math.sqrt(
+            MAX_CANVAS_PIXELS / (base.width * cssScale * base.height * cssScale),
+          ),
         );
-        const pixelRatio = window.devicePixelRatio || 1;
         const viewport = page.getViewport({ scale: cssScale * pixelRatio });
         canvas!.width = Math.floor(viewport.width);
         canvas!.height = Math.floor(viewport.height);
@@ -290,7 +308,7 @@ export function OneOffSheetPreview({
       cancelled = true;
       renderTask?.cancel();
     };
-  }, [loaded, showPdf, activePage, containerWidth]);
+  }, [loaded, showPdf, activePage, containerWidth, zoom]);
 
   function openPdf() {
     if (!loaded) {
@@ -331,7 +349,7 @@ export function OneOffSheetPreview({
             </span>
           ) : null}
         </h4>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {pageCount > 1 && showPdf ? (
             <div className="flex gap-1">
               {Array.from({ length: pageCount }, (_, index) => (
@@ -352,6 +370,10 @@ export function OneOffSheetPreview({
               ))}
             </div>
           ) : null}
+          {showPdf ? (
+            <PdfZoomButtons zoomIndex={zoomIndex} onZoomIndex={setZoomIndex} />
+          ) : null}
+          {showPdf ? <KeepZoomButton zoom={zoomState} /> : null}
           {showPdf ? (
             <button
               type="button"
@@ -376,14 +398,27 @@ export function OneOffSheetPreview({
           ) : null}
         </div>
       </div>
-      <div ref={containerRef} className="relative flex min-w-0 flex-1 justify-center">
-        <canvas
-          ref={canvasRef}
-          className={`block bg-white shadow-md ${showPdf ? "" : "hidden"} ${
-            pending || (row && !sheetComputed) ? "opacity-60" : ""
-          }`}
-          data-one-off-preview={showPdf ? "ready" : "empty"}
-        />
+      {/* The outer box is what the page is fitted to. It never scrolls, so a
+          scrollbar of the zoomed page cannot change the width being measured. */}
+      <div ref={containerRef} className="relative min-w-0 flex-1">
+        <div
+          className={
+            zoomIndex === 0
+              ? "flex justify-center"
+              : // Zoomed, the page scrolls in a box no taller than the pane
+                // has room for (see SPLIT_CLASS_NAME for the 7.3125rem).
+                "max-h-[calc(100vh_-_var(--app-header-height)_-_7.3125rem)] overflow-auto"
+          }
+          data-one-off-preview-scroll
+        >
+          <canvas
+            ref={canvasRef}
+            className={`block max-w-none bg-white shadow-md ${showPdf ? "" : "hidden"} ${
+              pending || (row && !sheetComputed) ? "opacity-60" : ""
+            }`}
+            data-one-off-preview={showPdf ? "ready" : "empty"}
+          />
+        </div>
         {note ? (
           <p
             className={`text-xs ${

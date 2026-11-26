@@ -4,6 +4,7 @@ import { formatFeetInchesShort, formatFeetInches } from "@/lib/drill-sheet";
 import {
   elevationOpeningRect,
   planOpeningRect,
+  planStepsRect,
   sectionJointHeightsFeet,
   topSlabOpeningRect,
 } from "@/lib/rect-structure-diagram";
@@ -18,6 +19,11 @@ export type RectSheetPreviewMeta = {
   project: string;
   templateName: string;
   castingName: string | null;
+  /**
+   * The job's NYSDOT PIN / contract number. Printed only on Sheet PDFs that
+   * have a blank for it; unset or blank on jobs that are not DOT work.
+   */
+  pinContractNumber?: string;
 };
 
 type RectSheetPreviewProps = {
@@ -298,6 +304,12 @@ function PlanView({ result }: { result: RectStructureResult }) {
   const x = frame.x + (frame.width - width) / 2;
   const y = frame.y + (frame.height - height) / 2;
   const band = 10;
+  // Steps reach about 8px into the box from their wall, whatever its size.
+  const stepsWall = result.steps?.wall;
+  const stepsRect = planStepsRect(
+    result,
+    8 / (stepsWall === "UP" || stepsWall === "DOWN" ? height : width),
+  );
 
   return (
     <g>
@@ -361,6 +373,18 @@ function PlanView({ result }: { result: RectStructureResult }) {
           />
         );
       })}
+      {/* Steps: a solid block on the inside face of their wall */}
+      {stepsRect ? (
+        <rect
+          x={x + stepsRect.x * width}
+          y={y + stepsRect.y * height}
+          width={Math.max(stepsRect.width * width, 4)}
+          height={Math.max(stepsRect.height * height, 4)}
+          fill={STROKE}
+        >
+          <title>Steps</title>
+        </rect>
+      ) : null}
       <text
         x={x + width / 2}
         y={y + height / 2 + 3}
