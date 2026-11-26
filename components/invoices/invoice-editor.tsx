@@ -11,6 +11,7 @@ import {
 import type { InvoiceLineType } from "@/app/generated/prisma/client";
 import { computeMoneyTotals } from "@/lib/money";
 import { printPdfUrl } from "@/lib/print-pdf-url";
+import { showsDeliveryAmount } from "@/lib/quotes/delivery-charge";
 import { computeDeliveryAmount } from "@/lib/quotes/money-rules";
 
 import {
@@ -515,7 +516,12 @@ export function InvoiceEditor({
               ["Taxable", preview.computed.taxableAmount.toNumber()],
               ["Sales tax", preview.computed.salesTax.toNumber()],
               ["Total", preview.computed.total.toNumber()],
-            ].map(([label, value]) => (
+            ]
+              .filter(
+                ([label, value]) =>
+                  label !== "Delivery" || showsDeliveryAmount(value),
+              )
+              .map(([label, value]) => (
               <div key={label} className="flex justify-between gap-3">
                 <dt className="text-slate-500">{label}</dt>
                 <dd className="font-medium text-slate-900">

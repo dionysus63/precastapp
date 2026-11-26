@@ -2128,6 +2128,33 @@ model PriceListItem {
   @@index([productId])
 }
 
+/// The group a product's standard discount comes from. A product is never
+/// tagged with one: lib/pricing/discount-groups.ts works it out from the
+/// product type and, for castings, the supplier's origin.
+enum DiscountGroup {
+  STOCK_PRECAST
+  CASTING_IMPORTED
+  CASTING_DOMESTIC
+  ADS_PIPE
+  RCP_PIPE
+  /// Everything else: accessories, services, configurable products and
+  /// castings with no supplier set.
+  OTHER
+}
+
+/// The standard discount off list price for one group, as a percent
+/// (10 = 10%). One row per group; a missing row means no discount. The same
+/// for every price list: a price increase is a new list, not a new rule.
+model DiscountRule {
+  group            DiscountGroup @id
+  /// Off list price when the company delivers the load.
+  deliveredPercent Decimal       @default(0) @db.Decimal(5, 2)
+  /// Off list price when the customer picks the load up at the yard.
+  pickupPercent    Decimal       @default(0) @db.Decimal(5, 2)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
 /// Delivery pricing zone: either a radius ring measured from the yard, or a
 /// hand-drawn polygon (used inside NYC where radius bands don't fit).
 model ShippingZone {

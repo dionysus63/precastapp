@@ -50,6 +50,7 @@ import {
 import { BackButton } from "@/components/dashboard/back-button";
 import { TabBar, TabLink } from "@/components/ui/tabs";
 import { standardPageWidthClassName } from "@/lib/page-width";
+import { DELIVERY_CHARGE_ENABLED } from "@/lib/quotes/delivery-charge";
 type JobDetailContentProps = {
   detail: JobDetailView;
   activeTab: JobDetailTab;
@@ -566,7 +567,8 @@ export function JobInvoicesSection({
     deliveryCharges &&
     (deliveryCharges.quotedLoads > 0 ||
       deliveryCharges.invoicedAmount > 0 ||
-      deliveryCharges.pickupTicketCount > 0);
+      // With no delivery charge, a pickup alone has nothing to reconcile.
+      (DELIVERY_CHARGE_ENABLED && deliveryCharges.pickupTicketCount > 0));
   const deliveryRemaining = deliveryCharges
     ? deliveryCharges.quotedAmount - deliveryCharges.invoicedAmount
     : 0;
